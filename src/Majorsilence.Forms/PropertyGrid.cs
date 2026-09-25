@@ -1,29 +1,53 @@
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.ComponentModel.Design;
 using System.Drawing;
 using System.Linq;
-using System.Reflection;
 using Majorsilence.Forms.Renderers;
 using SkiaSharp;
 
 namespace Majorsilence.Forms
 {
     /// <summary>
-    /// Represents a PropertyGrid control for browsing object properties at runtime.
-    /// Displays public browsable properties sorted by category. Editing is not implemented.
+    /// Displays the properties of an object, as WinForms' <c>PropertyGrid</c> does.
     /// </summary>
+    /// <remarks>
+    /// <para>Until W6 mechanisms this painted a flat list of name/value rows and nothing else: the help
+    /// pane, the commands pane, the toolbar, the property tabs and the <see cref="GridItem"/> tree were
+    /// all declared and all inert, which is why two dozen of this type's properties sat in the
+    /// stored-only baseline. The grid now builds a real item tree, lays the panes out around the view,
+    /// and edits values in place.</para>
+    /// <para>The layout, top to bottom: the toolbar (<see cref="ToolbarVisible"/>), the view, the
+    /// commands pane (<see cref="CommandsVisible"/>) and the help pane (<see cref="HelpVisible"/>).</para>
+    /// </remarks>
     public partial class PropertyGrid : ScrollableControl
     {
         private object? _selected_object;
-        private List<PropertyEntry> _entries = [];
-        private int _selected_index = -1;
+        private readonly List<GridItem> _rows = [];
+        private GridItem? _selected_item;
+        private PropertyTab? _selected_tab;
         private const int ROW_HEIGHT = 22;
         private const int NAME_COL_RATIO_PCT = 40;
+        private const int HELP_HEIGHT = 56;
+        private const int COMMANDS_ROW_HEIGHT = 18;
+
+        /// <summary>Initializes a new instance of the <see cref="PropertyGrid"/> class.</summary>
+        public PropertyGrid ()
+        {
+            toolbar = Controls.AddImplicitControl (new ToolStrip {
+                Dock = DockStyle.Top,
+                Visible = toolbar_visible,
+                GripStyle = ToolStripGripStyle.Hidden,
+            });
+
+            BuildToolbar ();
+        }
 
         /// <inheritdoc/>
         protected override Size DefaultSize => new Size (300, 400);
 
-        /// <inheritdoc/>
+        /// <summary>The default style for a PropertyGrid.</summary>
         public new static readonly ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle,
             (style) => {
                 style.Border.Width = 1;
@@ -33,7 +57,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
 
-        /// <summary>Gets or sets the object for which the grid displays properties.</summary>
+        /// <summary>Gets or sets the object whose properties are shown.</summary>
         public object? SelectedObject {
             get => _selected_object;
             set {
@@ -47,50 +71,92 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets or sets the objects for which the grid displays properties.</summary>
+        /// <summary>Gets or sets the objects whose properties are shown; only the first is used.</summary>
         public object[]? SelectedObjects {
             get => _selected_object == null ? null : new[] { _selected_object };
             set => SelectedObject = value?.Length > 0 ? value[0] : null;
         }
 
-        /// <summary>Refreshes the displayed properties.</summary>
+        /// <summary>Rebuilds the grid from the selected object.</summary>
         public new void Refresh ()
         {
             RebuildEntries ();
             Invalidate ();
         }
 
-        /// <summary>Expands all categories. Stub in Majorsilence.Forms.</summary>
-        public void ExpandAllGridItems () { }
+        /// <summary>Expands every category.</summary>
+        /// <remarks>Real as of W6 mechanisms: the categories are <see cref="GridItem"/>s with children,
+        /// and <see cref="GridItem.Expanded"/> is what the view walks.</remarks>
+        public void ExpandAllGridItems () => SetAllExpanded (true);
 
-        /// <summary>Collapses all categories. Stub in Majorsilence.Forms.</summary>
-        public void CollapseAllGridItems () { }
+        /// <summary>Collapses every category.</summary>
+        /// <remarks>See <see cref="ExpandAllGridItems"/>.</remarks>
+        public void CollapseAllGridItems () => SetAllExpanded (false);
 
-        /// <summary>Gets or sets the background color for the property value area.</summary>
+        private void SetAllExpanded (bool expanded)
+        {
+            foreach (var root in Roots)
+                if (root.GridItems.Count > 0)
+                    root.Expanded = expanded;
+
+            RebuildRows ();
+            Invalidate ();
+        }
+
+        /// <summary>Gets or sets the background of the value view.</summary>
         public Color ViewBackColor { get; set; } = SystemColors.Window;
 
-        /// <summary>Gets or sets the foreground color for the property value area.</summary>
+        /// <summary>Gets or sets the foreground of the value view.</summary>
         public Color ViewForeColor { get; set; } = SystemColors.WindowText;
 
-        /// <summary>Gets or sets the background color for the help panel.</summary>
+        /// <summary>Gets or sets the background of the help pane.</summary>
         public Color HelpBackColor { get; set; } = SystemColors.Control;
 
-        /// <summary>Gets or sets the foreground color for the help panel.</summary>
+        /// <summary>Gets or sets the foreground of the help pane.</summary>
         public Color HelpForeColor { get; set; } = SystemColors.ControlText;
 
-        /// <summary>Gets or sets the color for grid lines.</summary>
+        /// <summary>Gets or sets the colour of the grid lines.</summary>
         public Color LineColor { get; set; } = SystemColors.InactiveBorder;
 
-        /// <summary>Gets or sets whether the help panel is visible. Stub in Majorsilence.Forms.</summary>
-        public bool HelpVisible { get; set; } = true;
+        /// <summary>Gets or sets whether the help pane is shown under the view.</summary>
+        /// <remarks>Real as of W6 mechanisms: the pane shows the selected property's display name and
+        /// its <c>Description</c>, in <see cref="HelpBackColor"/>/<see cref="HelpForeColor"/> behind a
+        /// <see cref="HelpBorderColor"/> border.</remarks>
+        public bool HelpVisible {
+            get => help_visible;
+            set {
+                if (help_visible == value)
+                    return;
 
-        /// <summary>Gets or sets whether the toolbar is visible. Stub in Majorsilence.Forms.</summary>
-        public bool ToolbarVisible { get; set; } = true;
+                help_visible = value;
+                UpdateScrollExtent ();
+                Invalidate ();
+            }
+        }
 
-        // Notifies on change; the event was declared and raised by nothing (W6.1).
+        private bool help_visible = true;
+
+        /// <summary>Gets or sets whether the sort/tab toolbar is shown above the view.</summary>
+        /// <remarks>Real as of W6 mechanisms: a real <see cref="ToolStrip"/> carrying the categorised
+        /// and alphabetical sort buttons and one button per <see cref="PropertyTabs"/> entry.</remarks>
+        public bool ToolbarVisible {
+            get => toolbar_visible;
+            set {
+                if (toolbar_visible == value)
+                    return;
+
+                toolbar_visible = value;
+                toolbar.Visible = value;
+                UpdateScrollExtent ();
+                Invalidate ();
+            }
+        }
+
+        private bool toolbar_visible = true;
+
         private PropertySort property_sort = PropertySort.CategorizedAlphabetical;
 
-        /// <summary>Gets or sets the sort order for properties.</summary>
+        /// <summary>Gets or sets how the properties are ordered and grouped.</summary>
         public PropertySort PropertySort {
             get => property_sort;
             set {
@@ -98,184 +164,369 @@ namespace Majorsilence.Forms
                     return;
 
                 property_sort = value;
+                RebuildEntries ();
+                ApplyToolbarState ();
+                Invalidate ();
                 OnPropertySortChanged (EventArgs.Empty);
             }
         }
 
-        /// <summary>Raised when the selected property changes.</summary>
+        /// <summary>Raised when the selected grid item changes.</summary>
         public event EventHandler? SelectedGridItemChanged;
 
-        /// <summary>Raised when the selected object changes.</summary>
+        /// <summary>Raised when the selected objects change.</summary>
         public event EventHandler? SelectedObjectsChanged;
 
-#pragma warning disable CS0067
-        /// <summary>Raised when a property value changes.</summary>
+        /// <summary>Raised when a property's value is changed through the grid.</summary>
+        /// <remarks>Real as of W6 mechanisms: the grid edits values in place, and a committed edit
+        /// raises this with the item and the value it held before.</remarks>
         public event PropertyValueChangedEventHandler? PropertyValueChanged;
-#pragma warning restore CS0067
 
-        /// <summary>Gets the currently selected grid item. Stub in Majorsilence.Forms — always returns null (PropertyGrid has no per-row selection tracking yet).</summary>
-        public GridItem? SelectedGridItem => null;
+        /// <summary>Raises <see cref="PropertyValueChanged"/>.</summary>
+        protected virtual void OnPropertyValueChanged (PropertyValueChangedEventArgs e)
+            => PropertyValueChanged?.Invoke (this, e);
 
-        /// <summary>Gets or sets whether commands pane is shown when available. Stub in Majorsilence.Forms.</summary>
-        public bool CommandsVisibleIfAvailable { get; set; } = true;
+        /// <summary>Gets the selected grid item.</summary>
+        /// <remarks>Real as of W6 mechanisms: the grid builds a <see cref="GridItem"/> tree and this is
+        /// the one the selection is on, category rows included.</remarks>
+        public GridItem? SelectedGridItem {
+            get => _selected_item;
+            set {
+                if (value is null || ReferenceEquals (_selected_item, value))
+                    return;
+
+                // Selecting a collapsed item's child opens its parents, as upstream does, so the
+                // selection is always something the user can see.
+                for (var parent = value.Parent; parent is not null; parent = parent.Parent)
+                    parent.Expanded = true;
+
+                RebuildRows ();
+                _selected_item = value;
+                EndEdit (commit: true);
+                Invalidate ();
+                SelectedGridItemChanged?.Invoke (this, EventArgs.Empty);
+            }
+        }
+
+        /// <summary>Gets or sets whether the commands pane is shown when there are commands to show.</summary>
+        public bool CommandsVisibleIfAvailable {
+            get => commands_visible_if_available;
+            set {
+                if (commands_visible_if_available == value)
+                    return;
+
+                commands_visible_if_available = value;
+                UpdateScrollExtent ();
+                Invalidate ();
+            }
+        }
+
+        private bool commands_visible_if_available = true;
+
+        // ── the item tree ───────────────────────────────────────────────────────────────────────────
+
+        /// <summary>The top-level items: the categories, or the properties when they are not grouped.</summary>
+        internal IReadOnlyList<GridItem> Roots => roots;
+
+        private readonly List<GridItem> roots = [];
+
+        /// <summary>The rows the view currently shows, in order (a collapsed category hides its children).</summary>
+        internal IReadOnlyList<GridItem> VisibleRows => _rows;
 
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2026", Justification = "PropertyGrid uses reflection at runtime; trimming is not supported for this control.")]
         private void RebuildEntries ()
         {
-            _entries.Clear ();
-            _selected_index = -1;
+            roots.Clear ();
+            _rows.Clear ();
+            _selected_item = null;
+            EndEdit (commit: false);
 
-            if (_selected_object == null)
+            if (_selected_object == null) {
+                UpdateScrollExtent ();
                 return;
-
-            var props = TypeDescriptor.GetProperties (_selected_object)
-                .Cast<PropertyDescriptor> ()
-                .Where (p => p.IsBrowsable);
-
-            if (PropertySort == PropertySort.Alphabetical || PropertySort == PropertySort.CategorizedAlphabetical)
-                props = props.OrderBy (p => p.Name);
-
-            if (PropertySort == PropertySort.CategorizedAlphabetical || PropertySort == PropertySort.Categorized) {
-                props = props.OrderBy (p => p.Category == "Misc" ? "zzz" : p.Category ?? "zzz")
-                             .ThenBy (p => p.Name);
             }
 
-            string? last_category = null;
+            // The selected tab decides which properties are shown, as upstream's does; with no tab the
+            // type's own descriptors are used.
+            var descriptors = SelectedTab is { } tab
+                ? tab.GetProperties (_selected_object).Cast<PropertyDescriptor> ()
+                : TypeDescriptor.GetProperties (_selected_object).Cast<PropertyDescriptor> ();
+
+            var props = descriptors.Where (p => p.IsBrowsable).Where (MatchesBrowsableAttributes);
+
+            if (PropertySort is PropertySort.Alphabetical or PropertySort.CategorizedAlphabetical)
+                props = props.OrderBy (p => p.Name, StringComparer.Ordinal);
+
+            var categorised = PropertySort is PropertySort.CategorizedAlphabetical or PropertySort.Categorized;
+
+            if (categorised)
+                props = props.OrderBy (p => p.Category == "Misc" ? "zzz" : p.Category ?? "zzz", StringComparer.Ordinal)
+                             .ThenBy (p => p.Name, StringComparer.Ordinal);
+
+            GridItem? category = null;
 
             foreach (var prop in props) {
-                var cat = prop.Category ?? "Misc";
+                var parent = (GridItem?) null;
 
-                if (PropertySort == PropertySort.CategorizedAlphabetical || PropertySort == PropertySort.Categorized) {
-                    if (cat != last_category) {
-                        _entries.Add (new PropertyEntry { IsCategory = true, Name = cat });
-                        last_category = cat;
+                if (categorised) {
+                    var name = prop.Category ?? "Misc";
+
+                    if (category is null || category.Name != name) {
+                        category = new PropertyGridEntry (this) { Name = name, Label = name, Expanded = true };
+                        roots.Add (category);
                     }
+
+                    parent = category;
                 }
 
-                string valueText;
+                var item = new PropertyGridEntry (this) {
+                    Name = prop.Name,
+                    Label = prop.DisplayName,
+                    PropertyDescriptor = prop,
+                    Parent = parent,
+                    Value = ReadValue (prop),
+                };
 
-                try {
-                    var val = prop.GetValue (_selected_object);
-                    valueText = val == null ? "(null)" : val.ToString () ?? string.Empty;
-                } catch {
-                    valueText = "(error)";
-                }
-
-                _entries.Add (new PropertyEntry {
-                    IsCategory = false,
-                    Name = prop.DisplayName,
-                    Value = valueText
-                });
+                if (parent is null)
+                    roots.Add (item);
+                else
+                    parent.GridItems.Add (item);
             }
 
-            AutoScrollMinSize = new Size (0, _entries.Count * ROW_HEIGHT);
+            RebuildRows ();
         }
+
+        // BrowsableAttributes (W6 mechanisms): a property is shown only when it carries every attribute
+        // in the collection, which is how upstream filters (an attribute with its default value also
+        // matches a property that does not declare it at all).
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2072", Justification = "PropertyGrid filters by attribute at runtime; trimming is not supported for this control.")]
+        private bool MatchesBrowsableAttributes (PropertyDescriptor property)
+        {
+            if (BrowsableAttributes is not { Count: > 0 } wanted)
+                return true;
+
+            foreach (Attribute attribute in wanted) {
+                var found = property.Attributes[attribute.GetType ()];
+
+                if (found is null ? !attribute.IsDefaultAttribute () : !found.Equals (attribute))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private object? ReadValue (PropertyDescriptor property)
+        {
+            try {
+                return _selected_object is null ? null : property.GetValue (_selected_object);
+            } catch {
+                return null;
+            }
+        }
+
+        // The visible rows: every root, and a category's children only while it is expanded.
+        private void RebuildRows ()
+        {
+            _rows.Clear ();
+
+            foreach (var root in roots) {
+                _rows.Add (root);
+
+                if (root.Expanded)
+                    _rows.AddRange (root.GridItems);
+            }
+
+            UpdateScrollExtent ();
+        }
+
+        internal void NotifyExpandedChanged ()
+        {
+            RebuildRows ();
+            Invalidate ();
+        }
+
+        /// <summary>The text shown in an item's value column.</summary>
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2026", Justification = "PropertyGrid converts values at runtime; trimming is not supported for this control.")]
+        internal static string ValueTextOf (GridItem item)
+        {
+            if (item.PropertyDescriptor is null)
+                return string.Empty;
+
+            try {
+                return item.Value is null ? "(null)" : item.PropertyDescriptor.Converter.ConvertToString (item.Value) ?? string.Empty;
+            } catch {
+                return item.Value?.ToString () ?? "(error)";
+            }
+        }
+
+        // ── layout ──────────────────────────────────────────────────────────────────────────────────
+
+        /// <summary>The device rectangle the property rows are drawn in.</summary>
+        internal Rectangle ViewBounds {
+            get {
+                var client = ClientRectangle;
+                var top = client.Top + (ToolbarVisible ? toolbar.ScaledHeight : 0);
+                var bottom = client.Bottom - ScaledHelpHeight - ScaledCommandsHeight;
+                return new Rectangle (client.Left, top, client.Width, Math.Max (0, bottom - top));
+            }
+        }
+
+        /// <summary>The device rectangle of the commands pane; empty when it is not shown.</summary>
+        internal Rectangle CommandsBounds {
+            get {
+                var height = ScaledCommandsHeight;
+
+                if (height == 0)
+                    return Rectangle.Empty;
+
+                var client = ClientRectangle;
+                return new Rectangle (client.Left, client.Bottom - ScaledHelpHeight - height, client.Width, height);
+            }
+        }
+
+        /// <summary>The device rectangle of the help pane; empty when it is not shown.</summary>
+        internal Rectangle HelpBounds {
+            get {
+                var height = ScaledHelpHeight;
+
+                if (height == 0)
+                    return Rectangle.Empty;
+
+                var client = ClientRectangle;
+                return new Rectangle (client.Left, client.Bottom - height, client.Width, height);
+            }
+        }
+
+        private int ScaledHelpHeight => HelpVisible ? LogicalToDeviceUnits (HELP_HEIGHT) : 0;
+
+        private int ScaledCommandsHeight
+            => CommandsVisible ? LogicalToDeviceUnits ((Verbs.Count * COMMANDS_ROW_HEIGHT) + 8) : 0;
+
+        private int ScaledRowHeight => LogicalToDeviceUnits (ROW_HEIGHT);
+
+        private void UpdateScrollExtent ()
+            => AutoScrollMinSize = new Size (0, DeviceToLogicalUnits (_rows.Count * ScaledRowHeight));
+
+        /// <summary>The device rectangle of the row at <paramref name="index"/> in the view.</summary>
+        internal Rectangle RowBounds (int index)
+        {
+            var view = ViewBounds;
+            var height = ScaledRowHeight;
+            return new Rectangle (view.Left, view.Top + LogicalToDeviceUnits (AutoScrollPosition.Y) + (index * height), view.Width, height);
+        }
+
+        /// <summary>The width of the name column, in device pixels.</summary>
+        internal int ScaledNameColumnWidth => ViewBounds.Width * NAME_COL_RATIO_PCT / 100;
+
+        // ── mouse ───────────────────────────────────────────────────────────────────────────────────
 
         /// <inheritdoc/>
         protected override void OnMouseDown (MouseEventArgs e)
         {
             base.OnMouseDown (e);
 
-            var y = e.Y - AutoScrollPosition.Y;
-            var row = y / ROW_HEIGHT;
+            // The pointer is logical and the row geometry device (RC-8).
+            var device = LogicalToDeviceUnits (e.Location);
 
-            if (row >= 0 && row < _entries.Count && !_entries[row].IsCategory && row != _selected_index) {
-                _selected_index = row;
-                Invalidate ();
-                // The grid has no GridItem tree yet, so SelectedGridItem stays null; the selection
-                // moving is still the event's meaning (W6).
-                SelectedGridItemChanged?.Invoke (this, EventArgs.Empty);
+            if (!ViewBounds.Contains (device)) {
+                RunCommandAt (device);
+                return;
             }
+
+            for (var i = 0; i < _rows.Count; i++) {
+                if (!RowBounds (i).Contains (device))
+                    continue;
+
+                var item = _rows[i];
+
+                // The expander box of a category toggles it rather than selecting it.
+                if (item.GridItems.Count > 0 && ExpanderBounds (i).Contains (device)) {
+                    item.Expanded = !item.Expanded;
+                    NotifyExpandedChanged ();
+                    return;
+                }
+
+                if (!ReferenceEquals (item, _selected_item)) {
+                    EndEdit (commit: true);
+                    _selected_item = item;
+                    Invalidate ();
+                    SelectedGridItemChanged?.Invoke (this, EventArgs.Empty);
+                }
+
+                // A click in the value column of a writable property starts an edit (W6 mechanisms).
+                if (device.X > ViewBounds.Left + ScaledNameColumnWidth)
+                    BeginEdit (i);
+
+                return;
+            }
+        }
+
+        /// <summary>The device box of a category's expander glyph.</summary>
+        internal Rectangle ExpanderBounds (int index)
+        {
+            var row = RowBounds (index);
+            var side = LogicalToDeviceUnits (9);
+            return new Rectangle (row.Left + LogicalToDeviceUnits (3), row.Top + ((row.Height - side) / 2), side, side);
         }
 
         /// <inheritdoc/>
         protected override void OnPaint (PaintEventArgs e)
         {
             base.OnPaint (e);
-
-            var g = e.Canvas;
-            var r = ClientRectangle;
-
-            if (_selected_object == null || _entries.Count == 0) {
-                g.DrawText ("(no object selected)", Theme.UIFont, 11, r,
-                    Theme.ForegroundColor, ContentAlignment.MiddleCenter);
-                return;
-            }
-
-            var name_col_w = r.Width * NAME_COL_RATIO_PCT / 100;
-            var scroll_y = AutoScrollPosition.Y;
-            var line_color = new SKColor (LineColor.R, LineColor.G, LineColor.B, LineColor.A);
-            var back_color = new SKColor (ViewBackColor.R, ViewBackColor.G, ViewBackColor.B);
-            var fore_color = new SKColor (ViewForeColor.R, ViewForeColor.G, ViewForeColor.B);
-            var cat_back = new SKColor (Theme.ControlMidColor.Red, Theme.ControlMidColor.Green,
-                Theme.ControlMidColor.Blue, 255);
-            // With focus the selection takes SelectedItemWithFocusBackColor/ForeColor, as upstream's does;
-            // without it the theme's accent stays, since upstream's unfocused grey is not a property (W6.2 sweep).
-            var sel_back = Focused
-                ? new SKColor (SelectedItemWithFocusBackColor.R, SelectedItemWithFocusBackColor.G, SelectedItemWithFocusBackColor.B, SelectedItemWithFocusBackColor.A)
-                : new SKColor (Theme.AccentColor.Red, Theme.AccentColor.Green, Theme.AccentColor.Blue, Theme.AccentColor.Alpha);
-            var sel_fore = Focused
-                ? new SKColor (SelectedItemWithFocusForeColor.R, SelectedItemWithFocusForeColor.G, SelectedItemWithFocusForeColor.B, SelectedItemWithFocusForeColor.A)
-                : new SKColor (Theme.ForegroundColorOnAccent.Red, Theme.ForegroundColorOnAccent.Green, Theme.ForegroundColorOnAccent.Blue, 255);
-            var cat_fore = new SKColor (CategoryForeColor.R, CategoryForeColor.G, CategoryForeColor.B, CategoryForeColor.A);
-
-            for (var i = 0; i < _entries.Count; i++) {
-                var row_y = scroll_y + i * ROW_HEIGHT;
-
-                if (row_y + ROW_HEIGHT < 0 || row_y > r.Height)
-                    continue;
-
-                var row_rect = new Rectangle (r.X, row_y, r.Width, ROW_HEIGHT);
-                var entry = _entries[i];
-
-                if (entry.IsCategory) {
-                    g.FillRectangle (new Rectangle (row_rect.X, row_rect.Y, row_rect.Width, row_rect.Height), cat_back);
-                    g.DrawText (entry.Name, Theme.UIFont, 10,
-                        new Rectangle (row_rect.X + 4, row_rect.Y, row_rect.Width - 4, row_rect.Height),
-                        cat_fore, ContentAlignment.MiddleLeft);
-                } else {
-                    var is_selected = i == _selected_index;
-                    var row_bg = is_selected ? sel_back : back_color;
-                    var row_fg = is_selected ? sel_fore : fore_color;
-
-                    g.FillRectangle (new Rectangle (row_rect.X, row_rect.Y, row_rect.Width, row_rect.Height), row_bg);
-
-                    var name_rect = new Rectangle (row_rect.X + 2, row_rect.Y, name_col_w - 2, row_rect.Height);
-                    var val_rect = new Rectangle (row_rect.X + name_col_w + 2, row_rect.Y,
-                        row_rect.Width - name_col_w - 4, row_rect.Height);
-
-                    g.DrawText (entry.Name, Theme.UIFont, 10, name_rect, row_fg, ContentAlignment.MiddleLeft);
-                    g.DrawText (entry.Value, Theme.UIFont, 10, val_rect, row_fg, ContentAlignment.MiddleLeft);
-                }
-
-                // divider line
-                g.DrawLine (row_rect.Left, row_rect.Bottom - 1, row_rect.Right, row_rect.Bottom - 1, line_color);
-            }
-
-            // column separator line
-            g.DrawLine (r.X + name_col_w, r.Y, r.X + name_col_w, r.Y + _entries.Count * ROW_HEIGHT + scroll_y, line_color);
+            RenderManager.Render (this, e);
         }
 
-        private sealed class PropertyEntry
+        /// <summary>
+        /// The concrete <see cref="GridItem"/> the grid builds its tree from (W6 mechanisms).
+        /// </summary>
+        /// <remarks>
+        /// <see cref="GridItem"/> is abstract, as upstream's is, so it needs a concrete entry type --
+        /// upstream's is <c>PropertyGridInternal.GridEntry</c>. Expanding or selecting one tells the
+        /// owning grid, which is what makes <see cref="GridItem.Expanded"/> and
+        /// <see cref="GridItem.Select"/> mean something.
+        /// </remarks>
+        internal sealed class PropertyGridEntry : GridItem
         {
-            public bool IsCategory;
-            public string Name = string.Empty;
-            public string Value = string.Empty;
+            internal PropertyGridEntry (PropertyGrid owner) => Owner = owner;
+
+            internal PropertyGrid Owner { get; }
+
+            /// <inheritdoc/>
+            public override GridItemType GridItemType
+                => PropertyDescriptor is null ? GridItemType.Category : GridItemType.Property;
+
+            /// <inheritdoc/>
+            public override bool Expanded {
+                get => base.Expanded;
+                set {
+                    if (base.Expanded == value)
+                        return;
+
+                    base.Expanded = value;
+                    Owner.NotifyExpandedChanged ();
+                }
+            }
+
+            /// <inheritdoc/>
+            public override void Select () => Owner.SelectedGridItem = this;
+
+            // The value the grid last read, kept so a committed edit can report the old one.
+            internal object? CurrentValue { get; set; }
         }
     }
 
     /// <summary>
-    /// Represents a single row in a PropertyGrid. Stub in Majorsilence.Forms -- PropertyGrid never
-    /// actually constructs one (SelectedGridItem always returns null, since the grid has no
-    /// per-row selection tracking yet); this type exists so code that reads
-    /// `PropertyGrid.SelectedGridItem` compiles against the same shape as
-    /// System.Windows.Forms.GridItem. Unsealed so the Telerik-compat PropertyGridItem can derive
-    /// from it (call sites TryCast SelectedGridItem to PropertyGridItem).
+    /// Represents a single row in a <see cref="PropertyGrid"/>.
     /// </summary>
-    public partial class GridItem
+    /// <remarks>
+    /// Abstract, as <c>System.Windows.Forms.GridItem</c> is: the grid builds its tree out of its own
+    /// concrete entries. Until W6 mechanisms it built no tree at all and this type was never
+    /// constructed, which is why every member below sat in the stored-only baseline.
+    /// </remarks>
+    public abstract partial class GridItem
     {
         /// <summary>Gets the current value of the property this item represents.</summary>
-        public object? Value { get; init; }
+        public object? Value { get; internal set; }
 
         /// <summary>Gets the PropertyDescriptor describing the property this item represents.</summary>
         public System.ComponentModel.PropertyDescriptor? PropertyDescriptor { get; init; }
@@ -295,11 +546,13 @@ namespace Majorsilence.Forms
         /// <summary>Gets the child items of this item.</summary>
         public GridItemCollection GridItems { get; init; } = new ();
 
-        /// <summary>Gets or sets whether this item is expanded in the grid. Stub in Majorsilence.Forms (PropertyGrid never constructs a GridItem tree, so this has nothing to render).</summary>
-        public bool Expanded { get; set; }
+        /// <summary>Gets or sets whether this item is expanded in the grid.</summary>
+        /// <remarks>Real as of W6 mechanisms: a collapsed category hides its children from the view.</remarks>
+        public virtual bool Expanded { get; set; }
 
-        /// <summary>Selects this item in its owning PropertyGrid. No-op in Majorsilence.Forms.</summary>
-        public void Select () { }
+        /// <summary>Selects this item in its owning PropertyGrid.</summary>
+        /// <remarks>Real as of W6 mechanisms for the entries a grid builds.</remarks>
+        public virtual void Select () { }
     }
 
     /// <summary>

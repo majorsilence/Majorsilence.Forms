@@ -3552,6 +3552,60 @@ picker, and `PrintControllerWithStatusDialog` still discards the controller it w
 
 15 tests; three neutralization rounds (7, 5 and 3 of 15 red), snapshot verified before and after.
 
+**W6 mechanisms, twelfth chunk: PropertyGrid. — 2026-09-25.** Part of #91.
+Twenty-three stored-only properties and both of this type's unraised events, in one control.
+
+The grid painted a flat list of name/value rows and nothing else. Everything else it declares — the
+help pane, the commands pane, the toolbar, the property tabs, the `GridItem` tree and value editing —
+was inert, which is why a quarter of the whole stored-only baseline sat under one reason string.
+
+- **The item tree.** `SelectedObject` now builds real `GridItem`s: a category per group with its
+  properties as children, or a flat list when the sort is not categorised. `GridItem` stays abstract,
+  as upstream's is, so the grid builds its own concrete entries (upstream's are
+  `PropertyGridInternal.GridEntry`). `Label`, `Name`, `Value`, `PropertyDescriptor` and `Parent` are
+  all filled in; `Expanded` hides or shows a category's children and the expander box in the row
+  toggles it; `Select ()` selects the item and opens its parents so it can be seen; `SelectedGridItem`
+  is the one the selection is on rather than a permanent null; `ExpandAllGridItems` and
+  `CollapseAllGridItems` stopped being empty methods.
+- **The help pane.** `HelpVisible` puts a pane under the view showing the selected property's display
+  name and its `Description`, in `HelpBackColor`/`HelpForeColor` inside a `HelpBorderColor` border.
+  Turning it off gives the room back to the view.
+- **The commands pane.** `CommandsVisibleIfAvailable` and `CanShowCommands` decide whether the pane is
+  shown, and its verbs come from the `IMenuCommandService` the selected component's site offers, which
+  is where upstream finds them. Each verb is a link in `CommandsLinkColor`, the one under the pointer
+  in `CommandsActiveLinkColor` and a disabled one in `CommandsDisabledLinkColor`, on
+  `CommandsBackColor` inside a `CommandsBorderColor` border; clicking an enabled one invokes it.
+- **The toolbar and the tabs.** `ToolbarVisible` shows a real `ToolStrip` above the view carrying the
+  categorised and alphabetical sort buttons, which drive `PropertySort` and show its current value,
+  plus a button per `PropertyTabs` entry and one for the built-in properties view. `LargeButtons`
+  sizes it and `ToolStripRenderer` is handed to it. Choosing a tab makes its `GetProperties` the
+  source the tree is built from and raises **`PropertyTabChanged`** carrying `OldTab` and `NewTab`.
+- **Editing.** A click in the value column of a writable property opens an editor over the cell: a
+  drop-down for a boolean or an enum, a text box otherwise. Committing converts through the
+  property's `TypeConverter`, writes through the `PropertyDescriptor` and raises
+  **`PropertyValueChanged`** with the value the property held before. A value the converter or the
+  setter refuses leaves the property alone and announces nothing. This is what both of the type's
+  unraised events were waiting on: a read-only grid has no path that can change a value.
+- **Filtering and colours.** `BrowsableAttributes` lists only properties carrying every attribute in
+  the collection, an attribute at its default value matching a property that does not declare it, as
+  upstream filters. `ViewBorderColor` frames the view, `CategorySplitterColor` rules under a category
+  header, and `DisabledItemForeColor` draws a read-only property's row.
+
+*Counts.* Stored-only **382 → 359**. Unraised **73 → 71**.
+
+*Deviation:* upstream's `SelectedTab` is never null because its default is a built-in `PropertiesTab`
+instance. There is no such instance here, and `null` stands for the same thing — the type's own
+properties, which is what the grid shows until a tab is chosen, and what the toolbar's first tab
+button selects back.
+
+*Not done:* `CanShowVisualStyleGlyphs` and `UseCompatibleTextRendering` stay stored (GDI and
+visual-styles switches with one pipeline behind them here), and `CommandsForeColor` is re-annotated:
+the pane holds only verb links, which take the three link colours, so there is no non-link text in it
+to colour. Two existing tests that clicked a row by a hardcoded offset now ask the grid where the row
+is, because the toolbar (on by default, as upstream) moved the rows down.
+
+12 tests; three neutralization rounds (6, 4 and 4 of 12 red), snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

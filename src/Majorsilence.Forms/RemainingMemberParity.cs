@@ -642,6 +642,8 @@ namespace Majorsilence.Forms
         public virtual bool Expandable => GridItems.Count > 0;
 
         /// <summary>Gets what kind of item this is.</summary>
+        /// <remarks>Virtual so the concrete entries a <see cref="PropertyGrid"/> builds can answer
+        /// Category for a group header (W6 mechanisms).</remarks>
         public virtual GridItemType GridItemType => GridItemType.Property;
     }
 

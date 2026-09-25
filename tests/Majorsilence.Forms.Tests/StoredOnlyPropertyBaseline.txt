@@ -241,13 +241,7 @@ Majorsilence.Forms.Form.TransparencyKey    -- needs a backend window capability 
 Majorsilence.Forms.GiveFeedbackEventArgs.CursorOffset    -- drop-description text and drag images are drawn by the OS shell drag image; the in-process session (W6) has none to hand them to
 Majorsilence.Forms.GiveFeedbackEventArgs.DragImage    -- drop-description text and drag images are drawn by the OS shell drag image; the in-process session (W6) has none to hand them to
 Majorsilence.Forms.GiveFeedbackEventArgs.UseDefaultDragImage    -- drop-description text and drag images are drawn by the OS shell drag image; the in-process session (W6) has none to hand them to
-Majorsilence.Forms.GridItem.Expanded    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.GridItem.Label    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.GridItem.Name    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.GridItem.Parent    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.GridItem.PropertyDescriptor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
 Majorsilence.Forms.GridItem.Tag    -- user-data slot; upstream reads it nowhere either
-Majorsilence.Forms.GridItem.Value    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
 Majorsilence.Forms.GroupBox.UseCompatibleTextRendering    -- GDI/visual-styles rendering switch; one text and theme pipeline here
 Majorsilence.Forms.GroupBoxRenderer.RenderMatchingApplicationState    -- GDI/visual-styles rendering switch; one text and theme pipeline here
 Majorsilence.Forms.HelpProvider.HelpNamespace    -- no help viewer to open
@@ -303,28 +297,11 @@ Majorsilence.Forms.Printing.PaperSize.PaperName    -- framework-written (outboun
 Majorsilence.Forms.Printing.PreviewPrintController.UseAntiAlias    -- framework-written (outbound state)
 Majorsilence.Forms.Printing.PrintEventArgs.PrintAction    -- framework-written (outbound state)
 Majorsilence.Forms.ProfessionalColorTable.UseSystemColors    -- GDI/visual-styles rendering switch; one text and theme pipeline here
-Majorsilence.Forms.PropertyGrid.BrowsableAttributes    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
 Majorsilence.Forms.PropertyGrid.CanShowVisualStyleGlyphs    -- GDI/visual-styles rendering switch; one text and theme pipeline here
-Majorsilence.Forms.PropertyGrid.CategorySplitterColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.PropertyGrid.CommandsActiveLinkColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.PropertyGrid.CommandsBackColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.PropertyGrid.CommandsBorderColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.PropertyGrid.CommandsDisabledLinkColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.PropertyGrid.CommandsForeColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.PropertyGrid.CommandsLinkColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.PropertyGrid.CommandsVisibleIfAvailable    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.PropertyGrid.DisabledItemForeColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.PropertyGrid.HelpBackColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.PropertyGrid.HelpBorderColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.PropertyGrid.HelpForeColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.PropertyGrid.HelpVisible    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.PropertyGrid.LargeButtons    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.PropertyGrid.ToolStripRenderer    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.PropertyGrid.ToolbarVisible    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyGrid.CommandsForeColor    -- the commands pane holds only verb links, which take the three Commands*LinkColors; there is no non-link text in it to colour
 Majorsilence.Forms.PropertyGrid.UseCompatibleTextRendering    -- GDI/visual-styles rendering switch; one text and theme pipeline here
-Majorsilence.Forms.PropertyGrid.ViewBorderColor    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.PropertyTabChangedEventArgs.NewTab    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
-Majorsilence.Forms.PropertyTabChangedEventArgs.OldTab    -- the grid paints name/value rows only: no help pane, commands pane, toolbar, tabs or GridItem tree yet
+Majorsilence.Forms.PropertyTabChangedEventArgs.NewTab    -- framework-written (outbound state)
+Majorsilence.Forms.PropertyTabChangedEventArgs.OldTab    -- framework-written (outbound state)
 Majorsilence.Forms.QueryAccessibilityHelpEventArgs.HelpKeyword    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.QueryAccessibilityHelpEventArgs.HelpNamespace    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.QueryAccessibilityHelpEventArgs.HelpString    -- accessibility metadata; no accessible-object tree

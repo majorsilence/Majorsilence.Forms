@@ -91,8 +91,6 @@ Majorsilence.Forms.Printing.PrintController.OnStartPrint/2
 Majorsilence.Forms.Printing.StandardPrintController.OnEndPage/2
 Majorsilence.Forms.Printing.StandardPrintController.OnEndPrint/2
 Majorsilence.Forms.Printing.StandardPrintController.OnStartPrint/2
-Majorsilence.Forms.PropertyGrid.CollapseAllGridItems/0
-Majorsilence.Forms.PropertyGrid.ExpandAllGridItems/0
 Majorsilence.Forms.PropertyGrid.ResetSelectedProperty/0
 Majorsilence.Forms.RichTextBox.Redo/0
 Majorsilence.Forms.SendKeys.Flush/0

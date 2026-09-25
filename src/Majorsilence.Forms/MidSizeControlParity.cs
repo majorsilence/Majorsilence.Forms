@@ -282,21 +282,40 @@ namespace Majorsilence.Forms
     public partial class PropertyGrid
     {
         /// <summary>Gets or sets the attributes a property must carry to be listed.</summary>
-        public AttributeCollection? BrowsableAttributes { get; set; }
+        /// <remarks>Real as of W6 mechanisms: a property is shown only when it carries every attribute
+        /// in the collection, an attribute at its default value matching a property that does not
+        /// declare it, which is how upstream filters.</remarks>
+        public AttributeCollection? BrowsableAttributes {
+            get => browsable_attributes;
+            set {
+                if (ReferenceEquals (browsable_attributes, value))
+                    return;
 
-        /// <summary>Gets whether the commands pane can be shown.</summary>
-        /// <remarks>False: designer verbs are what populate that pane, and there is no designer host
-        /// here to supply them, so <see cref="CommandsVisible"/> can never become true either.</remarks>
-        public virtual bool CanShowCommands => false;
+                browsable_attributes = value;
+                Refresh ();
+            }
+        }
 
-        /// <summary>Gets whether the commands pane is showing.</summary>
-        public virtual bool CommandsVisible => false;
+        private AttributeCollection? browsable_attributes;
 
         /// <summary>Gets or sets whether visual-style glyphs are used for the expand indicators.</summary>
         public bool CanShowVisualStyleGlyphs { get; set; } = true;
 
         /// <summary>Gets or sets whether the toolbar uses large buttons.</summary>
-        public bool LargeButtons { get; set; }
+        /// <remarks>Read as of W6 mechanisms: it sets the toolbar's image scaling size and its height.</remarks>
+        public bool LargeButtons {
+            get => large_buttons;
+            set {
+                if (large_buttons == value)
+                    return;
+
+                large_buttons = value;
+                ApplyToolbarState ();
+                Invalidate ();
+            }
+        }
+
+        private bool large_buttons;
 
         /// <summary>Gets or sets whether text is drawn through the compatible text renderer.</summary>
         public bool UseCompatibleTextRendering { get; set; }
@@ -348,14 +367,7 @@ namespace Majorsilence.Forms
 
         private PropertyTabCollection? property_tabs;
 
-        /// <summary>Gets the tab currently shown.</summary>
-        public PropertyTab? SelectedTab => PropertyTabs.Count > 0 ? PropertyTabs[0] : null;
 
-        /// <summary>Rebuilds the set of property tabs for the given scope.</summary>
-        /// <remarks>Tabs come from designer attributes on the selected object's type, which this layer
-        /// does not evaluate; the call is accepted and the grid repaints so a caller's refresh loop
-        /// behaves, but the tab set does not change.</remarks>
-        public void RefreshTabs (PropertyTabScope tabScope) => Invalidate ();
 
         /// <summary>Resets the selected property to its default value.</summary>
         public void ResetSelectedProperty () { }
