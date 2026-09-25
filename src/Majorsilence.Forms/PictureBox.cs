@@ -82,6 +82,13 @@ namespace Majorsilence.Forms
                 if (image_location == value && (value is null || _skImage is not null))
                     return;
 
+                // WaitOnLoad cleared means the assignment starts a background load and returns at
+                // once, which is what upstream does (W6 mechanisms).
+                if (!WaitOnLoad && !string.IsNullOrWhiteSpace (value)) {
+                    LoadAsync (value!);
+                    return;
+                }
+
                 LoadCore (value, rethrow: false);
             }
         }
@@ -145,10 +152,20 @@ namespace Majorsilence.Forms
             set => PictureBoxBorderStyle = (PictureBoxBorderStyle)(int)value;
         }
 
-        /// <summary>Gets or sets whether the PictureBox should wait for an image to load before displaying. Stub.</summary>
+        /// <summary>Gets or sets whether a load blocks until the image is decoded.</summary>
+        /// <remarks>
+        /// Read as of W6 mechanisms: cleared, assigning <see cref="ImageLocation"/> or calling
+        /// <c>Load</c> starts a background load and returns at once, completing through
+        /// <c>LoadCompleted</c>. Deviation: upstream defaults this to <c>false</c>. It defaults to
+        /// <c>true</c> here because the async path used to return before any bytes were read, leaving
+        /// <c>Image</c> null on the next line of the caller (SMP-20); an application that wants the
+        /// upstream default sets it.
+        /// </remarks>
         public bool WaitOnLoad { get; set; } = true;
 
-        /// <summary>Gets or sets the image shown when the primary image load fails. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the image shown when a load fails.</summary>
+        /// <remarks>Read as of W6 mechanisms, on both the synchronous and the background paths; with
+        /// none set a failed load leaves the box empty, as it always did.</remarks>
         public Majorsilence.Forms.Drawing.Image? ErrorImage { get; set; }
 
         /// <summary>Gets or sets the image shown while the primary image is loading. Stub in Majorsilence.Forms.</summary>

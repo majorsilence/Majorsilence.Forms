@@ -75,6 +75,7 @@ namespace Majorsilence.Forms
                 return null;
 
             // AsciiOnly is a constructor argument on the provider, not a settable property.
+            // AsciiOnly is a constructor argument on the provider, not a settable property.
             var created = new System.ComponentModel.MaskedTextProvider (
                 _mask, Culture ?? System.Globalization.CultureInfo.CurrentCulture, AsciiOnly) {
                 PromptChar = PromptChar,
@@ -87,6 +88,47 @@ namespace Majorsilence.Forms
                 created.Set (seed);
 
             return created;
+        }
+
+        /// <summary>
+        /// Puts a whole string through the mask, honouring <see cref="RejectInputOnFirstFailure"/>
+        /// (W6 mechanisms).
+        /// </summary>
+        /// <remarks>
+        /// On (upstream's behaviour when it is set) the first character the mask refuses ends the
+        /// input and everything after it is dropped. Off -- the default -- a refused character is
+        /// skipped and the rest still goes in, which is what makes pasting "(555) 123-4567" into a
+        /// digits-only mask fill it rather than stop at the bracket. Either way the first refusal is
+        /// announced through <c>MaskInputRejected</c>, as it was before.
+        /// </remarks>
+        private void SetMultiCharacterInput (string value)
+        {
+            if (provider is null)
+                return;
+
+            // Set reports the first offending position rather than throwing, which is what
+            // MaskInputRejected exists to carry.
+            if (provider.Set (value, out var position, out var hint)) {
+                _ = position;
+                return;
+            }
+
+            if (position >= 0)
+                OnMaskInputRejected (new MaskInputRejectedEventArgs (position, Translate (hint)));
+
+            if (RejectInputOnFirstFailure) {
+                // Everything up to the refusal, and nothing after it.
+                if (position > 0)
+                    provider.Set (value.Substring (0, position), out _, out _);
+
+                return;
+            }
+
+            // Character by character, skipping the ones the mask will not take.
+            provider.Clear ();
+
+            foreach (var c in value)
+                provider.Add (c, out _, out _);
         }
 
         // Pushes what the provider holds into the document, and keeps the caret at the next edit
@@ -150,7 +192,49 @@ namespace Majorsilence.Forms
         /// property existed under the right name with a type nothing could assign to it. Stored: the mask
         /// is not enforced, so there is no literal-versus-input distinction to act on.
         /// </remarks>
+        /// <summary>Gets or sets which parts of the mask Copy and Cut put on the clipboard.</summary>
+        /// <remarks>Read as of W6 mechanisms: the selection is taken from the provider under this
+        /// format rather than from the displayed string, so copying out of a masked field can leave
+        /// its literals and prompts behind, as upstream's does.</remarks>
         public MaskFormat CutCopyMaskFormat { get; set; } = MaskFormat.IncludeLiterals;
+
+        /// <inheritdoc/>
+        /// <remarks>The clipboard text is shaped by <see cref="CutCopyMaskFormat"/> (W6 mechanisms).</remarks>
+        public override void Copy ()
+        {
+            if (ClipboardSelection () is { Length: > 0 } text)
+                Clipboard.SetText (text);
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>See <see cref="Copy"/>; the characters removed are the selected ones either way.</remarks>
+        public override void Cut ()
+        {
+            if (ClipboardSelection () is not { Length: > 0 } text)
+                return;
+
+            Clipboard.SetText (text);
+            SelectedText = string.Empty;
+        }
+
+        // The selection as CutCopyMaskFormat asks for it: the provider's string under that format,
+        // clipped to the selected range. With no mask there is nothing to reformat.
+        private string? ClipboardSelection ()
+        {
+            if (provider is null)
+                return SelectedText;
+
+            var formatted = provider.ToString (
+                includePrompt: CutCopyMaskFormat is MaskFormat.IncludePrompt or MaskFormat.IncludePromptAndLiterals,
+                includeLiterals: CutCopyMaskFormat is MaskFormat.IncludeLiterals or MaskFormat.IncludePromptAndLiterals);
+
+            // The selection is measured against what is on screen; the formatted string can be
+            // shorter, so the range is clamped to it rather than assumed to line up.
+            var start = Math.Min (SelectionStart, formatted.Length);
+            var length = Math.Min (SelectionLength, formatted.Length - start);
+
+            return length <= 0 ? string.Empty : formatted.Substring (start, length);
+        }
 
         /// <summary>Gets or sets the culture used for separator characters.</summary>
         public System.Globalization.CultureInfo? Culture {
@@ -245,12 +329,8 @@ namespace Majorsilence.Forms
 
                 provider.Clear ();
 
-                if (!string.IsNullOrEmpty (value)) {
-                    // Set reports the first offending position rather than throwing, which is what
-                    // MaskInputRejected exists to carry.
-                    if (!provider.Set (value, out var position, out var hint) && position >= 0)
-                        OnMaskInputRejected (new MaskInputRejectedEventArgs (position, Translate (hint)));
-                }
+                if (!string.IsNullOrEmpty (value))
+                    SetMultiCharacterInput (value);
 
                 ApplyProviderToDocument (caret: 0);
                 OnTextChanged (EventArgs.Empty);

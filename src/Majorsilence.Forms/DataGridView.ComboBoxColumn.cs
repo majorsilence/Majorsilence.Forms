@@ -83,11 +83,20 @@ namespace Majorsilence.Forms
             if (column is not DataGridViewComboBoxColumn combo)
                 return new DataGridViewTextBoxEditingControl { Text = text, EditingControlDataGridView = this, EditingControlRowIndex = editing_row_index };
 
+            // AutoComplete and Sorted reach the editor as of W6 mechanisms. Both default to true on a
+            // cell, as upstream's do, so the COLUMN decides unless a cell was given its own value --
+            // which is the opposite precedence to the paint-time settings, and is upstream's: the
+            // column pushes AutoComplete into the cells it templates. AutoComplete on means the editor
+            // takes typed text and completes it, so it is not a fixed drop-down list.
+            var autocomplete = combo.AutoComplete && (cell as DataGridViewComboBoxCell)?.AutoComplete != false;
+
             var editor = new DataGridViewComboBoxEditingControl {
                 EditingControlDataGridView = this,
                 EditingControlRowIndex = editing_row_index,
-                DropDownStyle = ComboBoxStyle.DropDownList,
+                DropDownStyle = autocomplete ? ComboBoxStyle.DropDown : ComboBoxStyle.DropDownList,
                 MaxDropDownItems = combo.MaxDropDownItems, // the column's list shape reaches the editor (W6.2 sweep)
+                AutoCompleteMode = autocomplete ? AutoCompleteMode.SuggestAppend : AutoCompleteMode.None,
+                AutoCompleteSource = autocomplete ? AutoCompleteSource.ListItems : AutoCompleteSource.None,
             };
 
             if (combo.DataSource is { } source) {
@@ -101,6 +110,10 @@ namespace Majorsilence.Forms
 
                 editor.SelectedItem = cell.Value;
             }
+
+            // Sorted goes on AFTER the items: a combo box sorts what it holds when the property is
+            // set, not on every later add, so setting it first would sort an empty list.
+            editor.Sorted = combo.Sorted;
 
             return editor;
         }

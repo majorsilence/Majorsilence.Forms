@@ -1339,6 +1339,10 @@ namespace Majorsilence.Forms
 
             if (target is DataGridViewComboBoxCell cell) {
                 cell.DisplayStyle = DisplayStyle;
+                // The column's list behaviour reaches its cells, which is where the editor reads it
+                // from (W6 mechanisms).
+                cell.AutoComplete = AutoComplete;
+                cell.DisplayStyleForCurrentCellOnly = DisplayStyleForCurrentCellOnly;
                 cell.DataSource = DataSource;
                 cell.DisplayMember = DisplayMember;
                 cell.ValueMember = ValueMember;

@@ -46,10 +46,21 @@ namespace Majorsilence.Forms
         /// raised rather than recorded: a load that cannot produce an image throws, having set
         /// <see cref="IsErrored"/>.
         /// </remarks>
+        /// <remarks>
+        /// Synchronous while <see cref="WaitOnLoad"/> is set, which is this layer's default; with it
+        /// cleared the load runs in the background and the call returns at once, as upstream's does
+        /// (W6 mechanisms). The default differs from upstream's deliberately -- see
+        /// <see cref="WaitOnLoad"/>.
+        /// </remarks>
         public void Load (string url)
         {
             if (string.IsNullOrWhiteSpace (url))
                 throw new InvalidOperationException ("ImageLocation not specified.");
+
+            if (!WaitOnLoad) {
+                LoadAsync (url);
+                return;
+            }
 
             LoadCore (url, rethrow: true);
         }
@@ -110,13 +121,8 @@ namespace Majorsilence.Forms
                         bitmap?.Dispose ();
                         IsErrored = true;
 
-                        // ErrorImage belongs here and is deliberately NOT wired: the failure path
-                        // completes on the UI thread through RunOnUiThread, and no test fixture in this
-                        // suite can pump far enough to observe it -- five seconds of DoEvents never sees
-                        // IsErrored flip. Wiring it would be an unverified claim. Recorded in
-                        // docs/behaviour-gap/simple.md alongside InitialImage, which IS observable
-                        // because it is set synchronously before the load starts.
-                        Invalidate ();
+                        // The same failure image the synchronous path shows (W6 mechanisms).
+                        ShowErrorImage ();
                     }
 
                     if (ReferenceEquals (async_load, cancellation))
@@ -180,11 +186,28 @@ namespace Majorsilence.Forms
                 InstallLoadedImage (bitmap);
             } catch (Exception) {
                 IsErrored = true;
-                SetLoadedImage (null);
+
+                // ErrorImage is what the box shows when a load fails (W6 mechanisms). It was stored
+                // and read by nothing, so a broken path painted an empty box with no sign of why.
+                ShowErrorImage ();
 
                 if (rethrow)
                     throw;
             }
+        }
+
+        // The failure image, or an empty box when the application supplied none.
+        private void ShowErrorImage ()
+        {
+            if (ErrorImage is { } failed)
+                Image = failed;
+            else
+                SetLoadedImage (null);
+
+            // Assigning Image clears IsErrored -- it is the "a picture was set" path. The box really
+            // is in the failed state, so the flag goes back on after the image lands.
+            IsErrored = true;
+            Invalidate ();
         }
 
         private static SKBitmap? Read (string url)

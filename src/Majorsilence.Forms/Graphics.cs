@@ -366,11 +366,65 @@ namespace Majorsilence.Forms.Drawing
             }
         }
 
-        /// <summary>Gets or sets the unit of measure for page coordinates. Stub in Majorsilence.Forms — always Pixel.</summary>
-        public Majorsilence.Forms.Drawing.GraphicsUnit PageUnit { get; set; } = Majorsilence.Forms.Drawing.GraphicsUnit.Pixel;
+        /// <summary>Gets or sets the unit the caller's coordinates are in.</summary>
+        /// <remarks>
+        /// Real as of W6 mechanisms: assigning it (or <see cref="PageScale"/>) puts a scale on the
+        /// canvas so a caller can draw in points, inches or millimetres and have it land in the right
+        /// place, which is what upstream's page transform does. The conversion uses 96 units to the
+        /// inch, the same figure <c>Font.PixelSize</c> uses. <c>World</c> and <c>Display</c> are the
+        /// device's own unit here, as they are for a font.
+        /// </remarks>
+        public Majorsilence.Forms.Drawing.GraphicsUnit PageUnit {
+            get => page_unit;
+            set {
+                if (page_unit == value)
+                    return;
 
-        /// <summary>Gets or sets the scaling factor for page-to-world coordinates. Stub in Majorsilence.Forms.</summary>
-        public float PageScale { get; set; } = 1f;
+                page_unit = value;
+                ApplyPageTransform ();
+            }
+        }
+
+        private Majorsilence.Forms.Drawing.GraphicsUnit page_unit = Majorsilence.Forms.Drawing.GraphicsUnit.Pixel;
+
+        /// <summary>Gets or sets an extra scale applied on top of <see cref="PageUnit"/>.</summary>
+        /// <remarks>Read as of W6 mechanisms; see <see cref="PageUnit"/>.</remarks>
+        public float PageScale {
+            get => page_scale;
+            set {
+                if (page_scale == value)
+                    return;
+
+                page_scale = value;
+                ApplyPageTransform ();
+            }
+        }
+
+        private float page_scale = 1f;
+
+        /// <summary>How many device pixels one unit of <see cref="PageUnit"/> covers, times <see cref="PageScale"/>.</summary>
+        internal float PageTransformScale => page_scale * (page_unit switch {
+            Majorsilence.Forms.Drawing.GraphicsUnit.Point => 96f / 72f,
+            Majorsilence.Forms.Drawing.GraphicsUnit.Inch => 96f,
+            Majorsilence.Forms.Drawing.GraphicsUnit.Document => 96f / 300f,
+            Majorsilence.Forms.Drawing.GraphicsUnit.Millimeter => 96f / 25.4f,
+            _ => 1f,   // Pixel, World, Display
+        });
+
+        // The canvas carries one page transform at a time: the previous one is taken off before the
+        // new one goes on, so setting PageUnit and then PageScale does not compound.
+        private float applied_page_scale = 1f;
+
+        private void ApplyPageTransform ()
+        {
+            var wanted = PageTransformScale;
+
+            if (_canvas is null || wanted == applied_page_scale || wanted <= 0)
+                return;
+
+            _canvas.Scale (wanted / applied_page_scale);
+            applied_page_scale = wanted;
+        }
 
         /// <summary>
         /// Saves the current graphics state (transform and clip) and returns a token that

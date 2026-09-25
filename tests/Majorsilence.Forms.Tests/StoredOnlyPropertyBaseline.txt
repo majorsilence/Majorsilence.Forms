@@ -131,10 +131,6 @@ Majorsilence.Forms.DataGridViewCellPaintingEventArgs.ErrorText    -- framework-w
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.Graphics    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.State    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.Value    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewComboBoxCell.AutoComplete    -- the combo editor takes items and MaxDropDownItems only; autocomplete and sorting are ComboBox features it does not forward
-Majorsilence.Forms.DataGridViewComboBoxCell.DisplayStyleForCurrentCellOnly    -- the combo editor takes items and MaxDropDownItems only; autocomplete and sorting are ComboBox features it does not forward
-Majorsilence.Forms.DataGridViewComboBoxColumn.AutoComplete    -- the combo editor takes items and MaxDropDownItems only; autocomplete and sorting are ComboBox features it does not forward
-Majorsilence.Forms.DataGridViewComboBoxColumn.Sorted    -- the combo editor takes items and MaxDropDownItems only; autocomplete and sorting are ComboBox features it does not forward
 Majorsilence.Forms.DataGridViewComboBoxEditingControl.EditingControlDataGridView    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewComboBoxEditingControl.EditingControlRowIndex    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewElement.DataGridView    -- framework-written owner/index slot; the grid keeps its own indices
@@ -174,8 +170,6 @@ Majorsilence.Forms.DrawTreeNodeEventArgs.TreeView    -- framework-written (outbo
 Majorsilence.Forms.Drawing.BufferedGraphicsContext.MaximumBuffer    -- every surface is double-buffered by the Skia pipeline; nothing to switch
 Majorsilence.Forms.Drawing.Graphics.CompositingQuality    -- GDI+ quality knob; Skia's pipeline has one quality setting and no equivalent
 Majorsilence.Forms.Drawing.Graphics.InterpolationMode    -- GDI+ quality knob; Skia's pipeline has one quality setting and no equivalent
-Majorsilence.Forms.Drawing.Graphics.PageScale    -- needs a unit transform on Graphics; every caller today draws in pixels
-Majorsilence.Forms.Drawing.Graphics.PageUnit    -- needs a unit transform on Graphics; every caller today draws in pixels
 Majorsilence.Forms.Drawing.Graphics.PixelOffsetMode    -- GDI+ quality knob; Skia's pipeline has one quality setting and no equivalent
 Majorsilence.Forms.Drawing.Graphics.RenderingOrigin    -- GDI+ quality knob; Skia's pipeline has one quality setting and no equivalent
 Majorsilence.Forms.Drawing.Graphics.TextContrast    -- GDI+ quality knob; Skia's pipeline has one quality setting and no equivalent
@@ -185,7 +179,6 @@ Majorsilence.Forms.Drawing.SkiaGraphics.DpiY    -- framework-written (outbound s
 Majorsilence.Forms.ErrorProvider.ContainerControl    -- the error glyph is drawn, not an Icon image; the container is the errored control's parent
 Majorsilence.Forms.ErrorProvider.DataMember    -- framework-written (outbound state)
 Majorsilence.Forms.ErrorProvider.DataSource    -- framework-written (outbound state)
-Majorsilence.Forms.ErrorProvider.Icon    -- the error glyph is drawn, not an Icon image; the container is the errored control's parent
 Majorsilence.Forms.ErrorProvider.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.FileDialog.AddExtension    -- framework-written (outbound state)
 Majorsilence.Forms.FileDialog.AddToRecent    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
@@ -257,10 +250,8 @@ Majorsilence.Forms.LinkLabel+Link.Tag    -- user-data slot; upstream reads it no
 Majorsilence.Forms.ListView.UseCompatibleStateImageBehavior    -- .NET 1.1 state-image behaviour switch; neither behaviour is implemented (W6.2 ListView slice)
 Majorsilence.Forms.ListViewGroup.Name    -- framework-written (outbound state)
 Majorsilence.Forms.ListViewGroup.Tag    -- user-data slot; upstream reads it nowhere either
-Majorsilence.Forms.MaskedTextBox.AllowPromptAsInput    -- mask-engine option for paste/copy paths that take the default
+Majorsilence.Forms.MaskedTextBox.AllowPromptAsInput    -- tried and reverted (W6): the BCL MaskedTextProvider takes it as a constructor argument, but with either value the prompt character is neither stored in a position nor rejected through this box's Set and typing paths, so wiring it would change nothing observable
 Majorsilence.Forms.MaskedTextBox.BeepOnError    -- no beep API
-Majorsilence.Forms.MaskedTextBox.CutCopyMaskFormat    -- mask-engine option for paste/copy paths that take the default
-Majorsilence.Forms.MaskedTextBox.RejectInputOnFirstFailure    -- mask-engine option for paste/copy paths that take the default
 Majorsilence.Forms.Media.SoundPlayer.LoadTimeout    -- loads are synchronous
 Majorsilence.Forms.Media.SoundPlayer.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.Message.HWnd    -- framework-written (outbound state)
@@ -282,8 +273,6 @@ Majorsilence.Forms.PageSetupDialog.EnableMetric    -- framework-written (outboun
 Majorsilence.Forms.PageSetupDialog.MinMargins    -- framework-written (outbound state)
 Majorsilence.Forms.PageSetupDialog.ShowHelp    -- framework-written (outbound state)
 Majorsilence.Forms.PageSetupDialog.ShowNetwork    -- framework-written (outbound state)
-Majorsilence.Forms.PictureBox.ErrorImage    -- no asynchronous image loading (LoadAsync)
-Majorsilence.Forms.PictureBox.WaitOnLoad    -- no asynchronous image loading (LoadAsync)
 Majorsilence.Forms.PreviewKeyDownEventArgs.IsInputKey    -- needs PreviewKeyDown ahead of dialog-key processing; today it runs after
 Majorsilence.Forms.PrintDialog.AllowCurrentPage    -- framework-written (outbound state)
 Majorsilence.Forms.PrintDialog.AllowPrintToFile    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
