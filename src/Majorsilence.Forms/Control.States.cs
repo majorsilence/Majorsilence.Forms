@@ -19,6 +19,7 @@ public partial class Control
         IsHovering = 0x00000020,   // Majorsilence.Forms addition
         IsImplicitControl = 0x00000040,   // Majorsilence.Forms addition
         IsSelected = 0x00000080,   // Majorsilence.Forms addition
+        IsPressed = 0x00000100,   // Majorsilence.Forms addition (W6 mechanisms)
         //Recreate                = 0x00000010,
         //Modal                   = 0x00000020,
         //AllowDrop               = 0x00000040,

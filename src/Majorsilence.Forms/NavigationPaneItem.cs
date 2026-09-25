@@ -61,7 +61,9 @@ public class NavigationPaneItem : ILayoutable
     {
         var size = Parent?.LogicalToDeviceUnits (40) ?? 40;
 
-        return new Size (size, size);
+        // Padding (W6 mechanisms) adds to the item's height, in the logical units Bounds is kept in;
+        // the pane fixes the width.
+        return new Size (size, size + Padding.Vertical);
     }
 
     /// <summary>
@@ -98,7 +100,21 @@ public class NavigationPaneItem : ILayoutable
     /// <summary>
     /// Gets or sets the amount of space to leave between the text and the border of the item.
     /// </summary>
-    public Padding Padding { get; set; } = new Padding (14, 0, 14, 0);
+    /// <remarks>Read as of W6 mechanisms: the renderer insets the text and image by it, and the
+    /// vertical part adds to the item's height.</remarks>
+    public Padding Padding {
+        get => padding;
+        set {
+            if (padding == value)
+                return;
+
+            padding = value;
+            Parent?.PerformLayout ();
+            Parent?.Invalidate ();
+        }
+    }
+
+    private Padding padding = new Padding (14, 0, 14, 0);
 
     /// <summary>
     /// Gets the NavigationPane this item is currently a part of.

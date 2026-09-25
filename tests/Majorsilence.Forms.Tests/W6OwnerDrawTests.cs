@@ -167,7 +167,8 @@ public class W6OwnerDrawTests
         var button = new Button { Bounds = new Rectangle (10, 10, 80, 24) };
         form.Controls.Add (button);
         form.Show ();
-        using var tip = new ToolTip { OwnerDraw = true };
+        // UseFading off: a fading tip starts transparent (W6 mechanisms), and this test reads ink.
+        using var tip = new ToolTip { OwnerDraw = true, UseFading = false };
         DrawToolTipEventArgs? seen = null;
         tip.Draw += (_, e) => seen = e;
 

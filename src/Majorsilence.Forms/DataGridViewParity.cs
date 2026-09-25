@@ -419,9 +419,15 @@ namespace Majorsilence.Forms
         public bool ShowCellErrors { get; set; } = true;
 
         /// <summary>Gets or sets whether tooltips are shown for cells.</summary>
+        /// <remarks>Real as of W6 mechanisms: the pointer resting on a cell shows the cell's
+        /// <see cref="DataGridViewCell.ToolTipText"/>, else its column's, after
+        /// <see cref="CellToolTipTextNeeded"/> has had its say, through the same tip the other
+        /// item-bearing controls use. Off, no cell tip is shown.</remarks>
         public bool ShowCellToolTips { get; set; } = true;
 
         /// <summary>Gets or sets whether a pencil glyph is shown on the row being edited.</summary>
+        /// <remarks>Read by the renderer as of W6 mechanisms: while a cell is being edited its row header
+        /// shows the pencil in place of the current-row arrow, as upstream's does.</remarks>
         public bool ShowEditingIcon { get; set; } = true;
 
         /// <summary>Gets or sets whether error glyphs are shown on rows with an error.</summary>

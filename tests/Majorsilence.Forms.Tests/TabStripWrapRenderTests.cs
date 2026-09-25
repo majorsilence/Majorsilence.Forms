@@ -14,7 +14,8 @@ namespace Majorsilence.Forms.Tests
             HeadlessRenderer.Use ();
 
             using var form = new Form { Size = new System.Drawing.Size (420, 400) };
-            var tc = new TabControl { Left = 0, Top = 0, Width = 400, Height = 360 };
+            // Multiline, as upstream requires for wrapping; a single-row strip scrolls instead (W6 mechanisms).
+            var tc = new TabControl { Left = 0, Top = 0, Width = 400, Height = 360, Multiline = true };
             for (var i = 0; i < 12; i++)
                 tc.TabPages.Add (new TabPage ($"Long Page Caption {i}") { BackColor = System.Drawing.Color.Red });
             form.Controls.Add (tc);

@@ -116,15 +116,66 @@ namespace Majorsilence.Forms
             if (visible_items.Count == 0)
                 return;
 
-            var sizes = visible_items.Select (i => i.GetPreferredSize (Size.Empty));
+            // Columns (W6 mechanisms): an item with Break or BarBreak starts a new one, laid out to
+            // the right of the previous; a BarBreak column also gets a bar in the gap before it. One
+            // column is the layout every drop-down had before.
+            var columns = new List<List<MenuItem>> ();
+            var bars = new List<int> ();
+            var current = new List<MenuItem> ();
 
-            width = sizes.Select (s => s.Width).Max ();
-            height = sizes.Select (s => s.Height).Sum () + 2;
+            foreach (var item in visible_items) {
+                if (current.Count > 0 && (item.Break || item.BarBreak)) {
+                    columns.Add (current);
+                    current = new List<MenuItem> ();
+                }
 
-            var client_rect = new Rectangle (1, 1, width - 2, height - 2);
+                current.Add (item);
+            }
 
-            StackLayoutEngine.VerticalExpand.Layout (client_rect, visible_items.Cast<ILayoutable> ());
+            columns.Add (current);
+
+            var x = 1;
+            var tallest = 0;
+
+            foreach (var column in columns) {
+                if (column[0].BarBreak && x > 1) {
+                    bars.Add (x + 1);
+                    x += BarBreakGap;
+                }
+
+                var sizes = column.Select (i => i.GetPreferredSize (Size.Empty)).ToList ();
+                var column_width = sizes.Max (s => s.Width) - 2;
+                var column_height = sizes.Sum (s => s.Height);
+
+                StackLayoutEngine.VerticalExpand.Layout (new Rectangle (x, 1, column_width, column_height), column.Cast<ILayoutable> ());
+
+                x += column_width;
+                tallest = Math.Max (tallest, column_height);
+            }
+
+            width = x + 1;
+            height = tallest + 2;
+            column_bars = bars;
         }
+
+        // The logical width a BarBreak gap takes, with the bar drawn down its middle.
+        internal const int BarBreakGap = 3;
+
+        private IReadOnlyList<int> column_bars = Array.Empty<int> ();
+
+        /// <summary>The logical x of every BarBreak bar, for the renderer (W6 mechanisms).</summary>
+        internal IReadOnlyList<int> ColumnBars => column_bars;
+
+        /// <summary>The size the popup needs for its items, laid out fresh (W6 mechanisms).</summary>
+        internal Size PreferredPopupSize {
+            get {
+                LayoutItems ();
+                return new Size (width, height);
+            }
+        }
+
+        /// <summary>The screen point the drop-down was last shown at (W6 mechanisms; tests).</summary>
+        internal Point LastShowLocation { get; private set; }
 
         /// <inheritdoc/>
         protected override void OnMouseClick (MouseEventArgs e)
@@ -191,6 +242,7 @@ namespace Majorsilence.Forms
             popup.Size = new Size (width, height);
 
             Invalidate ();
+            LastShowLocation = location;
             popup.Show (location);
         }
 

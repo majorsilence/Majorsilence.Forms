@@ -73,8 +73,15 @@ namespace Majorsilence.Forms
                     StyleHover.Border.Color = FlatAppearance.BorderColor.ToSKColor ();
                 }
 
-                if (FlatAppearance.MouseOverBackColor != System.Drawing.Color.Empty)
+                // MouseDownBackColor (W6 mechanisms) while the button is held down, else the hover
+                // colour; a configured down colour is cleared again on release so the chain's own
+                // hover background returns.
+                if (IsPressed && FlatAppearance.MouseDownBackColor != System.Drawing.Color.Empty)
+                    StyleHover.BackgroundColor = FlatAppearance.MouseDownBackColor.ToSKColor ();
+                else if (FlatAppearance.MouseOverBackColor != System.Drawing.Color.Empty)
                     StyleHover.BackgroundColor = FlatAppearance.MouseOverBackColor.ToSKColor ();
+                else if (FlatAppearance.MouseDownBackColor != System.Drawing.Color.Empty)
+                    StyleHover.BackgroundColor = null;
             }
 
             ApplyLatchedBackground (appearance_button);

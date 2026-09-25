@@ -92,6 +92,9 @@ namespace Majorsilence.Forms
 
                 if (current_value != value) {
                     current_value = value;
+
+                    // The framework's write of the displayed text, flagged as such (ChangingText).
+                    SetFrameworkText (FormatValue (value));
                     Invalidate ();
                     OnValueChanged (EventArgs.Empty);
                 }

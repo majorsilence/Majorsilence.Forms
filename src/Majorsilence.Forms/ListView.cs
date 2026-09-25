@@ -356,17 +356,17 @@ namespace Majorsilence.Forms
         private int resize_start_width;
         private bool suppress_header_click;
 
-        // The column whose right-edge divider is under the device-space point, or -1.
+        // The column whose divider is under the device-space point, or -1. The divider is the
+        // column's trailing edge: its right in a left-to-right layout, its left when mirrored.
         internal int HeaderDividerAt (Point location)
         {
             if (ScaledHeaderHeight <= 0 || location.Y >= PaddedClientRectangle.Top + ScaledHeaderHeight)
                 return -1;
 
-            var edge = ItemArea.Left + ScaledCheckWidth;
             var zone = LogicalToDeviceUnits (4);
 
-            foreach (var column in DisplayColumns) {
-                edge += ScaledColumnWidth (column);
+            foreach (var (column, left, width) in ColumnCells (ItemArea.Left + ScaledCheckWidth, ItemArea.Right)) {
+                var edge = MirrorsColumns ? left : left + width;
 
                 if (Math.Abs (location.X - edge) <= zone)
                     return column.Index;
@@ -374,6 +374,36 @@ namespace Majorsilence.Forms
 
             return -1;
         }
+
+        /// <summary>Whether the columns run right to left: <see cref="RightToLeftLayout"/> under <see cref="RightToLeft.Yes"/> (W6 mechanisms).</summary>
+        internal bool MirrorsColumns => RightToLeftLayout && RightToLeft == RightToLeft.Yes;
+
+        /// <summary>
+        /// The device x range of every displayed column, in display order, laid from
+        /// <paramref name="left"/> rightwards -- or from <paramref name="right"/> leftwards when the
+        /// columns are mirrored. Every header, row and hit-test walks the columns through this, so the
+        /// mirror is one decision (W6 mechanisms).
+        /// </summary>
+        internal IEnumerable<(ColumnHeader Column, int Left, int Width)> ColumnCells (int left, int right)
+        {
+            var mirrored = MirrorsColumns;
+            var x = mirrored ? right : left;
+
+            foreach (var column in DisplayColumns) {
+                var width = ScaledColumnWidth (column);
+
+                if (mirrored)
+                    x -= width;
+
+                yield return (column, x, width);
+
+                if (!mirrored)
+                    x += width;
+            }
+        }
+
+        /// <summary>The device width one <see cref="ListViewItem.IndentCount"/> step moves an item's content: a small image's width.</summary>
+        internal int ScaledIndentUnit => LogicalToDeviceUnits (SmallImageList?.ImageSize.Width is > 0 and var w ? w : 16);
 
         // ── header reorder drag (W6 mechanisms) ───────────────────────────────────────────────────
         // A press on a header (not on a divider) with AllowColumnReorder set arms a reorder; moving
@@ -811,16 +841,9 @@ namespace Majorsilence.Forms
         /// <summary>The index of the column at the given device x-offset, or -1.</summary>
         internal int ColumnIndexAt (int x)
         {
-            var offset = ItemArea.Left + ScaledCheckWidth;
-
-            foreach (var column in DisplayColumns) {
-                var width = ScaledColumnWidth (column);
-
-                if (x >= offset && x < offset + width)
+            foreach (var (column, left, width) in ColumnCells (ItemArea.Left + ScaledCheckWidth, ItemArea.Right))
+                if (x >= left && x < left + width)
                     return column.Index;
-
-                offset += width;
-            }
 
             return -1;
         }
@@ -829,19 +852,16 @@ namespace Majorsilence.Forms
         // pointer, or the last slot past the final column.
         private int DisplaySlotAt (int x)
         {
-            var order = DisplayColumns;
-            var offset = ItemArea.Left + ScaledCheckWidth;
+            var slot = 0;
 
-            for (var slot = 0; slot < order.Count; slot++) {
-                var width = ScaledColumnWidth (order[slot]);
-
-                if (x < offset + width)
+            foreach (var (_, left, width) in ColumnCells (ItemArea.Left + ScaledCheckWidth, ItemArea.Right)) {
+                if (MirrorsColumns ? x >= left : x < left + width)
                     return slot;
 
-                offset += width;
+                slot++;
             }
 
-            return Math.Max (0, order.Count - 1);
+            return Math.Max (0, DisplayColumns.Count - 1);
         }
 
         /// <inheritdoc/>

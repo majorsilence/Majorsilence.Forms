@@ -1,3 +1,4 @@
+using System;
 ﻿using System.Collections;
 using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
@@ -22,6 +23,9 @@ public class ImageCollection : IDictionary<string, SKBitmap>
 
     internal SKSize ImageSize { get; private set; }
 
+    // Applied to every bitmap as it is added: the owning ImageList's colour key (W6 mechanisms).
+    internal Func<SKBitmap, SKBitmap>? Transform { get; set; }
+
     internal ImageCollection (SKSize imageSize)
     {
         ImageSize = imageSize;
@@ -39,13 +43,13 @@ public class ImageCollection : IDictionary<string, SKBitmap>
         // The image is the correct size, simply make a copy of it
         if (value.GetSize ().ToSKSize () == ImageSize) {
             var copy = value.Copy ();
-            _images.Add (key, copy);
+            _images.Add (key, Transform is { } keyed ? keyed (copy) : copy);
             return;
         }
 
         // The image is not the correct size, resize it
         var resized = value.Resize (ImageSize.ToSizeI (), new SKSamplingOptions (SKCubicResampler.Mitchell));
-        _images.Add (key, resized);
+        _images.Add (key, Transform is { } keyed_resized ? keyed_resized (resized) : resized);
     }
 
     /// <summary>

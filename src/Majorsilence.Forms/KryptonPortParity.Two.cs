@@ -136,7 +136,21 @@ namespace Majorsilence.Forms
         /// WinForms uses this as a re-entrancy guard: while it pushes a new value into the edit box, the
         /// resulting TextChanged must not be mistaken for the user typing. A derived up-down sets it around
         /// its own text updates for the same reason, so it has to be settable from a subclass.
+        /// Set here as of W6 mechanisms around the writes the spinners make when their value or
+        /// selection changes, which is what upstream's <c>UpdateEditText</c> does.
         /// </remarks>
         protected bool ChangingText { get; set; }
+
+        /// <summary>Writes the text the framework derived from the control's value, with <see cref="ChangingText"/> set for the duration.</summary>
+        private protected void SetFrameworkText (string text)
+        {
+            ChangingText = true;
+
+            try {
+                Text = text;
+            } finally {
+                ChangingText = false;
+            }
+        }
     }
 }

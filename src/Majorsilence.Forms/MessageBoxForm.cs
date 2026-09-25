@@ -1,4 +1,5 @@
 using System.Drawing;
+using Majorsilence.Forms.Renderers;
 
 namespace Majorsilence.Forms
 {
@@ -9,6 +10,27 @@ namespace Majorsilence.Forms
     {
         private readonly Label label;
         private readonly Panel button_panel;
+        private readonly IconBox icon_box;
+
+        // The glyph band at the message's leading edge (W6 mechanisms): a MessageBoxIcon draws one of
+        // the standard message glyphs there; None hides the band.
+        private sealed class IconBox : Control
+        {
+            internal MessageGlyph? Glyph { get; set; }
+
+            protected override void OnPaint (PaintEventArgs e)
+            {
+                base.OnPaint (e);
+
+                if (Glyph is { } glyph) {
+                    var size = LogicalToDeviceUnits (32);
+                    MessageGlyphs.Draw (e.Canvas, glyph, new Rectangle ((ScaledWidth - size) / 2, LogicalToDeviceUnits (12), size, size));
+                }
+            }
+        }
+
+        /// <summary>The glyph the dialog shows, or null for <see cref="MessageBoxIcon.None"/>.</summary>
+        internal MessageGlyph? Glyph => icon_box.Glyph;
 
         /// <summary>
         /// Initializes a new instance of the MessageBoxForm class.
@@ -30,6 +52,9 @@ namespace Majorsilence.Forms
 
             label.Style.BackgroundColor = Theme.BackgroundColor;
             label.Style.Border.Width = 0;
+
+            icon_box = Controls.Add (new IconBox { Dock = DockStyle.Left, Width = 56, Visible = false });
+            icon_box.Style.BackgroundColor = Theme.BackgroundColor;
 
             button_panel = Controls.Add (new Panel {
                 Dock = DockStyle.Bottom,
@@ -53,6 +78,40 @@ namespace Majorsilence.Forms
             label.Text = message;
             AddButtons (buttons);
             CalculateDialogSize ();
+        }
+
+        /// <summary>
+        /// Initializes a new instance with the icon, default button and options a <see cref="MessageBox"/>
+        /// call names (W6 mechanisms): the glyph is drawn beside the message, Enter presses the default
+        /// button (which starts focused), <see cref="MessageBoxOptions.RightAlign"/> right-aligns the
+        /// message and <see cref="MessageBoxOptions.RtlReading"/> lays the dialog out right to left.
+        /// </summary>
+        public MessageBoxForm (string title, string message, MessageBoxButtons buttons, MessageBoxIcon icon,
+            MessageBoxDefaultButton defaultButton, MessageBoxOptions options) : this (title, message, buttons)
+        {
+            icon_box.Glyph = MessageGlyphs.For (icon);
+            icon_box.Visible = icon_box.Glyph is not null;
+
+            if ((options & MessageBoxOptions.RightAlign) != 0)
+                label.TextAlign = ContentAlignment.TopRight;
+
+            if ((options & MessageBoxOptions.RtlReading) != 0)
+                RightToLeft = RightToLeft.Yes;
+
+            var buttons_in_order = button_panel.Controls.GetAllControls ().OfType<Button> ().ToList ();
+            var index = defaultButton switch {
+                MessageBoxDefaultButton.Button2 => 1,
+                MessageBoxDefaultButton.Button3 => 2,
+                _ => 0,
+            };
+
+            // Upstream falls back to the first button when the set has no button at that position.
+            var default_button = index < buttons_in_order.Count ? buttons_in_order[index] : buttons_in_order.FirstOrDefault ();
+
+            if (default_button is not null) {
+                AcceptButton = default_button;
+                Shown += (_, _) => default_button.Select ();
+            }
         }
 
         /// <summary>The buttons each <see cref="MessageBoxButtons"/> set shows, in left-to-right order.</summary>

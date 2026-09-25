@@ -243,8 +243,21 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the index of the state image for the item. Stub in Majorsilence.Forms.</summary>
         public int StateImageIndex { get; set; } = -1;
 
-        /// <summary>Gets or sets the number of small image widths by which to indent the item. Stub in Majorsilence.Forms.</summary>
-        public int IndentCount { get; set; }
+        /// <summary>Gets or sets the number of small image widths by which to indent the item.</summary>
+        /// <remarks>Read by the renderer as of W6 mechanisms: the item's first Details cell starts that
+        /// many small-image widths in from the column's edge.</remarks>
+        public int IndentCount {
+            get => indent_count;
+            set {
+                if (indent_count == value)
+                    return;
+
+                indent_count = Math.Max (0, value);
+                ListView?.Invalidate ();
+            }
+        }
+
+        private int indent_count;
 
         /// <summary>Gets the zero-based index of the item within its ListView, or -1 if not in a list.</summary>
         public int Index => Parent?.Items.IndexOf (this) ?? -1;

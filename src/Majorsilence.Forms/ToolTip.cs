@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using SkiaSharp;
 
 namespace Majorsilence.Forms
 {
@@ -28,14 +29,82 @@ namespace Majorsilence.Forms
         {
             internal ToolTip? Owner { get; set; }
 
+            // Fading (W6 mechanisms): the tip's content is composited at this alpha, which the owner's
+            // fade timer walks from 0 to 255 after a show. 255 is fully opaque.
+            internal byte Alpha { get; set; } = 255;
+
+            // The glyph drawn at the leading edge for ToolTipIcon; the text is shifted past it.
+            internal ToolTipIcon Icon { get; set; }
+
+            internal const int IconInset = 20;
+
             protected override void OnPaint (PaintEventArgs e)
             {
                 if (Owner is { OwnerDraw: true } owner && owner.RaiseDraw (this, e))
                     return;
 
+                if (Alpha < 255) {
+                    using var layer = new SKPaint { Color = new SKColor (0, 0, 0, Alpha) };
+                    e.Canvas.SaveLayer (layer);
+                } else
+                    e.Canvas.Save ();
+
+                if (Icon != ToolTipIcon.None) {
+                    var box = e.LogicalToDeviceUnits (14);
+                    var glyph = new Rectangle (e.LogicalToDeviceUnits (4), (ScaledHeight - box) / 2, box, box);
+                    RenderIcon (e, Icon, glyph);
+                    e.Canvas.Translate (e.LogicalToDeviceUnits (IconInset), 0);
+                }
+
                 base.OnPaint (e);
+                e.Canvas.Restore ();
+            }
+
+            private static void RenderIcon (PaintEventArgs e, ToolTipIcon icon, Rectangle box)
+            {
+                if (Renderers.MessageGlyphs.For (icon) is { } glyph)
+                    Renderers.MessageGlyphs.Draw (e.Canvas, glyph, box);
             }
         }
+
+        // The fade (UseAnimation + UseFading): five steps of 20 ms from transparent to opaque.
+        private Timer? fade_timer;
+
+        /// <summary>The tip's current alpha, 0..255; 255 when no fade is running (tests).</summary>
+        internal int TipAlpha => popup_label?.Alpha ?? 255;
+
+        /// <summary>Advances a running fade by one step. The fade timer calls this every tick.</summary>
+        internal void AdvanceFade ()
+        {
+            if (popup_label is not { } label)
+                return;
+
+            label.Alpha = (byte) Math.Min (255, label.Alpha + 51);
+            label.Invalidate ();
+
+            if (label.Alpha == 255)
+                fade_timer?.Stop ();
+        }
+
+        private void BeginFade ()
+        {
+            if (popup_label is not { } label)
+                return;
+
+            if (!UseAnimation || !UseFading) {
+                label.Alpha = 255;
+                fade_timer?.Stop ();
+                return;
+            }
+
+            label.Alpha = 0;
+            fade_timer ??= new Timer { Interval = 20 };
+            fade_timer.Tick -= FadeTimer_Tick;
+            fade_timer.Tick += FadeTimer_Tick;
+            fade_timer.Start ();
+        }
+
+        private void FadeTimer_Tick (object? sender, EventArgs e) => AdvanceFade ();
 
         internal bool RaiseDraw (Control surface, PaintEventArgs e)
         {
@@ -60,6 +129,8 @@ namespace Majorsilence.Forms
         public bool Active { get; set; } = true;
 
         /// <summary>Gets or sets whether the ToolTip is shown even when its parent form is not active.</summary>
+        /// <remarks>Read as of W6 mechanisms: off (upstream's default), a tip for a control on a form
+        /// other than <see cref="Form.ActiveForm"/> is not shown.</remarks>
         public bool ShowAlways { get; set; }
 
         private int automatic_delay = 500;
@@ -208,16 +279,20 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the ToolTip strips ampersands from the text. Stub in Majorsilence.Forms.</summary>
         public bool StripAmpersands { get; set; }
 
-        /// <summary>Gets or sets whether the ToolTip uses animation. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether the ToolTip uses animation.</summary>
+        /// <remarks>Read as of W6 mechanisms: with this and <see cref="UseFading"/> on, a tip fades in
+        /// over five 20 ms steps; off, it appears at once. There is no slide animation.</remarks>
         public bool UseAnimation { get; set; } = true;
 
-        /// <summary>Gets or sets whether the ToolTip fades in and out. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether the ToolTip fades in. See <see cref="UseAnimation"/>.</summary>
         public bool UseFading { get; set; } = true;
 
         /// <summary>Gets or sets the title text for balloon tooltips. Stub in Majorsilence.Forms.</summary>
         public string ToolTipTitle { get; set; } = string.Empty;
 
-        /// <summary>Gets or sets the ToolTip icon. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the icon shown beside the tooltip text.</summary>
+        /// <remarks>Drawn as of W6 mechanisms: an information, warning or error glyph at the tip's
+        /// leading edge, with the text shifted past it.</remarks>
         public ToolTipIcon ToolTipIcon { get; set; } = ToolTipIcon.None;
 
         /// <summary>Shows a ToolTip with the given text at the given position relative to the control. Stub in Majorsilence.Forms.</summary>
@@ -264,6 +339,10 @@ namespace Majorsilence.Forms
                 if (window is null)
                     return;
 
+                // ShowAlways (W6 mechanisms): an inactive form's controls show no tip unless asked to.
+                if (!ShowAlways && window is Form owner_form && Form.ActiveForm is { } active_form && !ReferenceEquals (active_form, owner_form))
+                    return;
+
                 if (popup is null || popup_label is null) {
                     popup = new PopupWindow (window);
                     popup_label = popup.Controls.Add (new TipLabel { Dock = DockStyle.Fill, Owner = this });
@@ -285,8 +364,11 @@ namespace Majorsilence.Forms
                 popup_label.Style.BackgroundColor = BackColor.ToSKColor ();
                 popup_label.Style.ForegroundColor = ForeColor.ToSKColor ();
 
+                // ToolTipIcon (W6 mechanisms): the glyph takes a band at the leading edge.
+                popup_label.Icon = ToolTipIcon;
+
                 var measured = TextMeasurer.MeasureText (text, Theme.UIFont, Theme.FontSize);
-                var size = new Size ((int)measured.Width + 16, (int)measured.Height + 10);
+                var size = new Size ((int)measured.Width + 16 + (ToolTipIcon == ToolTipIcon.None ? 0 : TipLabel.IconInset), (int)measured.Height + 10);
 
                 // Upstream asks before every show and a cancelled Popup shows nothing (W6.1 sweep).
                 var popup_args = new PopupEventArgs (window as IWin32Window ?? control, control, IsBalloon, size);
@@ -301,6 +383,8 @@ namespace Majorsilence.Forms
                 // A handler may resize the tip through the args, as upstream honours (W6.2 sweep).
                 popup.Size = popup_args.ToolTipSize;
 
+                BeginFade ();
+
                 // Offset below/right of the cursor like a standard tooltip.
                 popup.Show (control, at.X + 12, at.Y + 18);
             } catch {
@@ -311,6 +395,7 @@ namespace Majorsilence.Forms
         private void HidePopup ()
         {
             try {
+                fade_timer?.Stop ();
                 popup?.Hide ();
             } catch {
             }

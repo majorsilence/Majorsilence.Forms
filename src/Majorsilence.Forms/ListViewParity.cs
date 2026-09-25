@@ -127,7 +127,22 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets whether the control lays out right to left when RightToLeft is set.</summary>
-        public bool RightToLeftLayout { get; set; }
+        /// <remarks>Real as of W6 mechanisms: with <see cref="Control.RightToLeft"/> at <c>Yes</c>, the
+        /// Details columns -- header, cells, dividers and hit-testing -- run from the right edge. Changing
+        /// it raises <see cref="RightToLeftLayoutChanged"/>.</remarks>
+        public bool RightToLeftLayout {
+            get => right_to_left_layout;
+            set {
+                if (right_to_left_layout == value)
+                    return;
+
+                right_to_left_layout = value;
+                OnRightToLeftLayoutChanged (EventArgs.Empty);
+                Invalidate ();
+            }
+        }
+
+        private bool right_to_left_layout;
 
         /// <summary>Gets or sets the size of tiles in tile view.</summary>
         public Size TileSize {

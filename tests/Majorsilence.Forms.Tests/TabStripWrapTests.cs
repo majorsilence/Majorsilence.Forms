@@ -9,7 +9,8 @@ namespace Majorsilence.Forms.Tests
     {
         private static TabControl BuildTabs (int pageCount, int width)
         {
-            var tc = new TabControl { Width = width, Height = 400 };
+            // Multiline, as upstream requires for wrapping; a single-row strip scrolls instead (W6 mechanisms).
+            var tc = new TabControl { Width = width, Height = 400, Multiline = true };
             for (var i = 0; i < pageCount; i++)
                 tc.TabPages.Add (new TabPage ($"Long Page Caption {i}"));
             return tc;

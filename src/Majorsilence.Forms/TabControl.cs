@@ -204,8 +204,26 @@ namespace Majorsilence.Forms
             return page.ImageIndex >= 0 && page.ImageIndex < images.Count ? images[page.ImageIndex] : null;
         }
 
-        /// <summary>Gets or sets whether more than one row of tabs can be displayed. Stub in Majorsilence.Forms.</summary>
-        public bool Multiline { get; set; }
+        /// <summary>Gets or sets whether more than one row of tabs can be displayed.</summary>
+        /// <remarks>
+        /// Real as of W6 mechanisms, with upstream's default of <c>false</c>: a single row of tabs that
+        /// scrolls through a pair of arrows at the trailing edge when the tabs overflow the strip, the
+        /// selected tab always scrolled into view. <c>true</c> wraps the tabs into as many rows as they
+        /// need, which is what this control did unconditionally before.
+        /// </remarks>
+        public bool Multiline {
+            get => multiline;
+            set {
+                if (multiline == value)
+                    return;
+
+                multiline = value;
+                tab_strip.PerformLayout ();
+                tab_strip.Invalidate ();
+            }
+        }
+
+        private bool multiline;
 
         /// <summary>Gets or sets the alignment of the tabs.</summary>
         /// <remarks>
@@ -287,8 +305,23 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether tab pages show their tooltips. Stub in Majorsilence.Forms.</summary>
         public bool ShowToolTips { get; set; }
 
-        /// <summary>Gets or sets the visual appearance of the tab control. Stub in Majorsilence.Forms.</summary>
-        public TabAppearance Appearance { get; set; } = TabAppearance.Normal;
+        /// <summary>Gets or sets the visual appearance of the tab control.</summary>
+        /// <remarks>Read by the strip renderer as of W6 mechanisms: <see cref="TabAppearance.Buttons"/>
+        /// draws every tab as a raised button, pressed when selected; <see cref="TabAppearance.FlatButtons"/>
+        /// draws flat ones with the selected tab filled. Neither draws the accent underline that
+        /// <see cref="TabAppearance.Normal"/> marks the selected tab with.</remarks>
+        public TabAppearance Appearance {
+            get => appearance;
+            set {
+                if (appearance == value)
+                    return;
+
+                appearance = value;
+                tab_strip.Invalidate ();
+            }
+        }
+
+        private TabAppearance appearance = TabAppearance.Normal;
 
         /// <summary>Gets or sets whether tabs are highlighted when mouse hovers. Stub in Majorsilence.Forms.</summary>
         public bool HotTrack { get; set; }

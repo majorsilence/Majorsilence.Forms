@@ -227,7 +227,20 @@ namespace Majorsilence.Forms
         public const int NoMatches = -1;
 
         /// <summary>Gets or sets whether <see cref="CustomTabOffsets"/> is used.</summary>
-        public bool UseCustomTabOffsets { get; set; }
+        /// <remarks>Read by the renderer as of W6 mechanisms: on, tabs expand to the custom stops
+        /// (logical pixels from the item's left edge), then to the default spacing beyond the last.</remarks>
+        public bool UseCustomTabOffsets {
+            get => use_custom_tab_offsets;
+            set {
+                if (use_custom_tab_offsets == value)
+                    return;
+
+                use_custom_tab_offsets = value;
+                Invalidate ();
+            }
+        }
+
+        private bool use_custom_tab_offsets;
 
         /// <summary>Gets the tab stops used when <see cref="UseCustomTabOffsets"/> is set.</summary>
         public IntegerCollection CustomTabOffsets => custom_tab_offsets ??= new IntegerCollection ();
@@ -250,14 +263,10 @@ namespace Majorsilence.Forms
         public int IndexFromPoint (Point p) => IndexFromPoint (p.X, p.Y);
 
         /// <inheritdoc cref="IndexFromPoint(Point)"/>
-        public int IndexFromPoint (int x, int y)
-        {
-            if (!ClientRectangle.Contains (x, y))
-                return -1;
-
-            var index = y / Math.Max (1, ItemHeight);
-            return index >= 0 && index < Items.Count ? index : -1;
-        }
+        /// <remarks>The same hit-test the mouse uses, in logical units (W6 mechanisms): it used to
+        /// divide y by the item height from row 0, so it ignored scrolling, the display scale and the
+        /// column layout.</remarks>
+        public int IndexFromPoint (int x, int y) => GetIndexAtLocation (new Point (x, y));
 
         /// <summary>A collection of integers, used for a list box's custom tab stops.</summary>
         public class IntegerCollection : IList<int>

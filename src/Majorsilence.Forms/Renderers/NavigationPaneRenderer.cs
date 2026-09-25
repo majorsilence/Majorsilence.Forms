@@ -36,10 +36,17 @@ public class NavigationPaneRenderer : Renderer<NavigationPane>
         var font = item.Selected || item.Hovered ? Theme.UIFontBold : Theme.UIFont;
         var font_size = e.LogicalToDeviceUnits (Theme.FontSize);
 
-        e.Canvas.DrawText (item.Text, font, font_size, bounds, font_color, ContentAlignment.MiddleCenter);
+        // The item's Padding insets its content (W6 mechanisms).
+        var content = new Rectangle (
+            bounds.Left + e.LogicalToDeviceUnits (item.Padding.Left),
+            bounds.Top + e.LogicalToDeviceUnits (item.Padding.Top),
+            Math.Max (0, bounds.Width - e.LogicalToDeviceUnits (item.Padding.Horizontal)),
+            Math.Max (0, bounds.Height - e.LogicalToDeviceUnits (item.Padding.Vertical)));
+
+        e.Canvas.DrawText (item.Text, font, font_size, content, font_color, ContentAlignment.MiddleCenter);
 
         if (item.ImageSK is SKBitmap image) {
-            var image_rect = bounds.CenterSquare (e.LogicalToDeviceUnits (20));
+            var image_rect = content.CenterSquare (e.LogicalToDeviceUnits (20));
             e.Canvas.DrawBitmap (image, image_rect, !item.Enabled);
         }
 

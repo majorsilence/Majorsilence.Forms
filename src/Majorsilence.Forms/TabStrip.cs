@@ -83,7 +83,76 @@ namespace Majorsilence.Forms
         }
 
         // Returns the tab at the specified location.
-        private TabStripItem? GetTabAtLocation (Point location) => Tabs.FirstOrDefault (tp => tp.Bounds.Contains (location));
+        private TabStripItem? GetTabAtLocation (Point location)
+            => ScrollArrowBand.Contains (location) ? null : Tabs.FirstOrDefault (tp => tp.Bounds.Contains (location));
+
+        // Single-row scrolling (TabControl.Multiline = false, W6 mechanisms). The tabs are laid out in
+        // one row shifted left by scroll_offset (logical); when they overflow the strip an arrow band
+        // at the trailing edge scrolls them a tab at a time, and selecting a tab scrolls it into view.
+        private int scroll_offset;
+
+        /// <summary>The logical width the arrow band takes when the tabs overflow a single-row strip.</summary>
+        internal const int ScrollArrowBandWidth = 34;
+
+        /// <summary>Whether the single-row layout has more tabs than fit, so the arrows are showing.</summary>
+        internal bool TabsOverflow { get; private set; }
+
+        /// <summary>The logical band the scroll arrows occupy; empty when nothing overflows.</summary>
+        internal Rectangle ScrollArrowBand
+            => TabsOverflow
+                ? new Rectangle (DeviceToLogicalUnits (ClientRectangle.Width) - ScrollArrowBandWidth, 0, ScrollArrowBandWidth, DeviceToLogicalUnits (ClientRectangle.Height))
+                : Rectangle.Empty;
+
+        /// <summary>How far the single row is scrolled, in logical pixels.</summary>
+        internal int ScrollOffset => scroll_offset;
+
+        /// <summary>Scrolls the single row so the tab at <paramref name="index"/> is wholly visible.</summary>
+        internal void EnsureTabVisible (int index)
+        {
+            if (index < 0 || index >= Tabs.Count || OwnerTabControl is not { Multiline: false })
+                return;
+
+            var bounds = Tabs[index].Bounds;
+            var visible_right = DeviceToLogicalUnits (ClientRectangle.Width) - (TabsOverflow ? ScrollArrowBandWidth : 0);
+
+            if (bounds.Left < 0)
+                scroll_offset = Math.Max (0, scroll_offset + bounds.Left);
+            else if (bounds.Right > visible_right)
+                scroll_offset += bounds.Right - visible_right;
+            else
+                return;
+
+            LayoutTabs ();
+            Invalidate ();
+        }
+
+        // A click in the arrow band scrolls one tab in that direction: the leading half backwards,
+        // the trailing half forwards.
+        private void ScrollByArrow (Point location)
+        {
+            var band = ScrollArrowBand;
+            var forward = location.X >= band.Left + band.Width / 2;
+            var first_hidden = -1;
+
+            if (forward) {
+                for (var i = 0; i < Tabs.Count; i++)
+                    if (Tabs[i].Bounds.Right > band.Left) { first_hidden = i; break; }
+            } else {
+                for (var i = Tabs.Count - 1; i >= 0; i--)
+                    if (Tabs[i].Bounds.Left < 0) { first_hidden = i; break; }
+            }
+
+            if (first_hidden < 0)
+                return;
+
+            if (forward)
+                scroll_offset += Tabs[first_hidden].Bounds.Right - band.Left;
+            else
+                scroll_offset = Math.Max (0, scroll_offset + Tabs[first_hidden].Bounds.Left);
+
+            LayoutTabs ();
+            Invalidate ();
+        }
 
         /// <inheritdoc/>
         /// <remarks>
@@ -131,6 +200,16 @@ namespace Majorsilence.Forms
             // so on a 2x display tabs got device-sized rows and a logical width, and a click aimed at one
             // tab landed on another. Identity at scaling 1.
             var avail = Math.Max (60, DeviceToLogicalUnits (ClientRectangle.Width));
+
+            // A single row (Multiline = false, upstream's default) never wraps: the overflow scrolls
+            // behind the arrow band instead (W6 mechanisms). An owner-less strip keeps wrapping.
+            if (owner is { Multiline: false }) {
+                LayoutTabsInOneRow (row_height, item_size, size_mode, avail);
+                return;
+            }
+
+            TabsOverflow = false;
+            scroll_offset = 0;
 
             // Widths first, then rows, because SizeMode.FillToRight has to know how many tabs share a
             // row before it can hand out the slack.
@@ -195,6 +274,43 @@ namespace Majorsilence.Forms
             var y = Dock == DockStyle.Bottom ? Bottom - height : Top;
 
             SetBounds (x, y, width, height);
+        }
+
+        // Multiline = false: every tab at its measured width in one row, shifted by the scroll offset.
+        // FillToRight stretches the row only when it fits; an overflowing row has no slack to share.
+        private void LayoutTabsInOneRow (int rowHeight, Size itemSize, TabSizeMode sizeMode, int available)
+        {
+            RowCount = 1;
+
+            var widths = new int[Tabs.Count];
+            var total = 0;
+
+            for (var i = 0; i < Tabs.Count; i++) {
+                widths[i] = Math.Max (1, MeasureTab (Tabs[i], itemSize, sizeMode));
+                total += widths[i];
+            }
+
+            TabsOverflow = total > available;
+
+            if (!TabsOverflow) {
+                scroll_offset = 0;
+
+                if (sizeMode == TabSizeMode.FillToRight)
+                    FillRowsToRight (widths, new int[Tabs.Count], available);
+            } else {
+                // Never scroll past the point where the last tab sits against the arrow band.
+                scroll_offset = Math.Max (0, Math.Min (scroll_offset, total - (available - ScrollArrowBandWidth)));
+            }
+
+            var offset = -scroll_offset;
+
+            for (var i = 0; i < Tabs.Count; i++) {
+                Tabs[i].SetBounds (offset, 0, widths[i], rowHeight);
+                offset += widths[i];
+            }
+
+            if (Height != rowHeight)
+                ResizeKeepingDockedEdge (Width, rowHeight);
         }
 
         // Alignment = Left/Right: one column of full-width tabs, and the strip takes the width of the
@@ -262,8 +378,14 @@ namespace Majorsilence.Forms
             // raised the new tab is already current. Selecting in OnMouseClick instead meant every
             // Click handler observed the tab the user had just left -- and migrated code reads
             // SelectedTab inside Click to decide which tab's data to load.
-            if (e.Button == MouseButtons.Left)
+            if (e.Button == MouseButtons.Left) {
+                if (ScrollArrowBand.Contains (e.Location)) {
+                    ScrollByArrow (e.Location);
+                    return;
+                }
+
                 SelectTabAt (e.Location);
+            }
         }
 
         /// <inheritdoc/>
@@ -425,6 +547,7 @@ namespace Majorsilence.Forms
                 Tabs.SelectedIndex = value;
                 OnSelectedTabChanged (EventArgs.Empty);
 
+                EnsureTabVisible (value);
                 Invalidate ();
             }
         }

@@ -411,10 +411,19 @@ namespace Majorsilence.Forms
 
                 var dropdown_location = Point.Empty;
 
-                // A submenu opens to the SIDE of its parent drop down, everything else opens BELOW its
-                // host bar. MenuDropDown must be tested first: it now derives from ToolStrip (and so
-                // from ToolBar), so the bar arm would otherwise claim it and drop submenus downwards.
-                if (OwnerControl is MenuDropDown)
+                // DropDownDirection (W6 mechanisms): the item's own, else the strip's default, decides
+                // which way the drop-down opens. Default keeps the rule below: a submenu opens to the
+                // SIDE of its parent drop down, everything else opens BELOW its host bar. MenuDropDown
+                // must be tested first: it now derives from ToolStrip (and so from ToolBar), so the
+                // bar arm would otherwise claim it and drop submenus downwards.
+                var direction = (this as ToolStripDropDownItem)?.DropDownDirection ?? ToolStripDropDownDirection.Default;
+
+                if (direction == ToolStripDropDownDirection.Default && OwnerControl is ToolStrip { DefaultDropDownDirection: var strip_default })
+                    direction = strip_default;
+
+                if (direction != ToolStripDropDownDirection.Default)
+                    dropdown_location = OwnerControl.PointToScreen (DropDownAnchor (direction, dropdown.PreferredPopupSize));
+                else if (OwnerControl is MenuDropDown)
                     dropdown_location = OwnerControl.PointToScreen (new Point (Bounds.Right - 1, Bounds.Top));
                 else if (OwnerControl is Menu || OwnerControl is ToolBar)
                     dropdown_location = OwnerControl.PointToScreen (new Point (Bounds.Left + 1, Bounds.Bottom));
@@ -423,6 +432,17 @@ namespace Majorsilence.Forms
                 IsDropDownOpened = true;
             }
         }
+
+        // Where a drop-down of the given size goes for a direction, in the owner's client space: the
+        // corner of the item the direction names, less the drop-down's extent when it opens left or up.
+        private Point DropDownAnchor (ToolStripDropDownDirection direction, Size size) => direction switch {
+            ToolStripDropDownDirection.AboveLeft => new Point (Bounds.Right - size.Width, Bounds.Top - size.Height),
+            ToolStripDropDownDirection.AboveRight => new Point (Bounds.Left + 1, Bounds.Top - size.Height),
+            ToolStripDropDownDirection.BelowLeft => new Point (Bounds.Right - size.Width, Bounds.Bottom),
+            ToolStripDropDownDirection.Left => new Point (Bounds.Left - size.Width, Bounds.Top),
+            ToolStripDropDownDirection.Right => new Point (Bounds.Right - 1, Bounds.Top),
+            _ => new Point (Bounds.Left + 1, Bounds.Bottom),
+        };
 
         private string text = string.Empty;
 

@@ -18,7 +18,7 @@ public partial class ImageList : Component
     /// </summary>
     public ImageList ()
     {
-        Images = new (s_defaultImageSize);
+        Images = new (s_defaultImageSize) { Transform = ApplyTransparentColor };
     }
 
     /// <summary>
@@ -26,8 +26,23 @@ public partial class ImageList : Component
     /// </summary>
     public ImageList (System.ComponentModel.IContainer container)
     {
-        Images = new (s_defaultImageSize);
+        Images = new (s_defaultImageSize) { Transform = ApplyTransparentColor };
         container.Add (this);
+    }
+
+    // The colour key is applied as an image is added, which is when upstream applies it too: a
+    // change to TransparentColor affects images added afterwards.
+    private SKBitmap ApplyTransparentColor (SKBitmap bitmap)
+    {
+        var key = TransparentColor;
+
+        if (key.IsEmpty || key.A == 0)
+            return bitmap;
+
+        var keyed = ColorKeyedBitmaps.Apply (bitmap, new SKColor (key.R, key.G, key.B, key.A));
+
+        // Apply returns a cached copy tied to the source; the collection owns what it stores.
+        return ReferenceEquals (keyed, bitmap) ? bitmap : keyed.Copy ();
     }
 
     /// <summary>
@@ -46,7 +61,9 @@ public partial class ImageList : Component
     /// <summary>Gets or sets the color depth used by the image list. Stored but not enforced in Majorsilence.Forms.</summary>
     public ColorDepth ColorDepth { get; set; } = ColorDepth.Depth32Bit;
 
-    /// <summary>Gets or sets the color to treat as transparent. Stub in Majorsilence.Forms (images keep their own alpha).</summary>
+    /// <summary>Gets or sets the color to treat as transparent.</summary>
+    /// <remarks>Real as of W6 mechanisms: every pixel of this colour in an image added afterwards is
+    /// made transparent, as upstream keys images on add. The default, <c>Transparent</c>, keys nothing.</remarks>
     public System.Drawing.Color TransparentColor { get; set; } = System.Drawing.Color.Transparent;
 
     /// <summary>
