@@ -370,7 +370,30 @@ namespace Majorsilence.Forms
 
 
         /// <summary>Resets the selected property to its default value.</summary>
-        public void ResetSelectedProperty () { }
+        /// <summary>Puts the selected property back to its default value.</summary>
+        /// <remarks>
+        /// Real as of W6 mechanisms, now that the grid has an item tree to select in and a path that
+        /// writes values: the property's own <c>ResetValue</c> is called when it can be reset, the row
+        /// picks up the new value, and the change is announced through <c>PropertyValueChanged</c> as
+        /// an edit would be. A property that cannot be reset, or no selection, does nothing.
+        /// </remarks>
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2026", Justification = "PropertyGrid resets through TypeDescriptor at runtime; trimming is not supported for this control.")]
+        public void ResetSelectedProperty ()
+        {
+            if (SelectedGridItem is not { PropertyDescriptor: { } property } item || SelectedObject is not { } target)
+                return;
+
+            if (!property.CanResetValue (target))
+                return;
+
+            var old = item.Value;
+
+            property.ResetValue (target);
+            item.Value = property.GetValue (target);
+
+            OnPropertyValueChanged (new PropertyValueChangedEventArgs (item, old!));
+            Invalidate ();
+        }
 
         /// <summary>Raised when the sort order changes.</summary>
         public event EventHandler? PropertySortChanged;

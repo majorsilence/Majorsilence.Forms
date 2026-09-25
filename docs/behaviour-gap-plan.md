@@ -3738,6 +3738,47 @@ a table cell — so there is no free space for an item to anchor or dock against
 9 tests; two neutralization rounds (the layout settings; the rafting, the frozen rule, the wrapper and
 the keyboard press), failing 3 and 5 of the 9, snapshot verified before and after.
 
+**W6 mechanisms, sixteenth chunk: methods that did nothing. — 2026-09-25.** Part of #91.
+Six empty-bodied public methods, from a seam the other baselines do not cover.
+
+The stored-only and unraised-event baselines describe *state* that is never read and *events* that are
+never raised. Neither sees a method that takes its arguments and returns without doing anything, which
+reads as working code at the call site — worse than a member that is simply missing. The
+`NoOpStubBaseline` has been recording those all along; this is the first chunk to work it.
+
+- **`Control.DrawToBitmap`** paints the control and its children into the caller's bitmap, through the
+  same pipeline a real paint uses. It did nothing, so the standard "screenshot a control" idiom
+  produced a blank image. `targetBounds` is in the bitmap's own DEVICE pixels, clipped to the bitmap
+  and to the control, because the paint pipeline places children by their device bounds — a canvas at
+  1:1 puts them in the wrong place on a scaled display, which is what the scale-2 gate caught.
+- **`RichTextBox.Redo`** puts back what `Undo` reverted, and `CanRedo`/`RedoActionName`/
+  `UndoActionName` answer from the same buffer. The document keeps the single-level buffer a Win32
+  edit control keeps, which `Undo` toggles, so a redo is a second undo. Deviation from upstream's rich
+  edit, which keeps a multi-level stack and can tell the two directions apart.
+- **`PropertyGrid.ResetSelectedProperty`** calls the property's own `ResetValue` when it can be reset,
+  refreshes the row and announces the change through `PropertyValueChanged`, as an edit does. It could
+  not have worked before the twelfth chunk gave the grid an item tree and a write path.
+- **`ColumnHeader.AutoResize`** forwards to the list's own `AutoResizeColumn`, which already measured
+  headers and contents; only the per-header entry point was empty.
+- **`ImageCollection.SetKeyName`** renames an image in place, keeping its position and its bitmap, so
+  a control's `ImageKey` finds it. It did nothing, which left the generated key and made any lookup by
+  the new name empty.
+- **`Clipboard.SetImage`** stores the image, and `GetImage`/`ContainsImage` answer from it. The
+  platform backends carry text only, so this clipboard is **in-process** — the same shape the
+  in-process drag session took, and recorded as a deviation rather than left as three members that
+  accept an image and drop it. `Clear` takes it away with the text.
+
+*Counts.* No-op stubs **124 → 118**. The stored-only and unraised baselines are unchanged, which is
+the point: this seam is invisible to them.
+
+*Not done:* the rest of the no-op baseline is mostly genuinely blocked — the browser placeholder, the
+Win32 handle family, the reversible-frame and HDC drawing that needs a device context, `SendKeys`, the
+visual-style renderers. The `ISupportInitialize` pairs (`BeginInit`/`EndInit` on the spinners, the
+track bar, the status-bar panel) would want layout suspension between them and are worth a look.
+
+7 tests; two neutralization rounds (the bitmap and the redo; the grid reset, the column resize, the
+image key and the clipboard), failing 3 and 4 of the 7, snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

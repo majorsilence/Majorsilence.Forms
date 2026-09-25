@@ -13,9 +13,27 @@ namespace Majorsilence.Forms;
 /// </summary>
 public class ImageCollection : IDictionary<string, SKBitmap>
 {
-        /// <summary>Sets the key of the image at the given index. Mirrors WinForms ImageList.ImageCollection.</summary>
+        /// <summary>Sets the key of the image at the given index.</summary>
+        /// <remarks>Real as of W6 mechanisms: the image keeps its position and its bitmap and answers
+        /// to the new key, so <c>ImageKey</c> on a control finds it. It used to do nothing, which left
+        /// the generated key in place and any lookup by the new name empty. An index outside the
+        /// collection throws, as upstream's does.</remarks>
         public void SetKeyName (int index, string name)
         {
+            if (index < 0 || index >= _images.Count)
+                throw new ArgumentOutOfRangeException (nameof (index));
+
+            // Rebuilt rather than re-keyed in place: the order is what the index accessors read, and
+            // an OrderedDictionary cannot rename a key without losing its position.
+            var renamed = new OrderedDictionary ();
+            var i = 0;
+
+            foreach (System.Collections.DictionaryEntry entry in _images) {
+                renamed.Add (i == index ? name ?? string.Empty : entry.Key, entry.Value);
+                i++;
+            }
+
+            _images = renamed;
         }
 
     // We can't use a normal Dictionary because we need to be able to access images by index
