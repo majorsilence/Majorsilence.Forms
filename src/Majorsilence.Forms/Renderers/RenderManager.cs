@@ -27,6 +27,7 @@
             SetRenderer<PictureBox> (new PictureBoxRenderer ());
             SetRenderer<PrintPreviewControl> (new PrintPreviewRenderer ());
             SetRenderer<ProgressBar> (new ProgressBarRenderer ());
+            SetRenderer<PropertyGrid> (new PropertyGridRenderer ());
             SetRenderer<RadioButton> (new RadioButtonRenderer ());
             SetRenderer<Ribbon> (new RibbonRenderer ());
             SetRenderer<ScrollableControl> (new ScrollableControlRenderer ());

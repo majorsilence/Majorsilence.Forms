@@ -120,13 +120,13 @@ namespace Majorsilence.Forms
 
     public partial class PropertyGrid
     {
-        /// <summary>Gets or sets the renderer used for the grid's own tool strip.</summary>
-        /// <remarks>
-        /// The grid carries a small strip of category/alphabetical buttons, and this is how a themed grid
-        /// restyles it. Stored and returned: the strip is drawn by this library's own renderer, so the
-        /// value is not consulted -- but it must round-trip, because a themed grid reads back what it set.
-        /// </remarks>
-        protected ToolStripRenderer? ToolStripRenderer { get; set; }
+        /// <summary>Gets or sets the renderer the grid's toolbar paints with.</summary>
+        /// <remarks>Read as of W6 mechanisms: assigned straight to that toolbar, which is a real
+        /// <see cref="ToolStrip"/> as of the same chunk.</remarks>
+        protected ToolStripRenderer? ToolStripRenderer {
+            get => Toolbar.Renderer;
+            set => Toolbar.Renderer = value;
+        }
     }
 
     public partial class UpDownBase

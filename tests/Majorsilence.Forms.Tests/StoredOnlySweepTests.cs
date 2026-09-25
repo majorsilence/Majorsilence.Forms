@@ -319,8 +319,10 @@ public class StoredOnlySweepTests
         form.Controls.Add (grid);
         form.Show ();
         grid.Focus ();
-        // Row 0 is the "Misc" category band; row 1 is Name. Rows are 22 logical pixels tall.
-        grid.RaiseMouseDown (new MouseEventArgs (MouseButtons.Left, 1, 10, 22 + 11, 0));
+        // Row 0 is the "Misc" category band; row 1 is Name. The rows sit below the toolbar, so their
+        // position comes from the grid; RowBounds is device and the mouse is logical (RC-8).
+        var name_row = grid.DeviceToLogicalUnits (grid.RowBounds (1));
+        grid.RaiseMouseDown (new MouseEventArgs (MouseButtons.Left, 1, 10, name_row.Top + (name_row.Height / 2), 0));
 
         using var bitmap = PaintSurface.Render (grid);
         var pixels = new HashSet<SKColor> ();

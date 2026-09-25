@@ -99,11 +99,18 @@ public class DiscardedHandlerEventTests
         grid.SelectedObject = target;
         Assert.Equal (1, objects);
 
-        // Row 0 is the category band; rows are 22 logical pixels tall.
-        grid.RaiseMouseDown (new MouseEventArgs (MouseButtons.Left, 1, 10, 22 + 11, 0));
-        grid.RaiseMouseDown (new MouseEventArgs (MouseButtons.Left, 1, 10, 22 + 11, 0));
+        // Row 0 is the category band. The rows sit below the toolbar, so their position is taken from
+        // the grid rather than assumed, and RowBounds is device while the mouse is logical (RC-8).
+        void ClickRow (int index)
+        {
+            var row = grid.DeviceToLogicalUnits (grid.RowBounds (index));
+            grid.RaiseMouseDown (new MouseEventArgs (MouseButtons.Left, 1, 10, row.Top + (row.Height / 2), 0));
+        }
+
+        ClickRow (1);
+        ClickRow (1);
         Assert.Equal (1, items);
-        grid.RaiseMouseDown (new MouseEventArgs (MouseButtons.Left, 1, 10, 44 + 11, 0));
+        ClickRow (2);
         Assert.Equal (2, items);
     }
 

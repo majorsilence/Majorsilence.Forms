@@ -60,8 +60,6 @@ Majorsilence.Forms.NotifyIcon.DoubleClick    -- needs a tray backend capability
 Majorsilence.Forms.NotifyIcon.MouseClick    -- needs a tray backend capability
 Majorsilence.Forms.NotifyIcon.MouseDoubleClick    -- needs a tray backend capability
 Majorsilence.Forms.NotifyIcon.MouseMove    -- needs a tray backend capability
-Majorsilence.Forms.PropertyGrid.PropertyTabChanged    -- no property tabs
-Majorsilence.Forms.PropertyGrid.PropertyValueChanged    -- the grid is read-only; no value editing
 Majorsilence.Forms.RichTextBox.ContentsResized    -- the box lays itself out; no content-size notification to relay
 Majorsilence.Forms.RichTextBox.ImeChange    -- IME composition; no IME path
 Majorsilence.Forms.RichTextBox.Protected    -- no protected-text ranges to defend
