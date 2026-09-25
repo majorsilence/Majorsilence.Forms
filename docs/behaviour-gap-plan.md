@@ -3331,6 +3331,55 @@ the grid; the ListView's is done), the DataGrid family, and the rest of the anno
 new-row events and promotion; the placeholder itself; the toolbar mirror and the two strip fixes),
 snapshot verified before and after.
 
+**W6 mechanisms, eighth chunk: the strip layout cluster. — 2026-09-24.** Part of #91.
+
+- **Overflow.** `ToolStrip.CanOverflow` is read by the layout: items that do not fit a stack layout
+  move into `OverflowButton`'s drop-down -- `ToolStripItem.Overflow` Always first, then AsNeeded from
+  the trailing end until the rest fits beside the button, Never staying put -- and report
+  `Placement == Overflow` (`IsOnOverflow`). They stay in `Items`, as upstream keeps them: the move is
+  between the base collection the layout reads and the button's own item collection, and every
+  layout pass starts by moving them back so the decision is fresh; the strip's `ItemAdded`/`ItemRemoved`
+  stay quiet for the layout's moves, and an item removed while overflowed leaves the drop-down. The
+  button is laid out at the trailing edge while anything is in it, painted through the renderer's
+  `DrawOverflowButtonBackground`, and opens like any drop-down button. An unsized strip (a docked strip
+  in a form that is not shown has no width at all -- found here, pre-existing) overflows nothing.
+- **Layout styles.** `LayoutStyle` drives the arrangement: `HorizontalStackWithOverflow` and
+  `VerticalStackWithOverflow` stack along their axis (a vertical strip reserves its grip band along the
+  top, pins `Alignment.Right` items to the bottom, and reports a preferred size from its items
+  stacked); `StackWithOverflow` follows the docked edge through a derived `Orientation`, as upstream's
+  is (a hand-set value still wins); `Flow` wraps items into rows with no overflow, and `Table` is laid
+  out as Flow. `ToolBar.LayoutItems` was split into `ReserveGripBand` and `ArrangeItems` for this.
+- **`TextDirection`.** The strip's, or the item's when it does not inherit, is read by the renderer:
+  vertical text is measured with its extents swapped and drawn rotated 90° or 270° about its box; the
+  resolved direction reaches `ToolStripItemTextRenderEventArgs.TextDirection` and a handler's answer
+  is honoured.
+- **Merge.** `ToolStripManager.Merge` and the three `RevertMerge` overloads are real: both strips must
+  `AllowMerge`; items match by `Text`, as upstream; `MergeAction.Append`/`Insert` (at `MergeIndex`) move
+  the item over, `Replace` puts it in the matching item's place, `Remove` takes the matching item out
+  and stays home, `MatchOnly` recurses into the matching item's drop-down; every move is recorded so
+  a revert restores both strips exactly. It reads each strip's real item collection -- `Menu`,
+  `MenuDropDown` and the drop-downs bypass the `ToolStrip.Items` facade (TSM-08), which the first cut
+  of this merged from and found empty. `ToolStripMenuItem`'s shadowing `MergeAction`/`MergeIndex`
+  now forward to the base values the merge reads.
+- **Rafting panel.** `ToolStripPanel`'s row layout honours `RowMargin` around the rows and each
+  `ToolStripPanelRow.Margin`, records each row's `Bounds`, and reads `Stretch`: a strip that asks for
+  it spans the row, one that does not keeps its content width (`ToolBar.ItemsPreferredSize`), as an
+  auto-sized upstream `ToolStrip` does; `MenuStrip` and `StatusStrip` default `Stretch` on, as their
+  upstream constructors do. The panel's and `ToolStripContentPanel`'s backgrounds go through their
+  renderer (`Renderer`, else `RenderMode`) and a handler marking the args handled replaces the fill;
+  the two render-args types gained the constructor and `Graphics` assignment they lacked.
+
+*Counts.* Stored-only **473 → 454**. Unraised unchanged (75). `ToolStrip.LayoutSettings` and
+`ToolStripPanel.Locked` stay, re-annotated with what is actually missing (no settings are read; no
+rafting drag gesture). Three existing tests changed their premise to upstream's: `Stretch` defaults per
+strip type, and a rafting row is the panel width less its `RowMargin`.
+
+*Not done:* `LayoutSettings` (flow and table settings), the rafting drag (`Locked`), `Table` as a real
+table, and DataGridView `ColumnDisplayIndexChanged`.
+
+10 tests; two neutralization rounds (overflow, layout styles and text direction; merge and the
+panels), snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

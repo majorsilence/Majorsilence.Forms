@@ -79,7 +79,9 @@ public class StripHierarchyTests
         Assert.Equal (
             strip is MenuStrip or StatusStrip ? ToolStripGripStyle.Hidden : ToolStripGripStyle.Visible,
             strip.GripStyle);
-        Assert.False (strip.Stretch);
+        // Stretch is per type too, as upstream's constructors have it: a MenuStrip and a StatusStrip
+        // span their rafting panel's row, a ContextMenuStrip (a ToolStrip) keeps its preferred size (W6).
+        Assert.Equal (strip is MenuStrip or StatusStrip, strip.Stretch);
         Assert.True (strip.CanOverflow);
         Assert.Equal (new Size (16, 16), strip.ImageScalingSize);
     }

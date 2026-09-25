@@ -47,6 +47,14 @@ namespace Majorsilence.Forms.Renderers
             };
         }
 
+        /// <summary>The renderer a rafting or content panel paints with: its own, else the one its mode names.</summary>
+        internal static ToolStripRenderer ResolveMode (ToolStripRenderer? own, ToolStripRenderMode mode)
+            => own ?? mode switch {
+                ToolStripRenderMode.System => system,
+                ToolStripRenderMode.Professional => professional,
+                _ => ToolStripManager.Renderer ?? (ToolStripManager.RenderMode == ToolStripManagerRenderMode.System ? system : professional),
+            };
+
         // ---- strip-level parts. No Handled on these args, so the default painting always follows.
 
         internal static void Background (ToolBar control, PaintEventArgs e)
@@ -78,6 +86,7 @@ namespace Majorsilence.Forms.Renderers
             var args = new ToolStripItemRenderEventArgs (e.Graphics, strip_item);
 
             switch (strip_item) {
+                case ToolStripOverflowButton: r.DrawOverflowButtonBackground (args); break;
                 case ToolStripSplitButton: r.DrawSplitButton (args); break;
                 case ToolStripDropDownButton: r.DrawDropDownButtonBackground (args); break;
                 case ToolStripMenuItem when control is MenuDropDown: r.DrawMenuItemBackground (args); break;
@@ -121,16 +130,26 @@ namespace Majorsilence.Forms.Renderers
 
         /// <summary>The text parts after the renderer has seen them; null when handled and nothing should be drawn.</summary>
         internal static (string text, Rectangle rect, SKColor colour)? Text (ToolBar control, MenuItem item, string text, Rectangle deviceRect, SKColor colour, PaintEventArgs e)
+            => TextDirected (control, item, text, deviceRect, colour, ToolStripTextDirection.Horizontal, e) is { } parts
+                ? (parts.text, parts.rect, parts.colour)
+                : null;
+
+        /// <summary>The text parts after the renderer has seen them, direction included; null when handled.</summary>
+        /// <remarks>The renderer args carry the direction the strip resolved (<c>TextDirection</c>), and a
+        /// handler may change it along with the text, rectangle and colour (W6 mechanisms).</remarks>
+        internal static (string text, Rectangle rect, SKColor colour, ToolStripTextDirection direction)? TextDirected (ToolBar control, MenuItem item, string text, Rectangle deviceRect, SKColor colour, ToolStripTextDirection direction, PaintEventArgs e)
         {
             if (Resolve (control) is not { } r || item is not ToolStripItem strip_item)
-                return (text, deviceRect, colour);
+                return (text, deviceRect, colour, direction);
 
             var args = new ToolStripItemTextRenderEventArgs (e.Graphics, strip_item, text, deviceRect,
-                colour.ToDrawingColor (), strip_item.Font ?? Control.DefaultFont, TextFormatFlags.Default);
+                colour.ToDrawingColor (), strip_item.Font ?? Control.DefaultFont, TextFormatFlags.Default) {
+                TextDirection = direction,
+            };
 
             r.DrawItemText (args);
 
-            return args.Handled ? null : (args.Text, args.TextRectangle, args.TextColor.ToSKColor ());
+            return args.Handled ? null : (args.Text, args.TextRectangle, args.TextColor.ToSKColor (), args.TextDirection);
         }
 
         /// <summary>The arrow parts after the renderer has seen them; null when handled.</summary>

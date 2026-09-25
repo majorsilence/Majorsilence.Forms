@@ -388,8 +388,34 @@ namespace Majorsilence.Forms
 
         private ToolStripRenderer? renderer;
 
-        /// <summary>Gets or sets whether the panel uses its own renderer or the manager's.</summary>
-        public ToolStripRenderMode RenderMode { get; set; } = ToolStripRenderMode.ManagerRenderMode;
+        /// <summary>Gets or sets which renderer paints the panel's background.</summary>
+        /// <remarks>Read as of W6 mechanisms; see <c>OnPaintBackground</c>.</remarks>
+        public ToolStripRenderMode RenderMode {
+            get => render_mode;
+            set {
+                if (render_mode == value)
+                    return;
+
+                render_mode = value;
+                Invalidate ();
+            }
+        }
+
+        private ToolStripRenderMode render_mode = ToolStripRenderMode.ManagerRenderMode;
+
+        /// <inheritdoc/>
+        /// <remarks>The panel's background goes through its renderer first, as <see cref="ToolStripPanel"/>'s
+        /// does; a handler that marks the args handled replaces the default fill (W6 mechanisms).</remarks>
+        protected override void OnPaintBackground (PaintEventArgs e)
+        {
+            var args = new ToolStripContentPanelRenderEventArgs (e.Graphics, this);
+            Renderers.StripRendererBridge.ResolveMode (Renderer, RenderMode).DrawToolStripContentPanelBackground (args);
+
+            if (args.Handled)
+                return;
+
+            base.OnPaintBackground (e);
+        }
 
         /// <summary>Raised when <see cref="Renderer"/> changes.</summary>
         public event EventHandler? RendererChanged;

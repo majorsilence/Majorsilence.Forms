@@ -258,8 +258,20 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the bounds of the row.</summary>
         public Rectangle Bounds { get; set; }
 
-        /// <summary>Gets or sets the row's margin.</summary>
-        public Padding Margin { get; set; }
+        /// <summary>Gets or sets the margin around this row.</summary>
+        /// <remarks>Read by the panel's row layout as of W6 mechanisms.</remarks>
+        public Padding Margin {
+            get => margin;
+            set {
+                if (margin == value)
+                    return;
+
+                margin = value;
+                ToolStripPanel.PerformLayout ();
+            }
+        }
+
+        private Padding margin;
 
         /// <summary>Gets the orientation the row lays its strips out in.</summary>
         public Orientation Orientation

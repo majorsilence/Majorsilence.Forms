@@ -483,8 +483,20 @@ namespace Majorsilence.Forms
 
         private readonly List<ToolStripPanelRow> rows = [];
 
-        /// <summary>Gets or sets the margin around each row.</summary>
-        public Padding RowMargin { get; set; } = new Padding (3, 0, 0, 0);
+        /// <summary>Gets or sets the margin around the block of rows.</summary>
+        /// <remarks>Read by the row layout as of W6 mechanisms.</remarks>
+        public Padding RowMargin {
+            get => row_margin;
+            set {
+                if (row_margin == value)
+                    return;
+
+                row_margin = value;
+                PerformLayout ();
+            }
+        }
+
+        private Padding row_margin = new Padding (3, 0, 0, 0);
 
         /// <summary>Gets or sets the renderer used to paint the panel.</summary>
         public ToolStripRenderer? Renderer {
@@ -499,8 +511,20 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets or sets whether the panel uses its own renderer or the manager's.</summary>
-        public ToolStripRenderMode RenderMode { get; set; } = ToolStripRenderMode.ManagerRenderMode;
+        /// <summary>Gets or sets which renderer paints the panel's background.</summary>
+        /// <remarks>Read as of W6 mechanisms; see <c>OnPaintBackground</c>.</remarks>
+        public ToolStripRenderMode RenderMode {
+            get => render_mode;
+            set {
+                if (render_mode == value)
+                    return;
+
+                render_mode = value;
+                Invalidate ();
+            }
+        }
+
+        private ToolStripRenderMode render_mode = ToolStripRenderMode.ManagerRenderMode;
 
         /// <summary>Raised when <see cref="Renderer"/> changes.</summary>
         public event EventHandler? RendererChanged;

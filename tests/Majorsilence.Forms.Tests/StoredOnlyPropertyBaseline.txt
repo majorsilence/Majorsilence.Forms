@@ -421,19 +421,11 @@ Majorsilence.Forms.ToolBarButton.Name    -- legacy ToolBar.Buttons surface; stri
 Majorsilence.Forms.ToolBarButton.Rectangle    -- framework-written (outbound state)
 Majorsilence.Forms.ToolBarButton.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.ToolStrip.AllowClickThrough    -- there is no inactive-window click swallow to see through
-Majorsilence.Forms.ToolStrip.AllowMerge    -- blocked on ToolStripManager.Merge (not implemented)
-Majorsilence.Forms.ToolStrip.CanOverflow    -- blocked on overflow: items past the edge are clipped, not collected
 Majorsilence.Forms.ToolStrip.DefaultDropDownDirection    -- drop-downs open below/right only
 Majorsilence.Forms.ToolStrip.IsCurrentlyDragging    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStrip.LayoutSettings    -- blocked on vertical/flow strip layout and rafting panels
-Majorsilence.Forms.ToolStrip.Orientation    -- blocked on vertical/flow strip layout and rafting panels
-Majorsilence.Forms.ToolStrip.OverflowButton    -- blocked on overflow: items past the edge are clipped, not collected
-Majorsilence.Forms.ToolStrip.Stretch    -- blocked on vertical/flow strip layout and rafting panels
-Majorsilence.Forms.ToolStrip.TextDirection    -- blocked on vertical/flow strip layout and rafting panels
+Majorsilence.Forms.ToolStrip.LayoutSettings    -- the Flow arrangement wraps with no settings and Table is laid out as Flow (W6); nothing reads a setting
 Majorsilence.Forms.ToolStripButton.ImageTransparentColor    -- needs a colour-key filter on draw
-Majorsilence.Forms.ToolStripContentPanel.RenderMode    -- panel backgrounds are not routed through a renderer (TSM-48 remainder)
-Majorsilence.Forms.ToolStripContentPanelRenderEventArgs.Handled    -- renderer-args slot for a part no strip paints yet (TSM-48 remainder)
-Majorsilence.Forms.ToolStripContentPanelRenderEventArgs.ToolStripContentPanel    -- renderer-args slot for a part no strip paints yet (TSM-48 remainder)
+Majorsilence.Forms.ToolStripContentPanelRenderEventArgs.ToolStripContentPanel    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripControlHost.ControlAlign    -- needs alignment inside the item box; images and hosted controls fill it
 Majorsilence.Forms.ToolStripDropDown.AllowTransparency    -- needs a backend window capability (per-pixel transparency / shadow)
 Majorsilence.Forms.ToolStripDropDown.AutoClose    -- drop-downs always close on an outside click
@@ -451,24 +443,13 @@ Majorsilence.Forms.ToolStripItem.Dock    -- items are stacked by the strip; anch
 Majorsilence.Forms.ToolStripItem.ImageAlign    -- needs alignment inside the item box; images and hosted controls fill it
 Majorsilence.Forms.ToolStripItem.ImageTransparentColor    -- needs a colour-key filter on draw
 Majorsilence.Forms.ToolStripItem.IsDisposed    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripItem.MergeAction    -- blocked on ToolStripManager.Merge (not implemented)
-Majorsilence.Forms.ToolStripItem.MergeIndex    -- blocked on ToolStripManager.Merge (not implemented)
-Majorsilence.Forms.ToolStripItem.Overflow    -- blocked on overflow: items past the edge are clipped, not collected
 Majorsilence.Forms.ToolStripItem.RightToLeftAutoMirrorImage    -- no RTL image mirroring
-Majorsilence.Forms.ToolStripItem.TextDirection    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextAlign    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextDirection    -- renderer-args slot for a part no strip paints yet (TSM-48 remainder)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextFont    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextFormat    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripLabel.ActiveLinkColor    -- no pressed state on strip items (TSM-42)
 Majorsilence.Forms.ToolStripManager.VisualStylesEnabled    -- Win32 handle/window-class detail; no equivalent here
-Majorsilence.Forms.ToolStripMenuItem.MergeAction    -- blocked on ToolStripManager.Merge (not implemented)
-Majorsilence.Forms.ToolStripMenuItem.MergeIndex    -- blocked on ToolStripManager.Merge (not implemented)
-Majorsilence.Forms.ToolStripPanel.Locked    -- blocked on vertical/flow strip layout and rafting panels
-Majorsilence.Forms.ToolStripPanel.RenderMode    -- blocked on vertical/flow strip layout and rafting panels
-Majorsilence.Forms.ToolStripPanel.RowMargin    -- blocked on vertical/flow strip layout and rafting panels
-Majorsilence.Forms.ToolStripPanelRenderEventArgs.Handled    -- renderer-args slot for a part no strip paints yet (TSM-48 remainder)
-Majorsilence.Forms.ToolStripPanelRow.Margin    -- blocked on vertical/flow strip layout and rafting panels
+Majorsilence.Forms.ToolStripPanel.Locked    -- no rafting drag gesture to lock; Join is programmatic and, as upstream, not subject to it
 Majorsilence.Forms.ToolStripProfessionalRenderer.ColorTable    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripProfessionalRenderer.RoundedEdges    -- the professional renderer draws square edges only
 Majorsilence.Forms.ToolStripStatusLabel.LiveSetting    -- accessibility metadata; no accessible-object tree
