@@ -558,10 +558,50 @@ namespace Majorsilence.Forms
 
         private ToolStripOverflowButton? overflow_button;
 
-        /// <summary>Gets or sets the layout settings for the current <see cref="LayoutStyle"/>.</summary>
-        /// <remarks>Stored only: the <see cref="ToolStripLayoutStyle.Flow"/> arrangement here wraps with
-        /// no settings and <see cref="ToolStripLayoutStyle.Table"/> is laid out as Flow.</remarks>
-        public LayoutSettings? LayoutSettings { get; set; }
+        /// <summary>Gets or sets the settings the strip's current <see cref="LayoutStyle"/> is arranged by.</summary>
+        /// <remarks>
+        /// Real as of W6 mechanisms. It answers the settings object that matches the layout style,
+        /// created on demand as upstream's does: a <see cref="FlowLayoutSettings"/> under
+        /// <see cref="ToolStripLayoutStyle.Flow"/> and a <see cref="TableLayoutSettings"/> under
+        /// <see cref="ToolStripLayoutStyle.Table"/>, and <c>null</c> for the stacking styles, which
+        /// have no settings. The flow arrangement reads <c>FlowDirection</c> and <c>WrapContents</c>
+        /// from it, and the table arrangement reads <c>ColumnCount</c>/<c>RowCount</c>; before this
+        /// both were laid out as an unconditional wrapping row.
+        /// </remarks>
+        public LayoutSettings? LayoutSettings {
+            get {
+                var style = EffectiveLayoutStyle;
+
+                if (style == ToolStripLayoutStyle.Flow)
+                    return flow_settings ??= new FlowLayoutSettings (this);
+
+                if (style == ToolStripLayoutStyle.Table)
+                    return table_settings ??= new TableLayoutSettings (this);
+
+                return null;
+            }
+            set {
+                switch (value) {
+                    case FlowLayoutSettings flow:
+                        flow_settings = flow;
+                        break;
+                    case TableLayoutSettings table:
+                        table_settings = table;
+                        break;
+                }
+
+                PerformLayout ();
+            }
+        }
+
+        private FlowLayoutSettings? flow_settings;
+        private TableLayoutSettings? table_settings;
+
+        /// <summary>The flow settings, without creating them; null when the strip does not flow.</summary>
+        internal FlowLayoutSettings? FlowSettings => EffectiveLayoutStyle == ToolStripLayoutStyle.Flow ? LayoutSettings as FlowLayoutSettings : null;
+
+        /// <summary>The table settings, without creating them; null when the strip is not a table.</summary>
+        internal TableLayoutSettings? TableSettings => EffectiveLayoutStyle == ToolStripLayoutStyle.Table ? LayoutSettings as TableLayoutSettings : null;
 
         // ── layout styles and overflow (W6 mechanisms) ──────────────────────────────────────────
         // Items live in Items (the facade) and in base.Items (the collection layout, paint and hit-
@@ -657,6 +697,40 @@ namespace Majorsilence.Forms
             }
         }
 
+        // The table arrangement: every item gets a cell in a grid, sized by the widest and tallest
+        // item, laid left to right and top to bottom. ColumnCount decides the width of the grid; with
+        // none set, RowCount decides it instead, and with neither the items go in one row.
+        private void ArrangeAsTable (Rectangle area, List<MenuItem> items)
+        {
+            if (items.Count == 0)
+                return;
+
+            var settings = TableSettings;
+            var columns = settings?.ColumnCount ?? 0;
+
+            if (columns <= 0) {
+                var rows_wanted = settings?.RowCount ?? 0;
+                columns = rows_wanted > 0 ? (int) Math.Ceiling (items.Count / (double) rows_wanted) : items.Count;
+            }
+
+            columns = Math.Max (1, columns);
+
+            var sizes = items.Select (i => i.GetPreferredSize (Size.Empty)).ToList ();
+            var cell_width = sizes.Max (s => s.Width);
+            var cell_height = sizes.Max (s => s.Height);
+
+            for (var i = 0; i < items.Count; i++) {
+                var column = i % columns;
+                var row = i / columns;
+
+                items[i].SetBounds (
+                    area.Left + (column * cell_width),
+                    area.Top + (row * cell_height),
+                    cell_width,
+                    cell_height);
+            }
+        }
+
         internal override Rectangle ReserveGripBand (Rectangle area, int grip)
             => Orientation == Orientation.Vertical
                 ? new Rectangle (area.Left, area.Top + grip, area.Width, Math.Max (0, area.Height - grip))
@@ -667,10 +741,36 @@ namespace Majorsilence.Forms
             var style = EffectiveLayoutStyle;
             var main = visible.Where (i => !ReferenceEquals (i, overflow_button)).ToList ();
 
-            if (style is ToolStripLayoutStyle.Flow or ToolStripLayoutStyle.Table) {
-                // Flow: preferred sizes, wrapped into rows; no overflow. Table is laid out the same way.
-                StackLayoutEngine.Horizontal.Layout (area, main.Cast<ILayoutable> ());
-                WrapIntoRows (main, area, grow: false);
+            if (style == ToolStripLayoutStyle.Table) {
+                // Table (W6 mechanisms): a real grid of ColumnCount columns, rather than the wrapping
+                // row Flow gets. RowCount is the other way round -- with no columns asked for, the
+                // rows decide how many columns the items need.
+                ArrangeAsTable (area, main);
+                overflow_button?.SetBounds (0, 0, 0, 0);
+
+                foreach (var item in main.OfType<ToolStripItem> ())
+                    item.Placement = ToolStripItemPlacement.Main;
+
+                return;
+            }
+
+            if (style == ToolStripLayoutStyle.Flow) {
+                // Flow: preferred sizes laid along the flow direction, wrapped when the settings ask
+                // for it (W6 mechanisms -- it used to wrap unconditionally, left to right).
+                var settings = FlowSettings;
+                var direction = settings?.FlowDirection ?? FlowDirection.LeftToRight;
+                var vertical_flow = direction is FlowDirection.TopDown or FlowDirection.BottomUp;
+                var reversed = direction is FlowDirection.RightToLeft or FlowDirection.BottomUp;
+                var ordered = reversed ? Enumerable.Reverse (main).ToList () : main;
+
+                if (vertical_flow)
+                    StackLayoutEngine.Vertical.Layout (area, ordered.Cast<ILayoutable> ());
+                else
+                    StackLayoutEngine.Horizontal.Layout (area, ordered.Cast<ILayoutable> ());
+
+                if (settings?.WrapContents != false && !vertical_flow)
+                    WrapIntoRows (ordered, area, grow: false);
+
                 overflow_button?.SetBounds (0, 0, 0, 0);
 
                 foreach (var item in main.OfType<ToolStripItem> ())

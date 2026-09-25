@@ -498,7 +498,34 @@ namespace Majorsilence.Forms
                 return;
 
             order.Insert (Math.Max (0, Math.Min (displayIndex, order.Count)), column);
+
+            // Frozen columns hold the leading display positions, as upstream requires: a display index
+            // that would put a frozen column after a scrolling one, or a scrolling one before a frozen
+            // one, is refused rather than silently producing a layout the grid cannot draw (W6
+            // mechanisms -- the rule was recorded as missing when DisplayIndex was wired).
+            if (!IsValidFrozenOrder (order))
+                throw new InvalidOperationException (
+                    "A frozen column cannot be displayed after a column that is not frozen, and a column that is not frozen cannot be displayed before a frozen one.");
+
             RenumberDisplayOrder (order);
+        }
+
+        // True when every frozen column comes before every scrolling one.
+        private static bool IsValidFrozenOrder (List<DataGridViewColumn> order)
+        {
+            var seen_scrolling = false;
+
+            foreach (var column in order) {
+                if (!column.Frozen) {
+                    seen_scrolling = true;
+                    continue;
+                }
+
+                if (seen_scrolling)
+                    return false;
+            }
+
+            return true;
         }
 
         // Every column gets its dense position; the ones that moved are announced.
