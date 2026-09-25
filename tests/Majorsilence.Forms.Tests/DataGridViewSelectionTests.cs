@@ -558,7 +558,8 @@ namespace Majorsilence.Forms.Tests
             // overwrites that static from its own keyData.
             internal void ClickRow (int rowIndex, Keys modifiers = Keys.None)
             {
-                var bounds = GetCellBounds (rowIndex, 0);
+                // GetCellBounds is device; the event is logical (RC-8).
+                var bounds = DeviceToLogicalUnits (GetCellBounds (rowIndex, 0));
 
                 OnMouseDown (new MouseEventArgs (MouseButtons.Left, 1,
                     bounds.Left + bounds.Width / 2, bounds.Top + bounds.Height / 2,

@@ -104,12 +104,13 @@ namespace Majorsilence.Forms
         {
             // Left/Right move between cells, and in the row modes there is nothing to move between --
             // upstream moves the current cell there too, but the selection stays on the row.
-            var target = selected_column_index + delta;
+            // Along the display order, so Left/Right walk the columns as they are shown (W6).
+            var position = DisplayPositionOf (selected_column_index) + delta;
 
-            if (target < 0 || target >= Columns.Count)
+            if (position < 0 || position >= Columns.Count)
                 return false;
 
-            SelectedColumnIndex = target;
+            SelectedColumnIndex = DisplayOrder[position];
             return true;
         }
 
@@ -131,7 +132,7 @@ namespace Majorsilence.Forms
 
         private int FirstNavigableColumn ()
         {
-            for (var i = 0; i < Columns.Count; i++)
+            foreach (var i in DisplayOrder)
                 if (Columns[i].Visible)
                     return i;
 
@@ -140,7 +141,7 @@ namespace Majorsilence.Forms
 
         private int LastNavigableColumn ()
         {
-            for (var i = Columns.Count - 1; i >= 0; i--)
+            foreach (var i in Enumerable.Reverse (DisplayOrder))
                 if (Columns[i].Visible)
                     return i;
 

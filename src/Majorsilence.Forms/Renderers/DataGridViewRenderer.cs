@@ -623,10 +623,12 @@ namespace Majorsilence.Forms.Renderers
 
                 var cell_value = check_cell is not null ? check_cell.Value : value;
 
-                RenderCheckBoxCell (e, bounds, DataGridView.IsCheckedValue (column, cell_value, check_cell),
+                RenderCheckBoxCell (e, bounds, DataGridView.CheckStateOf (column, cell_value, check_cell),
                     CellIsFlat (control, rowIndex, columnIndex));
             } else if (column is DataGridViewButtonColumn btn_col) {
-                var btn_text = btn_col.UseColumnTextForButtonValue ? btn_col.HeaderText : value;
+                // The column's Text (not its header) when the column or the cell asks for it (W6).
+                var btn_cell = CellAt (control, rowIndex, columnIndex) as DataGridViewButtonCell;
+                var btn_text = btn_col.UseColumnTextForButtonValue || btn_cell is { UseColumnTextForButtonValue: true } ? btn_col.Text : value;
                 RenderButtonCell (e, text_bounds, btn_text, font, scaled_font, fg, CellIsFlat (control, rowIndex, columnIndex));
             } else if (column is DataGridViewComboBoxColumn) {
                 RenderComboBoxCell (e, text_bounds, value, font, scaled_font, fg, CellIsFlat (control, rowIndex, columnIndex),
@@ -638,6 +640,11 @@ namespace Majorsilence.Forms.Renderers
                     ? (ContentAlignment)(int)aligned.Alignment
                     : column.DefaultCellStyleAlignment;
                 var max_lines = cellStyle is { WrapMode: DataGridViewTriState.True } ? null : CellTextMaxLines (column);
+
+                // A link column's Text stands in for every link cell's value when asked (W6 mechanisms).
+                if (column is DataGridViewLinkColumn link_col
+                    && (link_col.UseColumnTextForLinkValue || CellAt (control, rowIndex, columnIndex) is DataGridViewLinkCell { UseColumnTextForLinkValue: true }))
+                    value = link_col.Text;
 
                 e.Canvas.DrawText (value, font, scaled_font, text_bounds, fg, alignment, maxLines: max_lines);
 
@@ -666,6 +673,11 @@ namespace Majorsilence.Forms.Renderers
                     RenderErrorGlyph (e, bounds);
             }
         }
+
+        private static DataGridViewCell? CellAt (DataGridView control, int rowIndex, int columnIndex)
+            => rowIndex >= 0 && rowIndex < control.RowCountWithNewRow && columnIndex >= 0 && columnIndex < control.Rows[rowIndex].Cells.Count
+                ? control.Rows[rowIndex].Cells[columnIndex]
+                : null;
 
         internal static void RenderErrorGlyph (PaintEventArgs e, Rectangle bounds)
         {
@@ -783,8 +795,20 @@ namespace Majorsilence.Forms.Renderers
                     raw = cells[columnIndex].Value;
             }
 
-            var image = raw as Majorsilence.Forms.Drawing.Image ?? columnImage;
-            var bitmap = image?.GetSKBitmap ();
+            // Icons (W6 mechanisms): a cell or column that says its values are icons takes an Icon value,
+            // and an image column's Icon is the fallback for one, as its Image is for images.
+            var cell = CellAt (control, rowIndex, columnIndex) as DataGridViewImageCell;
+            var column = columnIndex >= 0 && columnIndex < control.Columns.Count ? control.Columns[columnIndex] as DataGridViewImageColumn : null;
+            var icons = cell is { ValueIsIcon: true } || column is { ValuesAreIcons: true };
+
+            var bitmap = raw switch {
+                Majorsilence.Forms.Drawing.Image image => image.GetSKBitmap (),
+                Majorsilence.Forms.Drawing.Icon icon => icon.GetSKBitmap (),
+                _ => null,
+            };
+
+            if (bitmap is null)
+                bitmap = icons && column?.Icon is { } column_icon ? column_icon.GetSKBitmap () : columnImage?.GetSKBitmap ();
 
             if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0)
                 return;
@@ -795,18 +819,31 @@ namespace Majorsilence.Forms.Renderers
             if (box.Width <= 0 || box.Height <= 0)
                 return;
 
-            // Scale down to fit, but never up -- a 24px icon in a tall row should stay 24px rather than
-            // being blown up and blurred.
-            var scale = Math.Min (1.0, Math.Min ((double)box.Width / bitmap.Width, (double)box.Height / bitmap.Height));
-            var w = (int)Math.Round (bitmap.Width * scale);
-            var h = (int)Math.Round (bitmap.Height * scale);
+            // ImageLayout (W6 mechanisms): the cell's, else the column's. Normal scales down to fit but
+            // never up -- a 24px icon in a tall row should stay 24px rather than being blown up and
+            // blurred; Zoom scales either way keeping the aspect; Stretch fills the cell.
+            var layout = cell?.ImageLayout ?? column?.ImageLayout ?? DataGridViewImageCellLayout.Normal;
 
-            e.Canvas.DrawBitmap (bitmap,
-                new Rectangle (box.Left + ((box.Width - w) / 2), box.Top + ((box.Height - h) / 2), w, h),
-                disabled: !control.Enabled);
+            if (layout == DataGridViewImageCellLayout.NotSet)
+                layout = DataGridViewImageCellLayout.Normal;
+
+            Rectangle target;
+
+            if (layout == DataGridViewImageCellLayout.Stretch)
+                target = box;
+            else {
+                var fit = Math.Min ((double)box.Width / bitmap.Width, (double)box.Height / bitmap.Height);
+                var scale = layout == DataGridViewImageCellLayout.Zoom ? fit : Math.Min (1.0, fit);
+                var w = (int)Math.Round (bitmap.Width * scale);
+                var h = (int)Math.Round (bitmap.Height * scale);
+
+                target = new Rectangle (box.Left + ((box.Width - w) / 2), box.Top + ((box.Height - h) / 2), w, h);
+            }
+
+            e.Canvas.DrawBitmap (bitmap, target, disabled: !control.Enabled);
         }
 
-        private static void RenderCheckBoxCell (PaintEventArgs e, Rectangle bounds, bool isChecked, bool flat = false)
+        private static void RenderCheckBoxCell (PaintEventArgs e, Rectangle bounds, CheckState state, bool flat = false)
         {
             var size = Math.Min (bounds.Width, bounds.Height) - 6;
             var cx = bounds.Left + (bounds.Width - size) / 2;
@@ -818,10 +855,16 @@ namespace Majorsilence.Forms.Renderers
             if (!flat)
                 e.Canvas.DrawRectangle (box, Theme.BorderLowColor);
 
-            if (isChecked) {
+            if (state == CheckState.Checked) {
                 var inset = box;
                 inset.Inflate (-3, -3);
                 e.Canvas.FillRectangle (inset, Theme.AccentColor);
+            } else if (state == CheckState.Indeterminate) {
+                // The third glyph (W6 mechanisms): a filled square in the border tone, smaller than the
+                // tick, so a three-state cell reads as "neither" rather than as unchecked.
+                var inset = box;
+                inset.Inflate (-Math.Max (3, size / 3), -Math.Max (3, size / 3));
+                e.Canvas.FillRectangle (inset, Theme.BorderMidColor);
             }
         }
 

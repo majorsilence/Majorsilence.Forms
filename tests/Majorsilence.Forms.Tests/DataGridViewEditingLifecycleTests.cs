@@ -36,14 +36,14 @@ namespace Majorsilence.Forms.Tests
 
             internal void ClickCell (int rowIndex, int columnIndex)
             {
-                var b = GetCellBounds (rowIndex, columnIndex);
+                var b = DeviceToLogicalUnits (GetCellBounds (rowIndex, columnIndex)); // device -> logical (RC-8)
                 OnMouseDown (new MouseEventArgs (MouseButtons.Left, 1,
                     b.Left + b.Width / 2, b.Top + b.Height / 2, Point.Empty));
             }
 
             internal void DoubleClickCell (int rowIndex, int columnIndex)
             {
-                var b = GetCellBounds (rowIndex, columnIndex);
+                var b = DeviceToLogicalUnits (GetCellBounds (rowIndex, columnIndex)); // device -> logical (RC-8)
                 OnDoubleClick (new MouseEventArgs (MouseButtons.Left, 2,
                     b.Left + b.Width / 2, b.Top + b.Height / 2, Point.Empty));
             }

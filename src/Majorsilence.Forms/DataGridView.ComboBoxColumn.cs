@@ -77,8 +77,11 @@ namespace Majorsilence.Forms
         // list. Everything else gets the text box.
         private Control CreateEditorFor (DataGridViewColumn? column, DataGridViewCell cell, string text)
         {
+            // The text editor is the WinForms editing-control type, carrying the grid and row it edits
+            // (IDataGridViewEditingControl plumbing, W6 mechanisms), so a handler that reaches
+            // EditingControl finds what upstream gives it.
             if (column is not DataGridViewComboBoxColumn combo)
-                return new TextBox { Text = text };
+                return new DataGridViewTextBoxEditingControl { Text = text, EditingControlDataGridView = this, EditingControlRowIndex = editing_row_index };
 
             var editor = new DataGridViewComboBoxEditingControl {
                 EditingControlDataGridView = this,

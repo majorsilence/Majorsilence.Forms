@@ -124,7 +124,6 @@ Majorsilence.Forms.DataGridView.EnableHeadersVisualStyles    -- framework-writte
 Majorsilence.Forms.DataGridView.ShowCellToolTips    -- the grid has no cell tooltip path
 Majorsilence.Forms.DataGridView.ShowEditingIcon    -- the row header draws no editing pencil
 Majorsilence.Forms.DataGridViewBand.Index    -- framework-written owner/index slot; the grid keeps its own indices
-Majorsilence.Forms.DataGridViewButtonCell.UseColumnTextForButtonValue    -- needs the cell text source to fall back to the column's Text
 Majorsilence.Forms.DataGridViewCell.ColumnInfo    -- framework-written owner/index slot; the grid keeps its own indices
 Majorsilence.Forms.DataGridViewCellEditEventArgs.Cancel    -- event-args slot; the raiser does not consult it (CellEndEdit/DataError are not cancellable here)
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.AdvancedBorderStyle    -- advanced cell borders are not modelled; every cell has the one-pixel grid line
@@ -135,25 +134,15 @@ Majorsilence.Forms.DataGridViewCellPaintingEventArgs.Graphics    -- framework-wr
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.State    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewCellPaintingEventArgs.Value    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewCellToolTipTextNeededEventArgs.ToolTipText    -- event-args slot for a *Needed event that is not raised (unraised baseline)
-Majorsilence.Forms.DataGridViewCheckBoxCell.EditingCellValueChanged    -- check-box cells are two-state; ThreeState/Indeterminate need the third glyph
-Majorsilence.Forms.DataGridViewCheckBoxCell.IndeterminateValue    -- check-box cells are two-state; ThreeState/Indeterminate need the third glyph
-Majorsilence.Forms.DataGridViewCheckBoxColumn.IndeterminateValue    -- check-box cells are two-state; ThreeState/Indeterminate need the third glyph
-Majorsilence.Forms.DataGridViewCheckBoxColumn.ThreeState    -- check-box cells are two-state; ThreeState/Indeterminate need the third glyph
 Majorsilence.Forms.DataGridViewComboBoxCell.AutoComplete    -- the combo editor takes items and MaxDropDownItems only; autocomplete and sorting are ComboBox features it does not forward
 Majorsilence.Forms.DataGridViewComboBoxCell.DisplayStyleForCurrentCellOnly    -- the combo editor takes items and MaxDropDownItems only; autocomplete and sorting are ComboBox features it does not forward
 Majorsilence.Forms.DataGridViewComboBoxColumn.AutoComplete    -- the combo editor takes items and MaxDropDownItems only; autocomplete and sorting are ComboBox features it does not forward
 Majorsilence.Forms.DataGridViewComboBoxColumn.Sorted    -- the combo editor takes items and MaxDropDownItems only; autocomplete and sorting are ComboBox features it does not forward
 Majorsilence.Forms.DataGridViewComboBoxEditingControl.EditingControlDataGridView    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewComboBoxEditingControl.EditingControlRowIndex    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewComboBoxEditingControl.EditingControlValueChanged    -- IDataGridViewEditingControl plumbing the grid writes directly rather than through the interface
 Majorsilence.Forms.DataGridViewDataErrorEventArgs.Cancel    -- event-args slot; the raiser does not consult it (CellEndEdit/DataError are not cancellable here)
 Majorsilence.Forms.DataGridViewElement.DataGridView    -- framework-written owner/index slot; the grid keeps its own indices
-Majorsilence.Forms.DataGridViewImageCell.Description    -- image cells draw the image only; icons, layout and description are not modelled
-Majorsilence.Forms.DataGridViewImageCell.ValueIsIcon    -- image cells draw the image only; icons, layout and description are not modelled
-Majorsilence.Forms.DataGridViewImageColumn.Icon    -- image cells draw the image only; icons, layout and description are not modelled
-Majorsilence.Forms.DataGridViewImageColumn.ImageLayout    -- image cells draw the image only; icons, layout and description are not modelled
-Majorsilence.Forms.DataGridViewImageColumn.ValuesAreIcons    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewLinkCell.UseColumnTextForLinkValue    -- needs the cell text source to fall back to the column's Text
+Majorsilence.Forms.DataGridViewImageCell.Description    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.ClipBounds    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.ErrorText    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.InheritedRowStyle    -- framework-written (outbound state)
@@ -161,8 +150,8 @@ Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.IsFirstDisplayedRow    -- f
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.IsLastVisibleRow    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.RowBounds    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewRowPaintBaseEventArgs.State    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridViewTextBoxEditingControl.EditingControlDataGridView    -- IDataGridViewEditingControl plumbing the grid writes directly rather than through the interface
-Majorsilence.Forms.DataGridViewTextBoxEditingControl.EditingControlRowIndex    -- IDataGridViewEditingControl plumbing the grid writes directly rather than through the interface
+Majorsilence.Forms.DataGridViewTextBoxEditingControl.EditingControlDataGridView    -- framework-written (outbound state)
+Majorsilence.Forms.DataGridViewTextBoxEditingControl.EditingControlRowIndex    -- framework-written (outbound state)
 Majorsilence.Forms.DateBoldEventArgs.DaysToBold    -- MonthCalendar has no bolded-days query
 Majorsilence.Forms.Design.Behavior.Adorner.BehaviorService    -- design-time type; there is no designer host
 Majorsilence.Forms.Design.Behavior.Adorner.Enabled    -- design-time type; there is no designer host

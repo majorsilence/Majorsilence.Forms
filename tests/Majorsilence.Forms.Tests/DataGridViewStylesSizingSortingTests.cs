@@ -771,7 +771,8 @@ namespace Majorsilence.Forms.Tests
             var content = grid.GetContentArea ();
             var x = grid.GetColumnDeviceLeft (columnIndex) + grid.LogicalToDeviceUnits (grid.Columns[columnIndex].Width) / 2;
             var y = content.Top + grid.ScaledHeaderHeight / 2;
-            grid.ClickAt (x, y);
+            // x/y are device; the mouse event is logical (RC-8).
+            grid.ClickAt (grid.DeviceToLogicalUnits (x), grid.DeviceToLogicalUnits (y));
         }
 
         private sealed class Item

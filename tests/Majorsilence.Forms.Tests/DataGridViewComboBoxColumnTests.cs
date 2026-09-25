@@ -324,7 +324,8 @@ namespace Majorsilence.Forms.Tests
                 grid.MoveCurrentCell (0, 0);
                 grid.BeginEdit (true);
 
-                var editor = Assert.IsType<TextBox> (grid.EditingControl);
+                // A DataGridViewTextBoxEditingControl, which IS a TextBox, as upstream (W6 mechanisms).
+                var editor = Assert.IsAssignableFrom<TextBox> (grid.EditingControl);
                 editor.Text = "changed";
                 grid.EndEdit ();
 
