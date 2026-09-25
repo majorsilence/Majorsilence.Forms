@@ -303,15 +303,43 @@ namespace Majorsilence.Forms.Printing
     /// <summary>Wraps a PrintController and shows a status dialog. Stub in Majorsilence.Forms.</summary>
     public class PrintControllerWithStatusDialog : PrintController
     {
+        private readonly PrintController? underlying;
+
         /// <summary>Initializes a new instance wrapping the specified controller.</summary>
+        /// <remarks>The controller it wraps is real as of W6 mechanisms: every call is forwarded to it,
+        /// so wrapping a <see cref="PreviewPrintController"/> in one still captures the pages. It used
+        /// to discard the controller it was handed, which turned any job routed through it into a
+        /// no-op. There is no status dialog -- nothing is shown.</remarks>
         public PrintControllerWithStatusDialog (PrintController underlyingController)
-        {
-        }
+            => underlying = underlyingController;
 
         /// <summary>Initializes a new instance wrapping the specified controller with a dialog title.</summary>
+        /// <remarks>See <see cref="PrintControllerWithStatusDialog(PrintController)"/>; the title is
+        /// kept for the caller and nothing is shown.</remarks>
         public PrintControllerWithStatusDialog (PrintController underlyingController, string dialogTitle)
         {
+            underlying = underlyingController;
+            DialogTitle = dialogTitle;
         }
+
+        /// <summary>The title a status dialog would carry; nothing is shown.</summary>
+        public string? DialogTitle { get; }
+
+        /// <inheritdoc/>
+        public override bool IsPreview => underlying?.IsPreview ?? base.IsPreview;
+
+        /// <inheritdoc/>
+        public override void OnStartPrint (PrintDocument document, PrintEventArgs e) => underlying?.OnStartPrint (document, e);
+
+        /// <inheritdoc/>
+        public override Majorsilence.Forms.Drawing.Graphics? OnStartPage (PrintDocument document, PrintPageEventArgs e)
+            => underlying?.OnStartPage (document, e);
+
+        /// <inheritdoc/>
+        public override void OnEndPage (PrintDocument document, PrintPageEventArgs e) => underlying?.OnEndPage (document, e);
+
+        /// <inheritdoc/>
+        public override void OnEndPrint (PrintDocument document, PrintEventArgs e) => underlying?.OnEndPrint (document, e);
     }
 
     /// <summary>

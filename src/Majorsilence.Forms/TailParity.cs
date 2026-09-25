@@ -547,6 +547,11 @@ namespace Majorsilence.Forms
             while (rows.Count <= row)
                 rows.Add (new ToolStripPanelRow (this));
 
+            // Off whatever row it was on first: joining is a MOVE, and leaving the strip on both rows
+            // made the panel report it in the earlier one for ever (found wiring the rafting drag, W6).
+            foreach (var existing in rows)
+                existing.Controls.Remove (toolStripToDrag);
+
             rows[row].Controls.Add (toolStripToDrag);
 
             if (!Controls.Contains (toolStripToDrag))

@@ -2679,9 +2679,10 @@ namespace Majorsilence.Forms
     /// <summary>Represents a panel that can host ToolStrip controls. Stub in Majorsilence.Forms.</summary>
     public partial class ToolStripPanel : Panel
     {
-        /// <summary>Gets or sets whether the user may move strips between rows.</summary>
-        /// <remarks>Stored only: there is no rafting drag gesture here for it to lock; <c>Join</c> is
-        /// programmatic and, as upstream, not subject to it.</remarks>
+        /// <summary>Gets or sets whether the strips in this panel can be dragged between its rows.</summary>
+        /// <remarks>Read as of W6 mechanisms: a locked panel refuses the grip drag that rafts a strip
+        /// from one row to another. <c>Join</c> still moves a strip, because that is the programmatic
+        /// path and, as upstream, is not subject to this.</remarks>
         public bool Locked { get; set; }
 
         /// <summary>Gets or sets the orientation of the ToolStripPanel. Stub in Majorsilence.Forms.</summary>

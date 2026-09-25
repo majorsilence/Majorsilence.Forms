@@ -579,6 +579,11 @@ namespace Majorsilence.Forms
                     // through Application.ScheduleClosePopupsOnDeactivate.
                     return MoveSelection (SelectedItem, forward ? 1 : -1);
 
+                // Space activates the selected item as Enter does -- the keyboard press a
+                // ToolStripLabel was recorded as lacking (W6 mechanisms). It cannot show a HELD state:
+                // the window routes key-downs into the menu and no key-up, so there is no release to
+                // pair a press with; ActiveLinkColor stays a mouse-only colour.
+                case Keys.Space:
                 case Keys.Enter:
                     var target = ReferenceEquals (open, this) ? SelectedItem : open.SelectedItem;
 

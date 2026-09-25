@@ -3697,6 +3697,47 @@ restores and exits non-zero. Both of this chunk's rounds hit that guard once whi
 
 8 tests; two neutralization rounds (4 and 4 of 8 red), snapshot verified before and after.
 
+**W6 mechanisms, fifteenth chunk: the deferred list. — 2026-09-25.** Part of #91.
+The items earlier chunks recorded as not done, rather than a new sweep of the baseline.
+
+Only two stored-only properties leave the baseline here. The rest of the chunk is behaviour that was
+wrong or missing rather than a property that was never read, which is what the "not done" notes from
+chunks 8 to 13 had accumulated.
+
+- **`ToolStrip.LayoutSettings`** answers the settings object its `LayoutStyle` calls for, created on
+  demand as upstream's is: a `FlowLayoutSettings` under `Flow`, a `TableLayoutSettings` under `Table`,
+  and null for the stacking styles, which have none. The **flow** arrangement reads `FlowDirection`
+  and `WrapContents` from it — it used to wrap unconditionally, left to right, whatever the settings
+  said — and **`Table` is a real table** now: a grid of `ColumnCount` columns (or, with none set, as
+  many as `RowCount` implies), where it used to be laid out as a wrapping flow row.
+- **`ToolStripPanel.Locked`** and the rafting drag. Dragging a strip by its grip moves it to the panel
+  row under the pointer; a locked panel refuses that gesture, which is what the property is for, while
+  `Join` still moves a strip because that is the programmatic path and, as upstream, is not subject to
+  the lock. A press and release in the same place is not a drag.
+- **`Join` was leaving the strip on its old row** as well as adding it to the new one, so a panel
+  reported a strip in the earlier row for ever. Found while wiring the drag, which is what made the
+  row a thing anyone could observe.
+- **Frozen-column ordering.** Setting a `DisplayIndex` that would put a frozen column after a scrolling
+  one, or a scrolling column before a frozen one, now throws `InvalidOperationException` as upstream
+  does, instead of silently producing an order the grid cannot draw. Recorded as missing when
+  `DisplayIndex` was wired in the ninth chunk.
+- **`PrintControllerWithStatusDialog`** forwards every call to the controller it wraps. It discarded
+  it, so any job routed through the wrapper was a no-op — wrapping a `PreviewPrintController` in one
+  captured nothing. There is still no status dialog; the title is kept and nothing is shown.
+- **Space activates the selected strip item**, as Enter already did. It cannot show a *held* state:
+  the window routes key-downs into the menu and no key-up, so there is no release to pair a press
+  with, and `ToolStripLabel.ActiveLinkColor` stays a mouse-only colour.
+
+*Counts.* Stored-only **342 → 340**.
+
+*Re-annotated:* `ToolStripItem.Anchor` and `Dock`. Their old reason said anchor and dock "apply inside
+a rafting panel only", which is about the strip rather than the item. Upstream hides both on a strip
+item and they do nothing there either: every layout style places items itself — stacked, flowed or in
+a table cell — so there is no free space for an item to anchor or dock against.
+
+9 tests; two neutralization rounds (the layout settings; the rafting, the frozen rule, the wrapper and
+the keyboard press), failing 3 and 5 of the 9, snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

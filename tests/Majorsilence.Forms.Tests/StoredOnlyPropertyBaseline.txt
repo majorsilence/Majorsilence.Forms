@@ -324,7 +324,6 @@ Majorsilence.Forms.ToolBarButton.Rectangle    -- framework-written (outbound sta
 Majorsilence.Forms.ToolBarButton.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.ToolStrip.AllowClickThrough    -- there is no inactive-window click swallow to see through
 Majorsilence.Forms.ToolStrip.IsCurrentlyDragging    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStrip.LayoutSettings    -- the Flow arrangement wraps with no settings and Table is laid out as Flow (W6); nothing reads a setting
 Majorsilence.Forms.ToolStripContentPanelRenderEventArgs.ToolStripContentPanel    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripDropDown.AllowTransparency    -- needs a backend window capability (per-pixel transparency / shadow)
 Majorsilence.Forms.ToolStripDropDown.AutoClose    -- drop-downs always close on an outside click
@@ -336,14 +335,13 @@ Majorsilence.Forms.ToolStripDropDownMenu.LayoutStyle    -- drop-down menus lay o
 Majorsilence.Forms.ToolStripGripRenderEventArgs.GripBounds    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripGripRenderEventArgs.GripDisplayStyle    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripGripRenderEventArgs.GripStyle    -- framework-written (outbound state)
-Majorsilence.Forms.ToolStripItem.Anchor    -- items are stacked by the strip; anchor/dock apply inside a rafting panel only
-Majorsilence.Forms.ToolStripItem.Dock    -- items are stacked by the strip; anchor/dock apply inside a rafting panel only
+Majorsilence.Forms.ToolStripItem.Anchor    -- upstream hides both on a strip item (Browsable(false)) and they do nothing there either: every layout style places items itself -- stacked, flowed or in a table cell (W6) -- so there is no free space for an item to anchor or dock against
+Majorsilence.Forms.ToolStripItem.Dock    -- upstream hides both on a strip item (Browsable(false)) and they do nothing there either: every layout style places items itself -- stacked, flowed or in a table cell (W6) -- so there is no free space for an item to anchor or dock against
 Majorsilence.Forms.ToolStripItem.IsDisposed    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextAlign    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextFont    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextFormat    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripManager.VisualStylesEnabled    -- Win32 handle/window-class detail; no equivalent here
-Majorsilence.Forms.ToolStripPanel.Locked    -- no rafting drag gesture to lock; Join is programmatic and, as upstream, not subject to it
 Majorsilence.Forms.ToolStripStatusLabel.LiveSetting    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.ToolTip.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.UpDownBase.ChangingText    -- framework-written (outbound state)
