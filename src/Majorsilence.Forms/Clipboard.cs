@@ -34,7 +34,12 @@ namespace Majorsilence.Forms
         public static void SetText (string text) => Platform.Backend.SetClipboardText (text);
 
         /// <summary>Clears the clipboard synchronously.</summary>
-        public static void Clear () => Platform.Backend.ClearClipboard ();
+        public static void Clear ()
+        {
+            // The in-process image goes with the text (W6 mechanisms).
+            clipboard_image = null;
+            Platform.Backend.ClearClipboard ();
+        }
 
         /// <summary>Returns whether the clipboard contains text.</summary>
         public static bool ContainsText () => !string.IsNullOrEmpty (GetText ());
@@ -42,14 +47,30 @@ namespace Majorsilence.Forms
         /// <summary>Returns whether the clipboard contains text in the specified format.</summary>
         public static bool ContainsText (TextDataFormat format) => ContainsText ();
 
-        /// <summary>Returns whether the clipboard contains an image. Stub in Majorsilence.Forms — always returns false.</summary>
-        public static bool ContainsImage () => false;
+        // The image clipboard is IN-PROCESS (W6 mechanisms). The platform backends expose text only,
+        // so a system-wide image clipboard would be a new backend capability across all five of them.
+        // This is the same shape the in-process drag session took: copy and paste of an image works
+        // within one application, which is the common case, and the deviation is recorded rather than
+        // the three members staying no-ops that silently drop what they are given.
+        private static Majorsilence.Forms.Drawing.Image? clipboard_image;
 
-        /// <summary>Returns the image on the clipboard, or null. Stub in Majorsilence.Forms — always returns null.</summary>
-        public static Majorsilence.Forms.Drawing.Image? GetImage () => null;
+        /// <summary>Gets whether the clipboard holds an image.</summary>
+        /// <remarks>See <see cref="SetImage"/>: the image clipboard is in-process.</remarks>
+        public static bool ContainsImage () => clipboard_image is not null;
 
-        /// <summary>Places an image on the clipboard. Stub in Majorsilence.Forms — no-op.</summary>
-        public static void SetImage (Majorsilence.Forms.Drawing.Image image) { }
+        /// <summary>Gets the image on the clipboard, or null.</summary>
+        /// <remarks>See <see cref="SetImage"/>: the image clipboard is in-process.</remarks>
+        public static Majorsilence.Forms.Drawing.Image? GetImage () => clipboard_image;
+
+        /// <summary>Puts an image on the clipboard.</summary>
+        /// <remarks>
+        /// Real as of W6 mechanisms, within this process: it used to accept the image and drop it, so
+        /// a copy followed by a paste in the same application found nothing. Deviation from upstream,
+        /// whose clipboard is system-wide — the platform backends here carry text only, and an
+        /// image-capable clipboard is a backend capability rather than a gap in this layer.
+        /// <see cref="Clear"/> takes it away again.
+        /// </remarks>
+        public static void SetImage (Majorsilence.Forms.Drawing.Image image) => clipboard_image = image;
 
         /// <summary>Gets the text on the clipboard for the specified format.</summary>
         public static string GetText (TextDataFormat format) => GetText ();

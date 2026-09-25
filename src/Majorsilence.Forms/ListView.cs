@@ -1573,7 +1573,12 @@ namespace Majorsilence.Forms
         internal void SetDisplayIndexInternal (int value) => display_index = value;
 
         /// <summary>Adjusts the column width based on the specified sizing mode. Stub in Majorsilence.Forms.</summary>
-        public void AutoResize (ColumnHeaderAutoResizeStyle headerAutoResize) { }
+        /// <summary>Resizes this column to fit its header text or its contents.</summary>
+        /// <remarks>Real as of W6 mechanisms: it forwards to the list's own <c>AutoResizeColumn</c>,
+        /// which measures the same way. A header that is not in a list has nothing to measure against
+        /// and does nothing.</remarks>
+        public void AutoResize (ColumnHeaderAutoResizeStyle headerAutoResize)
+            => ListView?.AutoResizeColumn (Index, headerAutoResize);
 
         /// <summary>Gets or sets the index of the image for this column header. Stub in Majorsilence.Forms.</summary>
         public int ImageIndex { get; set; } = -1;

@@ -654,13 +654,50 @@ namespace Majorsilence.Forms
         /// <summary>Gets the creation parameters for the control. Returns a stub in Majorsilence.Forms.</summary>
         protected virtual CreateParams CreateParams => new CreateParams ();
 
-        /// <summary>
-        /// Renders the control and its children to a Majorsilence.Forms.Drawing.Bitmap.
-        /// Stub in Majorsilence.Forms — creates an empty bitmap of the control's size.
-        /// </summary>
 #pragma warning disable CA1416
+        /// <summary>Paints this control, and the children it contains, into <paramref name="bitmap"/>.</summary>
+        /// <remarks>
+        /// <para>Real as of W6 mechanisms: it used to do nothing, so the standard "screenshot a
+        /// control" idiom produced a blank image. The control paints through the same pipeline a real
+        /// paint uses -- background, then itself, then its children -- into the region of the bitmap
+        /// <paramref name="targetBounds"/> names, clipped to the bitmap and to the control's own size
+        /// as upstream clips it. The control does not have to be on a shown form.</para>
+        /// <para><paramref name="targetBounds"/> is in the bitmap's own pixels, which are DEVICE
+        /// pixels: the paint pipeline places a control's children by their device bounds, so the
+        /// canvas has to carry the control's <c>Scaling</c> for them to land in the right place. A
+        /// bitmap of <c>ScaledWidth</c> by <c>ScaledHeight</c> therefore holds exactly the control.
+        /// At scale 1, which is every ordinary display, that is the same as its <c>Size</c>.</para>
+        /// </remarks>
         public void DrawToBitmap (Majorsilence.Forms.Drawing.Bitmap bitmap, Rectangle targetBounds)
         {
+            Guard.ThrowIfNull (bitmap);
+
+            if (bitmap.GetSKBitmap () is not { } surface)
+                return;
+
+            // Upstream clips the requested rectangle to the control and to the bitmap, and draws
+            // nothing when what is left is empty. Both are device pixels here (see the remarks).
+            var wanted = Rectangle.Intersect (targetBounds, new Rectangle (0, 0, ScaledWidth, ScaledHeight));
+            wanted = Rectangle.Intersect (wanted, new Rectangle (0, 0, bitmap.Width, bitmap.Height));
+
+            if (wanted.Width <= 0 || wanted.Height <= 0)
+                return;
+
+            var scaling = (float) Scaling;
+            var info = new SkiaSharp.SKImageInfo (surface.Width, surface.Height, SkiaSharp.SKImageInfo.PlatformColorType, SkiaSharp.SKAlphaType.Premul);
+
+            using var canvas = new SkiaSharp.SKCanvas (surface);
+            var args = new PaintEventArgs (info, canvas, scaling);
+
+            canvas.Save ();
+            canvas.ClipRect (SkiaSharp.SKRect.Create (wanted.Left, wanted.Top, wanted.Width, wanted.Height));
+            canvas.Translate (targetBounds.Left, targetBounds.Top);
+
+            RaisePaintBackground (args);
+            RaisePaint (args);
+
+            canvas.Restore ();
+            canvas.Flush ();
         }
 #pragma warning restore CA1416
 

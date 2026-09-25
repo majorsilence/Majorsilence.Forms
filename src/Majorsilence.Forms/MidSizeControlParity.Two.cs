@@ -325,18 +325,32 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets whether there is an edit <see cref="Redo"/> would reapply.</summary>
-        /// <remarks>False, with <see cref="RedoActionName"/> empty to match: there is no undo stack in
-        /// this layer, and reporting true would enable a Redo menu item that then does nothing.</remarks>
-        public bool CanRedo => false;
+        /// <remarks>
+        /// Real as of W6 mechanisms. The document keeps the single-level undo buffer a Win32 edit
+        /// control keeps, which <c>Undo</c> toggles: undo, then undo again to redo. So anything that
+        /// can be undone can equally be redone, and this answers the same question <c>CanUndo</c>
+        /// does. Deviation from upstream's rich edit, which keeps a multi-level stack and can tell the
+        /// two directions apart.
+        /// </remarks>
+        public bool CanRedo => CanUndo;
 
         /// <summary>Gets the name of the action <see cref="Redo"/> would reapply.</summary>
-        public string RedoActionName => string.Empty;
+        /// <remarks>Real as of W6 mechanisms: the single-level buffer knows there is an edit to
+        /// restore but not what kind it was, so this is "Undo" whenever there is one -- the name Win32
+        /// gives a toggling buffer -- and empty when there is nothing.</remarks>
+        public string RedoActionName => CanRedo ? "Undo" : string.Empty;
 
-        /// <summary>Gets the name of the action <c>Undo</c> would reverse.</summary>
-        public string UndoActionName => string.Empty;
+        /// <summary>Gets the name of the action <c>Undo</c> would reverse. See <see cref="RedoActionName"/>.</summary>
+        public string UndoActionName => CanUndo ? "Undo" : string.Empty;
 
         /// <summary>Reapplies the last undone edit.</summary>
-        public void Redo () { }
+        /// <remarks>See <see cref="CanRedo"/>: the buffer toggles, so a redo is a second undo. It used
+        /// to do nothing at all.</remarks>
+        public void Redo ()
+        {
+            if (CanRedo)
+                Undo ();
+        }
 
         // Neither notification has a source: the input-method and protected-range hooks are part of
         // the native rich edit control that this one does not wrap.
