@@ -13,6 +13,11 @@ namespace Majorsilence.Forms
     /// paint a background", which is how an unset value is told apart from a deliberate one --
     /// <see cref="RichTextBox.SelectionBackColor"/> relies on that.
     /// </remarks>
+    /// <remarks>
+    /// <c>CharOffset</c> raises or lowers the run from the baseline: positive is superscript, negative
+    /// subscript, zero the baseline. It is what <c>RichTextBox.SelectionCharOffset</c> reaches the
+    /// paint through (W6 mechanisms); the size of the shift is the font variant's, not the value's.
+    /// </remarks>
     public readonly record struct TextSpanStyle (int Start, int Length, SKColor Color, bool Bold = false, bool Underline = false,
-                                                 bool Italic = false, SKColor BackColor = default);
+                                                 bool Italic = false, SKColor BackColor = default, int CharOffset = 0);
 }

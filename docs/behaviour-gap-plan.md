@@ -3606,6 +3606,49 @@ is, because the toolbar (on by default, as upstream) moved the rows down.
 
 12 tests; three neutralization rounds (6, 4 and 4 of 12 red), snapshot verified before and after.
 
+**W6 mechanisms, thirteenth chunk: RichTextBox options, and the text box's public coordinate space. — 2026-09-25.** Part of #91.
+Six stored-only properties and both of the remaining RichTextBox events.
+
+The per-character formatting model has existed since TXT-17 — colour, weight, slant and underline per
+run — so the reason string these properties carried ("plain text buffer with one format; no per-range
+attributes") had been wrong for a while. What was actually missing was everything *other* than
+character colour and weight.
+
+- **`SelectionCharOffset`** joins that run model: positive draws the run as superscript, negative as
+  subscript, through the text pipeline's font variant. The size of the shift is the variant's, where
+  upstream takes the offset in twips.
+- **`SelectionProtected`** joins it too, and **`Protected`** is raised when an edit is refused because
+  it would have changed protected text. Typing over a protected range and deleting into one are both
+  refused at the edit seams the formatting model already owns.
+- **`DetectUrls`** finds the shapes upstream's autodetection recognises — a scheme-qualified URL or a
+  bare `www.` host — recomputed from the text rather than stored, so it cannot drift from it. Clicking
+  one raises `LinkClicked` with the link's text.
+- **`RichTextShortcutsEnabled`** takes Ctrl+B, Ctrl+I and Ctrl+U, toggling the selection's bold,
+  italic and underline — which the run model could already express and nothing reached.
+- **`AutoWordSelection`** grows a drag selection out to whole words.
+- **`ShowSelectionMargin`** reserves a strip down the leading edge, painted and taken out of the wrap
+  width and the text origin, and a click in it selects the whole line under it.
+- **`ContentsResized`** reports the laid-out size of the text when it changes, checked as the control
+  paints because that is the only moment the measured size is known.
+
+**RC-8 again, at the text box's public boundary.** `GetPositionFromCharIndex` answered in device
+pixels and `GetCharIndexFromPosition` expected them, while every caller — the box's own mouse
+handlers, the spell-check hook, the window's caret-rectangle query — passed or wanted logical. At
+scale 1 the two cancelled. Both now work in logical units, the space a `MouseEventArgs` location is
+in, and convert once at the boundary; the internal layout stays device. The scale-2 gate is what
+found it, through this chunk's own selection-margin and link-click tests.
+
+*Counts.* Stored-only **359 → 353**. Unraised **71 → 69**.
+
+*Not done, and re-annotated:* the paragraph-geometry family — `SelectionAlignment`, `SelectionIndent`,
+`SelectionRightIndent`, `SelectionHangingIndent`, `SelectionBullet`, `BulletIndent`, `SelectionTabs` —
+stays stored. The text lays out as one RichTextKit block with one alignment and one width, so
+per-paragraph placement needs the document to own its layout, which would rewrite the caret,
+hit-testing, selection and scrolling paths that every text control shares. `LanguageOption` is
+re-annotated separately: it is an IME and dual-font option, and there is no IME composition path here.
+
+8 tests; three neutralization rounds (2, 4 and 2 of 8 red), snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

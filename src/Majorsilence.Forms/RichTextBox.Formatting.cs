@@ -36,13 +36,19 @@ namespace Majorsilence.Forms
             internal bool? Bold;
             internal bool? Italic;
             internal bool? Underline;
+            // W6 mechanisms: the baseline shift (SelectionCharOffset) and whether the run refuses
+            // edits (SelectionProtected).
+            internal int? CharOffset;
+            internal bool? Protected;
 
             internal bool IsEmpty => ForeColor is null && BackColor is null
-                                  && Bold is null && Italic is null && Underline is null;
+                                  && Bold is null && Italic is null && Underline is null
+                                  && CharOffset is null && Protected is null;
 
             internal bool Matches (CharFormat other)
                 => ForeColor == other.ForeColor && BackColor == other.BackColor
-                && Bold == other.Bold && Italic == other.Italic && Underline == other.Underline;
+                && Bold == other.Bold && Italic == other.Italic && Underline == other.Underline
+                && CharOffset == other.CharOffset && Protected == other.Protected;
         }
 
         private struct FormatRun
@@ -240,7 +246,8 @@ namespace Majorsilence.Forms
                     run.Format.Bold ?? false,
                     run.Format.Underline ?? false,
                     run.Format.Italic ?? false,
-                    run.Format.BackColor is { } back ? back.ToSKColor () : default (SKColor));
+                    run.Format.BackColor is { } back ? back.ToSKColor () : default (SKColor),
+                    run.Format.CharOffset ?? 0);
             }
         }
 
@@ -280,6 +287,10 @@ namespace Majorsilence.Forms
             var replaced = SelectionLength;
             var before = TextLength;
 
+            // SelectionProtected (W6 mechanisms): typing over protected text is refused and announced.
+            if (RefuseIfProtected (start, replaced))
+                return false;
+
             if (!base.InsertTypedCharacter (e))
                 return false;
 
@@ -294,6 +305,13 @@ namespace Majorsilence.Forms
             var caret = SelectionStart;
             var selected = SelectionLength;
             var before = TextLength;
+
+            // SelectionProtected (W6 mechanisms): the characters the delete would take. With nothing
+            // selected that is the one on the side the delete runs towards.
+            var target_start = selected > 0 ? caret : forward ? caret : Math.Max (0, caret - 1);
+
+            if (RefuseIfProtected (target_start, selected > 0 ? selected : 1))
+                return false;
 
             if (!base.DeleteAtCaret (forward, wholeWord))
                 return false;

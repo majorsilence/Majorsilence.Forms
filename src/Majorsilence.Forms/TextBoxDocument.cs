@@ -259,6 +259,10 @@ namespace Majorsilence.Forms
                     // the "unset" value and paints nothing.
                     FontItalic = span.Italic,
                     BackgroundColor = span.BackColor,
+                    // CharOffset: superscript above the baseline, subscript below (W6 mechanisms).
+                    FontVariant = span.CharOffset > 0 ? FontVariant.SuperScript
+                                : span.CharOffset < 0 ? FontVariant.SubScript
+                                : FontVariant.Normal,
                 };
                 tb.AddText (text.AsSpan (span.Start, span.Length), spanStyle);
                 next = span.Start + span.Length;
