@@ -342,12 +342,6 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the hanging indent of the selection. Stub in Majorsilence.Forms.</summary>
         public int SelectionHangingIndent { get; set; }
 
-        /// <summary>Gets or sets the character offset (superscript/subscript) of the selection. Stub in Majorsilence.Forms.</summary>
-        public int SelectionCharOffset { get; set; }
-
-        /// <summary>Gets or sets whether the selected text is protected from editing. Stub in Majorsilence.Forms.</summary>
-        public bool SelectionProtected { get; set; }
-
         /// <summary>Searches for the specified text in the RichTextBox. Returns the start index or -1.</summary>
         /// <remarks>
         /// Case-INsensitive unless <see cref="RichTextBoxFinds.MatchCase"/> is given, and the match is

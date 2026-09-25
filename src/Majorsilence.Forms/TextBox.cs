@@ -149,21 +149,30 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         /// <remarks>Hit-tests the laid-out text through the document, so it answers the real
         /// character under the point rather than the base's placeholder.</remarks>
+        /// <remarks>Takes a LOGICAL point, the space a <c>MouseEventArgs</c> location is in; the
+        /// layout it hit-tests against is device, and the conversion happens here (RC-8).</remarks>
         public override int GetCharIndexFromPosition (Point pt)
         {
             if (!document.Text.HasValue ())
                 return 0;
 
-            return document.GetCharIndexFromPosition (pt.X - TextOrigin.X, pt.Y - TextOrigin.Y).ClosestCodePointIndex;
+            var device = LogicalToDeviceUnits (pt);
+            return document.GetCharIndexFromPosition (device.X - TextOrigin.X, device.Y - TextOrigin.Y).ClosestCodePointIndex;
         }
 
         /// <inheritdoc/>
         /// <remarks>Reads the caret rectangle out of the laid-out text, so it accounts for the
         /// current font, wrapping and scroll offset.</remarks>
+        /// <remarks>
+        /// Answers in LOGICAL units, the space a <c>MouseEventArgs</c> location and every other public
+        /// member here works in (RC-8). The layout behind it is device, and the conversion happens at
+        /// this boundary -- it used to answer device, so on a scaled display the caller got a point
+        /// that was wrong by the display scale while every internal caller happened to want device.
+        /// </remarks>
         public override Point GetPositionFromCharIndex (int index)
         {
             var caret = TextMeasurer.GetCursorLocation (document.GetTextBlock (), TextOrigin, index, CurrentFontSize);
-            return caret.IsEmpty ? Point.Empty : caret.Location;
+            return caret.IsEmpty ? Point.Empty : DeviceToLogicalUnits (caret.Location);
         }
 
         /// <summary>
@@ -824,8 +833,9 @@ namespace Majorsilence.Forms
             OnTextChanged (EventArgs.Empty);
         }
 
-        // Where the text starts, taking scrolling into account
-        internal Point TextOrigin => new Point (PaddedClientRectangle.Location.X - scroll_x,
+        // Where the text starts, taking scrolling into account. Virtual so a derived box can reserve a
+        // strip of its own before the text -- RichTextBox.ShowSelectionMargin (W6 mechanisms).
+        internal virtual Point TextOrigin => new Point (PaddedClientRectangle.Location.X - scroll_x,
                                                 PaddedClientRectangle.Location.Y - scroll_y + SingleLineVerticalOffset);
 
         // A single-line TextBox centres its text vertically -- what a Win32 EDIT without ES_MULTILINE

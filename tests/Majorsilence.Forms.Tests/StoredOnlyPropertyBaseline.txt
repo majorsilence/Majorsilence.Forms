@@ -307,20 +307,14 @@ Majorsilence.Forms.QueryAccessibilityHelpEventArgs.HelpNamespace    -- accessibi
 Majorsilence.Forms.QueryAccessibilityHelpEventArgs.HelpString    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.QuestionEventArgs.Response    -- framework-written (outbound state)
 Majorsilence.Forms.RibbonItemGroup.Text    -- framework-written (outbound state)
-Majorsilence.Forms.RichTextBox.AutoWordSelection    -- plain text buffer with one format; no per-range attributes to read this against
-Majorsilence.Forms.RichTextBox.BulletIndent    -- plain text buffer with one format; no per-range attributes to read this against
-Majorsilence.Forms.RichTextBox.DetectUrls    -- plain text buffer with one format; no per-range attributes to read this against
-Majorsilence.Forms.RichTextBox.LanguageOption    -- plain text buffer with one format; no per-range attributes to read this against
-Majorsilence.Forms.RichTextBox.RichTextShortcutsEnabled    -- plain text buffer with one format; no per-range attributes to read this against
-Majorsilence.Forms.RichTextBox.SelectionAlignment    -- plain text buffer with one format; no per-range attributes to read this against
-Majorsilence.Forms.RichTextBox.SelectionBullet    -- plain text buffer with one format; no per-range attributes to read this against
-Majorsilence.Forms.RichTextBox.SelectionCharOffset    -- plain text buffer with one format; no per-range attributes to read this against
-Majorsilence.Forms.RichTextBox.SelectionHangingIndent    -- plain text buffer with one format; no per-range attributes to read this against
-Majorsilence.Forms.RichTextBox.SelectionIndent    -- plain text buffer with one format; no per-range attributes to read this against
-Majorsilence.Forms.RichTextBox.SelectionProtected    -- plain text buffer with one format; no per-range attributes to read this against
-Majorsilence.Forms.RichTextBox.SelectionRightIndent    -- plain text buffer with one format; no per-range attributes to read this against
-Majorsilence.Forms.RichTextBox.SelectionTabs    -- plain text buffer with one format; no per-range attributes to read this against
-Majorsilence.Forms.RichTextBox.ShowSelectionMargin    -- plain text buffer with one format; no per-range attributes to read this against
+Majorsilence.Forms.RichTextBox.BulletIndent    -- paragraph geometry: the text lays out as one RichTextKit block with one alignment and one width, so per-paragraph placement needs the document to own its layout (character attributes are per-range, TXT-17 and W6)
+Majorsilence.Forms.RichTextBox.LanguageOption    -- IME and dual-font options; there is no IME composition path here (see RichTextBox.ImeChange in the unraised baseline)
+Majorsilence.Forms.RichTextBox.SelectionAlignment    -- paragraph geometry: the text lays out as one RichTextKit block with one alignment and one width, so per-paragraph placement needs the document to own its layout (character attributes are per-range, TXT-17 and W6)
+Majorsilence.Forms.RichTextBox.SelectionBullet    -- paragraph geometry: the text lays out as one RichTextKit block with one alignment and one width, so per-paragraph placement needs the document to own its layout (character attributes are per-range, TXT-17 and W6)
+Majorsilence.Forms.RichTextBox.SelectionHangingIndent    -- paragraph geometry: the text lays out as one RichTextKit block with one alignment and one width, so per-paragraph placement needs the document to own its layout (character attributes are per-range, TXT-17 and W6)
+Majorsilence.Forms.RichTextBox.SelectionIndent    -- paragraph geometry: the text lays out as one RichTextKit block with one alignment and one width, so per-paragraph placement needs the document to own its layout (character attributes are per-range, TXT-17 and W6)
+Majorsilence.Forms.RichTextBox.SelectionRightIndent    -- paragraph geometry: the text lays out as one RichTextKit block with one alignment and one width, so per-paragraph placement needs the document to own its layout (character attributes are per-range, TXT-17 and W6)
+Majorsilence.Forms.RichTextBox.SelectionTabs    -- paragraph geometry: the text lays out as one RichTextKit block with one alignment and one width, so per-paragraph placement needs the document to own its layout (character attributes are per-range, TXT-17 and W6)
 Majorsilence.Forms.SaveFileDialog.CheckWriteAccess    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.SaveFileDialog.ExpandedMode    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.ScrollBar.ScaleScrollBarForDpiChange    -- Win32 handle/window-class detail; no equivalent here

@@ -295,7 +295,8 @@ namespace Majorsilence.Forms
         /// Zero means "wrap to the control", which is upstream's meaning and the default; any other
         /// value is the wrapping width in pixels.
         /// </remarks>
-        internal override int WrapWidth => right_margin > 0 ? right_margin : base.WrapWidth;
+        internal override int WrapWidth
+            => (right_margin > 0 ? right_margin : base.WrapWidth) - ScaledSelectionMargin;
 
         /// <summary>Gets or sets the input-method options for the control.</summary>
         public RichTextBoxLanguageOptions LanguageOption { get; set; }
@@ -343,8 +344,6 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the input method changes. Not raised by this layer.</summary>
         public event EventHandler? ImeChange;
 
-        /// <summary>Raised when the user tries to edit protected text. Not raised by this layer.</summary>
-        public event EventHandler? Protected;
 #pragma warning restore CS0067
     }
 
