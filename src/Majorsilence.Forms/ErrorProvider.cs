@@ -101,8 +101,23 @@ namespace Majorsilence.Forms
         /// </summary>
         public Component? ContainerControl { get; set; }
 
-        /// <summary>Gets or sets the icon displayed next to a control with an error. Stub in Majorsilence.Forms.</summary>
-        public Majorsilence.Forms.Drawing.Icon? Icon { get; set; }
+        /// <summary>Gets or sets the icon drawn beside a control that has an error.</summary>
+        /// <remarks>Read as of W6 mechanisms: with none set the provider draws its own exclamation
+        /// glyph, which scales with the display where a bitmap would not.</remarks>
+        public Majorsilence.Forms.Drawing.Icon? Icon {
+            get => icon;
+            set {
+                if (ReferenceEquals (icon, value))
+                    return;
+
+                icon = value;
+
+                foreach (var control in _errors.Keys.ToArray ())
+                    Repaint (control);
+            }
+        }
+
+        private Majorsilence.Forms.Drawing.Icon? icon;
 
         /// <summary>Gets a value indicating whether the error provider currently has errors for any control.</summary>
         public bool HasErrors => _errors.Count > 0;
@@ -181,7 +196,7 @@ namespace Majorsilence.Forms
                 if (!child.Visible || !_errors.ContainsKey (child))
                     continue;
 
-                DrawIcon (e, IconBounds (e, child));
+                DrawIcon (e, IconBounds (e, child), Icon);
             }
         }
 
@@ -219,8 +234,15 @@ namespace Majorsilence.Forms
         // A filled circle with an exclamation mark, drawn from primitives rather than shipped as an
         // image: the framework has no resource pipeline for one, and a glyph that scales with the
         // display beats a bitmap that does not.
-        private static void DrawIcon (PaintEventArgs e, Rectangle bounds)
+        private static void DrawIcon (PaintEventArgs e, Rectangle bounds, Majorsilence.Forms.Drawing.Icon? icon)
         {
+            // Icon (W6 mechanisms): the application's own glyph when it supplied one, else the drawn
+            // one below. It was stored and read by nothing, so a branded error icon never appeared.
+            if (icon?.GetSKBitmap () is { } bitmap) {
+                e.Canvas.DrawBitmap (bitmap, bounds);
+                return;
+            }
+
             var radius = bounds.Width / 2;
             var centre_x = bounds.Left + radius;
             var centre_y = bounds.Top + radius;

@@ -934,10 +934,16 @@ namespace Majorsilence.Forms.Renderers
         // the current cell alone (W6.2 sweep).
         private static bool ShowsComboButton (DataGridView control, DataGridViewComboBoxColumn column, int rowIndex, int columnIndex)
         {
+            // The cell's own settings win over the column's, as they do everywhere else in this grid
+            // (W6 mechanisms); the cell's DisplayStyleForCurrentCellOnly was stored and read nowhere.
+            var cell = CellAt (control, rowIndex, columnIndex) as DataGridViewComboBoxCell;
+
             if (column.DisplayStyle == DataGridViewComboBoxDisplayStyle.Nothing)
                 return false;
 
-            return !column.DisplayStyleForCurrentCellOnly
+            var current_only = cell?.DisplayStyleForCurrentCellOnly ?? column.DisplayStyleForCurrentCellOnly;
+
+            return !current_only
                 || (control.CurrentCell is { } current && current.RowIndex == rowIndex && current.ColumnIndex == columnIndex);
         }
 

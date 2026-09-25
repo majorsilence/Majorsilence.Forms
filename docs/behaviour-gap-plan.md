@@ -3649,6 +3649,54 @@ re-annotated separately: it is an IME and dual-font option, and there is no IME 
 
 8 tests; three neutralization rounds (2, 4 and 2 of 8 red), snapshot verified before and after.
 
+**W6 mechanisms, fourteenth chunk: the small stored-only clusters. — 2026-09-25.** Part of #91.
+Eleven stored-only properties across five controls, and one property tried and put back.
+
+With the big single-type clusters done, what was left in the stored-only baseline is mostly
+categories that are genuinely blocked — outbound state the framework writes, native picker options,
+the DataGrid binary-compat family, Win32 handle detail, `Tag` slots, design-time types, the browser
+placeholder, GDI switches and accessibility metadata. This chunk clears the actionable remainder.
+
+- **MaskedTextBox.** `RejectInputOnFirstFailure` decides what a whole string does when the mask
+  refuses one of its characters: on, everything from the refusal is dropped; off (the default), the
+  character is skipped and the rest still goes in, which is what makes pasting a formatted phone
+  number into a digits-only mask fill it. `CutCopyMaskFormat` shapes what Copy and Cut put on the
+  clipboard — the provider's string under that format, clipped to the selection — so copying out of
+  a masked field can leave its literals and prompts behind.
+- **PictureBox.** `ErrorImage` is shown when a load fails, on both the synchronous and the background
+  paths; with none set a failed load leaves the box empty as before. Assigning it re-asserts
+  `IsErrored`, which the `Image` setter clears as the "a picture was set" path. `WaitOnLoad` is read:
+  cleared, assigning `ImageLocation` or calling `Load` starts a background load and returns at once.
+  Its default stays `true`, unlike upstream's `false`, because the async path used to return before
+  any bytes were read (SMP-20) — the deviation is now documented on the property.
+- **DataGridView combo cells.** The column's `AutoComplete` and `Sorted` reach the editor: autocomplete
+  makes it a drop-down that takes typed text and completes it from its own list, and `Sorted` reorders
+  that list. `Sorted` is assigned after the items, because a combo box sorts what it holds when the
+  property is set rather than on every later add. The cell's `AutoComplete` and
+  `DisplayStyleForCurrentCellOnly` are pushed from the column as the other templated settings are, and
+  the renderer reads the cell's.
+- **ErrorProvider.Icon** is drawn in place of the provider's own exclamation glyph when an application
+  supplies one; with none set the drawn glyph stays, because it scales with the display where a bitmap
+  would not.
+- **Graphics.PageUnit / PageScale** put a scale on the canvas, so a caller can draw in points, inches
+  or millimetres and have it land in the right place. The conversion uses 96 units to the inch, the
+  same figure `Font.PixelSize` uses, and the canvas carries one page transform at a time so setting
+  the unit and then the scale does not compound.
+
+*Counts.* Stored-only **353 → 342**.
+
+*Tried and put back: `MaskedTextBox.AllowPromptAsInput`.* The BCL's `MaskedTextProvider` takes it as a
+constructor argument, so wiring it looked like a one-line change and it left the baseline. It does not
+survive a test: with either value the prompt character is neither stored in a position nor rejected,
+through `Set` or through typing. Rather than ship a property that reports as real and changes nothing,
+the constructor call went back to what it was and the baseline entry records what was found.
+
+*Also worth recording:* the neutralization runner used to print a failed build and run the tests
+anyway, against the previous binary — every test passes and the round means nothing. It now aborts,
+restores and exits non-zero. Both of this chunk's rounds hit that guard once while being written.
+
+8 tests; two neutralization rounds (4 and 4 of 8 red), snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.
