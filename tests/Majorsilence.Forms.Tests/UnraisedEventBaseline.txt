@@ -66,7 +66,6 @@ Majorsilence.Forms.RichTextBox.ContentsResized    -- the box lays itself out; no
 Majorsilence.Forms.RichTextBox.ImeChange    -- IME composition; no IME path
 Majorsilence.Forms.RichTextBox.Protected    -- no protected-text ranges to defend
 Majorsilence.Forms.SystemEvents.DisplaySettingsChanged    -- no OS display-settings hook
-Majorsilence.Forms.TaskDialogPage.LinkClicked    -- page text renders as plain labels; no link parsing
 Majorsilence.Forms.ToolStripControlHost.ContentChanged    -- not an upstream member; nothing defines what it would mean
 Majorsilence.Forms.ToolStripItem.QueryAccessibilityHelp    -- accessibility infrastructure; no accessible-object tree
 Majorsilence.Forms.WebBrowser.CanGoBackChanged    -- no browser engine; the control is a placeholder

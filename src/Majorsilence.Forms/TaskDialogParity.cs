@@ -93,95 +93,314 @@ namespace Majorsilence.Forms
         // buttons work and the chosen one comes back, not that it looks like the Windows dialog.
         internal static Form Build (TaskDialogPage page, Action<TaskDialogButton> choose)
         {
+            // The dialog is laid out top to bottom in one column, inset past the icon band when the
+            // page has an icon. SizeToContent (W6 mechanisms) narrows that column to what the text
+            // needs instead of the fixed 420.
+            const int margin = 12;
+            const int fixed_width = 420;
+
+            var icon_glyph = Renderers.MessageGlyphs.For (page.Icon);
+            var icon_band = icon_glyph is null && page.Icon?.Image is null ? 0 : 44;
+
             var form = new Form {
                 Text = page.Caption ?? string.Empty,
-                Width = 420,
+                Width = fixed_width,
                 Height = 220,
                 // AllowCancel gives the caption its close button; AllowMinimize its minimise button. Both
                 // off (the upstream defaults) leaves a caption with no boxes at all (W6.2 sweep).
                 ControlBox = page.AllowCancel || page.AllowMinimize,
                 MinimizeBox = page.AllowMinimize,
                 MaximizeBox = false,
+                // RightToLeftLayout mirrors the dialog when RightToLeft asks for it, as upstream's
+                // TDF_RTL_LAYOUT does (W6 mechanisms).
+                RightToLeft = page.RightToLeftLayout ? RightToLeft.Yes : RightToLeft.No,
             };
 
-            var y = 12;
+            var content_width = ContentWidth (page, fixed_width - (margin * 2) - icon_band);
+            var width = content_width + (margin * 2) + icon_band;
+            var left = margin + icon_band;
+            var y = margin;
+
+            if (icon_band > 0)
+                form.Controls.Add (new TaskDialogIconBox {
+                    Glyph = icon_glyph,
+                    Image = page.Icon?.Image?.ToSKBitmap (),
+                    Left = margin, Top = margin, Width = 32, Height = 32,
+                });
 
             if (!string.IsNullOrEmpty (page.Heading)) {
-                form.Controls.Add (new Label { Text = page.Heading, Left = 12, Top = y, Width = 396, Height = 24 });
+                form.Controls.Add (TextControl (page, page.Heading!, left, y, content_width, 24));
                 y += 28;
             }
 
             if (!string.IsNullOrEmpty (page.Text)) {
-                form.Controls.Add (new Label { Text = page.Text, Left = 12, Top = y, Width = 396, Height = 40 });
+                form.Controls.Add (TextControl (page, page.Text!, left, y, content_width, 40));
                 y += 46;
             }
 
             foreach (var radio in page.RadioButtons) {
-                var control = new RadioButton { Text = radio.Text ?? string.Empty, Left = 12, Top = y, Width = 396, Checked = radio.Checked, Enabled = radio.Enabled };
+                var control = new RadioButton { Text = radio.Text ?? string.Empty, Left = left, Top = y, Width = content_width, Checked = radio.Checked, Enabled = radio.Enabled };
                 control.CheckedChanged += (_, _) => radio.Checked = control.Checked;
                 form.Controls.Add (control);
                 y += 24;
             }
 
-            if (page.Expander is { Text: { Length: > 0 } } expander) {
-                // The expander: a toggle button whose caption follows Expanded, over a details label
-                // that shows only while expanded (W6.2 sweep).
-                var details = new Label { Text = expander.Text, Left = 12, Top = y + 28, Width = 396, Height = 40, Visible = expander.Expanded };
-                var toggle = new Button { Left = 12, Top = y, Width = 120, Height = 24 };
-                toggle.Text = expander.Expanded ? expander.ExpandedButtonText ?? "Hide details" : expander.CollapsedButtonText ?? "See details";
-                toggle.Click += (_, _) => {
-                    expander.Expanded = !expander.Expanded;
-                    details.Visible = expander.Expanded;
-                    toggle.Text = expander.Expanded ? expander.ExpandedButtonText ?? "Hide details" : expander.CollapsedButtonText ?? "See details";
+            // The progress bar (W6 mechanisms): Minimum/Maximum/Value drive a real ProgressBar, and
+            // the Marquee state drives its marquee at MarqueeSpeed milliseconds a step.
+            if (page.ProgressBar is { } progress) {
+                var bar = new ProgressBar {
+                    Left = left, Top = y, Width = content_width, Height = 18,
+                    Minimum = progress.Minimum,
+                    Maximum = Math.Max (progress.Minimum, progress.Maximum),
+                    Style = progress.State == TaskDialogProgressBarState.Marquee ? ProgressBarStyle.Marquee : ProgressBarStyle.Blocks,
                 };
-                form.Controls.Add (toggle);
-                form.Controls.Add (details);
-                y += expander.Expanded ? 74 : 28;
+
+                if (progress.State == TaskDialogProgressBarState.Marquee)
+                    bar.MarqueeAnimationSpeed = progress.MarqueeSpeed;
+                else
+                    bar.Value = Math.Max (bar.Minimum, Math.Min (progress.Value, bar.Maximum));
+
+                form.Controls.Add (bar);
+                y += 26;
             }
 
+            // The expander, before the footnote or after it as Position asks (W6 mechanisms).
+            if (page.Expander is { Text: { Length: > 0 } } expander && expander.Position == TaskDialogExpanderPosition.AfterText)
+                y = AddExpander (form, expander, left, y, content_width);
+
             if (page.Verification is { } verification) {
-                var check = new CheckBox { Text = verification.Text ?? string.Empty, Left = 12, Top = y, Width = 396, Checked = verification.Checked };
+                var check = new CheckBox { Text = verification.Text ?? string.Empty, Left = left, Top = y, Width = content_width, Checked = verification.Checked };
                 check.CheckedChanged += (_, _) => verification.Checked = check.Checked;
                 form.Controls.Add (check);
                 y += 28;
             }
 
+            // The footnote: drawn at all as of W6 mechanisms, with its own icon glyph beside it.
+            if (page.Footnote is { Text: { Length: > 0 } } footnote) {
+                var note_left = left;
+
+                if (Renderers.MessageGlyphs.For (footnote.Icon) is { } note_glyph) {
+                    form.Controls.Add (new TaskDialogIconBox { Glyph = note_glyph, Left = note_left, Top = y, Width = 16, Height = 16 });
+                    note_left += 20;
+                }
+
+                form.Controls.Add (TextControl (page, footnote.Text!, note_left, y, content_width - (note_left - left), 20));
+                y += 26;
+            }
+
+            if (page.Expander is { Text: { Length: > 0 } } after && after.Position == TaskDialogExpanderPosition.AfterFootnote)
+                y = AddExpander (form, after, left, y, content_width);
+
             var buttons = page.Buttons.Count > 0 ? page.Buttons.ToArray () : [TaskDialogButton.OK];
-            var x = 408 - (buttons.Length * 84);
+
+            // A command link is a full-width button with its description under the caption, which is
+            // what makes DescriptionText visible at all (W6 mechanisms); plain buttons stay in a row
+            // along the bottom.
+            var command_links = buttons.Where (b => b is TaskDialogCommandLinkButton).ToArray ();
+
+            if (command_links.Length > 0) {
+                foreach (var link in command_links) {
+                    form.Controls.Add (MakeButton (page, form, link, choose, left, y, content_width, 44));
+                    y += 48;
+                }
+
+                buttons = buttons.Where (b => b is not TaskDialogCommandLinkButton).ToArray ();
+            }
+
+            var x = width - margin - (buttons.Length * 84);
 
             foreach (var button in buttons) {
-                var control = new Button {
-                    Text = button.Text ?? string.Empty,
-                    Left = x,
-                    Top = y + 8,
-                    Width = 80,
-                    Enabled = button.Enabled,
-                    Visible = button.Visible,
-                };
-
-                var captured = button;
-                control.Click += (_, _) => {
-                    // The standard Help button asks the page for help and leaves the dialog open, as
-                    // upstream's does (W6.1 sweep). Standard buttons here are told apart by text.
-                    if (captured.Text == TaskDialogButton.Help.Text) {
-                        page.RaiseHelpRequest ();
-
-                        return;
-                    }
-
-                    choose (captured);
-                    captured.PerformClick ();
-
-                    if (captured.AllowCloseDialog)
-                        form.Close ();
-                };
-
-                form.Controls.Add (control);
+                form.Controls.Add (MakeButton (page, form, button, choose, x, y + 8, 80, 24));
                 x += 84;
             }
 
+            form.Width = width;
             form.Height = y + 80;
             return form;
+        }
+
+        // One of the dialog's buttons, wired to the page's choose/close semantics.
+        private static TaskDialogPushButton MakeButton (TaskDialogPage page, Form form, TaskDialogButton button,
+            Action<TaskDialogButton> choose, int left, int top, int width, int height)
+        {
+            var control = new TaskDialogPushButton {
+                Text = button.Text ?? string.Empty,
+                Left = left,
+                Top = top,
+                Width = width,
+                Height = height,
+                Enabled = button.Enabled,
+                Visible = button.Visible,
+                // ShowShieldIcon draws the elevation shield on the button (W6 mechanisms).
+                ShowShield = button.ShowShieldIcon,
+                // A command link's second line, which nothing showed before (W6 mechanisms).
+                Description = (button as TaskDialogCommandLinkButton)?.DescriptionText,
+            };
+
+            control.Click += (_, _) => {
+                // The standard Help button asks the page for help and leaves the dialog open, as
+                // upstream's does (W6.1 sweep). Standard buttons here are told apart by text.
+                if (button.Text == TaskDialogButton.Help.Text) {
+                    page.RaiseHelpRequest ();
+
+                    return;
+                }
+
+                choose (button);
+                button.PerformClick ();
+
+                if (button.AllowCloseDialog)
+                    form.Close ();
+            };
+
+            if (ReferenceEquals (button, page.DefaultButton))
+                form.AcceptButton = control;
+
+            return control;
+        }
+
+        // SizeToContent (W6 mechanisms): the text column is measured from the page's own strings,
+        // between a readable minimum and the fixed width; off, it is the fixed width as before.
+        private static int ContentWidth (TaskDialogPage page, int fixedContent)
+        {
+            if (!page.SizeToContent)
+                return fixedContent;
+
+            var widest = 0;
+
+            foreach (var text in new[] { page.Heading, page.Text, page.Footnote?.Text, page.Expander?.Text })
+                if (!string.IsNullOrEmpty (text))
+                    widest = Math.Max (widest, (int) Math.Ceiling (TextMeasurer.MeasureText (StripLinks (text!, out _), Theme.UIFont, Theme.FontSize).Width));
+
+            return Math.Max (180, Math.Min (fixedContent, widest + 8));
+        }
+
+        // The expander block; returns the y below it.
+        private static int AddExpander (Form form, TaskDialogExpander expander, int left, int y, int width)
+        {
+            // The expander: a toggle button whose caption follows Expanded, over a details label
+            // that shows only while expanded (W6.2 sweep).
+            var details = new Label { Text = expander.Text ?? string.Empty, Left = left, Top = y + 28, Width = width, Height = 40, Visible = expander.Expanded };
+            var toggle = new Button { Left = left, Top = y, Width = 120, Height = 24 };
+            toggle.Text = expander.Expanded ? expander.ExpandedButtonText ?? "Hide details" : expander.CollapsedButtonText ?? "See details";
+            toggle.Click += (_, _) => {
+                expander.Expanded = !expander.Expanded;
+                details.Visible = expander.Expanded;
+                toggle.Text = expander.Expanded ? expander.ExpandedButtonText ?? "Hide details" : expander.CollapsedButtonText ?? "See details";
+            };
+            form.Controls.Add (toggle);
+            form.Controls.Add (details);
+
+            return y + (expander.Expanded ? 74 : 28);
+        }
+
+        // A block of page text: a LinkLabel carrying the page's links when EnableLinks is on and the
+        // text has any, else a plain Label -- which is what every block used to be (W6 mechanisms).
+        private static Control TextControl (TaskDialogPage page, string text, int left, int top, int width, int height)
+        {
+            if (page.EnableLinks) {
+                var plain = StripLinks (text, out var links);
+
+                if (links.Count > 0) {
+                    var label = new LinkLabel { Text = plain, Left = left, Top = top, Width = width, Height = height };
+
+                    // A LinkLabel starts with one link covering its whole text; the parsed spans
+                    // replace it rather than overlapping it (which the collection refuses).
+                    label.Links.Clear ();
+
+                    foreach (var (start, length, href) in links)
+                        label.Links.Add (new LinkLabel.Link (start, length, href));
+
+                    label.LinkClicked += (_, e) => {
+                        if (e.Link?.LinkData is string target)
+                            page.RaiseLinkClicked (target);
+                    };
+
+                    return label;
+                }
+            }
+
+            return new Label { Text = StripLinks (text, out _), Left = left, Top = top, Width = width, Height = height };
+        }
+
+        // Pulls `<a href="target">text</a>` out of a string, as upstream's task dialog does when
+        // TDF_ENABLE_HYPERLINKS is set: the result is the text with the markup removed, and each link
+        // is its span in that result plus its target.
+        internal static string StripLinks (string text, out List<(int Start, int Length, string Href)> links)
+        {
+            links = [];
+
+            if (text.IndexOf ("<a", StringComparison.OrdinalIgnoreCase) < 0)
+                return text;
+
+            var builder = new System.Text.StringBuilder (text.Length);
+            var matches = System.Text.RegularExpressions.Regex.Matches (text,
+                "<a\\s+href\\s*=\\s*[\"']([^\"']*)[\"']\\s*>(.*?)</a>",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline);
+            var taken = 0;
+
+            foreach (System.Text.RegularExpressions.Match match in matches) {
+                builder.Append (text, taken, match.Index - taken);
+                links.Add ((builder.Length, match.Groups[2].Length, match.Groups[1].Value));
+                builder.Append (match.Groups[2].Value);
+                taken = match.Index + match.Length;
+            }
+
+            builder.Append (text, taken, text.Length - taken);
+            return builder.ToString ();
+        }
+    }
+
+    /// <summary>A push button on a task dialog, which draws the elevation shield when asked (W6 mechanisms).</summary>
+    internal sealed class TaskDialogPushButton : Button
+    {
+        internal bool ShowShield { get; set; }
+
+        /// <summary>A command link's second line, drawn under the caption.</summary>
+        internal string? Description { get; set; }
+
+        /// <inheritdoc/>
+        protected override void OnPaint (PaintEventArgs e)
+        {
+            base.OnPaint (e);
+
+            if (ShowShield) {
+                var side = LogicalToDeviceUnits (12);
+                Renderers.MessageGlyphs.Draw (e.Canvas, Renderers.MessageGlyph.Shield,
+                    new Rectangle (LogicalToDeviceUnits (4), (ScaledHeight - side) / 2, side, side));
+            }
+
+            if (string.IsNullOrEmpty (Description))
+                return;
+
+            // Under the caption, which the base drew centred in the whole button: a command link is
+            // tall enough for both lines.
+            var inset = LogicalToDeviceUnits (8);
+            var bounds = new Rectangle (inset, ScaledHeight / 2, Math.Max (0, ScaledWidth - (inset * 2)), ScaledHeight / 2);
+
+            e.Canvas.DrawText (Description!, GetEffectiveFont (), LogicalToDeviceUnits (GetEffectiveFontSize ()),
+                bounds, GetEffectiveForegroundColor (), ContentAlignment.TopLeft, maxLines: 2);
+        }
+    }
+
+    /// <summary>The icon band of a task dialog: a standard glyph, or the page's own bitmap.</summary>
+    internal sealed class TaskDialogIconBox : Control
+    {
+        internal Renderers.MessageGlyph? Glyph { get; set; }
+
+        internal SkiaSharp.SKBitmap? Image { get; set; }
+
+        /// <inheritdoc/>
+        protected override void OnPaint (PaintEventArgs e)
+        {
+            base.OnPaint (e);
+
+            var box = new Rectangle (0, 0, ScaledWidth, ScaledHeight);
+
+            if (Image is { } image)
+                e.Canvas.DrawBitmap (image, box);
+            else if (Glyph is { } glyph)
+                Renderers.MessageGlyphs.Draw (e.Canvas, glyph, box);
         }
     }
 
@@ -703,6 +922,9 @@ namespace Majorsilence.Forms
         public event EventHandler? HelpRequest;
 
         internal void RaiseHelpRequest () => HelpRequest?.Invoke (this, EventArgs.Empty);
+
+        /// <summary>Raises <see cref="LinkClicked"/> for a link in the page's text (W6 mechanisms).</summary>
+        internal void RaiseLinkClicked (string href) => LinkClicked?.Invoke (this, new TaskDialogLinkClickedEventArgs (href));
 
         /// <summary>Raised when a hyperlink in the text is clicked. Not raised: the composed dialog
         /// draws its text as a label, which has no links to click.</summary>

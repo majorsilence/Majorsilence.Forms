@@ -530,9 +530,9 @@ namespace Majorsilence.Forms
         protected virtual void OnCheckStateChanged (EventArgs e) => CheckStateChanged?.Invoke (this, e);
 
         /// <summary>Gets whether this item is one of the MDI window list entries.</summary>
-        /// <remarks>False: the window list is built by <c>MdiWindowListItem</c>, and nothing in this
-        /// layer marks the generated entries, so no ordinary item can be mistaken for one.</remarks>
-        public bool IsMdiWindowListEntry => false;
+        /// <remarks>Real as of W6 mechanisms: the entries a window-list item generates are marked, so
+        /// an application walking the menu can tell them from its own items.</remarks>
+        public bool IsMdiWindowListEntry => IsGeneratedWindowListEntry;
     }
 
     public partial class ToolStripOverflowButton

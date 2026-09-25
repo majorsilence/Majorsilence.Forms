@@ -189,6 +189,8 @@ namespace Majorsilence.Forms
         private bool column_break;
 
         /// <summary>Gets or sets whether the item is populated with the list of MDI child windows.</summary>
+        /// <remarks>Real as of W6 mechanisms: opening the item refills it with one entry per MDI child
+        /// of the owning form, checked for the active one and activating it when clicked.</remarks>
         public bool MdiList { get; set; }
 
         /// <summary>Gets or sets how this item merges with items from another menu.</summary>

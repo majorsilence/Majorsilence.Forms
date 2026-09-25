@@ -402,6 +402,11 @@ namespace Majorsilence.Forms
         /// </remarks>
         public virtual void ShowDropDown ()
         {
+            // The MDI window list (W6 mechanisms), rebuilt before the menu opens so it always shows
+            // the children that exist right now. Done before HasItems is tested: a Window menu whose
+            // only contents are the generated entries has none until this runs.
+            PopulateMdiWindowList ();
+
             if (HasItems && OwnerControl != null) {
                 // The legacy per-item counterpart of ContextMenu.Popup: raised before the sub-menu is
                 // built, which is where an application fills or enables its contents (TSM-30).
@@ -432,6 +437,53 @@ namespace Majorsilence.Forms
                 IsDropDownOpened = true;
             }
         }
+
+        /// <summary>
+        /// Refills this item with the MDI child windows when it is a window-list item: the legacy
+        /// <see cref="MdiList"/> flag, or the strip's <c>MenuStrip.MdiWindowListItem</c> (W6 mechanisms).
+        /// </summary>
+        /// <remarks>
+        /// Each child gets an entry showing its caption, checked for the active one and activating it
+        /// when clicked; the entries are separated from the item's own contents by a divider, and are
+        /// replaced wholesale on every open, so closed windows disappear. An item that is neither kind
+        /// of window list is left alone.
+        /// </remarks>
+        internal void PopulateMdiWindowList ()
+        {
+            var is_window_list = MdiList
+                || (OwnerControl is MenuStrip strip && ReferenceEquals (strip.MdiWindowListItem, this));
+
+            if (!is_window_list)
+                return;
+
+            // Drop the entries the last open generated, along with their divider.
+            for (var i = Items.Count - 1; i >= 0; i--)
+                if (Items[i] is { IsGeneratedWindowListEntry: true })
+                    Items.RemoveAt (i);
+
+            var container = OwnerControl?.FindForm ();
+            var children = container?.MdiChildren ?? [];
+
+            if (children.Length == 0)
+                return;
+
+            if (Items.Count > 0)
+                Items.Add (new MenuSeparatorItem { IsGeneratedWindowListEntry = true });
+
+            foreach (var child in children) {
+                var entry = new ToolStripMenuItem (child.Text) {
+                    IsGeneratedWindowListEntry = true,
+                    Checked = ReferenceEquals (child, container?.ActiveMdiChild),
+                };
+
+                var captured = child;
+                entry.Click += (_, _) => container?.ActivateMdiChild (captured);
+                Items.Add (entry);
+            }
+        }
+
+        /// <summary>Whether this item is one of the generated MDI window-list entries (W6 mechanisms).</summary>
+        internal bool IsGeneratedWindowListEntry { get; set; }
 
         // Where a drop-down of the given size goes for a direction, in the owner's client space: the
         // corner of the item the direction names, less the drop-down's extent when it opens left or up.

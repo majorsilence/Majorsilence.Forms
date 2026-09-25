@@ -11,6 +11,7 @@ namespace Majorsilence.Forms.Renderers
         Warning,
         Error,
         Question,
+        Shield,
     }
 
     /// <summary>
@@ -40,10 +41,24 @@ namespace Majorsilence.Forms.Renderers
             _ => null,
         };
 
+        internal static readonly SKColor ShieldColor = new (0x40, 0x60, 0x90);
+
         internal static SKColor ColorOf (MessageGlyph glyph) => glyph switch {
             MessageGlyph.Warning => WarningColor,
             MessageGlyph.Error => ErrorColor,
+            MessageGlyph.Shield => ShieldColor,
             _ => InformationColor,
+        };
+
+        /// <summary>The glyph a <see cref="TaskDialogIcon"/> stands for, or null for None and the image-backed ones.</summary>
+        internal static MessageGlyph? For (TaskDialogIcon? icon) => icon?.Name switch {
+            nameof (TaskDialogIcon.Information) => MessageGlyph.Information,
+            nameof (TaskDialogIcon.Warning) => MessageGlyph.Warning,
+            nameof (TaskDialogIcon.Error) => MessageGlyph.Error,
+            nameof (TaskDialogIcon.Shield) or nameof (TaskDialogIcon.ShieldBlueBar) or nameof (TaskDialogIcon.ShieldGrayBar)
+                or nameof (TaskDialogIcon.ShieldErrorRedBar) or nameof (TaskDialogIcon.ShieldSuccessGreenBar)
+                or nameof (TaskDialogIcon.ShieldWarningYellowBar) => MessageGlyph.Shield,
+            _ => null,
         };
 
         internal static void Draw (SKCanvas canvas, MessageGlyph glyph, Rectangle box)
@@ -74,6 +89,20 @@ namespace Majorsilence.Forms.Renderers
                     canvas.DrawLine (cx - r * 0.4f, cy - r * 0.4f, cx + r * 0.4f, cy + r * 0.4f, ink);
                     canvas.DrawLine (cx - r * 0.4f, cy + r * 0.4f, cx + r * 0.4f, cy - r * 0.4f, ink);
                     break;
+                case MessageGlyph.Shield: {
+                    // A crest: square shoulders narrowing to a point, with a white chevron.
+                    using var crest = new SKPath ();
+                    crest.MoveTo (box.Left, box.Top);
+                    crest.LineTo (box.Right, box.Top);
+                    crest.LineTo (box.Right, cy + r * 0.2f);
+                    crest.LineTo (cx, box.Bottom);
+                    crest.LineTo (box.Left, cy + r * 0.2f);
+                    crest.Close ();
+                    canvas.DrawPath (crest, fill);
+                    canvas.DrawLine (cx - r * 0.4f, cy - r * 0.1f, cx - r * 0.1f, cy + r * 0.25f, ink);
+                    canvas.DrawLine (cx - r * 0.1f, cy + r * 0.25f, cx + r * 0.45f, cy - r * 0.45f, ink);
+                    break;
+                }
                 case MessageGlyph.Question: {
                     canvas.DrawCircle (cx, cy, r, fill);
                     using var hook = new SKPath ();

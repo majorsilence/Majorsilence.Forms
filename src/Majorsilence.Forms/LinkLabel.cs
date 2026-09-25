@@ -547,6 +547,10 @@ namespace Majorsilence.Forms
             }
         }
 
+        // Test seam: the click gesture without a mouse, for links whose control is built inside the
+        // framework (a task dialog's text) and cannot be subclassed by the caller.
+        internal void DriveLinkClick (Link link) => ActivateLink (link, MouseButtons.Left);
+
         private void ActivateLink (Link link, MouseButtons button)
         {
             link.Visited = true;

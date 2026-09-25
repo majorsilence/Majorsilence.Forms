@@ -336,12 +336,18 @@ namespace Majorsilence.Forms
         public virtual bool AutoScroll { get; set; }
 
         /// <summary>Gets or sets the margin left around a control scrolled into view.</summary>
+        /// <remarks>Stored, as upstream leaves it: a <c>SplitContainer</c> answers <c>false</c> from
+        /// <c>AutoScroll</c> whatever is assigned to it, so the container itself never scrolls and
+        /// these three inherited members have nothing to act on. The panels are what scroll -- both
+        /// are real <see cref="SplitterPanel"/>s with their own <c>AutoScroll</c>.</remarks>
         public Size AutoScrollMargin { get; set; }
 
         /// <summary>Gets or sets the smallest logical size the container scrolls over.</summary>
+        /// <remarks>See <see cref="AutoScrollMargin"/>: the container does not scroll.</remarks>
         public Size AutoScrollMinSize { get; set; }
 
         /// <summary>Gets or sets the current scroll offset.</summary>
+        /// <remarks>See <see cref="AutoScrollMargin"/>: the container does not scroll.</remarks>
         public Point AutoScrollPosition { get; set; }
 
         /// <summary>Gets the rectangle the splitter occupies.</summary>

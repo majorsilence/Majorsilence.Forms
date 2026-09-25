@@ -3505,6 +3505,53 @@ and fills its corner pixels as rectangles.
 28 tests (27 new and the replaced link test); four neutralization rounds (5, 8, 5 and 10 of 28 red),
 snapshot verified before and after.
 
+**W6 mechanisms, eleventh chunk: the task dialog, printing, the splitter and the MDI window list. — 2026-09-25.** Part of #91.
+Twenty-five stored-only properties and one unraised event, in four clusters.
+
+- **TaskDialog.** The dialog it builds was a caption, a body, radio buttons, an expander, a checkbox
+  and a button row; everything else on the page was stored and never shown. Now: the page's `Icon`
+  draws a glyph in a band beside the heading (the shared `MessageGlyphs`, which gained a shield); the
+  `Footnote` is rendered at all, with its own `Icon` beside it; the `ProgressBar` is a real
+  `ProgressBar` carrying `Minimum`/`Maximum`/`Value`, or a marquee at `MarqueeSpeed` when its `State`
+  asks; `TaskDialogButton.ShowShieldIcon` draws the elevation shield; `TaskDialogExpander.Position`
+  puts the expander before or after the footnote; `TaskDialogPage.EnableLinks` parses
+  `<a href="…">…</a>` out of the heading, body, footnote and expander text into a `LinkLabel` whose
+  clicks raise **`LinkClicked`** (the chunk's one unraised event); `RightToLeftLayout` mirrors the
+  dialog; `SizeToContent` measures the text column instead of using the fixed 420; and a
+  `TaskDialogCommandLinkButton` is a full-width button showing its `DescriptionText` under the
+  caption, where it used to be an 80-pixel button in the row with the description nowhere.
+  `DefaultButton` now also becomes the form's `AcceptButton`.
+- **Printing.** `PrintDocument.PrintController` is real: one page walk serves both paths, telling the
+  controller when a job starts and ends, offering it every page, and drawing on the surface it
+  supplies. That is what makes `PreviewPrintController` a destination rather than an unreachable
+  class, which in turn makes `PrintPreviewControl` work: `Document` runs the document through a
+  preview controller and the captured pages are painted in the `Rows` by `Columns` grid from
+  `StartPage`, each scaled by `Zoom` or fitted to its cell under `AutoZoom`, with `UseAntiAlias`
+  picking the sampling. `PrintPreviewDialog` hosts that control and forwards `UseAntiAlias`, honours
+  `UseWaitCursor` over the page walk, and shows the preview — it used to print the document to a PDF
+  and hand the file to the operating system, which left a file behind and returned `OK` without
+  showing anything of the application's. `PrintEventArgs.PrintAction` says which kind of job is
+  running, and `OriginAtMargins` translates the page canvas to the margin corner and reports
+  `MarginBounds` relative to it.
+- **SplitContainer.** `SplitterIncrement` rounds a drag down to whole steps measured from where the
+  drag began, as upstream's `SplitMove` does.
+- **MDI window list.** `MenuStrip.MdiWindowListItem` and the legacy `MenuItem.MdiList` share one
+  mechanism: opening the item refills it with one entry per MDI child, separated from the
+  application's own items by a divider, checked for the active child and activating it when clicked.
+  Closed windows drop out because the list is rebuilt on every open. The generated entries are
+  marked, so `ToolStripMenuItem.IsMdiWindowListEntry` stopped being a hardcoded `false`.
+
+*Counts.* Stored-only **407 → 382**. Unraised **74 → 73**.
+
+*Not done:* `Form.MdiChildrenMinimizedAnchorBottom` still needs MDI child minimisation, which is not
+modelled (re-annotated: the window list half of that reason is now real). `SplitContainer`'s three
+`AutoScroll*` members stay stored and are re-annotated honestly — upstream's `SplitContainer` answers
+`false` from `AutoScroll` whatever is assigned to it, so the container never scrolls; its two panels
+do, through their own. The page-setup and print dialogs' `Allow*` options still need a backend
+picker, and `PrintControllerWithStatusDialog` still discards the controller it wraps.
+
+15 tests; three neutralization rounds (7, 5 and 3 of 15 red), snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

@@ -353,7 +353,13 @@ namespace Majorsilence.Forms
         public event EventHandler? StartPageChanged;
 
         /// <summary>Discards the rendered preview so it is generated again.</summary>
-        public void InvalidatePreview () => Invalidate ();
+        /// <summary>Re-runs the document through a preview controller and repaints.</summary>
+        /// <remarks>Real as of W6 mechanisms: it used to invalidate a control that painted nothing.</remarks>
+        public void InvalidatePreview ()
+        {
+            RefreshPages ();
+            Invalidate ();
+        }
     }
 
     public partial class PrintDialog
