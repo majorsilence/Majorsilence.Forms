@@ -191,8 +191,15 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the foreground color of the ToolTip.</summary>
         public Color ForeColor { get; set; } = Color.Black;
 
-        /// <summary>Associates tooltip text with a window (WinForms allows any control, including forms). Stored no-op — window-level tips are not shown yet.</summary>
-        public void SetToolTip (WindowBase window, string caption) { }
+        /// <summary>Sets the tip shown over a window's content.</summary>
+        /// <remarks>Real as of W6 mechanisms: the tip is set on the control that fills the window, so
+        /// the pointer anywhere over its content shows it. It used to do nothing, and this is the
+        /// overload a caller reaches for when the thing they have is a Form.</remarks>
+        public void SetToolTip (WindowBase window, string caption)
+        {
+            if (window?.ContentRoot is { } content)
+                SetToolTip (content, caption);
+        }
 
         /// <summary>
         /// Associates ToolTip text with the specified control.

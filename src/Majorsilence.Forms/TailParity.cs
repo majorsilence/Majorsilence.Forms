@@ -356,11 +356,13 @@ namespace Majorsilence.Forms
                 ? new Rectangle (SplitterDistance, 0, SplitterWidth, Height)
                 : new Rectangle (0, SplitterDistance, Width, SplitterWidth);
 
-        /// <summary>Signals that initialization is starting.</summary>
-        public void BeginInit () { }
+        /// <summary>Starts a batch of designer-set properties; layout waits for <see cref="EndInit"/>.</summary>
+        /// <remarks>Real as of W6 mechanisms: it used to do nothing, so a control the designer
+        /// initialises laid itself out once per property assigned instead of once at the end.</remarks>
+        public void BeginInit () => SuspendLayout ();
 
-        /// <summary>Signals that initialization has finished.</summary>
-        public void EndInit () => PerformLayout ();
+        /// <summary>Ends the batch <see cref="BeginInit"/> started and lays the control out once.</summary>
+        public void EndInit () => ResumeLayout (performLayout: true);
 
         /// <summary>Raises the SplitterMoved event.</summary>
         public void OnSplitterMoved (SplitterEventArgs e) => SplitterMoved?.Invoke (this, e);

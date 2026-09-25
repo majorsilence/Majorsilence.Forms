@@ -219,11 +219,13 @@ namespace Majorsilence.Forms
             Maximum = maxValue;
         }
 
-        /// <summary>Signals that initialization is starting.</summary>
-        public void BeginInit () { }
+        /// <summary>Starts a batch of designer-set properties; layout waits for <see cref="EndInit"/>.</summary>
+        /// <remarks>Real as of W6 mechanisms: it used to do nothing, so a control the designer
+        /// initialises laid itself out once per property assigned instead of once at the end.</remarks>
+        public void BeginInit () => SuspendLayout ();
 
-        /// <summary>Signals that initialization has finished.</summary>
-        public void EndInit () { }
+        /// <summary>Ends the batch <see cref="BeginInit"/> started and lays the control out once.</summary>
+        public void EndInit () => ResumeLayout (performLayout: true);
     }
 
     public partial class DateTimePicker
