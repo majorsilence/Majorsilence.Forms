@@ -1794,6 +1794,13 @@ namespace Majorsilence.Forms
     /// <summary>Provides data for the tool strip content panel render event.</summary>
     public partial class ToolStripContentPanelRenderEventArgs : EventArgs
     {
+        /// <summary>Initializes a new instance for the panel being painted.</summary>
+        public ToolStripContentPanelRenderEventArgs (Graphics g, ToolStripContentPanel contentPanel)
+        {
+            Graphics = g;
+            ToolStripContentPanel = contentPanel;
+        }
+
         /// <summary>Gets the graphics.</summary>
         public Graphics Graphics { get; } = default!;
         /// <summary>Gets or sets the handled.</summary>
@@ -1839,6 +1846,7 @@ namespace Majorsilence.Forms
         /// <summary>Initializes a new instance of the <see cref="ToolStripPanelRenderEventArgs"/> class.</summary>
         public ToolStripPanelRenderEventArgs (Graphics g, ToolStripPanel toolStripPanel)
         {
+            Graphics = g;
             ToolStripPanel = toolStripPanel;
         }
 

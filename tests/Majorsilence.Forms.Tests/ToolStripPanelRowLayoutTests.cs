@@ -15,8 +15,10 @@ namespace Majorsilence.Forms.Tests
             // MainMenu and a button toolbar in TopToolStripPanel and showed only the toolbar.
             using var container = new ToolStripContainer { Size = new Size (900, 400) };
 
-            var menu = new ToolStrip { Dock = DockStyle.Top, Height = 24 };
-            var toolbar = new ToolStrip { Dock = DockStyle.Fill, Height = 90 };
+            // Stretch: a plain ToolStrip keeps its content width in a rafting panel as of W6 (upstream's
+            // default); this test is about rows, so both strips ask to span their row.
+            var menu = new ToolStrip { Dock = DockStyle.Top, Height = 24, Stretch = true };
+            var toolbar = new ToolStrip { Dock = DockStyle.Fill, Height = 90, Stretch = true };
 
             container.TopToolStripPanel.Controls.Add (menu);
             container.TopToolStripPanel.Controls.Add (toolbar);
@@ -32,9 +34,11 @@ namespace Majorsilence.Forms.Tests
                 toolbar.Top >= menu.Top + menu.Height,
                 $"strips overlap: menu {menu.Top}..{menu.Top + menu.Height}, toolbar top {toolbar.Top}");
 
-            // Each row spans the panel width.
-            Assert.Equal (container.TopToolStripPanel.ClientRectangle.Width, menu.Width);
-            Assert.Equal (container.TopToolStripPanel.ClientRectangle.Width, toolbar.Width);
+            // Each row spans the panel width, less the panel's RowMargin (upstream's default is 3 on
+            // the left), which the row layout honours as of W6.
+            var row_width = container.TopToolStripPanel.ClientRectangle.Width - container.TopToolStripPanel.RowMargin.Horizontal;
+            Assert.Equal (row_width, menu.Width);
+            Assert.Equal (row_width, toolbar.Width);
 
             // The edge panel grew to hold both rows rather than just the taller one.
             Assert.True (

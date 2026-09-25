@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Linq;
+using System.Collections.Generic;
 using System.Drawing;
 
 namespace Majorsilence.Forms
@@ -226,8 +228,21 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the image is mirrored under a right-to-left layout.</summary>
         public bool RightToLeftAutoMirrorImage { get; set; }
 
-        /// <summary>Gets or sets the direction the item's text runs in.</summary>
-        public virtual ToolStripTextDirection TextDirection { get; set; } = ToolStripTextDirection.Inherit;
+        /// <summary>Gets or sets the direction the item's text is drawn in; Inherit takes the strip's.</summary>
+        /// <remarks>Read by the strip renderer as of W6 mechanisms: vertical text is measured and drawn rotated.</remarks>
+        public virtual ToolStripTextDirection TextDirection {
+            get => text_direction;
+            set {
+                if (text_direction == value)
+                    return;
+
+                text_direction = value;
+                OwnerControl?.PerformLayout ();
+                OwnerControl?.Invalidate ();
+            }
+        }
+
+        private ToolStripTextDirection text_direction = ToolStripTextDirection.Inherit;
 
         /// <summary>Gets or sets how this item merges into a target strip.</summary>
         public MergeAction MergeAction { get; set; } = MergeAction.Append;
@@ -497,13 +512,250 @@ namespace Majorsilence.Forms
         public bool IsCurrentlyDragging { get; private set; }
 
         /// <summary>Gets or sets whether this strip lays out horizontally or vertically.</summary>
-        public Orientation Orientation { get; set; } = Orientation.Horizontal;
+        /// <remarks>Derived, as upstream's is: the two stack styles fix it, and StackWithOverflow follows
+        /// the strip's docked edge unless it was set by hand (W6 mechanisms).</remarks>
+        public Orientation Orientation {
+            get => LayoutStyle switch {
+                ToolStripLayoutStyle.VerticalStackWithOverflow => Orientation.Vertical,
+                ToolStripLayoutStyle.HorizontalStackWithOverflow => Orientation.Horizontal,
+                _ => orientation_override ?? (Dock is DockStyle.Left or DockStyle.Right ? Orientation.Vertical : Orientation.Horizontal),
+            };
+            set {
+                if (orientation_override == value)
+                    return;
+
+                orientation_override = value;
+                PerformLayout ();
+                Invalidate ();
+            }
+        }
+
+        private Orientation? orientation_override;
 
         /// <summary>Gets the button that shows items which did not fit.</summary>
-        public ToolStripItem? OverflowButton { get; private set; }
+        /// <remarks>Real as of W6 mechanisms: the items that do not fit a stack layout move into its
+        /// drop-down and it is laid out at the strip's trailing edge while any have; see <see cref="CanOverflow"/>.</remarks>
+        public ToolStripOverflowButton OverflowButton => overflow_button ??= CreateOverflowButton ();
+
+        private ToolStripOverflowButton? overflow_button;
 
         /// <summary>Gets or sets the layout settings for the current <see cref="LayoutStyle"/>.</summary>
+        /// <remarks>Stored only: the <see cref="ToolStripLayoutStyle.Flow"/> arrangement here wraps with
+        /// no settings and <see cref="ToolStripLayoutStyle.Table"/> is laid out as Flow.</remarks>
         public LayoutSettings? LayoutSettings { get; set; }
+
+        // ── layout styles and overflow (W6 mechanisms) ──────────────────────────────────────────
+        // Items live in Items (the facade) and in base.Items (the collection layout, paint and hit-
+        // testing read). Overflow moves items from base.Items into the overflow button's own drop-down
+        // items -- so they stay in Items, as upstream keeps them, while the strip stops laying them out
+        // -- and every layout pass starts by moving them back, so the decision is fresh.
+        internal ToolStripLayoutStyle EffectiveLayoutStyle
+            => LayoutStyle == ToolStripLayoutStyle.StackWithOverflow
+                ? (Orientation == Orientation.Vertical ? ToolStripLayoutStyle.VerticalStackWithOverflow : ToolStripLayoutStyle.HorizontalStackWithOverflow)
+                : LayoutStyle;
+
+        // True while items move between the strip and its overflow: ItemAdded/ItemRemoved are for the
+        // application's changes, not the layout's.
+        internal bool suppress_item_notifications;
+
+        private ToolStripOverflowButton CreateOverflowButton ()
+        {
+            var button = new ToolStripOverflowButton ();
+
+            suppress_item_notifications = true;
+
+            try {
+                base.Items.Add (button);   // on the strip, never in the facade -- upstream's is not in Items either
+            } finally {
+                suppress_item_notifications = false;
+            }
+
+            return button;
+        }
+
+        /// <inheritdoc/>
+        protected override void LayoutItems ()
+        {
+            RestoreOverflowedItems ();
+            base.LayoutItems ();
+        }
+
+        private void RestoreOverflowedItems ()
+        {
+            if (overflow_button is null || overflow_button.Items.Count == 0)
+                return;
+
+            var mirror = base.Items;
+
+            suppress_item_notifications = true;
+
+            try {
+                foreach (var item in overflow_button.Items.ToList ()) {
+                    overflow_button.Items.Remove (item);
+
+                    var facade_index = Items.IndexOf (item);
+
+                    // Removed from Items while it was overflowed: it is gone for good.
+                    if (facade_index < 0)
+                        continue;
+
+                    // Back at its facade position: after every facade item before it that is on the strip.
+                    var insert_at = 0;
+
+                    for (var i = 0; i < facade_index; i++)
+                        if (mirror.Contains (Items[i]))
+                            insert_at++;
+
+                    mirror.Insert (Math.Min (insert_at, mirror.Count), item);
+
+                    if (item is ToolStripItem strip_item)
+                        strip_item.Placement = ToolStripItemPlacement.Main;
+                }
+            } finally {
+                suppress_item_notifications = false;
+            }
+        }
+
+        private void MoveToOverflow (List<MenuItem> overflowed)
+        {
+            if (overflowed.Count == 0)
+                return;
+
+            var button = OverflowButton;
+
+            suppress_item_notifications = true;
+
+            try {
+                foreach (var item in overflowed) {
+                    base.Items.Remove (item);
+                    button.Items.Add (item);
+
+                    if (item is ToolStripItem strip_item)
+                        strip_item.Placement = ToolStripItemPlacement.Overflow;
+                }
+            } finally {
+                suppress_item_notifications = false;
+            }
+        }
+
+        internal override Rectangle ReserveGripBand (Rectangle area, int grip)
+            => Orientation == Orientation.Vertical
+                ? new Rectangle (area.Left, area.Top + grip, area.Width, Math.Max (0, area.Height - grip))
+                : base.ReserveGripBand (area, grip);
+
+        internal override void ArrangeItems (Rectangle area, List<MenuItem> visible)
+        {
+            var style = EffectiveLayoutStyle;
+            var main = visible.Where (i => !ReferenceEquals (i, overflow_button)).ToList ();
+
+            if (style is ToolStripLayoutStyle.Flow or ToolStripLayoutStyle.Table) {
+                // Flow: preferred sizes, wrapped into rows; no overflow. Table is laid out the same way.
+                StackLayoutEngine.Horizontal.Layout (area, main.Cast<ILayoutable> ());
+                WrapIntoRows (main, area, grow: false);
+                overflow_button?.SetBounds (0, 0, 0, 0);
+
+                foreach (var item in main.OfType<ToolStripItem> ())
+                    item.Placement = ToolStripItemPlacement.Main;
+
+                return;
+            }
+
+            var vertical = style == ToolStripLayoutStyle.VerticalStackWithOverflow;
+            var overflowed = new List<MenuItem> ();
+
+            int Extent (MenuItem item)
+            {
+                var size = item.GetPreferredSize (Size.Empty);
+                return vertical ? size.Height + item.Margin.Vertical : size.Width + item.Margin.Horizontal;
+            }
+
+            // A strip that has not been sized yet (a docked strip in a form that is not shown has no
+            // width at all) has no capacity to measure against: nothing overflows until it does.
+            var capacity = vertical ? area.Height : area.Width;
+
+            if (CanOverflow && capacity > 0) {
+                var needed = main.Sum (Extent);
+
+                if (needed > capacity) {
+                    var budget = capacity - Extent (OverflowButton);
+
+                    // Overflow.Always items go first, whatever the room; then AsNeeded items from the
+                    // trailing end until the rest fits beside the button; Never items stay put.
+                    foreach (var item in main.Where (i => i is ToolStripItem { Overflow: ToolStripItemOverflow.Always }).ToList ()) {
+                        overflowed.Add (item);
+                        main.Remove (item);
+                        needed -= Extent (item);
+                    }
+
+                    for (var i = main.Count - 1; i >= 0 && needed > budget; i--) {
+                        if (main[i] is ToolStripItem { Overflow: ToolStripItemOverflow.Never })
+                            continue;
+
+                        needed -= Extent (main[i]);
+                        overflowed.Insert (0, main[i]);
+                        main.RemoveAt (i);
+                    }
+                }
+            }
+
+            MoveToOverflow (overflowed);
+
+            if (overflowed.Count > 0)
+                main.Add (OverflowButton);
+            else
+                overflow_button?.SetBounds (0, 0, 0, 0);
+
+            (vertical ? StackLayoutEngine.VerticalExpand : StackLayoutEngine.HorizontalExpand).Layout (area, main.Cast<ILayoutable> ());
+            PinTrailing (main, area, vertical);
+
+            foreach (var item in main.OfType<ToolStripItem> ())
+                item.Placement = ToolStripItemPlacement.Main;
+        }
+
+        // ToolStripItemAlignment.Right pins to the trailing edge: the right of a horizontal strip, the
+        // bottom of a vertical one. Sizes are kept; only the position moves.
+        private static void PinTrailing (List<MenuItem> main, Rectangle area, bool vertical)
+        {
+            var trailing = main.OfType<ToolStripItem> ().Where (i => i.Alignment == ToolStripItemAlignment.Right).ToList ();
+            var edge = vertical ? area.Bottom : area.Right;
+
+            for (var i = trailing.Count - 1; i >= 0; i--) {
+                var bounds = trailing[i].Bounds;
+
+                if (vertical) {
+                    edge -= bounds.Height;
+                    trailing[i].SetBounds (bounds.X, edge, bounds.Width, bounds.Height);
+                } else {
+                    edge -= bounds.Width;
+                    trailing[i].SetBounds (edge, bounds.Y, bounds.Width, bounds.Height);
+                }
+            }
+        }
+
+        /// <summary>The direction an item's text is drawn in: its own, or the strip's when it inherits.</summary>
+        internal ToolStripTextDirection TextDirectionFor (MenuItem item)
+            => item is ToolStripItem { TextDirection: not ToolStripTextDirection.Inherit } strip_item
+                ? strip_item.TextDirection
+                : TextDirection == ToolStripTextDirection.Inherit ? ToolStripTextDirection.Horizontal : TextDirection;
+
+        // A vertical strip is as wide as its widest item and as tall as its items stacked (W6).
+        internal override Size GetPreferredSizeCore (Size proposedSize)
+        {
+            if (EffectiveLayoutStyle != ToolStripLayoutStyle.VerticalStackWithOverflow)
+                return base.GetPreferredSizeCore (proposedSize);
+
+            var width = 0;
+            var height = 0;
+
+            foreach (MenuItem item in Items) {
+                var size = item.GetPreferredSize (Size.Empty);
+
+                width = Math.Max (width, size.Width + item.Margin.Horizontal);
+                height += size.Height + item.Margin.Vertical;
+            }
+
+            return new Size (Math.Max (Width, width + Padding.Horizontal), Math.Max (0, height + Padding.Vertical + GripBandWidth));
+        }
 
         /// <summary>Returns the item at the given point within this strip, or null.</summary>
         /// <param name="point">

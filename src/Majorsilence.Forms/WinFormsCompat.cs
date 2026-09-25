@@ -1899,11 +1899,20 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the Checked property changes.</summary>
         public event EventHandler? CheckedChanged;
 
-        /// <summary>Gets or sets how this item behaves when toolstrips are merged. Stub in Majorsilence.Forms.</summary>
-        public new MergeAction MergeAction { get; set; } = MergeAction.Append;
+        /// <summary>Gets or sets how <see cref="ToolStripManager.Merge(ToolStrip, ToolStrip)"/> treats this item.</summary>
+        /// <remarks>The base's value, not a second store: the merge reads the item as a
+        /// <see cref="ToolStripItem"/>, and a menu item that kept its own copy merged with the defaults (W6).</remarks>
+        public new MergeAction MergeAction {
+            get => base.MergeAction;
+            set => base.MergeAction = value;
+        }
 
-        /// <summary>Gets or sets the merge index for this item. Stub in Majorsilence.Forms.</summary>
-        public new int MergeIndex { get; set; } = -1;
+        /// <summary>Gets or sets where <see cref="MergeAction.Insert"/> puts this item.</summary>
+        /// <inheritdoc cref="MergeAction" path="/remarks"/>
+        public new int MergeIndex {
+            get => base.MergeIndex;
+            set => base.MergeIndex = value;
+        }
     }
 
     /// <summary>Specifies how a ToolStripMenuItem behaves when toolstrips are merged.</summary>
@@ -2381,6 +2390,9 @@ namespace Majorsilence.Forms
             // carries [DefaultValue(ToolStripGripStyle.Hidden)] to match -- checked against
             // dotnet/winforms rather than assumed, since ToolStrip's own default is Visible (TSM-43).
             GripStyle = ToolStripGripStyle.Hidden;
+
+            // A menu bar spans its rafting panel's row, as upstream's Stretch default for MenuStrip has it (W6).
+            Stretch = true;
         }
 
         /// <summary>Gets or sets the ToolStripMenuItem for the MDI window list. Stub in Majorsilence.Forms.</summary>
@@ -2456,7 +2468,11 @@ namespace Majorsilence.Forms
             // instead -- see NotifyItemAdded, called from MenuItemCollection.InsertItem.
             return new ToolStripItemCollection {
                 ItemInsertedCallback = (index, item) => base_items.Insert (index, item),
-                ItemRemovedCallback = item => base_items.Remove (item),
+                // An item removed while it sits in the overflow drop-down is removed from there (W6).
+                ItemRemovedCallback = item => {
+                    if (!base_items.Remove (item))
+                        overflow_button?.Items.Remove (item);
+                },
             };
         }
 
@@ -2471,7 +2487,7 @@ namespace Majorsilence.Forms
         /// </remarks>
         internal void NotifyItemAdded (MenuItem item)
         {
-            if (item is not ToolStripItem stripItem)
+            if (item is not ToolStripItem stripItem || suppress_item_notifications)
                 return;
 
             // A method group rather than a lambda, so removal below actually removes it: an item that
@@ -2486,7 +2502,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="NotifyItemAdded"/>
         internal void NotifyItemRemoved (MenuItem item)
         {
-            if (item is not ToolStripItem stripItem)
+            if (item is not ToolStripItem stripItem || suppress_item_notifications)
                 return;
 
             stripItem.Click -= RelayItemClicked;
@@ -2577,8 +2593,24 @@ namespace Majorsilence.Forms
 
         private ToolStripRenderer? renderer;
 
-        /// <summary>Gets or sets whether items can overflow to a dropdown. Stub in Majorsilence.Forms.</summary>
-        public bool CanOverflow { get; set; } = true;
+        /// <summary>Gets or sets whether items that do not fit move to the overflow button's drop-down.</summary>
+        /// <remarks>Read by the layout as of W6 mechanisms: with it, items past the strip's capacity --
+        /// <see cref="ToolStripItem.Overflow"/> Always first, then AsNeeded from the trailing end, Never
+        /// staying put -- move into <see cref="OverflowButton"/>'s drop-down and report
+        /// <see cref="ToolStripItemPlacement.Overflow"/>; without it they are clipped.</remarks>
+        public bool CanOverflow {
+            get => can_overflow;
+            set {
+                if (can_overflow == value)
+                    return;
+
+                can_overflow = value;
+                PerformLayout ();
+                Invalidate ();
+            }
+        }
+
+        private bool can_overflow = true;
 
         // Notifies on change; the event was declared and raised by nothing (W6.1).
         private ToolStripLayoutStyle layout_style = ToolStripLayoutStyle.HorizontalStackWithOverflow;
@@ -2607,14 +2639,30 @@ namespace Majorsilence.Forms
             set => base.ImageList = value;
         }
 
-        /// <summary>Gets or sets whether the ToolStrip stretches to fill its container. Stub in Majorsilence.Forms.</summary>
-        public bool Stretch { get; set; }
+        /// <summary>Gets or sets whether the strip spans its rafting panel's row.</summary>
+        /// <remarks>Read by <see cref="ToolStripPanel"/>'s row layout as of W6 mechanisms: off (the ToolStrip
+        /// default) keeps the strip at its preferred extent; <see cref="MenuStrip"/> and
+        /// <see cref="StatusStrip"/> default it on, as upstream does.</remarks>
+        public bool Stretch {
+            get => stretch;
+            set {
+                if (stretch == value)
+                    return;
+
+                stretch = value;
+                Parent?.PerformLayout ();
+            }
+        }
+
+        private bool stretch;
     }
 
     /// <summary>Represents a panel that can host ToolStrip controls. Stub in Majorsilence.Forms.</summary>
     public partial class ToolStripPanel : Panel
     {
-        /// <summary>Gets or sets whether the panel is locked. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether the user may move strips between rows.</summary>
+        /// <remarks>Stored only: there is no rafting drag gesture here for it to lock; <c>Join</c> is
+        /// programmatic and, as upstream, not subject to it.</remarks>
         public bool Locked { get; set; }
 
         /// <summary>Gets or sets the orientation of the ToolStripPanel. Stub in Majorsilence.Forms.</summary>
@@ -3338,20 +3386,7 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Merges the source toolstrip into the target toolstrip. Stub in Majorsilence.Forms.</summary>
-        public static bool Merge (ToolStrip sourceToolStrip, ToolStrip targetToolStrip) => false;
-
-        /// <summary>Merges the source toolstrip into the named target. Stub in Majorsilence.Forms.</summary>
-        public static bool Merge (ToolStrip sourceToolStrip, string targetName) => false;
-
-        /// <summary>Reverts a previous merge on the target toolstrip. Stub in Majorsilence.Forms.</summary>
-        public static bool RevertMerge (ToolStrip targetToolStrip) => false;
-
-        /// <summary>Reverts a merge on the strip with the given name. Stub in Majorsilence.Forms.</summary>
-        public static bool RevertMerge (string targetName) => false;
-
-        /// <summary>Reverts a previous merge on the named target. Stub in Majorsilence.Forms.</summary>
-        public static bool RevertMerge (ToolStrip targetToolStrip, ToolStrip sourceToolStrip) => false;
+        // Merge and RevertMerge: ToolStripManager.Merge.cs (W6 mechanisms).
     }
 
     /// <summary>
@@ -3374,6 +3409,9 @@ namespace Majorsilence.Forms
             // ToolBar.GripBandWidth, so the rule stays "the strip decides" (TSM-43).
             GripStyle = ToolStripGripStyle.Hidden;
             SetControlBehavior (ControlBehaviors.InvalidateOnTextChanged);
+
+            // A status strip spans its rafting panel's row, as upstream's Stretch default for StatusStrip has it (W6).
+            Stretch = true;
         }
 
         /// <inheritdoc/>

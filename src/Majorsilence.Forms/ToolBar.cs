@@ -208,12 +208,9 @@ namespace Majorsilence.Forms
             var grip = GripBandWidth;
 
             if (grip > 0)
-                area = new System.Drawing.Rectangle (area.Left + grip, area.Top, System.Math.Max (0, area.Width - grip), area.Height);
+                area = ReserveGripBand (area, grip);
 
-            StackLayoutEngine.HorizontalExpand.Layout (area, visible.Cast<ILayoutable> ());
-
-            PinTrailingItems (visible);
-            WrapRows (visible, area);
+            ArrangeItems (area, visible);
 
             foreach (var (button, item) in button_items)
                 button.Rectangle = item.Bounds;
@@ -221,12 +218,29 @@ namespace Majorsilence.Forms
             OnLayoutCompletedCore ();
         }
 
-        // Wrappable (W6 mechanisms): items that ran past the bar's right edge start a new row, and the
-        // bar grows to hold the rows, as upstream's auto-sized ToolBar does. Only the legacy bar wraps;
-        // a ToolStrip that overflows is the overflow button's business.
-        private void WrapRows (List<MenuItem> visible, Rectangle area)
+        // The band the grip takes: the leading edge of a horizontal bar. A vertical ToolStrip reserves
+        // the top instead (W6 mechanisms).
+        internal virtual Rectangle ReserveGripBand (Rectangle area, int grip)
+            => new Rectangle (area.Left + grip, area.Top, Math.Max (0, area.Width - grip), area.Height);
+
+        // The legacy bar's arrangement: one horizontal row, expanded to the bar's height, trailing
+        // items pinned, wrapping when Wrappable. ToolStrip overrides this with its layout styles.
+        internal virtual void ArrangeItems (Rectangle area, List<MenuItem> visible)
         {
-            if (!Wrappable || !LegacyChrome || visible.Count == 0 || visible[visible.Count - 1].Bounds.Right <= area.Right)
+            StackLayoutEngine.HorizontalExpand.Layout (area, visible.Cast<ILayoutable> ());
+
+            PinTrailingItems (visible);
+
+            if (Wrappable && LegacyChrome)
+                WrapIntoRows (visible, area, grow: true);
+        }
+
+        // Wrappable (W6 mechanisms): items that ran past the bar's right edge start a new row, and --
+        // when asked -- the bar grows to hold the rows, as upstream's auto-sized ToolBar does. Also the
+        // arrangement behind ToolStripLayoutStyle.Flow.
+        internal void WrapIntoRows (List<MenuItem> visible, Rectangle area, bool grow)
+        {
+            if (visible.Count == 0 || visible[visible.Count - 1].Bounds.Right <= area.Right)
                 return;
 
             var row_height = visible.Max (i => i.Bounds.Height);
@@ -249,7 +263,7 @@ namespace Majorsilence.Forms
 
             var wanted = y + row_height - area.Top + (Height - LogicalClientRectangle.Height);
 
-            if (rows > 1 && Height < wanted)
+            if (grow && rows > 1 && Height < wanted)
                 Height = wanted;
         }
 

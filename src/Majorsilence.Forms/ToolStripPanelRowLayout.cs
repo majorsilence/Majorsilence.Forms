@@ -23,6 +23,31 @@ namespace Majorsilence.Forms
         // OnLayout. One arrangement pass per layout is enough.
         private bool _inRowLayout;
 
+        // The row the i-th strip sits on: one per strip, created as strips arrive, so Rows, RowMargin
+        // and each row's Margin describe the layout that is actually done (W6 mechanisms).
+        private ToolStripPanelRow RowFor (int index)
+        {
+            while (rows.Count <= index)
+                rows.Add (new ToolStripPanelRow (this));
+
+            return rows[index];
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>The panel's background goes through its <see cref="ToolStripRenderer"/> first --
+        /// <see cref="Renderer"/>, else the one <see cref="RenderMode"/> names -- and a handler that marks
+        /// <see cref="ToolStripPanelRenderEventArgs.Handled"/> replaces the default fill (W6 mechanisms).</remarks>
+        protected override void OnPaintBackground (PaintEventArgs e)
+        {
+            var args = new ToolStripPanelRenderEventArgs (e.Graphics, this);
+            Renderers.StripRendererBridge.ResolveMode (Renderer, RenderMode).DrawToolStripPanelBackground (args);
+
+            if (args.Handled)
+                return;
+
+            base.OnPaintBackground (e);
+        }
+
         private List<Control> RowChildren ()
         {
             var children = new List<Control> ();
@@ -50,6 +75,11 @@ namespace Majorsilence.Forms
         // A row is as thick as the strip wants to be. Ask the strip itself: ToolBar reports a
         // height that fits its items (see GetPreferredSizeCore below), so a toolbar of tall
         // image-above-text buttons gets a tall row while a menu bar stays thin.
+        // The size a strip's content wants, without the floor of its explicitly set box: what an
+        // unstretched strip is given in a row, as an auto-sized ToolStrip is upstream.
+        private static Size ContentExtent (Control child)
+            => child is ToolBar bar ? bar.ItemsPreferredSize () : child.Size;
+
         private static Size RowPreferredSize (Control child, Size proposed)
         {
             var preferred = child.GetPreferredSize (proposed);
@@ -75,21 +105,23 @@ namespace Majorsilence.Forms
             var across = 0;   // summed along the stacking axis
             var along = 0;    // widest/tallest row
 
-            foreach (var child in children) {
-                var size = RowPreferredSize (child, proposedSize);
+            for (var i = 0; i < children.Count; i++) {
+                var size = RowPreferredSize (children[i], proposedSize);
+                var margin = RowFor (i).Margin;
 
                 if (horizontal) {
-                    across += size.Height;
-                    along = Math.Max (along, size.Width);
+                    across += size.Height + margin.Vertical;
+                    along = Math.Max (along, size.Width + margin.Horizontal);
                 } else {
-                    across += size.Width;
-                    along = Math.Max (along, size.Height);
+                    across += size.Width + margin.Horizontal;
+                    along = Math.Max (along, size.Height + margin.Vertical);
                 }
             }
 
+            // RowMargin surrounds the rows as a whole; each row's own Margin surrounds that row (W6).
             return horizontal
-                ? new Size (along + Padding.Horizontal, across + Padding.Vertical)
-                : new Size (across + Padding.Horizontal, along + Padding.Vertical);
+                ? new Size (along + Padding.Horizontal + RowMargin.Horizontal, across + Padding.Vertical + RowMargin.Vertical)
+                : new Size (across + Padding.Horizontal + RowMargin.Horizontal, along + Padding.Vertical + RowMargin.Vertical);
         }
 
         /// <inheritdoc/>
@@ -118,19 +150,37 @@ namespace Majorsilence.Forms
                     Math.Max (0, area.Width - Padding.Horizontal),
                     Math.Max (0, area.Height - Padding.Vertical));
 
+                // RowMargin insets the block of rows (W6 mechanisms).
+                area = new Rectangle (
+                    area.X + RowMargin.Left, area.Y + RowMargin.Top,
+                    Math.Max (0, area.Width - RowMargin.Horizontal), Math.Max (0, area.Height - RowMargin.Vertical));
+
                 var horizontal = Orientation == Orientation.Horizontal;
                 var offset = horizontal ? area.Top : area.Left;
 
-                foreach (var child in children) {
+                for (var i = 0; i < children.Count; i++) {
+                    var child = children[i];
+                    var row = RowFor (i);
+                    var margin = row.Margin;
                     var size = RowPreferredSize (child, area.Size);
 
+                    // Stretch: a strip that asks for it spans the row; one that does not keeps its
+                    // preferred extent, as upstream's ToolStrip (Stretch false) does in a panel while a
+                    // MenuStrip (Stretch true) spans it (W6 mechanisms).
+                    var stretched = child is not ToolStrip { Stretch: false };
+
                     if (horizontal) {
-                        // Full width, natural height: one horizontal row per strip.
-                        child.SetBounds (area.Left, offset, area.Width, size.Height);
-                        offset += size.Height;
+                        var width = stretched ? area.Width - margin.Horizontal : Math.Min (ContentExtent (child).Width, area.Width - margin.Horizontal);
+
+                        child.SetBounds (area.Left + margin.Left, offset + margin.Top, Math.Max (0, width), size.Height);
+                        row.Bounds = new Rectangle (area.Left, offset, area.Width, size.Height + margin.Vertical);
+                        offset += size.Height + margin.Vertical;
                     } else {
-                        child.SetBounds (offset, area.Top, size.Width, area.Height);
-                        offset += size.Width;
+                        var height = stretched ? area.Height - margin.Vertical : Math.Min (ContentExtent (child).Height, area.Height - margin.Vertical);
+
+                        child.SetBounds (offset + margin.Left, area.Top + margin.Top, size.Width, Math.Max (0, height));
+                        row.Bounds = new Rectangle (offset, area.Top, size.Width + margin.Horizontal, area.Height);
+                        offset += size.Width + margin.Horizontal;
                     }
                 }
             } finally {
@@ -149,25 +199,30 @@ namespace Majorsilence.Forms
         internal override Size GetPreferredSizeCore (Size proposedSize)
         {
             var specified = base.GetPreferredSizeCore (proposedSize);
-            var items = Items?.Cast<MenuItem> ().Where (i => i is not null).ToList ();
 
-            if (items is null || items.Count == 0)
+            if (Items is null || Items.Count == 0)
                 return specified;
 
+            var content = ItemsPreferredSize ();
+
+            // Never shrink below the explicitly-set box: a designer-assigned Size stays a floor.
+            return new Size (Math.Max (specified.Width, content.Width), Math.Max (specified.Height, content.Height));
+        }
+
+        /// <summary>The size the items alone want, laid end to end, plus padding and the grip band.</summary>
+        internal Size ItemsPreferredSize ()
+        {
             var width = 0;
             var height = 0;
 
-            foreach (var item in items) {
+            foreach (var item in Items.Cast<MenuItem> ().Where (i => i is not null && i.Visible)) {
                 var size = item.GetPreferredSize (Size.Empty);
 
                 width += size.Width + item.Margin.Horizontal;
                 height = Math.Max (height, size.Height + item.Margin.Vertical);
             }
 
-            // Never shrink below the explicitly-set box: a designer-assigned Size stays a floor.
-            return new Size (
-                Math.Max (specified.Width, width + Padding.Horizontal),
-                Math.Max (specified.Height, height + Padding.Vertical));
+            return new Size (width + Padding.Horizontal + GripBandWidth, height + Padding.Vertical);
         }
     }
 

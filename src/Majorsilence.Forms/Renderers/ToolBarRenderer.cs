@@ -52,6 +52,25 @@ namespace Majorsilence.Forms.Renderers
             if (band <= 0)
                 return;
 
+            // A vertical ToolStrip's grip runs along the top rather than down the left (W6 mechanisms).
+            if (control is ToolStrip { Orientation: Orientation.Vertical } vertical_strip) {
+                var top_bounds = control.GripBandBounds;
+                var margin_v = vertical_strip.GripMargin;
+
+                StripRendererBridge.Grip (control, control.LogicalToDeviceUnits (new Rectangle (top_bounds.Left, top_bounds.Top, top_bounds.Width, band)), e);
+
+                var y_dot = e.LogicalToDeviceUnits (top_bounds.Top + margin_v.Top + ToolBar.GripRuleWidth / 2);
+                var left = e.LogicalToDeviceUnits (top_bounds.Left + margin_v.Left + 2);
+                var right = e.LogicalToDeviceUnits (top_bounds.Right - margin_v.Right - 2);
+                var step_h = Math.Max (2, e.LogicalToDeviceUnits (3));
+                var dot_h = Math.Max (1, e.LogicalToDeviceUnits (1));
+
+                for (var x_dot = left; x_dot < right; x_dot += step_h)
+                    e.Canvas.FillRectangle (new Rectangle (x_dot, y_dot, dot_h, dot_h), Theme.BorderMidColor);
+
+                return;
+            }
+
             StripRendererBridge.Grip (control, control.LogicalToDeviceUnits (new Rectangle (control.GripBandBounds.Left, control.GripBandBounds.Top, band, control.GripBandBounds.Height)), e);
 
             // DEVICE throughout, like the rest of this canvas. GripBandBounds is logical because
@@ -153,9 +172,16 @@ namespace Majorsilence.Forms.Renderers
 
             var text_size = Size.Empty;
 
+            // TextDirection (W6 mechanisms): vertical text occupies its measured height across and its
+            // width down, and is drawn rotated below.
+            var direction = control is ToolStrip directed ? directed.TextDirectionFor (item) : ToolStripTextDirection.Horizontal;
+            var vertical_text = direction is ToolStripTextDirection.Vertical90 or ToolStripTextDirection.Vertical270;
+
             if (!string.IsNullOrEmpty (item.Text)) {
                 var measured = TextMeasurer.MeasureText (item.Text, Theme.UIFont, font_size);
-                text_size = new Size ((int) Math.Ceiling (measured.Width), (int) Math.Ceiling (measured.Height));
+                text_size = vertical_text
+                    ? new Size ((int) Math.Ceiling (measured.Height), (int) Math.Ceiling (measured.Width))
+                    : new Size ((int) Math.Ceiling (measured.Width), (int) Math.Ceiling (measured.Height));
             }
 
             var image_rect = Rectangle.Empty;
@@ -221,12 +247,25 @@ namespace Majorsilence.Forms.Renderers
 
             // The renderer may recolour, move or take over the text. Null back means it took over.
             var text_parts = string.IsNullOrEmpty (item.Text) ? null
-                : StripRendererBridge.Text (control, item, item.Text, text_rect, font_color, e);
+                : StripRendererBridge.TextDirected (control, item, item.Text, text_rect, font_color, direction, e);
 
             if (text_parts is { } tp) {
                 text_rect = tp.rect;
                 font_color = tp.colour;
-                e.Canvas.DrawText (tp.text, Theme.UIFont, font_size, text_rect, font_color, text_align);
+
+                if (tp.direction is ToolStripTextDirection.Vertical90 or ToolStripTextDirection.Vertical270) {
+                    // Rotated about the text box's centre: 90 reads top to bottom, 270 bottom to top.
+                    var centre_x = text_rect.Left + text_rect.Width / 2f;
+                    var centre_y = text_rect.Top + text_rect.Height / 2f;
+                    var rotated = new Rectangle (-text_rect.Height / 2, -text_rect.Width / 2, text_rect.Height, text_rect.Width);
+
+                    e.Canvas.Save ();
+                    e.Canvas.Translate (centre_x, centre_y);
+                    e.Canvas.RotateDegrees (tp.direction == ToolStripTextDirection.Vertical90 ? 90 : 270);
+                    e.Canvas.DrawText (tp.text, Theme.UIFont, font_size, rotated, font_color, ContentAlignment.MiddleCenter);
+                    e.Canvas.Restore ();
+                } else
+                    e.Canvas.DrawText (tp.text, Theme.UIFont, font_size, text_rect, font_color, text_align);
 
                 // Drawn as a line under the text rather than as a font style, matching
                 // LinkLabelRenderer -- the two link surfaces should not underline differently.
@@ -304,10 +343,18 @@ namespace Majorsilence.Forms.Renderers
             if (item is MenuSeparatorItem msi)
                 return GetPreferredSeparatorItemSize (control, msi, proposedSize);
 
+            // The overflow button is a fixed chevron box (W6 mechanisms).
+            if (item is ToolStripOverflowButton)
+                return new Size (control.LogicalToDeviceUnits (16), Math.Max (control.LogicalToDeviceUnits (16), item.DeviceBounds.Height));
+
             var font_size = control.LogicalToDeviceUnits (Theme.FontSize);
             var measured = TextMeasurer.MeasureText (item.Text, Theme.UIFont, font_size);
             var text_width = (int) Math.Round (measured.Width);
             var text_height = (int) Math.Ceiling (measured.Height);
+
+            // Vertical text swaps the two (TextDirection, W6 mechanisms).
+            if (control is ToolStrip directed && directed.TextDirectionFor (item) is ToolStripTextDirection.Vertical90 or ToolStripTextDirection.Vertical270)
+                (text_width, text_height) = (text_height, text_width);
 
             var strip_item = item as ToolStripItem;
             var image_size = Size.Empty;
