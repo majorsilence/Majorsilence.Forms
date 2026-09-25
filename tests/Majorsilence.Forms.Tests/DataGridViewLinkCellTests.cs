@@ -195,13 +195,13 @@ namespace Majorsilence.Forms.Tests
             }
         }
 
-        // GetCellBounds is the space MouseEventArgs are in -- the same pairing
-        // DataGridViewEditingLifecycleTests uses to click a cell.
+        // GetCellBounds is DEVICE; MouseEventArgs are LOGICAL, so the centre is converted (RC-8 --
+        // the grid's mouse path converts as of the ninth W6 chunk).
         private static Point CellCentre (DataGridView grid, DataGridViewCell cell)
         {
             var r = grid.GetCellBounds (cell.RowIndex, cell.ColumnIndex);
 
-            return new Point (r.Left + r.Width / 2, r.Top + r.Height / 2);
+            return grid.DeviceToLogicalUnits (new Point (r.Left + r.Width / 2, r.Top + r.Height / 2));
         }
 
         private static void ClickCell (LinkGrid grid, DataGridViewCell cell)

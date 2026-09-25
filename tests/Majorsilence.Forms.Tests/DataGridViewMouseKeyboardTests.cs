@@ -52,21 +52,24 @@ namespace Majorsilence.Forms.Tests
 
             internal void Key (Keys key) => OnKeyDown (new KeyEventArgs (key));
 
+            // LOGICAL points, as MouseEventArgs carry them: the geometry below is device and is
+            // converted on the way out (RC-8; these fed device points until the ninth W6 chunk made
+            // the grid's mouse path convert, which is when they stopped landing at scale 2).
             internal Point CellCentre (int rowIndex, int columnIndex)
             {
                 var b = GetCellBounds (rowIndex, columnIndex);
-                return new Point (b.Left + b.Width / 2, b.Top + b.Height / 2);
+                return DeviceToLogicalUnits (new Point (b.Left + b.Width / 2, b.Top + b.Height / 2));
             }
 
             internal Point RowHeaderCentre (int rowIndex)
             {
                 var b = GetCellBounds (rowIndex, 0);
-                return new Point (GetContentArea ().Left + ScaledRowHeadersWidth / 2, b.Top + b.Height / 2);
+                return DeviceToLogicalUnits (new Point (GetContentArea ().Left + ScaledRowHeadersWidth / 2, b.Top + b.Height / 2));
             }
 
             internal Point ColumnHeaderCentre (int columnIndex)
-                => new Point (GetColumnDeviceLeft (columnIndex) + LogicalToDeviceUnits (Columns[columnIndex].Width) / 2,
-                              GetContentArea ().Top + ScaledHeaderHeight / 2);
+                => DeviceToLogicalUnits (new Point (GetColumnDeviceLeft (columnIndex) + LogicalToDeviceUnits (Columns[columnIndex].Width) / 2,
+                              GetContentArea ().Top + ScaledHeaderHeight / 2));
         }
 
         private static DrivenGrid Grid (out Form form, int rows = 3, int columns = 2)
@@ -129,7 +132,7 @@ namespace Majorsilence.Forms.Tests
             try {
                 DataGridViewCellMouseEventArgs? seen = null;
                 grid.CellMouseDown += (_, e) => seen = e;
-                var bounds = grid.GetCellBounds (1, 1);
+                var bounds = grid.DeviceToLogicalUnits (grid.GetCellBounds (1, 1));
 
                 grid.Down (new Point (bounds.Left + 5, bounds.Top + 3));
 

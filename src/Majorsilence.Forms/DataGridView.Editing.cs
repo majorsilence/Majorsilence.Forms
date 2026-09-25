@@ -41,7 +41,12 @@ namespace Majorsilence.Forms
         /// Gets whether the cell being edited has uncommitted changes. False immediately after
         /// <see cref="BeginEdit(bool)"/> and true once the editor's contents change.
         /// </summary>
-        public bool IsCurrentCellDirty => current_cell_dirty;
+        public bool IsCurrentCellDirty
+            => current_cell_dirty
+               // A check-box cell mid-toggle reports through its own flag, as upstream's does (W6).
+               || CurrentCell is DataGridViewCheckBoxCell { EditingCellValueChanged: true }
+               || edit_control is DataGridViewTextBoxEditingControl { EditingControlValueChanged: true }
+               || edit_control is DataGridViewComboBoxEditingControl { EditingControlValueChanged: true };
 
         /// <summary>
         /// Gets whether any cell in the current row has been committed since the row became current,

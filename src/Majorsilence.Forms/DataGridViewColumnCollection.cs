@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace Majorsilence.Forms
 {
@@ -200,9 +201,16 @@ namespace Majorsilence.Forms
             }
 
             var removedColumn = this[index];
+            var renumber = removedColumn.DisplayIndex != index || this.Any (c => c.DisplayIndex != c.Index);
             this[index].SetOwner (null);
+            removedColumn.SetDisplayIndexInternal (-1);
             base.RemoveItem (index);
             owner.OnColumnsChanged ();
+
+            // The display order stays dense once a column has been moved (W6 mechanisms).
+            if (renumber)
+                owner.RenumberDisplayOrder ();
+
             owner.RaiseColumnRemoved (removedColumn);
 
             if (removed is not null)

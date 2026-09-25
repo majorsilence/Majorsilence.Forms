@@ -129,8 +129,15 @@ namespace Majorsilence.Forms
             internal bool IsCell => RowIndex >= 0 && ColumnIndex >= 0 && !IsRowHeader && !IsColumnHeader;
         }
 
-        internal MouseTarget TargetAt (Point location)
+        // LOGICAL coordinates in -- a MouseEventArgs location -- against the grid's DEVICE geometry
+        // (RC-8). The mouse handlers used to hand the logical point straight to the device helpers, so
+        // on a scaled display a click landed on the wrong cell or none at all; the tests masked it by
+        // feeding device coordinates, and the scale-2 gate caught it (W6 mechanisms, ninth chunk).
+        internal MouseTarget TargetAt (Point logical)
         {
+            // The hit-tests run in device space. The reported cell-relative point is logical minus the
+            // cell's logical origin, so it matches what a caller who converts GetCellBounds computes.
+            var location = LogicalToDeviceUnits (logical);
             var client = GetContentArea ();
 
             if (ColumnHeadersVisible
@@ -138,7 +145,7 @@ namespace Majorsilence.Forms
                 var header_column = GetColumnAtLocation (location);
 
                 return new MouseTarget (-1, header_column,
-                    new Point (location.X - (header_column >= 0 ? GetColumnDeviceLeft (header_column) : client.Left), location.Y - client.Top),
+                    Relative (logical, new Point (header_column >= 0 ? GetColumnDeviceLeft (header_column) : client.Left, client.Top)),
                     isRowHeader: false, isColumnHeader: true);
             }
 
@@ -150,7 +157,7 @@ namespace Majorsilence.Forms
                 var row_bounds = row >= 0 ? Rows[row].Bounds : Rectangle.Empty;
 
                 return new MouseTarget (row, -1,
-                    new Point (location.X - client.Left, location.Y - (row_bounds.IsEmpty ? client.Top : row_bounds.Top)),
+                    Relative (logical, new Point (client.Left, row_bounds.IsEmpty ? client.Top : row_bounds.Top)),
                     isRowHeader: true, isColumnHeader: false);
             }
 
@@ -158,8 +165,15 @@ namespace Majorsilence.Forms
             var cell_bounds = row >= 0 && column >= 0 ? GetCellBounds (row, column) : Rectangle.Empty;
 
             return new MouseTarget (row, column,
-                cell_bounds.IsEmpty ? location : new Point (location.X - cell_bounds.Left, location.Y - cell_bounds.Top),
+                cell_bounds.IsEmpty ? logical : Relative (logical, cell_bounds.Location),
                 isRowHeader: false, isColumnHeader: false);
+        }
+
+        // A logical mouse point relative to a device origin, in logical units.
+        private Point Relative (Point logical, Point deviceOrigin)
+        {
+            var origin = DeviceToLogicalUnits (deviceOrigin);
+            return new Point (logical.X - origin.X, logical.Y - origin.Y);
         }
 
         private DataGridViewCellMouseEventArgs MouseArgs (MouseTarget target, MouseEventArgs e)
@@ -303,6 +317,28 @@ namespace Majorsilence.Forms
             return string.Equals (text, "True", StringComparison.OrdinalIgnoreCase) || text == "1";
         }
 
+        /// <summary>The three-way state of a check-box cell's value (W6 mechanisms).</summary>
+        /// <remarks>Indeterminate only for a three-state cell or column: a value matching the cell's or
+        /// the column's <c>IndeterminateValue</c>, a <see cref="CheckState.Indeterminate"/>, or nothing at
+        /// all (null / DBNull), as upstream reads them.</remarks>
+        internal static CheckState CheckStateOf (DataGridViewColumn column, object? value, DataGridViewCell? cell = null)
+        {
+            var three_state = cell is DataGridViewCheckBoxCell { ThreeState: true } || column is DataGridViewCheckBoxColumn { ThreeState: true };
+
+            if (three_state) {
+                if (cell is DataGridViewCheckBoxCell { IndeterminateValue: { } cell_maybe } && Matches (value, cell_maybe))
+                    return CheckState.Indeterminate;
+
+                if (column is DataGridViewCheckBoxColumn { IndeterminateValue: { } maybe } && Matches (value, maybe))
+                    return CheckState.Indeterminate;
+
+                if (value is CheckState.Indeterminate || value is null || value is DBNull)
+                    return CheckState.Indeterminate;
+            }
+
+            return IsCheckedValue (column, value, cell) ? CheckState.Checked : CheckState.Unchecked;
+        }
+
         // The same loose comparison the column path has always used: a bound "Y" column stores a
         // string, and the configured value may be typed differently from what the binding produced.
         private static bool Matches (object? value, object expected)
@@ -333,21 +369,49 @@ namespace Majorsilence.Forms
                 return;
 
             var cell = Rows[rowIndex].Cells[columnIndex];
-            var now_checked = !IsCheckedValue (column, cell.Value, cell);
-            var next = NextCheckBoxValue (column, now_checked, cell);
+            var three_state = cell is DataGridViewCheckBoxCell { ThreeState: true } || column is DataGridViewCheckBoxColumn { ThreeState: true };
+
+            // Two states cycle; three cycle unchecked -> checked -> indeterminate, as upstream (W6).
+            var next_state = CheckStateOf (column, cell.Value, cell) switch {
+                CheckState.Unchecked => CheckState.Checked,
+                CheckState.Checked => three_state ? CheckState.Indeterminate : CheckState.Unchecked,
+                _ => CheckState.Unchecked,
+            };
+            var next = NextCheckBoxValue (column, next_state, cell);
 
             // Through the notifying setter, which pushes to the bound item and raises CellValueChanged
             // (W5.2a). Marked dirty first so a CurrentCellDirtyStateChanged handler -- the canonical
-            // commit-a-checkbox-immediately idiom -- sees it (DGV-08).
+            // commit-a-checkbox-immediately idiom -- sees it (DGV-08). The cell's own
+            // EditingCellValueChanged flag is raised for the commit and cleared after, as upstream's is.
+            var box = cell as DataGridViewCheckBoxCell;
+
+            if (box is not null)
+                box.EditingCellValueChanged = true;
+
             NotifyCurrentCellDirty (true);
             cell.Value = next;
             NotifyCurrentCellDirty (false);
+
+            if (box is not null)
+                box.EditingCellValueChanged = false;
         }
 
         // The value to store for a state, honouring the column's TrueValue/FalseValue so a "Y"/"N"
         // column stores "Y"/"N" rather than a bool.
-        private static object? NextCheckBoxValue (DataGridViewColumn column, bool isChecked, DataGridViewCell? cell = null)
+        private static object? NextCheckBoxValue (DataGridViewColumn column, CheckState state, DataGridViewCell? cell = null)
         {
+            if (state == CheckState.Indeterminate) {
+                if (cell is DataGridViewCheckBoxCell { IndeterminateValue: { } cell_maybe })
+                    return cell_maybe;
+
+                if (column is DataGridViewCheckBoxColumn { IndeterminateValue: { } maybe })
+                    return maybe;
+
+                return CheckState.Indeterminate;
+            }
+
+            var isChecked = state == CheckState.Checked;
+
             // The cell's own mapping wins over the column's, for the same reason it does when reading.
             if (cell is DataGridViewCheckBoxCell per_cell) {
                 if (isChecked && per_cell.TrueValue is { } cell_yes)

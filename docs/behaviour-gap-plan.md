@@ -3380,6 +3380,53 @@ table, and DataGridView `ColumnDisplayIndexChanged`.
 10 tests; two neutralization rounds (overflow, layout styles and text direction; merge and the
 panels), snapshot verified before and after.
 
+**W6 mechanisms, ninth chunk: DataGridView column display order and the typed cells. — 2026-09-25.** Part of #91.
+
+- **Column display order.** `DataGridViewColumn.DisplayIndex` is real: unset it reads as `Index`; set on a
+  column in a grid it moves the column in the display order and renumbers the others densely, raising
+  `ColumnDisplayIndexChanged` for every column whose position changed (as upstream does), and a
+  removal keeps the order dense the same way. The collection order is untouched, as upstream keeps
+  it. Every piece of geometry resolves a column's left edge through `GetColumnDeviceLeft`, whose
+  "columns before this one" loops now walk the display order -- so the header, the cells, hit-testing,
+  the divider drag and `HitTest` all follow without change of their own. Left/Right, Home/End,
+  Ctrl+Home/End and Tab walk the display order, and `GetClipboardContent` emits the selected columns
+  left to right as displayed. This was the last unraised event with a mechanism behind it.
+- **Three-state check-box cells.** `ThreeState` on the column or the cell makes a click cycle
+  unchecked → checked → indeterminate; `IndeterminateValue` (the cell's over the column's) is what an
+  indeterminate cell stores and matches, and a null, `DBNull` or `CheckState.Indeterminate` value reads
+  as indeterminate on a three-state cell, as upstream reads them. The renderer draws a third glyph for
+  it. The cell's `EditingCellValueChanged` is raised for the toggle's commit and cleared after, and
+  `IsCurrentCellDirty` consults it.
+- **Image cells.** `ImageLayout` is honoured -- Normal scales down to fit but never up, Zoom scales
+  either way keeping the aspect, Stretch fills the cell -- with the cell's setting falling back to the
+  column's (the cell's default is now NotSet, which reads as the column's, then Normal). Icon values
+  are drawn when `ValuesAreIcons` (column) or `ValueIsIcon` (cell) says so, and the column's `Icon` is
+  the fallback for them as `Image` is for images. `Description` stays: it is accessibility text, and
+  there is no accessible-object tree.
+- **Button and link cells.** `UseColumnTextForButtonValue` and `UseColumnTextForLinkValue`, on the
+  column or the cell, draw the column's `Text` (not its header, which the button path used to read).
+- **Editing-control plumbing.** The text editor is a `DataGridViewTextBoxEditingControl` carrying
+  `EditingControlDataGridView` and `EditingControlRowIndex`; a change sets its
+  `EditingControlValueChanged` (the combo editor's too), which `IsCurrentCellDirty` reads.
+- **Grid mouse path, RC-8.** The scale-2 gate caught a pre-existing coordinate-space bug this chunk's
+  own tests walked into: every mouse handler in the grid handed its LOGICAL `MouseEventArgs` location
+  straight to the DEVICE geometry (`GetRowAtLocation`, `GetColumnAtLocation`, the header band, the
+  editor's bounds, the context-menu lookup, hover), so on a scaled display a click on a cell was taken
+  as a header click, or hit nothing. `TargetAt` and `HeaderCellAt` now take the logical point and
+  convert once; the cell-relative point they report is logical minus the cell's logical origin, so it
+  equals what an application computing `DeviceToLogicalUnits (GetCellBounds (...))` itself gets. The
+  existing grid tests had masked the bug by feeding device coordinates; their click helpers (four
+  files) now convert, as an application would.
+
+*Counts.* Unraised **75 → 74**. Stored-only **454 → 443**. One existing test that asserted the editor's
+exact type now asserts it is a `TextBox`, which the editing control is.
+
+*Not done:* frozen-column ordering rules (upstream requires frozen columns to precede scrolling ones in
+the display order; here they simply pin), and `Description` (accessibility).
+
+9 tests; two neutralization rounds (the display order; the cells and the editor), snapshot verified
+before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

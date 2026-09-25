@@ -1346,8 +1346,24 @@ namespace Majorsilence.Forms
     /// <summary>Represents an image cell in a DataGridView. Stub in Majorsilence.Forms.</summary>
     public partial class DataGridViewImageCell : DataGridViewCell
     {
-        /// <summary>Gets or sets the image layout for this cell.</summary>
-        public DataGridViewImageCellLayout ImageLayout { get; set; } = DataGridViewImageCellLayout.Normal;
+        /// <summary>Gets or sets how the image is laid out in the cell: the cell's own setting, else the
+        /// owning <see cref="DataGridViewImageColumn"/>'s, else <see cref="DataGridViewImageCellLayout.Normal"/>.</summary>
+        /// <remarks>Read by the renderer as of W6 mechanisms. <see cref="DataGridViewImageCellLayout.NotSet"/>
+        /// means "the column's", which is how a column-wide layout reaches every cell.</remarks>
+        public DataGridViewImageCellLayout ImageLayout {
+            get => image_layout != DataGridViewImageCellLayout.NotSet ? image_layout
+                : OwningColumn is DataGridViewImageColumn { ImageLayout: not DataGridViewImageCellLayout.NotSet } column ? column.ImageLayout
+                : DataGridViewImageCellLayout.Normal;
+            set {
+                if (image_layout == value)
+                    return;
+
+                image_layout = value;
+                DataGridView?.Invalidate ();
+            }
+        }
+
+        private DataGridViewImageCellLayout image_layout = DataGridViewImageCellLayout.NotSet;
 
         /// <inheritdoc/>
         protected override void CopyStateTo (DataGridViewCell target)

@@ -44,7 +44,6 @@ Majorsilence.Forms.DataGridTableStyle.SelectionBackColorChanged    -- upstream s
 Majorsilence.Forms.DataGridTableStyle.SelectionForeColorChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGridTextBox.KeyPress    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGridTextBox.TextChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
-Majorsilence.Forms.DataGridView.ColumnDisplayIndexChanged    -- blocked on column ordering: DisplayIndex is not implemented
 Majorsilence.Forms.DataGridView.RowUnshared    -- rows are never shared here; there is nothing to unshare
 Majorsilence.Forms.Design.DesignerActionUIService.DesignerActionListsChanged    -- design-time service; there is no designer host
 Majorsilence.Forms.FolderBrowserDialog.HelpRequest    -- native dialogs; no help button to click

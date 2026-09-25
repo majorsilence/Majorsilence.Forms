@@ -378,11 +378,27 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the template used to create new cells. Stub in Majorsilence.Forms.</summary>
         public virtual DataGridViewCell? CellTemplate { get; set; }
 
-        /// <summary>Gets or sets the display order of the column. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the position of the column in the grid's display order.</summary>
+        /// <remarks>
+        /// Real as of W6 mechanisms: the header, the cells, the keyboard walk and the clipboard follow
+        /// the display order, which is the collection order until a column is moved. Setting this on a
+        /// column in a grid moves it and renumbers the others, raising
+        /// <see cref="DataGridView.ColumnDisplayIndexChanged"/> for each column whose position changed,
+        /// as upstream does; an unset value reads as <see cref="Index"/>.
+        /// </remarks>
         public int DisplayIndex {
-            get => Index;
-            set { /* ordering not implemented */ }
+            get => display_index >= 0 ? display_index : Index;
+            set {
+                if (owner is { } grid)
+                    grid.SetColumnDisplayIndex (this, value);
+                else
+                    display_index = value;
+            }
         }
+
+        private int display_index = -1;
+
+        internal void SetDisplayIndexInternal (int value) => display_index = value;
 
         /// <summary>
         /// Gets or sets the alignment of this column's cells. This IS

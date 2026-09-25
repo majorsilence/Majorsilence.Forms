@@ -470,10 +470,57 @@ namespace Majorsilence.Forms
         /// <summary>Raised when a column's <see cref="DataGridViewColumn.SortMode"/> changes.</summary>
         public event EventHandler<DataGridViewColumnEventArgs>? ColumnSortModeChanged;
 
-#pragma warning disable CS0067
         /// <summary>Raised when a column's display index changes.</summary>
+        /// <remarks>Real as of W6 mechanisms: raised for every column whose
+        /// <see cref="DataGridViewColumn.DisplayIndex"/> moved, after a set or a removal renumbered them.</remarks>
         public event EventHandler<DataGridViewColumnEventArgs>? ColumnDisplayIndexChanged;
-#pragma warning restore CS0067
+
+        /// <summary>Raises the <see cref="ColumnDisplayIndexChanged"/> event.</summary>
+        protected virtual void OnColumnDisplayIndexChanged (DataGridViewColumnEventArgs e) => ColumnDisplayIndexChanged?.Invoke (this, e);
+
+        // ── column display order (W6 mechanisms) ──────────────────────────────────────────────
+        // The collection is the data order; DisplayOrder is what the header, the cells, the keyboard
+        // and the clipboard walk. Geometry needs only "the columns displayed before this one", which
+        // is where GetColumnDeviceLeft reads it.
+
+        /// <summary>The column indices in display order: by <see cref="DataGridViewColumn.DisplayIndex"/>, ties by index.</summary>
+        internal List<int> DisplayOrder
+            => Enumerable.Range (0, Columns.Count).OrderBy (i => Columns[i].DisplayIndex).ThenBy (i => i).ToList ();
+
+        /// <summary>Where a column sits in the display order.</summary>
+        internal int DisplayPositionOf (int columnIndex) => DisplayOrder.IndexOf (columnIndex);
+
+        internal void SetColumnDisplayIndex (DataGridViewColumn column, int displayIndex)
+        {
+            var order = DisplayOrder.Select (i => Columns[i]).ToList ();
+
+            if (!order.Remove (column))
+                return;
+
+            order.Insert (Math.Max (0, Math.Min (displayIndex, order.Count)), column);
+            RenumberDisplayOrder (order);
+        }
+
+        // Every column gets its dense position; the ones that moved are announced.
+        internal void RenumberDisplayOrder (List<DataGridViewColumn>? order = null)
+        {
+            order ??= DisplayOrder.Select (i => Columns[i]).ToList ();
+
+            var moved = new List<DataGridViewColumn> ();
+
+            for (var i = 0; i < order.Count; i++) {
+                if (order[i].DisplayIndex != i)
+                    moved.Add (order[i]);
+
+                order[i].SetDisplayIndexInternal (i);
+            }
+
+            foreach (var column in moved)
+                OnColumnDisplayIndexChanged (new DataGridViewColumnEventArgs (column));
+
+            if (moved.Count > 0)
+                Invalidate ();
+        }
 
         /// <summary>Raised when the column header height changes.</summary>
         public event EventHandler? ColumnHeadersHeightChanged;
@@ -1222,7 +1269,16 @@ namespace Majorsilence.Forms
 
         // DGV-08: the editor changing is what makes the cell dirty. Routed through SetCurrentCellDirty
         // so CurrentCellDirtyStateChanged fires once, on the transition.
-        private void EditTextBox_TextChanged (object? sender, EventArgs e) => SetCurrentCellDirty (true);
+        private void EditTextBox_TextChanged (object? sender, EventArgs e)
+        {
+            // The editor's own flag, which IsCurrentCellDirty consults too (W6 mechanisms).
+            if (sender is DataGridViewTextBoxEditingControl editor)
+                editor.EditingControlValueChanged = true;
+            else if (sender is DataGridViewComboBoxEditingControl combo)
+                combo.EditingControlValueChanged = true;
+
+            SetCurrentCellDirty (true);
+        }
 
         // Handle lost focus during editing.
         private void EditTextBox_LostFocus (object? sender, EventArgs e)
@@ -1395,26 +1451,30 @@ namespace Majorsilence.Forms
 
             var column = Columns[columnIndex];
 
+            // "Before" is in DISPLAY order (W6 mechanisms): a column moved by DisplayIndex takes its
+            // place among the others, whatever its index in the collection.
+            var before = DisplayOrder.TakeWhile (i => i != columnIndex).Select (i => Columns[i]);
+
             if (column.Frozen) {
                 var fx = left0;
-                for (var i = 0; i < columnIndex; i++)
-                    if (Columns[i].Visible && Columns[i].Frozen)
-                        fx += LogicalToDeviceUnits (Columns[i].Width);
+                foreach (var other in before)
+                    if (other.Visible && other.Frozen)
+                        fx += LogicalToDeviceUnits (other.Width);
                 return fx;
             }
 
             if (column.PinnedRight) {
                 var rx = client.Right - RightPinnedColumnsWidth;
-                for (var i = 0; i < columnIndex; i++)
-                    if (Columns[i].Visible && Columns[i].PinnedRight)
-                        rx += LogicalToDeviceUnits (Columns[i].Width);
+                foreach (var other in before)
+                    if (other.Visible && other.PinnedRight)
+                        rx += LogicalToDeviceUnits (other.Width);
                 return rx;
             }
 
             var x = left0 + FrozenColumnsWidth - horizontal_scroll_offset;
-            for (var i = 0; i < columnIndex; i++)
-                if (Columns[i].Visible && !Columns[i].Frozen && !Columns[i].PinnedRight)
-                    x += LogicalToDeviceUnits (Columns[i].Width);
+            foreach (var other in before)
+                if (other.Visible && !other.Frozen && !other.PinnedRight)
+                    x += LogicalToDeviceUnits (other.Width);
             return x;
         }
 
@@ -1851,8 +1911,10 @@ namespace Majorsilence.Forms
         /// </remarks>
         private bool ShowCellContextMenuStrip (Point location)
         {
-            var row_index = GetRowAtLocation (location);
-            var column_index = GetColumnAtLocation (location);
+            // The lookups are device, the menu's Show is logical (RC-8).
+            var device = LogicalToDeviceUnits (location);
+            var row_index = GetRowAtLocation (device);
+            var column_index = GetColumnAtLocation (device);
 
             if (row_index < 0 || row_index >= Rows.Count)
                 return false;
@@ -2447,8 +2509,8 @@ namespace Majorsilence.Forms
             if (read_only || !Enabled)
                 return;
 
-            var row = GetRowAtLocation (e.Location);
-            var col = GetColumnAtLocation (e.Location);
+            var row = GetRowAtLocation (LogicalToDeviceUnits (e.Location));
+            var col = GetColumnAtLocation (LogicalToDeviceUnits (e.Location));
 
             RaiseCellDoubleClick (e);
 
@@ -2476,13 +2538,16 @@ namespace Majorsilence.Forms
         private int hovered_header_column = -1;
 
         /// <summary>Finds the column header under a device-pixel point, or null.</summary>
-        private DataGridViewColumnHeaderCell? HeaderCellAt (Point location, out int columnIndex, out Point cellRelative)
+        private DataGridViewColumnHeaderCell? HeaderCellAt (Point logical, out int columnIndex, out Point cellRelative)
         {
             columnIndex = -1;
             cellRelative = Point.Empty;
 
             if (!ColumnHeadersVisible)
                 return null;
+
+            // Logical mouse against device header bounds (RC-8); the relative point stays logical.
+            var location = LogicalToDeviceUnits (logical);
 
             for (var i = 0; i < Columns.Count; i++) {
                 var column = Columns[i];
@@ -2491,7 +2556,8 @@ namespace Majorsilence.Forms
                     continue;
 
                 columnIndex = i;
-                cellRelative = new Point (location.X - column.HeaderBounds.X, location.Y - column.HeaderBounds.Y);
+                var origin = DeviceToLogicalUnits (column.HeaderBounds.Location);
+                cellRelative = new Point (logical.X - origin.X, logical.Y - origin.Y);
                 return column.HeaderCell;
             }
 
@@ -2560,7 +2626,7 @@ namespace Majorsilence.Forms
             if (edit_control is not null) {
                 var edit_bounds = edit_control.ScaledBounds;
 
-                if (!edit_bounds.Contains (e.Location))
+                if (!edit_bounds.Contains (LogicalToDeviceUnits (e.Location)))
                     EndEdit ();
             }
 
@@ -2595,8 +2661,9 @@ namespace Majorsilence.Forms
                 var client = GetContentArea ();
                 var header_rect = new Rectangle (client.Left, client.Top, client.Width, ScaledHeaderHeight);
 
-                if (header_rect.Contains (e.Location)) {
-                    var col = GetColumnAtLocation (e.Location);
+                // Device on both sides (RC-8): the header band is device geometry, the mouse is logical.
+                if (header_rect.Contains (LogicalToDeviceUnits (e.Location))) {
+                    var col = GetColumnAtLocation (LogicalToDeviceUnits (e.Location));
 
                     if (col >= 0) {
                         // A header click is how a column gets selected from the UI, and the only way in
@@ -2614,7 +2681,9 @@ namespace Majorsilence.Forms
                         // handler reads grid.SortOrder here, and raising first showed it the previous
                         // order (the ordering trap DGV-16 records). Fires for every header click
                         // (WinForms uses rowIndex -1 for header cells), not just sortable columns.
-                        OnColumnHeaderMouseClick (new DataGridViewCellMouseEventArgs (col, -1, e.Location.X - GetColumnDeviceLeft (col), e.Location.Y - client.Top, e));
+                        OnColumnHeaderMouseClick (new DataGridViewCellMouseEventArgs (col, -1,
+                            e.Location.X - DeviceToLogicalUnits (GetColumnDeviceLeft (col)),
+                            e.Location.Y - DeviceToLogicalUnits (client.Top), e));
                     }
 
                     return;
@@ -2622,10 +2691,10 @@ namespace Majorsilence.Forms
             }
 
             // Select row/cell
-            var row = GetRowAtLocation (e.Location);
+            var row = GetRowAtLocation (LogicalToDeviceUnits (e.Location));
 
             if (row >= 0) {
-                var col = GetColumnAtLocation (e.Location);
+                var col = GetColumnAtLocation (LogicalToDeviceUnits (e.Location));
 
                 // The current cell moves first and unconditionally -- a Ctrl-click that DEselects a row
                 // still moves the cursor there -- then the modifiers decide what happens to the
@@ -2698,7 +2767,7 @@ namespace Majorsilence.Forms
                         SetCursorDirect (Cursors.SizeWestEast);
 
                     // Update hovered row
-                    HoveredRowIndex = GetRowAtLocation (e.Location);
+                    HoveredRowIndex = GetRowAtLocation (LogicalToDeviceUnits (e.Location));
                     return;
                 }
             }
@@ -2711,7 +2780,7 @@ namespace Majorsilence.Forms
                     if (Cursor != Cursors.SizeNorthSouth)
                         SetCursorDirect (Cursors.SizeNorthSouth);
 
-                    HoveredRowIndex = GetRowAtLocation (e.Location);
+                    HoveredRowIndex = GetRowAtLocation (LogicalToDeviceUnits (e.Location));
                     return;
                 }
             }
@@ -2720,14 +2789,14 @@ namespace Majorsilence.Forms
                 SetCursorDirect (Cursors.Arrow);
 
             // Update hovered row
-            var row = GetRowAtLocation (e.Location);
+            var row = GetRowAtLocation (LogicalToDeviceUnits (e.Location));
             HoveredRowIndex = row;
 
-            UpdateHoveredCell (row, row >= 0 ? GetColumnAtLocation (e.Location) : -1);
+            UpdateHoveredCell (row, row >= 0 ? GetColumnAtLocation (LogicalToDeviceUnits (e.Location)) : -1);
 
             // Fire CellToolTipTextNeeded if handlers are attached
             if (CellToolTipTextNeeded != null && row >= 0) {
-                var col = GetColumnAtLocation (e.Location);
+                var col = GetColumnAtLocation (LogicalToDeviceUnits (e.Location));
                 if (col >= 0) {
                     var args = new DataGridViewCellToolTipTextNeededEventArgs (col, row);
                     CellToolTipTextNeeded?.Invoke (this, args);
@@ -3226,14 +3295,17 @@ namespace Majorsilence.Forms
             var csv = new System.Text.StringBuilder ();
             var html = new System.Text.StringBuilder ("<table>");
 
+            // Left to right as displayed, not as stored (W6 mechanisms).
+            var ordered = columns.OrderBy (c => DisplayPositionOf (c)).ToList ();
+
             if (includeHeaders) {
-                var headers = columns.Select (c => c < Columns.Count ? Columns[c].HeaderText : string.Empty).ToList ();
+                var headers = ordered.Select (c => c < Columns.Count ? Columns[c].HeaderText : string.Empty).ToList ();
                 AppendClipboardRow (text, csv, html, headers, isHeader: true);
             }
 
             foreach (var r in rows) {
                 var row = Rows[r];
-                var values = columns
+                var values = ordered
                     .Select (c => c < row.Cells.Count ? (row.Cells[c].FormattedValue?.ToString () ?? string.Empty) : string.Empty)
                     .ToList ();
                 AppendClipboardRow (text, csv, html, values, isHeader: false);
@@ -3743,8 +3815,10 @@ namespace Majorsilence.Forms
             if (Columns.Count == 0 || Rows.Count == 0)
                 return;
 
-            if (selected_column_index < Columns.Count - 1) {
-                SelectedColumnIndex = selected_column_index + 1;
+            var position = DisplayPositionOf (selected_column_index);
+
+            if (position >= 0 && position < Columns.Count - 1) {
+                SelectedColumnIndex = DisplayOrder[position + 1];
             } else if (selected_row_index < RowCountWithNewRow - 1) {
                 SelectedColumnIndex = 0;
                 SelectedRowIndex = selected_row_index + 1;
@@ -3758,10 +3832,12 @@ namespace Majorsilence.Forms
             if (Columns.Count == 0 || Rows.Count == 0)
                 return;
 
-            if (selected_column_index > 0) {
-                SelectedColumnIndex = selected_column_index - 1;
+            var position = DisplayPositionOf (selected_column_index);
+
+            if (position > 0) {
+                SelectedColumnIndex = DisplayOrder[position - 1];
             } else if (selected_row_index > 0) {
-                SelectedColumnIndex = Columns.Count - 1;
+                SelectedColumnIndex = DisplayOrder[Columns.Count - 1];
                 SelectedRowIndex = selected_row_index - 1;
                 EnsureRowVisible (selected_row_index);
             }
