@@ -751,14 +751,16 @@ namespace Majorsilence.Forms.Drawing
         /// <remarks>Stored and round-tripped; Skia's text rendering exposes no equivalent knob.</remarks>
         public int TextContrast { get; set; } = 4;
 
-        /// <summary>
-        /// Forces pending drawing to execute. A no-op: this canvas is not a batched device context, so
-        /// there is never queued work to flush.
-        /// </summary>
-        public void Flush () { }
+        /// <summary>Forces any pending drawing to be written to the surface.</summary>
+        /// <remarks>Real as of W6 mechanisms: it flushes the canvas, which is what a caller who reads
+        /// the surface's pixels straight after drawing needs. It used to do nothing, so those pixels
+        /// could still be empty.</remarks>
+        public void Flush () => _canvas?.Flush ();
 
         /// <inheritdoc cref="Flush()"/>
-        public void Flush (Majorsilence.Forms.Drawing.Drawing2D.FlushIntention intention) { }
+        /// <remarks>The intention is accepted and ignored: Skia has one flush, with no sync and async
+        /// distinction to honour.</remarks>
+        public void Flush (Majorsilence.Forms.Drawing.Drawing2D.FlushIntention intention) => Flush ();
 
         /// <summary>
         /// Returns the nearest color representable on this surface. Every surface here is 32bpp, so the

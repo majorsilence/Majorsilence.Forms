@@ -3779,6 +3779,33 @@ track bar, the status-bar panel) would want layout suspension between them and a
 7 tests; two neutralization rounds (the bitmap and the redo; the grid reset, the column resize, the
 image key and the clipboard), failing 3 and 4 of the 7, snapshot verified before and after.
 
+**W6 mechanisms, seventeenth chunk: the initialize pairs and four empty overloads. — 2026-09-25.** Part of #91.
+Thirteen more empty-bodied public methods, continuing the seam the sixteenth chunk opened.
+
+- **`ISupportInitialize`.** `BeginInit` on `TrackBar`, `NumericUpDown`, `SplitContainer`,
+  `ToolStripPanel` and `BindingNavigator` suspends layout and `EndInit` resumes it with one pass, which
+  is the whole point of the pair: a control the designer initialises used to lay itself out once per
+  property assigned. `StatusBarPanel` is not a control, so its pair tracks the batch and lays the
+  owning bar out once at the end.
+- **`Graphics.Flush`**, both overloads, forwards to the canvas. The intention argument is accepted and
+  ignored, because Skia has one flush.
+- **`TextRenderer.DrawText`** onto a canvas draws through the same extension the `PaintEventArgs`
+  overload uses. It did nothing, so the overload a caller reaches for when they hold a canvas rather
+  than paint args drew no text at all.
+- **`ToolTip.SetToolTip (WindowBase, string)`** sets the tip on the control that fills the window, so
+  the pointer anywhere over its content shows it. It is the overload a caller reaches for when the
+  thing they have is a Form.
+
+*Counts.* No-op stubs **118 → 105**.
+
+*Recorded rather than verified: `Graphics.Flush`.* Forwarding to the canvas is the right implementation
+and matters for a GPU-backed surface, but this suite draws on raster surfaces, whose pixels are there
+the moment they are drawn — neutralizing the forward changes nothing a test can see. Its test pins the
+forwarding and the argument handling and says so; the neutralization round does not claim it.
+
+6 tests; two neutralization rounds (the initialize pairs; the two provable overloads), failing 3 and 2
+of the 6, snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

@@ -45,10 +45,15 @@ namespace Majorsilence.Forms
             return new Size ((int)Math.Ceiling (size.Width), (int)Math.Ceiling (size.Height));
         }
 
-        /// <summary>
-        /// Draws the specified text on the canvas at the given location. Stub in Majorsilence.Forms.
-        /// </summary>
-        public static void DrawText (SKCanvas canvas, string text, SKTypeface font, Rectangle bounds, SKColor foreColor) { }
+        /// <summary>Draws text into a canvas.</summary>
+        /// <remarks>Real as of W6 mechanisms: it draws through the same canvas extension the
+        /// <see cref="PaintEventArgs"/> overload below uses. It used to do nothing, so the overload a
+        /// caller reaches for when they hold a canvas rather than paint args drew no text at all.</remarks>
+        public static void DrawText (SKCanvas canvas, string text, SKTypeface font, Rectangle bounds, SKColor foreColor)
+        {
+            Guard.ThrowIfNull (canvas);
+            canvas.DrawText (text, font, Theme.FontSize, bounds, foreColor, ContentAlignment.MiddleLeft);
+        }
 
         /// <summary>
         /// Draws the specified text on the canvas at the given location. Stub in Majorsilence.Forms.

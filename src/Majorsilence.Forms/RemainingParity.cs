@@ -264,14 +264,17 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Signals that initialization is starting.</summary>
-        public void BeginInit () { }
+        /// <summary>Starts a batch of designer-set properties; layout waits for <see cref="EndInit"/>.</summary>
+        /// <remarks>Real as of W6 mechanisms: it used to do nothing, so a control the designer
+        /// initialises laid itself out once per property assigned instead of once at the end.</remarks>
+        public void BeginInit () => SuspendLayout ();
 
-        /// <summary>Signals that initialization has finished.</summary>
-        /// <remarks>A refresh, nothing more (BND-12): this used to call
-        /// <see cref="AddStandardItems"/>, which cleared and rebuilt the strip, destroying the very
-        /// items InitializeComponent had just assembled.</remarks>
-        public void EndInit () => RefreshItemsCore ();
+        /// <summary>Ends the batch <see cref="BeginInit"/> started and lays the control out once.</summary>
+        public void EndInit () 
+        {
+            RefreshItemsCore ();
+            ResumeLayout (performLayout: true);
+        }
 
         /// <summary>Raised when the navigator refreshes its items from the source.</summary>
         public event EventHandler? RefreshItems;
@@ -309,11 +312,13 @@ namespace Majorsilence.Forms
 
     public partial class ToolStripPanel
     {
-        /// <summary>Signals that initialization is starting.</summary>
-        public void BeginInit () { }
+        /// <summary>Starts a batch of designer-set properties; layout waits for <see cref="EndInit"/>.</summary>
+        /// <remarks>Real as of W6 mechanisms: it used to do nothing, so a control the designer
+        /// initialises laid itself out once per property assigned instead of once at the end.</remarks>
+        public void BeginInit () => SuspendLayout ();
 
-        /// <summary>Signals that initialization has finished.</summary>
-        public void EndInit () => PerformLayout ();
+        /// <summary>Ends the batch <see cref="BeginInit"/> started and lays the control out once.</summary>
+        public void EndInit () => ResumeLayout (performLayout: true);
     }
 
     public partial class NumericUpDown
@@ -323,11 +328,13 @@ namespace Majorsilence.Forms
 
         private NumericUpDownAccelerationCollection? accelerations;
 
-        /// <summary>Signals that initialization is starting.</summary>
-        public void BeginInit () { }
+        /// <summary>Starts a batch of designer-set properties; layout waits for <see cref="EndInit"/>.</summary>
+        /// <remarks>Real as of W6 mechanisms: it used to do nothing, so a control the designer
+        /// initialises laid itself out once per property assigned instead of once at the end.</remarks>
+        public void BeginInit () => SuspendLayout ();
 
-        /// <summary>Signals that initialization has finished.</summary>
-        public void EndInit () { }
+        /// <summary>Ends the batch <see cref="BeginInit"/> started and lays the control out once.</summary>
+        public void EndInit () => ResumeLayout (performLayout: true);
     }
 
     /// <summary>How fast a <see cref="NumericUpDown"/> changes once its button has been held.</summary>

@@ -171,11 +171,22 @@ namespace Majorsilence.Forms
         /// <summary>Gets the status bar this panel belongs to.</summary>
         public StatusBar? Parent { get; internal set; }
 
-        /// <summary>Signals that initialization is starting.</summary>
-        public void BeginInit () { }
+        /// <summary>Starts a batch of designer-set properties on this panel.</summary>
+        /// <remarks>Real as of W6 mechanisms: a panel is not a control, so what the pair defers is the
+        /// owning bar's re-layout -- a property assigned between the two does not touch the bar, and
+        /// <see cref="EndInit"/> lays it out once.</remarks>
+        public void BeginInit () => Initialising = true;
 
-        /// <summary>Signals that initialization has finished.</summary>
-        public void EndInit () { }
+        /// <summary>Ends the batch <see cref="BeginInit"/> started and lays the owning bar out once.</summary>
+        public void EndInit ()
+        {
+            Initialising = false;
+            Parent?.PerformLayout ();
+            Parent?.Invalidate ();
+        }
+
+        /// <summary>Whether a designer batch is in progress on this panel.</summary>
+        internal bool Initialising { get; private set; }
     }
 
     /// <summary>Provides the data needed to paint an owner-drawn <see cref="StatusBarPanel"/>.</summary>
