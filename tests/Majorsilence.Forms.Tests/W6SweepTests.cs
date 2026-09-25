@@ -113,7 +113,16 @@ public class W6SweepTests
             Assert.Equal (SKColors.Blue, background.SKImage!.GetPixel (1, 1));
             background.CancelAsync ();
         } finally {
-            File.Delete (file);
+            // The background load may still hold the file: CancelAsync stops the decode and the
+            // install, not a read already in flight, which is the point of the test. Windows refuses
+            // to delete an open file where Unix allows it, so the cleanup is best-effort -- a stray
+            // temp file is not worth failing a run over, and this is what made the Windows leg red
+            // while the same commit passed everywhere else.
+            try {
+                File.Delete (file);
+            } catch (IOException) {
+            } catch (UnauthorizedAccessException) {
+            }
         }
     }
 
