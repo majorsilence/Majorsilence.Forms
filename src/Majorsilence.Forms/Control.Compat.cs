@@ -578,7 +578,11 @@ namespace Majorsilence.Forms
 
         private ControlBindingsCollection? _dataBindings;
 
-        /// <summary>Gets the data bindings for this control. Stub in Majorsilence.Forms — bindings are not evaluated.</summary>
+        /// <summary>Gets the data bindings for this control. Bindings are live: they read the data source into the bound property and write edits back.</summary>
+        /// <remarks>
+        /// Binding finds members by name at run time, so a trimmed or NativeAOT app has to root the bound control property, its
+        /// <c>&lt;Property&gt;Changed</c> event and the data source's property (see "Binding and trimming" in docs/backends.md).
+        /// </remarks>
         public ControlBindingsCollection DataBindings => _dataBindings ??= new ControlBindingsCollection (this);
 
         private BindingContext? binding_context;

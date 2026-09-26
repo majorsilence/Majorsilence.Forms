@@ -2511,11 +2511,9 @@ namespace Majorsilence.Forms
         public new bool DesignMode => false;
 
         // ── Data binding ─────────────────────────────────────────────────────────
-        // NOTE ON WHAT THIS ACTUALLY DOES: binding is a COMPILE-compatibility surface in this library,
-        // not a working facility -- `Binding.WriteValue` is an empty stub, so no binding moves a value in
-        // either direction yet. These members exist so migrated code that sets up bindings on a Form
-        // compiles and runs; they are wired to the correct objects so that implementing Binding later
-        // makes them work rather than making them wrong.
+        // Binding is live (BindingRuntime.cs): a binding on a Form reads its source into the window's own
+        // property and follows changes, and A_form_can_bind_its_own_properties pins that. These members are
+        // wired to the window, not to its root adapter, so a binding names the property a user sees.
 
         /// <summary>Gets the data bindings for the window's own properties.</summary>
         /// <remarks>
