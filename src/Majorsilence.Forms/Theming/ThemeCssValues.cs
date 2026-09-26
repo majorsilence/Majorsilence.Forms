@@ -95,6 +95,10 @@ namespace Majorsilence.Forms
 
         private static readonly ConcurrentDictionary<string, SKTypeface> typefaces = new (StringComparer.OrdinalIgnoreCase);
 
+        // Whether the system font manager really has a family, as opposed to substituting a default for it. Only asked while a private
+        // font is registered, to decide whether an earlier family in a list beats a later private one.
+        private static readonly ConcurrentDictionary<string, bool> systemHas = new (StringComparer.OrdinalIgnoreCase);
+
         // ---- colors ------------------------------------------------------------------------------
 
         public static bool TryParseColor (List<CssComponent> components, out Func<SKColor> color, out string? error)
@@ -382,10 +386,30 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Resolves a family list to a typeface the way a browser does: the first family the system
         /// actually has wins; if none match, Skia's fallback for the first name is used so text still
-        /// draws. Cached, because compiled rules re-resolve on every theme change.
+        /// draws. A family registered through <c>PrivateFontCollection</c> counts as one the system has.
+        /// Cached, because compiled rules re-resolve on every theme change.
         /// </summary>
         public static SKTypeface GetTypeface (IReadOnlyList<string> families, SKFontStyleWeight weight, SKFontStyleSlant slant)
         {
+            // A privately registered family is unknown to the system font manager, which would answer with a default face for its
+            // name, so ask the registry first, in list order. Deliberately ahead of, and excluded from, the cache below: the registry
+            // owns those typefaces and disposes them with their collection, and a cached fallback would hide a family registered
+            // after this list was first resolved. IsEmpty keeps the common no-private-fonts path to one uncontended lock.
+            if (!Drawing.Text.PrivateFontRegistry.IsEmpty) {
+                var style = new SKFontStyle (weight, SKFontStyleWidth.Normal, slant);
+
+                foreach (var family in families) {
+                    var privateFace = Drawing.Text.PrivateFontRegistry.Resolve (family, style);
+
+                    if (privateFace is not null)
+                        return privateFace;
+
+                    // A family the system really has, listed before a private one, still wins, as it would in a browser.
+                    if (SystemHasFamily (family, weight, slant))
+                        break;
+                }
+            }
+
             var key = string.Join ("|", families) + "|" + (int) weight + "|" + (int) slant;
 
             return typefaces.GetOrAdd (key, _ => {
@@ -406,6 +430,12 @@ namespace Majorsilence.Forms
                 return first ?? SKTypeface.FromFamilyName (families[0], weight, SKFontStyleWidth.Normal, slant) ?? SKTypeface.Default;
             });
         }
+
+        private static bool SystemHasFamily (string family, SKFontStyleWeight weight, SKFontStyleSlant slant)
+            => systemHas.GetOrAdd (family + "|" + (int) weight + "|" + (int) slant, _ => {
+                using var typeface = SKTypeface.FromFamilyName (family, weight, SKFontStyleWidth.Normal, slant);
+                return typeface is not null && string.Equals (typeface.FamilyName, family, StringComparison.OrdinalIgnoreCase);
+            });
 
         // ---- helpers -----------------------------------------------------------------------------
 
