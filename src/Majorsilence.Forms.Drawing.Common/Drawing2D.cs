@@ -585,6 +585,55 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
             foreach (var r in rects) AddRectangle (r);
         }
 
+        /// <summary>Appends a closed rectangle with the same circular radius on all four corners.</summary>
+        /// <param name="rect">The rectangle's bounds.</param>
+        /// <param name="radius">
+        /// The corner radius, in the path's units. A radius too large to fit is scaled down, together with any other
+        /// corner's, until adjacent corners no longer overlap (the CSS <c>border-radius</c> rule), so a very large radius
+        /// on a wide rectangle gives a pill. Zero gives square corners.
+        /// </param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="radius"/> is negative, NaN or infinite.</exception>
+        /// <remarks>WinForms has no equivalent; this is the common idiom of four <c>AddArc</c> calls and a
+        /// <see cref="CloseFigure"/>, done once.</remarks>
+        public void AddRoundedRectangle (RectangleF rect, float radius)
+        {
+            // Not forwarded to the four-radius form, so a bad value is reported as "radius" and not as "topLeft".
+            using var rounded = RoundedRectangleGeometry.Create (rect, radius);
+            path.AddRoundRect (rounded);
+            figureOpen = false;   // self-closing figure, like AddRectangle and AddEllipse
+        }
+
+        /// <summary>Appends a closed rectangle whose four corners have their own circular radii.</summary>
+        /// <param name="rect">The rectangle's bounds.</param>
+        /// <param name="topLeft">Radius of the top-left corner.</param>
+        /// <param name="topRight">Radius of the top-right corner.</param>
+        /// <param name="bottomRight">Radius of the bottom-right corner.</param>
+        /// <param name="bottomLeft">Radius of the bottom-left corner.</param>
+        /// <exception cref="ArgumentOutOfRangeException">A radius is negative, NaN or infinite.</exception>
+        /// <remarks>The radii run clockwise from the top-left, as in CSS. If they do not all fit they are scaled down by one
+        /// common factor, so their proportions survive. The figure closes itself, as <see cref="AddRectangle(RectangleF)"/> does.</remarks>
+        public void AddRoundedRectangle (RectangleF rect, float topLeft, float topRight, float bottomRight, float bottomLeft)
+        {
+            using var rounded = RoundedRectangleGeometry.Create (rect, topLeft, topRight, bottomRight, bottomLeft);
+            path.AddRoundRect (rounded);
+            figureOpen = false;   // self-closing figure, like AddRectangle and AddEllipse
+        }
+
+        /// <summary>Appends a closed rectangle with the same circular radius on all four corners, using float coordinates.</summary>
+        /// <inheritdoc cref="AddRoundedRectangle(RectangleF, float)"/>
+        public void AddRoundedRectangle (float x, float y, float width, float height, float radius)
+            => AddRoundedRectangle (new RectangleF (x, y, width, height), radius);
+
+        /// <summary>Appends a closed rectangle with the same circular radius on all four corners, using an integer rectangle.</summary>
+        /// <inheritdoc cref="AddRoundedRectangle(RectangleF, float)"/>
+        public void AddRoundedRectangle (Rectangle rect, float radius)
+            => AddRoundedRectangle (new RectangleF (rect.X, rect.Y, rect.Width, rect.Height), radius);
+
+        /// <summary>Appends a closed rectangle whose four corners have their own circular radii, using an integer rectangle.</summary>
+        /// <inheritdoc cref="AddRoundedRectangle(RectangleF, float, float, float, float)"/>
+        public void AddRoundedRectangle (Rectangle rect, float topLeft, float topRight, float bottomRight, float bottomLeft)
+            => AddRoundedRectangle (new RectangleF (rect.X, rect.Y, rect.Width, rect.Height), topLeft, topRight, bottomRight, bottomLeft);
+
         /// <summary>Appends an ellipse to this path.</summary>
         public void AddEllipse (RectangleF rect)
         {
