@@ -1768,6 +1768,120 @@ namespace Majorsilence.Forms.Drawing
         public void DrawRectangle (Majorsilence.Forms.Drawing.Pen pen, RectangleF rect)
             => DrawRectangle (pen, new Rectangle ((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height));
 
+        // Rounded rectangles. WinForms and System.Drawing have no rounded-rectangle call (the idiom there is four
+        // AddArc calls into a GraphicsPath), so there are no upstream names to follow; these are named after
+        // FillRectangle/DrawRectangle and take the same arguments plus radii. The framework already paints
+        // border-radius through SKCanvas helpers that app code cannot reach, because the canvas is internal to
+        // Graphics; this is the public route to the same shapes. The geometry is shared with
+        // GraphicsPath.AddRoundedRectangle so a fill, its outline and a clip built from one set of numbers agree.
+
+        /// <summary>Fills a rectangle with the same circular radius on all four corners.</summary>
+        /// <param name="brush">The brush that fills the shape.</param>
+        /// <param name="rect">The rectangle's bounds, in the graphics' current units.</param>
+        /// <param name="radius">
+        /// The corner radius. One that does not fit is scaled down, with the others, until neighbouring corners no
+        /// longer overlap (the CSS <c>border-radius</c> rule), so a very large radius on a wide rectangle gives a pill.
+        /// </param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="radius"/> is negative, NaN or infinite.</exception>
+        public void FillRoundedRectangle (Majorsilence.Forms.Drawing.Brush brush, RectangleF rect, float radius)
+        {
+            // Validate before the no-surface early return: a bad radius is a caller bug whether or not this Graphics
+            // happens to have a canvas to draw on. The uniform form builds its own geometry, not by forwarding to the
+            // four-radius one, so a bad value is reported as "radius" rather than as "topLeft".
+            using var rounded = Majorsilence.Forms.Drawing.Drawing2D.RoundedRectangleGeometry.Create (rect, radius);
+            FillRounded (brush, rounded);
+        }
+
+        /// <summary>Fills a rectangle whose four corners have their own circular radii, given clockwise from the top-left.</summary>
+        /// <param name="brush">The brush that fills the shape.</param>
+        /// <param name="rect">The rectangle's bounds, in the graphics' current units.</param>
+        /// <param name="topLeft">Radius of the top-left corner.</param>
+        /// <param name="topRight">Radius of the top-right corner.</param>
+        /// <param name="bottomRight">Radius of the bottom-right corner.</param>
+        /// <param name="bottomLeft">Radius of the bottom-left corner.</param>
+        /// <exception cref="ArgumentOutOfRangeException">A radius is negative, NaN or infinite.</exception>
+        /// <remarks>Radii that do not all fit are scaled down by one common factor, so their proportions survive.</remarks>
+        public void FillRoundedRectangle (Majorsilence.Forms.Drawing.Brush brush, RectangleF rect, float topLeft, float topRight, float bottomRight, float bottomLeft)
+        {
+            using var rounded = Majorsilence.Forms.Drawing.Drawing2D.RoundedRectangleGeometry.Create (rect, topLeft, topRight, bottomRight, bottomLeft);
+            FillRounded (brush, rounded);
+        }
+
+        private void FillRounded (Majorsilence.Forms.Drawing.Brush brush, SKRoundRect rounded)
+        {
+            if (_canvas is null) return;
+
+            using var paint = RentFillPaint (brush);
+            _canvas.DrawRoundRect (rounded, paint);
+        }
+
+        /// <summary>Fills a rectangle with the same circular radius on all four corners, using float coordinates.</summary>
+        /// <inheritdoc cref="FillRoundedRectangle(Majorsilence.Forms.Drawing.Brush, RectangleF, float)"/>
+        public void FillRoundedRectangle (Majorsilence.Forms.Drawing.Brush brush, float x, float y, float width, float height, float radius)
+            => FillRoundedRectangle (brush, new RectangleF (x, y, width, height), radius);
+
+        /// <summary>Fills a rectangle with the same circular radius on all four corners, using an integer rectangle.</summary>
+        /// <inheritdoc cref="FillRoundedRectangle(Majorsilence.Forms.Drawing.Brush, RectangleF, float)"/>
+        public void FillRoundedRectangle (Majorsilence.Forms.Drawing.Brush brush, Rectangle rect, float radius)
+            => FillRoundedRectangle (brush, new RectangleF (rect.X, rect.Y, rect.Width, rect.Height), radius);
+
+        /// <summary>Fills a rectangle whose four corners have their own circular radii, using an integer rectangle.</summary>
+        /// <inheritdoc cref="FillRoundedRectangle(Majorsilence.Forms.Drawing.Brush, RectangleF, float, float, float, float)"/>
+        public void FillRoundedRectangle (Majorsilence.Forms.Drawing.Brush brush, Rectangle rect, float topLeft, float topRight, float bottomRight, float bottomLeft)
+            => FillRoundedRectangle (brush, new RectangleF (rect.X, rect.Y, rect.Width, rect.Height), topLeft, topRight, bottomRight, bottomLeft);
+
+        /// <summary>Draws the outline of a rectangle with the same circular radius on all four corners.</summary>
+        /// <param name="pen">The pen that strokes the outline. The stroke is centred on the rectangle's edge, as with <see cref="DrawRectangle(Majorsilence.Forms.Drawing.Pen, RectangleF)"/>.</param>
+        /// <param name="rect">The rectangle's bounds, in the graphics' current units.</param>
+        /// <param name="radius">
+        /// The corner radius. One that does not fit is scaled down, with the others, until neighbouring corners no
+        /// longer overlap (the CSS <c>border-radius</c> rule).
+        /// </param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="radius"/> is negative, NaN or infinite.</exception>
+        public void DrawRoundedRectangle (Majorsilence.Forms.Drawing.Pen pen, RectangleF rect, float radius)
+        {
+            using var rounded = Majorsilence.Forms.Drawing.Drawing2D.RoundedRectangleGeometry.Create (rect, radius);
+            StrokeRounded (pen, rounded);
+        }
+
+        /// <summary>Draws the outline of a rectangle whose four corners have their own circular radii, given clockwise from the top-left.</summary>
+        /// <param name="pen">The pen that strokes the outline, centred on the rectangle's edge.</param>
+        /// <param name="rect">The rectangle's bounds, in the graphics' current units.</param>
+        /// <param name="topLeft">Radius of the top-left corner.</param>
+        /// <param name="topRight">Radius of the top-right corner.</param>
+        /// <param name="bottomRight">Radius of the bottom-right corner.</param>
+        /// <param name="bottomLeft">Radius of the bottom-left corner.</param>
+        /// <exception cref="ArgumentOutOfRangeException">A radius is negative, NaN or infinite.</exception>
+        /// <remarks>Radii that do not all fit are scaled down by one common factor, so their proportions survive.</remarks>
+        public void DrawRoundedRectangle (Majorsilence.Forms.Drawing.Pen pen, RectangleF rect, float topLeft, float topRight, float bottomRight, float bottomLeft)
+        {
+            using var rounded = Majorsilence.Forms.Drawing.Drawing2D.RoundedRectangleGeometry.Create (rect, topLeft, topRight, bottomRight, bottomLeft);
+            StrokeRounded (pen, rounded);
+        }
+
+        private void StrokeRounded (Majorsilence.Forms.Drawing.Pen pen, SKRoundRect rounded)
+        {
+            if (_canvas is null) return;
+
+            using var paint = RentStrokePaint (pen);
+            _canvas.DrawRoundRect (rounded, paint);
+        }
+
+        /// <summary>Draws the outline of a rectangle with the same circular radius on all four corners, using float coordinates.</summary>
+        /// <inheritdoc cref="DrawRoundedRectangle(Majorsilence.Forms.Drawing.Pen, RectangleF, float)"/>
+        public void DrawRoundedRectangle (Majorsilence.Forms.Drawing.Pen pen, float x, float y, float width, float height, float radius)
+            => DrawRoundedRectangle (pen, new RectangleF (x, y, width, height), radius);
+
+        /// <summary>Draws the outline of a rectangle with the same circular radius on all four corners, using an integer rectangle.</summary>
+        /// <inheritdoc cref="DrawRoundedRectangle(Majorsilence.Forms.Drawing.Pen, RectangleF, float)"/>
+        public void DrawRoundedRectangle (Majorsilence.Forms.Drawing.Pen pen, Rectangle rect, float radius)
+            => DrawRoundedRectangle (pen, new RectangleF (rect.X, rect.Y, rect.Width, rect.Height), radius);
+
+        /// <summary>Draws the outline of a rectangle whose four corners have their own circular radii, using an integer rectangle.</summary>
+        /// <inheritdoc cref="DrawRoundedRectangle(Majorsilence.Forms.Drawing.Pen, RectangleF, float, float, float, float)"/>
+        public void DrawRoundedRectangle (Majorsilence.Forms.Drawing.Pen pen, Rectangle rect, float topLeft, float topRight, float bottomRight, float bottomLeft)
+            => DrawRoundedRectangle (pen, new RectangleF (rect.X, rect.Y, rect.Width, rect.Height), topLeft, topRight, bottomRight, bottomLeft);
+
         /// <summary>Draws an arc.</summary>
         public void DrawArc (Majorsilence.Forms.Drawing.Pen pen, Rectangle rect, float startAngle, float sweepAngle)
         {
