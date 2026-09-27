@@ -16,7 +16,9 @@ namespace Majorsilence.Forms.Backends
         public IosReducedMotion ()
         {
             Current = UIAccessibility.IsReduceMotionEnabled;
-            token = UIAccessibility.Notifications.ObserveReduceMotionStatusDidChange ((_, _) => {
+            // The notification is on UIView, not UIAccessibility -- a binding-layout quirk (confirmed against
+            // Microsoft's dotnet/macios API docs), not a typo: this exact member did not compile as first written.
+            token = UIView.Notifications.ObserveReduceMotionStatusDidChange ((_, _) => {
                 var value = UIAccessibility.IsReduceMotionEnabled;
                 if (value == Current)
                     return;
