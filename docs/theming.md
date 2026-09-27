@@ -186,7 +186,7 @@ ScrollBar::arrow            { background-color: #2c2c30; color: #9aa0ab; }
 |---|---|---|
 | color | `#rgb` `#rgba` `#rrggbb` `#rrggbbaa` · `rgb(r, g, b)` `rgba(r, g, b, a)` · `rgb(r g b / a)` · `hsl(h, s%, l%)` `hsla(...)` · the 148 CSS colour names · `transparent` · `var(--x)` | Alpha is 0–1 (or a percentage). In hex, **alpha comes last** (`#rrggbbaa`) — the opposite of the `#AARRGGBB` order the XML format uses. |
 | length | `14px` or `14` | Whole **pixels**, at 100% scaling. `pt`, `em`, `rem` and `%` are rejected, because every size in a Majorsilence.Forms style is a pixel value. |
-| font family list | `"Segoe UI", "Noto Sans", sans-serif` | Quoted or bare names, comma-separated. The first family installed on the machine is used; a generic name (`sans-serif`, `serif`, `monospace`) is handed to the OS font matcher. |
+| font family list | `"Segoe UI", "Noto Sans", sans-serif` | Quoted or bare names, comma-separated. The first family the machine has is used, and a font registered with `PrivateFontCollection` counts as one it has; a generic name (`sans-serif`, `serif`, `monospace`) is handed to the OS font matcher. |
 | `var(--name)` | `var(--brand)` · `var(--brand, #333)` | Substitutes a `:root` variable, or a token. A token reference inside a control rule stays **live**: `Button:hover { background-color: var(--accent-color); }` follows later changes to `Theme.AccentColor`. |
 
 ### What is *not* supported, and what happens if you write it
@@ -314,7 +314,7 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `border-radius` | length | The corner radius, in pixels, applied to all four corners. When it is greater than 0 all four sides are drawn with the same width and colour. |
 | `border-top-width` | length | The width of one side. Also border-right-width, border-bottom-width, border-left-width. |
 | `border-top-color` | color | The colour of one side. Also border-right-color, border-bottom-color, border-left-color. |
-| `font-family` | family list | The typeface. The first family installed on the machine is used; generic names (sans-serif, serif, monospace) are passed to the OS font matcher. |
+| `font-family` | family list | The typeface. The first family the machine has is used, and a font registered with PrivateFontCollection counts as one it has; generic names (sans-serif, serif, monospace) are passed to the OS font matcher. |
 | `font-size` | length | The text size in pixels (not points). |
 | `font-weight` | normal \| bold \| 100..900 | The weight. Without a font-family in the same rule, the default UI font family is used at that weight. |
 | `font-style` | normal \| italic \| oblique | The slant. Without a font-family in the same rule, the default UI font family is used. |
@@ -328,6 +328,36 @@ Two things to know about **fonts**, because they are the one place the tokens an
   **ambient** font: their own `Font` if set, else their parent's, ending at the window. So the way to
   change the app-wide text font is a `Form { font-family: ...; font-size: ...; }` rule, which every child
   inherits, or a rule on the specific type.
+
+### Bundling a font
+
+An app that ships its own typeface registers it with `PrivateFontCollection` and then names the family in
+CSS like any installed one. The bytes can come from anywhere; an **embedded resource** needs no platform
+API, so the same code runs on every head:
+
+```csharp
+// Once, at start-up and before the theme is loaded. Keep the collection for the life of the app:
+// disposing it unregisters its fonts.
+using var stream = typeof (Program).Assembly.GetManifestResourceStream ("MyApp.Fonts.MyFont-Regular.ttf")!;
+var bytes = new byte[stream.Length];
+stream.ReadExactly (bytes);
+
+fonts = new PrivateFontCollection ();
+fonts.AddMemoryFont (bytes);
+
+Theme.LoadFromCss ("Form { font-family: \"My Font\", sans-serif; font-size: 16px; }");
+```
+
+Name the family the way the font file names it (`fonts.Families[0].Name` shows it). A private family is
+found ahead of the system font manager for the same name, and in a list it counts as one the machine has,
+so `"My Font", sans-serif` uses the bundled font and only falls back if it was never registered. A
+family the system really has, listed *before* a private one, still wins.
+
+What has been run: an embedded resource with `AddMemoryFont` on the Headless backend (Linux) and on an
+Android emulator, and `AddFontFile` on Headless. Anything else that yields the file's bytes should
+work the same way (an Android asset opened with `Assets.Open`, a file from an iOS bundle read with
+`File.ReadAllBytes`), but those routes, iOS as a whole, and a real device have not been tried, so
+check them in your own app.
 
 ## The Light theme as CSS
 
