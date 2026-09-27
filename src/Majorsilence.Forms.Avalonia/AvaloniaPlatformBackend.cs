@@ -10,7 +10,7 @@ namespace Majorsilence.Forms.Backends
     /// The default <see cref="IPlatformBackend"/>: hosts Majorsilence.Forms on Avalonia 12. Application
     /// bootstrap and the message loop are delegated to Avalonia's <see cref="Dispatcher"/>.
     /// </summary>
-    public sealed class AvaloniaPlatformBackend : IPlatformBackend, IWebViewFactory
+    public sealed class AvaloniaPlatformBackend : IPlatformBackend, IWebViewFactory, IReducedMotionSource
 #if BROWSER
         , IAsyncPlatformBackend
 #endif
@@ -120,6 +120,43 @@ namespace Majorsilence.Forms.Backends
 
         /// <inheritdoc/>
         public void DoEvents () => Dispatcher.UIThread.RunJobs ();
+
+        // ── IReducedMotionSource ─────────────────────────────────────────────────────────────────────
+        // Android and iOS push real change notifications (a ContentObserver, an NSNotificationCenter observer), so those two rows
+        // need no polling. The desktop row (Windows, macOS and Linux/GNOME, told apart at run time in DesktopReducedMotion) has no
+        // such notification available portably, so PolledSetting re-reads it on a timer instead.
+#if ANDROID
+        private AndroidReducedMotion? androidReducedMotion;
+        private AndroidReducedMotion ReducedMotionSource => androidReducedMotion ??= new AndroidReducedMotion ();
+#elif IOS
+        private IosReducedMotion? iosReducedMotion;
+        private IosReducedMotion ReducedMotionSource => iosReducedMotion ??= new IosReducedMotion ();
+#elif BROWSER
+        // Out of scope for this register item (Android, iOS, Windows, macOS and GNOME are what was asked for). A browser head could
+        // read CSS's prefers-reduced-motion media feature, which would be its own small addition.
+#else
+        private PolledSetting? desktopReducedMotion;
+        // Every 2 s: frequent enough that a setting changed mid-session catches up promptly, cheap enough (one process launch on
+        // Linux, one P/Invoke on Windows and macOS) that nothing here is a meaningful drain.
+        private PolledSetting ReducedMotionSource => desktopReducedMotion ??= new PolledSetting (DesktopReducedMotion.Read, CreateTimer (), 2000);
+#endif
+
+#if BROWSER
+        /// <inheritdoc/>
+        public bool PrefersReducedMotion => false;
+
+        /// <inheritdoc/>
+        public event EventHandler? PrefersReducedMotionChanged { add { } remove { } }
+#else
+        /// <inheritdoc/>
+        public bool PrefersReducedMotion => ReducedMotionSource.Current;
+
+        /// <inheritdoc/>
+        public event EventHandler? PrefersReducedMotionChanged {
+            add => ReducedMotionSource.Changed += value;
+            remove => ReducedMotionSource.Changed -= value;
+        }
+#endif
 
 #if !SINGLEVIEW
         /// <inheritdoc/>

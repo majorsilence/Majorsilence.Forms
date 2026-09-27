@@ -13,13 +13,30 @@ namespace Majorsilence.Forms.Headless
     /// (2) a reference second backend proving the <see cref="IPlatformBackend"/>/<see cref="IWindowBackend"/>
     /// seam is genuinely toolkit-agnostic — the same shape a real Uno backend follows.
     /// </summary>
-    public sealed class HeadlessPlatformBackend : IPlatformBackend, IAnimationFrameSource, IDisposable
+    public sealed class HeadlessPlatformBackend : IPlatformBackend, IAnimationFrameSource, IReducedMotionSource, IDisposable
     {
         /// <summary>Gets the animation frames, which run only when stepped by hand.</summary>
         public HeadlessAnimationClock AnimationClock { get; } = new ();
 
         /// <inheritdoc/>
         public void RequestAnimationFrame (Action<TimeSpan> callback) => AnimationClock.Request (callback);
+
+        private bool prefersReducedMotion;
+
+        /// <summary>Gets or sets the answer <see cref="SystemInformation.PrefersReducedMotion"/> reports while this backend is active, for a test to set directly instead of a real setting to poll.</summary>
+        public bool PrefersReducedMotion {
+            get => prefersReducedMotion;
+            set {
+                if (prefersReducedMotion == value)
+                    return;
+
+                prefersReducedMotion = value;
+                PrefersReducedMotionChanged?.Invoke (this, EventArgs.Empty);
+            }
+        }
+
+        /// <inheritdoc/>
+        public event EventHandler? PrefersReducedMotionChanged;
 
         private readonly ConcurrentQueue<Action> _queue = new ();
         private readonly AutoResetEvent _signal = new (false);

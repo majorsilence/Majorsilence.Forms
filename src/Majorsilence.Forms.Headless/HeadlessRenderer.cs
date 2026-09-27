@@ -10,15 +10,29 @@ namespace Majorsilence.Forms.Headless
     /// </summary>
     public static class HeadlessRenderer
     {
+        /// <summary>Gets the active Headless backend, for the members below that read or set state on it.</summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        private static HeadlessPlatformBackend Backend
+            => Platform.ConfiguredBackend as HeadlessPlatformBackend
+                ?? throw new InvalidOperationException ("The Headless backend is not the active platform; call HeadlessRenderer.Use () first.");
+
         /// <summary>
         /// Gets the animation frames of the active Headless backend, which run only when stepped by hand:
         /// <c>HeadlessRenderer.AnimationClock.Step (10)</c> runs ten frames. Call <see cref="Use"/> first.
         /// </summary>
         /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
-        public static HeadlessAnimationClock AnimationClock
-            => Platform.ConfiguredBackend is HeadlessPlatformBackend backend
-                ? backend.AnimationClock
-                : throw new InvalidOperationException ("The Headless backend is not the active platform; call HeadlessRenderer.Use () first.");
+        public static HeadlessAnimationClock AnimationClock => Backend.AnimationClock;
+
+        /// <summary>
+        /// Gets or sets what <see cref="SystemInformation.PrefersReducedMotion"/> reports while the Headless backend is active, so a
+        /// test can set the reduced-motion answer directly instead of a real system setting existing to poll. Setting it to the value
+        /// it already holds raises no change event. Call <see cref="Use"/> first.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        public static bool PrefersReducedMotion {
+            get => Backend.PrefersReducedMotion;
+            set => Backend.PrefersReducedMotion = value;
+        }
 
         /// <summary>
         /// Installs the headless backend as the active platform. Call once before creating any window.
