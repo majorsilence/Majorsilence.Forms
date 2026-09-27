@@ -13,10 +13,11 @@ namespace Majorsilence.Forms.Backends
     /// <remarks>
     /// The audio session category is <see cref="AVAudioSessionCategory.Ambient"/> -- mixes with other
     /// audio and, importantly, respects the silent switch and Do Not Disturb, the same conservative
-    /// default <see cref="AndroidAudioBackend"/>'s <c>NotificationEvent</c> usage takes. A category that
-    /// overrides the silent switch (<c>Playback</c>) is deliberately not the default here: that is a
-    /// judgment call for a specific alert's own <c>Usage</c> (register item F9), not something a generic
-    /// "play this cue" API should decide unasked.
+    /// default the Android backend's <c>NotificationEvent</c> usage takes (a cref to that Android-only
+    /// type does not resolve in an iOS-only compile). A category that overrides the silent switch
+    /// (<c>Playback</c>) is deliberately not the default here: that is a judgment call for a specific
+    /// alert's own <c>Usage</c> (register item F9), not something a generic "play this cue" API should
+    /// decide unasked.
     /// </remarks>
     internal sealed class IosAudioBackend : IAudioBackend
     {
