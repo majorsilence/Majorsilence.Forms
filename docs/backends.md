@@ -639,6 +639,20 @@ only on some rows. The Avalonia backend does this: real on Android (`MediaPlayer
 `tests/Majorsilence.Forms.Tests/MobileAudioTests.cs` for how `HeadlessRenderer.AudioIsSupported` (false by
 default, so the rest of the suite is unaffected) proves the routing without a device.
 
+`IAudioBackend.PlayTrack` is the same interface's third member, backing `Media.AudioPlayer` (register item
+F9) rather than `SoundPlayer`/`SystemSounds`. It has no `NativeAudio` fallback — a volume, a caller-chosen
+`Media.AudioUsage` (which platform audio stream/session a track plays through) and a real completion event
+do not map onto spawning a short-lived OS utility process the way `PlayFile` does, so `AudioPlayer` is real
+only where `PlayTrack` is: Android and iOS. `AudioPlayer.IsSupported` (`Platform.Backend is IAudioBackend`)
+is how a caller checks that ahead of committing to, say, a looping-alarm UX — unlike `SoundPlayer`'s silent
+degrade. `AudioUsage.Alarm` is the case the whole class exists for: Android's `USAGE_ALARM` (its own volume
+stream, audible with media volume down) and an iOS `Playback` session (overrides the silent switch); the
+other three usages stay on the same conservative streams/sessions `PlayFile`/`PlaySystemSound` already use.
+See `tests/Majorsilence.Forms.Tests/AudioPlayerTests.cs` for how `HeadlessRenderer.AudioTrackRequests` /
+`ActiveAudioTrackCount` / `CompleteNextAudioTrack` prove volume clamping, overlapping concurrent `Play`
+calls, `Stop` disposing every track an instance started (and no other instance's), and `Completed` firing
+only for a natural finish — all without a device.
+
 ### Adding another backend
 
 A new backend is a new assembly referencing `Majorsilence.Forms` (core) + the toolkit, implementing the two

@@ -29,6 +29,7 @@ namespace Gallery.Android
             ExtractImageAssets ();
             base.OnCreate ();
             ThreadPool.QueueUserWorkItem (_ => RunAudioSmokeTest ());
+            ThreadPool.QueueUserWorkItem (_ => RunAudioPlayerSmokeTest ());
         }
 
         // Not a xunit test -- there is no test runner on the emulator android-smoke boots. This exercises
@@ -76,6 +77,59 @@ namespace Gallery.Android
                 }
 
                 Log.Info (Tag, "PASS: PlayFile and PlaySystemSound both completed with no exception");
+            } catch (Exception ex) {
+                Log.Error (Tag, $"FAIL: {ex}");
+            }
+        }
+
+        // Register item F9's richer sibling: volume, Usage.Alarm (the one meant to be audible with media
+        // volume down -- not verified here, that needs a human ear and the emulator's -no-audio flag would
+        // hide it anyway), native looping actually stopped by Stop(), and the Completed event for a track
+        // that finishes on its own. Same reasoning as RunAudioSmokeTest above: a real emulator run on every
+        // PR via android-smoke-test.sh's F9_AUDIOPLAYER_SMOKE check, not a one-off manual verification.
+        private void RunAudioPlayerSmokeTest ()
+        {
+            const string Tag = "F9_AUDIOPLAYER_SMOKE";
+            try {
+                if (!MSForms.Media.AudioPlayer.IsSupported) {
+                    Log.Warn (Tag, "SKIP: AudioPlayer.IsSupported is false");
+                    return;
+                }
+
+                var filesDir = FilesDir?.AbsolutePath;
+                if (filesDir is null) {
+                    Log.Warn (Tag, "SKIP: FilesDir unavailable");
+                    return;
+                }
+
+                var path = System.IO.Path.Combine (filesDir, "audio-smoke-test.wav");
+                if (!System.IO.File.Exists (path)) {
+                    using var src = Assets!.Open ("audio-smoke-test.wav");
+                    using var dest = System.IO.File.Create (path);
+                    src.CopyTo (dest);
+                }
+
+                using var player = new MSForms.Media.AudioPlayer (path) {
+                    Volume = 0.5f,
+                    Usage = MSForms.Media.AudioUsage.Alarm,
+                };
+
+                var completed = new ManualResetEventSlim (false);
+                player.Completed += (_, _) => completed.Set ();
+
+                player.Play ();
+                if (!completed.Wait (TimeSpan.FromSeconds (10))) {
+                    Log.Error (Tag, "FAIL: Completed was never raised for a non-looping track");
+                    return;
+                }
+
+                // A second, looping track: prove Stop() actually silences it rather than it looping forever.
+                player.Loop = true;
+                player.Play ();
+                System.Threading.Thread.Sleep (500);
+                player.Stop ();
+
+                Log.Info (Tag, "PASS: Play/Completed/Loop/Stop all completed with no exception");
             } catch (Exception ex) {
                 Log.Error (Tag, $"FAIL: {ex}");
             }

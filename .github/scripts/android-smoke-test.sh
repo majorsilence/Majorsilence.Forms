@@ -7,8 +7,8 @@
 # head into the solution (MainActivity needed an AppCompat-derived theme) was device-only: it compiled
 # and packaged fine and only blew up on launch. This script installs the APK on an already-booted
 # emulator, launches it, and fails if the process dies or logcat shows a fatal exception / ANR during
-# the first ~25 seconds -- or if GalleryApplication's F8_AUDIO_SMOKE self-test (register item F8:
-# IAudioBackend on Android) does not report PASS in that window.
+# the first ~25 seconds -- or if GalleryApplication's F8_AUDIO_SMOKE or F9_AUDIOPLAYER_SMOKE self-tests
+# (register items F8/F9: IAudioBackend and AudioPlayer on Android) do not report PASS in that window.
 #
 # Usage: android-smoke-test.sh <apk-or-dir> [screenshot-output-path]
 #   <apk-or-dir>  a *-Signed.apk file, or a directory to search for one (recursively).
@@ -83,6 +83,19 @@ else
   fail "no F8_AUDIO_SMOKE PASS line in logcat within ${SETTLE_SECONDS}s"
 fi
 
+# GalleryApplication.RunAudioPlayerSmokeTest (register item F9): AudioPlayer's volume/loop/Usage/Completed
+# surface, same reasoning as F8_AUDIO_SMOKE above.
+echo "Checking for the F9 AudioPlayer smoke-test result ..."
+if grep -q "F9_AUDIOPLAYER_SMOKE.*FAIL" <<<"$LOG"; then
+  echo "$LOG" | grep "F9_AUDIOPLAYER_SMOKE" >&2
+  fail "F9 AudioPlayer smoke test reported FAIL (see F9_AUDIOPLAYER_SMOKE lines above)"
+elif grep -q "F9_AUDIOPLAYER_SMOKE.*PASS" <<<"$LOG"; then
+  echo "F9 AudioPlayer smoke test: PASS"
+else
+  echo "$LOG" | grep "F9_AUDIOPLAYER_SMOKE" >&2 || true
+  fail "no F9_AUDIOPLAYER_SMOKE PASS line in logcat within ${SETTLE_SECONDS}s"
+fi
+
 # The scene draws into an Avalonia SurfaceView; if MainActivity threw during OnCreate the emulator
 # would be showing the launcher, not our package, so confirm we own the foreground.
 TOP="$(adb shell dumpsys activity activities 2>/dev/null | grep -m1 -iE 'mResumedActivity|topResumedActivity' || true)"
@@ -97,4 +110,4 @@ if [ -n "$SHOT" ]; then
   adb exec-out screencap -p > "$SHOT" 2>/dev/null && echo "Saved screenshot to $SHOT" || echo "WARNING: screencap failed" >&2
 fi
 
-echo "PASS: $PKG installed, launched, stayed alive ${SETTLE_SECONDS}s with no fatal exception, held the foreground, and the F8 audio smoke test passed."
+echo "PASS: $PKG installed, launched, stayed alive ${SETTLE_SECONDS}s with no fatal exception, held the foreground, and the F8/F9 audio smoke tests passed."
