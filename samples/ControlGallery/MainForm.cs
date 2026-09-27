@@ -41,6 +41,7 @@ namespace ControlGallery
             tree.Items.Add ("Menu", ImageLoader.Get ("button.png"));
             tree.Items.Add ("MenuStrip", ImageLoader.Get ("button.png"));
             tree.Items.Add ("MessageBox", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("MVVM helpers", ImageLoader.Get ("button.png"));
             tree.Items.Add ("NavigationPane", ImageLoader.Get ("button.png"));
             tree.Items.Add ("NumericUpDown", ImageLoader.Get ("button.png"));
             tree.Items.Add ("Panel", ImageLoader.Get ("button.png"));
@@ -178,7 +179,7 @@ namespace ControlGallery
             {
                 "Button", "CheckBox", "ComboBox", "CommunityToolkit.Mvvm", "DataGridView", "Dialogs", "FileDialogs",
                 "FlowLayoutPanel", "GroupBox", "ImageList", "Label", "LinkLabel",
-                "ListBox", "ListView", "Menu", "MenuStrip", "MessageBox",
+                "ListBox", "ListView", "Menu", "MenuStrip", "MessageBox", "MVVM helpers",
                 "NavigationPane", "NumericUpDown", "Panel", "PictureBox", "ProgressBar",
                 "RadioButton", "Ribbon", "ScrollableControl", "ScrollBar", "SplitContainer",
                 "StatusBar", "StatusStrip", "TabControl", "TableLayoutPanel", "TabStrip",
@@ -234,6 +235,8 @@ namespace ControlGallery
                     return new MenuStripPanel ();
                 case "MessageBox":
                     return new MessageBoxPanel ();
+                case "MVVM helpers":
+                    return new MvvmHelpersPanel ();
                 case "NavigationPane":
                     return new NavigationPanePanel ();
                 case "NumericUpDown":
