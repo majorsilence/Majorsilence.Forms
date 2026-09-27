@@ -11,6 +11,16 @@ namespace Majorsilence.Forms.Headless
     public static class HeadlessRenderer
     {
         /// <summary>
+        /// Gets the animation frames of the active Headless backend, which run only when stepped by hand:
+        /// <c>HeadlessRenderer.AnimationClock.Step (10)</c> runs ten frames. Call <see cref="Use"/> first.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        public static HeadlessAnimationClock AnimationClock
+            => Platform.ConfiguredBackend is HeadlessPlatformBackend backend
+                ? backend.AnimationClock
+                : throw new InvalidOperationException ("The Headless backend is not the active platform; call HeadlessRenderer.Use () first.");
+
+        /// <summary>
         /// Installs the headless backend as the active platform. Call once before creating any window.
         /// </summary>
         public static void Use ()

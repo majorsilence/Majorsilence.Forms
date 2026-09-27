@@ -13,8 +13,14 @@ namespace Majorsilence.Forms.Headless
     /// (2) a reference second backend proving the <see cref="IPlatformBackend"/>/<see cref="IWindowBackend"/>
     /// seam is genuinely toolkit-agnostic — the same shape a real Uno backend follows.
     /// </summary>
-    public sealed class HeadlessPlatformBackend : IPlatformBackend, IDisposable
+    public sealed class HeadlessPlatformBackend : IPlatformBackend, IAnimationFrameSource, IDisposable
     {
+        /// <summary>Gets the animation frames, which run only when stepped by hand.</summary>
+        public HeadlessAnimationClock AnimationClock { get; } = new ();
+
+        /// <inheritdoc/>
+        public void RequestAnimationFrame (Action<TimeSpan> callback) => AnimationClock.Request (callback);
+
         private readonly ConcurrentQueue<Action> _queue = new ();
         private readonly AutoResetEvent _signal = new (false);
         private volatile bool _running;
