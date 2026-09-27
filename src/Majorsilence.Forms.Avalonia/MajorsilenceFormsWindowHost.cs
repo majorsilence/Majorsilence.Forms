@@ -31,7 +31,8 @@ namespace Majorsilence.Forms
     /// native-framebuffer approach and is reliable across all Avalonia 12 platforms.
     /// </summary>
     [System.Diagnostics.CodeAnalysis.SuppressMessage ("Design", "CA1001", Justification = "_framebuffer is disposed in OnClosed; Window lifecycle manages the call.")]
-    internal class MajorsilenceFormsWindowHost : Window, Majorsilence.Forms.Backends.IWindowBackend, Majorsilence.Forms.Backends.INativeControlHostBackend
+    internal class MajorsilenceFormsWindowHost : Window, Majorsilence.Forms.Backends.IWindowBackend, Majorsilence.Forms.Backends.INativeControlHostBackend,
+        Majorsilence.Forms.Backends.IAnimationFrameSource
     {
         private readonly WindowBase _owner;
 
@@ -331,6 +332,10 @@ namespace Majorsilence.Forms
             if (LastPointerPressed is not null)
                 BeginResizeDrag (edge, LastPointerPressed);
         }
+
+        // A Window is a TopLevel, so this is Avalonia's own frame request: the callback runs at the start of the next frame the display
+        // is going to show, not on a timer.
+        void Backends.IAnimationFrameSource.RequestAnimationFrame (System.Action<System.TimeSpan> callback) => RequestAnimationFrame (callback);
 
         // ── IWindowBackend (explicit: avoids name collisions with the Avalonia Window base) ──────────
 
