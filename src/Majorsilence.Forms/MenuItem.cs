@@ -105,6 +105,9 @@ namespace Majorsilence.Forms
             }
         }
 
+        // This item's own flag, without the owner's: what a command should remember and give back.
+        internal bool EnabledSelf => enabled;
+
         /// <summary>Called when <see cref="Enabled"/> changes, before the owner is invalidated.</summary>
         /// <remarks>A hook rather than an event: this type has no <c>EnabledChanged</c>, and
         /// <see cref="ToolStripItem"/> -- which does -- overrides this to raise it.</remarks>

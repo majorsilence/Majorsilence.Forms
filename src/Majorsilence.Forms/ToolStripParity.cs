@@ -146,14 +146,16 @@ namespace Majorsilence.Forms
         /// <summary>Occurs when the bound command's executability changes.</summary>
         public event EventHandler? CommandCanExecuteChanged;
 
-        private void OnCommandCanExecuteChangedRelay (object? sender, EventArgs e) => CommandCanExecuteChanged?.Invoke (this, e);
-
         /// <summary>Occurs when <see cref="CommandParameter"/> changes.</summary>
         public event EventHandler? CommandParameterChanged;
 #pragma warning restore CS0067
 
         // `private bool available` went with the second store it backed: Available reads Visible now.
-        private System.Windows.Input.ICommand? command;
+        private CommandLink? command_link;
+
+        private CommandLink Link => command_link ??= new CommandLink (
+            () => CommandParameter, () => EnabledSelf, value => Enabled = value,
+            () => CommandCanExecuteChanged?.Invoke (this, EventArgs.Empty));
 
         /// <summary>
         /// Gets or sets whether this item is available to be shown on its parent. Real: it is the
@@ -269,19 +271,16 @@ namespace Majorsilence.Forms
         public int MergeIndex { get; set; } = -1;
 
         /// <summary>Gets or sets the command invoked when the item is clicked.</summary>
+        /// <remarks>
+        /// Run with <see cref="CommandParameter"/>, only while it can execute, after the <c>Click</c> handlers. <see cref="MenuItem.Enabled"/>
+        /// follows <c>CanExecute</c> until the command is cleared, which restores what it was, and the command's
+        /// <c>CanExecuteChanged</c> is relayed as <see cref="CommandCanExecuteChanged"/>.
+        /// </remarks>
         public System.Windows.Input.ICommand? Command {
-            get => command;
+            get => command_link?.Command;
             set {
-                if (ReferenceEquals (command, value))
-                    return;
-
-                // Relay the command's CanExecuteChanged as our own, as upstream does (W6.1 sweep).
-                if (command is not null)
-                    command.CanExecuteChanged -= OnCommandCanExecuteChangedRelay;
-                command = value;
-                if (command is not null)
-                    command.CanExecuteChanged += OnCommandCanExecuteChangedRelay;
-                CommandChanged?.Invoke (this, EventArgs.Empty);
+                if (Link.SetCommand (value))
+                    CommandChanged?.Invoke (this, EventArgs.Empty);
             }
         }
 
@@ -289,6 +288,7 @@ namespace Majorsilence.Forms
         private object? command_parameter;
 
         /// <summary>Gets or sets the parameter passed to <see cref="Command"/>.</summary>
+        /// <remarks>It is an input to <c>CanExecute</c> as well as <c>Execute</c>, so changing it re-evaluates <see cref="MenuItem.Enabled"/>.</remarks>
         public object? CommandParameter {
             get => command_parameter;
             set {
@@ -297,7 +297,16 @@ namespace Majorsilence.Forms
 
                 command_parameter = value;
                 CommandParameterChanged?.Invoke (this, EventArgs.Empty);
+                command_link?.ParameterChanged ();
             }
+        }
+
+        /// <summary>Raises <see cref="MenuItem.Click"/>, then runs <see cref="Command"/> if there is one and it can execute.</summary>
+        /// <remarks>After the handlers, as <c>ButtonBase</c> does, so a handler that reconfigures the item gets to run first.</remarks>
+        protected override void OnClick (EventArgs e)
+        {
+            base.OnClick (e);
+            command_link?.Execute ();
         }
 
         /// <summary>Gets or sets the accessible name reported for this item.</summary>

@@ -144,7 +144,7 @@ namespace Majorsilence.Forms.Tests
             using var button = new Button { Text = "Go" };
             var command = new CountingCommand ();
 
-            button.Command = command;
+            button.Command = command.AsCommand ();
             button.PerformClick ();
 
             Assert.Equal (1, command.Runs);
@@ -174,7 +174,7 @@ namespace Majorsilence.Forms.Tests
             var order = new System.Collections.Generic.List<string> ();
 
             button.Click += (_, _) => order.Add ("handler");
-            button.Command = new OrderingCommand (order);
+            button.Command = new OrderingCommand (order).AsCommand ();
 
             button.PerformClick ();
 

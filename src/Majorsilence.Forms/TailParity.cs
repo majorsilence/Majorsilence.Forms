@@ -36,22 +36,26 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the image list the button takes its image from.</summary>
         public virtual ImageList? ImageList { get; set; }
 
-        // Notifies on change; the event was declared and raised by nothing (W6.1).
-        private ICommandExecutor? command;
+        private CommandLink? command_link;
+
+        // The earlier state is the control's own flag: Enabled also folds in a disabled parent, and restoring that would leave this
+        // button disabled after the parent was enabled again.
+        private CommandLink Link => command_link ??= new CommandLink (
+            () => CommandParameter, () => GetState (States.Enabled), value => Enabled = value,
+            () => CommandCanExecuteChanged?.Invoke (this, EventArgs.Empty));
 
         /// <summary>Gets or sets the command run when the button is clicked.</summary>
-        public ICommandExecutor? Command {
-            get => command;
+        /// <remarks>
+        /// An <see cref="System.Windows.Input.ICommand"/>, as WinForms on modern .NET takes, so an MVVM toolkit's <c>RelayCommand</c>
+        /// binds directly. The command runs with <see cref="CommandParameter"/>, only while it can execute, and <see cref="Control.Enabled"/>
+        /// follows <c>CanExecute</c> until the command is cleared, which restores what it was. A framework
+        /// <see cref="ICommandExecutor"/> is adapted with <see cref="CommandExecutorExtensions.AsCommand"/>.
+        /// </remarks>
+        public System.Windows.Input.ICommand? Command {
+            get => command_link?.Command;
             set {
-                if (ReferenceEquals (command, value))
-                    return;
-
-                if (command is not null)
-                    command.CommandCanExecuteChanged -= OnCommandCanExecuteChangedRelay;
-                command = value;
-                if (command is not null)
-                    command.CommandCanExecuteChanged += OnCommandCanExecuteChangedRelay;
-                CommandChanged?.Invoke (this, EventArgs.Empty);
+                if (Link.SetCommand (value))
+                    CommandChanged?.Invoke (this, EventArgs.Empty);
             }
         }
 
@@ -59,11 +63,7 @@ namespace Majorsilence.Forms
         private object? command_parameter;
 
         /// <summary>Gets or sets the parameter passed to <see cref="Command"/>.</summary>
-        /// <remarks>
-        /// Stored only, and it cannot be otherwise yet: <see cref="ICommandExecutor.Execute"/> takes no
-        /// argument here, so there is nowhere to pass it. Giving the interface a parameterised overload
-        /// is a public API change and its own decision, not something to slip into a sweep.
-        /// </remarks>
+        /// <remarks>It is an input to <c>CanExecute</c> as well as <c>Execute</c>, so changing it re-evaluates <see cref="Control.Enabled"/>.</remarks>
         public object? CommandParameter {
             get => command_parameter;
             set {
@@ -72,6 +72,7 @@ namespace Majorsilence.Forms
 
                 command_parameter = value;
                 CommandParameterChanged?.Invoke (this, EventArgs.Empty);
+                command_link?.ParameterChanged ();
             }
         }
 
@@ -86,23 +87,17 @@ namespace Majorsilence.Forms
         {
             base.OnClick (e);
 
-            Command?.Execute ();
+            command_link?.Execute ();
         }
 
-        // The command notifications. This layer stores the command rather than subscribing to it, so
-        // there is nothing to relay yet; a derived button that wires its own command can raise them.
-#pragma warning disable CS0067
-        /// <summary>Raised when <see cref="Command"/> changes. Not raised by this layer yet.</summary>
+        /// <summary>Raised when <see cref="Command"/> changes.</summary>
         public event EventHandler? CommandChanged;
 
-        /// <summary>Raised when <see cref="CommandParameter"/> changes. Not raised by this layer yet.</summary>
+        /// <summary>Raised when <see cref="CommandParameter"/> changes.</summary>
         public event EventHandler? CommandParameterChanged;
 
-        /// <summary>Raised when the command's ability to run changes. Not raised by this layer yet.</summary>
+        /// <summary>Raised when the command's ability to run changes.</summary>
         public event EventHandler? CommandCanExecuteChanged;
-
-        private void OnCommandCanExecuteChangedRelay (object? sender, EventArgs e) => CommandCanExecuteChanged?.Invoke (this, e);
-#pragma warning restore CS0067
     }
 
     public partial class TreeNode
