@@ -627,6 +627,18 @@ exception to the airspace limits — GTK composites every widget into one render
 `Gtk.Widget` clips and blends correctly with no separate native surface (see
 [The GTK 4 backend](#the-gtk-4-backend)).
 
+## In-process audio
+
+`IAudioBackend` is a fourth optional capability. `Media.SoundPlayer` and `Media.SystemSounds` try
+`Platform.Backend as IAudioBackend` before falling back to `Media.NativeAudio`'s desktop path of spawning
+the OS's own playback utility — and fall back to it too whenever the backend answers `null`, exactly as
+if the interface were not implemented at all, so a backend can implement it everywhere and genuinely play
+only on some rows. The Avalonia backend does this: real on Android (`MediaPlayer`) and iOS
+(`AVAudioPlayer`/`AudioToolbox.SystemSound`), `null` everywhere else. See `COMPATIBILITY_MATRIX.md`'s
+`SoundPlayer`/`SystemSounds` entry for what each platform actually does, and
+`tests/Majorsilence.Forms.Tests/MobileAudioTests.cs` for how `HeadlessRenderer.AudioIsSupported` (false by
+default, so the rest of the suite is unaffected) proves the routing without a device.
+
 ### Adding another backend
 
 A new backend is a new assembly referencing `Majorsilence.Forms` (core) + the toolkit, implementing the two

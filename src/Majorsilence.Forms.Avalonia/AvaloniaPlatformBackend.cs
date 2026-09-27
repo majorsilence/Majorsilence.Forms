@@ -10,7 +10,7 @@ namespace Majorsilence.Forms.Backends
     /// The default <see cref="IPlatformBackend"/>: hosts Majorsilence.Forms on Avalonia 12. Application
     /// bootstrap and the message loop are delegated to Avalonia's <see cref="Dispatcher"/>.
     /// </summary>
-    public sealed class AvaloniaPlatformBackend : IPlatformBackend, IWebViewFactory, IReducedMotionSource
+    public sealed class AvaloniaPlatformBackend : IPlatformBackend, IWebViewFactory, IReducedMotionSource, IAudioBackend
 #if BROWSER
         , IAsyncPlatformBackend
 #endif
@@ -156,6 +156,35 @@ namespace Majorsilence.Forms.Backends
             add => ReducedMotionSource.Changed += value;
             remove => ReducedMotionSource.Changed -= value;
         }
+#endif
+
+        // ── IAudioBackend ── real on Android and iOS (this row's whole reason for existing: neither
+        // platform has an OS utility for Media.NativeAudio to spawn). Every other row -- desktop, browser
+        // -- has nothing of its own to add over NativeAudio's existing path, so both members simply
+        // report "cannot play"; SoundPlayer and SystemSounds already fall back to NativeAudio whenever
+        // this interface answers null, exactly as if it were not implemented at all there.
+#if ANDROID
+        private readonly AndroidAudioBackend audioBackend = new ();
+
+        /// <inheritdoc/>
+        public Media.IPlayingSound? PlayFile (string path, bool loop) => audioBackend.PlayFile (path, loop);
+
+        /// <inheritdoc/>
+        public Media.IPlayingSound? PlaySystemSound (string name) => audioBackend.PlaySystemSound (name);
+#elif IOS
+        private readonly IosAudioBackend audioBackend = new ();
+
+        /// <inheritdoc/>
+        public Media.IPlayingSound? PlayFile (string path, bool loop) => audioBackend.PlayFile (path, loop);
+
+        /// <inheritdoc/>
+        public Media.IPlayingSound? PlaySystemSound (string name) => audioBackend.PlaySystemSound (name);
+#else
+        /// <inheritdoc/>
+        public Media.IPlayingSound? PlayFile (string path, bool loop) => null;
+
+        /// <inheritdoc/>
+        public Media.IPlayingSound? PlaySystemSound (string name) => null;
 #endif
 
 #if !SINGLEVIEW

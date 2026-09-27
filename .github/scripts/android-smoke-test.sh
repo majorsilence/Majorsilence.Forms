@@ -7,7 +7,8 @@
 # head into the solution (MainActivity needed an AppCompat-derived theme) was device-only: it compiled
 # and packaged fine and only blew up on launch. This script installs the APK on an already-booted
 # emulator, launches it, and fails if the process dies or logcat shows a fatal exception / ANR during
-# the first ~25 seconds.
+# the first ~25 seconds -- or if GalleryApplication's F8_AUDIO_SMOKE self-test (register item F8:
+# IAudioBackend on Android) does not report PASS in that window.
 #
 # Usage: android-smoke-test.sh <apk-or-dir> [screenshot-output-path]
 #   <apk-or-dir>  a *-Signed.apk file, or a directory to search for one (recursively).
@@ -68,6 +69,20 @@ if grep -qE "FATAL EXCEPTION|E AndroidRuntime|ANR in $PKG|Force finishing activi
   fail "logcat shows a fatal exception / ANR for $PKG"
 fi
 
+# GalleryApplication.RunAudioSmokeTest (register item F8): plays a bundled .wav and a system sound
+# through IAudioBackend on a background thread and logs one PASS/FAIL line. A missing line means it
+# never even ran within the settle window, which is its own failure, not silently ignored.
+echo "Checking for the F8 audio smoke-test result ..."
+if grep -q "F8_AUDIO_SMOKE.*FAIL" <<<"$LOG"; then
+  echo "$LOG" | grep "F8_AUDIO_SMOKE" >&2
+  fail "F8 audio smoke test reported FAIL (see F8_AUDIO_SMOKE lines above)"
+elif grep -q "F8_AUDIO_SMOKE.*PASS" <<<"$LOG"; then
+  echo "F8 audio smoke test: PASS"
+else
+  echo "$LOG" | grep "F8_AUDIO_SMOKE" >&2 || true
+  fail "no F8_AUDIO_SMOKE PASS line in logcat within ${SETTLE_SECONDS}s"
+fi
+
 # The scene draws into an Avalonia SurfaceView; if MainActivity threw during OnCreate the emulator
 # would be showing the launcher, not our package, so confirm we own the foreground.
 TOP="$(adb shell dumpsys activity activities 2>/dev/null | grep -m1 -iE 'mResumedActivity|topResumedActivity' || true)"
@@ -82,4 +97,4 @@ if [ -n "$SHOT" ]; then
   adb exec-out screencap -p > "$SHOT" 2>/dev/null && echo "Saved screenshot to $SHOT" || echo "WARNING: screencap failed" >&2
 fi
 
-echo "PASS: $PKG installed, launched, stayed alive ${SETTLE_SECONDS}s with no fatal exception, and held the foreground."
+echo "PASS: $PKG installed, launched, stayed alive ${SETTLE_SECONDS}s with no fatal exception, held the foreground, and the F8 audio smoke test passed."

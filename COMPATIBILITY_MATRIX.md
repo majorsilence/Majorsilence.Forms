@@ -525,19 +525,26 @@ because there is no HKL. That is enough for what callers do with it — naming t
 working in.
 
 **`Majorsilence.Forms.Media.SystemSounds` and `SoundPlayer`** replace their `System.Media` namesakes,
-which live in a Windows-only assembly. Playback is **real** as of 2026-08: it routes through the
-operating system's own playback utility (`afplay` on macOS, `paplay`/`aplay` on Linux, PowerShell's
+which live in a Windows-only assembly. Playback is **real** as of 2026-08 on desktop: it routes through
+the operating system's own playback utility (`afplay` on macOS, `paplay`/`aplay` on Linux, PowerShell's
 `System.Media` on Windows — see `Media/NativeAudio.cs`). The child process gives the API its upstream
 semantics for free: `Stop` kills it, `PlaySync` waits for it, `PlayLooping` respawns it until stopped,
 and a `Stream` is materialised to a temporary .wav once and deleted on dispose. The trade is ~50–200ms
 of launch latency per play — these APIs serve alert sounds and short cues, which is also their upstream
-contract (SoundPlayer is WAV-only even in WinForms). What stays deliberately silent: platforms with no
-utility to spawn (mobile/browser, until a backend supplies a native path — `NativeAudio` is the seam),
-URL sound locations (no implicit fetching), and any failure at all (missing utility, dead audio daemon,
-unplayable file) — fire-and-forget APIs degrade to silence, never to an exception. `Load`/`LoadAsync`
-still complete immediately: the OS utility opens the file itself, so there is nothing to preload. The
-migrator redirects `System.Media` here, because the bare namespace resolves off Windows and every type
-reference in the file then fails as an unknown name — far more confusing than a missing namespace.
+contract (SoundPlayer is WAV-only even in WinForms). As of 2026-09 (F8) Android and iOS are real too,
+through the `Backends.IAudioBackend` seam: Android plays via `MediaPlayer` tagged with notification-stream
+`AudioAttributes` (`Stop` stops and releases it, `PlayLooping` loops natively via `MediaPlayer.Looping`,
+`PlaySync` waits on its `Completion` event), and iOS via `AVAudioPlayer` on an `Ambient` audio session
+(respects the silent switch — an `Ambient`/`Playback` split matching `Usage` is register item F9's job,
+not this one) for files and `AudioToolbox.SystemSound` (Apple's own bundled system-sound bank, the same
+kind of "reach a real OS asset by a stable identifier" this file's desktop path already uses) for the five
+stock names. What stays deliberately silent: the browser (no backend implements the seam there), URL
+sound locations (no implicit fetching), and any failure at all (missing utility, dead audio daemon,
+unplayable file, no native player) — fire-and-forget APIs degrade to silence, never to an exception.
+`Load`/`LoadAsync` still complete immediately: nothing preloads a sound ahead of playing it on any
+platform. The migrator redirects `System.Media` here, because the bare namespace resolves off Windows and
+every type reference in the file then fails as an unknown name — far more confusing than a missing
+namespace.
 
 ## Design-time smart tags
 

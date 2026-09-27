@@ -1,6 +1,8 @@
 using System;
+using System.Threading;
 using Android.App;
 using Android.Runtime;
+using Android.Util;
 using Avalonia;
 using Avalonia.Android;
 using Avalonia.Controls;
@@ -26,6 +28,57 @@ namespace Gallery.Android
         {
             ExtractImageAssets ();
             base.OnCreate ();
+            ThreadPool.QueueUserWorkItem (_ => RunAudioSmokeTest ());
+        }
+
+        // Not a xunit test -- there is no test runner on the emulator android-smoke boots. This exercises
+        // register item F8's IAudioBackend seam for real on a device/emulator and logs a single line
+        // android-smoke-test.sh greps for, so "SoundPlayer and SystemSounds play on an Android emulator"
+        // (the acceptance criterion) is a real, repeated-on-every-PR CI check, not a one-off manual run.
+        // Runs on a background thread: MediaPlayer.Prepare is a blocking call and this must not delay the
+        // Avalonia UI's own first frame.
+        private void RunAudioSmokeTest ()
+        {
+            const string Tag = "F8_AUDIO_SMOKE";
+            try {
+                var filesDir = FilesDir?.AbsolutePath;
+                if (filesDir is null) {
+                    Log.Warn (Tag, "SKIP: FilesDir unavailable");
+                    return;
+                }
+
+                var path = System.IO.Path.Combine (filesDir, "audio-smoke-test.wav");
+                if (!System.IO.File.Exists (path)) {
+                    using var src = Assets!.Open ("audio-smoke-test.wav");
+                    using var dest = System.IO.File.Create (path);
+                    src.CopyTo (dest);
+                }
+
+                if (MSForms.Backends.Platform.Backend is not MSForms.Backends.IAudioBackend audio) {
+                    Log.Warn (Tag, "SKIP: active backend is not IAudioBackend");
+                    return;
+                }
+
+                using (var file = audio.PlayFile (path, loop: false)) {
+                    if (file is null) {
+                        Log.Error (Tag, "FAIL: PlayFile returned null");
+                        return;
+                    }
+                    file.Wait ();
+                }
+
+                using (var system = audio.PlaySystemSound (nameof (MSForms.Media.SystemSounds.Hand))) {
+                    if (system is null) {
+                        Log.Error (Tag, "FAIL: PlaySystemSound returned null");
+                        return;
+                    }
+                    system.Wait ();
+                }
+
+                Log.Info (Tag, "PASS: PlayFile and PlaySystemSound both completed with no exception");
+            } catch (Exception ex) {
+                Log.Error (Tag, $"FAIL: {ex}");
+            }
         }
 
         // ControlGallery's ImageLoader does plain File.Open under a relative "Images" folder -- there is
