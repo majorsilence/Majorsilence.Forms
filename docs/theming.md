@@ -359,6 +359,31 @@ work the same way (an Android asset opened with `Assets.Open`, a file from an iO
 `File.ReadAllBytes`), but those routes, iOS as a whole, and a real device have not been tried, so
 check them in your own app.
 
+### Colour emoji
+
+A character followed by VARIATION SELECTOR-16 (U+FE0F, "️") asks for its **emoji presentation** — a
+coloured pictograph rather than a plain monochrome glyph. Some base characters (WARNING SIGN, U+26A0, is
+the common one: most text fonts already include a plain triangle for it) are covered by the UI font
+itself, so nothing in the text ever looked *missing* — it just drew as a grayscale outline instead of the
+coloured triangle a chat app or a phone's own text field would show for the same string.
+
+This is a font-mapping limitation, not a glyph one: RichTextKit resolves one typeface per `Style` (a run),
+not per character, so it has no way to notice that one specific codepoint inside a run is asking for a
+different presentation. `TextMeasurer.CreateTextBlock` now looks for a trailing VS16 itself, splits that
+base character (and the selector) into their own run, and resolves that run's face with
+`SKFontManager.MatchCharacter`, hinted with the `und-Zsye` (emoji) BCP-47 tag, so the font manager prefers
+an emoji-capable face over whichever plain one already happens to cover the base character. VARIATION
+SELECTOR-15 (U+FE0E, explicit **text** presentation) is recognised the same way but left alone — it still
+needs its own run (the selector must not be measured as a stray glyph), just not a different face.
+
+No app code is needed for this: it applies to every string measured or drawn through `TextMeasurer`,
+`Label`, `DrawString`, and anywhere else in the library that lays out text. What it needs is a colour
+emoji face actually installed for the font manager to find — Windows and macOS ship one; a Linux desktop
+or CI image needs `fonts-noto-color-emoji` (the same way CJK fallback needs `fonts-noto-cjk`, see
+`.github/workflows/dotnet.yml`); Android and iOS ship their own system emoji font. Without one installed,
+`MatchCharacter` finds nothing and the base character falls back exactly as it would with no selector at
+all — a plain glyph, never a missing one.
+
 ## The Light theme as CSS
 
 `Theme.ExportCss ()` writes the current theme's tokens as a stylesheet. This is the built-in Light theme,

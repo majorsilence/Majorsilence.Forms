@@ -75,14 +75,16 @@ namespace Majorsilence.Forms
                 };
 
                 if (mnemonicIndex > 0)
-                    tb.AddText (text.AsSpan (0, mnemonicIndex), styleNormal);
+                    AddTextWithEmojiPresentation (tb, text.AsSpan (0, mnemonicIndex), styleNormal);
 
+                // The mnemonic character itself is never an emoji base character in practice (an access key is
+                // a plain letter or digit), so it is added as-is, exactly as before.
                 tb.AddText (text.AsSpan (mnemonicIndex, 1), styleMnemonic);
 
                 if (mnemonicIndex + 1 < text.Length)
-                    tb.AddText (text.AsSpan (mnemonicIndex + 1), styleNormal);
+                    AddTextWithEmojiPresentation (tb, text.AsSpan (mnemonicIndex + 1), styleNormal);
             } else {
-                tb.AddText (text, styleNormal);
+                AddTextWithEmojiPresentation (tb, text, styleNormal);
             }
 
             // Above, for a single line, we did not limit the width, and we need to fix it here
@@ -101,6 +103,65 @@ namespace Majorsilence.Forms
 
             _textBlockCache[key] = tb;
             return tb;
+        }
+
+        // Resolved emoji-capable typeface family names, keyed by base codepoint. A font-manager query,
+        // amortised the same way FontSubstitution's own fallback cache is (see there): this is asked
+        // for every VARIATION SELECTOR-16 sequence in every string laid out.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, string?> emojiFamilyByCodepoint = new ();
+
+        // A character followed by VARIATION SELECTOR-16 (U+FE0F) asks for its emoji presentation, but
+        // RichTextKit resolves one typeface per Style/run (FontMapper.TypefaceFromStyle takes the style,
+        // not the text), so it cannot see that request -- the requested UI font is used throughout, and a
+        // base character the UI font already happens to have (WARNING SIGN's plain triangle is common in
+        // ordinary text fonts) draws as that font's own glyph, ignoring the selector entirely. Splitting a
+        // selector sequence into its own run, styled with a font family resolved to actually have the
+        // colour glyph, is what a real HarfBuzz-based shaper would do internally; this does the same thing
+        // one level up, at the run-building step this project owns. Found and evidenced on
+        // majorsilence/alert-buddy's tracker (#271/#281): the warning sign drew as a monochrome outline
+        // rather than the coloured triangle. Filed as #271 in this tracker as well.
+        private static void AddTextWithEmojiPresentation (TextBlock tb, ReadOnlySpan<char> text, Style style)
+        {
+            var runStart = 0;
+            var i = 0;
+
+            while (i < text.Length) {
+                var isPair = char.IsHighSurrogate (text[i]) && i + 1 < text.Length && char.IsLowSurrogate (text[i + 1]);
+                var length = isPair ? 2 : 1;
+                var selectorAt = i + length;
+
+                if (selectorAt < text.Length && text[selectorAt] == '️') {
+                    var codepoint = isPair ? char.ConvertToUtf32 (text[i], text[i + 1]) : text[i];
+                    var emojiFamily = emojiFamilyByCodepoint.GetOrAdd (codepoint,
+                        cp => SKFontManager.Default.MatchCharacter (null, ["und-Zsye"], cp)?.FamilyName);
+
+                    // No emoji-capable face on the system either: leave the sequence for the surrounding
+                    // run, same as if it had not been recognised at all, rather than force a pointless split.
+                    if (emojiFamily is not null) {
+                        if (i > runStart)
+                            tb.AddText (text.Slice (runStart, i - runStart), style);
+
+                        tb.AddText (text.Slice (i, length + 1), new Style {
+                            FontFamily = emojiFamily,
+                            FontSize = style.FontSize,
+                            TextColor = style.TextColor,
+                            FontWeight = style.FontWeight,
+                            Underline = style.Underline,
+                        });
+
+                        i += length + 1;
+                        runStart = i;
+                        continue;
+                    }
+                }
+
+                i += length;
+            }
+
+            if (runStart == 0)
+                tb.AddText (text, style); // No selector sequence found: exactly the unmodified original call.
+            else if (runStart < text.Length)
+                tb.AddText (text.Slice (runStart), style);
         }
 
         /// <summary>
