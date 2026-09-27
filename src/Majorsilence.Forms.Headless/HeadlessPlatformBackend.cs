@@ -11,6 +11,9 @@ namespace Majorsilence.Forms.Headless
     /// <param name="IsSystemSound">Whether this came from <see cref="HeadlessPlatformBackend.PlaySystemSound"/> rather than <see cref="HeadlessPlatformBackend.PlayFile"/>.</param>
     public readonly record struct AudioPlayRequest (string Value, bool Loop, bool IsSystemSound);
 
+    /// <summary>One <see cref="Media.AudioPlayer.Play"/> request the Headless backend recorded.</summary>
+    public readonly record struct AudioTrackRequest (string Path, bool Loop, float Volume, Media.AudioUsage Usage);
+
     /// <summary>
     /// A dependency-free <see cref="IPlatformBackend"/> that hosts Majorsilence.Forms entirely in memory:
     /// windows render to offscreen SkiaSharp surfaces and the "message loop" is a simple work queue.
@@ -91,6 +94,84 @@ namespace Majorsilence.Forms.Headless
         {
             public void Wait () { }
             public void Dispose () { }
+        }
+
+        // ── IAudioBackend.PlayTrack ── AudioPlayer's richer sibling: this fake tracks every live track it
+        // handed out (not just requests, unlike PlayFile/PlaySystemSound above) so a test can drive its own
+        // Completed event and assert Stop() actually disposed each one -- neither is meaningful for the
+        // fire-and-forget PlayFile/PlaySystemSound shape above. AudioPlayer explicitly allows overlapping
+        // concurrent Play() calls, so every collection here is thread-safe the same way _audioRequests is;
+        // ActiveAudioTrackCount is a plain counter (not a live queue's Count) because "no longer active"
+        // happens through FakeAudioTrack.Dispose(), called from an arbitrary point in the queue -- a
+        // ConcurrentQueue has no cheap arbitrary removal, only FIFO dequeue.
+        private readonly ConcurrentQueue<AudioTrackRequest> _audioTrackRequests = new ();
+        private readonly ConcurrentQueue<FakeAudioTrack> _pendingAudioTracks = new ();
+        private int _activeAudioTrackCount;
+
+        /// <summary>Gets every <see cref="Media.AudioPlayer.Play"/> request this backend has been asked to play, in order (including ones no longer playing).</summary>
+        public System.Collections.Generic.IReadOnlyList<AudioTrackRequest> AudioTrackRequests => _audioTrackRequests.ToArray ();
+
+        /// <summary>Gets the number of tracks started via <see cref="PlayTrack"/> that have not been completed or disposed yet.</summary>
+        public int ActiveAudioTrackCount => _activeAudioTrackCount;
+
+        /// <summary>Clears <see cref="AudioTrackRequests"/> and any still-live fake tracks between tests.</summary>
+        public void ClearAudioTrackRequests ()
+        {
+            while (_audioTrackRequests.TryDequeue (out _)) { }
+            while (_pendingAudioTracks.TryDequeue (out _)) { }
+            Interlocked.Exchange (ref _activeAudioTrackCount, 0);
+        }
+
+        /// <summary>
+        /// Raises <see cref="Media.IAudioTrack.Completed"/> on the oldest track started via
+        /// <see cref="PlayTrack"/> that has not completed or been disposed yet, simulating it finishing on
+        /// its own (as opposed to being stopped). Returns <c>false</c> if none is pending.
+        /// </summary>
+        public bool CompleteNextAudioTrack ()
+        {
+            if (!_pendingAudioTracks.TryDequeue (out var track))
+                return false;
+
+            track.RaiseCompleted ();
+            return true;
+        }
+
+        /// <inheritdoc/>
+        public Media.IAudioTrack? PlayTrack (string path, bool loop, float volume, Media.AudioUsage usage)
+        {
+            _audioTrackRequests.Enqueue (new AudioTrackRequest (path, loop, volume, usage));
+
+            if (!AudioIsSupported)
+                return null;
+
+            var track = new FakeAudioTrack (this);
+            _pendingAudioTracks.Enqueue (track);
+            Interlocked.Increment (ref _activeAudioTrackCount);
+            return track;
+        }
+
+        private sealed class FakeAudioTrack (HeadlessPlatformBackend owner) : Media.IAudioTrack
+        {
+            private int disposed;
+
+            public event EventHandler? Completed;
+
+            // A no-op once disposed: a track CompleteNextAudioTrack already dequeued but that Stop() beat
+            // it to disposing directly must not still report "completed naturally" -- that would fire
+            // AudioPlayer's Completed a second time for a track it has already forgotten about.
+            public void RaiseCompleted ()
+            {
+                if (Volatile.Read (ref disposed) == 0)
+                    Completed?.Invoke (this, EventArgs.Empty);
+            }
+
+            public void Dispose ()
+            {
+                if (Interlocked.Exchange (ref disposed, 1) != 0)
+                    return;
+
+                Interlocked.Decrement (ref owner._activeAudioTrackCount);
+            }
         }
 
         private readonly ConcurrentQueue<Action> _queue = new ();

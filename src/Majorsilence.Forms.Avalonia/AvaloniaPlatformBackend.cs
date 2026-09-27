@@ -160,9 +160,10 @@ namespace Majorsilence.Forms.Backends
 
         // ── IAudioBackend ── real on Android and iOS (this row's whole reason for existing: neither
         // platform has an OS utility for Media.NativeAudio to spawn). Every other row -- desktop, browser
-        // -- has nothing of its own to add over NativeAudio's existing path, so both members simply
-        // report "cannot play"; SoundPlayer and SystemSounds already fall back to NativeAudio whenever
-        // this interface answers null, exactly as if it were not implemented at all there.
+        // -- has nothing of its own to add over NativeAudio's existing path for PlayFile/PlaySystemSound
+        // (SoundPlayer and SystemSounds fall back to NativeAudio whenever this interface answers null,
+        // exactly as if it were not implemented at all there), and nothing at all for PlayTrack, which has
+        // no such fallback -- AudioPlayer.IsSupported is how a caller checks that ahead of time.
 #if ANDROID
         private readonly AndroidAudioBackend audioBackend = new ();
 
@@ -171,6 +172,9 @@ namespace Majorsilence.Forms.Backends
 
         /// <inheritdoc/>
         public Media.IPlayingSound? PlaySystemSound (string name) => audioBackend.PlaySystemSound (name);
+
+        /// <inheritdoc/>
+        public Media.IAudioTrack? PlayTrack (string path, bool loop, float volume, Media.AudioUsage usage) => audioBackend.PlayTrack (path, loop, volume, usage);
 #elif IOS
         private readonly IosAudioBackend audioBackend = new ();
 
@@ -179,12 +183,18 @@ namespace Majorsilence.Forms.Backends
 
         /// <inheritdoc/>
         public Media.IPlayingSound? PlaySystemSound (string name) => audioBackend.PlaySystemSound (name);
+
+        /// <inheritdoc/>
+        public Media.IAudioTrack? PlayTrack (string path, bool loop, float volume, Media.AudioUsage usage) => audioBackend.PlayTrack (path, loop, volume, usage);
 #else
         /// <inheritdoc/>
         public Media.IPlayingSound? PlayFile (string path, bool loop) => null;
 
         /// <inheritdoc/>
         public Media.IPlayingSound? PlaySystemSound (string name) => null;
+
+        /// <inheritdoc/>
+        public Media.IAudioTrack? PlayTrack (string path, bool loop, float volume, Media.AudioUsage usage) => null;
 #endif
 
 #if !SINGLEVIEW

@@ -57,6 +57,30 @@ namespace Majorsilence.Forms.Headless
         }
 
         /// <summary>
+        /// Gets every <see cref="Media.AudioPlayer.Play"/> request the active Headless backend has recorded, in order
+        /// (including tracks no longer playing), so a test can assert what was asked for without a real audio engine.
+        /// Call <see cref="Use"/> first.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        public static System.Collections.Generic.IReadOnlyList<AudioTrackRequest> AudioTrackRequests => Backend.AudioTrackRequests;
+
+        /// <summary>Gets the number of tracks started via <see cref="Media.AudioPlayer.Play"/> that have not completed or been stopped yet. Call <see cref="Use"/> first.</summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        public static int ActiveAudioTrackCount => Backend.ActiveAudioTrackCount;
+
+        /// <summary>Clears <see cref="AudioTrackRequests"/> and any still-live fake tracks between tests. Call <see cref="Use"/> first.</summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        public static void ClearAudioTrackRequests () => Backend.ClearAudioTrackRequests ();
+
+        /// <summary>
+        /// Raises <see cref="Media.IAudioTrack.Completed"/> on the oldest track started via <see cref="Media.AudioPlayer.Play"/>
+        /// that has not completed or been stopped yet, simulating it finishing on its own. Returns <c>false</c> if none is
+        /// pending. Call <see cref="Use"/> first.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        public static bool CompleteNextAudioTrack () => Backend.CompleteNextAudioTrack ();
+
+        /// <summary>
         /// Installs the headless backend as the active platform. Call once before creating any window.
         /// </summary>
         public static void Use ()

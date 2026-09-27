@@ -8,16 +8,17 @@ namespace Majorsilence.Forms.Backends
 {
     /// <summary>
     /// iOS's in-process audio path: <see cref="AVAudioPlayer"/> for a .wav file, <see cref="SystemSound"/>
-    /// (AudioToolbox) for the five stock alert names.
+    /// (AudioToolbox) for the five stock alert names, and <see cref="PlayTrack"/> (register item F9,
+    /// <see cref="Media.AudioPlayer"/>) for a caller-chosen <see cref="Media.AudioUsage"/>.
     /// </summary>
     /// <remarks>
-    /// The audio session category is <see cref="AVAudioSessionCategory.Ambient"/> -- mixes with other
-    /// audio and, importantly, respects the silent switch and Do Not Disturb, the same conservative
-    /// default the Android backend's <c>NotificationEvent</c> usage takes (a cref to that Android-only
-    /// type does not resolve in an iOS-only compile). A category that overrides the silent switch
-    /// (<c>Playback</c>) is deliberately not the default here: that is a judgment call for a specific
-    /// alert's own <c>Usage</c> (register item F9), not something a generic "play this cue" API should
-    /// decide unasked.
+    /// <see cref="PlayFile"/> and <see cref="PlaySystemSound"/> both use
+    /// <see cref="AVAudioSessionCategory.Ambient"/> -- mixes with other audio and, importantly, respects
+    /// the silent switch and Do Not Disturb, the same conservative default the Android backend's
+    /// <c>NotificationEvent</c> usage takes for its own two members (a cref to that Android-only type does
+    /// not resolve in an iOS-only compile). A category that overrides the silent switch (<c>Playback</c>)
+    /// is a judgment call for a specific alert's own <see cref="Media.AudioUsage"/> instead -- see
+    /// <see cref="CategoryFor"/>.
     /// </remarks>
     internal sealed class IosAudioBackend : IAudioBackend
     {
@@ -39,7 +40,7 @@ namespace Majorsilence.Forms.Backends
         public Media.IPlayingSound? PlayFile (string path, bool loop)
         {
             try {
-                if (!ActivateSession ())
+                if (!ActivateSession (AVAudioSessionCategory.Ambient))
                     return null;
 
                 using var url = NSUrl.FromFilename (path);
@@ -63,7 +64,7 @@ namespace Majorsilence.Forms.Backends
         public Media.IPlayingSound? PlaySystemSound (string name)
         {
             try {
-                if (!ActivateSession ())
+                if (!ActivateSession (AVAudioSessionCategory.Ambient))
                     return null;
 
                 var sound = new SystemSound (SystemSoundId (name));
@@ -73,17 +74,79 @@ namespace Majorsilence.Forms.Backends
             }
         }
 
-        private static bool ActivateSession ()
+        /// <inheritdoc/>
+        public Media.IAudioTrack? PlayTrack (string path, bool loop, float volume, Media.AudioUsage usage)
+        {
+            try {
+                if (!ActivateSession (CategoryFor (usage)))
+                    return null;
+
+                using var url = NSUrl.FromFilename (path);
+                var player = AVAudioPlayer.FromUrl (url, out var error);
+                if (player is null || error is not null)
+                    return null;
+
+                player.NumberOfLoops = loop ? -1 : 0;
+                player.Volume = volume;
+                if (!player.PrepareToPlay () || !player.Play ()) {
+                    player.Dispose ();
+                    return null;
+                }
+
+                return new PlayingTrack (player);
+            } catch {
+                return null;
+            }
+        }
+
+        // AudioUsage.Alarm -> Playback is the one that matters most: it overrides the silent switch, so a
+        // siren mapped here is still heard with the switch flipped -- the whole reason AudioPlayer
+        // (register item F9) exists over PlayFile, which is always Ambient (see the class remarks). The
+        // session is one shared, app-wide AVAudioSession, not one per track -- if an Alarm track and an
+        // Ambient one are both playing, whichever activated its category last wins for both. A real iOS
+        // limitation this backend cannot design around, not a bug in the mapping itself.
+        private static AVAudioSessionCategory CategoryFor (Media.AudioUsage usage) => usage switch {
+            Media.AudioUsage.Alarm => AVAudioSessionCategory.Playback,
+            Media.AudioUsage.Media => AVAudioSessionCategory.Playback,
+            _ => AVAudioSessionCategory.Ambient, // Effect, Notification
+        };
+
+        private static bool ActivateSession (AVAudioSessionCategory category)
         {
             var session = AVAudioSession.SharedInstance ();
             // No 2-arg (AVAudioSessionCategory, out NSError) overload exists -- confirmed by a real CI
-            // compile failure, not assumed: the compiler resolved that shape against the (NSString, out
-            // NSError) overload instead and rejected the enum argument. The 3-arg form with an explicit
-            // (empty) options set is the one that actually exists for an enum-typed category.
-            if (!session.SetCategory (AVAudioSessionCategory.Ambient, default (AVAudioSessionCategoryOptions), out var categoryError) || categoryError is not null)
+            // compile failure on PR #303, not assumed: the compiler resolved that shape against the
+            // (NSString, out NSError) overload instead and rejected the enum argument. The 3-arg form with
+            // an explicit (empty) options set is the one that actually exists for an enum-typed category.
+            if (!session.SetCategory (category, default (AVAudioSessionCategoryOptions), out var categoryError) || categoryError is not null)
                 return false;
 
             return session.SetActive (true, out var activeError) && activeError is null;
+        }
+
+        private sealed class PlayingTrack : Media.IAudioTrack
+        {
+            private readonly AVAudioPlayer player;
+            private int disposed;
+
+            public PlayingTrack (AVAudioPlayer player)
+            {
+                this.player = player;
+                // Never raised while NumberOfLoops is -1 -- AVAudioPlayer's own FinishedPlaying does not
+                // fire until playback actually ends, which for a looping track is only Stop()/Dispose().
+                player.FinishedPlaying += (_, _) => Completed?.Invoke (this, System.EventArgs.Empty);
+            }
+
+            public event System.EventHandler? Completed;
+
+            public void Dispose ()
+            {
+                if (Interlocked.Exchange (ref disposed, 1) != 0)
+                    return;
+
+                try { player.Stop (); } catch { }
+                player.Dispose ();
+            }
         }
 
         private sealed class PlayingAudioPlayer : Media.IPlayingSound

@@ -546,6 +546,23 @@ platform. The migrator redirects `System.Media` here, because the bare namespace
 every type reference in the file then fails as an unknown name — far more confusing than a missing
 namespace.
 
+**`Majorsilence.Forms.Media.AudioPlayer`** (not upstream — there is no `System.Media.AudioPlayer`) is
+`SoundPlayer`'s richer sibling, added 2026-09 (F9): a volume (clamped 0–1, not rejected), native looping,
+a caller-chosen `AudioUsage` (`Effect`, `Notification`, `Alarm`, `Media`) that decides which platform audio
+stream/session a track plays through, a real `Completed` event, and overlapping playback — repeated `Play`
+calls on one instance do not stop an earlier one, unlike `SoundPlayer`, so rapid UI sound effects can pile
+up the way they are actually used; `Stop` still silences every track that instance started. `IsSupported`
+is `true` only on Android and iOS — through the same `IAudioBackend.PlayTrack` seam as above, not a
+separate one — because none of live volume, a real platform audio-stream routing, or a genuine completion
+event map onto spawning an OS utility process the way `SoundPlayer` does; the desktop case is already
+served by `SoundPlayer`, and `AudioPlayer`'s point is exactly the things a process-spawn approach cannot
+give it. `AudioUsage.Alarm` is the case the class exists for: Android's `USAGE_ALARM` (its own volume
+stream, audible with media volume down) and an iOS `Playback` session (overrides the silent switch) — the
+other three usages stay on the same conservative streams/sessions `SoundPlayer`/`SystemSounds` already use
+above. A real limitation, not a bug: iOS has one shared, app-wide `AVAudioSession`, not one per track, so
+if an `Alarm` track and a `Notification` track are both playing, whichever activated its category last
+wins for both.
+
 ## Design-time smart tags
 
 `DesignerActionUIService` exists so that the guarded calls around it compile: a component's action list
