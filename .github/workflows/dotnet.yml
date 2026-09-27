@@ -49,9 +49,14 @@ jobs:
       # can only work if a CJK face is actually installed for SkiaSharp to fall back TO — the
       # Windows and macOS runners ship one, ubuntu-latest ships none, so those tests saw tofu and
       # failed. This is the whole point of the Linux test job added alongside this matrix.
-      - name: Install CJK fonts (Linux)
+      #
+      # fonts-noto-color-emoji is the same requirement for EmojiVariationSelectorTests: it asserts a
+      # VARIATION SELECTOR-16 sequence renders with real colour ink, which needs a colour emoji face
+      # installed for MatchCharacter (hinted "und-Zsye") to find, exactly as CJK fallback needs a CJK
+      # face installed.
+      - name: Install CJK and emoji fonts (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
+        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk fonts-noto-color-emoji
 
       # ── Test matrix ────────────────────────────────────────────────────────────────────────
       #
