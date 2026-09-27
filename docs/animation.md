@@ -115,8 +115,7 @@ and any one converts to an `EasingFunction`, so you can also pass your own lambd
   `handle.IsRunning` is true until it completes or is cancelled (and is already false inside `completed`).
 - It stops by itself if the control is disposed.
 - An exception from `apply` or `completed` ends the animation and comes out of the frame callback.
-- **It does not read the reduced-motion setting.** Whether to animate is the caller's decision; a platform reduced-motion setting is
-  tracked separately (#269).
+- **It does not read the reduced-motion setting.** Whether to animate is the caller's decision; see "Reduced motion" below.
 
 ### Testing an animation
 
@@ -132,3 +131,54 @@ panel.Animate (Tween.Of (0f, 100f, TimeSpan.FromMilliseconds (400)), values.Add)
 HeadlessRenderer.AnimationClock.Step (5, TimeSpan.FromMilliseconds (100));
 // values is 0, 25, 50, 75, 100
 ```
+
+## Reduced motion
+
+`SystemInformation.PrefersReducedMotion` answers whether the user has asked for reduced motion, so an app can skip or shorten an
+animation instead of always playing it. `SystemInformation.PrefersReducedMotionChanged` fires when it changes while the app is running.
+
+```csharp
+void OnFrame (TimeSpan t) { ... }
+
+if (SystemInformation.PrefersReducedMotion)
+    label.Text = finalText;                          // no animation: land on the end state directly
+else
+    control.RequestAnimationFrame (OnFrame);          // animate, as normal
+
+SystemInformation.PrefersReducedMotionChanged += (_, _) => Invalidate ();   // re-decide next time, if that matters to this control
+```
+
+It is **advisory, not enforced**: nothing in `Animator` or `RequestAnimationFrame` reads this setting or skips itself. The decision to
+animate or not is the caller's, at the point each animation starts (checking once and caching the answer misses a change raised
+mid-session; checking `PrefersReducedMotion` at the top of the callback that decides whether to *start* an animation is enough — an
+animation already running is short enough in practice that letting it finish is fine).
+
+### Where the answer comes from
+
+| Platform | Source | Change notification |
+|---|---|---|
+| Android | The animator duration scale developer setting, at zero | A `ContentObserver`: real push, no polling |
+| iOS | `UIAccessibility.IsReduceMotionEnabled` | An `NSNotificationCenter` observation: real push, no polling |
+| Windows | `SystemParametersInfo (SPI_GETCLIENTAREAANIMATION)` | Polled every 2 s (Windows has no portable push notification used here) |
+| macOS | `NSWorkspace.accessibilityDisplayShouldReduceMotion`, via the Objective-C runtime | Polled every 2 s |
+| Linux (GNOME) | `gsettings get org.gnome.desktop.interface enable-animations` | Polled every 2 s |
+| Headless | `HeadlessRenderer.PrefersReducedMotion`, settable directly | Raised immediately when set to a new value |
+| A backend that implements neither `Backends.IReducedMotionSource` nor polling | Always `false` | Never raised |
+
+**Measured for real, not just written:** the Android and Linux/GNOME reads were each verified against the live system — Android on
+the `alertbuddy-phone` emulator (API 36) by toggling `adb shell settings put global animator_duration_scale 0`/`1` and watching
+`PrefersReducedMotionChanged` fire with no polling involved; GNOME by toggling the actual `gsettings` key on this development
+machine and reading it back. **Windows, macOS and iOS are written from each platform's documented API and were not run** — this
+project has no Windows, macOS or iOS host. The `Dispatch` step that decides which of the three desktop reads runs (and falls back
+to `false` if the matched one throws) is unit-tested with the OS itself faked, independently of which OS the test suite happens to
+run on.
+
+Every read is defensive: a missing utility, a locked-down sandbox, or any other failure answers `false` — the conservative default
+every member on `SystemInformation` already uses, because it never suppresses an animation nobody asked to suppress.
+
+### For backend authors
+
+Implement `Backends.IReducedMotionSource` on a window backend or the platform backend, the same optional-interface shape as
+`IAnimationFrameSource`. A platform with a real push notification (a content observer, a notification centre) should use it and
+needs no polling; one that can only be asked again can wrap the read in `Backends.PolledSetting`, which turns any `Func<bool>` into
+a change event by re-reading it on an `IPlatformTimer`.
