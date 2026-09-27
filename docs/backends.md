@@ -106,10 +106,72 @@ The other backends (`Uno`, `Gtk4`, `WinForms`, `Wpf`, `Telerik`) are **not** ana
 WPF are themselves reflection-heavy and out of scope for an AOT guarantee.
 
 `tests/Majorsilence.Forms.AotSmoke` is a `PublishAot=true` console that renders a `Form` (Label +
-Button + TreeView) to a PNG on the Headless backend; CI's `aot-smoke` job publishes it for `linux-x64`
+Button + TreeView) to a PNG on the Headless backend and binds a view model to a `Label` and a `TextBox`
+in both directions; CI's `aot-smoke` job publishes it for `linux-x64`
 and runs the native binary, so an ILC failure the analysers can't see (something in a dependency, a
-trimmed static constructor) shows up as a non-zero exit. Avalonia-on-desktop NativeAOT additionally
+trimmed static constructor, a binding that quietly does nothing) shows up as a non-zero exit.
+Avalonia-on-desktop NativeAOT additionally
 depends on Avalonia's own trim story and is not covered here.
+
+### Binding and trimming
+
+`Control.DataBindings` is live, and it is reflective: it finds the bound control property, that
+property's `<Property>Changed` event and the data source's property **by name, at run time**. Nothing
+in the program refers to those members in a way the trimmer or ILC can follow, and the framework's own
+trim warnings at these calls are suppressed on exactly that ground ("a trimmed app has to root the
+types it binds"). So a trimmed or NativeAOT app has to keep them itself, and what goes wrong depends on
+what is missing:
+
+| Not kept | What happens |
+|---|---|
+| The control property, for example `Label.Text` | `DataBindings.Add` throws `ArgumentException: 'Text' is not a settable public property of Label`. |
+| The control's `<Property>Changed` event, for example `TextChanged` | Reading works. Text typed into the control never reaches the data source, and nothing is thrown. |
+| A property of the data source (the view model) | The binding never moves a value in the direction that needed it, and nothing is thrown. |
+
+The silent rows are the dangerous ones: the app runs, the screen looks right at first, and values stop
+moving. Tracked for a fix in #290 (a binding should throw for a member it cannot find, as WinForms does).
+
+Root what you bind with a descriptor, and add it to the app project:
+
+```xml
+<ItemGroup>
+  <TrimmerRootDescriptor Include="BindingRoots.xml" />
+</ItemGroup>
+```
+
+```xml
+<linker>
+  <assembly fullname="Majorsilence.Forms">
+    <type fullname="Majorsilence.Forms.Control">
+      <property name="Text" />
+      <event name="TextChanged" />
+    </type>
+  </assembly>
+  <assembly fullname="MyApp.ViewModels">
+    <type fullname="MyApp.ViewModels.CounterViewModel">
+      <property name="Count" />
+    </type>
+  </assembly>
+</linker>
+```
+
+That is `tests/Majorsilence.Forms.AotSmoke/BindingRoots.xml` in outline. The smoke test is what backs
+it: it fails without the control property, without the event, and with any one view-model property
+left out, and passes with exactly these. Rooting whole types (`preserve="all"`) also works but keeps far
+more; rooting all of `Majorsilence.Forms` fails a warnings-as-errors build with IL2026 from the
+resource reader (#290).
+
+What is **not** established: only `Text` on a `Label` and a `TextBox` is tested. Another property, or a
+property declared on a derived control (`CheckBox.Checked`, say), should follow the same three rules but
+has not been checked, so check it in your own app with a published build. The descriptor is tested with
+NativeAOT (ILC); a `PublishTrimmed` app reads the same `TrimmerRootDescriptor` item but that is not
+covered by the smoke test. And ILC's up-to-date check does not notice a change to the descriptor's
+contents (measured with SDK 10.0.112): if an edit seems to have no effect, rebuild clean.
+
+The alternative that needs nothing rooted is to wire the view model by hand, subscribing to
+`PropertyChanged` and forwarding control events to an `ICommand`, which is what the ControlGallery
+CommunityToolkit.Mvvm sample does. The references are then ordinary code (`nameof`, lambdas) that
+trimming can see.
 
 ## Embedding in a host app
 

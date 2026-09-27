@@ -26,6 +26,12 @@
     <IsTestProject>false</IsTestProject>
   </PropertyGroup>
 
+  <!-- Data binding is reflective, so an app that binds must root what it binds. BindingRoots.xml is the smallest set that makes the
+       smoke test's view model bind in both directions; without it the native binary fails. -->
+  <ItemGroup>
+    <TrimmerRootDescriptor Include="BindingRoots.xml" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
     <ProjectReference Include="..\..\src\Majorsilence.Forms.Headless\Majorsilence.Forms.Headless.csproj" />

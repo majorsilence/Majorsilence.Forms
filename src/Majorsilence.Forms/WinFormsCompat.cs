@@ -108,10 +108,10 @@ namespace Majorsilence.Forms
         public object? Param { get; set; }
     }
 
-    /// <summary>Represents a data binding between a control property and a data source property. Stub in Majorsilence.Forms.</summary>
+    /// <summary>Represents a data binding between a control property and a data source property.</summary>
     public partial class Binding
     {
-        /// <summary>Initializes a new Binding stub.</summary>
+        /// <summary>Initializes a new Binding. It attaches when added to a control's <see cref="Control.DataBindings"/>.</summary>
         public Binding (string propertyName, object? dataSource, string? dataMember, bool formattingEnabled = false)
         {
             PropertyName = propertyName;
