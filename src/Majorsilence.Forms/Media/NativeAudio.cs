@@ -4,7 +4,11 @@ using System.Diagnostics;
 namespace Majorsilence.Forms.Media
 {
     /// <summary>A sound that is currently playing: disposing stops it, <see cref="Wait"/> blocks until it ends.</summary>
-    internal interface IPlayingSound : IDisposable
+    /// <remarks>
+    /// Public rather than internal because <see cref="Backends.IAudioBackend"/> -- implemented by backend
+    /// assemblies outside this one -- returns it directly.
+    /// </remarks>
+    public interface IPlayingSound : IDisposable
     {
         /// <summary>Blocks until playback finishes (or is stopped).</summary>
         void Wait ();

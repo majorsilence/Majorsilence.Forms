@@ -215,21 +215,32 @@ namespace Majorsilence.Forms.Media
 
         /// <summary>Plays the sound through the operating system's alert-sound path.</summary>
         /// <remarks>Real as of 2026-08: routed through <see cref="NativeAudio"/> -- Windows' own
-        /// SystemSounds, macOS's stock alert set, the freedesktop sound theme on Linux. Fire-and-forget
-        /// and never throws; where no OS path exists it stays silent, as the stub did.</remarks>
-        public void Play () => NativeAudio.Start (NativeAudio.SystemSoundCommands (Name));
+        /// SystemSounds, macOS's stock alert set, the freedesktop sound theme on Linux. As of 2026-09 a
+        /// backend that implements <see cref="Backends.IAudioBackend"/> (Android, iOS) is tried first, so
+        /// the same five names play there too. Fire-and-forget and never throws; where no path exists at
+        /// all it stays silent, as the stub did.</remarks>
+        public void Play ()
+        {
+            if (Backends.Platform.Backend is Backends.IAudioBackend audio && audio.PlaySystemSound (Name) is not null)
+                return;
+
+            NativeAudio.Start (NativeAudio.SystemSoundCommands (Name));
+        }
     }
 
     /// <summary>Plays a .wav file or stream.</summary>
     /// <remarks>
-    /// Stands in for <c>System.Media.SoundPlayer</c>, which lives in a Windows-only assembly. Playback
-    /// is real: it routes through <see cref="NativeAudio"/>, so the sound plays through the operating
-    /// system's own utility and the child process gives the API its semantics -- <see cref="Stop"/>
-    /// kills it, <see cref="PlaySync"/> waits for it, <see cref="PlayLooping"/> respawns it until
-    /// stopped. A stream is materialised to a temporary .wav the utility can open, once per stream, and
-    /// deleted on dispose. The Load family still completes immediately: there is nothing to preload
-    /// when the OS opens the file itself, and <see cref="IsLoadCompleted"/> stays true so a caller that
-    /// waits for the load is never left waiting.
+    /// Stands in for <c>System.Media.SoundPlayer</c>, which lives in a Windows-only assembly. Playback is
+    /// real: on Android and iOS a backend implementing <see cref="Backends.IAudioBackend"/> plays it
+    /// in-process (<see cref="Stop"/> stops the native player, <see cref="PlaySync"/> waits on it,
+    /// <see cref="PlayLooping"/> loops it natively); everywhere else it routes through
+    /// <see cref="NativeAudio"/>, so the sound plays through the operating system's own utility and the
+    /// child process gives the API its semantics instead -- <see cref="Stop"/> kills it,
+    /// <see cref="PlaySync"/> waits for it, <see cref="PlayLooping"/> respawns it until stopped. A stream
+    /// is materialised to a temporary .wav either path can open, once per stream, and deleted on dispose.
+    /// The Load family still completes immediately: there is nothing to preload when the sound is opened
+    /// by path, and <see cref="IsLoadCompleted"/> stays true so a caller that waits for the load is never
+    /// left waiting.
     /// </remarks>
     public class SoundPlayer : System.ComponentModel.Component
     {
@@ -308,12 +319,28 @@ namespace Majorsilence.Forms.Media
         }
 
         /// <summary>Plays the sound repeatedly until <see cref="Stop"/> is called.</summary>
-        /// <remarks>Looped by respawning the player as each pass ends -- the utilities have no loop flag
-        /// in common -- so there is a brief seam between iterations. Alert-style cues loop cleanly;
-        /// gapless music loops are out of scope for this API upstream too.</remarks>
+        /// <remarks>
+        /// A backend that implements <see cref="Backends.IAudioBackend"/> (Android, iOS) loops natively --
+        /// one call, no seam between passes. Where none is available (desktop), looped by respawning the
+        /// player as each pass ends instead -- the OS utilities have no loop flag in common -- so there is
+        /// a brief seam between iterations there. Alert-style cues loop cleanly either way; gapless music
+        /// loops are out of scope for this API upstream too.
+        /// </remarks>
         public void PlayLooping ()
         {
             Stop ();
+
+            var path = ResolvePath ();
+            if (path is null)
+                return;
+
+            if (Backends.Platform.Backend is Backends.IAudioBackend audio) {
+                var sound = audio.PlayFile (path, loop: true);
+                if (sound is not null) {
+                    playing = sound;
+                    return;
+                }
+            }
 
             var cts = new System.Threading.CancellationTokenSource ();
             loop = cts;
@@ -342,7 +369,16 @@ namespace Majorsilence.Forms.Media
         private IPlayingSound? StartOnce ()
         {
             var path = ResolvePath ();
-            return path is null ? null : NativeAudio.Start (NativeAudio.FileCommands (path));
+            if (path is null)
+                return null;
+
+            if (Backends.Platform.Backend is Backends.IAudioBackend audio) {
+                var sound = audio.PlayFile (path, loop: false);
+                if (sound is not null)
+                    return sound;
+            }
+
+            return NativeAudio.Start (NativeAudio.FileCommands (path));
         }
 
         // SoundLocation wins when both are set, matching the "whichever identifies a sound" contract;

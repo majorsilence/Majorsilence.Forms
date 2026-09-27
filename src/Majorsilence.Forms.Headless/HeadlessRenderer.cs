@@ -35,6 +35,28 @@ namespace Majorsilence.Forms.Headless
         }
 
         /// <summary>
+        /// Gets every <see cref="Media.SoundPlayer"/>/<see cref="Media.SystemSounds"/> play request the active Headless backend has
+        /// recorded, in order, so a test can assert what was asked for without a real audio engine. Call <see cref="Use"/> first.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        public static System.Collections.Generic.IReadOnlyList<AudioPlayRequest> AudioRequests => Backend.AudioRequests;
+
+        /// <summary>Clears <see cref="AudioRequests"/> between tests. Call <see cref="Use"/> first.</summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        public static void ClearAudioRequests () => Backend.ClearAudioRequests ();
+
+        /// <summary>
+        /// Gets or sets whether the active Headless backend answers a play request at all -- false by default (see the
+        /// remarks on <see cref="HeadlessPlatformBackend.AudioIsSupported"/> for why), so a test that wants to assert
+        /// backend-first routing sets this true itself. Call <see cref="Use"/> first.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        public static bool AudioIsSupported {
+            get => Backend.AudioIsSupported;
+            set => Backend.AudioIsSupported = value;
+        }
+
+        /// <summary>
         /// Installs the headless backend as the active platform. Call once before creating any window.
         /// </summary>
         public static void Use ()

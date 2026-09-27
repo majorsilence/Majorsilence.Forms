@@ -49,6 +49,10 @@
          concept of APK assets, so these are bundled as Android assets and extracted to app-private
          storage at startup instead; see GalleryApplication.ExtractImageAssets in App.cs. -->
     <AndroidAsset Include="..\ControlGallery\Images\**\*.png" Link="Images\%(RecursiveDir)%(Filename)%(Extension)" />
+    <!-- A tiny bundled tone: GalleryApplication.RunAudioSmokeTest plays it through IAudioBackend so
+         CI's android-smoke job (a real emulator boot) exercises F8's Android audio path on every PR,
+         not only this one. See android-smoke-test.sh's F8_AUDIO_SMOKE check. -->
+    <AndroidAsset Include="Assets\audio-smoke-test.wav" />
   </ItemGroup>
 
   <!-- Stub build: no workload. An empty library, referenced by nothing. -->

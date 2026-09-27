@@ -5,6 +5,12 @@ using Majorsilence.Forms.Backends;
 
 namespace Majorsilence.Forms.Headless
 {
+    /// <summary>One <see cref="Media.SoundPlayer"/>/<see cref="Media.SystemSounds"/> play request the Headless backend recorded.</summary>
+    /// <param name="Value">The .wav path (<see cref="HeadlessPlatformBackend.PlayFile"/>) or system sound name (<see cref="HeadlessPlatformBackend.PlaySystemSound"/>).</param>
+    /// <param name="Loop">Whether native looping was requested (always <c>false</c> for a system sound).</param>
+    /// <param name="IsSystemSound">Whether this came from <see cref="HeadlessPlatformBackend.PlaySystemSound"/> rather than <see cref="HeadlessPlatformBackend.PlayFile"/>.</param>
+    public readonly record struct AudioPlayRequest (string Value, bool Loop, bool IsSystemSound);
+
     /// <summary>
     /// A dependency-free <see cref="IPlatformBackend"/> that hosts Majorsilence.Forms entirely in memory:
     /// windows render to offscreen SkiaSharp surfaces and the "message loop" is a simple work queue.
@@ -13,7 +19,7 @@ namespace Majorsilence.Forms.Headless
     /// (2) a reference second backend proving the <see cref="IPlatformBackend"/>/<see cref="IWindowBackend"/>
     /// seam is genuinely toolkit-agnostic — the same shape a real Uno backend follows.
     /// </summary>
-    public sealed class HeadlessPlatformBackend : IPlatformBackend, IAnimationFrameSource, IReducedMotionSource, IDisposable
+    public sealed class HeadlessPlatformBackend : IPlatformBackend, IAnimationFrameSource, IReducedMotionSource, IAudioBackend, IDisposable
     {
         /// <summary>Gets the animation frames, which run only when stepped by hand.</summary>
         public HeadlessAnimationClock AnimationClock { get; } = new ();
@@ -37,6 +43,55 @@ namespace Majorsilence.Forms.Headless
 
         /// <inheritdoc/>
         public event EventHandler? PrefersReducedMotionChanged;
+
+        // ── IAudioBackend ── a recording fake, not a real player: there is nothing to actually play back
+        // in a headless test process, so this exists purely so SoundPlayer/SystemSounds routing (try the
+        // backend, fall back to NativeAudio) can be asserted without spawning a real OS utility. A
+        // ConcurrentQueue, not a List: SoundPlayer.PlayLooping's desktop-style respawn fallback plays
+        // through a background Task, so a test asserting "the backend was never asked" or "asked exactly
+        // once" can race a still-running respawn loop's own writes here otherwise.
+        private readonly ConcurrentQueue<AudioPlayRequest> _audioRequests = new ();
+
+        /// <summary>Gets every <see cref="Media.SoundPlayer"/>/<see cref="Media.SystemSounds"/> request this backend has been asked to play, in order.</summary>
+        public System.Collections.Generic.IReadOnlyList<AudioPlayRequest> AudioRequests => _audioRequests.ToArray ();
+
+        /// <summary>Clears <see cref="AudioRequests"/> between tests.</summary>
+        public void ClearAudioRequests ()
+        {
+            while (_audioRequests.TryDequeue (out _)) { }
+        }
+
+        /// <summary>
+        /// Gets or sets whether this backend answers a play request at all. False by default -- matching
+        /// "no in-process audio available" (real on this backend, since there is no OS to actually play
+        /// through): every other test in the suite runs with the Headless backend already active as the
+        /// process-wide default (parallelization is off; <see cref="HeadlessRenderer.Use"/> is called once and left set),
+        /// so an opt-OUT default here would silently intercept unrelated tests that expect
+        /// <see cref="Media.SoundPlayer"/>/<see cref="Media.SystemSounds"/> to reach
+        /// <see cref="Media.NativeAudio"/>'s launcher seam instead. A test that wants to assert the
+        /// backend-first routing sets this true itself.
+        /// </summary>
+        public bool AudioIsSupported { get; set; }
+
+        /// <inheritdoc/>
+        public Media.IPlayingSound? PlayFile (string path, bool loop)
+        {
+            _audioRequests.Enqueue (new AudioPlayRequest (path, loop, IsSystemSound: false));
+            return AudioIsSupported ? new FakePlayingSound () : null;
+        }
+
+        /// <inheritdoc/>
+        public Media.IPlayingSound? PlaySystemSound (string name)
+        {
+            _audioRequests.Enqueue (new AudioPlayRequest (name, false, IsSystemSound: true));
+            return AudioIsSupported ? new FakePlayingSound () : null;
+        }
+
+        private sealed class FakePlayingSound : Media.IPlayingSound
+        {
+            public void Wait () { }
+            public void Dispose () { }
+        }
 
         private readonly ConcurrentQueue<Action> _queue = new ();
         private readonly AutoResetEvent _signal = new (false);
