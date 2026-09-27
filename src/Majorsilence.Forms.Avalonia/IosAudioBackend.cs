@@ -75,7 +75,11 @@ namespace Majorsilence.Forms.Backends
         private static bool ActivateSession ()
         {
             var session = AVAudioSession.SharedInstance ();
-            if (!session.SetCategory (AVAudioSessionCategory.Ambient, out var categoryError) || categoryError is not null)
+            // No 2-arg (AVAudioSessionCategory, out NSError) overload exists -- confirmed by a real CI
+            // compile failure, not assumed: the compiler resolved that shape against the (NSString, out
+            // NSError) overload instead and rejected the enum argument. The 3-arg form with an explicit
+            // (empty) options set is the one that actually exists for an enum-typed category.
+            if (!session.SetCategory (AVAudioSessionCategory.Ambient, default (AVAudioSessionCategoryOptions), out var categoryError) || categoryError is not null)
                 return false;
 
             return session.SetActive (true, out var activeError) && activeError is null;
