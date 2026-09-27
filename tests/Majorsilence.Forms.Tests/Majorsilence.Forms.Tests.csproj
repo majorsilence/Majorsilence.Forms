@@ -36,6 +36,7 @@
     <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
     <ProjectReference Include="..\..\src\Majorsilence.Forms.Avalonia\Majorsilence.Forms.Avalonia.csproj" />
     <ProjectReference Include="..\..\src\Majorsilence.Forms.Headless\Majorsilence.Forms.Headless.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Mvvm\Majorsilence.Forms.Mvvm.csproj" />
     <ProjectReference Include="..\..\src\Majorsilence.Forms.WebDriver\Majorsilence.Forms.WebDriver.csproj" />
     <ProjectReference Include="..\..\src\Majorsilence.Forms.Telerik\Majorsilence.Forms.Telerik.csproj" />
   </ItemGroup>

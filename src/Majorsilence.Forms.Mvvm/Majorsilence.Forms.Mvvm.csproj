@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Trim + AOT + single-file analyzers; see docs/backends.md "Trimming and NativeAOT". These helpers use no reflection and no
+         expression trees, so an app that wires its view models through them needs nothing rooted. -->
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Majorsilence.Forms.Mvvm</PackageId>
+    <Description>Trim- and AOT-safe MVVM wiring for Majorsilence.Forms: Observe, BindCommand and BindingScope over INotifyPropertyChanged and ICommand, with no reflection and no MVVM-toolkit dependency.</Description>
+    <PackageTags>majorsilence-forms;winforms;mvvm;inotifypropertychanged;icommand;data-binding;trimming;aot</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Majorsilence.Forms.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+</Project>
