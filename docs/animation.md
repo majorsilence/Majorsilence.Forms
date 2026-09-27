@@ -67,3 +67,68 @@ a control that is not on a window is deterministic as well.
 
 A backend that can call back once per display frame implements `Majorsilence.Forms.Backends.IAnimationFrameSource` on its window backend
 or on the platform backend. It is optional, so a backend that does not is unaffected and gets the timer.
+
+## Tweens and the `Animator` (`Majorsilence.Forms.Animation`)
+
+Every animated control needs the same three things: a curve, a value that follows it, and something to drive it a frame at a time.
+
+```csharp
+using Majorsilence.Forms.Animation;
+
+var tween = Tween.Of (0f, 1f, TimeSpan.FromMilliseconds (400), Easing.CubicOut);
+
+var handle = card.Animate (tween,
+    lift => { card.Lift = lift; card.Invalidate (); },   // called on every frame with the value for that moment
+    () => card.OnLifted ());                              // called once at the end
+
+// later, if it should stop where it is
+handle.Cancel ();
+```
+
+### `Tween<T>`
+
+A tween is a value moving from one value to another over a duration, shaped by an easing function. It holds **no clock and no state**: ask
+it for the value at a time (`ValueAt (elapsed)`) or at a progress from 0 to 1 (`ValueAtProgress (t)`), so it is deterministic, and one
+tween can drive any number of animations.
+
+- `Tween.Of` makes one for a `float`, a `PointF` (each coordinate moves as a number) or a `Color`. Any other type takes your own
+  interpolation: `new Tween<T> (from, to, duration, (a, b, t) => ..., easing)`.
+- Before the start it is at `From`; at or after `Duration` it is at `To`; a duration of zero or less is at `To` from the first frame.
+- **A colour moves per channel in sRGB**, alpha included. That is simple and predictable and it is not perceptually even, so a
+  mid-point between two saturated colours can look muddier than you expect. Channels are clamped to 0 to 255.
+- **A back easing overshoots**, so a `float` or `PointF` tween passes through values outside `From` to `To`, on purpose. A colour is
+  clamped instead of wrapping.
+
+### `Easing`
+
+`Linear`; `QuadIn`, `QuadOut`, `QuadInOut`; `CubicIn`, `CubicOut`, `CubicInOut`; `BackIn`, `BackOut`, `BackInOut` (overshoot);
+`BounceIn`, `BounceOut`, `BounceInOut`. They are the standard set at easings.net, each is `float -> float`, each is 0 at 0 and 1 at 1,
+and any one converts to an `EasingFunction`, so you can also pass your own lambda.
+
+### `Animate`
+
+`control.Animate (tween, apply, completed)` runs the tween on `RequestAnimationFrame`.
+
+- **The first frame is time zero**, so `apply` gets the start value first and the movement takes its full duration. The last frame gets
+  the end value, and then `completed` runs **once**.
+- `handle.Cancel ()` stops it where it is: no more values, and `completed` does not run. It is safe to call twice and from inside `apply`.
+  `handle.IsRunning` is true until it completes or is cancelled (and is already false inside `completed`).
+- It stops by itself if the control is disposed.
+- An exception from `apply` or `completed` ends the animation and comes out of the frame callback.
+- **It does not read the reduced-motion setting.** Whether to animate is the caller's decision; a platform reduced-motion setting is
+  tracked separately (#269).
+
+### Testing an animation
+
+Step the Headless clock (see above), and the values are exact:
+
+```csharp
+HeadlessRenderer.Use ();
+HeadlessRenderer.AnimationClock.Reset ();
+
+var values = new List<float> ();
+panel.Animate (Tween.Of (0f, 100f, TimeSpan.FromMilliseconds (400)), values.Add);
+
+HeadlessRenderer.AnimationClock.Step (5, TimeSpan.FromMilliseconds (100));
+// values is 0, 25, 50, 75, 100
+```
