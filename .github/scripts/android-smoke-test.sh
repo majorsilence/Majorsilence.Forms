@@ -178,9 +178,14 @@ adb logcat -c || true
 # --activity-single-top forces Intent.FLAG_ACTIVITY_SINGLE_TOP: without it, `am start` targeting a task
 # already at the front is a pure no-op ("Warning: Activity not started, its current task has been brought
 # to the front") that never reaches OnNewIntent at all -- confirmed by a real CI run where nothing (not
-# even that warning) showed up in logcat afterward, not guessed. Output is not discarded this time, so a
-# repeat failure's own `am` output -- not just a second silent absence -- lands in the CI log.
-AM_OUTPUT="$(adb shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$PKG" --activity-single-top --ei majorsilence_forms_notification_tapped_id 1001 2>&1)"
+# even that warning) showed up in logcat afterward, not guessed. But combining that flag with `-p` (package
+# only, letting am resolve by action/category) failed outright ("Error: Activity not started, unable to
+# resolve Intent"), also confirmed by a real CI run, not guessed -- so the target activity is resolved
+# explicitly instead, the same way this repo's own CLAUDE.md documents for finding it by hand
+# (`adb shell cmd package resolve-activity --brief`), rather than hardcoding its C#-compiler-mangled name.
+MAIN_ACTIVITY="$(adb shell cmd package resolve-activity --brief "$PKG" 2>/dev/null | tail -n1 | tr -d '\r')"
+[[ "$MAIN_ACTIVITY" == "$PKG/"* ]] || fail "could not resolve $PKG's main activity (got: $MAIN_ACTIVITY)"
+AM_OUTPUT="$(adb shell am start -n "$MAIN_ACTIVITY" --activity-single-top --ei majorsilence_forms_notification_tapped_id 1001 2>&1)"
 AM_STATUS=$?
 echo "$AM_OUTPUT"
 [ "$AM_STATUS" -eq 0 ] || fail "could not replay the notification tap intent"
