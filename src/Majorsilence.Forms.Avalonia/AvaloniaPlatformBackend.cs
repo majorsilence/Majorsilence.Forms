@@ -152,6 +152,39 @@ namespace Majorsilence.Forms.Backends
             };
         }
 
+        /// <summary>
+        /// Reports a platform back button/gesture press (register item F11) to the currently active
+        /// window's <see cref="WindowBase.BackRequested"/>, so it can cancel it (keep the app open) or
+        /// let it proceed. Returns whether a handler cancelled it.
+        /// </summary>
+        /// <remarks>
+        /// Not automatic the way <see cref="HookApplicationLifecycle"/> is: <c>Avalonia.Android.AvaloniaActivity.BackRequested</c>
+        /// is declared directly on the Activity class, and nothing in this assembly can discover "the
+        /// current Activity" generically (<c>Avalonia.Android.Platform.AndroidActivatableLifetime</c>,
+        /// which does track it, is an internal type in a different assembly) -- confirmed by inspecting
+        /// the real <c>Avalonia.Android.dll</c> the same way <see cref="HookApplicationLifecycle"/>'s own
+        /// remarks describe. A host app's own <c>MainActivity</c> (already required to subclass
+        /// <c>AvaloniaMainActivity</c> and carry an AppCompat theme, #288) forwards its own
+        /// <c>BackRequested</c> here instead -- one line, the same shape as wiring
+        /// <c>Application.RunAndroid</c> already requires. <see cref="Application.ActivePopupWindow"/> is
+        /// tried first, matching <see cref="Application.ScheduleClosePopupsOnDeactivate"/>'s own check for
+        /// "which window is really active right now": a sheet/dialog open over the main screen gets the
+        /// back-press before the main screen does, so it can close itself instead of the whole app
+        /// leaving foreground.
+        /// </remarks>
+        public static bool RaiseBackRequested ()
+        {
+#if SINGLEVIEW
+            WindowBase? target = Majorsilence.Forms.Application.ActivePopupWindow?.IsActive == true
+                ? Majorsilence.Forms.Application.ActivePopupWindow
+                : MajorsilenceFormsSingleViewHost.MainHost?.Owner;
+
+            return target?.RaiseBackRequested () ?? false;
+#else
+            return false;
+#endif
+        }
+
         /// <inheritdoc/>
         public void Stop () { /* Loop exit is driven by the cancellation token passed to RunMainLoop. */ }
 

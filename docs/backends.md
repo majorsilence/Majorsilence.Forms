@@ -673,6 +673,38 @@ assumed). Filtered to `ActivationKind.Background`, it forwards to `Application.R
 `OnBackendActivated`/`OnBackendDeactivated`. See `COMPATIBILITY_MATRIX.md`'s "Application lifecycle" entry
 for the full finding and how it is verified.
 
+## Back button (Avalonia-specific, register item F11)
+
+`WindowBase.BackRequested`/`RaiseBackRequested` is on the shared base (not `Form` alone) specifically so a
+`PopupWindow` has it too — the acceptance criterion is "closes a sheet without leaving the app", and a sheet
+is exactly what `PopupWindow` already models (a dropdown, a context menu, a filter grid). Only Android/iOS
+have a real platform back button/gesture to raise it from; every other backend leaves it unraised, same as
+`Suspended`/`Resumed` above.
+
+`AvaloniaPlatformBackend.RaiseBackRequested` is **not** automatic the way `HookApplicationLifecycle` is.
+`Avalonia.Android.AvaloniaActivity.BackRequested` is declared directly on the Activity class (confirmed by
+inspecting the shipped assembly the same way `HookApplicationLifecycle`'s finding was), and nothing in this
+assembly can discover "the current Activity" generically — the type that does track it,
+`Avalonia.Android.Platform.AndroidActivatableLifetime`, is `internal` in a different assembly. A host app's
+own `MainActivity` (already required to subclass `AvaloniaMainActivity` and carry an AppCompat theme, #288)
+forwards its own `BackRequested` here instead, one line, the same shape `Application.RunAndroid` already
+requires: see `samples/Gallery.Android/MainActivity.cs`. `RaiseBackRequested` prefers
+`Application.ActivePopupWindow` (matching `Application.ScheduleClosePopupsOnDeactivate`'s own check for
+"which window is really active right now") so an open sheet gets the back-press before the main screen.
+
+A second, unrelated finding hit while adding this: the new `WindowBase` method that raises `BackRequested`
+had to be named `RaiseBackRequested`, not `OnBackendBackRequested` (which is otherwise the established
+naming for a method a backend calls into core to report something) — `OnBackendActivated`/
+`OnBackendDeactivated` above are the precedent. `tests/Majorsilence.Forms.Tests/StubSurfaceScanner.cs`'s
+`NoNewUnraisedEvents` gate treats a public method as a safe "this is definitely called from somewhere"
+entry point unless its name starts with `On`, regardless of visibility — `On`-prefixed methods are treated
+as an internal framework convention (a backend overriding a hook), not a cross-assembly entry point, so an
+`On`-named raiser whose only real caller lives in a different assembly (as this one's does, from
+`Majorsilence.Forms.Avalonia`) fails the gate even when made `public`. Making `Application.RaiseSuspended`/
+`RaiseResumed` (F10, above) public happened to satisfy the gate already because they were never `On`-named
+to begin with. Renaming to `RaiseBackRequested` (matching `RaiseIdle`/`RaiseSuspended`/`RaiseResumed`) fixed
+it with no other change. See `COMPATIBILITY_MATRIX.md`'s "Back button" entry for how this is verified.
+
 ### Adding another backend
 
 A new backend is a new assembly referencing `Majorsilence.Forms` (core) + the toolkit, implementing the two

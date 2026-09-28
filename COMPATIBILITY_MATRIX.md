@@ -604,6 +604,47 @@ emulator ran F8/F9's checks successfully earlier in the same session). `GalleryA
 four lines is missing after a real background/foreground cycle — a permanent, repeated-on-every-PR check,
 the same mechanism F8/F9 already use.
 
+## Back button
+
+**`WindowBase.BackRequested`/`RaiseBackRequested`** (added 2026-09, register item F11) is raised when the
+platform's back button/gesture is pressed — real on Android and iOS, no desktop equivalent to raise it
+from, same shape as `Suspended`/`Resumed` above. It lives on `WindowBase` itself, not just `Form`, so
+`PopupWindow` has it too: the acceptance criterion is specifically "closes a sheet without leaving the
+app", and `PopupWindow` (a dropdown, a context menu, a filter grid) is exactly what a "sheet" is here.
+Setting `CancelEventArgs.Cancel = true` keeps the app open (closing a sheet, stepping back a screen)
+instead of the platform's own default back behaviour, which proceeds unhandled.
+
+**Not automatic the way `HookApplicationLifecycle` is.** `Avalonia.Android.AvaloniaActivity.BackRequested`
+is declared directly on the Activity class, and nothing in `Majorsilence.Forms.Avalonia` can discover "the
+current Activity" generically — `Avalonia.Android.Platform.AndroidActivatableLifetime`, which does track
+it, is `internal` in a different assembly (confirmed the same way the F10 finding above was, by inspecting
+the real `Avalonia.Android.dll`). A host app's own `MainActivity` (already required to subclass
+`AvaloniaMainActivity` and carry an AppCompat theme, #288) forwards its own `BackRequested` to
+`AvaloniaPlatformBackend.RaiseBackRequested` instead — one added line, the same shape
+`Application.RunAndroid` already requires. `RaiseBackRequested` prefers `Application.ActivePopupWindow`
+(matching `Application.ScheduleClosePopupsOnDeactivate`'s own "which window is really active right now"
+check) so an open sheet gets the back-press before the main screen.
+
+**A second, unrelated finding hit while adding this:** the new `WindowBase` method had to be named
+`RaiseBackRequested`, not the otherwise-established `OnBackendBackRequested` convention
+(`OnBackendActivated`/`OnBackendDeactivated` are the precedent) — `tests/Majorsilence.Forms.Tests/StubSurfaceScanner.cs`'s
+`NoNewUnraisedEvents` gate excludes any `On`-prefixed method from its "this public method is definitely a
+real entry point" bypass regardless of visibility, treating it instead as an internal framework convention
+(a backend overriding a hook). The only real caller of this raiser lives in a different assembly
+(`Majorsilence.Forms.Avalonia`), so an `On`-named public method still failed the gate; renaming to
+`RaiseBackRequested` (matching `RaiseIdle`/`RaiseSuspended`/`RaiseResumed`) fixed it with no other change.
+Found by reading the scanner's own source, not by guessing — the F10 fix (making the method public) was
+tried first and did not resolve it.
+
+**Verification for the real back-button press itself is CI's job, not this session's**, same reasoning as
+F10 above: this session's local Android emulator infrastructure had already failed twice earlier in the
+day for unrelated reasons. `GalleryAvaloniaApp` shows a small `PopupWindow` ("sheet") right after
+`MainForm.Shown` and logs `F11_BACKBUTTON_SMOKE`; `android-smoke-test.sh` now presses `KEYCODE_BACK` twice
+— once with the popup open (must cancel and keep `$PKG` foreground), once more with it closed (must let
+the platform's default back behaviour proceed, leaving `$PKG`'s foreground) — checking the resumed
+activity via `dumpsys`, not process liveness (Android can leave a finished activity's process resident). A
+permanent, repeated-on-every-PR check, the same mechanism F8/F9/F10 already use.
+
 ## Design-time smart tags
 
 `DesignerActionUIService` exists so that the guarded calls around it compile: a component's action list
