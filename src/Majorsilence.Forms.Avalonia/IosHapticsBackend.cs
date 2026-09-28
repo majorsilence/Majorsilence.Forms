@@ -37,7 +37,15 @@ namespace Majorsilence.Forms.Backends
         public void Impact ()
         {
             try {
+                // UIImpactFeedbackGenerator (UIImpactFeedbackStyle) is obsoleted from iOS 17.5 in favour of
+                // UIFeedbackGenerator.GetFeedbackGenerator, a view-scoped factory -- confirmed by a real
+                // CI compile failure (CA1422), not assumed. That replacement needs a UIView to scope the
+                // generator to, which this backend has no reference to thread through for a feature this
+                // minor; the constructor used here still works on every iOS version, only deprecated, not
+                // removed, so the warning is suppressed rather than the API avoided.
+#pragma warning disable CA1422
                 using var generator = new UIImpactFeedbackGenerator (UIImpactFeedbackStyle.Medium);
+#pragma warning restore CA1422
                 generator.ImpactOccurred ();
             } catch {
             }

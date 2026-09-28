@@ -673,13 +673,20 @@ version-guarded branch; a second, unrelated nullable-reference error (`Vibration
 returns a nullable type) was fixed the same pass by null-checking before `Vibrator.Vibrate` instead of
 assigning straight into a non-nullable local.
 
+**A real iOS-only build bug, caught by CI's own `ios`/`sample-ios` jobs on the first push, not guessed.**
+`UIImpactFeedbackGenerator (UIImpactFeedbackStyle)` is obsoleted from iOS 17.5 (`CA1422`) in favour of
+`UIFeedbackGenerator.GetFeedbackGenerator`, a view-scoped factory needing a `UIView` to attach to — this
+backend has no view reference to thread through for a feature this minor, and the old constructor still
+works on every iOS version, only deprecated, not removed, so the warning is suppressed at that one call
+site instead.
+
 **Verification is a real, permanent gap this session could not close, by the acceptance criterion's own
 words.** `GalleryApplication.RunHapticsSmokeTest` and `android-smoke-test.sh`'s matching `F13_HAPTICS_SMOKE`
 check only prove the plumbing — `Haptics.IsSupported` answers `true` and `Tap`/`Impact`/`Vibrate` all run to
 completion with no exception on a real Android host — because the acceptance criterion itself says
 "emulators have no vibrator": no CI runner or local emulator this session had access to can confirm
-anything was actually felt. iOS is written from the documented UIKit/AudioToolbox contract but not run — no
-simulator or device here either, and a simulator could not prove the feel even if one were available for
+anything was actually felt. iOS compiles clean (confirmed by CI after the `CA1422` fix above) but is not run
+on a simulator or device either, and a simulator could not prove the feel even if one were available for
 the same hardware reason. **Both halves still need a human on a real Android phone and a real iPhone**
 before this register item can be considered fully verified, exactly what the issue asks for.
 

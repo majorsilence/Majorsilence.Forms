@@ -732,6 +732,12 @@ iOS itself uses for a phone call or an alert (`AudioServicesPlaySystemSound`'s `
 reached the same "known, stable numeric identifier" way `IosAudioBackend`'s own `SystemSoundId` already
 documents) rather than a caller-chosen length.
 
+A real iOS-only build bug was caught by CI, not guessed: `UIImpactFeedbackGenerator (UIImpactFeedbackStyle)`
+is obsoleted from iOS 17.5 (`CA1422`) in favour of `UIFeedbackGenerator.GetFeedbackGenerator`, a view-scoped
+factory needing a `UIView` to attach to. This backend has no view reference to thread through for a feature
+this minor, and the old constructor still works on every iOS version, only deprecated, not removed, so the
+warning is suppressed at that one call site rather than the API avoided.
+
 A real Android-only build bug was caught here, not guessed: the platform-compat analyzer (`CA1416`) flagged
 `VibrationEffect.EffectClick`/`EffectHeavyClick` (API 29+ members) as reachable from this project's API 24
 floor, even though the call was already behind an `OperatingSystem.IsAndroidVersionAtLeast (29)` check —
