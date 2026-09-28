@@ -44,7 +44,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public Form ()
         {
-            InitWindow (Majorsilence.Forms.Backends.Platform.Backend.CreateWindow (this, isPopup: false));
+            InitWindow (CreateBackendWindow (this, isPopup: false));
 
             // Both are implicit children of the root adapter; `Controls` hands out the CLIENT area's
             // collection, so the title bar is invisible to application code and takes no space from

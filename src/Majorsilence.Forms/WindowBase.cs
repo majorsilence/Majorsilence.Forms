@@ -34,6 +34,49 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// Creates the backend window, on the backend's UI thread.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Constructing a window creates a native one, and on macOS AppKit refuses to build an NSWindow
+        /// anywhere but the main thread: it raises NSInternalInconsistencyException, the throw unwinds
+        /// through C++ with no handler, and the process is killed by abort(). Not an exception the
+        /// application can catch -- the whole process goes, with no managed stack to show for it.
+        /// </para>
+        /// <para>
+        /// This is not an exotic path. Any exception escaping on a pool, timer or finalizer thread
+        /// raises AppDomain.UnhandledException on THAT thread, and a handler that reports the failure by
+        /// showing a form is an ordinary shape. That is how this was found, on the finalizer thread, and
+        /// it is the worst version of it: the process dies while reporting a fault, so the original
+        /// exception is never seen and the failure looks like a silent disappearance.
+        /// </para>
+        /// <para>
+        /// Windows has no such rule -- a window created on a background thread simply gets its own
+        /// message pump -- so application code doing this has always been correct there, and nothing in
+        /// the WinForms contract says otherwise. The asymmetry is the platform's, so this layer absorbs
+        /// it rather than asking every caller to.
+        /// </para>
+        /// <para>
+        /// Blocking rather than posting, because a constructor must return a usable object: the caller
+        /// gets a window it can immediately show. The HasMessageLoop half is the same guard
+        /// <see cref="Invalidate()"/> carries, for the same reason -- with no loop running there is
+        /// nothing to drain a posted call, so Invoke would wait forever. Creating on the calling thread
+        /// is right in that case anyway: with no loop yet, this thread is the one about to become the
+        /// UI thread.
+        /// </para>
+        /// </remarks>
+        private protected static Majorsilence.Forms.Backends.IWindowBackend CreateBackendWindow (
+            WindowBase owner, bool isPopup)
+        {
+            var backend = Majorsilence.Forms.Backends.Platform.Backend;
+
+            if (backend.CheckAccess () || !Application.HasMessageLoop)
+                return backend.CreateWindow (owner, isPopup);
+
+            return backend.Invoke (() => backend.CreateWindow (owner, isPopup));
+        }
+
+        /// <summary>
         /// Completes window initialisation. Must be called in subclass constructors before accessing
         /// Controls, adapter, or any window property.
         /// </summary>
