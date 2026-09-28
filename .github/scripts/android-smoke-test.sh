@@ -175,8 +175,15 @@ echo "F14 notification confirmed posted: channel, title and full-screen intent a
 # anything.
 echo "Replaying a notification tap (register item F14's tap callback) ..."
 adb logcat -c || true
-adb shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$PKG" --ei majorsilence_forms_notification_tapped_id 1001 >/dev/null 2>&1 \
-  || fail "could not replay the notification tap intent"
+# --activity-single-top forces Intent.FLAG_ACTIVITY_SINGLE_TOP: without it, `am start` targeting a task
+# already at the front is a pure no-op ("Warning: Activity not started, its current task has been brought
+# to the front") that never reaches OnNewIntent at all -- confirmed by a real CI run where nothing (not
+# even that warning) showed up in logcat afterward, not guessed. Output is not discarded this time, so a
+# repeat failure's own `am` output -- not just a second silent absence -- lands in the CI log.
+AM_OUTPUT="$(adb shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$PKG" --activity-single-top --ei majorsilence_forms_notification_tapped_id 1001 2>&1)"
+AM_STATUS=$?
+echo "$AM_OUTPUT"
+[ "$AM_STATUS" -eq 0 ] || fail "could not replay the notification tap intent"
 sleep 3
 
 LOG="$(adb logcat -d 2>/dev/null)"
