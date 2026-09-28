@@ -21,6 +21,9 @@ namespace Majorsilence.Forms.Backends
 #if ANDROID
         , INotificationBackend
 #endif
+#if !BROWSER
+        , IKeepScreenAwakeBackend
+#endif
     {
         /// <inheritdoc/>
         public string Name => "Avalonia";
@@ -394,6 +397,32 @@ namespace Majorsilence.Forms.Backends
 
         /// <inheritdoc/>
         public void Cancel (int id) => notificationBackend.Cancel (id);
+#endif
+
+        // ── IKeepScreenAwakeBackend ── real on Android, iOS and all three desktop OSes (register item
+        // F12), unlike every other capability seam above: this is the first one with something real to do
+        // on desktop too. Declared for every row but browser (see the class declaration above) -- a
+        // plain OS-level sleep inhibit, not something a browser tab controls the same way.
+#if ANDROID
+        private readonly AndroidKeepAwakeBackend keepAwakeBackend = new ();
+
+        /// <inheritdoc/>
+        public bool KeepScreenAwake {
+            get => keepAwakeBackend.KeepScreenAwake;
+            set => keepAwakeBackend.KeepScreenAwake = value;
+        }
+#elif IOS
+        /// <inheritdoc/>
+        public bool KeepScreenAwake {
+            get => UIKit.UIApplication.SharedApplication.IdleTimerDisabled;
+            set => UIKit.UIApplication.SharedApplication.IdleTimerDisabled = value;
+        }
+#elif !BROWSER
+        /// <inheritdoc/>
+        public bool KeepScreenAwake {
+            get => DesktopKeepAwake.IsEnabled;
+            set => DesktopKeepAwake.Set (value);
+        }
 #endif
 
 #if !SINGLEVIEW

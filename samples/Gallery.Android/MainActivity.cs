@@ -1,9 +1,11 @@
+using System;
 using Android.App;
 using Android.Content;
 using Android.Content.PM;
 using Android.OS;
 using Avalonia.Android;
 
+using MSForms = Majorsilence.Forms;
 using MSFormsBackends = Majorsilence.Forms.Backends;
 
 namespace Gallery.Android
@@ -41,6 +43,7 @@ namespace Gallery.Android
             BackRequested += (_, e) => e.Handled = MSFormsBackends.AvaloniaPlatformBackend.RaiseBackRequested ();
             MSFormsBackends.AvaloniaPlatformBackend.RegisterAndroidActivity (this);
             MSFormsBackends.AvaloniaPlatformBackend.ReportAndroidIntent (Intent);
+            RunKeepScreenAwakeSmokeTest ();
         }
 
         protected override void OnNewIntent (Intent? intent)
@@ -53,6 +56,33 @@ namespace Gallery.Android
         {
             base.OnRequestPermissionsResult (requestCode, permissions, grantResults);
             MSFormsBackends.AvaloniaPlatformBackend.ReportNotificationPermissionResult ();
+        }
+
+        // Register item F12: Window.AddFlags/ClearFlags (AndroidKeepAwakeBackend) need a live Activity,
+        // only available once RegisterAndroidActivity above has run -- unlike F8/F9/F13/F14's own smoke
+        // tests (queued on a background thread from GalleryApplication.OnCreate, before any Activity
+        // exists yet), this one runs here, synchronously, on the UI thread, right after the Activity
+        // actually becomes available. android-smoke-test.sh greps for its PASS line the same way.
+        private void RunKeepScreenAwakeSmokeTest ()
+        {
+            const string Tag = "F12_KEEPAWAKE_SMOKE";
+            try {
+                MSForms.Application.KeepScreenAwake = true;
+                if (!MSForms.Application.KeepScreenAwake) {
+                    global::Android.Util.Log.Error (Tag, "FAIL: KeepScreenAwake did not read back true after being set");
+                    return;
+                }
+
+                MSForms.Application.KeepScreenAwake = false;
+                if (MSForms.Application.KeepScreenAwake) {
+                    global::Android.Util.Log.Error (Tag, "FAIL: KeepScreenAwake did not read back false after being cleared");
+                    return;
+                }
+
+                global::Android.Util.Log.Info (Tag, "PASS: KeepScreenAwake set true then false, both read back correctly, no exception");
+            } catch (Exception ex) {
+                global::Android.Util.Log.Error (Tag, $"FAIL: {ex}");
+            }
         }
     }
 }

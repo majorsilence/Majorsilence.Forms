@@ -22,7 +22,7 @@ namespace Majorsilence.Forms.Headless
     /// (2) a reference second backend proving the <see cref="IPlatformBackend"/>/<see cref="IWindowBackend"/>
     /// seam is genuinely toolkit-agnostic — the same shape a real Uno backend follows.
     /// </summary>
-    public sealed class HeadlessPlatformBackend : IPlatformBackend, IAnimationFrameSource, IReducedMotionSource, IAudioBackend, IDisposable
+    public sealed class HeadlessPlatformBackend : IPlatformBackend, IAnimationFrameSource, IReducedMotionSource, IAudioBackend, IKeepScreenAwakeBackend, IDisposable
     {
         /// <summary>Gets the animation frames, which run only when stepped by hand.</summary>
         public HeadlessAnimationClock AnimationClock { get; } = new ();
@@ -46,6 +46,9 @@ namespace Majorsilence.Forms.Headless
 
         /// <inheritdoc/>
         public event EventHandler? PrefersReducedMotionChanged;
+
+        /// <summary>Gets or sets the answer <see cref="Application.KeepScreenAwake"/> reports while this backend is active, for a test to assert directly instead of a real OS sleep-inhibit to observe.</summary>
+        public bool KeepScreenAwake { get; set; }
 
         // ── IAudioBackend ── a recording fake, not a real player: there is nothing to actually play back
         // in a headless test process, so this exists purely so SoundPlayer/SystemSounds routing (try the

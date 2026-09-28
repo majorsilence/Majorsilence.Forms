@@ -19,7 +19,9 @@
 # running with no exception -- though the acceptance criterion for feeling anything real needs a human on
 # a real phone: this emulator has no vibrator to prove that part. It also posts an F14 notification
 # (channel, importance, permission, ongoing, full-screen intent), confirms via dumpsys that it actually
-# posted, and replays a notification tap to prove LocalNotifications.Tapped fires.
+# posted, and replays a notification tap to prove LocalNotifications.Tapped fires. It also sets
+# Application.KeepScreenAwake true then false on a real Activity (register item F12) and confirms both
+# read back correctly with no exception.
 #
 # Usage: android-smoke-test.sh <apk-or-dir> [screenshot-output-path]
 #   <apk-or-dir>  a *-Signed.apk file, or a directory to search for one (recursively).
@@ -111,6 +113,21 @@ elif grep -q "F9_AUDIOPLAYER_SMOKE.*PASS" <<<"$LOG"; then
 else
   echo "$LOG" | grep "F9_AUDIOPLAYER_SMOKE" >&2 || true
   fail "no F9_AUDIOPLAYER_SMOKE PASS line in logcat within ${SETTLE_SECONDS}s"
+fi
+
+# MainActivity.RunKeepScreenAwakeSmokeTest (register item F12): sets Application.KeepScreenAwake true then
+# false and confirms both read back correctly with no exception -- real Window.AddFlags/ClearFlags calls on
+# a real Activity, not a fake. Runs synchronously in OnCreate (needs a live Activity, unlike the other
+# ThreadPool-queued smoke tests here), so it is already logged well within the settle window.
+echo "Checking for the F12 KeepScreenAwake smoke-test result ..."
+if grep -q "F12_KEEPAWAKE_SMOKE.*FAIL" <<<"$LOG"; then
+  echo "$LOG" | grep "F12_KEEPAWAKE_SMOKE" >&2
+  fail "F12 KeepScreenAwake smoke test reported FAIL (see F12_KEEPAWAKE_SMOKE lines above)"
+elif grep -q "F12_KEEPAWAKE_SMOKE.*PASS" <<<"$LOG"; then
+  echo "F12 KeepScreenAwake smoke test: PASS"
+else
+  echo "$LOG" | grep "F12_KEEPAWAKE_SMOKE" >&2 || true
+  fail "no F12_KEEPAWAKE_SMOKE PASS line in logcat within ${SETTLE_SECONDS}s"
 fi
 
 # GalleryApplication.RunHapticsSmokeTest (register item F13): proves the plumbing (IsSupported true,
@@ -285,4 +302,4 @@ case "$TOP" in
 esac
 echo "F11 back button (no popup): unhandled, app exited normally"
 
-echo "PASS: $PKG installed, launched, stayed alive ${SETTLE_SECONDS}s with no fatal exception, held the foreground, the F8/F9 audio smoke tests passed, F10's Suspended/Resumed + Form.Activated/Deactivate all fired on a real background/foreground cycle, F11's back button closed the popup then exited the app, F13's Haptics plumbing (IsSupported, Tap/Impact/Vibrate) ran with no exception, and F14's notification posted with the right channel/title/full-screen-intent and its tap callback fired."
+echo "PASS: $PKG installed, launched, stayed alive ${SETTLE_SECONDS}s with no fatal exception, held the foreground, the F8/F9 audio smoke tests passed, F10's Suspended/Resumed + Form.Activated/Deactivate all fired on a real background/foreground cycle, F11's back button closed the popup then exited the app, F12's KeepScreenAwake set/read back true then false with no exception, F13's Haptics plumbing (IsSupported, Tap/Impact/Vibrate) ran with no exception, and F14's notification posted with the right channel/title/full-screen-intent and its tap callback fired."
