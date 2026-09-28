@@ -177,11 +177,15 @@ echo "Replaying a notification tap (register item F14's tap callback) ..."
 adb logcat -c || true
 adb shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$PKG" --ei majorsilence_forms_notification_tapped_id 1001 >/dev/null 2>&1 \
   || fail "could not replay the notification tap intent"
-sleep 2
+sleep 3
 
 LOG="$(adb logcat -d 2>/dev/null)"
 if ! grep -q "F14_NOTIFICATIONS_SMOKE.*Tapped:1001" <<<"$LOG"; then
-  echo "$LOG" | grep "F14_NOTIFICATIONS_SMOKE" >&2 || true
+  # MainActivity.OnCreate/OnNewIntent both log F14_MAINACTIVITY_DEBUG with whether the replayed extra
+  # actually arrived -- dumped in full here (not just grepped) since the generic last-200-lines dump in
+  # fail()'s own diagnostics has shown up empty before, apparently racing emulator teardown.
+  echo "----- full logcat since the tap replay -----" >&2
+  echo "$LOG" >&2
   fail "no F14_NOTIFICATIONS_SMOKE Tapped:1001 line in logcat after replaying the tap intent"
 fi
 echo "F14 tap callback: LocalNotifications.Tapped fired with the right id"
