@@ -14,6 +14,8 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadScheduler : ScrollableControl, ISupportInitializeCompat
     {
+        /// <summary>Gets the root element of the scheduler (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
         private readonly SchedulerAgendaList _agenda;
         private SchedulerBindingDataSource? _dataSource;
         private SchedulerViewType _activeViewType = SchedulerViewType.Week;

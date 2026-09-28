@@ -252,6 +252,8 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class SchedulerPrintSettingsDialog : Form
     {
+        /// <summary>Gets the root element of the dialog (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Gets or sets the print document being configured.</summary>
         public RadPrintDocument? PrintDocument { get; set; }
 
