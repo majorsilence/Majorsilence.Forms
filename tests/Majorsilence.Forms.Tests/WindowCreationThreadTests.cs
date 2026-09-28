@@ -40,7 +40,8 @@ namespace Majorsilence.Forms.Tests
 
             try {
                 pump.Start ();
-                Assert.True (pinned.Wait (TimeSpan.FromSeconds (5)), "the pump thread never started");
+                Assert.True (pinned.Wait (TimeSpan.FromSeconds (5), TestContext.Current.CancellationToken),
+                    "the pump thread never started");
 
                 Application.RegisterMessageLoop (() => true);
 
