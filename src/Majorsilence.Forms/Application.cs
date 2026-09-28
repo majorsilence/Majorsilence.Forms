@@ -571,6 +571,30 @@ namespace Majorsilence.Forms
         /// <summary>Raises <see cref="Idle"/>. Called by the backend's message loop when it drains.</summary>
         internal static void RaiseIdle () => Idle?.Invoke (null, EventArgs.Empty);
 
+        /// <summary>Raised when the OS moves the application into the background (register item F10).</summary>
+        /// <remarks>
+        /// Real on Android and iOS, through Avalonia's <c>IActivatableLifetime</c> (a backend-level
+        /// capability, not a per-window one — see <c>AvaloniaPlatformBackend.HookApplicationLifecycle</c>).
+        /// Not raised at all on a backend that does not implement it (desktop's own
+        /// <c>IClassicDesktopStyleApplicationLifetime</c> does not): minimising a desktop window is not the
+        /// same OS-level concept as a mobile app being backgrounded, so this stays silent there rather than
+        /// invent an equivalence nothing asked for.
+        /// </remarks>
+        public static event EventHandler? Suspended;
+
+        /// <summary>Raised when the OS brings a backgrounded application back to the foreground. See <see cref="Suspended"/>.</summary>
+        public static event EventHandler? Resumed;
+
+        /// <summary>
+        /// Raises <see cref="Suspended"/>. Called by a backend when the OS backgrounds the app -- public,
+        /// like the <c>RaiseIdle (EventArgs)</c> overload, because the only caller lives in a separate
+        /// backend assembly (<c>Majorsilence.Forms.Avalonia</c>), not this one.
+        /// </summary>
+        public static void RaiseSuspended () => Suspended?.Invoke (null, EventArgs.Empty);
+
+        /// <summary>Raises <see cref="Resumed"/>. Called by a backend when the OS foregrounds the app again. See <see cref="RaiseSuspended"/>.</summary>
+        public static void RaiseResumed () => Resumed?.Invoke (null, EventArgs.Empty);
+
         /// <summary>
         /// Reports an unhandled exception from an event handler to <see cref="ThreadException"/>.
         /// </summary>

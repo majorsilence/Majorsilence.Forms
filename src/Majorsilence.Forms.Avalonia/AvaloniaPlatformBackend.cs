@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input.Platform;
 using Avalonia.Threading;
 
@@ -29,6 +30,7 @@ namespace Majorsilence.Forms.Backends
             // lock contention with the render loop.
             Majorsilence.Forms.Theme.WarmupFonts ();
             HookDispatcherExceptions ();
+            HookApplicationLifecycle ();
         }
 
         /// <inheritdoc/>
@@ -53,6 +55,7 @@ namespace Majorsilence.Forms.Backends
             AvaloniaSynchronizationContext.InstallIfNeeded ();
             Majorsilence.Forms.Theme.WarmupFonts ();
             HookDispatcherExceptions ();
+            HookApplicationLifecycle ();
         }
 
         /// <inheritdoc/>
@@ -91,6 +94,61 @@ namespace Majorsilence.Forms.Backends
             Dispatcher.UIThread.UnhandledException += (_, e) => {
                 if (Majorsilence.Forms.Application.RaiseThreadException (e.Exception))
                     e.Handled = true;
+            };
+        }
+
+        private static bool lifecycle_hooked;
+
+        /// <summary>
+        /// Routes Avalonia's <see cref="IActivatableLifetime"/> to <see cref="Majorsilence.Forms.Application.Suspended"/>/
+        /// <see cref="Majorsilence.Forms.Application.Resumed"/>, and to <see cref="WindowBase.OnBackendActivated"/>/
+        /// <see cref="WindowBase.OnBackendDeactivated"/> on the single-view root host (register item F10).
+        /// </summary>
+        /// <remarks>
+        /// A backend-level (application-wide) capability, not a per-window one: one <c>IActivatableLifetime</c> for the whole
+        /// process, unlike <see cref="IWindowBackend"/>, which every window gets its own of. Not reached through
+        /// <c>Application.Current.ApplicationLifetime</c>: confirmed by inspecting the real <c>Avalonia.Android.dll</c>
+        /// (12.1.1) that <c>Avalonia.Android.ApplicationLifetime</c> -- the concrete type <c>ApplicationLifetime</c> resolves
+        /// to on Android -- implements only <c>IActivityApplicationLifetime</c>/<c>IApplicationLifetime</c>/
+        /// <c>ISingleViewApplicationLifetime</c>, never <see cref="IActivatableLifetime"/>. That capability is a *separate*
+        /// object (<c>Avalonia.Android.Platform.AndroidActivatableLifetime</c>) reached through
+        /// <see cref="Avalonia.Application.TryGetFeature"/>, Avalonia's own optional-platform-capability lookup, instead.
+        /// Desktop's <c>IClassicDesktopStyleApplicationLifetime</c> answers that same query with nothing, so this silently
+        /// does nothing there rather than throw -- exactly the same "not every row has this" shape <see cref="IWebViewFactory"/>
+        /// and <see cref="IReducedMotionSource"/> use. <see cref="ActivationKind.Background"/> is specifically the
+        /// backgrounded/foregrounded transition, as opposed to <c>File</c>/<c>OpenUri</c>/<c>Reopen</c> (the app being asked
+        /// to open something, or a macOS dock-icon reactivation of an already-running app) -- those are a different concept
+        /// from suspend/resume and are not raised as either event.
+        /// </remarks>
+        private static void HookApplicationLifecycle ()
+        {
+            if (lifecycle_hooked)
+                return;
+
+            if (Avalonia.Application.Current?.TryGetFeature (typeof (IActivatableLifetime)) is not IActivatableLifetime lifetime)
+                return; // this row's lifetime does not support it; try again next Initialize() call in
+                        // case a later one resolves a different lifetime object (cheap either way)
+
+            lifecycle_hooked = true;
+
+            lifetime.Deactivated += (_, e) => {
+                if (e.Kind != ActivationKind.Background)
+                    return;
+
+#if SINGLEVIEW
+                MajorsilenceFormsSingleViewHost.MainHost?.Owner.OnBackendDeactivated ();
+#endif
+                Majorsilence.Forms.Application.RaiseSuspended ();
+            };
+
+            lifetime.Activated += (_, e) => {
+                if (e.Kind != ActivationKind.Background)
+                    return;
+
+#if SINGLEVIEW
+                MajorsilenceFormsSingleViewHost.MainHost?.Owner.OnBackendActivated ();
+#endif
+                Majorsilence.Forms.Application.RaiseResumed ();
             };
         }
 

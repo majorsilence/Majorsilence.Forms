@@ -563,6 +563,47 @@ above. A real limitation, not a bug: iOS has one shared, app-wide `AVAudioSessio
 if an `Alarm` track and a `Notification` track are both playing, whichever activated its category last
 wins for both.
 
+## Application lifecycle
+
+**`Application.Suspended`/`Resumed`** (added 2026-09, register item F10) fire when the OS backgrounds and
+foregrounds the app, through Avalonia's `IActivatableLifetime` — an application-wide capability (one
+object for the whole process, unlike the per-window `IWindowBackend` seam), wired once from
+`AvaloniaPlatformBackend.Initialize`/`InitializeAsync`. Filtered to `ActivationKind.Background`
+specifically: the same interface also reports `File`/`OpenUri`/`Reopen` (the app being asked to open
+something, or a macOS dock-icon reactivation of an already-running app), which are a different concept
+from suspend/resume and never raise either event. Desktop's `IClassicDesktopStyleApplicationLifetime`
+answers Avalonia's own capability query (`Application.TryGetFeature`) with nothing, so neither event fires
+there — minimising a desktop window is not the same OS-level concept as a mobile app being backgrounded,
+and this does not invent an equivalence nothing asked for. The browser lifetime is untested against this
+too (no host that actually backgrounds a browser tab this way was available to check).
+
+**`Form.Activated`/`Deactivate` on single-view hosts** (Android, iOS, browser) fire from the same
+`IActivatableLifetime` subscription, forwarded to the single-view root host's `WindowBase.OnBackendActivated`/
+`OnBackendDeactivated` — every *other* window host (Avalonia desktop, Uno, WinForms, WPF, GTK 4, Headless)
+already wired these from its own real activation/deactivation signal; the single-view host was the one gap,
+because until now nothing on that row ever called either method.
+
+**Android is real, found the hard way.** The first version reached `IActivatableLifetime` through
+`Application.Current.ApplicationLifetime` (the pattern `IWebViewFactory`/`IReducedMotionSource` both use)
+and it silently never fired: inspecting the real `Avalonia.Android.dll` (12.1.1) directly showed
+`Avalonia.Android.ApplicationLifetime` implements only `IActivityApplicationLifetime`/
+`IApplicationLifetime`/`ISingleViewApplicationLifetime`, never `IActivatableLifetime` — that capability is
+a *separate* object (`Avalonia.Android.Platform.AndroidActivatableLifetime`), reached instead through
+`Application.TryGetFeature`, Avalonia's own optional-platform-capability lookup. Confirmed via
+`MetadataLoadContext` against the actual shipped assembly, not assumed from documentation. iOS is written
+from the same `IActivatableLifetime` contract (no equivalent inspection was possible without an iOS host)
+but not run — no simulator or device here.
+
+**Verification for the real background/foreground transition itself is CI's job, not this session's.** Two
+separate real Android emulator crashes (`system_server` dying outright, and a wedged `adbd` that stopped
+answering `adb shell` entirely) made every local attempt at this specific check inconclusive — both
+confirmed via logcat/process state to be local infrastructure failures, not app or code issues (the same
+emulator ran F8/F9's checks successfully earlier in the same session). `GalleryApplication` in
+`Gallery.Android` logs `F10_LIFECYCLE: Suspended`/`Resumed`/`Form.Activated`/`Form.Deactivate`, and
+`android-smoke-test.sh` now sends `KEYCODE_HOME` and relaunches the app, failing the CI job if any of the
+four lines is missing after a real background/foreground cycle — a permanent, repeated-on-every-PR check,
+the same mechanism F8/F9 already use.
+
 ## Design-time smart tags
 
 `DesignerActionUIService` exists so that the guarded calls around it compile: a component's action list
