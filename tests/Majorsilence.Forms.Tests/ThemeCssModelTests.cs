@@ -344,5 +344,56 @@ namespace Majorsilence.Forms.Tests
                 Theme.StyleSheetApplied -= applied;
             }
         }
+
+        // ---- author variables -----------------------------------------------------------------------
+
+        [Fact]
+        public void Variables_ExposeAuthorCustomPropertiesWithTypedValues ()
+        {
+            var sheet = ParseClean (@"
+                :root {
+                    --brand: #00578e;
+                    --line2: var(--brand);
+                    --radius: 6px;
+                    --font: ""Segoe UI"", sans-serif;
+                    --accent-color: var(--brand);
+                    --edge: 1px solid var(--brand);
+                }
+                Button { border-radius: var(--radius); font-family: var(--font); border: var(--edge); background-color: var(--line2); }");
+
+            Assert.Equal (new[] { "--brand", "--line2", "--radius", "--font", "--edge" }, sheet.Variables.Select (v => v.Name));
+
+            var brand = sheet.Variables[0];
+            Assert.Equal (ThemeCssValueKind.Color, brand.Value!.Kind);
+            Assert.Equal (0xff00578eu, brand.Value.Argb);
+            Assert.Equal (0xff00578eu, sheet.Variables[1].Value!.Argb);
+            Assert.Equal (6, sheet.Variables[2].Value!.Pixels);
+            Assert.Equal (new[] { "Segoe UI", "sans-serif" }, sheet.Variables[3].Value!.FontFamilies);
+            Assert.Null (sheet.Variables[4].Value);  // a shorthand has no single typed value
+        }
+
+        [Fact]
+        public void Variables_ThatReferToATokenTrackItLive ()
+        {
+            var sheet = ParseClean (":root { --brand: var(--accent-color); } Button { color: var(--brand); }");
+
+            var brand = Assert.Single (sheet.Variables);
+            Assert.Equal ("--accent-color", brand.TokenReference?.Name);
+
+            Theme.AccentColor = new SKColor (0x12, 0x34, 0x56);
+            Assert.Equal (0xff123456u, brand.Value!.Argb);
+        }
+
+        [Fact]
+        public void Variables_DoNotChangeTheDiagnostics ()
+        {
+            var css = ":root { --unused: #fff; --broken: var(--nope); } Button { color: red; }";
+            var sheet = ThemeStyleSheet.Parse (css);
+
+            // One "never used" warning each, and no second error from resolving --broken for the model.
+            Assert.Equal (2, sheet.Diagnostics.Count);
+            Assert.All (sheet.Diagnostics, d => Assert.Equal (ThemeCssSeverity.Warning, d.Severity));
+            Assert.Null (sheet.Variables.Single (v => v.Name == "--broken").Value);
+        }
     }
 }

@@ -73,6 +73,33 @@ Form { font-family: ""Segoe UI"", sans-serif; font-size: 14px; }
         }
 
         [Fact]
+        public void Exclude_LeavesTheControlAndEverythingUnderItAlone ()
+        {
+            var owned = Add (new WF.Panel { Name = "owned" });
+            var inner = new WF.Button { Text = "Inner" };
+            owned.Controls.Add (inner);
+            var themed = Add (new WF.Button { Text = "Themed" });
+            var innerBefore = inner.BackColor;
+
+            WinFormsCssTheme.Exclude = c => c.Name == "owned";
+            try {
+                TrackAndApply ();
+
+                // A control added to the excluded subtree later is left alone too.
+                var late = new WF.Button { Text = "Late" };
+                var lateBefore = late.BackColor;
+                owned.Controls.Add (late);
+
+                AssertColor ("#38383d", themed.BackColor);
+                Assert.Equal (innerBefore.ToArgb (), inner.BackColor.ToArgb ());
+                Assert.Equal (WF.FlatStyle.Standard, inner.FlatStyle);
+                Assert.Equal (lateBefore.ToArgb (), late.BackColor.ToArgb ());
+            } finally {
+                WinFormsCssTheme.Exclude = null;
+            }
+        }
+
+        [Fact]
         public void Button_GetsFlatAppearanceFromRule ()
         {
             var button = Add (new WF.Button { Text = "OK", Size = new Size (100, 30) });

@@ -481,6 +481,14 @@ The same stylesheet can restyle **real WinForms controls** in a mixed migration 
 allows — with every gap reported as a diagnostic, never silently ignored. The property × control support
 matrix and the Windows-only Theme Studio head are in [theming-winforms.md](theming-winforms.md).
 
+## Native Avalonia apps
+
+The same stylesheet can restyle **native Avalonia controls** (Fluent theme) through
+`Majorsilence.Forms.Theming.Avalonia` (`AvaloniaCssTheme.Apply` / `Watch`): colours become the Fluent
+theme resources the control themes read, geometry and fonts become generated styles, and the sheet's
+tokens and author variables are published as named resources for your own views. The support matrix is
+in [theming-avalonia.md](theming-avalonia.md).
+
 ## Prompting a coding assistant
 
 Paste the reference (from the Studio's **Copy reference for AI**, or `ThemeCssReference.ToMarkdown ()`,
@@ -533,6 +541,9 @@ var current = Theme.CurrentStyleSheets;                                // the in
 - Values are plain data — colours as `0xAARRGGBB`, lengths as pixels, fonts as family lists, weights as
   100–900, styles as the keyword — with no SkiaSharp types. `border` is already expanded to
   `border-width` / `border-color`; the three `font-*` properties stay separate.
+- Author variables (`:root` custom properties that are not tokens) are in `sheet.Variables`
+  (`ThemeCssVariable`: `Name`, a typed `Value` — colour, length or font list, or null — and
+  `TokenReference`), for a bridge that publishes them as named resources.
 - A declaration written as `var(--token)` keeps `TokenReference`, and its `Value` is read **live** from the
   current theme, so a bridge that re-applies on `ThemeChanged` follows later token edits exactly as the
   built-in renderers do. Author variables (`--brand`) are substituted at parse time and look like literals.

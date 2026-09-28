@@ -172,6 +172,48 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>
+    /// One author variable of a parsed stylesheet: a <c>:root</c> custom property that is not a theme
+    /// token (<c>--brand-blue: #00578e;</c>). Majorsilence.Forms controls only see a variable through
+    /// the <c>var()</c> references that use it, but a host applier can publish variables as named
+    /// resources (the Avalonia applier does), so the design system's names reach the host's own views.
+    /// </summary>
+    public sealed class ThemeCssVariable
+    {
+        private readonly Func<ThemeCssValue>? _resolve;
+
+        internal ThemeCssVariable (string name, Func<ThemeCssValue>? resolve, ThemeCssToken? tokenReference, int line, int column)
+        {
+            Name = name;
+            _resolve = resolve;
+            TokenReference = tokenReference;
+            Line = line;
+            Column = column;
+        }
+
+        /// <summary>The custom-property name, e.g. <c>--brand-blue</c>.</summary>
+        public string Name { get; }
+
+        /// <summary>
+        /// The resolved value -- a colour, a length or a font-family list, tried in that order -- or null
+        /// when the value is none of those (such a variable can still be used where it fits, e.g. a
+        /// border shorthand, but has no single typed value).
+        /// </summary>
+        public ThemeCssValue? Value => _resolve?.Invoke ();
+
+        /// <summary>The theme token the value refers to through <c>var()</c>, when it is exactly one; its value then tracks the token live.</summary>
+        public ThemeCssToken? TokenReference { get; }
+
+        /// <summary>The 1-based line of the declaration.</summary>
+        public int Line { get; }
+
+        /// <summary>The 1-based column of the declaration.</summary>
+        public int Column { get; }
+
+        /// <inheritdoc/>
+        public override string ToString () => $"{Name}: {(TokenReference is null ? Value?.ToString () ?? "?" : $"var({TokenReference.Name})")};";
+    }
+
+    /// <summary>
     /// One <c>:root</c> token declaration of a parsed stylesheet, with its resolved value.
     /// </summary>
     public sealed class ThemeCssTokenValue

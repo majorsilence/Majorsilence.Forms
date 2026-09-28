@@ -37,6 +37,7 @@ static void Main ()
 | `WinFormsCssTheme.Apply (ThemeStyleSheet sheet)` | Applies whatever parsed, errors or not — what a live editor wants mid-edit. |
 | `WinFormsCssTheme.Watch (path)` | Applies the file now and again on every save (debounced). Dispose the returned watcher to stop. The Theme Studio workflow. |
 | `WinFormsCssTheme.Track (form)` | Styles a form and hooks `ControlAdded` (recursively) and `HandleCreated`, so late controls and the title bar are themed. Forms open at apply time are tracked automatically. |
+| `WinFormsCssTheme.Exclude` | A `Func<Control, bool>`: controls it returns true for — and everything under them — are left alone, on every apply and when added later. For subtrees another theming engine owns (e.g. Telerik `RadForm`s and `RadControl`s). |
 | `WinFormsCssTheme.Diagnostics` | What WinForms could not express in the last apply (see below). |
 | `WinFormsCssTheme.Support` / `WinFormsThemeSupport` | The property × control matrix this page is generated from. |
 

@@ -12,6 +12,7 @@ short orientation: where things are, how to verify a change, and the traps that 
 | `src/Majorsilence.Forms/` | The core: controls, `Form`, layout, `Theme`, the CSS theme parser (`Theming/`). No host dependency. |
 | `src/Majorsilence.Forms.{Avalonia,Uno,Gtk4,Wpf,WinForms}/` | Platform backends. `Headless/` renders to bitmaps for tests and CI. |
 | `src/Majorsilence.Forms.Theming.WinForms/` | Applies CSS themes to **real** `System.Windows.Forms` controls (Windows-only). |
+| `src/Majorsilence.Forms.Theming.Avalonia/` | Applies CSS themes to **native** Avalonia controls (Fluent resources + generated styles). |
 | `src/Majorsilence.Forms.Drawing.Common/` | The `System.Drawing` reimplementation. |
 | `tests/Majorsilence.Forms.Tests/` | The main suite (xunit v3, headless backend). Windows-only suites sit beside it. |
 | `samples/` | One app per scenario; `docs/samples.md` describes each. `ThemeStudio*` are the theme editors. |
@@ -91,6 +92,7 @@ test that fails when code and document drift. Set the named variable and run the
 |---|---|---|
 | `docs/theming.md` | `ThemeCssReference.ToMarkdown ()` | `MAJORSILENCE_WRITE_THEMING_DOC=1` (Majorsilence.Forms.Tests) |
 | `docs/theming-winforms.md` | `WinFormsThemeSupport.ToMarkdown ()` | `MAJORSILENCE_WRITE_THEMING_WINFORMS_DOC=1` (Theming.WinForms.Tests, Windows) |
+| `docs/theming-avalonia.md` | `AvaloniaThemeSupport.ToMarkdown ()` | `MAJORSILENCE_WRITE_THEMING_AVALONIA_DOC=1` (Theming.Avalonia.Tests) |
 | `tests/Majorsilence.Forms.Tests/*Baseline.txt` | reflection scans | `MAJORSILENCE_WRITE_*_BASELINE=1` (see CONTRIBUTING.md) |
 
 ## Theming, in one paragraph

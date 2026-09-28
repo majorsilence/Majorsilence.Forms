@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Applies the CSS theme subset (docs/theming.md) to NATIVE Avalonia controls, so an app that mixes
+       Majorsilence.Forms surfaces with its own Avalonia views — or an Avalonia shell that launches a
+       WinForms / Majorsilence.Forms client — is themed from one stylesheet: same tokens, same
+       selectors, same diagnostics. See docs/theming-avalonia.md for the property × control matrix.
+
+       Depends only on the Majorsilence.Forms core (for the parser and the host-neutral
+       ThemeStyleSheet.Tokens / Rules / Variables model) and on Avalonia itself, never on the
+       Majorsilence.Forms.Avalonia backend: the point is to write Fluent theme resources and a Styles
+       object for Avalonia's own controls, not to render anything. Avalonia.Controls.DataGrid is
+       referenced because the DataGridView selector maps onto it. -->
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsAotCompatible>true</IsAotCompatible>
+    <!-- Same reason as Majorsilence.Forms.Avalonia: a RootNamespace ending in ".Avalonia" would shadow
+         the Avalonia package's own namespace for bare "Avalonia.X" references. -->
+    <RootNamespace>Majorsilence.Forms.Theming.AvaloniaHost</RootNamespace>
+    <PackageId>Majorsilence.Forms.Theming.Avalonia</PackageId>
+    <Description>Applies Majorsilence.Forms CSS themes to native Avalonia controls — one stylesheet restyles Avalonia views, Majorsilence.Forms surfaces and (with Majorsilence.Forms.Theming.WinForms) real WinForms. Writes Fluent theme resources and a generated Styles object, publishes the stylesheet's tokens and variables as named resources for your own views, and reports what Avalonia cannot express as diagnostics instead of silently ignoring it.</Description>
+    <PackageTags>avalonia;theming;css;fluent;dark-mode;majorsilence-forms;cross-platform</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Majorsilence.Forms.Theming.Avalonia.Tests" />
+  </ItemGroup>
+
+</Project>
