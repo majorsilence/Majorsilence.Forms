@@ -18,6 +18,9 @@ namespace Majorsilence.Forms.Backends
 #if ANDROID || IOS
         , IHapticsBackend
 #endif
+#if ANDROID
+        , INotificationBackend
+#endif
     {
         /// <inheritdoc/>
         public string Name => "Avalonia";
@@ -188,6 +191,53 @@ namespace Majorsilence.Forms.Backends
 #endif
         }
 
+#if ANDROID
+        /// <summary>
+        /// The host app's current <c>Activity</c>, registered through <see cref="RegisterAndroidActivity"/>.
+        /// Only <see cref="AndroidNotificationBackend.RequestPermission"/> reads this today -- every other
+        /// Android member on this page only ever needs <see cref="global::Android.App.Application.Context"/>.
+        /// </summary>
+        internal static global::Android.App.Activity? CurrentAndroidActivity { get; private set; }
+
+        /// <summary>
+        /// Registers the host app's <c>MainActivity</c> (register item F14), so
+        /// <see cref="Notifications.LocalNotifications.RequestPermission"/> has a live <c>Activity</c> to
+        /// call <c>ActivityCompat.RequestPermissions</c> on -- nothing in this assembly can discover "the
+        /// current Activity" generically, the same gap <see cref="RaiseBackRequested"/>'s own remarks
+        /// document. Call once, from <c>OnCreate</c>, the same shape <c>BackRequested</c> forwarding
+        /// already requires.
+        /// </summary>
+        public static void RegisterAndroidActivity (global::Android.App.Activity activity) => CurrentAndroidActivity = activity;
+
+        /// <summary>
+        /// Reports the host app's own <see cref="global::Android.Content.Intent"/> (register item F14),
+        /// from both <c>MainActivity.OnCreate</c> and <c>OnNewIntent</c> -- a notification tap re-launches
+        /// or resumes the app the same generic way <see cref="AndroidNotificationBackend"/>'s own remarks
+        /// describe (<c>PackageManager.GetLaunchIntentForPackage</c>), so the host never builds or reads
+        /// this backend's tap extra itself; it only forwards its own intent unconditionally. A no-op for
+        /// any other intent -- most of an app's launches have nothing to do with a notification at all.
+        /// </summary>
+        public static void ReportAndroidIntent (global::Android.Content.Intent? intent)
+        {
+            if (intent is null || !intent.HasExtra (AndroidNotificationBackend.TappedExtraKey))
+                return;
+
+            var id = intent.GetIntExtra (AndroidNotificationBackend.TappedExtraKey, -1);
+            intent.RemoveExtra (AndroidNotificationBackend.TappedExtraKey);   // OnNewIntent's Intent is reused by GetIntent() later -- do not re-report the same tap on a later, unrelated call
+
+            if (id >= 0)
+                Notifications.LocalNotifications.RaiseTapped (id);
+        }
+
+        /// <summary>
+        /// Reports that <c>MainActivity.OnRequestPermissionsResult</c> fired (register item F14). Does not
+        /// need to know which permission or the outcome: <see cref="Notifications.LocalNotifications.IsPermissionGranted"/>
+        /// always re-reads the platform fresh, so this only needs to trigger the
+        /// <see cref="Notifications.LocalNotifications.PermissionChanged"/> notification itself.
+        /// </summary>
+        public static void ReportNotificationPermissionResult () => Notifications.LocalNotifications.RaisePermissionChanged ();
+#endif
+
         /// <inheritdoc/>
         public void Stop () { /* Loop exit is driven by the cancellation token passed to RunMainLoop. */ }
 
@@ -319,6 +369,31 @@ namespace Majorsilence.Forms.Backends
 
         /// <inheritdoc/>
         public void Vibrate (TimeSpan duration) => hapticsBackend.Vibrate (duration);
+#endif
+
+        // ── INotificationBackend ── Android only in this PR (register item F14's mobile half); iOS is
+        // tracked separately. Declared in the class's own base list only under ANDROID (see the class
+        // declaration above), the same "no supported-but-does-nothing middle state" reasoning IHapticsBackend
+        // above already uses.
+#if ANDROID
+        private readonly AndroidNotificationBackend notificationBackend = new ();
+
+        /// <inheritdoc/>
+        public bool IsPermissionGranted => notificationBackend.IsPermissionGranted;
+
+        /// <inheritdoc/>
+        public void RequestPermission () => notificationBackend.RequestPermission ();
+
+        /// <inheritdoc/>
+        public void RegisterChannel (string id, string name, string? description, Notifications.NotificationImportance importance, bool sound)
+            => notificationBackend.RegisterChannel (id, name, description, importance, sound);
+
+        /// <inheritdoc/>
+        public void Show (int id, string channelId, string title, string text, bool ongoing, bool fullScreen)
+            => notificationBackend.Show (id, channelId, title, text, ongoing, fullScreen);
+
+        /// <inheritdoc/>
+        public void Cancel (int id) => notificationBackend.Cancel (id);
 #endif
 
 #if !SINGLEVIEW

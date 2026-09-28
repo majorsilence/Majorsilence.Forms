@@ -17,7 +17,9 @@
 # popup left, which must proceed to exit like the platform's own default back behaviour. It also checks
 # GalleryApplication's F13_HAPTICS_SMOKE result -- Haptics.IsSupported true and Tap/Impact/Vibrate all
 # running with no exception -- though the acceptance criterion for feeling anything real needs a human on
-# a real phone: this emulator has no vibrator to prove that part.
+# a real phone: this emulator has no vibrator to prove that part. It also posts an F14 notification
+# (channel, importance, permission, ongoing, full-screen intent), confirms via dumpsys that it actually
+# posted, and replays a notification tap to prove LocalNotifications.Tapped fires.
 #
 # Usage: android-smoke-test.sh <apk-or-dir> [screenshot-output-path]
 #   <apk-or-dir>  a *-Signed.apk file, or a directory to search for one (recursively).
@@ -119,6 +121,57 @@ else
   fail "no F13_HAPTICS_SMOKE PASS line in logcat within ${SETTLE_SECONDS}s"
 fi
 
+# GalleryApplication.RunNotificationsSmokeTest (register item F14, Android half): channels, importance,
+# permission, an ongoing full-screen-intent notification, and the tap callback. Unlike F13, this emulator
+# has a real notification centre, so this independently confirms via dumpsys that the notification
+# actually posted -- not just that Show() didn't throw -- and drives the tap callback for real by
+# replaying the exact launch intent a tap's PendingIntent sends (a literal notification-shade gesture is
+# not simulated here, the same "input event, not a pixel-coordinate swipe" idiom F10/F11 already use).
+# adb install -g above already grants every runtime permission the manifest declares, POST_NOTIFICATIONS
+# included, so there is no interactive system dialog to work around here.
+echo "Checking for the F14 Notifications smoke-test result ..."
+if grep -q "F14_NOTIFICATIONS_SMOKE.*FAIL" <<<"$LOG"; then
+  echo "$LOG" | grep "F14_NOTIFICATIONS_SMOKE" >&2
+  fail "F14 Notifications smoke test reported FAIL (see F14_NOTIFICATIONS_SMOKE lines above)"
+elif grep -q "F14_NOTIFICATIONS_SMOKE.*PASS" <<<"$LOG"; then
+  echo "F14 Notifications smoke test: PASS"
+else
+  echo "$LOG" | grep "F14_NOTIFICATIONS_SMOKE" >&2 || true
+  fail "no F14_NOTIFICATIONS_SMOKE PASS line in logcat within ${SETTLE_SECONDS}s"
+fi
+
+echo "Confirming the F14 smoke notification actually posted (dumpsys notification) ..."
+NOTIF_DUMP="$(adb shell dumpsys notification --noredact 2>/dev/null || true)"
+if ! grep -q "f14-smoke" <<<"$NOTIF_DUMP"; then
+  echo "$NOTIF_DUMP" >&2
+  fail "no posted notification found on channel f14-smoke in dumpsys notification"
+fi
+if ! grep -q "F14 smoke test" <<<"$NOTIF_DUMP"; then
+  echo "$NOTIF_DUMP" >&2
+  fail "the posted notification's title is missing from dumpsys notification"
+fi
+if ! grep -q "fullScreenIntent=PendingIntent" <<<"$NOTIF_DUMP"; then
+  echo "$NOTIF_DUMP" >&2
+  fail "the posted notification has no fullScreenIntent in dumpsys notification"
+fi
+echo "F14 notification confirmed posted: channel, title and full-screen intent all present"
+
+# AndroidNotificationBackend.TappedExtraKey's literal value, embedded here rather than read from
+# anywhere: changing that constant must update this line too, or this check silently stops proving
+# anything.
+echo "Replaying a notification tap (register item F14's tap callback) ..."
+adb logcat -c || true
+adb shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$PKG" --ei majorsilence_forms_notification_tapped_id 1001 >/dev/null 2>&1 \
+  || fail "could not replay the notification tap intent"
+sleep 2
+
+LOG="$(adb logcat -d 2>/dev/null)"
+if ! grep -q "F14_NOTIFICATIONS_SMOKE.*Tapped:1001" <<<"$LOG"; then
+  echo "$LOG" | grep "F14_NOTIFICATIONS_SMOKE" >&2 || true
+  fail "no F14_NOTIFICATIONS_SMOKE Tapped:1001 line in logcat after replaying the tap intent"
+fi
+echo "F14 tap callback: LocalNotifications.Tapped fired with the right id"
+
 # The scene draws into an Avalonia SurfaceView; if MainActivity threw during OnCreate the emulator
 # would be showing the launcher, not our package, so confirm we own the foreground.
 TOP="$(adb shell dumpsys activity activities 2>/dev/null | grep -m1 -iE 'mResumedActivity|topResumedActivity' || true)"
@@ -203,4 +256,4 @@ case "$TOP" in
 esac
 echo "F11 back button (no popup): unhandled, app exited normally"
 
-echo "PASS: $PKG installed, launched, stayed alive ${SETTLE_SECONDS}s with no fatal exception, held the foreground, the F8/F9 audio smoke tests passed, F10's Suspended/Resumed + Form.Activated/Deactivate all fired on a real background/foreground cycle, F11's back button closed the popup then exited the app, and F13's Haptics plumbing (IsSupported, Tap/Impact/Vibrate) ran with no exception."
+echo "PASS: $PKG installed, launched, stayed alive ${SETTLE_SECONDS}s with no fatal exception, held the foreground, the F8/F9 audio smoke tests passed, F10's Suspended/Resumed + Form.Activated/Deactivate all fired on a real background/foreground cycle, F11's back button closed the popup then exited the app, F13's Haptics plumbing (IsSupported, Tap/Impact/Vibrate) ran with no exception, and F14's notification posted with the right channel/title/full-screen-intent and its tap callback fired."

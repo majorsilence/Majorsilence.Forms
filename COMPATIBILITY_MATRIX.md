@@ -690,6 +690,64 @@ on a simulator or device either, and a simulator could not prove the feel even i
 the same hardware reason. **Both halves still need a human on a real Android phone and a real iPhone**
 before this register item can be considered fully verified, exactly what the issue asks for.
 
+## Local notifications
+
+**`LocalNotifications.RegisterChannel`/`RequestPermission`/`Show`/`Cancel`/`IsPermissionGranted`/`IsSupported`**
+(added 2026-09, register item F14 — the Android half; iOS and desktop `NotifyIcon.ShowBalloonTip` are
+tracked separately, scoped out of this PR deliberately) are real on Android
+(`NotificationManagerCompat`/`NotificationChannelCompat`, AndroidX Core) and `false`/no-op everywhere else,
+including Headless — the register item's own acceptance criterion, and unlike F8/F9's audio (real and
+test-hooked under Headless too): `INotificationBackend` is declared in `AvaloniaPlatformBackend`'s base list
+only under `#if ANDROID`, the same "no supported-but-does-nothing middle state" reasoning F13's
+`IHapticsBackend` already documents.
+
+**Two capabilities neither F8–F13 needed: a live `Activity`, and the host's own `Intent`.**
+`RequestPermission` (API 33+ only; `IsPermissionGranted` is unconditionally `true` below that, since no
+runtime permission exists to deny) needs `ActivityCompat.RequestPermissions` called on a real `Activity` —
+nothing in `Majorsilence.Forms.Avalonia` can discover "the current Activity" generically, the same gap
+F11's `RaiseBackRequested` finding already documents, so `MainActivity.OnCreate` registers itself once via
+`AvaloniaPlatformBackend.RegisterAndroidActivity`. A notification tap needs the host's own `Intent` read
+back: `MainActivity` forwards it from both `OnCreate` and `OnNewIntent` (the Activity is
+`LaunchMode.SingleTop`, so a tap while already running arrives via `OnNewIntent`) to
+`AvaloniaPlatformBackend.ReportAndroidIntent`, which recognises the backend's own extra key and raises
+`LocalNotifications.Tapped` — the host never needs to know that key itself. `MainActivity.OnRequestPermissionsResult`
+forwards to `ReportNotificationPermissionResult`, which just re-triggers `PermissionChanged`;
+`IsPermissionGranted` always re-reads the platform fresh, so no result payload needs to survive the trip.
+
+**A real `StoredOnlyPropertyBaselineTests` failure, not guessed.** The first version had
+`INotificationBackend.RegisterChannel`/`Show` take the `NotificationChannel`/`LocalNotification` object
+itself; every settable field on both types then failed the gate, because it only scans `Majorsilence.Forms.dll`
+for a reader, and the only real reader (`AndroidNotificationBackend`) lives in a different, `#if ANDROID`-gated
+assembly — invisible to that scan regardless of platform. Fixed the same way `Media.AudioPlayer.Play` already
+does it: `LocalNotifications.RegisterChannel`/`Show` read every field themselves and forward primitives, not
+the object, to the backend interface.
+
+**A real `CA1416` finding, not guessed.** `PendingIntentFlags.Immutable` needs API 23+; this project's
+*library* floor is API 21 (not `Gallery.Android`'s own 24 — the same distinction F13's `VibrationEffect`
+finding above already covers), so it is only added when `OperatingSystem.IsAndroidVersionAtLeast (23)`.
+
+**`android.permission.POST_NOTIFICATIONS` ships with the framework, not with each app** — an assembly-level
+`UsesPermission` attribute on `Majorsilence.Forms.Avalonia`, the same mechanism F13's `VIBRATE` permission
+already uses, confirmed by grepping the built `Gallery.Android` APK's merged manifest.
+
+**Verified for real on Android — by CI, on the first push**, more thoroughly than F13 could: unlike
+haptics, an emulator has a real notification centre. `GalleryApplication.RunNotificationsSmokeTest` posts an
+ongoing, full-screen-intent notification on a High-importance channel; `android-smoke-test.sh` independently
+confirms via `adb shell dumpsys notification --noredact` that it actually posted (channel id, title and a
+non-null `fullScreenIntent` all present — not just that `Show` did not throw), then replays the exact launch
+intent a real tap's `PendingIntent` would send (`adb shell am start` with the tapped id as an extra, the same
+"input event, not a pixel-coordinate gesture" idiom F10/F11 already use for background/foreground and back)
+and confirms `LocalNotifications.Tapped` fired with the right id. `Ongoing`'s and `Sound`'s exact effect is
+covered by the fake-backend unit tests instead (`LocalNotificationsTests`), not by parsing further dumpsys
+flag bits on top of channel/title/full-screen/tap — a reasonable line, not a shortfall: those two are simple
+boolean pass-throughs, already asserted precisely there, and adding a second real-device signal for them
+would not catch anything the unit test does not already catch.
+
+**What is left for this register item.** iOS `LocalNotifications` (`UNUserNotificationCenter`) and desktop
+`NotifyIcon.ShowBalloonTip` (Windows/macOS/Linux, three separate toast systems) are both deliberately out of
+scope for this PR — the Android half is what alert-buddy's M4 (Android background delivery) actually needs
+next; the rest follows in later PRs.
+
 ## Design-time smart tags
 
 `DesignerActionUIService` exists so that the guarded calls around it compile: a component's action list
