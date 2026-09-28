@@ -74,6 +74,30 @@ public class SourceConverterTests
         Assert.DoesNotContain (result.Warnings, w => w.Contains (type));
     }
 
+    // Majorsilence.Forms.TabStripItem (the tab strip's own item) and
+    // Majorsilence.Forms.Telerik.TabStripItem (a RadItem with IsPinned/Title) are unrelated types that
+    // share a name, and a migrated Telerik project imports both namespaces -- so every unqualified use is
+    // ambiguous. This converter is what produces the bare name, by stripping Telerik.WinControls.UI, so
+    // it is the right place to say which one was meant. The source said Telerik.
+    [Fact]
+    public void Pins_TabStripItem_to_the_Telerik_one_when_both_namespaces_are_imported ()
+    {
+        var result = SourceConverter.Convert (
+            "using Telerik.WinControls.UI;\nusing Majorsilence.Forms;\nTabStripItem i;");
+
+        Assert.Contains ("using TabStripItem = Majorsilence.Forms.Telerik.TabStripItem;", result.Text);
+    }
+
+    // An alias where the name is never used unqualified is noise, and the existing BCL pass already
+    // declines to add one; the Majorsilence pass goes through the same code, so it behaves the same way.
+    [Fact]
+    public void Does_not_alias_TabStripItem_when_the_name_is_not_used ()
+    {
+        var result = SourceConverter.Convert ("using Telerik.WinControls.UI;\nusing Majorsilence.Forms;\nRadLabel l;");
+
+        Assert.DoesNotContain ("using TabStripItem =", result.Text);
+    }
+
     [Fact]
     public void Rewrites_drawing_sub_namespaces ()
     {
