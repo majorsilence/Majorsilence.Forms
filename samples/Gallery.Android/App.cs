@@ -195,6 +195,28 @@ namespace Gallery.Android
                         const string Tag = "F10_LIFECYCLE";
                         form.Activated += (_, _) => Log.Info (Tag, "Form.Activated");
                         form.Deactivate += (_, _) => Log.Info (Tag, "Form.Deactivate");
+
+                        // Register item F11: the platform back button/gesture. MainActivity forwards its
+                        // own BackRequested to AvaloniaPlatformBackend.RaiseBackRequested, which prefers
+                        // Application.ActivePopupWindow over this form when one is open. A small popup
+                        // ("sheet") shown right after this form appears lets android-smoke-test.sh press
+                        // KEYCODE_BACK for real and prove the acceptance criterion -- "closes a sheet
+                        // without leaving the app" -- rather than just exiting: the popup's own
+                        // BackRequested cancels and hides it (clearing ActivePopupWindow, see
+                        // WindowBase.Hide); a second back press then has no popup left to route to, so it
+                        // reaches this form's own (unhandled) BackRequested and the platform's default back
+                        // behaviour proceeds, same as pressing back with nothing open.
+                        const string BackTag = "F11_BACKBUTTON_SMOKE";
+                        form.BackRequested += (_, _) => Log.Info (BackTag, "MainForm.BackRequested (unhandled)");
+                        form.Shown += (_, _) => {
+                            var popup = new MSForms.PopupWindow (form) { Size = new System.Drawing.Size (200, 100) };
+                            popup.BackRequested += (_, e2) => {
+                                e2.Cancel = true;
+                                popup.Hide ();
+                                Log.Info (BackTag, "Popup.BackRequested cancelled -- sheet closed, app still open");
+                            };
+                            popup.Show (20, 20);
+                        };
                         return form;
                     });
                     return ((ISingleViewApplicationLifetime) ApplicationLifetime!).MainView!;

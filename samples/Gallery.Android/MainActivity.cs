@@ -1,5 +1,6 @@
 using Android.App;
 using Android.Content.PM;
+using Android.OS;
 using Avalonia.Android;
 
 namespace Gallery.Android
@@ -20,5 +21,14 @@ namespace Gallery.Android
         ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.UiMode)]
     public class MainActivity : AvaloniaMainActivity
     {
+        // Register item F11: AvaloniaActivity.BackRequested is declared directly on the Activity -- there
+        // is no generic "current Activity" accessor in the public API for AvaloniaPlatformBackend itself
+        // to subscribe through (see its RaiseBackRequested doc comment) -- so the host app's own Activity
+        // forwards it, one line, the same shape RunAndroid already requires of MainActivity/GalleryApplication.
+        protected override void OnCreate (Bundle? savedInstanceState)
+        {
+            base.OnCreate (savedInstanceState);
+            BackRequested += (_, e) => e.Handled = Majorsilence.Forms.Backends.AvaloniaPlatformBackend.RaiseBackRequested ();
+        }
     }
 }
