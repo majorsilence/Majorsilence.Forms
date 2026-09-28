@@ -58,6 +58,10 @@ namespace Majorsilence.Forms
     {
         internal static MajorsilenceFormsSingleViewHost? MainHost { get; private set; }
 
+        /// <summary>The <see cref="WindowBase"/> this host draws, for <see cref="AvaloniaPlatformBackend.HookApplicationLifecycle"/>
+        /// to raise Activated/Deactivate on -- register item F10, single-view hosts (Android, iOS, browser) only.</summary>
+        internal WindowBase Owner => _owner;
+
         private readonly WindowBase _owner;
         private readonly bool _isRoot;
         private System.Drawing.Point _location;

@@ -30,6 +30,14 @@ namespace Gallery.Android
             base.OnCreate ();
             ThreadPool.QueueUserWorkItem (_ => RunAudioSmokeTest ());
             ThreadPool.QueueUserWorkItem (_ => RunAudioPlayerSmokeTest ());
+
+            // Register item F10: real signals need a real backgrounding, which nothing in-process can
+            // trigger -- android-smoke-test.sh drives it externally (KEYCODE_HOME, then relaunch) and
+            // greps for these two lines, so this is a permanent, repeated-on-every-PR check like the
+            // F8/F9 ones above, not a one-off manual run.
+            const string Tag = "F10_LIFECYCLE";
+            MSForms.Application.Suspended += (_, _) => Log.Info (Tag, "Suspended");
+            MSForms.Application.Resumed += (_, _) => Log.Info (Tag, "Resumed");
         }
 
         // Not a xunit test -- there is no test runner on the emulator android-smoke boots. This exercises
@@ -179,7 +187,16 @@ namespace Gallery.Android
                     // MainForm.Show() constructs MajorsilenceFormsSingleViewHost, whose constructor
                     // registers itself as ISingleViewApplicationLifetime.MainView -- read it back rather
                     // than reaching into the (internal, cross-assembly-inaccessible) host type directly.
-                    MSForms.Application.RunAndroid (() => new MainForm ());
+                    MSForms.Application.RunAndroid (() => {
+                        var form = new MainForm ();
+                        // Register item F10: the single-view root host's own Activated/Deactivate --
+                        // MajorsilenceFormsSingleViewHost forwards these from the same IActivatableLifetime
+                        // subscription that raises Application.Suspended/Resumed above.
+                        const string Tag = "F10_LIFECYCLE";
+                        form.Activated += (_, _) => Log.Info (Tag, "Form.Activated");
+                        form.Deactivate += (_, _) => Log.Info (Tag, "Form.Deactivate");
+                        return form;
+                    });
                     return ((ISingleViewApplicationLifetime) ApplicationLifetime!).MainView!;
                 };
             }

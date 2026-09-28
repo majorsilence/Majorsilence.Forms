@@ -8,7 +8,10 @@
 # and packaged fine and only blew up on launch. This script installs the APK on an already-booted
 # emulator, launches it, and fails if the process dies or logcat shows a fatal exception / ANR during
 # the first ~25 seconds -- or if GalleryApplication's F8_AUDIO_SMOKE or F9_AUDIOPLAYER_SMOKE self-tests
-# (register items F8/F9: IAudioBackend and AudioPlayer on Android) do not report PASS in that window.
+# (register items F8/F9: IAudioBackend and AudioPlayer on Android) do not report PASS in that window. It
+# then backgrounds the app and brings it back (KEYCODE_HOME, then relaunch) and fails if
+# Application.Suspended/Resumed and the single-view host's Form.Activated/Deactivate (register item F10)
+# do not both fire, in the right order, on that real transition.
 #
 # Usage: android-smoke-test.sh <apk-or-dir> [screenshot-output-path]
 #   <apk-or-dir>  a *-Signed.apk file, or a directory to search for one (recursively).
@@ -110,4 +113,39 @@ if [ -n "$SHOT" ]; then
   adb exec-out screencap -p > "$SHOT" 2>/dev/null && echo "Saved screenshot to $SHOT" || echo "WARNING: screencap failed" >&2
 fi
 
-echo "PASS: $PKG installed, launched, stayed alive ${SETTLE_SECONDS}s with no fatal exception, held the foreground, and the F8/F9 audio smoke tests passed."
+# Register item F10: Application.Suspended/Resumed and the single-view root host's Form.Activated/
+# Deactivate. Nothing in-process can trigger a real background/foreground transition, so this drives
+# one externally -- KEYCODE_HOME, then relaunch via monkey -- and greps logcat for both pairs of
+# GalleryApplication's F10_LIFECYCLE log lines (see App.cs).
+echo "Backgrounding $PKG (KEYCODE_HOME) ..."
+adb shell input keyevent KEYCODE_HOME || fail "could not send KEYCODE_HOME"
+sleep 3
+
+LOG="$(adb logcat -d 2>/dev/null)"
+if ! grep -q "F10_LIFECYCLE.*Suspended" <<<"$LOG"; then
+  echo "$LOG" | grep "F10_LIFECYCLE" >&2 || true
+  fail "no F10_LIFECYCLE: Suspended line in logcat after backgrounding $PKG"
+fi
+if ! grep -q "F10_LIFECYCLE.*Form.Deactivate" <<<"$LOG"; then
+  echo "$LOG" | grep "F10_LIFECYCLE" >&2 || true
+  fail "no F10_LIFECYCLE: Form.Deactivate line in logcat after backgrounding $PKG"
+fi
+echo "F10 lifecycle (background): Suspended and Form.Deactivate both fired"
+
+echo "Foregrounding $PKG again ..."
+adb logcat -c || true
+adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1 || fail "monkey could not relaunch $PKG"
+sleep 3
+
+LOG="$(adb logcat -d 2>/dev/null)"
+if ! grep -q "F10_LIFECYCLE.*Resumed" <<<"$LOG"; then
+  echo "$LOG" | grep "F10_LIFECYCLE" >&2 || true
+  fail "no F10_LIFECYCLE: Resumed line in logcat after foregrounding $PKG"
+fi
+if ! grep -q "F10_LIFECYCLE.*Form.Activated" <<<"$LOG"; then
+  echo "$LOG" | grep "F10_LIFECYCLE" >&2 || true
+  fail "no F10_LIFECYCLE: Form.Activated line in logcat after foregrounding $PKG"
+fi
+echo "F10 lifecycle (foreground): Resumed and Form.Activated both fired"
+
+echo "PASS: $PKG installed, launched, stayed alive ${SETTLE_SECONDS}s with no fatal exception, held the foreground, the F8/F9 audio smoke tests passed, and F10's Suspended/Resumed + Form.Activated/Deactivate all fired on a real background/foreground cycle."

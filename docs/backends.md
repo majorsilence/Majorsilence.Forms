@@ -653,6 +653,26 @@ See `tests/Majorsilence.Forms.Tests/AudioPlayerTests.cs` for how `HeadlessRender
 calls, `Stop` disposing every track an instance started (and no other instance's), and `Completed` firing
 only for a natural finish — all without a device.
 
+## Application lifecycle (Avalonia-specific, register item F10)
+
+Unlike the seams above, `Application.Suspended`/`Resumed` and the single-view host's `Form.Activated`/
+`Deactivate` are not a new `IPlatformBackend` capability every backend can opt into — every *other* backend
+(WinForms, WPF, GTK 4, Uno, Headless) already fires `Activated`/`Deactivate` correctly from its own real
+window-activation signal, and none of them has an OS-level "backgrounded" concept to raise `Suspended`/
+`Resumed` from at all. The gap was single-view (Android, iOS, browser): nothing there ever called
+`WindowBase.OnBackendActivated`/`OnBackendDeactivated`, and nothing raised `Suspended`/`Resumed` anywhere.
+
+`AvaloniaPlatformBackend.HookApplicationLifecycle` (called once, idempotently, from `Initialize`/
+`InitializeAsync`) is entirely internal to this one backend. It reaches Avalonia's `IActivatableLifetime`
+through `Application.Current.TryGetFeature (typeof (IActivatableLifetime))` — **not**
+`Application.Current.ApplicationLifetime`, the pattern `IWebViewFactory`/`IReducedMotionSource` both use:
+on Android, `ApplicationLifetime` resolves to `Avalonia.Android.ApplicationLifetime`, which does not
+implement `IActivatableLifetime` at all (confirmed by inspecting the shipped assembly directly, not
+assumed). Filtered to `ActivationKind.Background`, it forwards to `Application.RaiseSuspended`/
+`RaiseResumed` and, on the single-view root host only, to the owning `WindowBase`'s own
+`OnBackendActivated`/`OnBackendDeactivated`. See `COMPATIBILITY_MATRIX.md`'s "Application lifecycle" entry
+for the full finding and how it is verified.
+
 ### Adding another backend
 
 A new backend is a new assembly referencing `Majorsilence.Forms` (core) + the toolkit, implementing the two
