@@ -726,11 +726,16 @@ the object, to the backend interface.
 *library* floor is API 21 (not `Gallery.Android`'s own 24 — the same distinction F13's `VibrationEffect`
 finding above already covers), so it is only added when `OperatingSystem.IsAndroidVersionAtLeast (23)`.
 
-**`android.permission.POST_NOTIFICATIONS` ships with the framework, not with each app** — an assembly-level
-`UsesPermission` attribute on `Majorsilence.Forms.Avalonia`, the same mechanism F13's `VIBRATE` permission
-already uses, confirmed by grepping the built `Gallery.Android` APK's merged manifest.
+**`android.permission.POST_NOTIFICATIONS` and `USE_FULL_SCREEN_INTENT` both ship with the framework, not
+with each app** — two assembly-level `UsesPermission` attributes on `Majorsilence.Forms.Avalonia`, the same
+mechanism F13's `VIBRATE` permission already uses, confirmed by grepping the built `Gallery.Android` APK's
+merged manifest. `USE_FULL_SCREEN_INTENT` is a normal, declare-only permission (no runtime request, unlike
+`POST_NOTIFICATIONS`) — without it, Android 14+ silently strips `SetFullScreenIntent` rather than throwing:
+the notification still posts, just with `fullscreenIntent=null`, confirmed by a real CI run (see below) where
+`dumpsys notification` showed exactly that for a notification this backend had genuinely called
+`SetFullScreenIntent` on.
 
-**A real missing-icon finding, not guessed — and the reason CI's first two pushes both failed.**
+**A real missing-icon finding, not guessed — and the reason two of CI's first three pushes failed.**
 `NotificationManager.notify` throws `IllegalArgumentException: Invalid notification (no valid small icon)`
 without one; `Show`'s own `catch` swallowed that exception the same "never worth a crash" way every other
 member here does, so the app-side smoke test logged PASS (`Show` never threw) while the emulator's own
@@ -748,11 +753,19 @@ app icon degrades to a generic-looking notification instead of the notification 
 own `ActiveNotifications` after `Show`, rather than trusting the absence of an exception — the same
 distinction that exposed this in the first place.
 
-**Verified for real on Android — by CI, after that fix**, more thoroughly than F13 could: unlike haptics, an
-emulator has a real notification centre. The smoke test posts an ongoing, full-screen-intent notification on
-a High-importance channel; `android-smoke-test.sh` independently confirms via
+**A third real finding on the way to green: `USE_FULL_SCREEN_INTENT`.** With the icon fixed, the notification
+posted for the first time, but `dumpsys notification` showed `fullscreenIntent=null` even though `Show` had
+genuinely called `SetFullScreenIntent` — Android 14+ silently strips it without this normal, declare-only
+permission, confirmed for real rather than assumed (see above). A second, unrelated bug surfaced at the same
+time: the script's own check grepped `fullScreenIntent` (camel-case `S`), but `dumpsys`'s real field name is
+`fullscreenIntent` (lower-case) — a case mismatch that would have kept failing even after the permission fix
+landed, caught by actually reading the dump rather than assuming the field name.
+
+**Verified for real on Android — by CI, after all three fixes**, more thoroughly than F13 could: unlike
+haptics, an emulator has a real notification centre. The smoke test posts an ongoing, full-screen-intent
+notification on a High-importance channel; `android-smoke-test.sh` independently confirms via
 `adb shell dumpsys notification --noredact` that it actually posted (channel id, title and a non-null
-`fullScreenIntent` all present), then replays the exact launch intent a real tap's `PendingIntent` would send
+`fullscreenIntent` all present), then replays the exact launch intent a real tap's `PendingIntent` would send
 (`adb shell am start` with the tapped id as an extra, the same "input event, not a pixel-coordinate gesture"
 idiom F10/F11 already use for background/foreground and back) and confirms `LocalNotifications.Tapped` fired
 with the right id. `Ongoing`'s and `Sound`'s exact effect is covered by the fake-backend unit tests instead

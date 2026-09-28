@@ -164,9 +164,9 @@ if ! grep -q "F14 smoke test" <<<"$NOTIF_DUMP"; then
   dump_notification_diagnostics
   fail "the posted notification's title is missing from dumpsys notification"
 fi
-if ! grep -q "fullScreenIntent=PendingIntent" <<<"$NOTIF_DUMP"; then
+if ! grep -q "fullscreenIntent=PendingIntent" <<<"$NOTIF_DUMP"; then
   dump_notification_diagnostics
-  fail "the posted notification has no fullScreenIntent in dumpsys notification"
+  fail "the posted notification has no fullscreenIntent in dumpsys notification"
 fi
 echo "F14 notification confirmed posted: channel, title and full-screen intent all present"
 

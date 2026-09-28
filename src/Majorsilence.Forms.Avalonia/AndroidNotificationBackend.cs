@@ -13,6 +13,12 @@ using AndroidX.Core.App;
 // merges it into any consuming app's manifest automatically.
 [assembly: Android.App.UsesPermission (Android.Manifest.Permission.PostNotifications)]
 
+// USE_FULL_SCREEN_INTENT is a normal permission (declare-only, no runtime request) but without it Android
+// 14+ silently strips SetFullScreenIntent -- the notification still posts, just with fullscreenIntent=null
+// -- rather than throwing, confirmed by a real CI run where dumpsys notification showed exactly that for a
+// notification this backend had genuinely called SetFullScreenIntent on.
+[assembly: Android.App.UsesPermission (Android.Manifest.Permission.UseFullScreenIntent)]
+
 namespace Majorsilence.Forms.Backends
 {
     /// <summary>
