@@ -171,12 +171,14 @@ namespace Gallery.Android
 
         // Register item F14 (Android half): channels, importance, permission, posting with an ongoing
         // full-screen-intent notification, and the tap callback round-trip. Unlike F13's haptics, an
-        // emulator DOES have a real notification centre, so android-smoke-test.sh independently confirms
-        // this actually posted (dumpsys notification), not just that Show() didn't throw -- and drives the
-        // tap callback for real by replaying the exact launch intent a tap's PendingIntent would send (see
-        // AndroidNotificationBackend's own remarks for why a literal notification-shade gesture is not
-        // simulated here). LocalNotifications.Tapped is subscribed here, in OnCreate, so it is already
-        // wired before the script's later am start delivers the tap.
+        // emulator DOES have a real notification centre, so this checks ActiveNotifications itself (Show()
+        // never throws even when the platform silently drops a post for a missing permission -- confirmed
+        // by a real CI run where PASS logged and dumpsys notification still showed nothing), and
+        // android-smoke-test.sh separately confirms the same thing externally (dumpsys notification) and
+        // drives the tap callback for real by replaying the exact launch intent a tap's PendingIntent would
+        // send (see AndroidNotificationBackend's own remarks for why a literal notification-shade gesture
+        // is not simulated here). LocalNotifications.Tapped is subscribed here, in OnCreate, so it is
+        // already wired before the script's later am start delivers the tap.
         private void RunNotificationsSmokeTest ()
         {
             const string Tag = "F14_NOTIFICATIONS_SMOKE";
@@ -209,7 +211,26 @@ namespace Gallery.Android
                     FullScreen = true,
                 });
 
-                Log.Info (Tag, "PASS: RegisterChannel, RequestPermission and Show all completed with no exception");
+                // Show() itself never throws -- Android 13+'s own contract for a missing POST_NOTIFICATIONS
+                // grant is to silently no-op, not raise -- so "no exception" alone does not prove anything
+                // posted. ActiveNotifications is this process's own, immediate way to check for real,
+                // instead of only trusting android-smoke-test.sh's later, external dumpsys check.
+                var posted = AndroidX.Core.App.NotificationManagerCompat.From (this)?.ActiveNotifications;
+                var found = false;
+                if (posted is not null) {
+                    foreach (var n in posted) {
+                        if (n?.Id == 1001) {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                if (!found) {
+                    Log.Error (Tag, "FAIL: Show() did not throw, but notification 1001 is not in ActiveNotifications");
+                    return;
+                }
+
+                Log.Info (Tag, "PASS: RegisterChannel, RequestPermission, Show and ActiveNotifications all confirm the notification posted");
             } catch (Exception ex) {
                 Log.Error (Tag, $"FAIL: {ex}");
             }

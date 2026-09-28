@@ -60,6 +60,12 @@ adb shell input keyevent 82 >/dev/null 2>&1 || true   # dismiss the lock screen 
 echo "Installing $APK ..."
 adb install -r -g "$APK" || fail "adb install returned non-zero"
 
+# -g above is documented to grant every runtime permission the manifest declares, but a real run on this
+# API 34 image showed the F14 smoke notification silently dropped (Show() itself never throws -- Android
+# 13+'s own contract for a missing POST_NOTIFICATIONS grant is to no-op, not raise) even though -g was
+# passed, so this grants it a second, explicit way, belt-and-braces. Harmless if -g already covered it.
+adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS 2>/dev/null || true
+
 echo "Clearing logcat and launching $PKG ..."
 adb logcat -c || true
 # monkey resolves and starts the LAUNCHER activity without needing the (Xamarin-mangled) class name.
@@ -142,16 +148,21 @@ fi
 
 echo "Confirming the F14 smoke notification actually posted (dumpsys notification) ..."
 NOTIF_DUMP="$(adb shell dumpsys notification --noredact 2>/dev/null || true)"
-if ! grep -q "f14-smoke" <<<"$NOTIF_DUMP"; then
+dump_notification_diagnostics() {
   echo "$NOTIF_DUMP" >&2
+  echo "----- $PKG POST_NOTIFICATIONS grant state -----" >&2
+  adb shell dumpsys package "$PKG" 2>/dev/null | grep -A2 POST_NOTIFICATIONS >&2 || true
+}
+if ! grep -q "f14-smoke" <<<"$NOTIF_DUMP"; then
+  dump_notification_diagnostics
   fail "no posted notification found on channel f14-smoke in dumpsys notification"
 fi
 if ! grep -q "F14 smoke test" <<<"$NOTIF_DUMP"; then
-  echo "$NOTIF_DUMP" >&2
+  dump_notification_diagnostics
   fail "the posted notification's title is missing from dumpsys notification"
 fi
 if ! grep -q "fullScreenIntent=PendingIntent" <<<"$NOTIF_DUMP"; then
-  echo "$NOTIF_DUMP" >&2
+  dump_notification_diagnostics
   fail "the posted notification has no fullScreenIntent in dumpsys notification"
 fi
 echo "F14 notification confirmed posted: channel, title and full-screen intent all present"
