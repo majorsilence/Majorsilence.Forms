@@ -589,6 +589,8 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Compat stand-in for Telerik's RadControl base (sites type variables as RadControl).</summary>
     public class RadControl : Majorsilence.Forms.Control, ISupportInitializeCompat
     {
+        /// <summary>Gets the root element of the control (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
     }
 
     /// <summary>Compat stand-in for the drop-down calendar of a RadDateTimePicker.</summary>

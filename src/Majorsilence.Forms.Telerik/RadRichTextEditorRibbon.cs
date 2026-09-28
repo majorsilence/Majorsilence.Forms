@@ -22,6 +22,8 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RichTextEditorRibbonBar : Control, ISupportInitializeCompat
     {
+        /// <summary>Gets the root element of the bar (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
         private readonly RadRibbonBarElement _rootElement = new ();
 
         /// <summary>Gets or sets the <see cref="RadRichTextEditor"/> this ribbon bar controls.</summary>
@@ -162,6 +164,8 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadRibbonBar : Control, ISupportInitializeCompat
     {
+        /// <summary>Gets the root element of the bar (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Gets the ribbon's tabs. Stub list.</summary>
         public List<RibbonTab> Tabs { get; } = new ();
     }

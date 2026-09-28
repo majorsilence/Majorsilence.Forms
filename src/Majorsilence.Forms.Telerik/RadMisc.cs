@@ -5,6 +5,8 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat status strip. Backed by <see cref="Majorsilence.Forms.Control"/>.</summary>
     public class RadStatusStrip : Control, ISupportInitializeCompat
     {
+        /// <summary>Gets the root element of the strip (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Gets the items hosted in the status strip.</summary>
         public List<object> Items { get; } = new ();
         /// <summary>Sets whether the last item springs to fill remaining space. Stub.</summary>
@@ -14,6 +16,8 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat command bar. Backed by <see cref="Majorsilence.Forms.Control"/>.</summary>
     public class RadCommandBar : Control, ISupportInitializeCompat
     {
+        /// <summary>Gets the root element of the bar (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Gets the command-bar rows.</summary>
         public List<CommandBarRowElement> Rows { get; } = new ();
     }
@@ -39,7 +43,11 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat menu. Backed by <see cref="Majorsilence.Forms.Menu"/>.</summary>
-    public class RadMenu : Menu, ISupportInitializeCompat { }
+    public class RadMenu : Menu, ISupportInitializeCompat 
+    {
+        /// <summary>Gets the root element of the menu (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
+    }
 
     /// <summary>Telerik-compat menu item. Backed by <see cref="Majorsilence.Forms.MenuItem"/>.</summary>
     public class RadMenuItem : MenuItem

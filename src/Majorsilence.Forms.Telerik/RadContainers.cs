@@ -5,6 +5,8 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat tabbed page view. Backed by <see cref="Majorsilence.Forms.TabControl"/>.</summary>
     public class RadPageView : TabControl, ISupportInitializeCompat
     {
+        /// <summary>Gets the root element of the page view (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Gets the collection of pages (alias for <see cref="TabControl.TabPages"/>).</summary>
         public TabPageCollection Pages => TabPages;
 
@@ -298,6 +300,8 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadCollapsiblePanel : Panel, ISupportInitializeCompat
     {
+        /// <summary>Gets the root element of the panel (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
         private bool _isExpanded = true;
 
         /// <summary>Initializes a new instance of the RadCollapsiblePanel class.</summary>
@@ -354,6 +358,8 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat scrollable panel. Backed by <see cref="Majorsilence.Forms.Panel"/>; hosts a single filling <see cref="RadScrollablePanelContainer"/>.</summary>
     public class RadScrollablePanel : Panel, ISupportInitializeCompat
     {
+        /// <summary>Gets the root element of the panel (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Initializes a new instance of the RadScrollablePanel class.</summary>
         public RadScrollablePanel ()
         {
@@ -366,5 +372,9 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat container hosted by a <see cref="RadScrollablePanel"/>. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
-    public class RadScrollablePanelContainer : Panel, ISupportInitializeCompat { }
+    public class RadScrollablePanelContainer : Panel, ISupportInitializeCompat
+    {
+        /// <summary>Gets the root element of the container (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
+    }
 }

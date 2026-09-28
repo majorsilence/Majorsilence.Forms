@@ -297,6 +297,26 @@ internal static class NamespaceMap
     ];
 
     /// <summary>
+    /// Names that <b>two Majorsilence namespaces</b> both declare, mapped to the one the pre-migration
+    /// source meant. Same ambiguity as <see cref="BclPreferredTypes"/> and the same remedy, but with no
+    /// BCL side involved: the collision is between <c>Majorsilence.Forms</c> and a sibling.
+    /// </summary>
+    /// <remarks>
+    /// <c>TabStripItem</c> is the only one. <c>Majorsilence.Forms.TabStripItem</c> is the tab strip's own
+    /// item; <c>Majorsilence.Forms.Telerik.TabStripItem</c> is a <c>RadItem</c> with <c>IsPinned</c> and
+    /// <c>Title</c>. They are unrelated types that happen to share a name, and a migrated Telerik project
+    /// imports both namespaces — so every unqualified use is BC30561/CS0104.
+    ///
+    /// This converter is what creates the ambiguity, by rewriting <c>Telerik.WinControls.UI.TabStripItem</c>
+    /// to the bare name, so it is the right place to resolve it. The source said Telerik, so the alias says
+    /// Telerik.
+    /// </remarks>
+    public static readonly (string Type, string Namespace)[] MajorsilencePreferredTypes =
+    [
+        ("TabStripItem", "Majorsilence.Forms.Telerik"),
+    ];
+
+    /// <summary>
     /// <c>System.ComponentModel.Design</c> types that do <b>not</b> ship in the BCL — they live in the
     /// Windows-only <c>System.Windows.Forms.Design</c> assembly — and that Majorsilence.Forms reimplements
     /// under <c>Majorsilence.Forms.Design</c>. Everything else in that namespace (<c>IDesigner</c>,

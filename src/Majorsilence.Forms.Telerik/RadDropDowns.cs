@@ -138,6 +138,8 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadDropDownButton : Button, ISupportInitializeCompat
     {
+        /// <summary>Gets the root element of the button (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Initializes a new instance of the RadDropDownButton class.</summary>
         public RadDropDownButton () => Click += (_, _) => ShowDropDown ();
 

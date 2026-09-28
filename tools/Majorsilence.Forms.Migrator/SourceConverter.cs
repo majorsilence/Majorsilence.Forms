@@ -726,10 +726,20 @@ internal static class SourceConverter
     /// originally meant, with a using-alias. See <see cref="NamespaceMap.BclPreferredTypes"/>.
     /// </summary>
     private static string AddBclPreferenceAliases(string text)
+        => AddPreferenceAliases(AddPreferenceAliases(text, NamespaceMap.BclPreferredTypes),
+                                NamespaceMap.MajorsilencePreferredTypes);
+
+    /// <summary>
+    /// Pins an ambiguous name to the namespace the pre-migration source meant, with a using-alias. Used
+    /// for both kinds of collision this migration can produce: a name shared with the BCL, and a name
+    /// shared between two Majorsilence namespaces. The rule is the same either way -- alias it only where
+    /// both sides are actually imported and the name is actually used unqualified.
+    /// </summary>
+    private static string AddPreferenceAliases(string text, (string Type, string Namespace)[] entries)
     {
         var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
 
-        foreach (var (type, ns) in NamespaceMap.BclPreferredTypes)
+        foreach (var (type, ns) in entries)
         {
             if (DeclaresType(text, type))
                 continue;

@@ -21,7 +21,11 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat link label. Backed by <see cref="Majorsilence.Forms.LinkLabel"/>.</summary>
-    public class RadLinkLabel : LinkLabel, ISupportInitializeCompat { }
+    public class RadLinkLabel : LinkLabel, ISupportInitializeCompat 
+    {
+        /// <summary>Gets the root element of the label (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
+    }
 
     /// <summary>Telerik-compat text box. Backed by <see cref="Majorsilence.Forms.TextBox"/>.</summary>
     public class RadTextBox : TextBox, ISupportInitializeCompat
@@ -42,6 +46,8 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat check box. Backed by <see cref="Majorsilence.Forms.CheckBox"/>.</summary>
     public class RadCheckBox : CheckBox, ISupportInitializeCompat
     {
+        /// <summary>Gets the root element of the check box (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Initializes a new instance of the RadCheckBox class.</summary>
         public RadCheckBox ()
         {
@@ -75,6 +81,8 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat radio button. Backed by <see cref="Majorsilence.Forms.RadioButton"/>.</summary>
     public class RadRadioButton : RadioButton, ISupportInitializeCompat
     {
+        /// <summary>Gets the root element of the radio button (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Initializes a new instance of the RadRadioButton class.</summary>
         public RadRadioButton ()
         {
@@ -124,6 +132,8 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat group box. Backed by <see cref="Majorsilence.Forms.GroupBox"/>.</summary>
     public class RadGroupBox : GroupBox, ISupportInitializeCompat
     {
+        /// <summary>Gets the root element of the group box (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Gets or sets the header text (Telerik alias for <see cref="Control.Text"/>).</summary>
         public string HeaderText {
             get => Text;
@@ -137,6 +147,8 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat panel. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
     public class RadPanel : Panel, ISupportInitializeCompat
     {
+        /// <summary>Gets the root element of the panel (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Gets or sets the header text. Stub.</summary>
         public new string Text { get; set; } = string.Empty;
     }
@@ -161,6 +173,8 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat indeterminate progress / waiting indicator. Backed by <see cref="Majorsilence.Forms.ProgressBar"/>.</summary>
     public class RadWaitingBar : ProgressBar, ISupportInitializeCompat
     {
+        /// <summary>Gets the root element of the bar (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Initializes a new instance of the RadWaitingBar class.</summary>
         public RadWaitingBar ()
         {
@@ -241,7 +255,11 @@ namespace Majorsilence.Forms.Telerik
     public class SegmentedRingWaitingBarIndicatorElement : VisualElement { }
 
     /// <summary>Telerik-compat list control. Backed by <see cref="Majorsilence.Forms.ListBox"/>.</summary>
-    public class RadListControl : ListBox, ISupportInitializeCompat { }
+    public class RadListControl : ListBox, ISupportInitializeCompat 
+    {
+        /// <summary>Gets the root element of the list (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
+    }
 
     /// <summary>Telerik-compat list data item.</summary>
     public class RadListDataItem
@@ -272,6 +290,8 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat date/time picker. Backed by <see cref="Majorsilence.Forms.DateTimePicker"/>.</summary>
     public class RadDateTimePicker : DateTimePicker, ISupportInitializeCompat
     {
+        /// <summary>Gets the root element of the picker (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Initializes a new instance of the RadDateTimePicker class.</summary>
         public RadDateTimePicker ()
         {

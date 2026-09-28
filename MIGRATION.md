@@ -271,7 +271,7 @@ An unqualified GDI+ type used under a bare `using System.Drawing;` (no prefix fo
 anchor on) is also caught: a name-match warns on `Metafile`, `ImageAttributes`, `ColorMatrix`, and
 similar Windows-only types that would otherwise be silent compile breaks.
 
-### Ambiguous names: `SystemColors` and `ColorTranslator`
+### Ambiguous names: `SystemColors`, `ColorTranslator` and `TabStripItem`
 
 Most of `System.Drawing` lives in the Windows-only `System.Drawing.Common`, which a migrated project
 stops referencing — so once `SystemBrushes`, `SystemPens`, `SystemFonts` and `ContentAlignment` are
@@ -295,6 +295,27 @@ using SystemColors = Majorsilence.Forms.SystemColors;
 One line fixes every use site in the file, so the code below it reads exactly as it did before the
 migration. The alias is added only to files that actually use the name unqualified, and re-running the
 tool over an already-migrated tree won't add it twice.
+
+`TabStripItem` is the same problem with no BCL involved. `Majorsilence.Forms.TabStripItem` is the tab
+strip's own item; `Majorsilence.Forms.Telerik.TabStripItem` is a `RadItem` with `IsPinned` and `Title`.
+They are unrelated types that happen to share a name, and a migrated Telerik project imports both
+namespaces — so an unqualified use, which is exactly what the converter produces from
+`Telerik.WinControls.UI.TabStripItem`, fails with CS0104 (BC30561 in VB).
+
+The converter pins it the same way, to the Telerik one, because that is what the source said:
+
+```csharp
+using Telerik.WinControls.UI;   // rewritten to Majorsilence.Forms.Telerik
+using Majorsilence.Forms;
+using TabStripItem = Majorsilence.Forms.Telerik.TabStripItem;
+```
+
+If you hit this in a file the converter did not produce — a designer file regenerated afterwards, say —
+the same one-line alias fixes it, or a project-level alias fixes the whole project:
+
+```xml
+<Import Include="TabStripItem = Majorsilence.Forms.Telerik.TabStripItem" />
+```
 
 ### Third-party control vendors (e.g. Telerik)
 
