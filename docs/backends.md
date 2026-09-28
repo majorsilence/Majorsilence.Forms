@@ -705,6 +705,43 @@ as an internal framework convention (a backend overriding a hook), not a cross-a
 to begin with. Renaming to `RaiseBackRequested` (matching `RaiseIdle`/`RaiseSuspended`/`RaiseResumed`) fixed
 it with no other change. See `COMPATIBILITY_MATRIX.md`'s "Back button" entry for how this is verified.
 
+## Haptics (register item F13)
+
+Unlike every backend seam above, `IHapticsBackend` is deliberately **not** implemented everywhere with a
+null/no-op body the way `IAudioBackend` is: it is only declared in `AvaloniaPlatformBackend`'s own base
+list under `#if ANDROID || IOS`. The register item's own acceptance criterion is "`IsSupported` false on
+Headless" (unlike F8/F9's audio, which is real and test-hooked even under Headless), and haptics has no
+desktop/browser equivalent worth representing as "supported but does nothing" — a machine with no
+vibration motor is exactly the same as a backend that never heard of `IHapticsBackend` at all. This means
+`Haptics.IsSupported` (`Backend is IHapticsBackend`) is `false` everywhere but Android and iOS with a single
+check, no separate per-row fallback needed.
+
+`AndroidHapticsBackend` drives `Vibrator` through `VibrationEffect` (API 26+) so the OS, not this code,
+picks the actual waveform/amplitude for `Tap`/`Impact`'s "click"/"heavy click" shapes.
+`VibrationEffect.CreatePredefined` needs API 29+; between this project's floor of API 24 and that, every
+member falls back to a plain one-shot buzz of its own length rather than a second, cruder code path — still
+real feedback, just not the platform's distinct predefined shapes. Below API 26 there is no
+`VibrationEffect` at all, so every member is a no-op there. The `android.permission.VIBRATE` manifest entry
+(a normal, not dangerous, permission — no runtime request needed) is declared once, as an assembly-level
+`[assembly: Android.App.UsesPermission (...)]` attribute on `Majorsilence.Forms.Avalonia` itself, so it
+merges into any consuming app's manifest automatically — confirmed by inspecting the built
+`Gallery.Android` APK's own merged manifest, not assumed. `IosHapticsBackend` uses
+`UISelectionFeedbackGenerator`/`UIImpactFeedbackGenerator` (UIKit, iOS 10+) for `Tap`/`Impact`; `Vibrate`
+has no public UIKit API taking an explicit duration, so it triggers the same fixed-length system-wide buzz
+iOS itself uses for a phone call or an alert (`AudioServicesPlaySystemSound`'s `kSystemSoundID_Vibrate`,
+reached the same "known, stable numeric identifier" way `IosAudioBackend`'s own `SystemSoundId` already
+documents) rather than a caller-chosen length.
+
+A real Android-only build bug was caught here, not guessed: the platform-compat analyzer (`CA1416`) flagged
+`VibrationEffect.EffectClick`/`EffectHeavyClick` (API 29+ members) as reachable from this project's API 24
+floor, even though the call was already behind an `OperatingSystem.IsAndroidVersionAtLeast (29)` check —
+the analyzer was tripped by the *caller* (`Tap`/`Impact`) passing the field's value as a plain `int`
+argument to a shared helper, outside the guarded branch, not by the eventual `Vibrator.Vibrate` call itself.
+Fixed by passing an enum discriminator instead and resolving the actual `VibrationEffect.EffectXxx` field
+only inside the version-guarded branch. See `COMPATIBILITY_MATRIX.md`'s "Haptics" entry for the full
+verification story — the acceptance criterion specifically needs a real phone (Android emulators have no
+vibrator), which this session did not have.
+
 ### Adding another backend
 
 A new backend is a new assembly referencing `Majorsilence.Forms` (core) + the toolkit, implementing the two
