@@ -234,7 +234,6 @@ Majorsilence.Forms.GiveFeedbackEventArgs.UseDefaultDragImage    -- drop-descript
 Majorsilence.Forms.GridItem.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.GroupBox.UseCompatibleTextRendering    -- GDI/visual-styles rendering switch; one text and theme pipeline here
 Majorsilence.Forms.GroupBoxRenderer.RenderMatchingApplicationState    -- GDI/visual-styles rendering switch; one text and theme pipeline here
-Majorsilence.Forms.HelpProvider.HelpNamespace    -- no help viewer to open
 Majorsilence.Forms.HelpProvider.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.HtmlElementErrorEventArgs.Handled    -- no browser engine; the control is a placeholder
 Majorsilence.Forms.HtmlElementEventArgs.BubbleEvent    -- no browser engine; the control is a placeholder

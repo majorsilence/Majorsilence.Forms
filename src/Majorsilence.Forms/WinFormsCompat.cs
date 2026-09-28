@@ -4173,16 +4173,262 @@ namespace Majorsilence.Forms
     /// WinForms compatibility: provides methods to simulate keyboard input.
     /// All methods are stubs in Majorsilence.Forms.
     /// </summary>
+    /// <remarks>
+    /// Real as of W6 mechanisms, within this application: the keys go to the active form through the
+    /// same three entry points a backend feeds it -- key down, text input for a printable character,
+    /// key up -- so a focused control sees exactly what it would see from the keyboard. The WinForms
+    /// syntax is parsed as upstream parses it: <c>+</c>, <c>^</c> and <c>%</c> hold Shift, Control and
+    /// Alt for the next key or parenthesised group, <c>~</c> is Enter, <c>{NAME}</c> names a key and
+    /// <c>{NAME n}</c> repeats it, and a malformed string throws <see cref="ArgumentException"/>.
+    /// Deviation: keys cannot reach another process -- there is no OS-level input injection here.
+    /// </remarks>
     public static class SendKeys
     {
-        /// <summary>Sends keystrokes to the active application. Stub in Majorsilence.Forms.</summary>
-        public static void Send (string keys) { }
+        /// <summary>Sends keystrokes to the active form.</summary>
+        /// <remarks>Keys sent from inside a key handler are queued and delivered once that handler
+        /// returns, so a handler that sends a Tab does not re-enter itself.</remarks>
+        public static void Send (string keys)
+        {
+            Guard.ThrowIfNull (keys);
 
-        /// <summary>Sends keystrokes to the active application and waits for processing. Stub in Majorsilence.Forms.</summary>
-        public static void SendWait (string keys) { }
+            foreach (var stroke in Parse (keys))
+                queue.Enqueue (stroke);
 
-        /// <summary>Flushes the SendKeys buffer. Stub in Majorsilence.Forms.</summary>
-        public static void Flush () { }
+            Flush ();
+        }
+
+        /// <summary>Sends keystrokes to the active form and returns once they are processed.</summary>
+        public static void SendWait (string keys) => Send (keys);
+
+        /// <summary>Delivers every queued keystroke.</summary>
+        public static void Flush ()
+        {
+            if (delivering)
+                return;
+
+            delivering = true;
+
+            try {
+                while (queue.Count > 0) {
+                    var stroke = queue.Dequeue ();
+
+                    if ((Target?.Invoke () ?? Form.ActiveForm) is not { } window)
+                        continue;
+
+                    Deliver (window, stroke);
+                }
+            } finally {
+                delivering = false;
+            }
+        }
+
+        /// <summary>Overrides the form keys go to. Test seam; null means the active form.</summary>
+        internal static Func<WindowBase?>? Target { get; set; }
+
+        private static readonly System.Collections.Generic.Queue<Stroke> queue = new ();
+        private static bool delivering;
+
+        private readonly struct Stroke
+        {
+            internal Stroke (Keys key, Keys modifiers, char? character)
+            {
+                Key = key;
+                Modifiers = modifiers;
+                Character = character;
+            }
+
+            internal Keys Key { get; }
+            internal Keys Modifiers { get; }
+            internal char? Character { get; }
+        }
+
+        private static void Deliver (WindowBase window, Stroke stroke)
+        {
+            var data = stroke.Key == Keys.None ? Keys.None : stroke.Key | stroke.Modifiers;
+
+            if (data != Keys.None)
+                window.HandleKeyDown (data);
+
+            // A held Control or Alt makes a shortcut, not a character, as on the keyboard.
+            if (stroke.Character is { } c && (stroke.Modifiers & (Keys.Control | Keys.Alt)) == 0)
+                window.HandleTextInput (c.ToString ());
+
+            if (data != Keys.None)
+                window.HandleKeyUp (data);
+        }
+
+        private static System.Collections.Generic.List<Stroke> Parse (string keys)
+        {
+            var strokes = new System.Collections.Generic.List<Stroke> ();
+            var i = 0;
+            ParseRun (keys, ref i, Keys.None, strokes, inGroup: false);
+            return strokes;
+        }
+
+        private static void ParseRun (string keys, ref int i, Keys held, System.Collections.Generic.List<Stroke> strokes, bool inGroup)
+        {
+            var pending = Keys.None;
+
+            while (i < keys.Length) {
+                var c = keys[i];
+
+                switch (c) {
+                case '+':
+                    pending |= Keys.Shift;
+                    i++;
+                    continue;
+                case '^':
+                    pending |= Keys.Control;
+                    i++;
+                    continue;
+                case '%':
+                    pending |= Keys.Alt;
+                    i++;
+                    continue;
+                case '(':
+                    i++;
+                    ParseRun (keys, ref i, held | pending, strokes, inGroup: true);
+                    pending = Keys.None;
+                    continue;
+                case ')':
+                    if (!inGroup)
+                        throw new ArgumentException ($"Unmatched ')' at position {i} in '{keys}'.", nameof (keys));
+
+                    i++;
+                    return;
+                case '~':
+                    strokes.Add (new Stroke (Keys.Enter, held | pending, null));
+                    pending = Keys.None;
+                    i++;
+                    continue;
+                case '{':
+                    ParseBrace (keys, ref i, held | pending, strokes);
+                    pending = Keys.None;
+                    continue;
+                case '}':
+                    throw new ArgumentException ($"Unmatched '}}' at position {i} in '{keys}'.", nameof (keys));
+                default:
+                    strokes.Add (ForCharacter (c, held | pending));
+                    pending = Keys.None;
+                    i++;
+                    continue;
+                }
+            }
+
+            if (inGroup)
+                throw new ArgumentException ($"Unclosed '(' in '{keys}'.", nameof (keys));
+        }
+
+        private static void ParseBrace (string keys, ref int i, Keys modifiers, System.Collections.Generic.List<Stroke> strokes)
+        {
+            // {{} and {}} name the brace characters themselves, so the name may start with one.
+            var start = i + 1;
+            var end = start < keys.Length && (keys[start] == '{' || keys[start] == '}')
+                ? keys.IndexOf ('}', start + 1)
+                : keys.IndexOf ('}', start);
+
+            if (end < 0)
+                throw new ArgumentException ($"Unclosed '{{' in '{keys}'.", nameof (keys));
+
+            var body = keys.Substring (start, end - start);
+            i = end + 1;
+
+            var count = 1;
+            var space = body.LastIndexOf (' ');
+
+            if (space > 0 && TryDigits (body, space + 1, out var repeat)) {
+                count = repeat;
+                body = body.Substring (0, space);
+            }
+
+            Stroke stroke;
+
+            if (body.Length == 1) {
+                stroke = ForCharacter (body[0], modifiers);
+            } else if (NamedKey (body) is { } key) {
+                stroke = new Stroke (key, modifiers, null);
+            } else {
+                throw new ArgumentException ($"'{body}' is not a key SendKeys knows.", nameof (keys));
+            }
+
+            for (var n = 0; n < count; n++)
+                strokes.Add (stroke);
+        }
+
+        private static Stroke ForCharacter (char c, Keys modifiers)
+        {
+            var key = c switch {
+                >= 'a' and <= 'z' => Keys.A + (c - 'a'),
+                >= 'A' and <= 'Z' => Keys.A + (c - 'A'),
+                >= '0' and <= '9' => Keys.D0 + (c - '0'),
+                ' ' => Keys.Space,
+                _ => Keys.None,
+            };
+
+            // An upper-case letter is typed with Shift down, as on the keyboard.
+            if (c is >= 'A' and <= 'Z')
+                modifiers |= Keys.Shift;
+
+            // Shift held over a lower-case letter types the capital.
+            if ((modifiers & Keys.Shift) != 0 && c is >= 'a' and <= 'z')
+                c = char.ToUpperInvariant (c);
+
+            return new Stroke (key, modifiers, c);
+        }
+
+        private static Keys? NamedKey (string name)
+        {
+            switch (name.ToUpperInvariant ()) {
+            case "BACKSPACE": case "BS": case "BKSP": return Keys.Back;
+            case "BREAK": return Keys.Cancel;
+            case "CAPSLOCK": return Keys.CapsLock;
+            case "DELETE": case "DEL": return Keys.Delete;
+            case "DOWN": return Keys.Down;
+            case "END": return Keys.End;
+            case "ENTER": return Keys.Enter;
+            case "ESC": return Keys.Escape;
+            case "HELP": return Keys.Help;
+            case "HOME": return Keys.Home;
+            case "INSERT": case "INS": return Keys.Insert;
+            case "LEFT": return Keys.Left;
+            case "NUMLOCK": return Keys.NumLock;
+            case "PGDN": return Keys.PageDown;
+            case "PGUP": return Keys.PageUp;
+            case "PRTSC": return Keys.PrintScreen;
+            case "RIGHT": return Keys.Right;
+            case "SCROLLLOCK": return Keys.Scroll;
+            case "TAB": return Keys.Tab;
+            case "UP": return Keys.Up;
+            case "ADD": return Keys.Add;
+            case "SUBTRACT": return Keys.Subtract;
+            case "MULTIPLY": return Keys.Multiply;
+            case "DIVIDE": return Keys.Divide;
+            }
+
+            if (name.Length is 2 or 3 && (name[0] == 'F' || name[0] == 'f') && TryDigits (name, 1, out var f) && f is >= 1 and <= 16)
+                return Keys.F1 + (f - 1);
+
+            return null;
+        }
+
+        // The digits from a position to the end, as a count; false for anything else. Hand-rolled
+        // because the span overload of int.TryParse is not on netstandard2.0.
+        private static bool TryDigits (string text, int from, out int value)
+        {
+            value = 0;
+
+            if (from >= text.Length || text.Length - from > 6)
+                return false;
+
+            for (var i = from; i < text.Length; i++) {
+                if (text[i] is < '0' or > '9')
+                    return false;
+
+                value = value * 10 + (text[i] - '0');
+            }
+
+            return true;
+        }
     }
 
     /// <summary>Specifies the possible effects of a drag-and-drop operation.</summary>
@@ -4575,10 +4821,24 @@ namespace Majorsilence.Forms
         // Upstream's WM_HELP handling collapsed to its observable outcome: the control's help string in
         // a popup, and the event handled so the parents and the form do not hear it too. A keyword on
         // its own needs the help file, which this layer does not open, so it shows nothing here.
+        // Upstream's order (HelpProvider.OnControlHelp): a help file named by HelpNamespace wins and
+        // opens at the control's keyword, and only without one does the help string pop up.
         private void Control_HelpRequested (object? sender, HelpEventArgs e)
         {
             if (sender is not Control control || e.Handled || !GetShowHelp (control))
                 return;
+
+            if (!string.IsNullOrEmpty (HelpNamespace)) {
+                var keyword = GetHelpKeyword (control);
+
+                if (keyword.Length == 0)
+                    Help.ShowHelp (control, HelpNamespace, GetHelpNavigator (control));
+                else
+                    Help.ShowHelp (control, HelpNamespace, GetHelpNavigator (control), keyword);
+
+                e.Handled = true;
+                return;
+            }
 
             var text = GetHelpString (control);
 
@@ -4599,7 +4859,11 @@ namespace Majorsilence.Forms
         public string GetHelpString (WindowBase window) => _helpStrings.TryGetValue (window, out var s) ? s : string.Empty;
 
         /// <summary>Sets the help keyword for the specified control.</summary>
-        public void SetHelpKeyword (Control ctl, string keyword) => _helpKeywords[ctl] = keyword;
+        public void SetHelpKeyword (Control ctl, string keyword)
+        {
+            _helpKeywords[ctl] = keyword;
+            Hook (ctl);
+        }
 
         /// <summary>Sets the help keyword for the specified form or window.</summary>
         public void SetHelpKeyword (WindowBase window, string keyword) => _helpKeywords[window] = keyword;
@@ -4666,17 +4930,48 @@ namespace Majorsilence.Forms
     /// <summary>WinForms compatibility: provides methods for sending keystrokes to an application. Stub in Majorsilence.Forms.</summary>
     public static partial class Help
     {
-        /// <summary>Displays the contents of a Help file. Stub in Majorsilence.Forms.</summary>
-        public static void ShowHelp (Control? parent, string? url) { }
+        /// <summary>Opens a help file or page.</summary>
+        /// <remarks>
+        /// Real as of W6 mechanisms: the file or URL is handed to the operating system, which opens it
+        /// in whatever it registers for the type -- a browser for an HTML page, the Windows help
+        /// viewer for a .chm. The topic arguments of the other overloads need upstream's HTML Help
+        /// engine to resolve inside a .chm, which this layer does not have; they open the same file,
+        /// and a topic, keyword or index request inside it is not honoured. An empty url shows
+        /// nothing. Deviation: where the platform cannot open a file for an application (Android, iOS,
+        /// the browser) nothing opens.
+        /// </remarks>
+        public static void ShowHelp (Control? parent, string? url) => Open (url);
 
-        /// <summary>Displays a Help topic identified by keyword. Stub in Majorsilence.Forms.</summary>
-        public static void ShowHelp (Control? parent, string? url, string? keyword) { }
+        /// <inheritdoc cref="ShowHelp(Control, string)"/>
+        public static void ShowHelp (Control? parent, string? url, string? keyword) => Open (url);
 
-        /// <summary>Displays a Help topic identified by a navigator command. Stub in Majorsilence.Forms.</summary>
-        public static void ShowHelp (Control? parent, string? url, HelpNavigator command) { }
+        /// <inheritdoc cref="ShowHelp(Control, string)"/>
+        public static void ShowHelp (Control? parent, string? url, HelpNavigator command) => Open (url);
 
-        /// <inheritdoc cref="ShowHelp(Control,string,HelpNavigator)"/>
-        public static void ShowHelp (Control? parent, string? url, HelpNavigator command, object? parameter) { }
+        /// <inheritdoc cref="ShowHelp(Control, string)"/>
+        public static void ShowHelp (Control? parent, string? url, HelpNavigator command, object? parameter) => Open (url);
+
+        /// <summary>Opens the given file or page at its index. Opens the file; see <see cref="ShowHelp(Control, string)"/>.</summary>
+        public static void ShowHelpIndex (Control? parent, string? url) => Open (url);
+
+        /// <summary>What opens a help target. Test seam; the default asks the operating system.</summary>
+        internal static Action<string> Launcher { get; set; } = OpenWithShell;
+
+        private static void Open (string? url)
+        {
+            if (!string.IsNullOrEmpty (url))
+                Launcher (url!);
+        }
+
+        private static void OpenWithShell (string target)
+        {
+            try {
+                using var process = System.Diagnostics.Process.Start (new System.Diagnostics.ProcessStartInfo (target) { UseShellExecute = true });
+            } catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or PlatformNotSupportedException or InvalidOperationException) {
+                // Nothing registered to open it, or no shell on this platform: help does not open,
+                // which is what the remarks above promise, rather than a crash on F1.
+            }
+        }
 
         /// <summary>Shows a help pop-up with the given text, at a screen location.</summary>
         /// <remarks>Real as of W6 mechanisms: a tool-tip style popup anchored to the control, which is

@@ -741,13 +741,6 @@ namespace Majorsilence.Forms
         }
     }
 
-    public static partial class Help
-    {
-        /// <summary>Shows the index of the given help file.</summary>
-        /// <remarks>Does nothing, like the other Help members here: there is no help viewer to
-        /// launch on the platforms this layer targets.</remarks>
-        public static void ShowHelpIndex (Control? parent, string? url) { }
-    }
 
     public partial class NotifyIcon
     {
