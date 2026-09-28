@@ -193,9 +193,8 @@ sleep 3
 
 LOG="$(adb logcat -d 2>/dev/null)"
 if ! grep -q "F14_NOTIFICATIONS_SMOKE.*Tapped:1001" <<<"$LOG"; then
-  # MainActivity.OnCreate/OnNewIntent both log F14_MAINACTIVITY_DEBUG with whether the replayed extra
-  # actually arrived -- dumped in full here (not just grepped) since the generic last-200-lines dump in
-  # fail()'s own diagnostics has shown up empty before, apparently racing emulator teardown.
+  # Dumped in full here (not just grepped), since the generic last-200-lines dump in fail()'s own
+  # diagnostics has shown up empty before, apparently racing emulator teardown.
   echo "----- full logcat since the tap replay -----" >&2
   echo "$LOG" >&2
   fail "no F14_NOTIFICATIONS_SMOKE Tapped:1001 line in logcat after replaying the tap intent"

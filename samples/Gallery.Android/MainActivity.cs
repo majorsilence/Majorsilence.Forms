@@ -40,14 +40,12 @@ namespace Gallery.Android
             base.OnCreate (savedInstanceState);
             BackRequested += (_, e) => e.Handled = MSFormsBackends.AvaloniaPlatformBackend.RaiseBackRequested ();
             MSFormsBackends.AvaloniaPlatformBackend.RegisterAndroidActivity (this);
-            global::Android.Util.Log.Info ("F14_MAINACTIVITY_DEBUG", $"OnCreate: hasExtra={Intent?.HasExtra ("majorsilence_forms_notification_tapped_id")}");
             MSFormsBackends.AvaloniaPlatformBackend.ReportAndroidIntent (Intent);
         }
 
         protected override void OnNewIntent (Intent? intent)
         {
             base.OnNewIntent (intent);
-            global::Android.Util.Log.Info ("F14_MAINACTIVITY_DEBUG", $"OnNewIntent: hasExtra={intent?.HasExtra ("majorsilence_forms_notification_tapped_id")}");
             MSFormsBackends.AvaloniaPlatformBackend.ReportAndroidIntent (intent);
         }
 
