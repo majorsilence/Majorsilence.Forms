@@ -106,6 +106,8 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadDesktopAlertPopup : Form
     {
+        /// <summary>Gets the root element of the popup (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Initializes a new instance of the RadDesktopAlertPopup class.</summary>
         public RadDesktopAlertPopup ()
         {

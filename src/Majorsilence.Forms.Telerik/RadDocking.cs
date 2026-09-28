@@ -188,6 +188,8 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Base for Telerik dock windows. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
     public abstract class DockWindowBase : Panel
     {
+        /// <summary>Gets the root element of the dock window (stub).</summary>
+        public RadElement RootElement { get; } = new RadElement ();
         /// <summary>
         /// Default style for dock windows. Telerik dock windows paint their own THEMED background
         /// (documents/tools show the theme surface color regardless of the form's BackColor), so the
