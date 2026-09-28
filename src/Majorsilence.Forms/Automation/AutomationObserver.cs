@@ -26,6 +26,43 @@ namespace Majorsilence.Forms.Automation
         {
             _window = window ?? throw new ArgumentNullException (nameof (window));
             _window.adapter.SelectedControlChanged += OnSelectedControlChanged;
+
+            lock (live)
+                live.Add (this);
+        }
+
+        // Every observer alive, so Control.AccessibilityNotifyClients can reach the ones watching the
+        // control's window (W6 mechanisms).
+        private static readonly System.Collections.Generic.List<AutomationObserver> live = new ();
+
+        internal static void Notify (Control control, AccessibleEvents accEvent)
+        {
+            AutomationObserver[] observers;
+
+            lock (live)
+                observers = live.ToArray ();
+
+            if (observers.Length == 0)
+                return;
+
+            var window = control.FindWindow ();
+
+            foreach (var observer in observers) {
+                if (!ReferenceEquals (observer._window, window) && !ReferenceEquals (observer._window.adapter, control))
+                    continue;
+
+                switch (accEvent) {
+                case AccessibleEvents.Focus:
+                    observer.FocusChanged?.Invoke (observer, observer.FindElement (control));
+                    break;
+                case AccessibleEvents.ValueChange:
+                case AccessibleEvents.NameChange:
+                case AccessibleEvents.StateChange:
+                case AccessibleEvents.Selection:
+                    observer.ValueChanged?.Invoke (observer, observer.FindElement (control));
+                    break;
+                }
+            }
         }
 
         /// <summary>Raised when keyboard focus moves to a control (or to null when focus is cleared).</summary>
@@ -88,6 +125,9 @@ namespace Majorsilence.Forms.Automation
             if (_disposed)
                 return;
             _disposed = true;
+
+            lock (live)
+                live.Remove (this);
 
             _window.adapter.SelectedControlChanged -= OnSelectedControlChanged;
             DetachValueSource ();

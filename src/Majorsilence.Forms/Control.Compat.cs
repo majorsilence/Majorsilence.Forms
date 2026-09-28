@@ -857,8 +857,15 @@ namespace Majorsilence.Forms
         /// <summary>Processes a tab key. Returns true if the key was processed. Majorsilence.Forms stub.</summary>
         protected virtual bool ProcessTabKey (bool forward) => false;
 
-        /// <summary>Notifies the accessibility client application of a specified event. Stub in Majorsilence.Forms.</summary>
-        public void AccessibilityNotifyClients (AccessibleEvents accEvent, int childID) { }
+        /// <summary>Tells accessibility clients that something about this control changed.</summary>
+        /// <remarks>Real as of W6 mechanisms: an <see cref="Automation.AutomationObserver"/> watching
+        /// the control's window hears it -- a <c>Focus</c> event as <c>FocusChanged</c>, and a value,
+        /// name, state or selection change as <c>ValueChanged</c> -- which is how a control that draws
+        /// its own content announces a change the observer cannot see through <c>TextChanged</c>.
+        /// Other events have no observer counterpart and go unheard. There is no OS accessibility
+        /// bridge here, so the <paramref name="childID"/> is not forwarded.</remarks>
+        public void AccessibilityNotifyClients (AccessibleEvents accEvent, int childID)
+            => Automation.AutomationObserver.Notify (this, accEvent);
 
         // Notifies on change; the event was declared and raised by nothing (W6.1).
         private Majorsilence.Forms.Drawing.Region? region;

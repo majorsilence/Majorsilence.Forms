@@ -3858,6 +3858,42 @@ new setter stores `null` as given rather than coercing it to empty.
 13 tests; three neutralization rounds (the editing protocol; binding; the rest), failing 3, 3 and 7 of
 the 13, snapshot verified before and after.
 
+**W6 mechanisms, nineteenth chunk: keys, help, sound loading and accessibility notices. — 2026-09-28.** Part of #91.
+Ten empty-bodied public methods and one stored-only property, plus a text-box crash the new tests found.
+
+- **`SendKeys.Send`/`SendWait`/`Flush`** parse the WinForms key syntax -- `+ ^ %` for Shift, Control
+  and Alt over the next key or parenthesised group, `~` for Enter, `{NAME}` and `{NAME n}`, braces
+  escaping the syntax's own characters -- and deliver to the active form through the same key-down,
+  text-input and key-up entry points a backend calls. A held Control or Alt makes a shortcut and no
+  character, as on the keyboard. Keys sent from inside a key handler are queued until it returns, so
+  the handler is not re-entered. Malformed syntax throws `ArgumentException`, as upstream. Deviation:
+  keys cannot reach another process.
+- **`Help.ShowHelp` and `ShowHelpIndex`** hand their file or URL to the operating system. A topic,
+  keyword or index inside a .chm needs upstream's HTML Help engine and is not resolved; the file
+  opens. `HelpProvider` follows upstream's order on F1: a `HelpNamespace` file wins and opens, and only
+  without one does the help string pop up. `HelpNamespace` was stored-only.
+- **`SoundPlayer.Load`** throws `FileNotFoundException` for a missing file and
+  `InvalidOperationException` for content that is not RIFF/WAVE, as upstream's does, and puts a
+  seekable stream back where it was. `LoadAsync` reports the same error through `LoadCompleted`.
+- **`AccessibilityNotifyClients`**, on a control and a window, reaches every `AutomationObserver`
+  watching that window: `Focus` as `FocusChanged`; value, name, state and selection changes as
+  `ValueChanged`. That is how a control drawing its own content announces a change the observer cannot
+  see through `TextChanged`.
+
+*Found on the way.* Assigning `TextBox.Text` moved the caret but kept the selection. Select all,
+assign an empty string, type a character, and the document deleted through a selection longer than
+the text: `ArgumentOutOfRangeException` out of a keystroke. The document now empties the selection
+on assignment, as `WM_SETTEXT` does, and has its own test and neutralization round.
+
+*Still blocked.* `Cursor.Hide`/`Show` need a hidden cursor type in all five backends.
+`TextBoxBase.Undo`/`ClearUndo`/`ScrollToCaret` are empty on the base only; the one subclass,
+`TextBox`, overrides all three with the real behaviour.
+
+*Counts.* No-op stubs **78 → 68**; stored-only **337 → 336**.
+
+6 tests; three neutralization rounds (SendKeys; help, sound and notifications; the selection fix),
+failing 3, 3 and 2 of the 6, snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

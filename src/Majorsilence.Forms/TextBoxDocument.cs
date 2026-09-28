@@ -700,6 +700,12 @@ namespace Majorsilence.Forms
                     text = value;
                     cached_text_block = null;
 
+                    // WM_SETTEXT also empties the selection. Keeping it left a selection that could
+                    // reach past the end of the new text, and the next character typed deleted
+                    // through it -- ArgumentOutOfRangeException out of a keystroke (found by the
+                    // SendKeys tests, W6 mechanisms: select all, assign "", type).
+                    Deselect ();
+
                     // If the Text property is changed, we need to reset the cursor to the top
                     SetCursorToCharIndex (0);
                     Invalidate ();

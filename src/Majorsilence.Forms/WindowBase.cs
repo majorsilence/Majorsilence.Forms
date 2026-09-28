@@ -2604,7 +2604,8 @@ namespace Majorsilence.Forms
         protected virtual AccessibleObject CreateAccessibilityInstance () => new AccessibleObject ();
 
         /// <summary>Notifies accessibility clients of a change. A no-op, as on Control.</summary>
-        public void AccessibilityNotifyClients (AccessibleEvents accEvent, int childID) { }
+        public void AccessibilityNotifyClients (AccessibleEvents accEvent, int childID)
+            => adapter.AccessibilityNotifyClients (accEvent, childID);
 
         /// <summary>Gets or sets the description of the window's default action.</summary>
         public string? AccessibleDefaultActionDescription { get; set; }

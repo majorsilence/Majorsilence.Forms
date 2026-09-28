@@ -296,12 +296,81 @@ namespace Majorsilence.Forms.Media
         /// <summary>Gets or sets arbitrary data associated with the player.</summary>
         public object? Tag { get; set; }
 
-        /// <summary>Loads the sound synchronously. Completes immediately; see <see cref="IsLoadCompleted"/>.</summary>
-        public void Load () { }
+        /// <summary>Checks that the sound can be played, throwing where upstream's load would.</summary>
+        /// <remarks>
+        /// Real as of W6 mechanisms. A missing local file throws <see cref="System.IO.FileNotFoundException"/>
+        /// and content that is not a RIFF/WAVE file throws <see cref="InvalidOperationException"/>, as
+        /// upstream's do -- so the error surfaces at the load an application makes to validate a
+        /// sound, not as a silent play later. Nothing to load (neither a location nor a stream) is not
+        /// an error, as upstream. A URL location is not fetched; see <see cref="SoundLocation"/>.
+        /// </remarks>
+        public void Load ()
+        {
+            if (sound_location.Length > 0) {
+                if (Uri.TryCreate (sound_location, UriKind.Absolute, out var uri) && !uri.IsFile)
+                    return;
 
-        /// <summary>Loads the sound asynchronously. Completes immediately, raising <see cref="LoadCompleted"/>.</summary>
-        public void LoadAsync () => LoadCompleted?.Invoke (this,
-            new System.ComponentModel.AsyncCompletedEventArgs (null, false, null));
+                var path = uri?.IsFile == true ? uri.LocalPath : sound_location;
+
+                if (!System.IO.File.Exists (path))
+                    throw new System.IO.FileNotFoundException ($"The sound file '{sound_location}' was not found.", sound_location);
+
+                using var file = System.IO.File.OpenRead (path);
+                RequireWave (file);
+                return;
+            }
+
+            if (stream is null)
+                return;
+
+            var start = stream.CanSeek ? stream.Position : 0;
+
+            try {
+                RequireWave (stream);
+            } finally {
+                if (stream.CanSeek)
+                    stream.Position = start;
+            }
+        }
+
+        // RIFF, a size, then WAVE: the twelve-byte header every .wav starts with.
+        private void RequireWave (System.IO.Stream source)
+        {
+            var header = new byte[12];
+            var read = 0;
+
+            while (read < header.Length) {
+                var n = source.Read (header, read, header.Length - read);
+
+                if (n == 0)
+                    break;
+
+                read += n;
+            }
+
+            var wave = read == 12
+                && header[0] == (byte)'R' && header[1] == (byte)'I' && header[2] == (byte)'F' && header[3] == (byte)'F'
+                && header[8] == (byte)'W' && header[9] == (byte)'A' && header[10] == (byte)'V' && header[11] == (byte)'E';
+
+            if (!wave)
+                throw new InvalidOperationException (sound_location.Length > 0
+                    ? $"The file located at '{sound_location}' is not a valid wave file."
+                    : "The stream is not a valid wave file.");
+        }
+
+        /// <summary>Loads the sound, raising <see cref="LoadCompleted"/> with any error <see cref="Load"/> would throw.</summary>
+        public void LoadAsync ()
+        {
+            Exception? error = null;
+
+            try {
+                Load ();
+            } catch (Exception ex) when (ex is System.IO.IOException or InvalidOperationException or UnauthorizedAccessException) {
+                error = ex;
+            }
+
+            LoadCompleted?.Invoke (this, new System.ComponentModel.AsyncCompletedEventArgs (error, false, null));
+        }
 
         /// <summary>Plays the sound without blocking. A play already in progress is stopped first, as upstream.</summary>
         public void Play ()
