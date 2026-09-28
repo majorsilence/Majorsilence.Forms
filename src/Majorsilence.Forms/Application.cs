@@ -596,6 +596,24 @@ namespace Majorsilence.Forms
         public static void RaiseResumed () => Resumed?.Invoke (null, EventArgs.Empty);
 
         /// <summary>
+        /// Gets or sets whether the screen is being kept on (register item F12) -- Android's
+        /// <c>FLAG_KEEP_SCREEN_ON</c>, iOS's <c>IdleTimerDisabled</c>, or a desktop OS's own sleep-inhibit
+        /// mechanism (Windows <c>SetThreadExecutionState</c>, macOS an IOKit power assertion, Linux
+        /// <c>systemd-inhibit</c>). A bedside or status-display app's own concern to turn on and off, not
+        /// something the OS changes on its own, so unlike <see cref="Suspended"/>/<see cref="Resumed"/>
+        /// there is no companion changed event. Reading or setting this on a backend that does not
+        /// implement <see cref="Backends.IKeepScreenAwakeBackend"/> answers/does nothing -- the same
+        /// conservative degrade <see cref="SystemInformation.PrefersReducedMotion"/> uses.
+        /// </summary>
+        public static bool KeepScreenAwake {
+            get => Backends.Platform.Backend is Backends.IKeepScreenAwakeBackend backend && backend.KeepScreenAwake;
+            set {
+                if (Backends.Platform.Backend is Backends.IKeepScreenAwakeBackend backend)
+                    backend.KeepScreenAwake = value;
+            }
+        }
+
+        /// <summary>
         /// Reports an unhandled exception from an event handler to <see cref="ThreadException"/>.
         /// </summary>
         /// <returns>True when a handler was attached and the exception was reported.</returns>

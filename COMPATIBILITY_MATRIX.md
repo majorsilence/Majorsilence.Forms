@@ -779,6 +779,47 @@ already catch.
 scope for this PR — the Android half is what alert-buddy's M4 (Android background delivery) actually needs
 next; the rest follows in later PRs.
 
+## Keep screen awake
+
+**`Application.KeepScreenAwake`** (added 2026-09, register item F12) is real on every row but browser:
+Android (`Window.AddFlags/ClearFlags (WindowManagerFlags.KeepScreenOn)`, on the Activity `RegisterAndroidActivity`
+(F14) already registers), iOS (`UIApplication.SharedApplication.IdleTimerDisabled`), and — new as of this
+item — all three desktop OSes, through `Backends.DesktopKeepAwake`, a direct sibling of F7's
+`DesktopReducedMotion` (same `Dispatch (isWindows, isMacOS, isLinux, ...)` shape, told apart at runtime,
+injectable for testing): Windows `SetThreadExecutionState`, a macOS `IOPMAssertionCreateWithName`
+(`PreventUserIdleDisplaySleep`) power assertion reached via raw CoreFoundation/IOKit P/Invoke (no
+Xamarin.Mac binding, the same reasoning F7's own macOS section documents), and Linux `systemd-inhibit
+--what=idle:sleep ... sleep infinity` held for exactly as long as that placeholder process runs (no D-Bus
+cookie parsing needed — `systemd-inhibit` execs its wrapped command directly, so the PID `Process.Start`
+returns *is* the held lock).
+
+**Headless implements this one for real**, unlike F13/F14's Haptics/LocalNotifications (`IsSupported false`
+there) — a plain settable field, the same shape `HeadlessPlatformBackend.PrefersReducedMotion` already uses.
+The issue's own acceptance criterion asks for "fake-backend tests," and `KeepScreenAwake` is a plain
+stateful property an app's own code turns on and off (no permission gate, no external event to fake), so a
+real, assertable fake is what a view-model test actually needs here — unlike a fire-and-forget action like
+`Haptics.Tap`, there is no meaningful "no-op middle state" to model instead.
+
+**Verified three different ways for three different rows, not one blanket claim.**
+- **Android** — `MainActivity.RunKeepScreenAwakeSmokeTest` sets `KeepScreenAwake` true then false on the
+  real Activity and confirms both read back correctly with no exception, confirmed via CI's `android-smoke`
+  job (`F12_KEEPAWAKE_SMOKE`).
+- **Linux** — `KeepScreenAwakeTests.The_real_desktop_set_never_throws_and_toggles_IsEnabled_regardless_of_host`
+  calls the real `Set (true)`/`Set (false)` (not the injectable `Dispatch`) directly; run locally during
+  development, it genuinely spawned and killed a real `systemd-inhibit` child process (confirmed with
+  `pgrep`/`pkill` before and after, including once by accident: a deliberate mutation-testing run that
+  broke `Set`'s own `IsEnabled` bookkeeping left one running, caught and killed by hand — the fix was to
+  make the test's own `finally` force a real `Set (false)` unconditionally rather than trust `IsEnabled`'s
+  tracked value to decide whether cleanup is needed at all).
+- **Windows and macOS** — this specific P/Invoke is new as of this register item, unlike `DesktopReducedMotion`'s
+  own P/Invoke (in continuous real use on this project's Windows/macOS CI build jobs since F7 merged with no
+  reported failure). The same test above also runs for real on CI's `build (windows-latest)`/
+  `build (macos-latest)` jobs, which run the full test suite, not just a compile check — a wrong `DllImport`
+  signature or constant value there surfaces as an actual test failure.
+- **iOS** — written from the documented `UIApplication.IdleTimerDisabled` API, compiles clean via CI's
+  `ios`/`sample-ios` jobs, but not run on a simulator or device — the same honest gap F13/F14 already
+  record for iOS.
+
 ## Design-time smart tags
 
 `DesignerActionUIService` exists so that the guarded calls around it compile: a component's action list
