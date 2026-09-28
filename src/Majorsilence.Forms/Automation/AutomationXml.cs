@@ -43,6 +43,13 @@ namespace Majorsilence.Forms.Automation
                 new XAttribute ("width", e.Bounds.Width.ToString (CultureInfo.InvariantCulture)),
                 new XAttribute ("height", e.Bounds.Height.ToString (CultureInfo.InvariantCulture)));
 
+            // register item F19: a custom-painted control's own extra state, each entry its own
+            // state-{key} attribute (Sanitize'd the same way TagName is -- a dictionary key is an
+            // arbitrary string, not guaranteed to already be a valid XML attribute name) so it is
+            // independently queryable by XPath/getAttribute, not buried in one opaque blob value.
+            foreach (var entry in e.State)
+                el.SetAttributeValue ("state-" + Sanitize (entry.Key), entry.Value);
+
             map[el] = e;
 
             foreach (var child in e.Children)

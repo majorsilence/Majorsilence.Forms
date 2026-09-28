@@ -131,6 +131,50 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void WebDriverFlow_GetAttribute_ReadsCustomControlsExtraState ()
+        {
+            // Register item F19: getAttribute's own doc comment promises "exposes the same fields as the
+            // XML page source, so a locator captured from an attribute resolves identically" -- this
+            // exercises that promise for real, end to end through the actual HTTP server, for the new
+            // state-{key} attributes a custom control's own IAutomationStateProvider publishes, not just
+            // the fixed built-in set WebDriverFlow_SourceXPathAndAttribute already covers.
+            using var form = new Form { UseSystemDecorations = true };
+            var beacon = new BeaconIndicator { Name = "workshopBeacon", Level = 3, Status = "alarm", Left = 10, Top = 10, Width = 60, Height = 60 };
+            form.Controls.Add (beacon);
+            HeadlessRenderer.CapturePng (form, 300, 200);
+
+            using var server = new WebDriverServer (form, FreePort ());
+            server.Start ();
+            var baseUrl = server.Url.ToString ();
+
+            var (levelAttr, statusAttr, missingAttr) = RunPumped (async () => {
+                using var http = new HttpClient { BaseAddress = new Uri (baseUrl) };
+
+                var session = await PostJson (http, "session", "{}");
+                var sid = session.RootElement.GetProperty ("value").GetProperty ("sessionId").GetString ();
+
+                var find = await PostJson (http, $"session/{sid}/element",
+                    "{\"using\":\"xpath\",\"value\":\"//BeaconIndicator[@id='workshopBeacon']\"}");
+                var eid = find.RootElement.GetProperty ("value").GetProperty (ElementKey).GetString ();
+
+                var level = await GetJson (http, $"session/{sid}/element/{eid}/attribute/state-level");
+                var status = await GetJson (http, $"session/{sid}/element/{eid}/attribute/state-status");
+                // W3C: an absent attribute answers null, not an error -- "state-color" was never published.
+                var missing = await GetJson (http, $"session/{sid}/element/{eid}/attribute/state-color");
+
+                return (level.RootElement.GetProperty ("value").GetString (),
+                        status.RootElement.GetProperty ("value").GetString (),
+                        missing.RootElement.GetProperty ("value").ValueKind);
+            });
+
+            Assert.Equal ("3", levelAttr);
+            Assert.Equal ("alarm", statusAttr);
+            Assert.Equal (JsonValueKind.Null, missingAttr);
+
+            server.Stop ();
+        }
+
+        [Fact]
         public void Status_ReportsReady ()
         {
             using var form = new Form { UseSystemDecorations = true };

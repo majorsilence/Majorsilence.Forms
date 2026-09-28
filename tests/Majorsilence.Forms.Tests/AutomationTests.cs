@@ -196,5 +196,97 @@ namespace Majorsilence.Forms.Tests
             form.Close ();
         }
 
+        // ---- IAutomationStateProvider (register item F19): a custom-painted control publishing its own
+        // value and extra state -- the issue's own example, "the level a status widget is showing",
+        // standing in for alert-buddy's real beacon indicator. BeaconIndicator itself is declared below,
+        // outside this class, so WebDriverServerTests can drive it through the real HTTP server too. ----
+
+        [Fact]
+        public void A_custom_control_can_publish_role_name_value_and_state ()
+        {
+            using var form = new Form { UseSystemDecorations = true };
+            var beacon = new BeaconIndicator {
+                Name = "workshopBeacon",
+                AccessibleName = "Workshop beacon",
+                AccessibleRole = AccessibleRole.StatusBar,
+                Level = 3,
+                Status = "alarm",
+                Left = 10,
+                Top = 10,
+                Width = 60,
+                Height = 60,
+            };
+            form.Controls.Add (beacon);
+            HeadlessRenderer.CapturePng (form, 300, 200);
+
+            var node = Assert.Single (AutomationProvider.BuildTree (form).Self (), e => e.AutomationId == "workshopBeacon");
+
+            // Role and name: the existing AccessibleRole/AccessibleName properties already cover these for
+            // any control, custom-painted or not -- IAutomationStateProvider adds nothing for either.
+            Assert.Equal ("statusbar", node.Role);
+            Assert.Equal ("Workshop beacon", node.Name);
+            // Value and extra state: what IAutomationStateProvider actually adds.
+            Assert.Equal ("3", node.Value);
+            Assert.Equal ("3", node.State["level"]);
+            Assert.Equal ("alarm", node.State["status"]);
+        }
+
+        [Fact]
+        public void A_control_not_implementing_IAutomationStateProvider_has_empty_state ()
+        {
+            using var form = BuildForm (out _, out _);
+            HeadlessRenderer.CapturePng (form, 300, 200);
+
+            var btn = Assert.Single (AutomationProvider.BuildTree (form).Self (), e => e.AutomationId == "okButton");
+
+            Assert.Empty (btn.State);
+        }
+
+        [Fact]
+        public void The_automation_XML_shows_a_custom_controls_state ()
+        {
+            using var form = new Form { UseSystemDecorations = true };
+            var beacon = new BeaconIndicator {
+                Name = "workshopBeacon",
+                Level = 2,
+                Status = "warning",
+                Left = 10,
+                Top = 10,
+                Width = 60,
+                Height = 60,
+            };
+            form.Controls.Add (beacon);
+            HeadlessRenderer.CapturePng (form, 300, 200);
+            var session = new AutomationSession (form);
+
+            var xml = session.GetPageSource ();
+
+            Assert.Contains ("state-level=\"2\"", xml);
+            Assert.Contains ("state-status=\"warning\"", xml);
+
+            // Independently queryable by XPath, the same as every other attribute in the page source --
+            // not just present as text somewhere in the document.
+            var doc = System.Xml.Linq.XDocument.Parse (xml);
+            Assert.NotEmpty (doc.XPathSelectElements ("//BeaconIndicator[@state-level='2']"));
+        }
+
 }
+
+    // A minimal custom-painted control publishing its own value and extra state (register item F19) --
+    // the issue's own example, "the level a status widget is showing", standing in for alert-buddy's real
+    // beacon indicator. Nothing here needs to actually paint anything: BuildTree never renders, it only
+    // reads the same logical state a renderer would. Shared (not nested) so WebDriverServerTests can drive
+    // it through the real HTTP server too, not just AutomationTests' own in-process tree building.
+    internal sealed class BeaconIndicator : Control, IAutomationStateProvider
+    {
+        public int Level { get; set; }
+        public string Status { get; set; } = "warning";
+
+        public string? AutomationValue => Level.ToString (System.Globalization.CultureInfo.InvariantCulture);
+
+        public System.Collections.Generic.IReadOnlyDictionary<string, string> AutomationState => new System.Collections.Generic.Dictionary<string, string> {
+            ["level"] = Level.ToString (System.Globalization.CultureInfo.InvariantCulture),
+            ["status"] = Status,
+        };
+    }
 }

@@ -18,6 +18,7 @@ namespace Majorsilence.Forms.Automation
             string role,
             string controlType,
             string? value,
+            IReadOnlyDictionary<string, string> state,
             bool enabled,
             bool visible,
             bool focused,
@@ -30,6 +31,7 @@ namespace Majorsilence.Forms.Automation
             Role = role;
             ControlType = controlType;
             Value = value;
+            State = state;
             Enabled = enabled;
             Visible = visible;
             Focused = focused;
@@ -58,6 +60,14 @@ namespace Majorsilence.Forms.Automation
 
         /// <summary>The element's value for value-bearing controls (text box content, checked state, …), or null.</summary>
         public string? Value { get; }
+
+        /// <summary>
+        /// Extra state a custom-painted control published via <see cref="IAutomationStateProvider.AutomationState"/>
+        /// (register item F19) -- the level a status widget is showing, for example. Empty for every
+        /// built-in control, which has no need for it: role, name and value already cover what those
+        /// report. Each entry becomes a <c>state-{key}</c> attribute in the automation XML page source.
+        /// </summary>
+        public IReadOnlyDictionary<string, string> State { get; }
 
         /// <summary>Whether the control is enabled.</summary>
         public bool Enabled { get; }

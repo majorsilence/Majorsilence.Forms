@@ -285,6 +285,9 @@ namespace Majorsilence.Forms.WebDriver
 
         // getAttribute: exposes the same fields as the XML page source, so a locator captured from an
         // attribute resolves identically. Unknown names return null (W3C: absent attribute → null).
+        // register item F19: a custom control's own extra state (AutomationElement.State) is exposed
+        // under the same "state-{key}" name the XML page source uses (AutomationXml.Build), so a locator
+        // captured from either sees the same attribute name.
         private static string? AttributeOf (AutomationElement e, string name) => name switch {
             "id" => e.AutomationId,
             "name" => e.Name,
@@ -298,6 +301,7 @@ namespace Majorsilence.Forms.WebDriver
             "y" => e.Bounds.Y.ToString (System.Globalization.CultureInfo.InvariantCulture),
             "width" => e.Bounds.Width.ToString (System.Globalization.CultureInfo.InvariantCulture),
             "height" => e.Bounds.Height.ToString (System.Globalization.CultureInfo.InvariantCulture),
+            _ when name.StartsWith ("state-", StringComparison.Ordinal) && e.State.TryGetValue (name["state-".Length..], out var stateValue) => stateValue,
             _ => null
         };
 
