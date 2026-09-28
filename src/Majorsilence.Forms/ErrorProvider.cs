@@ -99,7 +99,18 @@ namespace Majorsilence.Forms
         /// inheritance branches here (unlike WinForms, where both derive from ContainerControl), so a
         /// single common base is needed to accept either as the assignment target.
         /// </summary>
-        public Component? ContainerControl { get; set; }
+        public Component? ContainerControl {
+            get => container_control;
+            set {
+                if (ReferenceEquals (container_control, value))
+                    return;
+
+                container_control = value;
+                UpdateBinding ();
+            }
+        }
+
+        private Component? container_control;
 
         /// <summary>Gets or sets the icon drawn beside a control that has an error.</summary>
         /// <remarks>Read as of W6 mechanisms: with none set the provider draws its own exclamation
@@ -309,11 +320,36 @@ namespace Majorsilence.Forms
             return _iconPaddings.TryGetValue (control, out var padding) ? padding : 0;
         }
 
-        /// <summary>Gets or sets the data source for automatic validation. Stub in Majorsilence.Forms.</summary>
-        public object? DataSource { get; set; }
+        /// <summary>Gets or sets the data source whose current item reports errors.</summary>
+        /// <remarks>Read as of W6 mechanisms; see <see cref="UpdateBinding"/>.</remarks>
+        public object? DataSource {
+            get => data_source;
+            set {
+                if (ReferenceEquals (data_source, value))
+                    return;
 
-        /// <summary>Gets or sets the data member for automatic validation. Stub in Majorsilence.Forms.</summary>
-        public string DataMember { get; set; } = string.Empty;
+                data_source = value;
+                UpdateBinding ();
+            }
+        }
+
+        private object? data_source;
+
+        /// <summary>Gets or sets the member of <see cref="DataSource"/> whose current item reports errors.</summary>
+        /// <remarks>Read as of W6 mechanisms; see <see cref="UpdateBinding"/>.</remarks>
+        public string DataMember {
+            get => data_member;
+            set {
+                // Stored as given, null included: the upstream-ported tests read it back by identity.
+                if (ReferenceEquals (data_member, value) || data_member == value)
+                    return;
+
+                data_member = value;
+                UpdateBinding ();
+            }
+        }
+
+        private string data_member = string.Empty;
     }
 
     /// <summary>Specifies the alignment of an error icon in relation to the control with an error.</summary>

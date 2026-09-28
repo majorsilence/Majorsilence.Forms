@@ -43,9 +43,11 @@ namespace Majorsilence.Forms
         public static bool RenderMatchingApplicationState { get; set; } = true;
 
         /// <summary>Draws the background of the group box's parent behind it.</summary>
-        /// <remarks>No-op: parent backgrounds are already painted before children here, so a renderer
-        /// asking for one again would double-draw.</remarks>
-        public static void DrawParentBackground (Graphics g, Rectangle bounds, Control childControl) { }
+        /// <remarks>Real as of W6 mechanisms, and the same fill <see cref="ButtonRenderer.DrawParentBackground"/>
+        /// makes: the nearest opaque ancestor's back colour. A renderer asked for the parent background
+        /// is about to draw over it, so the fill has to be there.</remarks>
+        public static void DrawParentBackground (Graphics g, Rectangle bounds, Control childControl)
+            => ButtonRenderer.DrawParentBackground (g, bounds, childControl);
 
         /// <summary>Draws a group box with no caption.</summary>
         public static void DrawGroupBox (Graphics g, Rectangle bounds, VisualStyles.GroupBoxState state) =>

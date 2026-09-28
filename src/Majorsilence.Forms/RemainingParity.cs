@@ -201,7 +201,8 @@ namespace Majorsilence.Forms
         public virtual bool CanExtend (object? target) => target is Control;
 
         /// <summary>Returns the navigator used when help is shown for the given control.</summary>
-        public virtual HelpNavigator GetHelpNavigator (Control ctl) => HelpNavigator.AssociateIndex;
+        public virtual HelpNavigator GetHelpNavigator (Control ctl)
+            => _navigators.TryGetValue (ctl, out var navigator) ? navigator : HelpNavigator.AssociateIndex;
 
         /// <summary>Stops showing help for the given control.</summary>
         public virtual void ResetShowHelp (Control ctl) => SetShowHelp (ctl, false);
@@ -219,8 +220,103 @@ namespace Majorsilence.Forms
             DataMember = newDataMember ?? string.Empty;
         }
 
-        /// <summary>Re-reads the error information from the data source.</summary>
-        public void UpdateBinding () { }
+        /// <summary>Re-reads the error information from the data source and shows it on the bound controls.</summary>
+        /// <remarks>
+        /// Real as of W6 mechanisms. The current item of the manager for <see cref="DataSource"/> and
+        /// <see cref="DataMember"/> in the <see cref="ContainerControl"/>'s binding context is asked,
+        /// through <see cref="IDataErrorInfo"/>, for the error on each property a control under the
+        /// container binds to that source, and that text becomes the control's error. An item that
+        /// does not report errors, or no current item, clears them. Setting any of the three properties
+        /// runs this, and the manager's current item changing or changing in place runs it again.
+        /// </remarks>
+        public void UpdateBinding ()
+        {
+            var manager = ResolveManager ();
+            WatchManager (manager);
+
+            var info = manager?.Current as IDataErrorInfo;
+
+            foreach (var (control, binding) in BoundControls ())
+                SetError (control, info?[binding.BindingMemberInfo.BindingField] ?? string.Empty);
+        }
+
+        private BindingManagerBase? ResolveManager ()
+        {
+            if (DataSource is null)
+                return null;
+
+            var context = ContainerControl switch {
+                Form form => form.BindingContext,
+                Control control => control.BindingContext,
+                _ => null,
+            };
+
+            return context?[DataSource, DataMember];
+        }
+
+        private BindingManagerBase? watched_manager;
+
+        private void WatchManager (BindingManagerBase? manager)
+        {
+            if (ReferenceEquals (watched_manager, manager))
+                return;
+
+            if (watched_manager is not null) {
+                watched_manager.CurrentChanged -= ManagerChanged;
+
+                if (watched_manager is CurrencyManager old_currency)
+                    old_currency.ItemChanged -= ManagerChanged;
+            }
+
+            watched_manager = manager;
+
+            if (manager is null)
+                return;
+
+            manager.CurrentChanged += ManagerChanged;
+
+            if (manager is CurrencyManager currency)
+                currency.ItemChanged += ManagerChanged;
+        }
+
+        private void ManagerChanged (object? sender, EventArgs e) => UpdateBinding ();
+
+        // Every control under the container whose binding reads the provider's source. The member's
+        // path has to match too when a DataMember names one: a provider watching Orders must not show
+        // Customer errors on the customer boxes.
+        private IEnumerable<(Control Control, Binding Binding)> BoundControls ()
+        {
+            var roots = ContainerControl switch {
+                WindowBase window => window.Controls,
+                Control control => control.Controls,
+                _ => null,
+            };
+
+            if (roots is null)
+                yield break;
+
+            foreach (var control in Descendants (roots)) {
+                foreach (var binding in control.DataBindings) {
+                    if (!ReferenceEquals (binding.DataSource, DataSource))
+                        continue;
+
+                    if (!string.IsNullOrEmpty (DataMember) && !string.Equals (binding.BindingMemberInfo.BindingPath, DataMember, StringComparison.Ordinal))
+                        continue;
+
+                    yield return (control, binding);
+                }
+            }
+        }
+
+        private static IEnumerable<Control> Descendants (Control.ControlCollection controls)
+        {
+            foreach (Control control in controls) {
+                yield return control;
+
+                foreach (var child in Descendants (control.Controls))
+                    yield return child;
+            }
+        }
     }
 
     public partial class BindingNavigator

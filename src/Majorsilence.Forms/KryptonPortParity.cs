@@ -75,8 +75,8 @@ namespace Majorsilence.Forms
         protected virtual void OnBindingContextChanged (EventArgs e) => BindingContextChanged?.Invoke (this, e);
 
         /// <summary>Raises the <see cref="StyleChanged"/> event.</summary>
-        /// <remarks>Never raised: there is no window style to change. Present because a control that
-        /// reacts to its own style bits overrides it.</remarks>
+        /// <remarks>Called by <see cref="UpdateStyles"/> as of W6 mechanisms, upstream's programmatic
+        /// route to it; a control that reacts to its own style bits overrides it.</remarks>
         protected virtual void OnStyleChanged (EventArgs e) => StyleChanged?.Invoke (this, e);
     }
 

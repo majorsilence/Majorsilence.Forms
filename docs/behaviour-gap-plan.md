@@ -3806,6 +3806,56 @@ forwarding and the argument handling and says so; the neutralization round does 
 6 tests; two neutralization rounds (the initialize pairs; the two provable overloads), failing 3 and 2
 of the 6, snapshot verified before and after.
 
+**W6 mechanisms, eighteenth chunk: editing, binding, clipboard, help and strip layouts. — 2026-09-25.** Part of #91.
+Twenty-seven empty-bodied public methods, plus three stored-only properties and one unraised event
+they carried with them.
+
+- **The grid's editing-control protocol.** The grid now calls the cell's `InitializeEditingControl`
+  once the editor is `EditingControl`, and `DetachEditingControl` as the edit ends or is cancelled.
+  The base seeds grid, row, value and the cell's style into the editor and takes them back off, so a
+  custom cell type's overrides finally run. `RefreshEdit` puts the cell's value back into the editor,
+  reselects it and leaves the cell clean, without leaving edit mode. The combo editor's
+  `PrepareEditingControlForEdit` selects its text, as the text-box editor's already did.
+- **Binding managers mutate their list.** `BindingManagerBase.AddNew` asks a list that creates its own
+  items, or constructs the element type, and makes the new item current; `RemoveAt` removes. A plain
+  `List<T>` announces nothing, so the manager announces for it and the position moves. A
+  `PropertyManager` throws `NotSupportedException`, as upstream's does.
+- **`BindingSource.AllowNew` derives from the list** until set: an `IBindingList` answers for itself, a
+  fixed-size or read-only list forbids, otherwise the element type must be constructible.
+  `ResetAllowNew` takes the override away. `AddNew` checks the list but not the constructor, because
+  an `AddingNew` handler may supply the item, as upstream.
+- **Data-bound errors.** `ErrorProvider.UpdateBinding` asks the current item of the source's manager,
+  in the container's binding context, for the `IDataErrorInfo` error on each property a control under
+  the container binds to that source. Setting `DataSource`, `DataMember` or `ContainerControl` runs it,
+  and a current-item change re-reads. Those three properties were stored-only.
+- **A format-keyed clipboard.** `Clipboard.SetData`/`GetData`/`ContainsData` keep any named format
+  in-process, for the reason the image already was. `GetDataObject` returns a `DataObject` snapshot
+  carrying every format, so its `SetData` stores into the snapshot, and `SetDataObject` puts all of it
+  back. The private text-only object whose three setters dropped their data is gone.
+- **F1 help.** `HelpProvider` hooks a control given a help string; F1 shows the string through the new
+  `Help.ShowPopup` and handles the request, unless `SetShowHelp (false)` turned it off, in which case
+  the request goes on up to the form. `SetHelpNavigator` is stored and read back; the help file itself
+  is not opened, so a keyword alone shows nothing.
+- **`UpdateStyles`** on a control or window raises `StyleChanged` and repaints -- upstream's one
+  programmatic route to the event, which was on the unraised baseline.
+- **Smaller ones.** The legacy `DataGrid`'s `BeginInit`/`EndInit` batch layout.
+  `GroupBoxRenderer.DrawParentBackground` fills with the nearest opaque ancestor's colour, as the
+  button renderer's does. `PreviewPrintController.OnEndPage` disposes the page graphics it handed
+  out; `StandardPrintController`'s empty overrides are removed, since the base is already empty.
+- **`ToolStripManager.SaveSettings`/`LoadSettings`** write each named strip's layout to a text file
+  under `Application.UserAppDataPath` and put it back. A strip in a `ToolStripPanel` is recorded by its
+  panel and order in it, because the panel's rows lay strips out from that order and a saved location
+  would be overwritten by the next layout; a strip elsewhere keeps its location and size. A strip
+  with no `Name` is skipped, as upstream skips it.
+
+*Counts.* No-op stubs **105 → 78**; stored-only **340 → 337**; unraised **69 → 68**.
+
+*Found on the way.* The upstream-ported `ErrorProviderTests` read `DataMember` back by identity, so the
+new setter stores `null` as given rather than coercing it to empty.
+
+13 tests; three neutralization rounds (the editing protocol; binding; the rest), failing 3, 3 and 7 of
+the 13, snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

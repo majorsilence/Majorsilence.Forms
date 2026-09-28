@@ -422,11 +422,67 @@ namespace Majorsilence.Forms
         /// <summary>Gets whether updates to the bound controls are suspended.</summary>
         public bool IsBindingSuspended { get; internal set; }
 
-        /// <summary>Adds a new item to the bound list.</summary>
-        public virtual void AddNew () { }
+        /// <summary>Adds a new item to the bound list and makes it current.</summary>
+        /// <remarks>
+        /// Real as of W6 mechanisms. A list that can create its own items (an <see cref="IBindingList"/>
+        /// with <c>AllowNew</c>, which is what a <see cref="BindingSource"/> is) is asked to; any other
+        /// list gets an instance of its element type. A list that announces nothing is announced for
+        /// here, so the position moves and the bound controls show the new item. A
+        /// <see cref="PropertyManager"/> has one object and no list, which upstream reports the same
+        /// way: <see cref="NotSupportedException"/>.
+        /// </remarks>
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2072", Justification = "Data binding creates items of user-provided types by reflection, as it does upstream.")]
+        public virtual void AddNew ()
+        {
+            if (list is null)
+                throw new NotSupportedException ("AddNew is not supported by a manager over a single object.");
+
+            if (list is IBindingList { AllowNew: true } creating) {
+                creating.AddNew ();
+            } else {
+                var type = ElementTypeOf (list)
+                    ?? throw new InvalidOperationException ("The bound list does not say what it holds, so a new item cannot be created.");
+
+                list.Add (Activator.CreateInstance (type));
+
+                // A plain list raises nothing; the manager announces what it just did.
+                if (list is not IBindingList)
+                    OnListChanged (this, new ListChangedEventArgs (ListChangedType.ItemAdded, list.Count - 1));
+            }
+
+            Position = Count - 1;
+        }
 
         /// <summary>Removes the item at the given position from the bound list.</summary>
-        public virtual void RemoveAt (int index) { }
+        /// <remarks>Real as of W6 mechanisms; see <see cref="AddNew"/> for the announcement a plain
+        /// list gets and for what a <see cref="PropertyManager"/> does.</remarks>
+        public virtual void RemoveAt (int index)
+        {
+            if (list is null)
+                throw new NotSupportedException ("RemoveAt is not supported by a manager over a single object.");
+
+            list.RemoveAt (index);
+
+            if (list is not IBindingList)
+                OnListChanged (this, new ListChangedEventArgs (ListChangedType.ItemDeleted, index));
+        }
+
+        // The element type a list declares, for AddNew to construct; null for an untyped list.
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding inspects the list's generic interfaces, as it does upstream.")]
+        private static Type? ElementTypeOf (System.Collections.IList list)
+        {
+            if (list.GetType ().IsArray)
+                return list.GetType ().GetElementType ();
+
+            foreach (var iface in list.GetType ().GetInterfaces ()) {
+                if (iface.IsGenericType && iface.GetGenericTypeDefinition () == typeof (System.Collections.Generic.IList<>)) {
+                    var argument = iface.GetGenericArguments ()[0];
+                    return argument == typeof (object) ? null : argument;
+                }
+            }
+
+            return null;
+        }
 
         /// <summary>Returns the properties of the items in the bound list.</summary>
         public virtual PropertyDescriptorCollection GetItemProperties () => PropertyDescriptorCollection.Empty;
@@ -641,19 +697,133 @@ namespace Majorsilence.Forms
         /// <summary>Returns whether the given shortcut is already used by a menu item.</summary>
         public static bool IsShortcutDefined (Keys shortcut) => false;
 
-        /// <summary>Saves the tool strip layout of the given form.</summary>
-        /// <remarks>Layout persistence writes to the per-user settings store, which this layer does
-        /// not have; nothing is written, and LoadSettings therefore restores nothing.</remarks>
-        public static void SaveSettings (Form sourceForm) { }
+        /// <summary>Saves the layout of the form's tool strips under the form's type name.</summary>
+        /// <inheritdoc cref="SaveSettings(Form, string)" path="/remarks"/>
+        public static void SaveSettings (Form sourceForm)
+        {
+            Guard.ThrowIfNull (sourceForm);
+            SaveSettings (sourceForm, SettingsKeyFor (sourceForm));
+        }
 
-        /// <inheritdoc cref="SaveSettings(Form)"/>
-        public static void SaveSettings (Form sourceForm, string key) { }
+        /// <summary>Saves the layout of the form's tool strips under the given key.</summary>
+        /// <remarks>
+        /// Real as of W6 mechanisms. Every named strip under the form is recorded and
+        /// <see cref="LoadSettings(Form, string)"/> puts it back, so a user's arrangement survives a
+        /// restart. For a strip in a <see cref="ToolStripPanel"/> that is the panel and its order in
+        /// it, because the panel's rows lay the strips out from that order; for a strip anywhere else
+        /// it is the location and size; visibility is kept either way. The store is a text file in
+        /// <see cref="Application.UserAppDataPath"/>, where upstream's user settings live too. A strip
+        /// with no <see cref="Control.Name"/> cannot be matched on the way back and is skipped, as
+        /// upstream skips it. A key is a plain string, so one without a tab in it.
+        /// </remarks>
+        public static void SaveSettings (Form sourceForm, string key)
+        {
+            Guard.ThrowIfNull (sourceForm);
+            Guard.ThrowIfNull (key);
 
-        /// <inheritdoc cref="SaveSettings(Form)"/>
-        public static void LoadSettings (Form targetForm) { }
+            var lines = ReadStore ().Where (line => !line.StartsWith (key + '\t', StringComparison.Ordinal)).ToList ();
 
-        /// <inheritdoc cref="SaveSettings(Form)"/>
-        public static void LoadSettings (Form targetForm, string key) { }
+            foreach (var strip in StripsIn (sourceForm.Controls)) {
+                if (strip.Name.Length == 0)
+                    continue;
+
+                var panel = strip.Parent as ToolStripPanel;
+                var order = panel is null ? -1 : panel.Controls.IndexOf (strip);
+
+                lines.Add (string.Join ("\t", key, strip.Name, panel?.Name ?? string.Empty, Invariant (order),
+                    Invariant (strip.Left), Invariant (strip.Top), Invariant (strip.Width), Invariant (strip.Height),
+                    strip.Visible ? "1" : "0"));
+            }
+
+            var directory = System.IO.Path.GetDirectoryName (SettingsPath);
+
+            if (!string.IsNullOrEmpty (directory))
+                System.IO.Directory.CreateDirectory (directory);
+
+            System.IO.File.WriteAllLines (SettingsPath, lines);
+        }
+
+        /// <summary>Restores the layout <see cref="SaveSettings(Form)"/> recorded for the form's type.</summary>
+        /// <inheritdoc cref="SaveSettings(Form, string)" path="/remarks"/>
+        public static void LoadSettings (Form targetForm)
+        {
+            Guard.ThrowIfNull (targetForm);
+            LoadSettings (targetForm, SettingsKeyFor (targetForm));
+        }
+
+        /// <summary>Restores the layout <see cref="SaveSettings(Form, string)"/> recorded under the key.</summary>
+        /// <inheritdoc cref="SaveSettings(Form, string)" path="/remarks"/>
+        public static void LoadSettings (Form targetForm, string key)
+        {
+            Guard.ThrowIfNull (targetForm);
+            Guard.ThrowIfNull (key);
+
+            var strips = new Dictionary<string, ToolStrip> (StringComparer.Ordinal);
+            var panels = new Dictionary<string, ToolStripPanel> (StringComparer.Ordinal);
+
+            foreach (var strip in StripsIn (targetForm.Controls))
+                if (strip.Name.Length > 0 && !strips.ContainsKey (strip.Name))
+                    strips[strip.Name] = strip;
+
+            foreach (var panel in Descendants (targetForm.Controls).OfType<ToolStripPanel> ())
+                if (panel.Name.Length > 0 && !panels.ContainsKey (panel.Name))
+                    panels[panel.Name] = panel;
+
+            foreach (var line in ReadStore ()) {
+                var parts = line.Split ('\t');
+
+                if (parts.Length != 9 || parts[0] != key || !strips.TryGetValue (parts[1], out var strip))
+                    continue;
+
+                if (!TryInvariant (parts[3], out var order) || !TryInvariant (parts[4], out var left) || !TryInvariant (parts[5], out var top)
+                    || !TryInvariant (parts[6], out var width) || !TryInvariant (parts[7], out var height))
+                    continue;
+
+                if (parts[2].Length > 0 && panels.TryGetValue (parts[2], out var panel)) {
+                    // Back into the panel it was in, at the place in its order it had: the panel's rows
+                    // follow that order, so this is what puts the strip back on its row.
+                    if (!ReferenceEquals (strip.Parent, panel))
+                        panel.Join (strip);
+
+                    if (order >= 0)
+                        panel.Controls.SetChildIndex (strip, Math.Min (order, panel.Controls.Count - 1));
+
+                    panel.PerformLayout ();
+                } else {
+                    strip.Location = new Point (left, top);
+                    strip.Size = new Size (width, height);
+                }
+
+                strip.Visible = parts[8] == "1";
+            }
+        }
+
+        /// <summary>The file the strip layouts are kept in. Settable so a test can point it elsewhere.</summary>
+        internal static string SettingsPath { get; set; } =
+            System.IO.Path.Combine (Application.UserAppDataPath, "toolstrip-layouts.txt");
+
+        private static string SettingsKeyFor (Form form) => form.GetType ().FullName ?? form.GetType ().Name;
+
+        private static string Invariant (int value) => value.ToString (System.Globalization.CultureInfo.InvariantCulture);
+
+        private static bool TryInvariant (string text, out int value)
+            => int.TryParse (text, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out value);
+
+        private static string[] ReadStore ()
+            => System.IO.File.Exists (SettingsPath) ? System.IO.File.ReadAllLines (SettingsPath) : [];
+
+        private static IEnumerable<ToolStrip> StripsIn (Control.ControlCollection controls)
+            => Descendants (controls).OfType<ToolStrip> ();
+
+        private static IEnumerable<Control> Descendants (Control.ControlCollection controls)
+        {
+            foreach (Control control in controls) {
+                yield return control;
+
+                foreach (var child in Descendants (control.Controls))
+                    yield return child;
+            }
+        }
 
         /// <summary>Raised when the shared renderer changes.</summary>
 #pragma warning disable CS0067

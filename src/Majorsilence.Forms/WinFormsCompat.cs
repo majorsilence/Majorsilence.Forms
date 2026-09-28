@@ -4554,7 +4554,40 @@ namespace Majorsilence.Forms
         public string HelpNamespace { get; set; } = string.Empty;
 
         /// <summary>Sets the help string for the specified control.</summary>
-        public void SetHelpString (Control ctl, string helpString) => _helpStrings[ctl] = helpString;
+        /// <remarks>F1 on the control shows the string as of W6 mechanisms, unless
+        /// <see cref="SetShowHelp(Control, bool)"/> has turned the control's help off.</remarks>
+        public void SetHelpString (Control ctl, string helpString)
+        {
+            _helpStrings[ctl] = helpString;
+            Hook (ctl);
+        }
+
+        private readonly System.Collections.Generic.HashSet<Control> _hooked = new ();
+        private readonly System.Collections.Generic.Dictionary<object, bool> _showHelp = new ();
+        private readonly System.Collections.Generic.Dictionary<object, HelpNavigator> _navigators = new ();
+
+        private void Hook (Control ctl)
+        {
+            if (_hooked.Add (ctl))
+                ctl.HelpRequested += Control_HelpRequested;
+        }
+
+        // Upstream's WM_HELP handling collapsed to its observable outcome: the control's help string in
+        // a popup, and the event handled so the parents and the form do not hear it too. A keyword on
+        // its own needs the help file, which this layer does not open, so it shows nothing here.
+        private void Control_HelpRequested (object? sender, HelpEventArgs e)
+        {
+            if (sender is not Control control || e.Handled || !GetShowHelp (control))
+                return;
+
+            var text = GetHelpString (control);
+
+            if (text.Length == 0)
+                return;
+
+            Help.ShowPopup (control, text, e.MousePos);
+            e.Handled = true;
+        }
 
         /// <summary>Sets the help string for the specified form or window.</summary>
         public void SetHelpString (WindowBase window, string helpString) => _helpStrings[window] = helpString;
@@ -4577,23 +4610,35 @@ namespace Majorsilence.Forms
         /// <summary>Gets the help keyword for the specified form or window.</summary>
         public string GetHelpKeyword (WindowBase window) => _helpKeywords.TryGetValue (window, out var k) ? k : string.Empty;
 
-        /// <summary>Sets whether the help provider is enabled for the specified control. Stub in Majorsilence.Forms.</summary>
-        public void SetShowHelp (Control ctl, bool value) { }
+        /// <summary>Sets whether this provider answers F1 for the specified control.</summary>
+        /// <remarks>Real as of W6 mechanisms: false leaves the control's help string in place but
+        /// stops it showing, which is what a designer's ShowHelp checkbox does.</remarks>
+        public void SetShowHelp (Control ctl, bool value) => _showHelp[ctl] = value;
 
-        /// <summary>Sets whether the help provider is enabled for the specified form or window. Stub in Majorsilence.Forms.</summary>
-        public void SetShowHelp (WindowBase window, bool value) { }
+        /// <inheritdoc cref="SetShowHelp(Control, bool)"/>
+        public void SetShowHelp (WindowBase window, bool value) => _showHelp[window] = value;
 
-        /// <summary>Gets whether the help provider is enabled for the specified control. Stub in Majorsilence.Forms.</summary>
-        public bool GetShowHelp (Control ctl) => true;
+        /// <summary>Gets whether this provider answers F1 for the specified control.</summary>
+        /// <remarks>Until set, true once the control has a help string or keyword, as upstream.</remarks>
+        public bool GetShowHelp (Control ctl) => ShowHelpFor (ctl);
 
-        /// <summary>Gets whether the help provider is enabled for the specified form or window. Stub in Majorsilence.Forms.</summary>
-        public bool GetShowHelp (WindowBase window) => true;
+        /// <inheritdoc cref="GetShowHelp(Control)"/>
+        public bool GetShowHelp (WindowBase window) => ShowHelpFor (window);
 
-        /// <summary>Sets the navigator type for the specified control. Stub in Majorsilence.Forms.</summary>
-        public void SetHelpNavigator (Control ctl, HelpNavigator navigator) { }
+        private bool ShowHelpFor (object target)
+            => _showHelp.TryGetValue (target, out var show) ? show : _helpStrings.ContainsKey (target) || _helpKeywords.ContainsKey (target);
 
-        /// <summary>Sets the navigator type for the specified form or window. Stub in Majorsilence.Forms.</summary>
-        public void SetHelpNavigator (WindowBase window, HelpNavigator navigator) { }
+        /// <summary>Sets how the help keyword for the specified control is looked up.</summary>
+        /// <remarks>Stored and read back as of W6 mechanisms. The help file itself is not opened here,
+        /// so the navigator does not yet change what F1 shows.</remarks>
+        public void SetHelpNavigator (Control ctl, HelpNavigator navigator) => _navigators[ctl] = navigator;
+
+        /// <inheritdoc cref="SetHelpNavigator(Control, HelpNavigator)"/>
+        public void SetHelpNavigator (WindowBase window, HelpNavigator navigator) => _navigators[window] = navigator;
+
+        /// <inheritdoc cref="GetHelpNavigator(Control)"/>
+        public HelpNavigator GetHelpNavigator (WindowBase window)
+            => _navigators.TryGetValue (window, out var navigator) ? navigator : HelpNavigator.AssociateIndex;
 
         /// <summary>Gets or sets user-defined data associated with this component. Stub in Majorsilence.Forms.</summary>
         public object? Tag { get; set; }
@@ -4633,8 +4678,25 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="ShowHelp(Control,string,HelpNavigator)"/>
         public static void ShowHelp (Control? parent, string? url, HelpNavigator command, object? parameter) { }
 
-        /// <summary>Displays a Help pop-up window. Stub in Majorsilence.Forms.</summary>
-        public static void ShowPopup (Control parent, string caption, System.Drawing.Point location) { }
+        /// <summary>Shows a help pop-up with the given text, at a screen location.</summary>
+        /// <remarks>Real as of W6 mechanisms: a tool-tip style popup anchored to the control, which is
+        /// what upstream's HTML Help popup looks like. Empty text shows nothing. <see cref="HelpProvider"/>
+        /// routes F1 here for a control it has a help string for.</remarks>
+        public static void ShowPopup (Control parent, string caption, System.Drawing.Point location)
+        {
+            Guard.ThrowIfNull (parent);
+
+            if (string.IsNullOrEmpty (caption))
+                return;
+
+            popup ??= new ToolTip { ShowAlways = true };
+            popup.ShowItemTip (parent, caption, parent.PointToClient (location));
+        }
+
+        private static ToolTip? popup;
+
+        /// <summary>The text of the help popup on screen, or null. Test seam.</summary>
+        internal static string? PopupText => popup?.PopupText;
     }
 
     /// <summary>

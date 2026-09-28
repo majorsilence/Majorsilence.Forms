@@ -733,19 +733,13 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        ///  Signals the start of the grid's initialization. No-op in this compat shim.
+        ///  Signals the start of the grid's initialization: layout is held until <see cref="EndInit"/>.
         /// </summary>
-        public void BeginInit()
-        {
-
-        }
+        public void BeginInit() => SuspendLayout ();
 
         /// <summary>
-        ///  Signals the end of the grid's initialization. No-op in this compat shim.
+        ///  Signals the end of the grid's initialization: the layout the batch of assignments needs runs once.
         /// </summary>
-        public void EndInit()
-        {
-
-        }
+        public void EndInit() => ResumeLayout (performLayout: true);
     }
 }

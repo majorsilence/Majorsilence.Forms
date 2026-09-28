@@ -267,7 +267,28 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Releases the editing control from this cell.</summary>
-        public virtual void DetachEditingControl () { }
+        /// <remarks>Real as of W6 mechanisms: the grid calls it as an edit ends, before the editor is
+        /// disposed, and the base takes the grid and row back off the editor. A custom cell type
+        /// overrides it to release what its own <see cref="InitializeEditingControl"/> set up.</remarks>
+        public virtual void DetachEditingControl ()
+        {
+            switch (DataGridView?.EditingControl) {
+            case DataGridViewTextBoxEditingControl text:
+                text.EditingControlDataGridView = null;
+                text.EditingControlRowIndex = -1;
+                break;
+
+            case DataGridViewComboBoxEditingControl combo:
+                combo.EditingControlDataGridView = null;
+                combo.EditingControlRowIndex = -1;
+                break;
+
+            case IDataGridViewEditingControl custom:
+                custom.EditingControlDataGridView = null;
+                custom.EditingControlRowIndex = -1;
+                break;
+            }
+        }
 
         /// <summary>Returns the border style to use for this cell, given the grid's settings.</summary>
         public virtual DataGridViewAdvancedBorderStyle AdjustCellBorderStyle (

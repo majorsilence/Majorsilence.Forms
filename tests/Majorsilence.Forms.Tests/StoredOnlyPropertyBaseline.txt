@@ -176,9 +176,6 @@ Majorsilence.Forms.Drawing.Graphics.TextContrast    -- GDI+ quality knob; Skia's
 Majorsilence.Forms.Drawing.Graphics.TextRenderingHint    -- GDI+ quality knob; Skia's pipeline has one quality setting and no equivalent
 Majorsilence.Forms.Drawing.SkiaGraphics.DpiX    -- framework-written (outbound state)
 Majorsilence.Forms.Drawing.SkiaGraphics.DpiY    -- framework-written (outbound state)
-Majorsilence.Forms.ErrorProvider.ContainerControl    -- the error glyph is drawn, not an Icon image; the container is the errored control's parent
-Majorsilence.Forms.ErrorProvider.DataMember    -- framework-written (outbound state)
-Majorsilence.Forms.ErrorProvider.DataSource    -- framework-written (outbound state)
 Majorsilence.Forms.ErrorProvider.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.FileDialog.AddExtension    -- framework-written (outbound state)
 Majorsilence.Forms.FileDialog.AddToRecent    -- native picker option; not forwarded to the backend dialog (needs a backend capability)

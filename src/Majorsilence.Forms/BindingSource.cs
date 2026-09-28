@@ -623,7 +623,7 @@ namespace Majorsilence.Forms
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2072", Justification = "Data binding creates items of user-provided types by reflection, as it does upstream.")]
         public object? AddNew ()
         {
-            if (!AllowNew)
+            if (!(allow_new ?? AllowNewImplied (checkConstructor: false)))
                 throw new InvalidOperationException ("AddNew is not allowed on this BindingSource.");
 
             var args = new AddingNewEventArgs ();
@@ -746,8 +746,38 @@ namespace Majorsilence.Forms
             return Find (property.Name, key);
         }
 
-        /// <summary>Returns whether the list allows new items. Stub in Majorsilence.Forms.</summary>
-        public bool AllowNew { get; set; } = true;
+        /// <summary>Gets or sets whether the list allows new items.</summary>
+        /// <remarks>
+        /// Real as of W6 mechanisms: until set, it is what the list implies -- a list that creates its
+        /// own items says so, a fixed-size or read-only one forbids, and any other allows when its
+        /// element type can be constructed. Setting it overrides that, and
+        /// <see cref="ResetAllowNew"/> takes the override away again. It used to be a stored true.
+        /// </remarks>
+        public bool AllowNew {
+            get => allow_new ?? AllowNewImplied (checkConstructor: true);
+            set => allow_new = value;
+        }
+
+        private bool? allow_new;
+
+        // Upstream's AllowNewInternal: AddNew asks without the constructor check, because an
+        // AddingNew handler may supply the item for a type that cannot construct itself.
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding inspects the element type, as it does upstream.")]
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2080", Justification = "Data binding inspects the element type, as it does upstream.")]
+        private bool AllowNewImplied (bool checkConstructor)
+        {
+            if (_list is IBindingList binding)
+                return binding.AllowNew;
+
+            if (_list.IsFixedSize || _list.IsReadOnly)
+                return false;
+
+            if (!checkConstructor)
+                return true;
+
+            var type = declared_element_type ?? ListElementType ();
+            return type is null || type == typeof (object) || type.IsValueType || type.GetConstructor (Type.EmptyTypes) is not null;
+        }
 
         /// <summary>Returns whether the list allows edits. Stub in Majorsilence.Forms.</summary>
         public bool AllowEdit { get; set; } = true;

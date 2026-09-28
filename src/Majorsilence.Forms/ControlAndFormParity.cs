@@ -381,12 +381,10 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the control's region changes.</summary>
         public event EventHandler? RegionChanged;
 
-        /// <summary>Raised when the control's window style changes.</summary>
-        /// <remarks>Never raised: there is no window style to change. Present because designer code
-        /// binds it.</remarks>
-#pragma warning disable CS0067
+        /// <summary>Raised when the control's styles are reapplied.</summary>
+        /// <remarks>Raised by <see cref="UpdateStyles"/> as of W6 mechanisms, which is upstream's one
+        /// programmatic route to it: there are no window style bits here for anything else to change.</remarks>
         public event EventHandler? StyleChanged;
-#pragma warning restore CS0067
 
         /// <summary>Raised when <see cref="BackgroundImage"/> changes.</summary>
         public event EventHandler? BackgroundImageChanged;

@@ -285,19 +285,10 @@ namespace Majorsilence.Forms.Printing
     }
 
     /// <summary>Sends print jobs straight through, without preview or a status dialog.</summary>
+    /// <remarks>Adds nothing to the base: the document's own PDF pipeline is the device here, so a
+    /// controller that neither previews nor reports has nothing to do at the page boundaries.</remarks>
     public class StandardPrintController : PrintController
     {
-        /// <inheritdoc/>
-        public override void OnStartPrint (PrintDocument document, PrintEventArgs e) { }
-
-        /// <inheritdoc/>
-        public override Majorsilence.Forms.Drawing.Graphics? OnStartPage (PrintDocument document, PrintPageEventArgs e) => null;
-
-        /// <inheritdoc/>
-        public override void OnEndPage (PrintDocument document, PrintPageEventArgs e) { }
-
-        /// <inheritdoc/>
-        public override void OnEndPrint (PrintDocument document, PrintEventArgs e) { }
     }
 
     /// <summary>Wraps a PrintController and shows a status dialog. Stub in Majorsilence.Forms.</summary>
@@ -373,11 +364,20 @@ namespace Majorsilence.Forms.Printing
             var bounds = System.Drawing.Rectangle.Round (e.PageBounds);
             var image = new Majorsilence.Forms.Drawing.Bitmap (Math.Max (1, bounds.Width), Math.Max (1, bounds.Height));
             pages.Add (new PreviewPageInfo (image, bounds.Size));
-            return Majorsilence.Forms.Drawing.Graphics.FromImage (image);
+            page_graphics = Majorsilence.Forms.Drawing.Graphics.FromImage (image);
+            return page_graphics;
         }
 
-        /// <inheritdoc/>
-        public override void OnEndPage (PrintDocument document, PrintPageEventArgs e) { }
+        private Majorsilence.Forms.Drawing.Graphics? page_graphics;
+
+        /// <summary>Closes the page's drawing surface, leaving the captured bitmap.</summary>
+        /// <remarks>Real as of W6 mechanisms: the graphics <see cref="OnStartPage"/> handed out is
+        /// released here, as upstream's is, rather than leaking until the collector finds it.</remarks>
+        public override void OnEndPage (PrintDocument document, PrintPageEventArgs e)
+        {
+            page_graphics?.Dispose ();
+            page_graphics = null;
+        }
 
         /// <inheritdoc/>
         public override void OnEndPrint (PrintDocument document, PrintEventArgs e) { }

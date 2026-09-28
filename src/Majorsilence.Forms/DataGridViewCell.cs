@@ -75,9 +75,55 @@ namespace Majorsilence.Forms
         /// <summary>The default value for a new row's cell. Mirrors WinForms.</summary>
         public virtual object? DefaultNewRowValue => null;
 
-        /// <summary>Initializes the hosted editing control. Mirrors WinForms.</summary>
+        /// <summary>Seeds the grid's editing control with this cell's value and style.</summary>
+        /// <remarks>
+        /// Real as of W6 mechanisms: the grid calls it once the editor is its
+        /// <see cref="DataGridView.EditingControl"/>, and this is the override point a custom cell
+        /// type uses to seed an editor of its own. The base tells the editor which grid and row it
+        /// edits, hands it the initial value, marks it unchanged and applies the cell's style. A combo
+        /// editor keeps the selection the column already made from the cell's VALUE, which is more
+        /// precise than the display text this receives.
+        /// </remarks>
         public virtual void InitializeEditingControl (int rowIndex, object? initialFormattedValue, DataGridViewCellStyle dataGridViewCellStyle)
         {
+            var grid = DataGridView;
+
+            switch (grid?.EditingControl) {
+            case DataGridViewTextBoxEditingControl text:
+                text.EditingControlDataGridView = grid;
+                text.EditingControlRowIndex = rowIndex;
+                text.EditingControlFormattedValue = initialFormattedValue;
+                text.EditingControlValueChanged = false;
+
+                if (dataGridViewCellStyle is not null)
+                    text.ApplyCellStyleToEditingControl (dataGridViewCellStyle);
+
+                break;
+
+            case DataGridViewComboBoxEditingControl combo:
+                combo.EditingControlDataGridView = grid;
+                combo.EditingControlRowIndex = rowIndex;
+                combo.EditingControlValueChanged = false;
+
+                if (dataGridViewCellStyle is not null)
+                    combo.ApplyCellStyleToEditingControl (dataGridViewCellStyle);
+
+                break;
+
+            case IDataGridViewEditingControl custom:
+                custom.EditingControlDataGridView = grid;
+                custom.EditingControlRowIndex = rowIndex;
+
+                if (initialFormattedValue is not null)
+                    custom.EditingControlFormattedValue = initialFormattedValue;
+
+                custom.EditingControlValueChanged = false;
+
+                if (dataGridViewCellStyle is not null)
+                    custom.ApplyCellStyleToEditingControl (dataGridViewCellStyle);
+
+                break;
+            }
         }
 
         private object? value;

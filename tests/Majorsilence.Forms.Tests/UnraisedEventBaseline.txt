@@ -12,7 +12,6 @@ Majorsilence.Forms.Control.DpiChangedAfterParent    -- no DPI-change path; the h
 Majorsilence.Forms.Control.DpiChangedBeforeParent    -- no DPI-change path; the headless scale is fixed for the process
 Majorsilence.Forms.Control.QueryAccessibilityHelp    -- accessibility infrastructure; no accessible-object tree
 Majorsilence.Forms.Control.Scroll    -- not an upstream Control member; ScrollableControl.Scroll is the one that fires
-Majorsilence.Forms.Control.StyleChanged    -- Win32 style bits (WM_STYLECHANGED); no equivalent state here
 Majorsilence.Forms.DataGrid.BackButtonClick    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGrid.BackgroundColorChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGrid.BorderStyleChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
