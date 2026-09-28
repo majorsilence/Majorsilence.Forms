@@ -46,6 +46,7 @@ namespace Majorsilence.Forms.Backends
         // changing this value must update that script too, or its tap check silently stops proving anything.
         internal const string TappedExtraKey = "majorsilence_forms_notification_tapped_id";
         private const int PermissionRequestCode = 0x4D46;   // 'MF', arbitrary but stable and unlikely to collide with a host app's own request codes
+        private const string LogTag = "MajorsilenceFormsNotifications";
 
         public bool IsPermissionGranted {
             get {
@@ -69,7 +70,8 @@ namespace Majorsilence.Forms.Backends
 
             try {
                 ActivityCompat.RequestPermissions (activity, new[] { global::Android.Manifest.Permission.PostNotifications }, PermissionRequestCode);
-            } catch {
+            } catch (Exception ex) {
+                global::Android.Util.Log.Warn (LogTag, $"RequestPermission failed: {ex}");
             }
         }
 
@@ -92,7 +94,8 @@ namespace Majorsilence.Forms.Backends
                 var built = builder.Build ();
                 if (built is not null)
                     NotificationManagerCompat.From (context)?.CreateNotificationChannel (built);
-            } catch {
+            } catch (Exception ex) {
+                global::Android.Util.Log.Warn (LogTag, $"RegisterChannel ({id}) failed: {ex}");
             }
         }
 
@@ -121,8 +124,13 @@ namespace Majorsilence.Forms.Backends
                 var built = builder.Build ();
                 if (built is not null)
                     NotificationManagerCompat.From (context)?.Notify (id, built);
-            } catch {
-                // a missing channel, a revoked permission mid-call, or a platform failure: never worth a crash
+            } catch (Exception ex) {
+                // a missing channel, a revoked permission mid-call, or a platform failure: never worth a
+                // crash, but logged (unlike PlayFile/PlaySystemSound's own silent catches) -- a notification
+                // that silently never appears is exactly the kind of failure an app developer needs a trace
+                // for, and Android's own contract for several of these causes (a missing channel, a missing
+                // POST_NOTIFICATIONS grant) is itself to fail silently, not raise.
+                global::Android.Util.Log.Warn (LogTag, $"Show ({id}) failed: {ex}");
             }
         }
 
@@ -134,7 +142,8 @@ namespace Majorsilence.Forms.Backends
 
             try {
                 NotificationManagerCompat.From (context)?.Cancel (id);
-            } catch {
+            } catch (Exception ex) {
+                global::Android.Util.Log.Warn (LogTag, $"Cancel ({id}) failed: {ex}");
             }
         }
 

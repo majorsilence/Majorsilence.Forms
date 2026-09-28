@@ -136,13 +136,16 @@ fi
 # adb install -g above already grants every runtime permission the manifest declares, POST_NOTIFICATIONS
 # included, so there is no interactive system dialog to work around here.
 echo "Checking for the F14 Notifications smoke-test result ..."
+# AndroidNotificationBackend logs its own caught exceptions under MajorsilenceFormsNotifications, a
+# separate tag from the app's own F14_NOTIFICATIONS_SMOKE -- grepped here too so a silently-caught
+# exception (Show() itself never throws back to the app) is visible in CI, not just locally.
 if grep -q "F14_NOTIFICATIONS_SMOKE.*FAIL" <<<"$LOG"; then
-  echo "$LOG" | grep "F14_NOTIFICATIONS_SMOKE" >&2
+  echo "$LOG" | grep -E "F14_NOTIFICATIONS_SMOKE|MajorsilenceFormsNotifications" >&2
   fail "F14 Notifications smoke test reported FAIL (see F14_NOTIFICATIONS_SMOKE lines above)"
 elif grep -q "F14_NOTIFICATIONS_SMOKE.*PASS" <<<"$LOG"; then
   echo "F14 Notifications smoke test: PASS"
 else
-  echo "$LOG" | grep "F14_NOTIFICATIONS_SMOKE" >&2 || true
+  echo "$LOG" | grep -E "F14_NOTIFICATIONS_SMOKE|MajorsilenceFormsNotifications" >&2 || true
   fail "no F14_NOTIFICATIONS_SMOKE PASS line in logcat within ${SETTLE_SECONDS}s"
 fi
 
