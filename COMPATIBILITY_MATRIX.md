@@ -645,6 +645,51 @@ the platform's default back behaviour proceed, leaving `$PKG`'s foreground) — 
 activity via `dumpsys`, not process liveness (Android can leave a finished activity's process resident). A
 permanent, repeated-on-every-PR check, the same mechanism F8/F9/F10 already use.
 
+## Haptics
+
+**`Haptics.Tap`/`Impact`/`Vibrate`/`IsSupported`** (added 2026-09, register item F13) is real on Android
+(`Vibrator`, driven by `VibrationEffect`) and iOS (`UISelectionFeedbackGenerator`/`UIImpactFeedbackGenerator`
+for `Tap`/`Impact`; `Vibrate` triggers the same fixed-length system-wide buzz iOS uses for a call or an
+alert, since no public UIKit API takes an explicit duration), and `IsSupported` is `false` everywhere else
+— explicitly including Headless, the register item's own acceptance criterion, unlike F8/F9's audio (real
+and test-hooked under Headless too). `IHapticsBackend` is declared in `AvaloniaPlatformBackend`'s base list
+only under `#if ANDROID || IOS`, not implemented everywhere with a null body the way `IAudioBackend` is:
+haptics has no desktop/browser equivalent worth a "supported but does nothing" middle state.
+
+**The `android.permission.VIBRATE` manifest entry ships with the framework, not with each app.** Declared
+once as an assembly-level `[assembly: Android.App.UsesPermission (...)]` attribute on
+`Majorsilence.Forms.Avalonia`, it merges into any consuming app's manifest automatically at build time —
+confirmed by grepping the actual built `Gallery.Android` APK's merged `AndroidManifest.xml` for the
+resulting `<uses-permission>` line, not assumed. A host app needs no manifest change of its own for
+`Haptics` to work.
+
+**A real CA1416 (platform-compat analyzer) build failure, not guessed.** The first version passed
+`VibrationEffect.EffectClick`/`EffectHeavyClick` (API 29+ fields) as a plain `int` argument from `Tap`/
+`Impact` to a shared helper, with the actual version check (`OperatingSystem.IsAndroidVersionAtLeast (29)`)
+only inside that helper — the analyzer flagged the field access itself as reachable from the project's API
+24 floor regardless, since the *caller's* argument expression sat outside any guard. Fixed by passing an
+enum discriminator instead and resolving the real `VibrationEffect.EffectXxx` field only inside the
+version-guarded branch; a second, unrelated nullable-reference error (`VibrationEffect.CreateOneShot`
+returns a nullable type) was fixed the same pass by null-checking before `Vibrator.Vibrate` instead of
+assigning straight into a non-nullable local.
+
+**A real iOS-only build bug, caught by CI's own `ios`/`sample-ios` jobs on the first push, not guessed.**
+`UIImpactFeedbackGenerator (UIImpactFeedbackStyle)` is obsoleted from iOS 17.5 (`CA1422`) in favour of
+`UIFeedbackGenerator.GetFeedbackGenerator`, a view-scoped factory needing a `UIView` to attach to — this
+backend has no view reference to thread through for a feature this minor, and the old constructor still
+works on every iOS version, only deprecated, not removed, so the warning is suppressed at that one call
+site instead.
+
+**Verification is a real, permanent gap this session could not close, by the acceptance criterion's own
+words.** `GalleryApplication.RunHapticsSmokeTest` and `android-smoke-test.sh`'s matching `F13_HAPTICS_SMOKE`
+check only prove the plumbing — `Haptics.IsSupported` answers `true` and `Tap`/`Impact`/`Vibrate` all run to
+completion with no exception on a real Android host — because the acceptance criterion itself says
+"emulators have no vibrator": no CI runner or local emulator this session had access to can confirm
+anything was actually felt. iOS compiles clean (confirmed by CI after the `CA1422` fix above) but is not run
+on a simulator or device either, and a simulator could not prove the feel even if one were available for
+the same hardware reason. **Both halves still need a human on a real Android phone and a real iPhone**
+before this register item can be considered fully verified, exactly what the issue asks for.
+
 ## Design-time smart tags
 
 `DesignerActionUIService` exists so that the guarded calls around it compile: a component's action list

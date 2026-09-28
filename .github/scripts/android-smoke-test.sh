@@ -14,7 +14,10 @@
 # do not both fire, in the right order, on that real transition. Finally it presses KEYCODE_BACK twice:
 # once with GalleryAvaloniaApp's startup popup ("sheet") open, which must cancel and close only the
 # popup and keep the app foreground (register item F11's acceptance criterion), and once more with no
-# popup left, which must proceed to exit like the platform's own default back behaviour.
+# popup left, which must proceed to exit like the platform's own default back behaviour. It also checks
+# GalleryApplication's F13_HAPTICS_SMOKE result -- Haptics.IsSupported true and Tap/Impact/Vibrate all
+# running with no exception -- though the acceptance criterion for feeling anything real needs a human on
+# a real phone: this emulator has no vibrator to prove that part.
 #
 # Usage: android-smoke-test.sh <apk-or-dir> [screenshot-output-path]
 #   <apk-or-dir>  a *-Signed.apk file, or a directory to search for one (recursively).
@@ -102,6 +105,20 @@ else
   fail "no F9_AUDIOPLAYER_SMOKE PASS line in logcat within ${SETTLE_SECONDS}s"
 fi
 
+# GalleryApplication.RunHapticsSmokeTest (register item F13): proves the plumbing (IsSupported true,
+# Tap/Impact/Vibrate all run with no exception) -- this emulator has no vibrator, so it cannot prove
+# anything was actually felt; that half of the acceptance criterion needs a human on a real phone.
+echo "Checking for the F13 Haptics smoke-test result ..."
+if grep -q "F13_HAPTICS_SMOKE.*FAIL" <<<"$LOG"; then
+  echo "$LOG" | grep "F13_HAPTICS_SMOKE" >&2
+  fail "F13 Haptics smoke test reported FAIL (see F13_HAPTICS_SMOKE lines above)"
+elif grep -q "F13_HAPTICS_SMOKE.*PASS" <<<"$LOG"; then
+  echo "F13 Haptics smoke test: PASS"
+else
+  echo "$LOG" | grep "F13_HAPTICS_SMOKE" >&2 || true
+  fail "no F13_HAPTICS_SMOKE PASS line in logcat within ${SETTLE_SECONDS}s"
+fi
+
 # The scene draws into an Avalonia SurfaceView; if MainActivity threw during OnCreate the emulator
 # would be showing the launcher, not our package, so confirm we own the foreground.
 TOP="$(adb shell dumpsys activity activities 2>/dev/null | grep -m1 -iE 'mResumedActivity|topResumedActivity' || true)"
@@ -186,4 +203,4 @@ case "$TOP" in
 esac
 echo "F11 back button (no popup): unhandled, app exited normally"
 
-echo "PASS: $PKG installed, launched, stayed alive ${SETTLE_SECONDS}s with no fatal exception, held the foreground, the F8/F9 audio smoke tests passed, F10's Suspended/Resumed + Form.Activated/Deactivate all fired on a real background/foreground cycle, and F11's back button closed the popup then exited the app."
+echo "PASS: $PKG installed, launched, stayed alive ${SETTLE_SECONDS}s with no fatal exception, held the foreground, the F8/F9 audio smoke tests passed, F10's Suspended/Resumed + Form.Activated/Deactivate all fired on a real background/foreground cycle, F11's back button closed the popup then exited the app, and F13's Haptics plumbing (IsSupported, Tap/Impact/Vibrate) ran with no exception."

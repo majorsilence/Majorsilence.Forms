@@ -30,6 +30,7 @@ namespace Gallery.Android
             base.OnCreate ();
             ThreadPool.QueueUserWorkItem (_ => RunAudioSmokeTest ());
             ThreadPool.QueueUserWorkItem (_ => RunAudioPlayerSmokeTest ());
+            ThreadPool.QueueUserWorkItem (_ => RunHapticsSmokeTest ());
 
             // Register item F10: real signals need a real backgrounding, which nothing in-process can
             // trigger -- android-smoke-test.sh drives it externally (KEYCODE_HOME, then relaunch) and
@@ -138,6 +139,30 @@ namespace Gallery.Android
                 player.Stop ();
 
                 Log.Info (Tag, "PASS: Play/Completed/Loop/Stop all completed with no exception");
+            } catch (Exception ex) {
+                Log.Error (Tag, $"FAIL: {ex}");
+            }
+        }
+
+        // Register item F13: proves the plumbing, not the buzz -- the acceptance criterion itself says
+        // "emulators have no vibrator", so this can only confirm Haptics.IsSupported answers true and
+        // Tap/Impact/Vibrate all run with no exception on a real Android host, not that anything was felt.
+        // That's still a real, repeated-on-every-PR CI check the other rows' F8/F9/F10/F11 markers already
+        // establish; a human on a real phone is what the acceptance criterion actually asks for the feel.
+        private void RunHapticsSmokeTest ()
+        {
+            const string Tag = "F13_HAPTICS_SMOKE";
+            try {
+                if (!MSForms.Haptics.IsSupported) {
+                    Log.Error (Tag, "FAIL: Haptics.IsSupported is false on Android");
+                    return;
+                }
+
+                MSForms.Haptics.Tap ();
+                MSForms.Haptics.Impact ();
+                MSForms.Haptics.Vibrate (TimeSpan.FromMilliseconds (200));
+
+                Log.Info (Tag, "PASS: IsSupported is true and Tap/Impact/Vibrate all ran with no exception");
             } catch (Exception ex) {
                 Log.Error (Tag, $"FAIL: {ex}");
             }

@@ -15,6 +15,9 @@ namespace Majorsilence.Forms.Backends
 #if BROWSER
         , IAsyncPlatformBackend
 #endif
+#if ANDROID || IOS
+        , IHapticsBackend
+#endif
     {
         /// <inheritdoc/>
         public string Name => "Avalonia";
@@ -286,6 +289,36 @@ namespace Majorsilence.Forms.Backends
 
         /// <inheritdoc/>
         public Media.IAudioTrack? PlayTrack (string path, bool loop, float volume, Media.AudioUsage usage) => null;
+#endif
+
+        // ── IHapticsBackend ── real only on Android and iOS, unlike IAudioBackend above: haptics has no
+        // desktop/browser equivalent worth a null-returning implementation, and register item F13's own
+        // acceptance criterion is "IsSupported false on Headless" -- so, unlike audio, this interface is
+        // declared in the class's own base list only under ANDROID/IOS (see the class declaration above),
+        // not implemented everywhere with a null/no-op body. Haptics.IsSupported (Backend is IHapticsBackend)
+        // is therefore false on every other row with no separate per-row check needed.
+#if ANDROID
+        private readonly AndroidHapticsBackend hapticsBackend = new ();
+
+        /// <inheritdoc/>
+        public void Tap () => hapticsBackend.Tap ();
+
+        /// <inheritdoc/>
+        public void Impact () => hapticsBackend.Impact ();
+
+        /// <inheritdoc/>
+        public void Vibrate (TimeSpan duration) => hapticsBackend.Vibrate (duration);
+#elif IOS
+        private readonly IosHapticsBackend hapticsBackend = new ();
+
+        /// <inheritdoc/>
+        public void Tap () => hapticsBackend.Tap ();
+
+        /// <inheritdoc/>
+        public void Impact () => hapticsBackend.Impact ();
+
+        /// <inheritdoc/>
+        public void Vibrate (TimeSpan duration) => hapticsBackend.Vibrate (duration);
 #endif
 
 #if !SINGLEVIEW
