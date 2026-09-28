@@ -111,7 +111,7 @@ namespace Majorsilence.Forms.Backends
                 builder.SetContentText (text);
                 builder.SetOngoing (ongoing);
                 builder.SetAutoCancel (!ongoing);
-                builder.SetSmallIcon (context.ApplicationInfo?.Icon ?? 0);
+                builder.SetSmallIcon (SmallIconResourceId (context));
 
                 var contentIntent = TapPendingIntent (context, id);
                 if (contentIntent is not null) {
@@ -145,6 +145,21 @@ namespace Majorsilence.Forms.Backends
             } catch (Exception ex) {
                 global::Android.Util.Log.Warn (LogTag, $"Cancel ({id}) failed: {ex}");
             }
+        }
+
+        // A small icon is mandatory -- NotificationManager.notify throws IllegalArgumentException
+        // ("Invalid notification (no valid small icon)") without one, confirmed by a real CI failure, not
+        // guessed: neither this repo's Gallery.Android sample nor tools/Majorsilence.Forms.Templates'
+        // Android project head declares an app icon (no <application android:icon="..."> and no mipmap
+        // resources), so ApplicationInfo.Icon is 0 for both -- and, by the same gap, for any real app
+        // built from that template until it adds its own. Android's own generic notification icon
+        // (Resource.Drawable.IcDialogInfo, bundled in every AOSP framework, no app-side resource needed)
+        // is the fallback, so a missing app icon degrades to a generic-looking notification instead of no
+        // notification at all.
+        private static int SmallIconResourceId (Context context)
+        {
+            var appIcon = context.ApplicationInfo?.Icon ?? 0;
+            return appIcon != 0 ? appIcon : global::Android.Resource.Drawable.IcDialogInfo;
         }
 
         // The app's own launcher activity, found generically the same well-known way an Android "reopen my

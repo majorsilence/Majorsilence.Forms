@@ -730,18 +730,36 @@ finding above already covers), so it is only added when `OperatingSystem.IsAndro
 `UsesPermission` attribute on `Majorsilence.Forms.Avalonia`, the same mechanism F13's `VIBRATE` permission
 already uses, confirmed by grepping the built `Gallery.Android` APK's merged manifest.
 
-**Verified for real on Android — by CI, on the first push**, more thoroughly than F13 could: unlike
-haptics, an emulator has a real notification centre. `GalleryApplication.RunNotificationsSmokeTest` posts an
-ongoing, full-screen-intent notification on a High-importance channel; `android-smoke-test.sh` independently
-confirms via `adb shell dumpsys notification --noredact` that it actually posted (channel id, title and a
-non-null `fullScreenIntent` all present — not just that `Show` did not throw), then replays the exact launch
-intent a real tap's `PendingIntent` would send (`adb shell am start` with the tapped id as an extra, the same
-"input event, not a pixel-coordinate gesture" idiom F10/F11 already use for background/foreground and back)
-and confirms `LocalNotifications.Tapped` fired with the right id. `Ongoing`'s and `Sound`'s exact effect is
-covered by the fake-backend unit tests instead (`LocalNotificationsTests`), not by parsing further dumpsys
-flag bits on top of channel/title/full-screen/tap — a reasonable line, not a shortfall: those two are simple
-boolean pass-throughs, already asserted precisely there, and adding a second real-device signal for them
-would not catch anything the unit test does not already catch.
+**A real missing-icon finding, not guessed — and the reason CI's first two pushes both failed.**
+`NotificationManager.notify` throws `IllegalArgumentException: Invalid notification (no valid small icon)`
+without one; `Show`'s own `catch` swallowed that exception the same "never worth a crash" way every other
+member here does, so the app-side smoke test logged PASS (`Show` never threw) while the emulator's own
+`dumpsys notification` showed nothing posted at all — a real, CI-caught gap between "the call did not throw"
+and "it actually worked," not merely a permission-grant flakiness first suspected (`adb install -g` was
+already granting `POST_NOTIFICATIONS` correctly; an `adb shell pm grant` fallback and diagnostic
+`MajorsilenceFormsNotifications` logging around each backend member's own `catch` block, added while chasing
+this, both stayed). Root cause: neither this repo's `Gallery.Android` sample nor
+`tools/Majorsilence.Forms.Templates`'s Android project head declares an app icon at all, so
+`context.ApplicationInfo.Icon` (the intended fallback) is `0` for both — and would be for any real app built
+from that template too, until it adds its own. Fixed with a second fallback, to Android's own
+`Resource.Drawable.IcDialogInfo` (bundled in every AOSP framework, no app-side resource needed), so a missing
+app icon degrades to a generic-looking notification instead of the notification silently never appearing.
+`GalleryApplication.RunNotificationsSmokeTest` was also strengthened to check `NotificationManagerCompat`'s
+own `ActiveNotifications` after `Show`, rather than trusting the absence of an exception — the same
+distinction that exposed this in the first place.
+
+**Verified for real on Android — by CI, after that fix**, more thoroughly than F13 could: unlike haptics, an
+emulator has a real notification centre. The smoke test posts an ongoing, full-screen-intent notification on
+a High-importance channel; `android-smoke-test.sh` independently confirms via
+`adb shell dumpsys notification --noredact` that it actually posted (channel id, title and a non-null
+`fullScreenIntent` all present), then replays the exact launch intent a real tap's `PendingIntent` would send
+(`adb shell am start` with the tapped id as an extra, the same "input event, not a pixel-coordinate gesture"
+idiom F10/F11 already use for background/foreground and back) and confirms `LocalNotifications.Tapped` fired
+with the right id. `Ongoing`'s and `Sound`'s exact effect is covered by the fake-backend unit tests instead
+(`LocalNotificationsTests`), not by parsing further dumpsys flag bits on top of channel/title/full-screen/tap
+— a reasonable line, not a shortfall: those two are simple boolean pass-throughs, already asserted precisely
+there, and adding a second real-device signal for them would not catch anything the unit test does not
+already catch.
 
 **What is left for this register item.** iOS `LocalNotifications` (`UNUserNotificationCenter`) and desktop
 `NotifyIcon.ShowBalloonTip` (Windows/macOS/Linux, three separate toast systems) are both deliberately out of
