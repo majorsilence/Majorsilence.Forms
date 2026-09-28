@@ -15,6 +15,7 @@ a real Selenium `RemoteWebDriver` session. Where something doesn't work, it says
 ## Contents
 
 - [One tree, three consumers](#one-tree-three-consumers)
+- [Custom-painted controls: publishing your own value and state](#custom-painted-controls-publishing-your-own-value-and-state)
 - [Pick your level](#pick-your-level)
 - [Four prerequisites](#four-prerequisites)
 - [Level 1 — in-process tests on the headless backend](#level-1--in-process-tests-on-the-headless-backend)
@@ -80,6 +81,112 @@ because an item off screen has no rectangle to click.
 
 *Menu and toolbar items, list items, and the HiDPI hit-test fix behind clicking them landed after 26.0.30
 — on a pinned 26.0.30 you'll see the strip and the list but not their contents.*
+
+### Custom-painted controls: publishing your own value and state
+
+Everything above works out of the box for built-in controls — `Button`, `TextBox`, `CheckBox` and the
+rest already know how to report their own role and value. A custom-painted control (one you draw yourself
+in `OnPaint`) has no such inference to fall back on: without more, it shows up in the tree with a value of
+`""` and no state at all, just a role guessed from its type name.
+
+**Role and name already have a place**, for any control: `Control.AccessibleRole` and
+`Control.AccessibleName` (existing WinForms-compat properties) are checked ahead of the built-in
+inference, so setting them works for a custom control exactly as it does for anything else — no new API
+needed for those two.
+
+**Value and extra state need `IAutomationStateProvider`.** Implement it on your control and the tree uses
+it instead of guessing — the level a status widget is showing, for example:
+
+```csharp
+using System.Collections.Generic;
+using System.Globalization;
+using Majorsilence.Forms;
+using Majorsilence.Forms.Automation;
+
+public sealed class BeaconIndicator : Control, IAutomationStateProvider
+{
+    public int Level { get; set; }
+    public string Status { get; set; } = "warning";
+
+    public string? AutomationValue => Level.ToString (CultureInfo.InvariantCulture);
+
+    public IReadOnlyDictionary<string, string> AutomationState => new Dictionary<string, string> {
+        ["level"] = Level.ToString (CultureInfo.InvariantCulture),
+        ["status"] = Status,
+    };
+
+    protected override void OnPaint (PaintEventArgs e) { /* draw the beacon */ }
+}
+```
+
+```vb
+Imports Majorsilence.Forms
+Imports Majorsilence.Forms.Automation
+
+Public NotInheritable Class BeaconIndicator
+    Inherits Control
+    Implements IAutomationStateProvider
+
+    Public Property Level As Integer
+    Public Property Status As String = "warning"
+
+    Public ReadOnly Property AutomationValue As String Implements IAutomationStateProvider.AutomationValue
+        Get
+            Return Level.ToString(Globalization.CultureInfo.InvariantCulture)
+        End Get
+    End Property
+
+    Public ReadOnly Property AutomationState As IReadOnlyDictionary(Of String, String) _
+            Implements IAutomationStateProvider.AutomationState
+        Get
+            Return New Dictionary(Of String, String) From {
+                {"level", Level.ToString(Globalization.CultureInfo.InvariantCulture)},
+                {"status", Status}
+            }
+        End Get
+    End Property
+
+    Protected Overrides Sub OnPaint(e As PaintEventArgs)
+        ' draw the beacon
+    End Sub
+End Class
+```
+
+Set `AccessibleRole`/`AccessibleName` too and the element carries all four:
+
+```csharp
+var beacon = new BeaconIndicator {
+    Name = "workshopBeacon",             // AutomationId
+    AccessibleName = "Workshop beacon",  // Name
+    AccessibleRole = AccessibleRole.StatusBar,
+    Level = 3,
+    Status = "alarm",
+};
+```
+
+...which shows up in `session.GetPageSource()` exactly like a built-in control, plus a `state-{key}`
+attribute per entry — independently queryable, not one opaque blob:
+
+```xml
+<BeaconIndicator id="workshopBeacon" name="Workshop beacon" role="statusbar" type="BeaconIndicator"
+                 value="3" state-level="3" state-status="alarm"
+                 enabled="true" visible="true" x="10" y="10" width="60" height="60" />
+```
+
+```csharp
+session.Find (By.XPath ("//BeaconIndicator[@state-level='3']"));
+```
+
+The same `state-{key}` name works through WebDriver's `getAttribute` too — a locator captured from either
+the page source or a live `getAttribute` call sees the same attribute. Keys should be simple identifiers
+(letters, digits, `-`/`_`): an odd key gets sanitized for the XML attribute *name* the same way a control
+type name does, but `getAttribute` looks the key up unsanitized, so the two would disagree for a key that
+needed it.
+
+`AutomationValue` fully replaces the built-in inference, not blends with it — a `CheckBox`-like custom
+control that wants `"true"`/`"false"` reports that itself rather than getting `ValueOf`'s own switch for
+free. Every built-in control's `State` stays empty; nothing here changes what an existing control (one
+that does not implement the interface) reports.
 
 ---
 
@@ -229,8 +336,10 @@ The API is small enough to learn in one sitting.
 | `session.GetText (element)` | Read the value/text |
 | `session.Root` / `session.GetPageSource ()` | The whole tree as objects / as XML |
 
-Elements expose `AutomationId`, `Name`, `Role`, `ControlType`, `Value`, `Enabled`, `Visible`, `Focused`,
-`Bounds`, `Children`, `ClickPoint`, and `Descendants()`.
+Elements expose `AutomationId`, `Name`, `Role`, `ControlType`, `Value`, `State` (a custom-painted control's
+own extra state — see [above](#custom-painted-controls-publishing-your-own-value-and-state); empty for
+every built-in control), `Enabled`, `Visible`, `Focused`, `Bounds`, `Children`, `ClickPoint`, and
+`Descendants()`.
 
 > **An `AutomationElement` is an immutable snapshot — re-resolve before you read.** This is the one
 > gotcha everybody hits, and it's asymmetric: *actions* on a previously-captured element work fine
@@ -1646,8 +1755,11 @@ And the two habits that cause most of the pain:
 - **AT-SPI (Linux)** and **NSAccessibility (macOS)** bridges over the same tree.
 - ✅ **Non-control items**: menu items, toolbar buttons and `ListBox` items are in the tree, with their own
   bounds, and clickable.
-- Expand roles and states (selection, expand/collapse, value ranges) — an item cannot yet report that it
-  is selected, which is why the list carries that.
+- ✅ **Custom-painted controls can publish their own value and extra state** (`IAutomationStateProvider`) —
+  see [above](#custom-painted-controls-publishing-your-own-value-and-state).
+- Expand roles and states (selection, expand/collapse, value ranges) — a `ListBox` item cannot yet report
+  that it is selected on its own, which is why the list carries that; `IAutomationStateProvider`'s own
+  `State` field is there for a built-in control to use for this too, not wired up for `ListBox` yet.
 - Surface the remaining painted items: tab headers, `DataGridView` cells, tree nodes.
 - A higher-level `Majorsilence.Forms.Testing` ergonomics layer — fluent helpers and golden-image asserts,
   so the [wait helper](#waiting-without-threadsleep) and [golden-image plumbing](#visual-regression-with-golden-images) above stop being yours to own.

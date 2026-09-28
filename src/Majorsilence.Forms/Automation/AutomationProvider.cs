@@ -10,6 +10,11 @@ namespace Majorsilence.Forms.Automation
     /// </summary>
     public static class AutomationProvider
     {
+        // Shared by every node that has nothing of its own to report (register item F19): a fresh empty
+        // dictionary per node would be a pointless allocation for what is, for every built-in control and
+        // structural node, always going to be empty.
+        private static readonly Dictionary<string, string> EmptyState = new ();
+
         /// <summary>Builds a fresh snapshot of the window's automation tree, rooted at a synthetic window node.</summary>
         public static AutomationElement BuildTree (WindowBase window)
         {
@@ -29,6 +34,7 @@ namespace Majorsilence.Forms.Automation
                 role: "window",
                 controlType: window.GetType ().Name,
                 value: null,
+                state: EmptyState,
                 enabled: true,
                 visible: true,
                 focused: false,
@@ -79,13 +85,18 @@ namespace Majorsilence.Forms.Automation
             if (c is ListBox list)
                 children.AddRange (BuildListItems (list, origin));
 
+            // A custom-painted control's own IAutomationStateProvider fully replaces the built-in-control
+            // inference for value (not blended with it): a control that opts in owns what its value means.
+            var stateProvider = c as IAutomationStateProvider;
+
             return new AutomationElement (
                 source: c,
                 automationId: c.Name ?? string.Empty,
                 name: AccessibleNameOf (c),
                 role: RoleOf (c),
                 controlType: c.GetType ().Name,
-                value: ValueOf (c),
+                value: stateProvider is not null ? stateProvider.AutomationValue : ValueOf (c),
+                state: stateProvider?.AutomationState ?? EmptyState,
                 enabled: c.Enabled,
                 visible: c.Visible,
                 focused: c.Focused,
@@ -113,6 +124,7 @@ namespace Majorsilence.Forms.Automation
                     role: item is ToolStripSeparator ? "separator" : "menuitem",
                     controlType: item.GetType ().Name,
                     value: null,
+                    state: EmptyState,
                     enabled: item.Enabled,
                     visible: item.Visible,
                     focused: false,
@@ -155,6 +167,7 @@ namespace Majorsilence.Forms.Automation
                     // does this item say?" with something other than the item's text. Which item is selected
                     // is reported by the list itself, below.
                     value: null,
+                    state: EmptyState,
                     enabled: list.Enabled,
                     visible: true,
                     focused: false,
@@ -224,7 +237,9 @@ namespace Majorsilence.Forms.Automation
             ComboBox cbo => cbo.Text,
             // The selected item, the way a ComboBox reports its text -- so "what is selected?" is one read
             // of the list rather than a scan of its items. A multi-select list reports its primary
-            // selection here; per-item selection state needs a state field the tree does not have yet.
+            // selection here; per-item selection state would need each list item's own AutomationElement.State
+            // (register item F19 added the field, on BuildListItems' own items below, not wired up here --
+            // a separate, built-in-ListBox concern from what this item was filed for).
             ListBox list => list.SelectedItem?.ToString () ?? string.Empty,
             _ => null
         };
