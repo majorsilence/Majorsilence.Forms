@@ -72,6 +72,43 @@ Form { font-family: ""Segoe UI"", sans-serif; font-size: 14px; }
             WinFormsCssTheme.Apply (Sheet);
         }
 
+        // Excluded means the applier sets nothing on the control or anything under it. WinForms'
+        // ambient inheritance still hands them the (themed) parent's BackColor / ForeColor / Font until
+        // they set their own -- which is exactly what a third-party theming engine does -- so the check is
+        // on what the applier owns: nothing explicitly set, no FlatStyle change.
+        [Fact]
+        public void Exclude_LeavesTheControlAndEverythingUnderItAlone ()
+        {
+            var owned = Add (new WF.Panel { Name = "owned" });
+            var inner = new WF.Button { Text = "Inner" };
+            owned.Controls.Add (inner);
+            var themed = Add (new WF.Button { Text = "Themed" });
+
+            WinFormsCssTheme.Exclude = c => c.Name == "owned";
+            try {
+                TrackAndApply ();
+
+                // A control added to the excluded subtree later is left alone too.
+                var late = new WF.Button { Text = "Late" };
+                owned.Controls.Add (late);
+
+                AssertColor ("#38383d", themed.BackColor);
+                Assert.Equal (WF.FlatStyle.Flat, themed.FlatStyle);
+
+                foreach (var control in new WF.Control[] { owned, inner, late }) {
+                    Assert.False (ExplicitlySet (control, "BackColor"), $"{control.Text} had BackColor set");
+                    Assert.False (ExplicitlySet (control, "ForeColor"), $"{control.Text} had ForeColor set");
+                }
+                Assert.Equal (WF.FlatStyle.Standard, inner.FlatStyle);
+                Assert.Equal (WF.FlatStyle.Standard, late.FlatStyle);
+            } finally {
+                WinFormsCssTheme.Exclude = null;
+            }
+        }
+
+        private static bool ExplicitlySet (WF.Control control, string property)
+            => System.ComponentModel.TypeDescriptor.GetProperties (control)[property]!.ShouldSerializeValue (control);
+
         [Fact]
         public void Button_GetsFlatAppearanceFromRule ()
         {

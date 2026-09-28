@@ -63,6 +63,17 @@ namespace Majorsilence.Forms.Theming.WinForms
         }
 
         /// <summary>
+        /// Controls the theme must leave alone, together with everything under them: return true to skip
+        /// a control (a form, a container, or a third-party control whose own theming engine owns its
+        /// look -- e.g. <c>c =&gt; c.GetType ().FullName!.StartsWith ("Telerik.")</c>). Checked on every
+        /// apply and for controls added later; null (the default) themes everything. Set it before the
+        /// first <see cref="Apply(string)"/>; a control already styled keeps what it was given. Excluded
+        /// controls are never written to, but WinForms' ambient inheritance still gives one that sets no
+        /// BackColor / ForeColor / Font of its own its (themed) parent's values.
+        /// </summary>
+        public static Func<WF.Control, bool>? Exclude { get; set; }
+
+        /// <summary>
         /// Raised after each apply, on the thread that applied. The Theme Studio uses it to refresh
         /// its diagnostics list; <see cref="Diagnostics"/> is current when it fires.
         /// </summary>

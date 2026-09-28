@@ -55,8 +55,9 @@ namespace Majorsilence.Forms
                     : (Hover ? Selector.GetHoverStyle! () : Selector.GetStyle ());
         }
 
-        private ThemeStyleSheet (string? name, string? baseName, List<TokenDeclaration> tokens, List<ControlRule> rules, List<ThemeCssDiagnostic> diagnostics)
+        private ThemeStyleSheet (string? name, string? baseName, List<TokenDeclaration> tokens, List<ControlRule> rules, List<ThemeCssVariable> variables, List<ThemeCssDiagnostic> diagnostics)
         {
+            Variables = variables;
             Name = name;
             BaseName = baseName;
             TokenDeclarations = tokens;
@@ -98,6 +99,13 @@ namespace Majorsilence.Forms
         /// <see cref="ThemeCssDeclaration.TokenReference"/>).
         /// </summary>
         public IReadOnlyList<ThemeCssRule> Rules { get; }
+
+        /// <summary>
+        /// The author variables declared in <c>:root</c> (custom properties that are not theme tokens),
+        /// in source order, with their resolved values. Majorsilence.Forms controls ignore them except
+        /// through <c>var()</c>; host appliers may publish them (see <see cref="ThemeCssVariable"/>).
+        /// </summary>
+        public IReadOnlyList<ThemeCssVariable> Variables { get; }
 
         internal List<TokenDeclaration> TokenDeclarations { get; }
         internal List<ControlRule> ControlRules { get; }
@@ -184,10 +192,11 @@ namespace Majorsilence.Forms
                 CompileRoot (tokens);
                 CompileControlRules (rules);
                 WarnUnusedVariables ();
+                var variables = CompileVariables ();
 
                 var diagnostics = _diagnostics.OrderBy (d => d.Line).ThenBy (d => d.Column).ToList ();
 
-                return new ThemeStyleSheet (_name, _baseName, tokens, rules, diagnostics);
+                return new ThemeStyleSheet (_name, _baseName, tokens, rules, variables, diagnostics);
             }
 
             // ---- syntax --------------------------------------------------------------------------
@@ -1207,6 +1216,41 @@ namespace Majorsilence.Forms
                 return result;
             }
 
+            // The public model of the author variables. Runs after every other pass and resolves
+            // silently: a broken variable already produced its error where it is used (or its
+            // "never used" warning), so resolving it again must not report it twice or mark others used.
+            private List<ThemeCssVariable> CompileVariables ()
+            {
+                var result = new List<ThemeCssVariable> ();
+                var diagnosticCount = _diagnostics.Count;
+                var used = new HashSet<string> (_usedVariables, StringComparer.OrdinalIgnoreCase);
+
+                foreach (var variable in _variables.Values) {
+                    Func<ThemeCssValue>? resolve = null;
+                    ThemeCssToken? reference = null;
+                    var value = Substitute (variable.Value, new HashSet<string> (StringComparer.OrdinalIgnoreCase) { variable.Name }, variable);
+
+                    if (value is not null) {
+                        reference = TokenReferenceOf (value);
+
+                        if (ThemeCssValues.TryParseColor (value, out var color, out _))
+                            resolve = () => ThemeCssValue.Color ((uint) color ());
+                        else if (ThemeCssValues.TryParseLength (value, out var length, out _))
+                            resolve = () => ThemeCssValue.Length (length ());
+                        else if (ThemeCssValues.TryParseFontFamilies (value, out var families, out _))
+                            resolve = () => ThemeCssValue.Families (families ());
+                    }
+
+                    result.Add (new ThemeCssVariable (variable.Name, resolve, reference, variable.Line, variable.Column));
+                }
+
+                _diagnostics.RemoveRange (diagnosticCount, _diagnostics.Count - diagnosticCount);
+                _usedVariables.Clear ();
+                _usedVariables.UnionWith (used);
+
+                return result;
+            }
+
             private void WarnUnusedVariables ()
             {
                 foreach (var variable in _variables.Values) {
@@ -1215,9 +1259,12 @@ namespace Majorsilence.Forms
 
                     var closest = ThemeCssValues.FindClosest (variable.Name, ThemeCssReference.Tokens.Select (t => t.Name));
 
+                    // Not "no effect": host appliers publish author variables as named resources
+                    // (ThemeStyleSheet.Variables), so a variable only a host's own views read is legitimate.
+                    const string Consequence = "so Majorsilence.Forms controls ignore it (a host applier may still publish it as a named resource).";
                     Warning (variable.Line, variable.Column, closest is null
-                        ? $"'{variable.Name}' is declared but never used, and it is not a theme token, so it has no effect."
-                        : $"'{variable.Name}' is declared but never used, and it is not a theme token, so it has no effect. Did you mean '{closest}'?");
+                        ? $"'{variable.Name}' is declared but never used, and it is not a theme token, {Consequence}"
+                        : $"'{variable.Name}' is declared but never used, and it is not a theme token, {Consequence} Did you mean '{closest}'?");
                 }
             }
         }

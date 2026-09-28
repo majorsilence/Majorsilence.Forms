@@ -58,7 +58,7 @@ namespace Majorsilence.Forms.Theming.WinForms
         /// ControlAdded so controls created later are styled too.</summary>
         public static void ApplyTree (WF.Control control)
         {
-            if (Current is null)
+            if (Current is null || WinFormsCssTheme.Exclude?.Invoke (control) == true)
                 return;
 
             ApplyControl (control, Current);

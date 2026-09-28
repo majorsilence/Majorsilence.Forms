@@ -37,6 +37,7 @@ within reach through [Uno Platform](https://platform.uno) or through
 | is control *X* supported? | [`COMPATIBILITY_MATRIX.md`](COMPATIBILITY_MATRIX.md) |
 | WinForms UI testing, Selenium, headless CI | [Automation & UI testing](https://forms.majorsilence.com/automation/) |
 | theme / dark mode / restyle a Majorsilence.Forms app, CSS themes | [Theming with CSS](docs/theming.md) |
+| apply the same CSS theme to real WinForms or native Avalonia controls | [WinForms](docs/theming-winforms.md), [Avalonia](docs/theming-avalonia.md) |
 | `System.Drawing.Common` / GDI+ replacement | [`Majorsilence.Forms.Drawing.Common`](https://www.nuget.org/packages/Majorsilence.Forms.Drawing.Common) |
 
 </details>
