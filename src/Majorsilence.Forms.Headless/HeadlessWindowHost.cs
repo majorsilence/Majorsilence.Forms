@@ -36,6 +36,10 @@ namespace Majorsilence.Forms.Headless
 
         // How many times the backend was actually asked to show this window. One form must never raise
         // two window surfaces: input lands on one and painting goes to the other.
+        /// <summary>The managed thread this host was constructed on. Test support: a window must be
+        /// created on the backend's UI thread, and on macOS the process dies if it is not.</summary>
+        public int CreatedOnThreadId { get; } = System.Environment.CurrentManagedThreadId;
+
         public int ShowCount { get; private set; }
 
         public void Show ()

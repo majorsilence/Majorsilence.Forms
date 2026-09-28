@@ -16,7 +16,7 @@ namespace Majorsilence.Forms
         /// </param>
         public PopupWindow (WindowBase parentForm)
         {
-            InitWindow (Majorsilence.Forms.Backends.Platform.Backend.CreateWindow (this, isPopup: true));
+            InitWindow (CreateBackendWindow (this, isPopup: true));
 
             StartPosition = FormStartPosition.Manual;
 
