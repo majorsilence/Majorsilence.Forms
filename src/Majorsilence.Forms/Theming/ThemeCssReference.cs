@@ -312,7 +312,7 @@ namespace Majorsilence.Forms
             new ThemeCssProperty ("border-radius", "length", "The corner radius, in pixels, applied to all four corners. When it is greater than 0 all four sides are drawn with the same width and colour."),
             new ThemeCssProperty ("border-top-width", "length", "The width of one side. Also border-right-width, border-bottom-width, border-left-width."),
             new ThemeCssProperty ("border-top-color", "color", "The colour of one side. Also border-right-color, border-bottom-color, border-left-color."),
-            new ThemeCssProperty ("font-family", "family list", "The typeface. The first family installed on the machine is used; generic names (sans-serif, serif, monospace) are passed to the OS font matcher."),
+            new ThemeCssProperty ("font-family", "family list", "The typeface. The first family the machine has is used, and a font registered with PrivateFontCollection counts as one it has; generic names (sans-serif, serif, monospace) are passed to the OS font matcher."),
             new ThemeCssProperty ("font-size", "length", "The text size in pixels (not points)."),
             new ThemeCssProperty ("font-weight", "normal | bold | 100..900", "The weight. Without a font-family in the same rule, the default UI font family is used at that weight."),
             new ThemeCssProperty ("font-style", "normal | italic | oblique", "The slant. Without a font-family in the same rule, the default UI font family is used."),

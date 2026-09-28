@@ -149,6 +149,29 @@ namespace Majorsilence.Forms.Drawing
         // frame is far too slow to leave uncached.
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, SKTypeface?> fallbackByCodepoint = new ();
 
+        // Same, but for VARIATION SELECTOR-16 (below): a character asking specifically for its emoji
+        // presentation needs a face found through the "give me the emoji one" hint, kept apart from the
+        // plain fallback cache above because the two can legitimately disagree for the same codepoint
+        // (a warning sign's plain-text face and its emoji face are two different fonts).
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, SKTypeface?> emojiFallbackByCodepoint = new ();
+
+        private const char EmojiPresentation = '️'; // VARIATION SELECTOR-16: draw the preceding character as an emoji.
+        private const char TextPresentation = '︎';  // VARIATION SELECTOR-15: draw the preceding character as plain text.
+
+        // Each platform's own colour emoji face, tried by name before falling back to a hinted font-manager
+        // search. SKFontManager.Default.MatchCharacter (null, ["und-Zsye"], codepoint) -- the "give me the
+        // emoji one" hint -- works as documented through fontconfig on Linux, but CoreText on macOS silently
+        // ignores the und-Zsye script subtag and returns its ordinary text-fallback face instead (confirmed
+        // against a real macOS CI runner: it resolved "Hiragino Sans", a CJK text font, while "Apple Color
+        // Emoji" sat installed and untried in the same font list). Naming the face directly is exactly the
+        // approach FontSubstitution.Table above already takes for the same reason -- a platform API that
+        // does not reliably answer "which face has X" is worked around with a known-name list instead.
+        private static readonly string[] KnownEmojiFontFamilies = [
+            "Apple Color Emoji",  // macOS, iOS
+            "Segoe UI Emoji",     // Windows
+            "Noto Color Emoji",   // Linux, Android
+        ];
+
         /// <summary>
         /// Splits <paramref name="text"/> into the longest possible runs that a single typeface can
         /// actually render, substituting a face that has the glyph wherever
@@ -160,6 +183,15 @@ namespace Majorsilence.Forms.Drawing
         /// mixing scripts (or any CJK/emoji text drawn with a Latin UI font) came out as a row of
         /// boxes. Whitespace stays in the current run rather than forcing a split, which keeps runs
         /// long and the advance widths consistent with how the text was measured.
+        ///
+        /// A character followed by VARIATION SELECTOR-16 (U+FE0F) asks explicitly for its emoji
+        /// presentation, which a plain UI font commonly cannot draw even when it has some glyph for the
+        /// bare character -- WARNING SIGN (U+26A0) is exactly this: most text fonts include its
+        /// monochrome triangle, so <paramref name="primary"/> looked like it already covered "⚠" and the
+        /// following, invisible U+FE0F was resolved on its own, achieving nothing. The selector is
+        /// resolved together with the character it modifies, through a font-manager query that asks for
+        /// the emoji-presentation face specifically, and both codepoints stay in one run either way, so
+        /// the selector is never measured as a glyph of its own (found and filed as #271/#281).
         /// </remarks>
         public static List<(string Text, SKTypeface Typeface)> SplitByCoverage (string text, SKTypeface primary)
         {
@@ -179,7 +211,17 @@ namespace Majorsilence.Forms.Drawing
                 var codepoint = isPair ? char.ConvertToUtf32 (text[i], text[i + 1]) : text[i];
                 var length = isPair ? 2 : 1;
 
-                var face = Covering (codepoint, primary);
+                // A following presentation selector is consumed here, with its base character, rather than
+                // walked to on the next iteration: on its own it is invisible and covered by nothing in
+                // particular, and it must land in the same run as the character it modifies regardless.
+                var selectorAt = i + length;
+                var hasSelector = selectorAt < text.Length && (text[selectorAt] == EmojiPresentation || text[selectorAt] == TextPresentation);
+                var wantsEmoji = hasSelector && text[selectorAt] == EmojiPresentation;
+
+                var face = wantsEmoji ? EmojiCovering (codepoint, primary) : Covering (codepoint, primary);
+
+                if (hasSelector)
+                    length += 1;
 
                 // Whitespace and anything the run's face already covers extend the current run.
                 if (builder.Length > 0 && !ReferenceEquals (face, current)
@@ -199,6 +241,33 @@ namespace Majorsilence.Forms.Drawing
                 runs.Add ((builder.ToString (), current));
 
             return runs;
+        }
+
+        // VARIATION SELECTOR-16 asks for the emoji presentation explicitly, so this looks for one even when
+        // primary already has some (typically plain-text) glyph for the bare codepoint -- unlike Covering,
+        // which only looks elsewhere once primary has nothing at all.
+        private static SKTypeface EmojiCovering (int codepoint, SKTypeface primary)
+        {
+            var emoji = emojiFallbackByCodepoint.GetOrAdd (codepoint, FindEmojiFace);
+
+            // No emoji-capable face on the system either: fall back to the ordinary rule rather than lose
+            // the character, the same way Covering falls back to primary when nothing at all covers it.
+            return emoji ?? Covering (codepoint, primary);
+        }
+
+        private static SKTypeface? FindEmojiFace (int codepoint)
+        {
+            foreach (var name in KnownEmojiFontFamilies) {
+                var typeface = SKTypeface.FromFamilyName (name);
+                if (!string.Equals (typeface.FamilyName, name, StringComparison.OrdinalIgnoreCase))
+                    continue; // FromFamilyName fell back to something else -- this name isn't really installed
+                if (typeface.ContainsGlyph (codepoint))
+                    return typeface;
+            }
+
+            // None of the known names are installed (a Linux box with a different emoji font, say): fall
+            // back to the hinted search, which is at least correct wherever the hint is honoured.
+            return SKFontManager.Default.MatchCharacter (null, ["und-Zsye"], codepoint);
         }
 
         private static SKTypeface Covering (int codepoint, SKTypeface primary)

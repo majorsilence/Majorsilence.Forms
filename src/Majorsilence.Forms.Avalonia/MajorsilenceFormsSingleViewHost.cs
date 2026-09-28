@@ -54,9 +54,13 @@ namespace Majorsilence.Forms
     /// window activation) -- only losing focus to something outside the app entirely is unhandled.
     /// </summary>
     [System.Diagnostics.CodeAnalysis.SuppressMessage ("Design", "CA1001", Justification = "_scene SKPictures are disposed in IWindowBackend.Close/DetachedFromVisualTree; there is no owning Window to dispose through here.")]
-    internal sealed class MajorsilenceFormsSingleViewHost : Canvas, IWindowBackend, INativeControlHostBackend
+    internal sealed class MajorsilenceFormsSingleViewHost : Canvas, IWindowBackend, INativeControlHostBackend, IAnimationFrameSource
     {
         internal static MajorsilenceFormsSingleViewHost? MainHost { get; private set; }
+
+        /// <summary>The <see cref="WindowBase"/> this host draws, for <see cref="AvaloniaPlatformBackend.HookApplicationLifecycle"/>
+        /// to raise Activated/Deactivate on -- register item F10, single-view hosts (Android, iOS, browser) only.</summary>
+        internal WindowBase Owner => _owner;
 
         private readonly WindowBase _owner;
         private readonly bool _isRoot;
@@ -868,6 +872,16 @@ namespace Majorsilence.Forms
             if (_owner.HandleTextInput (e.Text ?? string.Empty))
                 e.Handled = true;
             base.OnTextInput (e);
+        }
+
+        // Avalonia's frame request belongs to the TopLevel, which is only reachable once this host is in the visual tree. Before that no
+        // frame is being shown, so the shared timer serves the request rather than dropping it.
+        void IAnimationFrameSource.RequestAnimationFrame (Action<TimeSpan> callback)
+        {
+            if (TopLevel.GetTopLevel (this) is { } topLevel)
+                topLevel.RequestAnimationFrame (callback);
+            else
+                Majorsilence.Forms.AnimationFrames.RequestOnTimer (callback);
         }
 
         // ── IWindowBackend ───────────────────────────────────────────────────────────────────────────

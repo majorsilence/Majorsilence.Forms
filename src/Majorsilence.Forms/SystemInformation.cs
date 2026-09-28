@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using System;
+using System.Drawing;
 
 namespace Majorsilence.Forms
 {
@@ -184,6 +185,33 @@ namespace Majorsilence.Forms
         /// <summary>Gets whether UI effects are enabled at all.</summary>
         /// <inheritdoc cref="IsMenuFadeEnabled"/>
         public static bool UIEffectsEnabled => false;
+
+        /// <summary>
+        /// Gets whether the user has asked for reduced motion: Android's animator duration scale at zero, iOS's Reduce Motion, Windows'
+        /// client-area animation setting, macOS's reduce-motion, or GNOME's <c>enable-animations</c>. False when the active backend
+        /// cannot answer (the conservative default every member on this page uses, for the same reason: it never suppresses an
+        /// animation nobody asked to suppress).
+        /// </summary>
+        /// <remarks>Only the Headless backend's (via its <c>HeadlessRenderer.PrefersReducedMotion</c> test hook) and the Avalonia
+        /// backend's answer is real; a third-party backend that does not implement <see cref="Backends.IReducedMotionSource"/> answers
+        /// false. See "Reduced motion" in docs/backends.md for which platforms are read and how.</remarks>
+        public static bool PrefersReducedMotion
+            => Backends.Platform.Backend is Backends.IReducedMotionSource source && source.PrefersReducedMotion;
+
+        /// <summary>Raised, on the UI thread, when <see cref="PrefersReducedMotion"/> changes, on a backend that can tell.</summary>
+        /// <remarks>Subscribing while the active backend cannot answer is harmless: the event is simply never raised. As with every
+        /// other member on this page, it reads <see cref="Backends.Platform.Backend"/> at the moment you subscribe, not once for the
+        /// life of the app, matching how <see cref="Application.RunOnUIThread"/> and the rest of this class already work.</remarks>
+        public static event EventHandler? PrefersReducedMotionChanged {
+            add {
+                if (Backends.Platform.Backend is Backends.IReducedMotionSource source)
+                    source.PrefersReducedMotionChanged += value;
+            }
+            remove {
+                if (Backends.Platform.Backend is Backends.IReducedMotionSource source)
+                    source.PrefersReducedMotionChanged -= value;
+            }
+        }
 
         /// <summary>Gets whether the process is running in a context that can interact with a user.</summary>
         /// <remarks>Answers from <see cref="Application.UserInteractive"/>, so the two cannot disagree.</remarks>

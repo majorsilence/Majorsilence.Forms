@@ -1,0 +1,19 @@
+<!-- What a NativeAOT or trimmed app must keep for data binding, because binding finds members by name at run time and nothing in the
+     program refers to them. Every line is needed: the smoke test fails without it (see "Binding and trimming" in docs/backends.md). -->
+<linker>
+  <assembly fullname="Majorsilence.Forms">
+    <!-- The control side: the property that is bound, and the event the control raises when it changes, which is how a value typed
+         into the control is written back. Without the event a bound control still shows the view model, but edits never reach it. -->
+    <type fullname="Majorsilence.Forms.Control">
+      <property name="Text" />
+      <event name="TextChanged" />
+    </type>
+  </assembly>
+  <assembly fullname="Majorsilence.Forms.AotSmoke">
+    <!-- The view-model side: every property a binding names. A missing one is not an error, the binding just never moves a value. -->
+    <type fullname="SmokeViewModel">
+      <property name="Title" />
+      <property name="Name" />
+    </type>
+  </assembly>
+</linker>

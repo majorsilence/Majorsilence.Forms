@@ -102,7 +102,7 @@ public class SweepEventTests
         var fired = 0;
         button.CommandCanExecuteChanged += (_, _) => fired++;
 
-        button.Command = command;
+        button.Command = command.AsCommand ();
         command.Raise ();
         button.Command = null;
         command.Raise ();

@@ -5,6 +5,15 @@ using Majorsilence.Forms.Backends;
 
 namespace Majorsilence.Forms.Headless
 {
+    /// <summary>One <see cref="Media.SoundPlayer"/>/<see cref="Media.SystemSounds"/> play request the Headless backend recorded.</summary>
+    /// <param name="Value">The .wav path (<see cref="HeadlessPlatformBackend.PlayFile"/>) or system sound name (<see cref="HeadlessPlatformBackend.PlaySystemSound"/>).</param>
+    /// <param name="Loop">Whether native looping was requested (always <c>false</c> for a system sound).</param>
+    /// <param name="IsSystemSound">Whether this came from <see cref="HeadlessPlatformBackend.PlaySystemSound"/> rather than <see cref="HeadlessPlatformBackend.PlayFile"/>.</param>
+    public readonly record struct AudioPlayRequest (string Value, bool Loop, bool IsSystemSound);
+
+    /// <summary>One <see cref="Media.AudioPlayer.Play"/> request the Headless backend recorded.</summary>
+    public readonly record struct AudioTrackRequest (string Path, bool Loop, float Volume, Media.AudioUsage Usage);
+
     /// <summary>
     /// A dependency-free <see cref="IPlatformBackend"/> that hosts Majorsilence.Forms entirely in memory:
     /// windows render to offscreen SkiaSharp surfaces and the "message loop" is a simple work queue.
@@ -13,8 +22,158 @@ namespace Majorsilence.Forms.Headless
     /// (2) a reference second backend proving the <see cref="IPlatformBackend"/>/<see cref="IWindowBackend"/>
     /// seam is genuinely toolkit-agnostic — the same shape a real Uno backend follows.
     /// </summary>
-    public sealed class HeadlessPlatformBackend : IPlatformBackend, IDisposable
+    public sealed class HeadlessPlatformBackend : IPlatformBackend, IAnimationFrameSource, IReducedMotionSource, IAudioBackend, IDisposable
     {
+        /// <summary>Gets the animation frames, which run only when stepped by hand.</summary>
+        public HeadlessAnimationClock AnimationClock { get; } = new ();
+
+        /// <inheritdoc/>
+        public void RequestAnimationFrame (Action<TimeSpan> callback) => AnimationClock.Request (callback);
+
+        private bool prefersReducedMotion;
+
+        /// <summary>Gets or sets the answer <see cref="SystemInformation.PrefersReducedMotion"/> reports while this backend is active, for a test to set directly instead of a real setting to poll.</summary>
+        public bool PrefersReducedMotion {
+            get => prefersReducedMotion;
+            set {
+                if (prefersReducedMotion == value)
+                    return;
+
+                prefersReducedMotion = value;
+                PrefersReducedMotionChanged?.Invoke (this, EventArgs.Empty);
+            }
+        }
+
+        /// <inheritdoc/>
+        public event EventHandler? PrefersReducedMotionChanged;
+
+        // ── IAudioBackend ── a recording fake, not a real player: there is nothing to actually play back
+        // in a headless test process, so this exists purely so SoundPlayer/SystemSounds routing (try the
+        // backend, fall back to NativeAudio) can be asserted without spawning a real OS utility. A
+        // ConcurrentQueue, not a List: SoundPlayer.PlayLooping's desktop-style respawn fallback plays
+        // through a background Task, so a test asserting "the backend was never asked" or "asked exactly
+        // once" can race a still-running respawn loop's own writes here otherwise.
+        private readonly ConcurrentQueue<AudioPlayRequest> _audioRequests = new ();
+
+        /// <summary>Gets every <see cref="Media.SoundPlayer"/>/<see cref="Media.SystemSounds"/> request this backend has been asked to play, in order.</summary>
+        public System.Collections.Generic.IReadOnlyList<AudioPlayRequest> AudioRequests => _audioRequests.ToArray ();
+
+        /// <summary>Clears <see cref="AudioRequests"/> between tests.</summary>
+        public void ClearAudioRequests ()
+        {
+            while (_audioRequests.TryDequeue (out _)) { }
+        }
+
+        /// <summary>
+        /// Gets or sets whether this backend answers a play request at all. False by default -- matching
+        /// "no in-process audio available" (real on this backend, since there is no OS to actually play
+        /// through): every other test in the suite runs with the Headless backend already active as the
+        /// process-wide default (parallelization is off; <see cref="HeadlessRenderer.Use"/> is called once and left set),
+        /// so an opt-OUT default here would silently intercept unrelated tests that expect
+        /// <see cref="Media.SoundPlayer"/>/<see cref="Media.SystemSounds"/> to reach
+        /// <see cref="Media.NativeAudio"/>'s launcher seam instead. A test that wants to assert the
+        /// backend-first routing sets this true itself.
+        /// </summary>
+        public bool AudioIsSupported { get; set; }
+
+        /// <inheritdoc/>
+        public Media.IPlayingSound? PlayFile (string path, bool loop)
+        {
+            _audioRequests.Enqueue (new AudioPlayRequest (path, loop, IsSystemSound: false));
+            return AudioIsSupported ? new FakePlayingSound () : null;
+        }
+
+        /// <inheritdoc/>
+        public Media.IPlayingSound? PlaySystemSound (string name)
+        {
+            _audioRequests.Enqueue (new AudioPlayRequest (name, false, IsSystemSound: true));
+            return AudioIsSupported ? new FakePlayingSound () : null;
+        }
+
+        private sealed class FakePlayingSound : Media.IPlayingSound
+        {
+            public void Wait () { }
+            public void Dispose () { }
+        }
+
+        // ── IAudioBackend.PlayTrack ── AudioPlayer's richer sibling: this fake tracks every live track it
+        // handed out (not just requests, unlike PlayFile/PlaySystemSound above) so a test can drive its own
+        // Completed event and assert Stop() actually disposed each one -- neither is meaningful for the
+        // fire-and-forget PlayFile/PlaySystemSound shape above. AudioPlayer explicitly allows overlapping
+        // concurrent Play() calls, so every collection here is thread-safe the same way _audioRequests is;
+        // ActiveAudioTrackCount is a plain counter (not a live queue's Count) because "no longer active"
+        // happens through FakeAudioTrack.Dispose(), called from an arbitrary point in the queue -- a
+        // ConcurrentQueue has no cheap arbitrary removal, only FIFO dequeue.
+        private readonly ConcurrentQueue<AudioTrackRequest> _audioTrackRequests = new ();
+        private readonly ConcurrentQueue<FakeAudioTrack> _pendingAudioTracks = new ();
+        private int _activeAudioTrackCount;
+
+        /// <summary>Gets every <see cref="Media.AudioPlayer.Play"/> request this backend has been asked to play, in order (including ones no longer playing).</summary>
+        public System.Collections.Generic.IReadOnlyList<AudioTrackRequest> AudioTrackRequests => _audioTrackRequests.ToArray ();
+
+        /// <summary>Gets the number of tracks started via <see cref="PlayTrack"/> that have not been completed or disposed yet.</summary>
+        public int ActiveAudioTrackCount => _activeAudioTrackCount;
+
+        /// <summary>Clears <see cref="AudioTrackRequests"/> and any still-live fake tracks between tests.</summary>
+        public void ClearAudioTrackRequests ()
+        {
+            while (_audioTrackRequests.TryDequeue (out _)) { }
+            while (_pendingAudioTracks.TryDequeue (out _)) { }
+            Interlocked.Exchange (ref _activeAudioTrackCount, 0);
+        }
+
+        /// <summary>
+        /// Raises <see cref="Media.IAudioTrack.Completed"/> on the oldest track started via
+        /// <see cref="PlayTrack"/> that has not completed or been disposed yet, simulating it finishing on
+        /// its own (as opposed to being stopped). Returns <c>false</c> if none is pending.
+        /// </summary>
+        public bool CompleteNextAudioTrack ()
+        {
+            if (!_pendingAudioTracks.TryDequeue (out var track))
+                return false;
+
+            track.RaiseCompleted ();
+            return true;
+        }
+
+        /// <inheritdoc/>
+        public Media.IAudioTrack? PlayTrack (string path, bool loop, float volume, Media.AudioUsage usage)
+        {
+            _audioTrackRequests.Enqueue (new AudioTrackRequest (path, loop, volume, usage));
+
+            if (!AudioIsSupported)
+                return null;
+
+            var track = new FakeAudioTrack (this);
+            _pendingAudioTracks.Enqueue (track);
+            Interlocked.Increment (ref _activeAudioTrackCount);
+            return track;
+        }
+
+        private sealed class FakeAudioTrack (HeadlessPlatformBackend owner) : Media.IAudioTrack
+        {
+            private int disposed;
+
+            public event EventHandler? Completed;
+
+            // A no-op once disposed: a track CompleteNextAudioTrack already dequeued but that Stop() beat
+            // it to disposing directly must not still report "completed naturally" -- that would fire
+            // AudioPlayer's Completed a second time for a track it has already forgotten about.
+            public void RaiseCompleted ()
+            {
+                if (Volatile.Read (ref disposed) == 0)
+                    Completed?.Invoke (this, EventArgs.Empty);
+            }
+
+            public void Dispose ()
+            {
+                if (Interlocked.Exchange (ref disposed, 1) != 0)
+                    return;
+
+                Interlocked.Decrement (ref owner._activeAudioTrackCount);
+            }
+        }
+
         private readonly ConcurrentQueue<Action> _queue = new ();
         private readonly AutoResetEvent _signal = new (false);
         private volatile bool _running;

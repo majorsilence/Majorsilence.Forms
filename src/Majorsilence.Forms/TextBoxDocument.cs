@@ -13,6 +13,12 @@ namespace Majorsilence.Forms
 
         private TextBlock? cached_text_block;
 
+        // The device font size cached_text_block was laid out at. The block is built from textbox.CurrentFontSize, which is the logical size
+        // times the window's display scale, so the cache is only valid for the scale it was built at. A control with no window yet (parented
+        // to a panel that is not on a form) reads scale 1, so a block built then stayed at scale 1 for good once the real scale arrived --
+        // half the size on a scale-2 display. Text, font and width changes reset the cache; a scale change does not, so it is keyed here.
+        private int cached_text_block_font_size;
+
         private bool enabled = true;
         private int cursor_index;
         private bool read_only;
@@ -194,7 +200,8 @@ namespace Majorsilence.Forms
 
         public TextBlock GetTextBlock ()
         {
-            if (cached_text_block != null)
+            var font_size = textbox.CurrentFontSize;
+            if (cached_text_block != null && cached_text_block_font_size == font_size)
                 return cached_text_block;
 
             // A single line normally lays out in an unbounded width, so long text scrolls sideways
@@ -217,10 +224,12 @@ namespace Majorsilence.Forms
                         Text.HasValue () ? textbox.GetEffectiveForegroundColor () :
                                 placeholder_font_color;
 
-            if (textbox.Colorizer is { } colorizer && DisplayText.HasValue ())
-                return cached_text_block = BuildColorizedTextBlock (colorizer, max_size, color);
+            var block = textbox.Colorizer is { } colorizer && DisplayText.HasValue ()
+                ? BuildColorizedTextBlock (colorizer, max_size, color)
+                : TextMeasurer.CreateTextBlock (DisplayText, font, font_size, max_size, alignment, color, MaxLines);
 
-            return cached_text_block = TextMeasurer.CreateTextBlock (DisplayText, font, textbox.CurrentFontSize, max_size, alignment, color, MaxLines);
+            cached_text_block_font_size = font_size;
+            return cached_text_block = block;
         }
 
         // Builds a TextBlock from multiple styled runs using the attached Colorizer, instead of

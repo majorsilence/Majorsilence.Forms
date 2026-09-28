@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Mvvm\Majorsilence.Forms.Mvvm.csproj" />
     <ProjectReference Include="..\..\src\Majorsilence.Forms.Telerik\Majorsilence.Forms.Telerik.csproj" />
   </ItemGroup>
 

@@ -5,10 +5,10 @@ namespace ControlGallery.Panels
 {
     /// <summary>
     /// Demonstrates using CommunityToolkit.Mvvm's source-generated <c>ObservableObject</c>/
-    /// <c>RelayCommand</c> with Majorsilence.Forms controls. There is no WPF/UWP-style declarative
-    /// binding here -- <see cref="Control.DataBindings"/> is a stub in this framework (see
-    /// <c>WinFormsCompat.cs</c>) -- so this wires things up the same way real WinForms/MVVM Toolkit
-    /// code does outside of XAML: subscribe to <see cref="System.ComponentModel.INotifyPropertyChanged.PropertyChanged"/>
+    /// <c>RelayCommand</c> with Majorsilence.Forms controls. <see cref="Control.DataBindings"/> is live,
+    /// but it finds members by name at run time, so a trimmed or NativeAOT app has to root what it binds
+    /// (see "Binding and trimming" in <c>docs/backends.md</c>). This panel wires things up by hand instead,
+    /// which needs no roots: subscribe to <see cref="System.ComponentModel.INotifyPropertyChanged.PropertyChanged"/>
     /// to push view-model state into control properties, and forward control events into the
     /// generated <c>ICommand</c>s.
     /// </summary>

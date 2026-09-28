@@ -653,6 +653,29 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the window becomes the active window.</summary>
         public event EventHandler? Activated;
 
+        /// <summary>
+        /// Raised when the platform's back button or gesture is pressed (register item F11) -- a mobile
+        /// concept, real on Android and iOS, with no desktop equivalent to raise it from. Set
+        /// <see cref="System.ComponentModel.CancelEventArgs.Cancel"/> to keep the app open (closing a
+        /// sheet, stepping back a screen within the app) instead of the platform's own default back
+        /// behaviour, which proceeds unhandled -- popping the activity, or exiting the app if nothing is
+        /// left to pop.
+        /// </summary>
+        public event EventHandler<System.ComponentModel.CancelEventArgs>? BackRequested;
+
+        /// <summary>
+        /// Called by a backend when the platform back button/gesture fires. Returns whether a handler
+        /// asked to stay (cancelled it). Public, like <see cref="Application.RaiseSuspended"/> -- the only
+        /// caller (<c>AvaloniaPlatformBackend.RaiseBackRequested</c>) lives in a separate backend assembly,
+        /// not this one.
+        /// </summary>
+        public bool RaiseBackRequested ()
+        {
+            var args = new System.ComponentModel.CancelEventArgs ();
+            BackRequested?.Invoke (this, args);
+            return args.Cancel;
+        }
+
         /// <summary>Gets the default size of the window.</summary>
         protected virtual System.Drawing.Size DefaultSize => new System.Drawing.Size (100, 100);
 
@@ -2511,11 +2534,9 @@ namespace Majorsilence.Forms
         public new bool DesignMode => false;
 
         // ── Data binding ─────────────────────────────────────────────────────────
-        // NOTE ON WHAT THIS ACTUALLY DOES: binding is a COMPILE-compatibility surface in this library,
-        // not a working facility -- `Binding.WriteValue` is an empty stub, so no binding moves a value in
-        // either direction yet. These members exist so migrated code that sets up bindings on a Form
-        // compiles and runs; they are wired to the correct objects so that implementing Binding later
-        // makes them work rather than making them wrong.
+        // Binding is live (BindingRuntime.cs): a binding on a Form reads its source into the window's own
+        // property and follows changes, and A_form_can_bind_its_own_properties pins that. These members are
+        // wired to the window, not to its root adapter, so a binding names the property a user sees.
 
         /// <summary>Gets the data bindings for the window's own properties.</summary>
         /// <remarks>

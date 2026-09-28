@@ -106,10 +106,72 @@ The other backends (`Uno`, `Gtk4`, `WinForms`, `Wpf`, `Telerik`) are **not** ana
 WPF are themselves reflection-heavy and out of scope for an AOT guarantee.
 
 `tests/Majorsilence.Forms.AotSmoke` is a `PublishAot=true` console that renders a `Form` (Label +
-Button + TreeView) to a PNG on the Headless backend; CI's `aot-smoke` job publishes it for `linux-x64`
+Button + TreeView) to a PNG on the Headless backend and binds a view model to a `Label` and a `TextBox`
+in both directions; CI's `aot-smoke` job publishes it for `linux-x64`
 and runs the native binary, so an ILC failure the analysers can't see (something in a dependency, a
-trimmed static constructor) shows up as a non-zero exit. Avalonia-on-desktop NativeAOT additionally
+trimmed static constructor, a binding that quietly does nothing) shows up as a non-zero exit.
+Avalonia-on-desktop NativeAOT additionally
 depends on Avalonia's own trim story and is not covered here.
+
+### Binding and trimming
+
+`Control.DataBindings` is live, and it is reflective: it finds the bound control property, that
+property's `<Property>Changed` event and the data source's property **by name, at run time**. Nothing
+in the program refers to those members in a way the trimmer or ILC can follow, and the framework's own
+trim warnings at these calls are suppressed on exactly that ground ("a trimmed app has to root the
+types it binds"). So a trimmed or NativeAOT app has to keep them itself, and what goes wrong depends on
+what is missing:
+
+| Not kept | What happens |
+|---|---|
+| The control property, for example `Label.Text` | `DataBindings.Add` throws `ArgumentException: 'Text' is not a settable public property of Label`. |
+| The control's `<Property>Changed` event, for example `TextChanged` | Reading works. Text typed into the control never reaches the data source, and nothing is thrown. |
+| A property of the data source (the view model) | The binding never moves a value in the direction that needed it, and nothing is thrown. |
+
+The silent rows are the dangerous ones: the app runs, the screen looks right at first, and values stop
+moving. Tracked for a fix in #290 (a binding should throw for a member it cannot find, as WinForms does).
+
+Root what you bind with a descriptor, and add it to the app project:
+
+```xml
+<ItemGroup>
+  <TrimmerRootDescriptor Include="BindingRoots.xml" />
+</ItemGroup>
+```
+
+```xml
+<linker>
+  <assembly fullname="Majorsilence.Forms">
+    <type fullname="Majorsilence.Forms.Control">
+      <property name="Text" />
+      <event name="TextChanged" />
+    </type>
+  </assembly>
+  <assembly fullname="MyApp.ViewModels">
+    <type fullname="MyApp.ViewModels.CounterViewModel">
+      <property name="Count" />
+    </type>
+  </assembly>
+</linker>
+```
+
+That is `tests/Majorsilence.Forms.AotSmoke/BindingRoots.xml` in outline. The smoke test is what backs
+it: it fails without the control property, without the event, and with any one view-model property
+left out, and passes with exactly these. Rooting whole types (`preserve="all"`) also works but keeps far
+more; rooting all of `Majorsilence.Forms` fails a warnings-as-errors build with IL2026 from the
+resource reader (#290).
+
+What is **not** established: only `Text` on a `Label` and a `TextBox` is tested. Another property, or a
+property declared on a derived control (`CheckBox.Checked`, say), should follow the same three rules but
+has not been checked, so check it in your own app with a published build. The descriptor is tested with
+NativeAOT (ILC); a `PublishTrimmed` app reads the same `TrimmerRootDescriptor` item but that is not
+covered by the smoke test. And ILC's up-to-date check does not notice a change to the descriptor's
+contents (measured with SDK 10.0.112): if an edit seems to have no effect, rebuild clean.
+
+The alternative that needs nothing rooted is to wire the view model by hand, subscribing to
+`PropertyChanged` and forwarding control events to an `ICommand`, which is what the ControlGallery
+CommunityToolkit.Mvvm sample does. The references are then ordinary code (`nameof`, lambdas) that
+trimming can see.
 
 ## Embedding in a host app
 
@@ -564,6 +626,127 @@ done with frame callbacks drawn into Skia than with a hosted native surface. The
 exception to the airspace limits — GTK composites every widget into one render tree, so a hosted
 `Gtk.Widget` clips and blends correctly with no separate native surface (see
 [The GTK 4 backend](#the-gtk-4-backend)).
+
+## In-process audio
+
+`IAudioBackend` is a fourth optional capability. `Media.SoundPlayer` and `Media.SystemSounds` try
+`Platform.Backend as IAudioBackend` before falling back to `Media.NativeAudio`'s desktop path of spawning
+the OS's own playback utility — and fall back to it too whenever the backend answers `null`, exactly as
+if the interface were not implemented at all, so a backend can implement it everywhere and genuinely play
+only on some rows. The Avalonia backend does this: real on Android (`MediaPlayer`) and iOS
+(`AVAudioPlayer`/`AudioToolbox.SystemSound`), `null` everywhere else. See `COMPATIBILITY_MATRIX.md`'s
+`SoundPlayer`/`SystemSounds` entry for what each platform actually does, and
+`tests/Majorsilence.Forms.Tests/MobileAudioTests.cs` for how `HeadlessRenderer.AudioIsSupported` (false by
+default, so the rest of the suite is unaffected) proves the routing without a device.
+
+`IAudioBackend.PlayTrack` is the same interface's third member, backing `Media.AudioPlayer` (register item
+F9) rather than `SoundPlayer`/`SystemSounds`. It has no `NativeAudio` fallback — a volume, a caller-chosen
+`Media.AudioUsage` (which platform audio stream/session a track plays through) and a real completion event
+do not map onto spawning a short-lived OS utility process the way `PlayFile` does, so `AudioPlayer` is real
+only where `PlayTrack` is: Android and iOS. `AudioPlayer.IsSupported` (`Platform.Backend is IAudioBackend`)
+is how a caller checks that ahead of committing to, say, a looping-alarm UX — unlike `SoundPlayer`'s silent
+degrade. `AudioUsage.Alarm` is the case the whole class exists for: Android's `USAGE_ALARM` (its own volume
+stream, audible with media volume down) and an iOS `Playback` session (overrides the silent switch); the
+other three usages stay on the same conservative streams/sessions `PlayFile`/`PlaySystemSound` already use.
+See `tests/Majorsilence.Forms.Tests/AudioPlayerTests.cs` for how `HeadlessRenderer.AudioTrackRequests` /
+`ActiveAudioTrackCount` / `CompleteNextAudioTrack` prove volume clamping, overlapping concurrent `Play`
+calls, `Stop` disposing every track an instance started (and no other instance's), and `Completed` firing
+only for a natural finish — all without a device.
+
+## Application lifecycle (Avalonia-specific, register item F10)
+
+Unlike the seams above, `Application.Suspended`/`Resumed` and the single-view host's `Form.Activated`/
+`Deactivate` are not a new `IPlatformBackend` capability every backend can opt into — every *other* backend
+(WinForms, WPF, GTK 4, Uno, Headless) already fires `Activated`/`Deactivate` correctly from its own real
+window-activation signal, and none of them has an OS-level "backgrounded" concept to raise `Suspended`/
+`Resumed` from at all. The gap was single-view (Android, iOS, browser): nothing there ever called
+`WindowBase.OnBackendActivated`/`OnBackendDeactivated`, and nothing raised `Suspended`/`Resumed` anywhere.
+
+`AvaloniaPlatformBackend.HookApplicationLifecycle` (called once, idempotently, from `Initialize`/
+`InitializeAsync`) is entirely internal to this one backend. It reaches Avalonia's `IActivatableLifetime`
+through `Application.Current.TryGetFeature (typeof (IActivatableLifetime))` — **not**
+`Application.Current.ApplicationLifetime`, the pattern `IWebViewFactory`/`IReducedMotionSource` both use:
+on Android, `ApplicationLifetime` resolves to `Avalonia.Android.ApplicationLifetime`, which does not
+implement `IActivatableLifetime` at all (confirmed by inspecting the shipped assembly directly, not
+assumed). Filtered to `ActivationKind.Background`, it forwards to `Application.RaiseSuspended`/
+`RaiseResumed` and, on the single-view root host only, to the owning `WindowBase`'s own
+`OnBackendActivated`/`OnBackendDeactivated`. See `COMPATIBILITY_MATRIX.md`'s "Application lifecycle" entry
+for the full finding and how it is verified.
+
+## Back button (Avalonia-specific, register item F11)
+
+`WindowBase.BackRequested`/`RaiseBackRequested` is on the shared base (not `Form` alone) specifically so a
+`PopupWindow` has it too — the acceptance criterion is "closes a sheet without leaving the app", and a sheet
+is exactly what `PopupWindow` already models (a dropdown, a context menu, a filter grid). Only Android/iOS
+have a real platform back button/gesture to raise it from; every other backend leaves it unraised, same as
+`Suspended`/`Resumed` above.
+
+`AvaloniaPlatformBackend.RaiseBackRequested` is **not** automatic the way `HookApplicationLifecycle` is.
+`Avalonia.Android.AvaloniaActivity.BackRequested` is declared directly on the Activity class (confirmed by
+inspecting the shipped assembly the same way `HookApplicationLifecycle`'s finding was), and nothing in this
+assembly can discover "the current Activity" generically — the type that does track it,
+`Avalonia.Android.Platform.AndroidActivatableLifetime`, is `internal` in a different assembly. A host app's
+own `MainActivity` (already required to subclass `AvaloniaMainActivity` and carry an AppCompat theme, #288)
+forwards its own `BackRequested` here instead, one line, the same shape `Application.RunAndroid` already
+requires: see `samples/Gallery.Android/MainActivity.cs`. `RaiseBackRequested` prefers
+`Application.ActivePopupWindow` (matching `Application.ScheduleClosePopupsOnDeactivate`'s own check for
+"which window is really active right now") so an open sheet gets the back-press before the main screen.
+
+A second, unrelated finding hit while adding this: the new `WindowBase` method that raises `BackRequested`
+had to be named `RaiseBackRequested`, not `OnBackendBackRequested` (which is otherwise the established
+naming for a method a backend calls into core to report something) — `OnBackendActivated`/
+`OnBackendDeactivated` above are the precedent. `tests/Majorsilence.Forms.Tests/StubSurfaceScanner.cs`'s
+`NoNewUnraisedEvents` gate treats a public method as a safe "this is definitely called from somewhere"
+entry point unless its name starts with `On`, regardless of visibility — `On`-prefixed methods are treated
+as an internal framework convention (a backend overriding a hook), not a cross-assembly entry point, so an
+`On`-named raiser whose only real caller lives in a different assembly (as this one's does, from
+`Majorsilence.Forms.Avalonia`) fails the gate even when made `public`. Making `Application.RaiseSuspended`/
+`RaiseResumed` (F10, above) public happened to satisfy the gate already because they were never `On`-named
+to begin with. Renaming to `RaiseBackRequested` (matching `RaiseIdle`/`RaiseSuspended`/`RaiseResumed`) fixed
+it with no other change. See `COMPATIBILITY_MATRIX.md`'s "Back button" entry for how this is verified.
+
+## Haptics (register item F13)
+
+Unlike every backend seam above, `IHapticsBackend` is deliberately **not** implemented everywhere with a
+null/no-op body the way `IAudioBackend` is: it is only declared in `AvaloniaPlatformBackend`'s own base
+list under `#if ANDROID || IOS`. The register item's own acceptance criterion is "`IsSupported` false on
+Headless" (unlike F8/F9's audio, which is real and test-hooked even under Headless), and haptics has no
+desktop/browser equivalent worth representing as "supported but does nothing" — a machine with no
+vibration motor is exactly the same as a backend that never heard of `IHapticsBackend` at all. This means
+`Haptics.IsSupported` (`Backend is IHapticsBackend`) is `false` everywhere but Android and iOS with a single
+check, no separate per-row fallback needed.
+
+`AndroidHapticsBackend` drives `Vibrator` through `VibrationEffect` (API 26+) so the OS, not this code,
+picks the actual waveform/amplitude for `Tap`/`Impact`'s "click"/"heavy click" shapes.
+`VibrationEffect.CreatePredefined` needs API 29+; between this project's floor of API 24 and that, every
+member falls back to a plain one-shot buzz of its own length rather than a second, cruder code path — still
+real feedback, just not the platform's distinct predefined shapes. Below API 26 there is no
+`VibrationEffect` at all, so every member is a no-op there. The `android.permission.VIBRATE` manifest entry
+(a normal, not dangerous, permission — no runtime request needed) is declared once, as an assembly-level
+`[assembly: Android.App.UsesPermission (...)]` attribute on `Majorsilence.Forms.Avalonia` itself, so it
+merges into any consuming app's manifest automatically — confirmed by inspecting the built
+`Gallery.Android` APK's own merged manifest, not assumed. `IosHapticsBackend` uses
+`UISelectionFeedbackGenerator`/`UIImpactFeedbackGenerator` (UIKit, iOS 10+) for `Tap`/`Impact`; `Vibrate`
+has no public UIKit API taking an explicit duration, so it triggers the same fixed-length system-wide buzz
+iOS itself uses for a phone call or an alert (`AudioServicesPlaySystemSound`'s `kSystemSoundID_Vibrate`,
+reached the same "known, stable numeric identifier" way `IosAudioBackend`'s own `SystemSoundId` already
+documents) rather than a caller-chosen length.
+
+A real iOS-only build bug was caught by CI, not guessed: `UIImpactFeedbackGenerator (UIImpactFeedbackStyle)`
+is obsoleted from iOS 17.5 (`CA1422`) in favour of `UIFeedbackGenerator.GetFeedbackGenerator`, a view-scoped
+factory needing a `UIView` to attach to. This backend has no view reference to thread through for a feature
+this minor, and the old constructor still works on every iOS version, only deprecated, not removed, so the
+warning is suppressed at that one call site rather than the API avoided.
+
+A real Android-only build bug was caught here, not guessed: the platform-compat analyzer (`CA1416`) flagged
+`VibrationEffect.EffectClick`/`EffectHeavyClick` (API 29+ members) as reachable from this project's API 24
+floor, even though the call was already behind an `OperatingSystem.IsAndroidVersionAtLeast (29)` check —
+the analyzer was tripped by the *caller* (`Tap`/`Impact`) passing the field's value as a plain `int`
+argument to a shared helper, outside the guarded branch, not by the eventual `Vibrator.Vibrate` call itself.
+Fixed by passing an enum discriminator instead and resolving the actual `VibrationEffect.EffectXxx` field
+only inside the version-guarded branch. See `COMPATIBILITY_MATRIX.md`'s "Haptics" entry for the full
+verification story — the acceptance criterion specifically needs a real phone (Android emulators have no
+vibrator), which this session did not have.
 
 ### Adding another backend
 

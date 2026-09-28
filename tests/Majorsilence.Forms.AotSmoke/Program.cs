@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Linq;
 using Majorsilence.Forms;
@@ -11,7 +13,7 @@ try
 {
     HeadlessRenderer.Use ();
 
-    using var form = new Form { Text = "AOT smoke", Size = new Size (240, 200) };
+    using var form = new Form { Text = "AOT smoke", Size = new Size (240, 260) };
 
     form.Controls.Add (new Label { Text = "Hello from NativeAOT", Left = 8, Top = 8, Width = 200, Height = 24 });
     form.Controls.Add (new Button { Text = "OK", Left = 8, Top = 40, Width = 80, Height = 28 });
@@ -21,9 +23,31 @@ try
         tree.Nodes.Add ($"Node {i}");
     form.Controls.Add (tree);
 
+    // Data binding finds members by name at run time, which is exactly what trimming and ILC remove, so it is checked here in both
+    // directions rather than assumed.
+    var model = new SmokeViewModel ("first");
+    var titleLabel = new Label { Left = 8, Top = 180, Width = 200, Height = 24 };
+    titleLabel.DataBindings.Add ("Text", model, nameof (SmokeViewModel.Title));
+    var nameBox = new TextBox { Left = 8, Top = 210, Width = 200, Height = 24 };
+    nameBox.DataBindings.Add ("Text", model, nameof (SmokeViewModel.Name), false, DataSourceUpdateMode.OnPropertyChanged);
+    form.Controls.Add (titleLabel);
+    form.Controls.Add (nameBox);
+
     form.Show ();
 
-    var png = HeadlessRenderer.CapturePng (form, 240, 200);
+    var problems = new List<string> ();
+    if (titleLabel.Text != "first")
+        problems.Add ($"the bound label did not read the view model: it shows '{titleLabel.Text}', expected 'first'");
+    model.ChangeTitle ("second");
+    if (titleLabel.Text != "second")
+        problems.Add ($"a view-model change did not reach the bound label: it shows '{titleLabel.Text}', expected 'second'");
+    nameBox.Text = "typed";
+    if (model.CurrentName () != "typed")
+        problems.Add ($"typing into the bound text box did not reach the view model: it holds '{model.CurrentName ()}', expected 'typed'");
+    if (problems.Count > 0)
+        return Fail ("Binding: " + string.Join ("; ", problems) + ".");
+
+    var png = HeadlessRenderer.CapturePng (form, 240, 260);
 
     if (png.Length < 200)
         return Fail ($"PNG is implausibly small ({png.Length} bytes) -- the scene did not render.");
@@ -37,7 +61,7 @@ try
     if (png.Length < 1500)
         return Fail ($"PNG is only {png.Length} bytes -- looks blank, the controls probably did not paint.");
 
-    Console.WriteLine ($"AOT smoke OK: rendered a {png.Length}-byte PNG with a Label, Button and TreeView.");
+    Console.WriteLine ($"AOT smoke OK: rendered a {png.Length}-byte PNG with a Label, Button and TreeView, and a view model bound in both directions.");
     return 0;
 }
 catch (Exception ex)
@@ -49,4 +73,34 @@ static int Fail (string message)
 {
     Console.Error.WriteLine ($"AOT smoke FAILED: {message}");
     return 1;
+}
+
+// No bound property is called from this program: binding reaches them by name and nothing else does. That is the case trimming and
+// ILC cannot see, and the usual one in a real view model (a read-only status text that only the UI ever reads).
+sealed class SmokeViewModel : INotifyPropertyChanged
+{
+    private string title;
+    private string name = "";
+
+    public SmokeViewModel (string title) => this.title = title;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    public string Title {
+        get => title;
+        set => title = value;
+    }
+
+    public string Name {
+        get => name;
+        set => name = value;
+    }
+
+    public void ChangeTitle (string value)
+    {
+        title = value;
+        PropertyChanged?.Invoke (this, new PropertyChangedEventArgs (nameof (Title)));
+    }
+
+    public string CurrentName () => name;
 }

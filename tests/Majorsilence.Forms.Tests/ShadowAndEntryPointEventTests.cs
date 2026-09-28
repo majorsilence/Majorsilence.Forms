@@ -264,7 +264,7 @@ public class ShadowAndEntryPointEventTests
     public void ButtonBase_CommandChanged_fires_when_Command_changes ()
     {
         using var button = new Button ();
-        var command = new NullCommand ();
+        var command = new NullCommand ().AsCommand ();
         Assert.Equal (1, Count (h => button.CommandChanged += h, () => button.Command = command));
     }
 

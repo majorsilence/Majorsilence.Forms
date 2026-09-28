@@ -2107,7 +2107,9 @@ real remaining W6.2 surface, and it will take several passes — this is the fir
 
 *Two candidates turned out not to be wirable, and are recorded rather than forced:*
 `ButtonBase.CommandParameter` has nowhere to go — `ICommandExecutor.Execute` takes no argument here, and
-giving the interface a parameterised overload is a public API decision, not a sweep. And
+giving the interface a parameterised overload is a public API decision, not a sweep. **[RESOLVED 2026-09-26, F3: the decision
+was to follow WinForms and type `Command` as `System.Windows.Input.ICommand`, whose `Execute (object?)` takes the parameter;
+`ICommandExecutor` is adapted with `AsCommand ()`.]** And
 `ToolStripItem.DoubleClickEnabled` gates an `OnDoubleClick` that **nothing calls**: `ToolStripItem` is
 not a `Control`, so gating it would be unobservable. That is the W6.1 category wearing a W6.2 costume,
 which the triage already recorded happening six times in the `Cancel` bucket.

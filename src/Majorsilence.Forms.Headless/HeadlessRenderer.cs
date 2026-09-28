@@ -10,6 +10,76 @@ namespace Majorsilence.Forms.Headless
     /// </summary>
     public static class HeadlessRenderer
     {
+        /// <summary>Gets the active Headless backend, for the members below that read or set state on it.</summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        private static HeadlessPlatformBackend Backend
+            => Platform.ConfiguredBackend as HeadlessPlatformBackend
+                ?? throw new InvalidOperationException ("The Headless backend is not the active platform; call HeadlessRenderer.Use () first.");
+
+        /// <summary>
+        /// Gets the animation frames of the active Headless backend, which run only when stepped by hand:
+        /// <c>HeadlessRenderer.AnimationClock.Step (10)</c> runs ten frames. Call <see cref="Use"/> first.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        public static HeadlessAnimationClock AnimationClock => Backend.AnimationClock;
+
+        /// <summary>
+        /// Gets or sets what <see cref="SystemInformation.PrefersReducedMotion"/> reports while the Headless backend is active, so a
+        /// test can set the reduced-motion answer directly instead of a real system setting existing to poll. Setting it to the value
+        /// it already holds raises no change event. Call <see cref="Use"/> first.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        public static bool PrefersReducedMotion {
+            get => Backend.PrefersReducedMotion;
+            set => Backend.PrefersReducedMotion = value;
+        }
+
+        /// <summary>
+        /// Gets every <see cref="Media.SoundPlayer"/>/<see cref="Media.SystemSounds"/> play request the active Headless backend has
+        /// recorded, in order, so a test can assert what was asked for without a real audio engine. Call <see cref="Use"/> first.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        public static System.Collections.Generic.IReadOnlyList<AudioPlayRequest> AudioRequests => Backend.AudioRequests;
+
+        /// <summary>Clears <see cref="AudioRequests"/> between tests. Call <see cref="Use"/> first.</summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        public static void ClearAudioRequests () => Backend.ClearAudioRequests ();
+
+        /// <summary>
+        /// Gets or sets whether the active Headless backend answers a play request at all -- false by default (see the
+        /// remarks on <see cref="HeadlessPlatformBackend.AudioIsSupported"/> for why), so a test that wants to assert
+        /// backend-first routing sets this true itself. Call <see cref="Use"/> first.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        public static bool AudioIsSupported {
+            get => Backend.AudioIsSupported;
+            set => Backend.AudioIsSupported = value;
+        }
+
+        /// <summary>
+        /// Gets every <see cref="Media.AudioPlayer.Play"/> request the active Headless backend has recorded, in order
+        /// (including tracks no longer playing), so a test can assert what was asked for without a real audio engine.
+        /// Call <see cref="Use"/> first.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        public static System.Collections.Generic.IReadOnlyList<AudioTrackRequest> AudioTrackRequests => Backend.AudioTrackRequests;
+
+        /// <summary>Gets the number of tracks started via <see cref="Media.AudioPlayer.Play"/> that have not completed or been stopped yet. Call <see cref="Use"/> first.</summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        public static int ActiveAudioTrackCount => Backend.ActiveAudioTrackCount;
+
+        /// <summary>Clears <see cref="AudioTrackRequests"/> and any still-live fake tracks between tests. Call <see cref="Use"/> first.</summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        public static void ClearAudioTrackRequests () => Backend.ClearAudioTrackRequests ();
+
+        /// <summary>
+        /// Raises <see cref="Media.IAudioTrack.Completed"/> on the oldest track started via <see cref="Media.AudioPlayer.Play"/>
+        /// that has not completed or been stopped yet, simulating it finishing on its own. Returns <c>false</c> if none is
+        /// pending. Call <see cref="Use"/> first.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        public static bool CompleteNextAudioTrack () => Backend.CompleteNextAudioTrack ();
+
         /// <summary>
         /// Installs the headless backend as the active platform. Call once before creating any window.
         /// </summary>

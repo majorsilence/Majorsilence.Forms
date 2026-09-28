@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input.Platform;
 using Avalonia.Threading;
 
@@ -10,9 +11,12 @@ namespace Majorsilence.Forms.Backends
     /// The default <see cref="IPlatformBackend"/>: hosts Majorsilence.Forms on Avalonia 12. Application
     /// bootstrap and the message loop are delegated to Avalonia's <see cref="Dispatcher"/>.
     /// </summary>
-    public sealed class AvaloniaPlatformBackend : IPlatformBackend, IWebViewFactory
+    public sealed class AvaloniaPlatformBackend : IPlatformBackend, IWebViewFactory, IReducedMotionSource, IAudioBackend
 #if BROWSER
         , IAsyncPlatformBackend
+#endif
+#if ANDROID || IOS
+        , IHapticsBackend
 #endif
     {
         /// <inheritdoc/>
@@ -29,6 +33,7 @@ namespace Majorsilence.Forms.Backends
             // lock contention with the render loop.
             Majorsilence.Forms.Theme.WarmupFonts ();
             HookDispatcherExceptions ();
+            HookApplicationLifecycle ();
         }
 
         /// <inheritdoc/>
@@ -53,6 +58,7 @@ namespace Majorsilence.Forms.Backends
             AvaloniaSynchronizationContext.InstallIfNeeded ();
             Majorsilence.Forms.Theme.WarmupFonts ();
             HookDispatcherExceptions ();
+            HookApplicationLifecycle ();
         }
 
         /// <inheritdoc/>
@@ -94,6 +100,94 @@ namespace Majorsilence.Forms.Backends
             };
         }
 
+        private static bool lifecycle_hooked;
+
+        /// <summary>
+        /// Routes Avalonia's <see cref="IActivatableLifetime"/> to <see cref="Majorsilence.Forms.Application.Suspended"/>/
+        /// <see cref="Majorsilence.Forms.Application.Resumed"/>, and to <see cref="WindowBase.OnBackendActivated"/>/
+        /// <see cref="WindowBase.OnBackendDeactivated"/> on the single-view root host (register item F10).
+        /// </summary>
+        /// <remarks>
+        /// A backend-level (application-wide) capability, not a per-window one: one <c>IActivatableLifetime</c> for the whole
+        /// process, unlike <see cref="IWindowBackend"/>, which every window gets its own of. Not reached through
+        /// <c>Application.Current.ApplicationLifetime</c>: confirmed by inspecting the real <c>Avalonia.Android.dll</c>
+        /// (12.1.1) that <c>Avalonia.Android.ApplicationLifetime</c> -- the concrete type <c>ApplicationLifetime</c> resolves
+        /// to on Android -- implements only <c>IActivityApplicationLifetime</c>/<c>IApplicationLifetime</c>/
+        /// <c>ISingleViewApplicationLifetime</c>, never <see cref="IActivatableLifetime"/>. That capability is a *separate*
+        /// object (<c>Avalonia.Android.Platform.AndroidActivatableLifetime</c>) reached through
+        /// <see cref="Avalonia.Application.TryGetFeature"/>, Avalonia's own optional-platform-capability lookup, instead.
+        /// Desktop's <c>IClassicDesktopStyleApplicationLifetime</c> answers that same query with nothing, so this silently
+        /// does nothing there rather than throw -- exactly the same "not every row has this" shape <see cref="IWebViewFactory"/>
+        /// and <see cref="IReducedMotionSource"/> use. <see cref="ActivationKind.Background"/> is specifically the
+        /// backgrounded/foregrounded transition, as opposed to <c>File</c>/<c>OpenUri</c>/<c>Reopen</c> (the app being asked
+        /// to open something, or a macOS dock-icon reactivation of an already-running app) -- those are a different concept
+        /// from suspend/resume and are not raised as either event.
+        /// </remarks>
+        private static void HookApplicationLifecycle ()
+        {
+            if (lifecycle_hooked)
+                return;
+
+            if (Avalonia.Application.Current?.TryGetFeature (typeof (IActivatableLifetime)) is not IActivatableLifetime lifetime)
+                return; // this row's lifetime does not support it; try again next Initialize() call in
+                        // case a later one resolves a different lifetime object (cheap either way)
+
+            lifecycle_hooked = true;
+
+            lifetime.Deactivated += (_, e) => {
+                if (e.Kind != ActivationKind.Background)
+                    return;
+
+#if SINGLEVIEW
+                MajorsilenceFormsSingleViewHost.MainHost?.Owner.OnBackendDeactivated ();
+#endif
+                Majorsilence.Forms.Application.RaiseSuspended ();
+            };
+
+            lifetime.Activated += (_, e) => {
+                if (e.Kind != ActivationKind.Background)
+                    return;
+
+#if SINGLEVIEW
+                MajorsilenceFormsSingleViewHost.MainHost?.Owner.OnBackendActivated ();
+#endif
+                Majorsilence.Forms.Application.RaiseResumed ();
+            };
+        }
+
+        /// <summary>
+        /// Reports a platform back button/gesture press (register item F11) to the currently active
+        /// window's <see cref="WindowBase.BackRequested"/>, so it can cancel it (keep the app open) or
+        /// let it proceed. Returns whether a handler cancelled it.
+        /// </summary>
+        /// <remarks>
+        /// Not automatic the way <see cref="HookApplicationLifecycle"/> is: <c>Avalonia.Android.AvaloniaActivity.BackRequested</c>
+        /// is declared directly on the Activity class, and nothing in this assembly can discover "the
+        /// current Activity" generically (<c>Avalonia.Android.Platform.AndroidActivatableLifetime</c>,
+        /// which does track it, is an internal type in a different assembly) -- confirmed by inspecting
+        /// the real <c>Avalonia.Android.dll</c> the same way <see cref="HookApplicationLifecycle"/>'s own
+        /// remarks describe. A host app's own <c>MainActivity</c> (already required to subclass
+        /// <c>AvaloniaMainActivity</c> and carry an AppCompat theme, #288) forwards its own
+        /// <c>BackRequested</c> here instead -- one line, the same shape as wiring
+        /// <c>Application.RunAndroid</c> already requires. <see cref="Application.ActivePopupWindow"/> is
+        /// tried first, matching <see cref="Application.ScheduleClosePopupsOnDeactivate"/>'s own check for
+        /// "which window is really active right now": a sheet/dialog open over the main screen gets the
+        /// back-press before the main screen does, so it can close itself instead of the whole app
+        /// leaving foreground.
+        /// </remarks>
+        public static bool RaiseBackRequested ()
+        {
+#if SINGLEVIEW
+            WindowBase? target = Majorsilence.Forms.Application.ActivePopupWindow?.IsActive == true
+                ? Majorsilence.Forms.Application.ActivePopupWindow
+                : MajorsilenceFormsSingleViewHost.MainHost?.Owner;
+
+            return target?.RaiseBackRequested () ?? false;
+#else
+            return false;
+#endif
+        }
+
         /// <inheritdoc/>
         public void Stop () { /* Loop exit is driven by the cancellation token passed to RunMainLoop. */ }
 
@@ -120,6 +214,112 @@ namespace Majorsilence.Forms.Backends
 
         /// <inheritdoc/>
         public void DoEvents () => Dispatcher.UIThread.RunJobs ();
+
+        // ── IReducedMotionSource ─────────────────────────────────────────────────────────────────────
+        // Android and iOS push real change notifications (a ContentObserver, an NSNotificationCenter observer), so those two rows
+        // need no polling. The desktop row (Windows, macOS and Linux/GNOME, told apart at run time in DesktopReducedMotion) has no
+        // such notification available portably, so PolledSetting re-reads it on a timer instead.
+#if ANDROID
+        private AndroidReducedMotion? androidReducedMotion;
+        private AndroidReducedMotion ReducedMotionSource => androidReducedMotion ??= new AndroidReducedMotion ();
+#elif IOS
+        private IosReducedMotion? iosReducedMotion;
+        private IosReducedMotion ReducedMotionSource => iosReducedMotion ??= new IosReducedMotion ();
+#elif BROWSER
+        // Out of scope for this register item (Android, iOS, Windows, macOS and GNOME are what was asked for). A browser head could
+        // read CSS's prefers-reduced-motion media feature, which would be its own small addition.
+#else
+        private PolledSetting? desktopReducedMotion;
+        // Every 2 s: frequent enough that a setting changed mid-session catches up promptly, cheap enough (one process launch on
+        // Linux, one P/Invoke on Windows and macOS) that nothing here is a meaningful drain.
+        private PolledSetting ReducedMotionSource => desktopReducedMotion ??= new PolledSetting (DesktopReducedMotion.Read, CreateTimer (), 2000);
+#endif
+
+#if BROWSER
+        /// <inheritdoc/>
+        public bool PrefersReducedMotion => false;
+
+        /// <inheritdoc/>
+        public event EventHandler? PrefersReducedMotionChanged { add { } remove { } }
+#else
+        /// <inheritdoc/>
+        public bool PrefersReducedMotion => ReducedMotionSource.Current;
+
+        /// <inheritdoc/>
+        public event EventHandler? PrefersReducedMotionChanged {
+            add => ReducedMotionSource.Changed += value;
+            remove => ReducedMotionSource.Changed -= value;
+        }
+#endif
+
+        // ── IAudioBackend ── real on Android and iOS (this row's whole reason for existing: neither
+        // platform has an OS utility for Media.NativeAudio to spawn). Every other row -- desktop, browser
+        // -- has nothing of its own to add over NativeAudio's existing path for PlayFile/PlaySystemSound
+        // (SoundPlayer and SystemSounds fall back to NativeAudio whenever this interface answers null,
+        // exactly as if it were not implemented at all there), and nothing at all for PlayTrack, which has
+        // no such fallback -- AudioPlayer.IsSupported is how a caller checks that ahead of time.
+#if ANDROID
+        private readonly AndroidAudioBackend audioBackend = new ();
+
+        /// <inheritdoc/>
+        public Media.IPlayingSound? PlayFile (string path, bool loop) => audioBackend.PlayFile (path, loop);
+
+        /// <inheritdoc/>
+        public Media.IPlayingSound? PlaySystemSound (string name) => audioBackend.PlaySystemSound (name);
+
+        /// <inheritdoc/>
+        public Media.IAudioTrack? PlayTrack (string path, bool loop, float volume, Media.AudioUsage usage) => audioBackend.PlayTrack (path, loop, volume, usage);
+#elif IOS
+        private readonly IosAudioBackend audioBackend = new ();
+
+        /// <inheritdoc/>
+        public Media.IPlayingSound? PlayFile (string path, bool loop) => audioBackend.PlayFile (path, loop);
+
+        /// <inheritdoc/>
+        public Media.IPlayingSound? PlaySystemSound (string name) => audioBackend.PlaySystemSound (name);
+
+        /// <inheritdoc/>
+        public Media.IAudioTrack? PlayTrack (string path, bool loop, float volume, Media.AudioUsage usage) => audioBackend.PlayTrack (path, loop, volume, usage);
+#else
+        /// <inheritdoc/>
+        public Media.IPlayingSound? PlayFile (string path, bool loop) => null;
+
+        /// <inheritdoc/>
+        public Media.IPlayingSound? PlaySystemSound (string name) => null;
+
+        /// <inheritdoc/>
+        public Media.IAudioTrack? PlayTrack (string path, bool loop, float volume, Media.AudioUsage usage) => null;
+#endif
+
+        // ── IHapticsBackend ── real only on Android and iOS, unlike IAudioBackend above: haptics has no
+        // desktop/browser equivalent worth a null-returning implementation, and register item F13's own
+        // acceptance criterion is "IsSupported false on Headless" -- so, unlike audio, this interface is
+        // declared in the class's own base list only under ANDROID/IOS (see the class declaration above),
+        // not implemented everywhere with a null/no-op body. Haptics.IsSupported (Backend is IHapticsBackend)
+        // is therefore false on every other row with no separate per-row check needed.
+#if ANDROID
+        private readonly AndroidHapticsBackend hapticsBackend = new ();
+
+        /// <inheritdoc/>
+        public void Tap () => hapticsBackend.Tap ();
+
+        /// <inheritdoc/>
+        public void Impact () => hapticsBackend.Impact ();
+
+        /// <inheritdoc/>
+        public void Vibrate (TimeSpan duration) => hapticsBackend.Vibrate (duration);
+#elif IOS
+        private readonly IosHapticsBackend hapticsBackend = new ();
+
+        /// <inheritdoc/>
+        public void Tap () => hapticsBackend.Tap ();
+
+        /// <inheritdoc/>
+        public void Impact () => hapticsBackend.Impact ();
+
+        /// <inheritdoc/>
+        public void Vibrate (TimeSpan duration) => hapticsBackend.Vibrate (duration);
+#endif
 
 #if !SINGLEVIEW
         /// <inheritdoc/>

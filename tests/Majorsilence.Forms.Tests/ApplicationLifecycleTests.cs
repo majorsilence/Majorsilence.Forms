@@ -99,4 +99,46 @@ public class ApplicationLifecycleTests
 
         Assert.Throws<InvalidOperationException> (Application.DoEvents);
     }
+
+    // Suspended/Resumed (register item F10): nothing in the Headless backend ever backgrounds the
+    // process the way a real OS does, so -- the same reason ApplicationExit_keeps_the_handlers_it_is_given
+    // above asserts the wiring directly rather than driving a real exit -- these call the internal Raise
+    // methods directly. The Avalonia-side wiring that actually calls them (HookApplicationLifecycle,
+    // filtering IActivatableLifetime's Background ActivationKind, forwarding to the single-view root
+    // host's OnBackendActivated/Deactivated) is Android/iOS/browser-conditional code with no Headless
+    // equivalent to test against; it is verified for real on an Android emulator instead (see the PR).
+
+    [Fact]
+    public void Suspended_keeps_the_handlers_it_is_given ()
+    {
+        var fired = 0;
+        void OnSuspended (object? s, EventArgs e) => fired++;
+
+        Application.Suspended += OnSuspended;
+        try {
+            Application.RaiseSuspended ();
+            Assert.Equal (1, fired);
+        } finally {
+            Application.Suspended -= OnSuspended;
+        }
+    }
+
+    [Fact]
+    public void Resumed_keeps_the_handlers_it_is_given ()
+    {
+        var fired = 0;
+        void OnResumed (object? s, EventArgs e) => fired++;
+
+        Application.Resumed += OnResumed;
+        try {
+            Application.RaiseResumed ();
+            Assert.Equal (1, fired);
+
+            // Raising the other one must not also fire this handler -- they are separate event fields.
+            Application.RaiseSuspended ();
+            Assert.Equal (1, fired);
+        } finally {
+            Application.Resumed -= OnResumed;
+        }
+    }
 }
