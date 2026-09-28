@@ -336,8 +336,15 @@ namespace Majorsilence.Forms
         /// <summary>Forces the creation of the control handle. Stub in Majorsilence.Forms — handle is always ready.</summary>
         protected virtual void CreateHandle () { }
 
-        /// <summary>Applies updated ControlStyles flags. Stub in Majorsilence.Forms — styles are applied immediately.</summary>
-        public void UpdateStyles () { }
+        /// <summary>Reapplies the control's styles: raises <see cref="StyleChanged"/> and repaints.</summary>
+        /// <remarks>Real as of W6 mechanisms. The <see cref="ControlStyles"/> flags take effect the
+        /// moment they are set here, so what remains of upstream's handle-level restyle is its two
+        /// observable outcomes -- the event and a repaint.</remarks>
+        public void UpdateStyles ()
+        {
+            OnStyleChanged (EventArgs.Empty);
+            Invalidate ();
+        }
 
         /// <summary>Gets whether this control or one of its descendents has keyboard focus.</summary>
         public bool ContainsFocus => Focused || Controls.Any (c => c.ContainsFocus);

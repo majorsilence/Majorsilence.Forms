@@ -36,10 +36,24 @@ namespace Majorsilence.Forms
         /// <summary>Clears the clipboard synchronously.</summary>
         public static void Clear ()
         {
-            // The in-process image goes with the text (W6 mechanisms).
+            // The in-process image and formats go with the text (W6 mechanisms).
             clipboard_image = null;
+            clipboard_data.Clear ();
             Platform.Backend.ClearClipboard ();
         }
+
+        // Named formats other than text and image are in-process too, for the same reason the image
+        // is (W6 mechanisms): a custom format a drag-and-drop or a copy command puts up has to be
+        // there for the paste that follows in the same application.
+        private static readonly System.Collections.Generic.Dictionary<string, object?> clipboard_data = new (StringComparer.OrdinalIgnoreCase);
+
+        private static bool IsTextFormat (string format)
+            => string.Equals (format, DataFormats.Text.Name, StringComparison.OrdinalIgnoreCase)
+               || string.Equals (format, DataFormats.UnicodeText.Name, StringComparison.OrdinalIgnoreCase)
+               || string.Equals (format, DataFormats.StringFormat.Name, StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsImageFormat (string format)
+            => string.Equals (format, DataFormats.Bitmap.Name, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>Returns whether the clipboard contains text.</summary>
         public static bool ContainsText () => !string.IsNullOrEmpty (GetText ());
@@ -87,51 +101,91 @@ namespace Majorsilence.Forms
             => SetDataObject (data, copy);
 
         /// <summary>Places data on the clipboard.</summary>
+        /// <remarks>Every format an <see cref="IDataObject"/> carries is taken (W6 mechanisms): text
+        /// goes to the platform clipboard, an image and any other named format to the in-process
+        /// store. It used to take the text and drop the rest.</remarks>
         public static void SetDataObject (object data, bool copy = false)
         {
-            if (data is IDataObject dataObj) {
-                var text = dataObj.GetData (DataFormats.Text.Name) as string;
-                if (!string.IsNullOrEmpty (text))
-                    SetText (text!);
-            } else if (data is string s) {
-                SetText (s);
+            switch (data) {
+            case IDataObject source:
+                foreach (var format in source.GetFormats ())
+                    SetData (format, source.GetData (format));
+                break;
+            case string text:
+                SetText (text);
+                break;
+            case Majorsilence.Forms.Drawing.Image image:
+                SetImage (image);
+                break;
+            default:
+                SetData (data.GetType ().FullName ?? data.GetType ().Name, data);
+                break;
             }
         }
 
-        /// <summary>Gets an IDataObject from the clipboard. Returns a text-only stub.</summary>
-        public static IDataObject GetDataObject () => new ClipboardDataObject (GetText ());
-
-        /// <summary>Returns whether the clipboard contains data in the specified format.</summary>
-        public static bool ContainsData (string format)
-            => string.Equals (format, DataFormats.Text.Name, StringComparison.OrdinalIgnoreCase) ? ContainsText () : false;
-
-        /// <summary>Sets data on the clipboard as a named format. Stub — stores text only.</summary>
-        public static void SetData (string format, object? data)
+        /// <summary>Gets a data object holding everything on the clipboard.</summary>
+        /// <remarks>A <see cref="DataObject"/> as of W6 mechanisms, so <c>SetData</c> on it stores
+        /// into the object -- upstream's contract, where the object is a snapshot that a caller edits
+        /// and puts back with <see cref="SetDataObject(object, bool)"/>. It used to be a text-only
+        /// view whose setters dropped what they were given.</remarks>
+        public static IDataObject GetDataObject ()
         {
-            if (data is string s)
-                SetText (s);
+            var snapshot = new DataObject ();
+
+            if (ContainsText ())
+                snapshot.SetData (DataFormats.Text.Name, GetText ());
+
+            if (clipboard_image is { } image)
+                snapshot.SetData (DataFormats.Bitmap.Name, image);
+
+            foreach (var entry in clipboard_data)
+                snapshot.SetData (entry.Key, entry.Value);
+
+            return snapshot;
         }
 
-        /// <summary>Gets data from the clipboard in the specified format. Stub — returns text only.</summary>
-        public static object? GetData (string format)
-            => string.Equals (format, DataFormats.Text.Name, StringComparison.OrdinalIgnoreCase) ? (object?)GetText () : null;
-
-        private sealed class ClipboardDataObject : IDataObject
+        /// <summary>Returns whether the clipboard holds data in the given format.</summary>
+        public static bool ContainsData (string format)
         {
-            private readonly string _text;
-            public ClipboardDataObject (string text) => _text = text;
-            public object? GetData (string format) => format == DataFormats.Text.Name ? (object)_text : null;
-            public object? GetData (Type format) => null;
-            public object? GetData (string format, bool autoConvert) => GetData (format);
-            public bool GetDataPresent (string format) => format == DataFormats.Text.Name && !string.IsNullOrEmpty (_text);
-            public bool GetDataPresent (Type format) => false;
-            public bool GetDataPresent (string format, bool autoConvert) => GetDataPresent (format);
-            public string[] GetFormats () => string.IsNullOrEmpty (_text) ? [] : [DataFormats.Text.Name];
-            public string[] GetFormats (bool autoConvert) => GetFormats ();
-            public void SetData (object data) { }
-            public void SetData (string format, object? data) { }
-            public void SetData (Type format, object? data) { }
-            public void SetData (string format, bool autoConvert, object? data) { }
+            if (IsTextFormat (format))
+                return ContainsText ();
+
+            if (IsImageFormat (format))
+                return ContainsImage ();
+
+            return clipboard_data.ContainsKey (format);
+        }
+
+        /// <summary>Puts data on the clipboard under a named format.</summary>
+        /// <remarks>Text formats reach the platform clipboard; an image and any other format are
+        /// in-process, as <see cref="SetImage"/> describes (W6 mechanisms).</remarks>
+        public static void SetData (string format, object? data)
+        {
+            Guard.ThrowIfNull (format);
+
+            if (IsTextFormat (format) && data is string text) {
+                SetText (text);
+                return;
+            }
+
+            if (IsImageFormat (format) && data is Majorsilence.Forms.Drawing.Image image) {
+                SetImage (image);
+                return;
+            }
+
+            clipboard_data[format] = data;
+        }
+
+        /// <summary>Gets the data on the clipboard in the given format, or null.</summary>
+        public static object? GetData (string format)
+        {
+            if (IsTextFormat (format))
+                return ContainsText () ? GetText () : null;
+
+            if (IsImageFormat (format))
+                return clipboard_image;
+
+            return clipboard_data.TryGetValue (format, out var data) ? data : null;
         }
     }
 

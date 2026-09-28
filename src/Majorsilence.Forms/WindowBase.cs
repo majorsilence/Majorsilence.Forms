@@ -2066,9 +2066,9 @@ namespace Majorsilence.Forms
         /// <summary>Gets whether the window can receive focus. Mirrors <see cref="Control.CanFocus"/>.</summary>
         public bool CanFocus => Visible && Enabled;
 
-        /// <summary>Reapplies the window's styles. Mirrors <see cref="Control.UpdateStyles"/>; a no-op here,
-        /// as there is no window-style bitmask to push to a handle.</summary>
-        public void UpdateStyles () { }
+        /// <summary>Reapplies the window's styles. Mirrors <see cref="Control.UpdateStyles"/>: the root
+        /// control's <see cref="StyleChanged"/> is raised and the window repaints (W6 mechanisms).</summary>
+        public void UpdateStyles () => adapter.UpdateStyles ();
 
         /// <summary>Starts a drag-and-drop operation. Mirrors <see cref="Control.DoDragDrop(object, DragDropEffects)"/>; forwards to
         /// the root adapter, and so returns None until the backend grows a drag source.</summary>

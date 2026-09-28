@@ -521,8 +521,9 @@ namespace Majorsilence.Forms
             Filter = null;
         }
 
-        /// <summary>Restores <c>AllowNew</c> to the value the list implies.</summary>
-        public virtual void ResetAllowNew () { }
+        /// <summary>Restores <see cref="AllowNew"/> to the value the list implies.</summary>
+        /// <remarks>Real as of W6 mechanisms; see <see cref="AllowNew"/>.</remarks>
+        public virtual void ResetAllowNew () => allow_new = null;
 
         /// <summary>Returns the properties of the items in this list.</summary>
         public virtual PropertyDescriptorCollection GetItemProperties (PropertyDescriptor[]? listAccessors)

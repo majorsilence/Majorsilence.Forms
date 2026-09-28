@@ -353,7 +353,13 @@ namespace Majorsilence.Forms
         public object? GetEditingControlFormattedValue (DataGridViewDataErrorContexts context) => EditingControlFormattedValue;
 
         /// <summary>Prepares the control for editing.</summary>
-        public void PrepareEditingControlForEdit (bool selectAll) { }
+        /// <remarks>Real as of W6 mechanisms: the flag selects the editor's text, as its text-box
+        /// sibling does, so typing replaces the value rather than appending to it.</remarks>
+        public void PrepareEditingControlForEdit (bool selectAll)
+        {
+            if (selectAll)
+                Select (0, Text.Length);
+        }
     }
 
     /// <summary>One of a <see cref="SplitContainer"/>'s two panels.</summary>

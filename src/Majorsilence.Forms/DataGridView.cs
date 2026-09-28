@@ -169,6 +169,10 @@ namespace Majorsilence.Forms
             edit_control = editor;
             editor.Style.Border.Width = 0;
 
+            // The CELL seeds its editor (W6 mechanisms): InitializeEditingControl is the override
+            // point a custom cell type uses, so it has to be called for the base's seeding to matter.
+            Rows[rowIndex].Cells[columnIndex].InitializeEditingControl (rowIndex, cell_value, Rows[rowIndex].Cells[columnIndex].InheritedStyle);
+
             editor.KeyDown += EditTextBox_KeyDown;
             editor.LostFocus += EditTextBox_LostFocus;
             editor.TextChanged += EditTextBox_TextChanged;
@@ -200,7 +204,37 @@ namespace Majorsilence.Forms
             if (!ReferenceEquals (edit_control, editor))
                 return;
 
-            (editor as TextBox)?.SelectAll ();
+            PrepareEditorForEdit (editor, selectAll: true);
+        }
+
+        // The editor's own PrepareEditingControlForEdit, which is the WinForms entry point (W6
+        // mechanisms); a plain text box that is not an editing control still gets its text selected.
+        private static void PrepareEditorForEdit (Control editor, bool selectAll)
+        {
+            switch (editor) {
+            case DataGridViewTextBoxEditingControl text:
+                text.PrepareEditingControlForEdit (selectAll);
+                break;
+            case DataGridViewComboBoxEditingControl combo:
+                combo.PrepareEditingControlForEdit (selectAll);
+                break;
+            case TextBox box:
+                if (selectAll)
+                    box.SelectAll ();
+                break;
+            }
+        }
+
+        // The cell releases its editor before the grid disposes it (W6 mechanisms).
+        private void DetachEditorThroughCell ()
+        {
+            if (editing_row_index < 0 || editing_row_index >= Rows.Count)
+                return;
+
+            var row = Rows[editing_row_index];
+
+            if (editing_column_index >= 0 && editing_column_index < row.Cells.Count)
+                row.Cells[editing_column_index].DetachEditingControl ();
         }
 
         /// <summary>
@@ -1261,6 +1295,7 @@ namespace Majorsilence.Forms
             OnCellEndEdit (end_args);
 
             // Clean up the TextBox
+            DetachEditorThroughCell ();
             edit_control.KeyDown -= EditTextBox_KeyDown;
             edit_control.LostFocus -= EditTextBox_LostFocus;
             edit_control.TextChanged -= EditTextBox_TextChanged;
@@ -1327,6 +1362,7 @@ namespace Majorsilence.Forms
             if (edit_control is null)
                 return;
 
+            DetachEditorThroughCell ();
             edit_control.KeyDown -= EditTextBox_KeyDown;
             edit_control.LostFocus -= EditTextBox_LostFocus;
             edit_control.TextChanged -= EditTextBox_TextChanged;
@@ -3565,8 +3601,53 @@ namespace Majorsilence.Forms
         /// <summary>Updates the value displayed in the specified cell. Invalidates the cell in Majorsilence.Forms.</summary>
         public void UpdateCellValue (int columnIndex, int rowIndex) => Invalidate ();
 
-        /// <summary>Resets the editing control for the current cell. Stub in Majorsilence.Forms.</summary>
-        public void RefreshEdit () { }
+        /// <summary>Puts the cell's stored value back into the editing control, discarding what was typed.</summary>
+        /// <remarks>Real as of W6 mechanisms. The editor is reseeded from the cell exactly as it was
+        /// when the edit began, its text is selected again and the cell is clean afterwards -- so a
+        /// handler that decides a half-typed value is not wanted can revert it without leaving edit
+        /// mode. Nothing happens when no cell is being edited.</remarks>
+        public void RefreshEdit ()
+        {
+            if (edit_control is null || editing_row_index < 0 || editing_row_index >= RowCountWithNewRow)
+                return;
+
+            var row = Rows[editing_row_index];
+
+            if (editing_column_index < 0 || editing_column_index >= row.Cells.Count)
+                return;
+
+            var cell = row.Cells[editing_column_index];
+
+            // The reseed must not read as the user typing: TextChanged is what marks the cell dirty.
+            edit_control.TextChanged -= EditTextBox_TextChanged;
+
+            try {
+                switch (edit_control) {
+                case DataGridViewComboBoxEditingControl combo:
+                    if (combo.DataSource is not null)
+                        combo.SelectedValue = cell.Value;
+                    else
+                        combo.SelectedItem = cell.Value;
+
+                    combo.EditingControlValueChanged = false;
+                    break;
+
+                case DataGridViewTextBoxEditingControl text:
+                    text.Text = cell.Value?.ToString () ?? string.Empty;
+                    text.EditingControlValueChanged = false;
+                    break;
+
+                default:
+                    edit_control.Text = cell.Value?.ToString () ?? string.Empty;
+                    break;
+                }
+            } finally {
+                edit_control.TextChanged += EditTextBox_TextChanged;
+            }
+
+            PrepareEditorForEdit (edit_control, selectAll: true);
+            SetCurrentCellDirty (false);
+        }
 
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);

@@ -2820,6 +2820,9 @@ namespace Majorsilence.Forms.Drawing
         }
 #pragma warning restore CA1416
 
+        /// <summary>Whether <see cref="Dispose"/> has run. Test seam.</summary>
+        internal bool IsDisposed => _disposed;
+
         /// <inheritdoc/>
         public void Dispose ()
         {
