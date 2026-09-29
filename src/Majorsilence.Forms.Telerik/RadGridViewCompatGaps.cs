@@ -148,11 +148,12 @@ namespace Majorsilence.Forms.Telerik
             return !e.Cancel;
         }
 
-        // Still never raised; present so designer/handler code (AddHandler / Handles) compiles.
-#pragma warning disable CS0067
-        /// <summary>Raised when a cell editor is required. Stub (never raised).</summary>
+        /// <summary>Raised as a cell edit goes ahead, before its editor opens.</summary>
+        /// <remarks>Raised as of W6 mechanisms (#176), after <c>CellBeginEdit</c> and only when that was
+        /// not cancelled. Telerik's args carry the editor type to use; these carry the cell and a
+        /// <c>Cancel</c>, which keeps the cell out of edit mode -- the grid always edits with its own
+        /// editor.</remarks>
         public event EventHandler<GridViewCellCancelEventArgs>? EditorRequired;
-#pragma warning restore CS0067
     }
 
     public partial class MasterGridViewTemplate

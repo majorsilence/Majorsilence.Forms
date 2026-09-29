@@ -54,27 +54,26 @@ Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.DataSource
 Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.DisplayMember
 Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.DropDownStyle
 Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.SelectedIndex
-Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.SelectedValue
 Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.Text
 Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.ValueMember
 Majorsilence.Forms.Telerik.CellFormattingEventArgs.CellElement
-Majorsilence.Forms.Telerik.CellFormattingEventArgs.Column
-Majorsilence.Forms.Telerik.CellFormattingEventArgs.ColumnIndex
-Majorsilence.Forms.Telerik.CellFormattingEventArgs.Row
-Majorsilence.Forms.Telerik.CellFormattingEventArgs.RowIndex
-Majorsilence.Forms.Telerik.CellFormattingEventArgs.Value
-Majorsilence.Forms.Telerik.CellValidatedEventArgs.Column
-Majorsilence.Forms.Telerik.CellValidatedEventArgs.ColumnIndex
-Majorsilence.Forms.Telerik.CellValidatedEventArgs.Row
-Majorsilence.Forms.Telerik.CellValidatedEventArgs.RowIndex
-Majorsilence.Forms.Telerik.CellValidatedEventArgs.Value
-Majorsilence.Forms.Telerik.CellValidatingEventArgs.Column
-Majorsilence.Forms.Telerik.CellValidatingEventArgs.ColumnIndex
-Majorsilence.Forms.Telerik.CellValidatingEventArgs.FormattedValue
-Majorsilence.Forms.Telerik.CellValidatingEventArgs.OldValue
-Majorsilence.Forms.Telerik.CellValidatingEventArgs.Row
-Majorsilence.Forms.Telerik.CellValidatingEventArgs.RowIndex
-Majorsilence.Forms.Telerik.CellValidatingEventArgs.Value
+Majorsilence.Forms.Telerik.CellFormattingEventArgs.Column    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.CellFormattingEventArgs.ColumnIndex    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.CellFormattingEventArgs.Row    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.CellFormattingEventArgs.RowIndex    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.CellFormattingEventArgs.Value    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.CellValidatedEventArgs.Column    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.CellValidatedEventArgs.ColumnIndex    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.CellValidatedEventArgs.Row    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.CellValidatedEventArgs.RowIndex    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.CellValidatedEventArgs.Value    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.CellValidatingEventArgs.Column    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.CellValidatingEventArgs.ColumnIndex    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.CellValidatingEventArgs.FormattedValue    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.CellValidatingEventArgs.OldValue    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.CellValidatingEventArgs.Row    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.CellValidatingEventArgs.RowIndex    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.CellValidatingEventArgs.Value    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.ChildViewExpandingEventArgs.Row
 Majorsilence.Forms.Telerik.CommandBarButton.DrawText
 Majorsilence.Forms.Telerik.CommandBarButton.Image
@@ -120,10 +119,10 @@ Majorsilence.Forms.Telerik.GridTableElement.AlternatingRowColor
 Majorsilence.Forms.Telerik.GridTableElement.RowHeight
 Majorsilence.Forms.Telerik.GridTableElement.TableHeaderHeight
 Majorsilence.Forms.Telerik.GridTableElement.ViewElement
-Majorsilence.Forms.Telerik.GridViewCellCancelEventArgs.Column
-Majorsilence.Forms.Telerik.GridViewCellCancelEventArgs.ColumnIndex
-Majorsilence.Forms.Telerik.GridViewCellCancelEventArgs.Row
-Majorsilence.Forms.Telerik.GridViewCellCancelEventArgs.RowIndex
+Majorsilence.Forms.Telerik.GridViewCellCancelEventArgs.Column    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.GridViewCellCancelEventArgs.ColumnIndex    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.GridViewCellCancelEventArgs.Row    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.GridViewCellCancelEventArgs.RowIndex    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.GridViewCellElement.ClipDrawing
 Majorsilence.Forms.Telerik.GridViewCellElement.ColumnIndex
 Majorsilence.Forms.Telerik.GridViewCellElement.ColumnInfo
@@ -134,11 +133,11 @@ Majorsilence.Forms.Telerik.GridViewCellElement.RowIndex
 Majorsilence.Forms.Telerik.GridViewCellElement.TextAlignment
 Majorsilence.Forms.Telerik.GridViewCellElement.TextWrap
 Majorsilence.Forms.Telerik.GridViewCellElement.Value
-Majorsilence.Forms.Telerik.GridViewCellEventArgs.CellBounds
+Majorsilence.Forms.Telerik.GridViewCellEventArgs.CellBounds    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.GridViewCellEventArgs.CellElement
-Majorsilence.Forms.Telerik.GridViewCellEventArgs.Column
-Majorsilence.Forms.Telerik.GridViewCellEventArgs.ColumnIndex
-Majorsilence.Forms.Telerik.GridViewCellEventArgs.RowIndex
+Majorsilence.Forms.Telerik.GridViewCellEventArgs.Column    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.GridViewCellEventArgs.ColumnIndex    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.GridViewCellEventArgs.RowIndex    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.GridViewCellInfo.IsCurrent
 Majorsilence.Forms.Telerik.GridViewCellInfo.IsSelected
 Majorsilence.Forms.Telerik.GridViewCellValueEventArgs.Value
@@ -368,9 +367,9 @@ Majorsilence.Forms.Telerik.RichTextEditorRibbonBar.ShowLayoutModeButton
 Majorsilence.Forms.Telerik.RichTextEditorRibbonBar.SimplifiedHeight
 Majorsilence.Forms.Telerik.RichTextEditorRibbonTab.IsSelected
 Majorsilence.Forms.Telerik.RowFormattingEventArgs.CellElement
-Majorsilence.Forms.Telerik.RowFormattingEventArgs.Row
+Majorsilence.Forms.Telerik.RowFormattingEventArgs.Row    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.RowFormattingEventArgs.RowElement
-Majorsilence.Forms.Telerik.RowFormattingEventArgs.Value
+Majorsilence.Forms.Telerik.RowFormattingEventArgs.Value    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.RowValidatingEventArgs.Row
 Majorsilence.Forms.Telerik.SchedulerAppointmentCancelEventArgs.Cancel
 Majorsilence.Forms.Telerik.SchedulerContextMenuOpeningEventArgs.Cancel
@@ -388,10 +387,10 @@ Majorsilence.Forms.Telerik.SchedulerTimescale.Unit
 Majorsilence.Forms.Telerik.SchedulerWeekView.ShowWeekend
 Majorsilence.Forms.Telerik.SelectedTabChangedEventArgs.NewWindow
 Majorsilence.Forms.Telerik.SelectedTabChangedEventArgs.OldWindow
-Majorsilence.Forms.Telerik.SortChangingEventArgs.ColumnIndex
-Majorsilence.Forms.Telerik.SortChangingEventArgs.NewDirection
-Majorsilence.Forms.Telerik.SortChangingEventArgs.OldDirection
-Majorsilence.Forms.Telerik.SortChangingEventArgs.PropertyName
+Majorsilence.Forms.Telerik.SortChangingEventArgs.ColumnIndex    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.SortChangingEventArgs.NewDirection    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.SortChangingEventArgs.OldDirection    -- event data: set by RadGridView as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.SortChangingEventArgs.PropertyName    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.SplitPanel.Collapsed
 Majorsilence.Forms.Telerik.SplitPanel.Orientation
 Majorsilence.Forms.Telerik.SplitPanel.SplitterWidth

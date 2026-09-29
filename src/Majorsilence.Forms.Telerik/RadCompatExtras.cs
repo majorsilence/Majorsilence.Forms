@@ -359,7 +359,19 @@ namespace Majorsilence.Forms.Telerik
         public string ValueMember { get; set; } = string.Empty;
 
         /// <summary>Gets or sets the selected value.</summary>
-        public object? SelectedValue { get; set; }
+        /// <remarks>Setting a different value raises <see cref="SelectedValueChanged"/> as of W6 mechanisms (#176).</remarks>
+        public object? SelectedValue {
+            get => selected_value;
+            set {
+                if (Equals (selected_value, value))
+                    return;
+
+                selected_value = value;
+                SelectedValueChanged?.Invoke (this, EventArgs.Empty);
+            }
+        }
+
+        private object? selected_value;
 
         /// <summary>Gets or sets the selected index.</summary>
         public int SelectedIndex { get; set; } = -1;
@@ -370,10 +382,8 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets the drop-down style.</summary>
         public RadDropDownStyle DropDownStyle { get; set; } = RadDropDownStyle.DropDownList;
 
-        /// <summary>Raised when the selected value changes. Never raised by the stub editor.</summary>
-#pragma warning disable CS0067
+        /// <summary>Raised when <see cref="SelectedValue"/> changes.</summary>
         public event EventHandler? SelectedValueChanged;
-#pragma warning restore CS0067
     }
 
     /// <summary>Compat stand-in for a date-time editor's visual element.</summary>

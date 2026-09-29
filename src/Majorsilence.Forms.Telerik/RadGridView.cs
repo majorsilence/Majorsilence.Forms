@@ -159,19 +159,31 @@ namespace Majorsilence.Forms.Telerik
             base.CellBeginEdit += (_, e) => {
                 _editOldValue = CellValueAt (e.RowIndex, e.ColumnIndex);
 
-                if (_cellBeginEdit is null)
-                    return;
+                if (_cellBeginEdit is not null) {
+                    var args = new GridViewCellCancelEventArgs { RowIndex = e.RowIndex, ColumnIndex = e.ColumnIndex, Row = RowAt (e.RowIndex) };
+                    _cellBeginEdit.Invoke (this, args);
 
-                var args = new GridViewCellCancelEventArgs { RowIndex = e.RowIndex, ColumnIndex = e.ColumnIndex, Row = RowAt (e.RowIndex) };
-                _cellBeginEdit.Invoke (this, args);
+                    // Telerik's CellBeginEdit is cancellable. This built the args, raised them and
+                    // dropped the answer, so a handler refusing an edit -- a read-only cell decided at
+                    // runtime, a row the user may not touch -- was ignored and the editor opened
+                    // anyway. The base event honours its own Cancel (DataGridView.cs:148), so
+                    // forwarding it is all that was missing.
+                    if (args.Cancel) {
+                        e.Cancel = true;
+                        return;
+                    }
+                }
 
-                // Telerik's CellBeginEdit is cancellable. This built the args, raised them and dropped
-                // the answer, so a handler refusing an edit -- a read-only cell decided at runtime, a
-                // row the user may not touch -- was ignored and the editor opened anyway. The base
-                // event honours its own Cancel (DataGridView.cs:148), so forwarding it is all that was
-                // missing.
-                if (args.Cancel)
-                    e.Cancel = true;
+                // EditorRequired follows, as Telerik orders them: the edit is going ahead and an editor
+                // is about to open (W6 mechanisms, #176). These args carry no editor type, so what a
+                // handler can say is no -- Cancel keeps the cell out of edit mode.
+                if (EditorRequired is not null) {
+                    var required = new GridViewCellCancelEventArgs { RowIndex = e.RowIndex, ColumnIndex = e.ColumnIndex, Row = RowAt (e.RowIndex) };
+                    EditorRequired.Invoke (this, required);
+
+                    if (required.Cancel)
+                        e.Cancel = true;
+                }
             };
             base.SelectionChanged += (_, e) => {
                 _selectionChanged?.Invoke (this, e);
@@ -225,11 +237,15 @@ namespace Majorsilence.Forms.Telerik
         /// </remarks>
         public event EventHandler<GridViewCreateCellEventArgs>? CreateCell;
 
-        /// <summary>Occurs when a new row needs its default cell values. Never raised by the compat grid.</summary>
+#pragma warning restore CS0067
+
+        /// <summary>Occurs when a row is added through the "add new row" row, so a handler can fill in its default values.</summary>
+        /// <remarks>Raised as of W6 mechanisms (#176) by <see cref="AddNewRow"/> -- the action behind a
+        /// click on the placeholder -- once the row is in the grid: <c>e.Row</c> is the new row, and
+        /// what a handler writes into its cells is what the row shows.</remarks>
         public new event EventHandler<GridViewRowEventArgs>? DefaultValuesNeeded;
         // Sorted is inherited from the base DataGridView (WinForms parity; plain DataGridView-typed
         // designer fields like RadGridViewAmounts also need it).
-#pragma warning restore CS0067
 
         /// <summary>
         /// Occurs when a row is validating before commit (Telerik-typed replacement of the base
@@ -724,8 +740,12 @@ namespace Majorsilence.Forms.Telerik
 
             _master.Add (row);
             RebuildView ();
+
+            var added = new GridViewDataRowInfo (row);
+            DefaultValuesNeeded?.Invoke (this, new GridViewRowEventArgs { Row = added });
+
             Invalidate ();
-            return new GridViewDataRowInfo (row);
+            return added;
         }
 
         private string _searchText = string.Empty;

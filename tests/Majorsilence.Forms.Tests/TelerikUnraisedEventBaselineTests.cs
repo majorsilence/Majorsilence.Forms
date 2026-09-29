@@ -75,7 +75,11 @@ public class TelerikUnraisedEventBaselineTests
             return;
         }
 
-        var baseline = StubSurfaceScanner.ReadBaseline (baselinePath);
+        var baseline = StubSurfaceScanner.ReadBaseline (baselinePath)
+            // Entries may carry a trailing "-- reason" note, which the writer preserves; the comparison
+            // is on the name alone, as the stored-only and core unraised gates already read it.
+            .Select (l => l.Split (" --", StringSplitOptions.None)[0].Trim ())
+            .ToList ();
 
         var added = actual.Except (baseline).OrderBy (x => x, StringComparer.Ordinal).ToList ();
         var removed = baseline.Except (actual).OrderBy (x => x, StringComparer.Ordinal).ToList ();
