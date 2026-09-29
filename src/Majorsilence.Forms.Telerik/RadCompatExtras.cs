@@ -4,8 +4,17 @@ using System.ComponentModel;
 
 namespace Majorsilence.Forms.Telerik
 {
-    /// <summary>Compat stand-in for Telerik's RadPropertyStore (dock layout persistence).</summary>
-    public class RadPropertyStore
+    /// <summary>Compat stand-in for Telerik's RadPropertyStore: a hand-built set of properties.</summary>
+    /// <remarks>
+    /// Real as of W6 mechanisms (#176): assigned as a property grid's <c>SelectedObject</c>, the store
+    /// describes each <see cref="PropertyStoreItem"/> as a property -- its <see cref="PropertyStoreItem.Label"/>
+    /// (or name) as the display name, its <see cref="PropertyStoreItem.Category"/>,
+    /// <see cref="PropertyStoreItem.Description"/> and <see cref="PropertyStoreItem.ReadOnly"/> flag --
+    /// so the grid shows and edits them, and an edit is written back to
+    /// <see cref="PropertyStoreItem.Value"/>. <see cref="PropertyStoreItem.DefaultValue"/> is what a
+    /// reset returns to.
+    /// </remarks>
+    public class RadPropertyStore : ICustomTypeDescriptor
     {
         /// <summary>The stored items.</summary>
         public System.Collections.Generic.List<PropertyStoreItem> Items { get; } = new ();
@@ -15,6 +24,85 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Returns the stored items as an array. Mirrors Telerik.</summary>
         public PropertyStoreItem[] ToArray () => Items.ToArray ();
+
+        /// <summary>Gets the item with the given name, or null.</summary>
+        public PropertyStoreItem? this[string name]
+            => Items.Find (item => string.Equals (item.Name, name, StringComparison.OrdinalIgnoreCase));
+
+#if NET
+        [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode ("A property store is described through TypeDescriptor, which trimming cannot see through.")]
+#endif
+        PropertyDescriptorCollection ICustomTypeDescriptor.GetProperties ()
+            => new (Items.ConvertAll (item => (PropertyDescriptor) new StoreItemDescriptor (item)).ToArray ());
+
+#if NET
+        [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode ("A property store is described through TypeDescriptor, which trimming cannot see through.")]
+#endif
+        PropertyDescriptorCollection ICustomTypeDescriptor.GetProperties (Attribute[]? attributes)
+            => ((ICustomTypeDescriptor) this).GetProperties ();
+
+        AttributeCollection ICustomTypeDescriptor.GetAttributes () => AttributeCollection.Empty;
+        string? ICustomTypeDescriptor.GetClassName () => nameof (RadPropertyStore);
+        string? ICustomTypeDescriptor.GetComponentName () => null;
+#if NET
+        [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode ("A property store is described through TypeDescriptor, which trimming cannot see through.")]
+#endif
+        TypeConverter ICustomTypeDescriptor.GetConverter () => new TypeConverter ();
+#if NET
+        [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode ("A property store is described through TypeDescriptor, which trimming cannot see through.")]
+#endif
+        EventDescriptor? ICustomTypeDescriptor.GetDefaultEvent () => null;
+#if NET
+        [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode ("A property store is described through TypeDescriptor, which trimming cannot see through.")]
+#endif
+        PropertyDescriptor? ICustomTypeDescriptor.GetDefaultProperty () => null;
+#if NET
+        [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode ("A property store is described through TypeDescriptor, which trimming cannot see through.")]
+#endif
+        object? ICustomTypeDescriptor.GetEditor (Type editorBaseType) => null;
+        EventDescriptorCollection ICustomTypeDescriptor.GetEvents () => EventDescriptorCollection.Empty;
+#if NET
+        [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode ("A property store is described through TypeDescriptor, which trimming cannot see through.")]
+#endif
+        EventDescriptorCollection ICustomTypeDescriptor.GetEvents (Attribute[]? attributes) => EventDescriptorCollection.Empty;
+        object? ICustomTypeDescriptor.GetPropertyOwner (PropertyDescriptor? pd) => this;
+
+        // One store item, as a property of the store.
+        private sealed class StoreItemDescriptor : PropertyDescriptor
+        {
+            private readonly PropertyStoreItem item;
+
+            internal StoreItemDescriptor (PropertyStoreItem item) : base (item.Name, Describe (item)) => this.item = item;
+
+            private static Attribute[] Describe (PropertyStoreItem item)
+            {
+                var attributes = new System.Collections.Generic.List<Attribute> ();
+
+                if (item.Label.Length > 0)
+                    attributes.Add (new DisplayNameAttribute (item.Label));
+                if (item.Category.Length > 0)
+                    attributes.Add (new CategoryAttribute (item.Category));
+                if (item.Description.Length > 0)
+                    attributes.Add (new DescriptionAttribute (item.Description));
+                if (item.ReadOnly)
+                    attributes.Add (ReadOnlyAttribute.Yes);
+
+                foreach (var extra in item.Attributes)
+                    if (extra is Attribute attribute)
+                        attributes.Add (attribute);
+
+                return attributes.ToArray ();
+            }
+
+            public override Type ComponentType => typeof (RadPropertyStore);
+            public override bool IsReadOnly => item.ReadOnly;
+            public override Type PropertyType => item.Type;
+            public override object? GetValue (object? component) => item.Value;
+            public override void SetValue (object? component, object? value) => item.Value = value;
+            public override bool CanResetValue (object component) => !item.ReadOnly && !Equals (item.Value, item.DefaultValue);
+            public override void ResetValue (object component) => item.Value = item.DefaultValue;
+            public override bool ShouldSerializeValue (object component) => !Equals (item.Value, item.DefaultValue);
+        }
     }
 
     /// <summary>Compat stand-in for Telerik's PropertyStoreItem.</summary>
@@ -136,54 +224,172 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>
-    /// Compat stand-in for Telerik's PropertyGridItem. Derives from the core
-    /// <see cref="Majorsilence.Forms.GridItem"/> so WinForms migration code can
-    /// TryCast a PropertyGrid's SelectedGridItem to PropertyGridItem.
+    /// Compat stand-in for Telerik's PropertyGridItem: one property of the object a
+    /// <see cref="RadPropertyGrid"/> inspects. Derives from the core <see cref="Majorsilence.Forms.GridItem"/>
+    /// so WinForms migration code can TryCast a PropertyGrid's SelectedGridItem to it.
     /// </summary>
+    /// <remarks>
+    /// Live as of W6 mechanisms (#176) for an item the grid built: <see cref="Value"/> reads and writes
+    /// the inspected property, <see cref="Label"/> is the text the row shows, <see cref="Visible"/> and
+    /// <see cref="ReadOnly"/> hide the row and lock it, and <see cref="FormattedValue"/>,
+    /// <see cref="PropertyType"/> and <see cref="Category"/> answer from the property's descriptor. An
+    /// item built by application code with <c>new</c> is detached and simply stores what it is given.
+    /// </remarks>
     public class PropertyGridItem : Majorsilence.Forms.GridItem
     {
+        /// <summary>Initializes a detached item.</summary>
+        public PropertyGridItem () { }
+
+        internal PropertyGridItem (RadPropertyGrid grid, Majorsilence.Forms.GridItem entry)
+        {
+            Grid = grid;
+            Entry = entry;
+            base.Name = entry.Name;
+            label = entry.Label;
+            original_value = entry.Value;
+        }
+
+        // The grid and the core entry this item speaks for; null for a detached item.
+        internal RadPropertyGrid? Grid { get; }
+        internal Majorsilence.Forms.GridItem? Entry { get; }
+
+        private string? label;
+        private object? detached_value;
+        private object? original_value;
+        private object? formatted_value;
+        private Type? property_type;
+        private string? category;
+        private bool visible = true;
+        private bool read_only;
+
         /// <summary>The property name shown for the item.</summary>
-        public new string Name { get; set; } = string.Empty;
+        public new string Name {
+            get => base.Name;
+            set => base.Name = value ?? string.Empty;
+        }
 
-        /// <summary>The property label shown for the item (settable, unlike the base's init-only Label).</summary>
-        public new string Label { get; set; } = string.Empty;
+        /// <summary>The text the row shows for the property; defaults to its display name.</summary>
+        public new string Label {
+            get => label ?? string.Empty;
+            set {
+                label = value ?? string.Empty;
+                Grid?.Invalidate ();
+            }
+        }
 
-        /// <summary>The item value (settable, unlike the base's init-only Value).</summary>
-        public new object? Value { get; set; }
+        /// <summary>The current value of the property; setting it writes the inspected object.</summary>
+        /// <remarks>A write the property's setter refuses leaves the value alone, as an edit in the
+        /// grid does. <see cref="RadPropertyGrid.ItemValueChanged"/> is raised for a write that
+        /// takes.</remarks>
+        public new object? Value {
+            get => Entry is { } entry ? entry.Value : detached_value;
+            set {
+                if (Grid is { } grid && Entry is { } entry)
+                    grid.WriteValue (this, entry, value);
+                else
+                    detached_value = value;
+            }
+        }
 
-        /// <summary>The value the item had before editing began.</summary>
-        public object? OriginalValue { get; set; }
+        /// <summary>The value the property had when the grid built this item.</summary>
+        public object? OriginalValue {
+            get => original_value;
+            set => original_value = value;
+        }
 
-        /// <summary>The value formatted for display.</summary>
-        public object? FormattedValue { get; set; }
+        /// <summary>The value as the row shows it, through the property's type converter.</summary>
+        public object? FormattedValue {
+            get => Entry is { } entry ? Majorsilence.Forms.PropertyGrid.ValueTextOf (entry) : formatted_value;
+            set => formatted_value = value;
+        }
 
         /// <summary>The declared type of the property.</summary>
-        public Type? PropertyType { get; set; }
+        public Type? PropertyType {
+            get => Entry?.PropertyDescriptor?.PropertyType ?? property_type;
+            set => property_type = value;
+        }
 
         /// <summary>The category the property is grouped under.</summary>
-        public string? Category { get; set; }
+        public string? Category {
+            get => Entry?.PropertyDescriptor is { } descriptor ? descriptor.Category : category;
+            set => category = value;
+        }
+
+        /// <summary>The property's description, shown in the grid's help pane.</summary>
+        public string Description => Entry?.PropertyDescriptor?.Description ?? string.Empty;
+
+        /// <summary>Gets or sets whether the row is shown.</summary>
+        public bool Visible {
+            get => visible;
+            set {
+                if (visible == value)
+                    return;
+
+                visible = value;
+                Grid?.RefreshRows ();
+            }
+        }
+
+        /// <summary>Gets or sets whether the value can be edited, on top of the property's own read-only flag.</summary>
+        public bool ReadOnly {
+            get => read_only || Entry?.PropertyDescriptor?.IsReadOnly == true;
+            set {
+                read_only = value;
+                Grid?.Invalidate ();
+            }
+        }
 
         /// <summary>User data associated with the item (settable hide of the base member for source compat).</summary>
+        /// <remarks>Stored, and legitimately so: it is the application's own data.</remarks>
         public new object? Tag { get; set; }
 
-        /// <summary>The validation error message shown for the item (empty when valid).</summary>
+        /// <summary>The validation error message for the item (empty when valid).</summary>
+        /// <remarks>Stored: the grid has no per-row error glyph to show it with. Recorded rather than
+        /// drawn so a handler that sets it and reads it back still works.</remarks>
         public string ErrorMessage { get; set; } = string.Empty;
 
         /// <summary>The image key shown next to the item.</summary>
+        /// <remarks>Stored: the grid's rows carry no image column.</remarks>
         public string ImageKey { get; set; } = string.Empty;
 
         /// <summary>The custom attributes attached to the property.</summary>
         public List<Attribute> Attributes { get; } = new ();
+
+        /// <summary>Selects this item in its grid.</summary>
+        public override void Select ()
+        {
+            if (Grid is { } grid && Entry is { } entry)
+                grid.SelectEntry (entry);
+        }
     }
 
     /// <summary>Compat stand-in for Telerik's PropertyGridGroupItem (a category header row). Derives from PropertyGridItem so grid-item casts succeed.</summary>
     public class PropertyGridGroupItem : PropertyGridItem
     {
-        /// <summary>Expands the group. No-op stub.</summary>
-        public void Expand () { }
+        /// <summary>Initializes a detached group.</summary>
+        public PropertyGridGroupItem () { }
 
-        /// <summary>Collapses the group. No-op stub.</summary>
-        public void Collapse () { }
+        internal PropertyGridGroupItem (RadPropertyGrid grid, Majorsilence.Forms.GridItem entry) : base (grid, entry) { }
+
+        /// <summary>The items in this group.</summary>
+        public new PropertyGridItemCollection GridItems { get; } = new ();
+
+        /// <summary>Gets or sets whether the group shows its items.</summary>
+        public new bool Expanded {
+            get => Entry?.Expanded ?? base.Expanded;
+            set {
+                if (Entry is { } entry)
+                    entry.Expanded = value;
+                else
+                    base.Expanded = value;
+            }
+        }
+
+        /// <summary>Shows the group's items.</summary>
+        public void Expand () => Expanded = true;
+
+        /// <summary>Hides the group's items.</summary>
+        public void Collapse () => Expanded = false;
     }
 
     /// <summary>Compat stand-in for the property-grid item visual element.</summary>
@@ -313,6 +519,9 @@ namespace Majorsilence.Forms.Telerik
         public PropertyGridItem? Item { get; set; }
 
         /// <summary>The editor type to use.</summary>
+#if NET
+        [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers (System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
+#endif
         public Type? EditorType { get; set; }
 
         /// <summary>The editor instance to use.</summary>

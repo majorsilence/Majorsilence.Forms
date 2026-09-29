@@ -3894,6 +3894,39 @@ on assignment, as `WM_SETTEXT` does, and has its own test and neutralization rou
 6 tests; three neutralization rounds (SendKeys; help, sound and notifications; the selection fix),
 failing 3, 3 and 2 of the 6, snapshot verified before and after.
 
+**W6 mechanisms, twentieth chunk: the Telerik property grid and tree view binding (#176). — 2026-09-29.**
+The first chunk of #176's priority slice -- property grid, tree view, dock layout -- against the Telerik
+baselines, which existed already (#176 step 1).
+
+- **`RadPropertyGrid`.** Its seven events were declared `add { } remove { }` and threw every handler
+  away; all seven now fire, from internal extension points added to the core `PropertyGrid` (rows
+  rebuilt, row visibility, editability, the editor, the end of an edit, per-row formatting) rather than
+  a second grid. `Items` and `Groups` were lists nothing filled; they are now built from the core rows,
+  and an item's `Value`, `Label`, `Visible` and `ReadOnly` act on the row and the inspected object.
+  `ReadOnly` and `SelectedGridItem` on the grid were stored-only.
+- **`RadPropertyStore`** is now an `ICustomTypeDescriptor`, so a store set as the selected object is
+  shown and edited as its items. The six `PropertyStoreItem` members it describes were stored-only.
+- **`RadTreeView` data binding.** The five binding members were stored-only and a bound tree stayed
+  empty. A flat list binds as roots; `ChildMember`/`ParentMember` build a self-referencing hierarchy,
+  and a list that announces changes rebuilds the tree. `SpacingBetweenNodes` now adds to every row,
+  through an internal spacing hook on the core tree view.
+- **Core `PropertyGrid` commit.** An editor that holds a value rather than text -- a `NumericUpDown`, a
+  `CheckBox` -- is now read as a value when an edit commits, where it used to be read as `Text`.
+
+*Found on the way.* The first tree view build made a real cycle for a parent loop -- A under B under
+A -- and the test process aborted. The loop guard is checked at insertion, and its neutralization
+round records the abort rather than a failing test.
+
+*Annotated.* The property grid entries that stay stored-only are annotated in the baseline with the
+reason: event data set by the raiser, Telerik editor-element stand-ins, `ErrorMessage` and `ImageKey`
+with nothing to draw them with, `SortOrder`/`EnableSorting`, and application data such as `Tag`.
+
+*Counts.* Telerik inert events **7 → 0**; Telerik stored-only **370 → 348**, with 19 annotated.
+
+11 tests; five neutralization rounds (the item model; the events; the property store; tree view
+binding and spacing; the loop guard), failing 7, 4, 1 and 4 tests and aborting the run on the last,
+snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

@@ -337,19 +337,184 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets the root element of the control (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
 
-        /// <summary>Telerik compat: extra vertical spacing between nodes. Stored (the compat tree uses its own item height).</summary>
-        public int SpacingBetweenNodes { get; set; }
+        /// <summary>Gets or sets extra vertical space, in logical pixels, added to every node's row.</summary>
+        /// <remarks>Real as of W6 mechanisms (#176): the rows are laid out, drawn and scrolled with it.</remarks>
+        public int SpacingBetweenNodes {
+            get => spacing_between_nodes;
+            set {
+                value = Math.Max (0, value);
 
-        /// <summary>Gets or sets the data source used for hierarchical (self-referencing) data binding. Stub (binding is not performed; add <see cref="RadTreeNode"/>s to <see cref="Nodes"/> directly).</summary>
-        public object? DataSource { get; set; }
-        /// <summary>Gets or sets the member supplying each node's display text, when data-bound. Stub.</summary>
-        public string DisplayMember { get; set; } = string.Empty;
-        /// <summary>Gets or sets the member supplying each node's own key, when data-bound. Stub.</summary>
-        public string ChildMember { get; set; } = string.Empty;
-        /// <summary>Gets or sets the member supplying each node's value, when data-bound. Stub.</summary>
-        public string ValueMember { get; set; } = string.Empty;
-        /// <summary>Gets or sets the member supplying each node's parent key, when data-bound. Stub.</summary>
-        public string ParentMember { get; set; } = string.Empty;
+                if (spacing_between_nodes == value)
+                    return;
+
+                spacing_between_nodes = value;
+                Invalidate ();
+            }
+        }
+
+        private int spacing_between_nodes;
+
+        internal override int ItemSpacing => spacing_between_nodes;
+
+        // ── data binding (W6 mechanisms, #176) ──────────────────────────────────────────────────────
+
+        /// <summary>Gets or sets the list the tree builds its nodes from.</summary>
+        /// <remarks>
+        /// Real as of W6 mechanisms (#176). Each item of the list -- a <c>DataTable</c>, a
+        /// <c>DataView</c>, a <c>BindingSource</c>, any <c>IListSource</c>, <c>IList</c> or enumerable --
+        /// becomes a <see cref="RadTreeNode"/>: its <see cref="DisplayMember"/> is the text, its
+        /// <see cref="ValueMember"/> the <see cref="RadTreeNode.Value"/>, and the item itself the
+        /// <see cref="RadTreeNode.DataBoundItem"/>. With both <see cref="ChildMember"/> and
+        /// <see cref="ParentMember"/> set the list is self-referencing, as Telerik's is: an item whose
+        /// <see cref="ParentMember"/> equals another item's <see cref="ChildMember"/> goes under it, and
+        /// one whose parent is empty or not in the list is a root. A list that announces its changes
+        /// rebuilds the tree when it does. Setting it replaces the nodes already in the tree.
+        /// </remarks>
+        public object? DataSource {
+            get => data_source;
+            set {
+                if (ReferenceEquals (data_source, value))
+                    return;
+
+                if (bound_list is not null)
+                    bound_list.ListChanged -= BoundList_ListChanged;
+
+                data_source = value;
+                bound_list = null;
+                Rebind ();
+            }
+        }
+
+        private object? data_source;
+        private System.ComponentModel.IBindingList? bound_list;
+
+        /// <summary>Gets or sets the member supplying each node's text; the item's own text when empty.</summary>
+        public string DisplayMember {
+            get => display_member;
+            set => SetMember (ref display_member, value);
+        }
+
+        /// <summary>Gets or sets the member supplying each item's own key, for a self-referencing list.</summary>
+        public string ChildMember {
+            get => child_member;
+            set => SetMember (ref child_member, value);
+        }
+
+        /// <summary>Gets or sets the member supplying each node's value; the item itself when empty.</summary>
+        public string ValueMember {
+            get => value_member;
+            set => SetMember (ref value_member, value);
+        }
+
+        /// <summary>Gets or sets the member supplying each item's parent key, for a self-referencing list.</summary>
+        public string ParentMember {
+            get => parent_member;
+            set => SetMember (ref parent_member, value);
+        }
+
+        private string display_member = string.Empty;
+        private string child_member = string.Empty;
+        private string value_member = string.Empty;
+        private string parent_member = string.Empty;
+
+        private void SetMember (ref string field, string? value)
+        {
+            value ??= string.Empty;
+
+            if (field == value)
+                return;
+
+            field = value;
+            Rebind ();
+        }
+
+        private void BoundList_ListChanged (object? sender, System.ComponentModel.ListChangedEventArgs e) => Rebind ();
+
+        private void Rebind ()
+        {
+            if (data_source is null)
+                return;
+
+            var list = ResolveList (data_source);
+
+            if (list is System.ComponentModel.IBindingList notifying && !ReferenceEquals (notifying, bound_list)) {
+                if (bound_list is not null)
+                    bound_list.ListChanged -= BoundList_ListChanged;
+
+                bound_list = notifying;
+                notifying.ListChanged += BoundList_ListChanged;
+            }
+
+            var nodes = new List<(object Item, RadTreeNode Node)> ();
+
+            if (list is not null) {
+                foreach (var item in list) {
+                    if (item is null)
+                        continue;
+
+                    var text = display_member.Length > 0 ? Read (item, display_member) : item;
+                    var node = new RadTreeNode (Convert.ToString (text, System.Globalization.CultureInfo.CurrentCulture) ?? string.Empty) {
+                        Value = value_member.Length > 0 ? Read (item, value_member) : item,
+                        DataBoundItem = item,
+                    };
+                    nodes.Add ((item, node));
+                }
+            }
+
+            base.Nodes.Clear ();
+
+            var self_referencing = child_member.Length > 0 && parent_member.Length > 0;
+            var by_key = new Dictionary<object, RadTreeNode> ();
+
+            if (self_referencing)
+                foreach (var (item, node) in nodes)
+                    if (Key (Read (item, child_member)) is { } key && !by_key.ContainsKey (key))
+                        by_key[key] = node;
+
+            // A child listed before its parent goes under it all the same: the parent node exists
+            // already, detached, and is placed in its own turn. The one insertion refused is one whose
+            // parent already hangs below the node -- A under B under A -- which would make a loop; that
+            // node goes to the root instead, so every node stays reachable.
+            foreach (var (item, node) in nodes) {
+                var parent = self_referencing && Key (Read (item, parent_member)) is { } parent_key
+                    && by_key.TryGetValue (parent_key, out var found) && !CreatesLoop (node, found)
+                    ? found
+                    : null;
+
+                if (parent is null)
+                    base.Nodes.Add (node);
+                else
+                    parent.Nodes.Add (node);
+            }
+
+            Invalidate ();
+        }
+
+        // Whether putting node under parent would make node its own ancestor.
+        private static bool CreatesLoop (RadTreeNode node, RadTreeNode parent)
+        {
+            for (TreeNode? ancestor = parent; ancestor is not null; ancestor = ancestor.Parent)
+                if (ReferenceEquals (ancestor, node))
+                    return true;
+
+            return false;
+        }
+
+        // An empty key -- null or a database null -- means "no parent".
+        private static object? Key (object? value) => value is null or DBNull ? null : value;
+
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2026", Justification = "Data binding reads members by name through TypeDescriptor, as Telerik's does.")]
+        private static object? Read (object item, string member)
+            => System.ComponentModel.TypeDescriptor.GetProperties (item).Find (member, ignoreCase: true)?.GetValue (item);
+
+        private static System.Collections.IEnumerable? ResolveList (object source)
+            => source switch {
+                System.Data.DataTable table => table.DefaultView,
+                System.Data.DataSet set => set.Tables.Count > 0 ? set.Tables[0].DefaultView : null,
+                System.ComponentModel.IListSource list_source => list_source.GetList (),
+                System.Collections.IEnumerable enumerable when source is not string => enumerable,
+                _ => null,
+            };
 
         /// <summary>Gets the root-level nodes, typed as <see cref="RadTreeNode"/> (Telerik alias for <see cref="Majorsilence.Forms.TreeView.Nodes"/>).</summary>
         public new RadTreeNodeCollection Nodes => new RadTreeNodeCollection (base.Nodes);
@@ -481,6 +646,9 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets or sets the value associated with this node (from data binding, or set directly).</summary>
         public object? Value { get; set; }
+
+        /// <summary>Gets the list item this node was built from, when the tree is data-bound; null otherwise.</summary>
+        public object? DataBoundItem { get; internal set; }
 
         /// <summary>Gets the parent node, typed as <see cref="RadTreeNode"/> (or null for a root-level or detached node).</summary>
         public new RadTreeNode? Parent => base.Parent as RadTreeNode;
