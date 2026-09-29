@@ -67,11 +67,18 @@ namespace Majorsilence.Forms.Renderers
                     continue;
                 }
 
-                var background = is_selected ? SelectionBack (control) : SK (control.ViewBackColor);
+                // A derived grid may restyle the row (Telerik's ItemFormatting); an empty colour
+                // keeps the grid's own.
+                var format = control.FormatRow (item, item.Label, PropertyGrid.ValueTextOf (item));
+
+                var background = is_selected ? SelectionBack (control)
+                    : !format.BackColor.IsEmpty ? SK (format.BackColor)
+                    : SK (control.ViewBackColor);
 
                 // DisabledItemForeColor: a read-only property is drawn in it (W6 mechanisms).
                 var foreground = is_selected
                     ? SelectionFore (control)
+                    : !format.ForeColor.IsEmpty ? SK (format.ForeColor)
                     : item.PropertyDescriptor is { IsReadOnly: true }
                         ? SK (control.DisabledItemForeColor)
                         : SK (control.ViewForeColor);
@@ -84,11 +91,11 @@ namespace Majorsilence.Forms.Renderers
                 var value = new Rectangle (row.Left + name_width + e.LogicalToDeviceUnits (2), row.Top,
                     row.Width - name_width - e.LogicalToDeviceUnits (4), row.Height);
 
-                e.Canvas.DrawText (item.Label, Theme.UIFont, font_size, name, foreground, ContentAlignment.MiddleLeft, maxLines: 1);
+                e.Canvas.DrawText (format.Label, Theme.UIFont, font_size, name, foreground, ContentAlignment.MiddleLeft, maxLines: 1);
 
                 // The open editor draws the value itself.
                 if (!ReferenceEquals (item, control.EditingItem))
-                    e.Canvas.DrawText (PropertyGrid.ValueTextOf (item), Theme.UIFont, font_size, value, foreground,
+                    e.Canvas.DrawText (format.Value, Theme.UIFont, font_size, value, foreground,
                         ContentAlignment.MiddleLeft, maxLines: 1);
 
                 e.Canvas.DrawLine (row.Left, row.Bottom - 1, row.Right, row.Bottom - 1, line);
