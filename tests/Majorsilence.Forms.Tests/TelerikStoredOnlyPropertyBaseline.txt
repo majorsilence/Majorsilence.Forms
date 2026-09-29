@@ -91,8 +91,6 @@ Majorsilence.Forms.Telerik.CurrentRowChangingEventArgs.NewRow
 Majorsilence.Forms.Telerik.CurrentRowChangingEventArgs.OldRow
 Majorsilence.Forms.Telerik.DataGroup.HeaderText
 Majorsilence.Forms.Telerik.DataGroup.Level
-Majorsilence.Forms.Telerik.DockTabStripNeededEventArgs.Strip
-Majorsilence.Forms.Telerik.DockWindowBase.AllowedDockState
 Majorsilence.Forms.Telerik.DockWindowBase.AutoScaleMode
 Majorsilence.Forms.Telerik.DockWindowBase.DefaultFloatingSize
 Majorsilence.Forms.Telerik.DockWindowBase.PreviousDockState
@@ -104,9 +102,6 @@ Majorsilence.Forms.Telerik.DocumentContainer.Collapsed
 Majorsilence.Forms.Telerik.DocumentContainer.Orientation
 Majorsilence.Forms.Telerik.DocumentContainer.SelectedTab
 Majorsilence.Forms.Telerik.DocumentContainer.SplitterWidth
-Majorsilence.Forms.Telerik.DocumentTabStrip.DocumentButtons
-Majorsilence.Forms.Telerik.DocumentTabStrip.SelectedIndex
-Majorsilence.Forms.Telerik.DocumentTabStrip.SelectedTab
 Majorsilence.Forms.Telerik.EnumBinder.Source
 Majorsilence.Forms.Telerik.EnumBinder.Target
 Majorsilence.Forms.Telerik.FilterDescriptor.IsFilterEditor
@@ -255,7 +250,6 @@ Majorsilence.Forms.Telerik.RadCommandBarBaseItem.VisibleInOverflowMenu
 Majorsilence.Forms.Telerik.RadDateTimePickerCalendar.ShowTimePicker
 Majorsilence.Forms.Telerik.RadDesktopAlertCaptionGrip.GradientStyle
 Majorsilence.Forms.Telerik.RadDesktopAlertElement.GradientStyle
-Majorsilence.Forms.Telerik.RadDock.ActiveWindow
 Majorsilence.Forms.Telerik.RadDock.IsCleanUpTarget
 Majorsilence.Forms.Telerik.RadDock.Orientation
 Majorsilence.Forms.Telerik.RadDock.SplitterWidth
@@ -402,12 +396,7 @@ Majorsilence.Forms.Telerik.SplitPanelSizeInfo.SplitterCorrection
 Majorsilence.Forms.Telerik.TabStripItem.Image
 Majorsilence.Forms.Telerik.TabStripItem.IsPinned
 Majorsilence.Forms.Telerik.TabStripItem.IsSelected
-Majorsilence.Forms.Telerik.ToolTabStrip.ActiveWindow
-Majorsilence.Forms.Telerik.ToolTabStrip.CaptionVisible
-Majorsilence.Forms.Telerik.ToolTabStrip.SelectedIndex
 Majorsilence.Forms.Telerik.ToolTabStrip.SplitterWidth
-Majorsilence.Forms.Telerik.ToolTabStrip.TabStripAlignment
-Majorsilence.Forms.Telerik.ToolTabStrip.TabStripVisible
 Majorsilence.Forms.Telerik.ToolWindow.AutoHideSize
 Majorsilence.Forms.Telerik.ToolWindow.DocumentButtons
 Majorsilence.Forms.Telerik.ValueChangingEventArgs.NewValue
