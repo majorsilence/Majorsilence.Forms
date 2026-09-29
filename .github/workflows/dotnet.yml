@@ -537,8 +537,12 @@ jobs:
             8.0.x
             10.0.x
 
+      # Pinned to workload set 10.0.401 (iOS 26.5.10318). Set 10.0.401.1 brought .NET for iOS 27.0,
+      # which refuses to build without Xcode 27, and the macos runner image still ships Xcode 26.6 --
+      # every iOS build went red on 2026-09-29 with no code change. Drop the pin once the runner
+      # image carries Xcode 27 (the build error names the version it wants).
       - name: Install ios workload
-        run: dotnet workload install ios
+        run: dotnet workload install ios --version 10.0.401
 
       # `dotnet build` (not publish) with a simulator RID assembles the runnable .app bundle. iOS
       # `publish` refuses a simulator RID (it targets device archives, which need an Apple cert).
