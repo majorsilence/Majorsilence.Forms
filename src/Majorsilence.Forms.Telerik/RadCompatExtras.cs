@@ -780,9 +780,10 @@ namespace Majorsilence.Forms.Telerik
     public class ContextMenuService
     {
         /// <summary>Raised before the docking context menu is shown. Never raised by the compat dock.</summary>
-#pragma warning disable CS0067
         public event EventHandler<ContextMenuDisplayingEventArgs>? ContextMenuDisplaying;
-#pragma warning restore CS0067
+
+        // Raised by the dock on a right-click over a tab, before the menu opens (W6 mechanisms, #176).
+        internal void RaiseContextMenuDisplaying (ContextMenuDisplayingEventArgs e) => ContextMenuDisplaying?.Invoke (this, e);
     }
 
     /// <summary>Compat stand-in for the grid group-panel field element.</summary>

@@ -3925,6 +3925,39 @@ with nothing to draw them with, `SortOrder`/`EnableSorting`, and application dat
 
 11 tests; five neutralization rounds (the item model; the events; the property store; tree view
 binding and spacing; the loop guard), failing 7, 4, 1 and 4 tests and aborting the run on the last,
+**W6 mechanisms, twenty-first chunk: Telerik docking, tabbed and honest (#176). — 2026-09-29.**
+The dock-layout part of #176's priority slice.
+
+- **The tab selection model.** `SelectedIndex`, `SelectedTab` and `ActiveWindow` on both strips, and
+  `RadDock.ActiveWindow`, were stored-only; they now select the tab, with the Leave, Enter and
+  `SelectedTabChanged` a click raises. `DocumentTabStrip.SelectedIndexChanged` fires. An index set
+  before the windows are added -- the designer's order -- applies once they are.
+- **The tool strip's shape.** `CaptionVisible` draws a caption band naming the active window,
+  `TabStripVisible` hides the headers, and `TabStripAlignment` puts them at the top or bottom; Left
+  and Right go to the bottom, since vertical headers are not drawn.
+- **The document close box.** `DocumentButtons` with `Close` gives every tab a cross that closes its
+  window.
+- **Hidden windows.** `Close ()` with the hide action, or `DockState = Hidden`, takes the window's tab
+  away rather than leaving a tab with no content, and another state brings it back. `DockState`
+  records `PreviousDockState`. `FloatWindow` honours `AllowedDockState`.
+- **The three docking events that never fired.** `DockTabStripNeeded` fires when the dock creates a
+  document strip, and a strip the handler supplies is used. `ContextMenuService.ContextMenuDisplaying`
+  fires on a right-click over a tab with the menu the dock is about to open -- Close, Close All But
+  This, Close All; Hide for a tool window -- which the handler may change or empty.
+  `DocumentTabStrip.SelectedIndexChanged` is the third.
+- **`SaveToXml`/`LoadFromXml`** wrote `<DockLayout />` and read nothing; they now round-trip each named
+  window's dock state and the selected tab of each strip, with file overloads.
+- **`ToolWindow.TabStrip`** returns the strip the window is in, where it returned a new detached one.
+
+*Deferred, with the reason.* Split layout, floating and auto-hide stay unimplemented and are now in
+`BACKLOG.md`'s deferred table. There is no authoritative Telerik layout in the repo to pin the split
+semantics against, and a guessed split engine would re-lay every migrated docked form. The matrix's
+docking row claimed "real dock/tab/tear-off behavior"; it now says tabbed, not split.
+
+*Counts.* Telerik stored-only **370 → 359**; Telerik unraised events **8 → 5**.
+
+9 tests; four neutralization rounds (the selection model; hidden windows, the close box and the
+allowed-state gate; the tool strip's shape; the events and save/load), failing 3, 3, 1 and 3 of the 9,
 snapshot verified before and after.
 
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**

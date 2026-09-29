@@ -33,9 +33,6 @@
 # trigger point already exists and simply is not called.
 # Regenerate with MAJORSILENCE_WRITE_UNRAISED_EVENT_BASELINE=1.
 Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.SelectedValueChanged
-Majorsilence.Forms.Telerik.ContextMenuService.ContextMenuDisplaying
-Majorsilence.Forms.Telerik.DocumentTabStrip.SelectedIndexChanged
-Majorsilence.Forms.Telerik.RadDock.DockTabStripNeeded
 Majorsilence.Forms.Telerik.RadGridView.CreateCell
 Majorsilence.Forms.Telerik.RadGridView.DefaultValuesNeeded
 Majorsilence.Forms.Telerik.RadGridView.EditorRequired
