@@ -15,10 +15,3 @@
 # the highest-value entries there are the per-row and per-cell formatting events, which is how
 # Telerik LOB code colours its grids.
 # Regenerate with MAJORSILENCE_WRITE_INERT_EVENT_BASELINE=1.
-Majorsilence.Forms.Telerik.RadPropertyGrid.ContextMenuOpening
-Majorsilence.Forms.Telerik.RadPropertyGrid.Edited
-Majorsilence.Forms.Telerik.RadPropertyGrid.EditorInitialized
-Majorsilence.Forms.Telerik.RadPropertyGrid.EditorRequired
-Majorsilence.Forms.Telerik.RadPropertyGrid.ItemFormatting
-Majorsilence.Forms.Telerik.RadPropertyGrid.ItemMouseClick
-Majorsilence.Forms.Telerik.RadPropertyGrid.ItemValueChanged

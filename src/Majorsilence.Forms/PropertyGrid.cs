@@ -293,7 +293,49 @@ namespace Majorsilence.Forms
                     parent.GridItems.Add (item);
             }
 
+            OnEntriesRebuilt ();
             RebuildRows ();
+        }
+
+        // ── extension points for a derived grid (the Telerik layer's RadPropertyGrid) ───────────────
+
+        /// <summary>Called once the item tree has been rebuilt from the selected object.</summary>
+        internal virtual void OnEntriesRebuilt () { }
+
+        /// <summary>Whether a row is shown; a hidden property row takes no space in the view.</summary>
+        internal virtual bool IsRowVisible (GridItem item) => true;
+
+        /// <summary>Whether an otherwise writable item may be edited in place.</summary>
+        internal virtual bool AllowsEdit (GridItem item) => true;
+
+        /// <summary>An editor to use in place of the grid's own, or null for the default.</summary>
+        internal virtual Control? CreateEditor (GridItem item) => null;
+
+        /// <summary>Called once an editor has been created and seeded for an item.</summary>
+        internal virtual void OnEditorCreated (GridItem item, Control editor) { }
+
+        /// <summary>Called after an editor has closed, committed or not.</summary>
+        internal virtual void OnEditEnded (GridItem item) { }
+
+        /// <summary>How a row is drawn: its label, value text and colours (empty for the defaults).</summary>
+        internal virtual RowFormat FormatRow (GridItem item, string label, string value)
+            => new RowFormat (label, value, Color.Empty, Color.Empty);
+
+        /// <summary>The label, value text and colours one row is painted with.</summary>
+        internal readonly struct RowFormat
+        {
+            internal RowFormat (string label, string value, Color foreColor, Color backColor)
+            {
+                Label = label;
+                Value = value;
+                ForeColor = foreColor;
+                BackColor = backColor;
+            }
+
+            internal string Label { get; }
+            internal string Value { get; }
+            internal Color ForeColor { get; }
+            internal Color BackColor { get; }
         }
 
         // BrowsableAttributes (W6 mechanisms): a property is shown only when it carries every attribute
@@ -330,13 +372,23 @@ namespace Majorsilence.Forms
             _rows.Clear ();
 
             foreach (var root in roots) {
+                if (root.GridItemType != GridItemType.Category && !IsRowVisible (root))
+                    continue;
+
                 _rows.Add (root);
 
                 if (root.Expanded)
-                    _rows.AddRange (root.GridItems);
+                    _rows.AddRange (root.GridItems.Where (IsRowVisible));
             }
 
             UpdateScrollExtent ();
+        }
+
+        /// <summary>Re-reads which rows are shown, after a derived grid changes an item's visibility.</summary>
+        internal void RefreshRows ()
+        {
+            RebuildRows ();
+            Invalidate ();
         }
 
         internal void NotifyExpandedChanged ()

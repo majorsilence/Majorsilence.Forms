@@ -179,7 +179,6 @@ Majorsilence.Forms.Telerik.GroupSummaryEvaluationEventArgs.SummaryItem
 Majorsilence.Forms.Telerik.HtmlExportSettings.DocumentExportLevel
 Majorsilence.Forms.Telerik.HtmlExportSettings.StylesExportMode
 Majorsilence.Forms.Telerik.LightVisualElement.GradientStyle
-Majorsilence.Forms.Telerik.LightVisualElement.Text
 Majorsilence.Forms.Telerik.MasterGridViewTemplate.AllowCopyPaste
 Majorsilence.Forms.Telerik.MasterGridViewTemplate.AllowDragToGroup
 Majorsilence.Forms.Telerik.MasterGridViewTemplate.HorizontalScrollState
@@ -190,34 +189,20 @@ Majorsilence.Forms.Telerik.MasterGridViewTemplate.ThrowExceptionOnDataOperationI
 Majorsilence.Forms.Telerik.MasterGridViewTemplate.VerticalScrollState
 Majorsilence.Forms.Telerik.Primitives.BorderPrimitive.ForeColor
 Majorsilence.Forms.Telerik.Primitives.FillPrimitive.GradientStyle
-Majorsilence.Forms.Telerik.PropertyGridCheckBoxItemElement.Value
-Majorsilence.Forms.Telerik.PropertyGridEditorRequiredEventArgs.Editor
-Majorsilence.Forms.Telerik.PropertyGridEditorRequiredEventArgs.EditorType
-Majorsilence.Forms.Telerik.PropertyGridEditorRequiredEventArgs.Item
-Majorsilence.Forms.Telerik.PropertyGridGroupElement.Data
-Majorsilence.Forms.Telerik.PropertyGridItem.Category
-Majorsilence.Forms.Telerik.PropertyGridItem.ErrorMessage
-Majorsilence.Forms.Telerik.PropertyGridItem.FormattedValue
-Majorsilence.Forms.Telerik.PropertyGridItem.ImageKey
-Majorsilence.Forms.Telerik.PropertyGridItem.Label
-Majorsilence.Forms.Telerik.PropertyGridItem.OriginalValue
-Majorsilence.Forms.Telerik.PropertyGridItem.PropertyType
-Majorsilence.Forms.Telerik.PropertyGridItem.Tag
-Majorsilence.Forms.Telerik.PropertyGridItem.Value
-Majorsilence.Forms.Telerik.PropertyGridItemEditedEventArgs.Item
-Majorsilence.Forms.Telerik.PropertyGridItemEditorInitializedEventArgs.Editor
-Majorsilence.Forms.Telerik.PropertyGridItemEditorInitializedEventArgs.Item
-Majorsilence.Forms.Telerik.PropertyGridItemElement.Data
-Majorsilence.Forms.Telerik.PropertyGridItemFormattingEventArgs.Item
-Majorsilence.Forms.Telerik.PropertyGridItemFormattingEventArgs.VisualElement
-Majorsilence.Forms.Telerik.PropertyGridItemValueChangedEventArgs.Item
-Majorsilence.Forms.Telerik.PropertyGridSpinEditor.Value
-Majorsilence.Forms.Telerik.PropertyStoreItem.Category
-Majorsilence.Forms.Telerik.PropertyStoreItem.DefaultValue
-Majorsilence.Forms.Telerik.PropertyStoreItem.Description
-Majorsilence.Forms.Telerik.PropertyStoreItem.Label
-Majorsilence.Forms.Telerik.PropertyStoreItem.ReadOnly
-Majorsilence.Forms.Telerik.PropertyStoreItem.Value
+Majorsilence.Forms.Telerik.PropertyGridCheckBoxItemElement.Value    -- Telerik editor-element stand-in; the grid edits with real controls, see EditorRequired
+Majorsilence.Forms.Telerik.PropertyGridEditorRequiredEventArgs.Item    -- event data: set by RadPropertyGrid as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.PropertyGridGroupElement.Data    -- visual-element data slot; group rows are painted by the core grid
+Majorsilence.Forms.Telerik.PropertyGridItem.ErrorMessage    -- the rows have no error glyph to draw it with; stored so a handler reads back what it set
+Majorsilence.Forms.Telerik.PropertyGridItem.ImageKey    -- the rows have no image column
+Majorsilence.Forms.Telerik.PropertyGridItem.Tag    -- application data
+Majorsilence.Forms.Telerik.PropertyGridItemEditedEventArgs.Item    -- event data: set by RadPropertyGrid as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.PropertyGridItemEditorInitializedEventArgs.Editor    -- event data: set by RadPropertyGrid as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.PropertyGridItemEditorInitializedEventArgs.Item    -- event data: set by RadPropertyGrid as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.PropertyGridItemElement.Data    -- visual-element data slot, set for an ItemFormatting handler to read
+Majorsilence.Forms.Telerik.PropertyGridItemFormattingEventArgs.Item    -- event data: set by RadPropertyGrid as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.PropertyGridItemFormattingEventArgs.VisualElement    -- event data: set by RadPropertyGrid as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.PropertyGridItemValueChangedEventArgs.Item    -- event data: set by RadPropertyGrid as it raises the event, read by the handler
+Majorsilence.Forms.Telerik.PropertyGridSpinEditor.Value    -- Telerik editor-element stand-in; the grid edits with real controls, see EditorRequired
 Majorsilence.Forms.Telerik.PropertyValidatingEventArgs.Item
 Majorsilence.Forms.Telerik.PropertyValidatingEventArgs.NewValue
 Majorsilence.Forms.Telerik.PropertyValidatingEventArgs.OldValue
@@ -307,10 +292,8 @@ Majorsilence.Forms.Telerik.RadPdfViewer.ReadingMode
 Majorsilence.Forms.Telerik.RadPdfViewer.ThemeName
 Majorsilence.Forms.Telerik.RadPdfViewer.ViewerMode
 Majorsilence.Forms.Telerik.RadPdfViewerNavigator.AssociatedViewer
-Majorsilence.Forms.Telerik.RadPropertyGrid.EnableSorting
-Majorsilence.Forms.Telerik.RadPropertyGrid.ReadOnly
-Majorsilence.Forms.Telerik.RadPropertyGrid.SelectedGridItem
-Majorsilence.Forms.Telerik.RadPropertyGrid.SortOrder
+Majorsilence.Forms.Telerik.RadPropertyGrid.EnableSorting    -- ordering is PropertySort, driven by the toolbar; descriptor-based sort is not modelled
+Majorsilence.Forms.Telerik.RadPropertyGrid.SortOrder    -- ordering is PropertySort, driven by the toolbar; descriptor-based sort is not modelled
 Majorsilence.Forms.Telerik.RadRibbonBarElement.Text
 Majorsilence.Forms.Telerik.RadRichTextEditor.SpellChecker
 Majorsilence.Forms.Telerik.RadRichTextEditor.ThemeName
@@ -335,14 +318,9 @@ Majorsilence.Forms.Telerik.RadToggleSwitch.OffText
 Majorsilence.Forms.Telerik.RadToggleSwitch.OnText
 Majorsilence.Forms.Telerik.RadToggleSwitch.ThumbTickness
 Majorsilence.Forms.Telerik.RadToggleSwitch.ToggleStateMode
-Majorsilence.Forms.Telerik.RadTreeNode.Value
-Majorsilence.Forms.Telerik.RadTreeView.ChildMember
-Majorsilence.Forms.Telerik.RadTreeView.DataSource
-Majorsilence.Forms.Telerik.RadTreeView.DisplayMember
-Majorsilence.Forms.Telerik.RadTreeView.ParentMember
-Majorsilence.Forms.Telerik.RadTreeView.SpacingBetweenNodes
-Majorsilence.Forms.Telerik.RadTreeView.ThemeName
-Majorsilence.Forms.Telerik.RadTreeView.ValueMember
+Majorsilence.Forms.Telerik.RadTreeNode.DataBoundItem    -- set by the tree as it binds; the application reads it back
+Majorsilence.Forms.Telerik.RadTreeNode.Value    -- set by the tree as it binds (ValueMember) or by the application; the application reads it back
+Majorsilence.Forms.Telerik.RadTreeView.ThemeName    -- Telerik theme name; the compat controls have no theme engine
 Majorsilence.Forms.Telerik.RadWaitingBar.IsWaiting
 Majorsilence.Forms.Telerik.RadWaitingBar.WaitingIndicatorSize
 Majorsilence.Forms.Telerik.RadWaitingBar.WaitingStep
