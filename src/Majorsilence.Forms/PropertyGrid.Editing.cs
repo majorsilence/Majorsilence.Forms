@@ -25,7 +25,8 @@ namespace Majorsilence.Forms
         /// <summary>Whether the item at <paramref name="index"/> can be edited in place.</summary>
         internal bool IsEditable (int index)
             => index >= 0 && index < VisibleRows.Count
-               && VisibleRows[index] is { PropertyDescriptor: { IsReadOnly: false } };
+               && VisibleRows[index] is { PropertyDescriptor: { IsReadOnly: false } } item
+               && AllowsEdit (item);
 
         [UnconditionalSuppressMessage ("Trimming", "IL2026", Justification = "PropertyGrid edits through TypeDescriptor at runtime; trimming is not supported for this control.")]
         [UnconditionalSuppressMessage ("AOT", "IL3050", Justification = "PropertyGrid edits through TypeDescriptor at runtime; trimming is not supported for this control.")]
@@ -47,7 +48,12 @@ namespace Majorsilence.Forms
             // is text the type's converter parses back.
             var choices = ChoicesFor (property);
 
-            if (choices is not null) {
+            if (CreateEditor (item) is { } custom) {
+                // A derived grid's own editor (Telerik's EditorRequired). Enter and Escape close it
+                // exactly as they close the built-in text editor.
+                custom.KeyDown += Editor_KeyDown;
+                editor = custom;
+            } else if (choices is not null) {
                 var combo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
 
                 foreach (var choice in choices)
@@ -65,6 +71,7 @@ namespace Majorsilence.Forms
             editing_item = item;
             editor.Bounds = DeviceToLogicalUnits (bounds);
             Controls.Add (editor);
+            OnEditorCreated (item, editor);
             editor.Select ();
             Invalidate ();
         }
@@ -90,15 +97,17 @@ namespace Majorsilence.Forms
                 CommitEdit ();
 
             var closing = editor;
+            var closed_item = editing_item;
             editor = null;
             editing_item = null;
 
-            if (closing is TextBox box)
-                box.KeyDown -= Editor_KeyDown;
-
+            closing.KeyDown -= Editor_KeyDown;
             Controls.Remove (closing);
             closing.Dispose ();
             Invalidate ();
+
+            if (closed_item is not null)
+                OnEditEnded (closed_item);
         }
 
         // Writes the editor's text back through the property's converter and announces the change.
@@ -108,7 +117,14 @@ namespace Majorsilence.Forms
             if (editor is null || editing_item is not { PropertyDescriptor: { } property } item || _selected_object is null)
                 return;
 
-            var text = editor is ComboBox combo ? combo.SelectedItem?.ToString () ?? string.Empty : editor.Text;
+            // What the editor holds, as text the property's converter parses back. A number box and a
+            // check box hold a value rather than text, so theirs is formatted first.
+            var text = editor switch {
+                ComboBox combo => combo.SelectedItem?.ToString () ?? combo.Text,
+                NumericUpDown number => number.Value.ToString (System.Globalization.CultureInfo.CurrentCulture),
+                CheckBox check => check.Checked.ToString (System.Globalization.CultureInfo.InvariantCulture),
+                _ => editor.Text,
+            };
 
             if (text == ValueTextOf (item))
                 return;

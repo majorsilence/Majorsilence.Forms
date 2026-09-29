@@ -220,13 +220,16 @@ namespace Majorsilence.Forms
             // height, so honouring the property only in TreeView.ScaledItemHeight left the drawn rows
             // at the measured height and the scroll maths disagreeing with them (LST-26). 20 is the
             // default, so a caller has to mean it.
+            // A derived tree's extra spacing goes on every row (Telerik's SpacingBetweenNodes).
+            var spacing = TreeView is { } owner ? LogicalToDeviceUnits (owner.ItemSpacing) : 0;
+
             if (TreeView is { ItemHeight: > 0 } tree && tree.ItemHeight != 20)
-                return new Size (0, LogicalToDeviceUnits (tree.ItemHeight));
+                return new Size (0, LogicalToDeviceUnits (tree.ItemHeight) + spacing);
 
             var font_size = LogicalToDeviceUnits (Theme.FontSize);
             var padding = LogicalToDeviceUnits (10);
 
-            return new Size (0, font_size + padding);
+            return new Size (0, font_size + padding + spacing);
         }
 
         // Gets the number of currently visible children nodes, recursively.

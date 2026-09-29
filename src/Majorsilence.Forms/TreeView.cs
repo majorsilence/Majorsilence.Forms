@@ -1329,8 +1329,11 @@ namespace Majorsilence.Forms
             // An explicitly-set ItemHeight wins over the measured one, which is what the property is
             // for; 20 is the default, so a caller has to mean it (LST-26).
             => ItemHeight > 0 && ItemHeight != 20
-                ? LogicalToDeviceUnits (ItemHeight)
+                ? LogicalToDeviceUnits (ItemHeight + ItemSpacing)
                 : (root_item.Items.FirstOrDefault () ?? root_item).GetPreferredSize (Size.Empty).Height;
+
+        /// <summary>Extra logical pixels added to every row's height; a derived tree sets it.</summary>
+        internal virtual int ItemSpacing => 0;
 
         /// <summary>
         /// Gets or sets the currently selected TreeNode.
