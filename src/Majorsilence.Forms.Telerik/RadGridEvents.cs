@@ -145,13 +145,56 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat table (view) visual element shared by all rows of a <see cref="RadGridView"/>.</summary>
     public class GridTableElement : RadElement
     {
-        /// <summary>Gets or sets the header row height. Stored for Telerik compat.</summary>
-        public int TableHeaderHeight { get; set; } = 28;
+        // The grid this element belongs to; null for one application code built itself.
+        internal RadGridView? Grid { get; set; }
 
-        /// <summary>Gets or sets the color used for alternating row striping. Stub.</summary>
-        public Color AlternatingRowColor { get; set; } = Color.Empty;
-        /// <summary>Gets or sets the row height. Stub.</summary>
-        public int RowHeight { get; set; }
+        /// <summary>Gets or sets the height of the column header row.</summary>
+        /// <remarks>Real as of W6 mechanisms (#176): it is the grid's <see cref="DataGridView.ColumnHeadersHeight"/>.</remarks>
+        public int TableHeaderHeight {
+            get => Grid?.ColumnHeadersHeight ?? table_header_height;
+            set {
+                table_header_height = value;
+
+                if (Grid is { } grid)
+                    grid.ColumnHeadersHeight = value;
+            }
+        }
+
+        private int table_header_height = 28;
+
+        /// <summary>Gets or sets the colour of every other row, shown when the grid's <c>EnableAlternatingRowColor</c> is on.</summary>
+        /// <remarks>Real as of W6 mechanisms (#176): it is the grid's alternating-row background.
+        /// Empty leaves the theme's alternating colour.</remarks>
+        public Color AlternatingRowColor {
+            get => alternating_row_color;
+            set {
+                alternating_row_color = value;
+
+                if (Grid is { } grid) {
+                    grid.AlternatingRowsDefaultCellStyle.BackgroundColor = value.IsEmpty
+                        ? null
+                        : new SkiaSharp.SKColor (value.R, value.G, value.B, value.A);
+                    grid.Invalidate ();
+                }
+            }
+        }
+
+        private Color alternating_row_color = Color.Empty;
+
+        /// <summary>Gets or sets the height of every data row.</summary>
+        /// <remarks>Real as of W6 mechanisms (#176): the grid's row template takes it, and the rows
+        /// already in the grid are resized to it. Zero or less leaves the rows as they are.</remarks>
+        public int RowHeight {
+            get => row_height;
+            set {
+                row_height = value;
+
+                if (value > 0 && Grid is { } grid)
+                    grid.ApplyRowHeight (value);
+            }
+        }
+
+        private int row_height;
         /// <summary>Gets the owning view element (the grid's root element).</summary>
         public RadElement? ViewElement { get; set; }
 

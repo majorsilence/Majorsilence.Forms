@@ -64,9 +64,13 @@ namespace Majorsilence.Forms.Telerik
         }
         /// <summary>Telerik compat: the column-chooser sort order. Stored.</summary>
         public ListSortDirection ColumnChooserSortOrder { get; set; } = ListSortDirection.Ascending;
-        /// <summary>Telerik compat: the row/cell selection mode. Stored. (Intentionally hides the base
-        /// DataGridView.SelectionMode -- RadGridView exposes Telerik's GridViewSelectionMode instead.)</summary>
-        public new GridViewSelectionMode SelectionMode { get; set; } = GridViewSelectionMode.FullRowSelect;
+        /// <summary>Gets or sets whether a click selects the whole row or the one cell.</summary>
+        /// <remarks>Real as of W6 mechanisms (#176): it sets the grid's own selection mode. Hides the base
+        /// DataGridView.SelectionMode, as Telerik's GridViewSelectionMode does.</remarks>
+        public new GridViewSelectionMode SelectionMode {
+            get => base.SelectionMode == DataGridViewSelectionMode.CellSelect ? GridViewSelectionMode.CellSelect : GridViewSelectionMode.FullRowSelect;
+            set => base.SelectionMode = value == GridViewSelectionMode.CellSelect ? DataGridViewSelectionMode.CellSelect : DataGridViewSelectionMode.FullRowSelect;
+        }
 
         /// <summary>Telerik compat: the vertical auto-hide scrollbar state (forwards to the master template).</summary>
         public ScrollState VerticalScrollState {

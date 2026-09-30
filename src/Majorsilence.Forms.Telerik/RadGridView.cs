@@ -106,7 +106,7 @@ namespace Majorsilence.Forms.Telerik
         public RadGridView ()
         {
             MasterTemplate = new MasterGridViewTemplate (this);
-            TableElement = new GridTableElement { ViewElement = RootElement };
+            TableElement = new GridTableElement { ViewElement = RootElement, Grid = this };
 
             // Descriptor changes (add/remove/clear) rebuild the displayed view.
             SortDescriptors.Changed = () => { SyncSortGlyphs (); RebuildView (); };
@@ -378,8 +378,49 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets whether the grid auto-scrolls. Stored stub — the compat grid manages its own scrollbars.</summary>
         public bool AutoScroll { get; set; } = true;
 
-        /// <summary>Gets or sets how cells enter edit mode. Stored stub — the compat grid edits on double-click/F2.</summary>
-        public RadGridViewBeginEditMode BeginEditMode { get; set; } = RadGridViewBeginEditMode.BeginEditOnDoubleClick;
+        /// <summary>Gets or sets how cells enter edit mode.</summary>
+        /// <remarks>
+        /// Real as of W6 mechanisms (#176), through the grid's <see cref="DataGridView.EditMode"/>:
+        /// programmatically is <c>EditProgrammatically</c> (nothing the user does opens an editor),
+        /// on single click is <c>EditOnEnter</c> (the cell becoming current opens one), on double click
+        /// -- the default -- is <c>EditOnKeystrokeOrF2</c>, so typing and F2 open one as well as a
+        /// double-click, as they did before, and on key press is <c>EditOnKeystroke</c>.
+        /// </remarks>
+        public RadGridViewBeginEditMode BeginEditMode {
+            get => begin_edit_mode;
+            set {
+                begin_edit_mode = value;
+                EditMode = value switch {
+                    RadGridViewBeginEditMode.BeginEditProgrammatically => DataGridViewEditMode.EditProgrammatically,
+                    RadGridViewBeginEditMode.BeginEditOnSingleClick => DataGridViewEditMode.EditOnEnter,
+                    RadGridViewBeginEditMode.BeginEditOnKeyPressOrSelectFirstChar => DataGridViewEditMode.EditOnKeystroke,
+                    _ => DataGridViewEditMode.EditOnKeystrokeOrF2,
+                };
+            }
+        }
+
+        private RadGridViewBeginEditMode begin_edit_mode = RadGridViewBeginEditMode.BeginEditOnDoubleClick;
+
+        // MasterTemplate.AllowCopyPaste: the copy half gates Ctrl+C through the grid's own copy mode.
+        internal void ApplyCopyPaste (CopyPasteMode mode)
+            => ClipboardCopyMode = (mode & CopyPasteMode.Copy) == 0
+                ? DataGridViewClipboardCopyMode.Disable
+                : (mode & CopyPasteMode.CopyHeaderText) != 0
+                    ? DataGridViewClipboardCopyMode.EnableAlwaysIncludeHeaderText
+                    : DataGridViewClipboardCopyMode.EnableWithAutoHeaderText;
+
+        // TableElement.RowHeight: the template for new rows, and every row already here.
+        internal void ApplyRowHeight (int height)
+        {
+            RowTemplate.Height = height;
+
+            // A snapshot: resizing a row can make the grid rebuild its view.
+            foreach (var row in base.Rows.Cast<DataGridViewRow> ().ToList ())
+                row.Height = height;
+
+            PerformLayout ();
+            Invalidate ();
+        }
 
         /// <summary>Gets the active in-place editor, or null. Stub — the compat grid's editor is an internal TextBox.</summary>
         public IInputEditor? ActiveEditor => null;
@@ -984,7 +1025,7 @@ namespace Majorsilence.Forms.Telerik
 
             // "Click here to add a new row" placeholder at the very end.
             if (ShowNewRow)
-                display.Add (new DataGridViewRow { Tag = new GridNewRow () });
+                display.Add (new DataGridViewRow { Tag = new GridNewRow (), Height = RowTemplate.Height });
 
             _applyingView = true;
             try {
@@ -1536,11 +1577,17 @@ namespace Majorsilence.Forms.Telerik
         protected override void OnMouseDown (MouseEventArgs e)
         {
             if (Enabled && e.Button == MouseButtons.Left) {
+                // The pointer is logical and every rectangle below is device (RC-8): the content area,
+                // the header height, the core row/column lookups, the renderer's filter glyphs and group
+                // pills. Converted once here. Comparing the logical point directly worked at scale 1
+                // and, at scale 2, turned a press on a column divider into a header click (found wiring
+                // GridViewColumn.MaxWidth, W6 mechanisms, #176).
+                var device = LogicalToDeviceUnits (e.Location);
                 var content = GetContentArea ();
 
                 // 1) Group panel band (above the header).
-                if (ShowGroupPanel && e.Location.Y < content.Top) {
-                    HandleGroupPanelMouseDown (e.Location);
+                if (ShowGroupPanel && device.Y < content.Top) {
+                    HandleGroupPanelMouseDown (device);
                     return;
                 }
 
@@ -1548,23 +1595,23 @@ namespace Majorsilence.Forms.Telerik
                 if (ColumnHeadersVisible) {
                     var headerRect = new Rectangle (content.Left, content.Top, content.Width, ScaledHeaderHeight);
 
-                    if (headerRect.Contains (e.Location)) {
+                    if (headerRect.Contains (device)) {
                         // Resize zones still belong to the base grid.
-                        if (AllowUserToResizeColumns && NearColumnEdge (e.Location)) {
+                        if (AllowUserToResizeColumns && NearColumnEdge (device)) {
                             base.OnMouseDown (e);
                             return;
                         }
 
-                        var col = GetColumnAtLocation (e.Location);
+                        var col = GetColumnAtLocation (device);
                         if (col >= 0) {
-                            if (EnableFiltering && FilterGlyphRects.TryGetValue (col, out var glyph) && glyph.Contains (e.Location)) {
+                            if (EnableFiltering && FilterGlyphRects.TryGetValue (col, out var glyph) && glyph.Contains (device)) {
                                 ShowFilterPopup (col);
                                 return;
                             }
 
                             // Defer: a plain click sorts on mouse-up; a drag groups/reorders.
                             _headerDragColumn = col;
-                            _dragStart = e.Location;
+                            _dragStart = device;
                             DragActive = false;
                         }
                         return;
@@ -1574,20 +1621,20 @@ namespace Majorsilence.Forms.Telerik
                 // 2b) Filter row band (below the header): open the inline filter editor for the column.
                 if (ShowFilterRow) {
                     var bandTop = content.Top + (ColumnHeadersVisible ? ScaledHeaderHeight : 0);
-                    if (e.Location.Y >= bandTop && e.Location.Y < bandTop + FilterRowBandHeight) {
-                        var fcol = GetColumnAtLocation (e.Location);
+                    if (device.Y >= bandTop && device.Y < bandTop + FilterRowBandHeight) {
+                        var fcol = GetColumnAtLocation (device);
                         if (fcol >= 0)
                             OpenFilterEditor (fcol);
                         return;
                     }
                 }
 
-                var rowIndex = GetRowAtLocation (e.Location);
+                var rowIndex = GetRowAtLocation (device);
 
                 // 2c) Master-detail expander zone (left edge of a data row).
                 if (HasChildView && rowIndex >= 0 && rowIndex < base.Rows.Count && !IsStructuralRow (base.Rows[rowIndex])) {
                     var zoneLeft = content.Left + (RowHeadersVisible ? ScaledRowHeadersWidth : 0);
-                    if (e.Location.X >= zoneLeft && e.Location.X <= zoneLeft + LogicalToDeviceUnits (18)) {
+                    if (device.X >= zoneLeft && device.X <= zoneLeft + LogicalToDeviceUnits (18)) {
                         ToggleMasterRow (base.Rows[rowIndex]);
                         return;
                     }
@@ -1619,15 +1666,18 @@ namespace Majorsilence.Forms.Telerik
             }
 
             if (_headerDragColumn >= 0 && e.Button == MouseButtons.Left) {
-                if (!DragActive && (Math.Abs (e.Location.X - _dragStart.X) > LogicalToDeviceUnits (DragThreshold)
-                                 || Math.Abs (e.Location.Y - _dragStart.Y) > LogicalToDeviceUnits (DragThreshold)))
+                // Device, as the drag start, the threshold and the drag marker the renderer draws are.
+                var device = LogicalToDeviceUnits (e.Location);
+
+                if (!DragActive && (Math.Abs (device.X - _dragStart.X) > LogicalToDeviceUnits (DragThreshold)
+                                 || Math.Abs (device.Y - _dragStart.Y) > LogicalToDeviceUnits (DragThreshold)))
                     DragActive = true;
 
                 if (DragActive) {
-                    DragLocation = e.Location;
+                    DragLocation = device;
                     var content = GetContentArea ();
-                    DragOverGroupPanel = ShowGroupPanel && EnableGrouping && e.Location.Y < content.Top;
-                    DragTargetColumn = DragOverGroupPanel ? -1 : GetColumnAtLocation (e.Location);
+                    DragOverGroupPanel = ShowGroupPanel && EnableGrouping && device.Y < content.Top;
+                    DragTargetColumn = DragOverGroupPanel ? -1 : GetColumnAtLocation (device);
                     Invalidate ();
                     return;
                 }
@@ -2365,19 +2415,21 @@ namespace Majorsilence.Forms.Telerik
         protected override void OnMouseClick (MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Right) {
+                // Device for the grid's geometry; the menus open at the logical point (RC-8).
+                var device = LogicalToDeviceUnits (e.Location);
                 var content = GetContentArea ();
                 var onHeader = ColumnHeadersVisible
-                    && new Rectangle (content.Left, content.Top, content.Width, ScaledHeaderHeight).Contains (e.Location);
+                    && new Rectangle (content.Left, content.Top, content.Width, ScaledHeaderHeight).Contains (device);
 
                 // Built-in header menu (group / sort / filter / best-fit), unless the consumer drives the menu.
                 if (onHeader && _contextMenuOpening is null) {
-                    ShowHeaderContextMenu (GetColumnAtLocation (e.Location), e.Location);
+                    ShowHeaderContextMenu (GetColumnAtLocation (device), e.Location);
                     return;
                 }
 
                 // Telerik raises ContextMenuOpening on right-click so handlers can build the menu; show it.
                 if (_contextMenuOpening is not null) {
-                    var args = new ContextMenuOpeningEventArgs { RowElement = RowElementUnder (e.Location) };
+                    var args = new ContextMenuOpeningEventArgs { RowElement = RowElementUnder (device) };
                     _contextMenuOpening.Invoke (this, args);
 
                     if (args.ContextMenu.Items.Count > 0) {
@@ -2461,7 +2513,7 @@ namespace Majorsilence.Forms.Telerik
         {
             if (FindWindow () is null)
                 return;
-            RadGridColumnChooser.Show (this, PointToScreen (new Point (0, ScaledHeaderHeight)));
+            RadGridColumnChooser.Show (this, PointToScreen (new Point (0, ColumnHeadersHeight)));
         }
 
         private void SetSort (string name, ListSortDirection direction)
@@ -2492,7 +2544,9 @@ namespace Majorsilence.Forms.Telerik
         protected override void OnDoubleClick (MouseEventArgs e)
         {
             // Don't begin editing on a structural row; toggle a group header, swallow a summary row.
-            var rowIndex = GetRowAtLocation (e.Location);
+            // The core lookups take device points (RC-8).
+            var device = LogicalToDeviceUnits (e.Location);
+            var rowIndex = GetRowAtLocation (device);
             if (rowIndex >= 0 && rowIndex < base.Rows.Count && IsStructuralRow (base.Rows[rowIndex])) {
                 if (IsGroupRow (base.Rows[rowIndex]))
                     ToggleGroupRow (base.Rows[rowIndex]);
@@ -2500,7 +2554,7 @@ namespace Majorsilence.Forms.Telerik
             }
 
             // Combo / date columns open a dedicated in-place editor instead of the text editor.
-            var colIndex = GetColumnAtLocation (e.Location);
+            var colIndex = GetColumnAtLocation (device);
             if (rowIndex >= 0 && colIndex >= 0 && colIndex < base.Columns.Count) {
                 if (base.Columns[colIndex] is GridViewComboBoxColumn) {
                     ShowComboEditor (rowIndex, colIndex);
@@ -2662,6 +2716,14 @@ namespace Majorsilence.Forms.Telerik
                     cell.Style.BackgroundColor = ToSK (element.BackColor);
                 if (element.ForeColor != Color.Empty)
                     cell.Style.ForegroundColor = ToSK (element.ForeColor);
+
+                // Alignment and wrapping reach the cell too (W6 mechanisms, #176). The element starts at
+                // MiddleLeft and no wrap, so only a change a handler made is applied -- otherwise every
+                // paint would reset a column's own alignment.
+                if (element.TextAlignment != ContentAlignment.MiddleLeft)
+                    cell.Style.Alignment = (DataGridViewContentAlignment) (int) element.TextAlignment;
+                if (element.TextWrap)
+                    cell.Style.WrapMode = DataGridViewTriState.True;
             }
 
             // Only override the displayed text when formatting actually changed it.
@@ -2883,6 +2945,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Associates this (previously detached) template with a grid. Subsequent member access forwards to the grid.</summary>
         internal void Attach (RadGridView grid) => _grid = grid;
 
+        // The grid this template belongs to, or null while detached.
+        internal RadGridView? Grid => _grid;
+
         /// <summary>Gets the columns of the grid (Telerik-typed, matching <see cref="RadGridView.Columns"/>). Throws if the template is not yet attached to a <see cref="RadGridView"/>.</summary>
         public GridViewColumnCollection Columns => _grid?.Columns ?? throw new InvalidOperationException ("GridViewTemplate is not attached to a RadGridView");
         /// <summary>Gets or sets the view definition (assigning a <see cref="TableViewDefinition"/> is a no-op).</summary>
@@ -2977,8 +3042,19 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets or sets whether (and how) the vertical auto-hide scrollbar is shown. Stub.</summary>
         public ScrollState HorizontalScrollState { get; set; } = ScrollState.AlwaysShow;
-        /// <summary>Gets or sets whether copy/paste is allowed. Stub.</summary>
-        public CopyPasteMode AllowCopyPaste { get; set; } = CopyPasteMode.All;
+        /// <summary>Gets or sets whether the user may copy cells out of the grid and paste them in.</summary>
+        /// <remarks>Copy is real as of W6 mechanisms (#176): without <see cref="CopyPasteMode.Copy"/>,
+        /// Ctrl+C and Ctrl+Insert put nothing on the clipboard. Paste is not implemented -- the grid has
+        /// no paste into cells -- so the flag's paste half has nothing to gate.</remarks>
+        public CopyPasteMode AllowCopyPaste {
+            get => allow_copy_paste;
+            set {
+                allow_copy_paste = value;
+                Grid?.ApplyCopyPaste (value);
+            }
+        }
+
+        private CopyPasteMode allow_copy_paste = CopyPasteMode.All;
     }
 
     /// <summary>Telerik-compat view definition. Assignable to <see cref="GridViewTemplate.ViewDefinition"/> as a no-op.</summary>
@@ -3068,11 +3144,31 @@ namespace Majorsilence.Forms.Telerik
             set => base.SortOrder = (SortOrder)(int)value;
         }
 
-        /// <summary>Gets or sets whether this column is the grid's current column. Stored stub — the compat grid does not track a current column per se.</summary>
-        public bool IsCurrent { get; set; }
+        /// <summary>Gets or sets whether this column holds the grid's current cell.</summary>
+        /// <remarks>Real as of W6 mechanisms (#176): read from the current cell, and setting it moves the
+        /// current cell into this column on the current row.</remarks>
+        public bool IsCurrent {
+            get => DataGridView?.CurrentCell is { } cell && cell.ColumnIndex == Index;
+            set {
+                if (!value || DataGridView is not { CurrentCell: { } current } grid || Index < 0)
+                    return;
 
-        /// <summary>Gets or sets the maximum width the column can be resized to. Stored stub — not enforced by the compat grid's resizing.</summary>
+                var row = grid.Rows[current.RowIndex];
+
+                // A row gets its cells lazily; one this column has never touched is padded, as the
+                // grid's own commit path pads it.
+                while (row.Cells.Count <= Index)
+                    row.Cells.Add (new DataGridViewCell ());
+
+                grid.CurrentCell = row.Cells[Index];
+            }
+        }
+
+        /// <summary>Gets or sets the widest a user may drag the column; zero or less for no limit.</summary>
+        /// <remarks>Real as of W6 mechanisms (#176): the grid's column-resize drag stops at it.</remarks>
         public int MaxWidth { get; set; }
+
+        internal override int MaximumResizeWidth => MaxWidth > 0 ? MaxWidth : int.MaxValue;
 
         // IsVisible now lives on DataGridViewColumn itself (Telerik alias of Visible).
         // FieldName now lives on DataGridViewColumn itself (Telerik alias of DataPropertyName).
@@ -3321,10 +3417,34 @@ namespace Majorsilence.Forms.Telerik
         public GridViewCommandColumn () { }
         /// <summary>Initializes a new instance bound to the specified field.</summary>
         public GridViewCommandColumn (string fieldName) { FieldName = fieldName; Name = fieldName; }
-        /// <summary>Gets or sets whether the column's default text is used regardless of the bound value. Stub.</summary>
-        public bool UseDefaultText { get; set; }
-        /// <summary>Gets or sets the default button text shown when <see cref="UseDefaultText"/> is set (or the bound value is empty).</summary>
-        public string DefaultText { get; set; } = string.Empty;
+        /// <summary>Gets or sets whether every button shows <see cref="DefaultText"/> rather than its cell's value.</summary>
+        /// <remarks>Real as of W6 mechanisms (#176); see <see cref="DefaultText"/>.</remarks>
+        public bool UseDefaultText {
+            get => use_default_text;
+            set {
+                use_default_text = value;
+                DataGridView?.Invalidate ();
+            }
+        }
+
+        private bool use_default_text;
+
+        /// <summary>Gets or sets the caption a button shows when <see cref="UseDefaultText"/> is set, or its cell is empty.</summary>
+        /// <remarks>Real as of W6 mechanisms (#176): the column's cells now draw as buttons -- they drew
+        /// as plain text before -- captioned with the cell's value, or with this.</remarks>
+        public string DefaultText {
+            get => default_text;
+            set {
+                default_text = value ?? string.Empty;
+                DataGridView?.Invalidate ();
+            }
+        }
+
+        private string default_text = string.Empty;
+
+        /// <inheritdoc/>
+        protected internal override string? ButtonCaptionFor (string value)
+            => use_default_text || string.IsNullOrEmpty (value) ? default_text : value;
         /// <summary>Gets or sets whether overlong button text is trimmed with an ellipsis. Stored stub.</summary>
         public bool AutoEllipsis { get; set; }
         /// <summary>Gets or sets the image shown on the command button. Stub.</summary>
@@ -3412,8 +3532,24 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat row info. Wraps a <see cref="DataGridViewRow"/>.</summary>
     public class GridViewRowInfo
     {
-        /// <summary>Whether this row is the grid's current row. Mirrors Telerik.</summary>
-        public bool IsCurrent { get; set; }
+        /// <summary>Gets or sets whether this row holds the grid's current cell.</summary>
+        /// <remarks>Real as of W6 mechanisms (#176): read from the current cell, and setting it moves the
+        /// current cell into this row, keeping its column.</remarks>
+        public bool IsCurrent {
+            get => _row.DataGridView?.CurrentCell is { } cell && cell.RowIndex == _row.Index;
+            set {
+                if (!value || _row.DataGridView is not { } grid || _row.Index < 0)
+                    return;
+
+                var column = Math.Max (grid.CurrentCell?.ColumnIndex ?? 0, 0);
+
+                // A row gets its cells lazily; the kept column is padded in if this row lacks it.
+                while (_row.Cells.Count <= column)
+                    _row.Cells.Add (new DataGridViewCell ());
+
+                grid.CurrentCell = _row.Cells[column];
+            }
+        }
 
         /// <summary>Telerik compat: whether the row is pinned to the top/bottom. Stored (compat grid does not pin).</summary>
         public bool IsPinned { get; set; }
