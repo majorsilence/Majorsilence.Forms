@@ -550,7 +550,11 @@ namespace Majorsilence.Forms
                     if (!ReferenceEquals (open, this)) {
                         // Right opens a submenu of the current item...
                         if (forward && open.SelectedItem is { } candidate && candidate.HasItems) {
-                            candidate.ShowDropDown ();
+                            // Selecting the item may already have opened it; showing an open popup
+                            // again re-shows it, which deactivates the menu (see the note below).
+                            if (!candidate.IsDropDownOpened)
+                                candidate.ShowDropDown ();
+
                             candidate.OpenDropDown?.MoveSelection (null, 1);
                             return true;
                         }
@@ -591,7 +595,9 @@ namespace Majorsilence.Forms
                         return false;
 
                     if (target.HasItems) {
-                        target.ShowDropDown ();
+                        if (!target.IsDropDownOpened)
+                            target.ShowDropDown ();
+
                         target.OpenDropDown?.MoveSelection (null, 1);
                         return true;
                     }
@@ -612,7 +618,13 @@ namespace Majorsilence.Forms
         {
             var menu = this;
 
-            while (menu.SelectedItem?.OpenDropDown is { } child)
+            // A submenu opens as soon as its item is selected, before the user has moved into it. Until
+            // something inside it is selected it has not been ENTERED, and its parent still owns the
+            // keys: Down moves on past the item, and Right is what enters the submenu. Descending into it
+            // regardless sent a second Down into the submenu's items and made Right, finding nothing
+            // selected there, walk the bar instead -- closing the menu (found writing #95's tests). The
+            // menu hanging off the bar is entered by opening it, so it always owns the keys.
+            while (menu.SelectedItem?.OpenDropDown is { } child && (child.SelectedItem is not null || !child.IsNestedDropDown))
                 menu = child;
 
             return menu;

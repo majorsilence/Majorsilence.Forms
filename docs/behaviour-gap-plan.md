@@ -4076,6 +4076,24 @@ renderer. The cause was shared.
 2 tests, plus #323's picture test now exercising the shared helper; one neutralization round at scale 2
 (both helpers back to the old arithmetic) fails all three, snapshot verified before and after.
 
+**Nested submenu keyboard navigation, tested (#95). — 2026-09-30.**
+#95 recorded Right-into-a-submenu and Escape-one-level-out as untestable on the headless backend, because
+opening a second popup tore the whole menu down there. That no longer happens, so the tests were written --
+and they found a navigation bug the untestability had hidden.
+
+- **The bug.** Selecting a drop-down item that has a submenu opens the submenu straight away, with nothing in
+  it selected. `HandleNavigationKey` gave the keys to the deepest open menu, which was that unentered
+  submenu: a second Down moved into its items instead of on to the next item in the parent, and Right --
+  finding nothing selected to open -- fell through to walking the menu bar, closing the menu the user was
+  in. `DeepestOpenDropDown` now descends into a nested submenu only once something in it is selected; the
+  menu hanging off the bar is entered by opening it and still always owns the keys. Right and Enter no
+  longer re-show a submenu that selection already opened.
+- **The tests.** Right opens and enters the submenu and the arrows then move inside it; Escape and Left each
+  close one level; Down moves past an item whose submenu it opened; Enter opens a submenu (a guard: it
+  passes either way).
+
+5 tests; one neutralization round (the old descent) fails 4 of them, snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.
