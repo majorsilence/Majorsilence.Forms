@@ -2814,7 +2814,8 @@ namespace Majorsilence.Forms
                 // Device on both sides (RC-8): the start x and the width were device, the delta was not.
                 var delta = LogicalToDeviceUnits (e.Location.X) - resize_start_x;
                 var new_width = DeviceToLogicalUnits (resize_start_width + delta);
-                Columns[resize_column_index].Width = new_width;
+                var resized = Columns[resize_column_index];
+                resized.Width = Math.Min (new_width, resized.MaximumResizeWidth);
                 UpdateScrollBars ();
                 return;
             }

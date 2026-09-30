@@ -654,6 +654,8 @@ namespace Majorsilence.Forms.Renderers
                 var btn_cell = CellAt (control, rowIndex, columnIndex) as DataGridViewButtonCell;
                 var btn_text = btn_col.UseColumnTextForButtonValue || btn_cell is { UseColumnTextForButtonValue: true } ? btn_col.Text : value;
                 RenderButtonCell (e, text_bounds, btn_text, font, scaled_font, fg, CellIsFlat (control, rowIndex, columnIndex));
+            } else if (column.ButtonCaptionFor (value) is { } caption) {
+                RenderButtonCell (e, text_bounds, caption, font, scaled_font, fg, CellIsFlat (control, rowIndex, columnIndex));
             } else if (column is DataGridViewComboBoxColumn) {
                 RenderComboBoxCell (e, text_bounds, value, font, scaled_font, fg, CellIsFlat (control, rowIndex, columnIndex),
                     showButton: ShowsComboButton (control, (DataGridViewComboBoxColumn)column, rowIndex, columnIndex));

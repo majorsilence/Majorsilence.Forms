@@ -423,6 +423,14 @@ namespace Majorsilence.Forms
         /// </summary>
         protected internal virtual bool DisplaysAsCheckBox => false;
 
+        /// <summary>The caption to draw a cell of this column as a button with, or null to draw it as text.</summary>
+        /// <remarks>A derived column that is a button without being a <see cref="DataGridViewButtonColumn"/>
+        /// -- Telerik's command column -- answers here (W6 mechanisms, #176).</remarks>
+        protected internal virtual string? ButtonCaptionFor (string value) => null;
+
+        /// <summary>The widest a user may drag this column; a derived column caps it (W6 mechanisms, #176).</summary>
+        internal virtual int MaximumResizeWidth => int.MaxValue;
+
         /// <summary>
         /// When true, the renderer draws the cell's image instead of text. Default false; image column
         /// types override.

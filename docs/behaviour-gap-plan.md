@@ -3992,6 +3992,44 @@ are fixed by #319); Telerik stored-only unchanged in count, 31 more annotated.
 4 tests; two neutralization rounds (EditorRequired; DefaultValuesNeeded and SelectedValueChanged),
 each failing 2 of the 4, snapshot verified before and after.
 
+**W6 mechanisms, twenty-third chunk: the Telerik grid settings designer code sets most (#176). — 2026-09-30.**
+Twelve stored-only grid members, the ones Telerik designer code and `Form_Load` set on nearly every grid,
+plus an RC-8 bug in the Telerik grid's mouse handling that one of them exposed.
+
+- **`TableElement`.** `RowHeight` sets the row template and resizes the rows already there, including the
+  rebuilt "add new row" row; `TableHeaderHeight` is the grid's column header height; `AlternatingRowColor`
+  is its alternating-row background.
+- **The grid's own switches.** `SelectionMode` sets the core selection mode. `BeginEditMode` maps onto the
+  core `EditMode` without changing the default: programmatic is `EditProgrammatically`, single click
+  `EditOnEnter`, double click (the default) `EditOnKeystrokeOrF2`, key press `EditOnKeystroke`.
+  `MasterTemplate.AllowCopyPaste` sets the copy mode, header text included; paste into cells is not
+  implemented, so its paste half has nothing to gate.
+- **`GridViewCommandColumn`** drew as plain text. It now draws buttons, through a new core hook beside
+  `DisplaysAsCheckBox`, captioned by the cell's value or by `DefaultText` when `UseDefaultText` is set or
+  the value is empty.
+- **`GridViewColumn.MaxWidth`** caps a resize drag, through a core hook the resize reads.
+- **`IsCurrent`** on a column and on a row reads the current cell and, set, moves it -- padding in a cell a
+  lazily-filled row does not have yet.
+- **The formatting element.** A `CellFormatting` handler's `TextAlignment` and `TextWrap` reach the cell;
+  only a change the handler made is applied, so a column's own alignment is not reset on every paint.
+
+*Found on the way: RC-8 in the Telerik grid.* `RadGridView.OnMouseDown`, the header drag in `OnMouseMove`,
+the right-click menus in `OnMouseClick` and `OnDoubleClick` compared the logical pointer with device
+geometry -- the content area, the header height, the core row and column lookups, the renderer's filter
+glyphs and group pills. At scale 1 the two agree. At scale 2 a press on a column divider read as a header
+click, so a user could not resize a column, and header, row and group-panel clicks could land on the wrong
+target. Each handler now converts once, as the core grid's did in the ninth chunk; the menus still open at
+the logical point, and the column chooser's position, which passed the device header height to
+`PointToScreen`, now passes the logical one. The `MaxWidth` test is the one that caught it, at scale 2; its
+neutralization round runs at scale 2.
+
+*Counts.* Telerik stored-only **336 → 324**, one more annotated (`MaxWidth`: read from core, which the
+Telerik scan does not follow).
+
+7 tests; five neutralization rounds (the table element; the switches; the command column and the resize
+cap; `IsCurrent` and the formatting element; the RC-8 conversion, at scale 2), failing 1, 2, 2, 2 and 1 of
+the 7, snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.
