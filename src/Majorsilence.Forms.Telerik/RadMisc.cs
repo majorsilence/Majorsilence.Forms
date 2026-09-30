@@ -5,6 +5,12 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat status strip. Backed by <see cref="Majorsilence.Forms.Control"/>.</summary>
     public class RadStatusStrip : Control, ISupportInitializeCompat
     {
+        /// <summary>Gets the default style for all RadStatusStrips: what a <c>RadStatusStrip { ... }</c> theme rule sets (#100).</summary>
+        public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle);
+
+        /// <inheritdoc/>
+        public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
+
         /// <summary>Gets the root element of the strip (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Gets the items hosted in the status strip.</summary>
@@ -16,6 +22,12 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat command bar. Backed by <see cref="Majorsilence.Forms.Control"/>.</summary>
     public class RadCommandBar : Control, ISupportInitializeCompat
     {
+        /// <summary>Gets the default style for all RadCommandBars: what a <c>RadCommandBar { ... }</c> theme rule sets (#100).</summary>
+        public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle);
+
+        /// <inheritdoc/>
+        public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
+
         /// <summary>Gets the root element of the bar (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Gets the command-bar rows.</summary>

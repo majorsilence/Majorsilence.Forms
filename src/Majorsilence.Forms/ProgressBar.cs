@@ -29,6 +29,10 @@ namespace Majorsilence.Forms
         public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle,
             (style) => style.Border.Width = 1);
 
+        // The public Style is WinForms' ProgressBarStyle, so the ControlStyle chain is reached through
+        // the hook rather than an override (#100).
+        internal override ControlStyle TypeDefaultStyle => DefaultStyle;
+
         /// <summary>
         /// Increases the value of the ProgressBar by the specified amount.
         /// </summary>

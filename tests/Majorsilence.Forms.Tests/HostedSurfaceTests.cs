@@ -160,6 +160,33 @@ public class HostedSurfaceTests
     }
 
     [Fact]
+    public void HostedSurface_Rule_Makes_It_Opaque ()
+    {
+        // #100: the selector's promise -- a background-color rule replaces the transparent default.
+        Theme.LoadFromCss ("HostedSurface { background-color: #ff00ff; }");
+        try {
+            using var surface = new HostedSurface (new FakeHostBackend ());
+
+            using var sk = SKSurface.Create (new SKImageInfo (200, 100, SKColorType.Bgra8888, SKAlphaType.Premul));
+            sk.Canvas.Clear (SKColors.Transparent);
+            surface.RenderFrame (sk.Canvas, 200, 100, 1.0);
+            sk.Canvas.Flush ();
+            using var img = sk.Snapshot ();
+            using var pixmap = img.PeekPixels ();
+
+            var magenta = 0;
+            for (var y = 0; y < 100; y++)
+                for (var x = 0; x < 200; x++)
+                    if (pixmap.GetPixelColor (x, y) == new SKColor (255, 0, 255))
+                        magenta++;
+
+            Assert.True (magenta > 200 * 100 * 9 / 10, $"the rule's background should fill the surface; {magenta} of 20000 pixels are magenta");
+        } finally {
+            Theme.SetBuiltInTheme (BuiltInTheme.Light);
+        }
+    }
+
+    [Fact]
     public void Routes_Click_To_Content ()
     {
         using var surface = new HostedSurface (new FakeHostBackend ());

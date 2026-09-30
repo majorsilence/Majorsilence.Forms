@@ -139,6 +139,22 @@ with `MAJORSILENCE_WRITE_THEMING_WINFORMS_DOC=1 dotnet test tests/Majorsilence.F
 | `PropertyGrid` | `PropertyGrid` | ViewBackColor / ViewForeColor / LineColor / HelpBackColor. |
 | `NavigationPane` | — | System.Windows.Forms has no Outlook-style navigation pane; the rule is reported as an info diagnostic and skipped. |
 | `Ribbon` | — | System.Windows.Forms has no ribbon control; the rule is reported as an info diagnostic and skipped. |
+| `DateTimePicker` | — | No counterpart: the WinForms DateTimePicker is themed by the TextBox rule here; the rule is reported as an info diagnostic and skipped. |
+| `FormTitleBar` | — | No counterpart: the Windows title bar is themed through the Form rule (DwmSetWindowAttribute); the rule is reported as an info diagnostic and skipped. |
+| `HostedSurface` | — | No counterpart: it is the surface Majorsilence.Forms embeds in another UI toolkit; the rule is reported as an info diagnostic and skipped. |
+| `MdiClient` | — | No counterpart: the WinForms MDI workspace is native-drawn; the rule is reported as an info diagnostic and skipped. |
+| `PopupWindow` | — | No counterpart: WinForms popups are native windows; the rule is reported as an info diagnostic and skipped. |
+| `PrintPreviewControl` | — | No counterpart: the WinForms print preview is native-drawn; the rule is reported as an info diagnostic and skipped. |
+| `ProgressBar` | — | No counterpart: the WinForms ProgressBar is native-drawn; the rule is reported as an info diagnostic and skipped. |
+| `StatusStrip` | — | No separate counterpart: a real StatusStrip is themed by the StatusBar rule; the rule is reported as an info diagnostic and skipped. |
+| `DockWindowBase` | — | A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped. |
+| `RadCommandBar` | — | A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped. |
+| `RadPdfViewerNavigator` | — | A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped. |
+| `RadRibbonBar` | — | A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped. |
+| `RadScheduler` | — | A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped. |
+| `RadSchedulerNavigator` | — | A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped. |
+| `RadStatusStrip` | — | A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped. |
+| `RichTextEditorRibbonBar` | — | A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped. |
 
 ### Property support
 

@@ -14,7 +14,9 @@
 
             // A title bar merged into the native OS title bar blends with the window background, so use
             // the normal foreground color; the accent-colored custom title bar uses the on-accent color.
-            var color = control.NativeOverlay ? Theme.ForegroundColor : Theme.ForegroundColorOnAccent;
+            // The caption text is the bar's foreground, so a FormTitleBar { color: ... } rule sets it; the
+            // native overlay sits on the window background and keeps the window's text colour (#100).
+            var color = control.NativeOverlay ? Theme.ForegroundColor : control.Style.TryGetForegroundColor () ?? Theme.ForegroundColorOnAccent;
 
             var text = control.Text.Trim ();
             var font_size = e.LogicalToDeviceUnits (Theme.FontSize);
