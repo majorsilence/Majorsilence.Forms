@@ -23,7 +23,8 @@
 # Application.KeepScreenAwake true then false on a real Activity (register item F12) and confirms both
 # read back correctly with no exception. It also sets, reads back and removes a value through
 # SecureStorage's real AndroidKeyStore-backed path (register item F16), and confirms the value is
-# actually gone after Remove.
+# actually gone after Remove. It also speaks a line through Speech.SpeakAsync (register item F15) and
+# confirms a cancelled call stops promptly.
 #
 # Usage: android-smoke-test.sh <apk-or-dir> [screenshot-output-path]
 #   <apk-or-dir>  a *-Signed.apk file, or a directory to search for one (recursively).
@@ -181,6 +182,21 @@ elif grep -q "F16_SECURESTORAGE_SMOKE.*PASS" <<<"$LOG"; then
 else
   echo "$LOG" | grep "F16_SECURESTORAGE_SMOKE" >&2 || true
   fail "no F16_SECURESTORAGE_SMOKE PASS line in logcat within ${SETTLE_SECONDS}s"
+fi
+
+# GalleryApplication.RunSpeechSmokeTest (register item F15): proves the plumbing (IsSupported true, SpeakAsync completes
+# with no exception, and a cancelled call stops promptly) -- this emulator has no reliable way to confirm anything was
+# actually heard, the same "cannot prove the feel/sound, only that it ran" honesty F13's own Haptics check has. Queued
+# from the same ThreadPool batch as F13/F14/F16 in App.cs, so it is already in this same early $LOG capture.
+echo "Checking for the F15 Speech smoke-test result ..."
+if grep -q "F15_SPEECH_SMOKE.*FAIL" <<<"$LOG"; then
+  echo "$LOG" | grep "F15_SPEECH_SMOKE" >&2
+  fail "F15 Speech smoke test reported FAIL (see F15_SPEECH_SMOKE lines above)"
+elif grep -q "F15_SPEECH_SMOKE.*PASS" <<<"$LOG"; then
+  echo "F15 Speech smoke test: PASS"
+else
+  echo "$LOG" | grep "F15_SPEECH_SMOKE" >&2 || true
+  fail "no F15_SPEECH_SMOKE PASS line in logcat within ${SETTLE_SECONDS}s"
 fi
 
 echo "Confirming the F14 smoke notification actually posted (dumpsys notification) ..."

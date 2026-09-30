@@ -33,6 +33,7 @@ namespace Gallery.Android
             ThreadPool.QueueUserWorkItem (_ => RunHapticsSmokeTest ());
             ThreadPool.QueueUserWorkItem (_ => RunNotificationsSmokeTest ());
             ThreadPool.QueueUserWorkItem (_ => RunSecureStorageSmokeTest ());
+            ThreadPool.QueueUserWorkItem (_ => RunSpeechSmokeTest ());
 
             // Register item F10: real signals need a real backgrounding, which nothing in-process can
             // trigger -- android-smoke-test.sh drives it externally (KEYCODE_HOME, then relaunch) and
@@ -268,6 +269,38 @@ namespace Gallery.Android
                 }
 
                 Log.Info (Tag, "PASS: IsSupported is true, Set/Get round-tripped the value, and Remove actually removed it");
+            } catch (Exception ex) {
+                Log.Error (Tag, $"FAIL: {ex}");
+            }
+        }
+
+        // Register item F15: proves the plumbing (IsSupported true, SpeakAsync completes with no exception within a bounded
+        // wait, and a second, cancelled call actually stops promptly) -- the same "cannot prove anything was felt/heard, only
+        // that it ran" honesty F13's own Haptics smoke test documents for a real device with no reliable way to assert on
+        // audio output from this harness.
+        private void RunSpeechSmokeTest ()
+        {
+            const string Tag = "F15_SPEECH_SMOKE";
+            try {
+                if (!Majorsilence.Forms.Essentials.Speech.IsSupported) {
+                    Log.Error (Tag, "FAIL: Speech.IsSupported is false on Android");
+                    return;
+                }
+
+                using var speakCts = new System.Threading.CancellationTokenSource (TimeSpan.FromSeconds (8));
+                Majorsilence.Forms.Essentials.Speech.SpeakAsync ("F fifteen smoke test", cancellationToken: speakCts.Token).GetAwaiter ().GetResult ();
+
+                using var cancelCts = new System.Threading.CancellationTokenSource ();
+                var speaking = Majorsilence.Forms.Essentials.Speech.SpeakAsync (
+                    "this line is long enough that cancelling right away should stop it well before it would finish on its own",
+                    cancellationToken: cancelCts.Token);
+                cancelCts.Cancel ();
+                if (!speaking.Wait (TimeSpan.FromSeconds (3))) {
+                    Log.Error (Tag, "FAIL: SpeakAsync did not complete within 5s of being cancelled");
+                    return;
+                }
+
+                Log.Info (Tag, "PASS: IsSupported is true, SpeakAsync completed, and a cancelled call stopped promptly");
             } catch (Exception ex) {
                 Log.Error (Tag, $"FAIL: {ex}");
             }

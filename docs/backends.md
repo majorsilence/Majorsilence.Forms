@@ -827,6 +827,12 @@ with which UI backend (Avalonia, WinForms, Uno) is active, so it picks its own `
 directly instead. `Majorsilence.Forms.Essentials` has no `ProjectReference` to this project at all. See
 `COMPATIBILITY_MATRIX.md`'s "SecureStorage" entry for the full per-platform detail and verification.
 
+## Speech is not part of this seam either (register item F15)
+
+`Majorsilence.Forms.Essentials.Speech` picks its own `ISpeechBackend` per target framework the same way `SecureStorage`
+does, for the same reason: which speech engine exists has nothing to do with which UI backend is active. See
+`COMPATIBILITY_MATRIX.md`'s "Speech" entry for the full per-platform detail and verification.
+
 ### Adding another backend
 
 A new backend is a new assembly referencing `Majorsilence.Forms` (core) + the toolkit, implementing the two
