@@ -3959,6 +3959,38 @@ docking row claimed "real dock/tab/tear-off behavior"; it now says tabbed, not s
 9 tests; four neutralization rounds (the selection model; hidden windows, the close box and the
 allowed-state gate; the tool strip's shape; the events and save/load), failing 3, 3, 1 and 3 of the 9,
 snapshot verified before and after.
+**W6 mechanisms, twenty-second chunk: the last Telerik events that could fire (#176). — 2026-09-29.**
+Five Telerik events were still never raised. Three now are; the other two cannot be, and say why.
+
+- **`RadGridView.EditorRequired`** fires after `CellBeginEdit`, when that was not cancelled, and before
+  the editor opens -- Telerik's order. Telerik's args carry the editor type to use; this layer's
+  `GridViewCellCancelEventArgs` carry the cell and `Cancel`, which keeps the cell out of edit mode.
+- **`RadGridView.DefaultValuesNeeded`** fires from `AddNewRow`, the action behind a click on the "add
+  new row" row, once the row is in the grid, so a handler can fill its cells by column name.
+- **`BaseDropDownListEditorElement.SelectedValueChanged`** fires when its `SelectedValue` changes.
+- **Annotated, not raised.** `RadGridView.CreateCell` announces a cell visual element, and this grid
+  paints cells directly and builds no element tree. `RadPageView.PageCollapsed` belongs to the
+  ExplorerBar/Outlook/accordion modes, and this page view is a TabControl with no collapse.
+
+*Found on the way.* The first `DefaultValuesNeeded` hooked the core grid's new-row placeholder. Its
+test failed, rightly: the Telerik grid draws its own new row and never uses the core one. It is now
+raised where the Telerik grid actually adds the row.
+
+*Found on the way, in the gates.* The unraised-event and inert-event tests compared whole baseline
+lines, notes included, while the writer keeps a hand-written `-- reason` note beside an entry -- so
+annotating an entry, as the baselines ask, made it read as missing. The three readers now compare the
+name alone, as the stored-only and core unraised tests already did, and a genuinely missing entry is
+still caught.
+
+*Annotated.* 31 entries on the grid's event args -- the row, column, index and value fields the grid
+sets and a handler reads -- are annotated as event data. The output slots a handler might replace
+(`CellElement`, `RowElement`, `CellType`) are left unannotated on purpose.
+
+*Counts.* Telerik unraised events **8 → 5** on this branch, 2 of them annotated (three of the rest
+are fixed by #319); Telerik stored-only unchanged in count, 31 more annotated.
+
+4 tests; two neutralization rounds (EditorRequired; DefaultValuesNeeded and SelectedValueChanged),
+each failing 2 of the 4, snapshot verified before and after.
 
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing

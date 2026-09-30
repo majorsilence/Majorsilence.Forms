@@ -32,8 +32,5 @@
 # Shrinking this list is the goal, and it is usually a one-line fix: for most entries the
 # trigger point already exists and simply is not called.
 # Regenerate with MAJORSILENCE_WRITE_UNRAISED_EVENT_BASELINE=1.
-Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.SelectedValueChanged
-Majorsilence.Forms.Telerik.RadGridView.CreateCell
-Majorsilence.Forms.Telerik.RadGridView.DefaultValuesNeeded
-Majorsilence.Forms.Telerik.RadGridView.EditorRequired
-Majorsilence.Forms.Telerik.RadPageView.PageCollapsed
+Majorsilence.Forms.Telerik.RadGridView.CreateCell    -- announces a cell visual element; the grid paints cells directly and builds no element tree to raise it about
+Majorsilence.Forms.Telerik.RadPageView.PageCollapsed    -- belongs to the ExplorerBar/Outlook/accordion modes; this page view is a TabControl with no collapse
