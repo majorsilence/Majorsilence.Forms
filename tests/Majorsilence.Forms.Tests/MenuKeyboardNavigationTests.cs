@@ -234,14 +234,143 @@ namespace Majorsilence.Forms.Tests
             }
         }
 
-        // NOT TESTED HERE, deliberately: Right opening a nested submenu, and Escape closing one
-        // level back out of it. Both are implemented (see MenuBase.HandleNavigationKey and
-        // IsNestedDropDown), but they cannot be evaluated on this backend -- opening a second,
-        // nested popup while the first is up tears the whole menu down through
-        // Application.ScheduleClosePopupsOnDeactivate, because the newly shown popup does not report
-        // itself active without a real window server. A test here would measure the backend rather
-        // than the navigation, and asserting the teardown as correct would be worse: it would pin
-        // behaviour nobody wants. Flagged in docs/behaviour-gap/toolstrip.md for a GUI check.
+        // Nested submenus. These were recorded as untestable here (#95): opening a second popup while
+        // the first was up used to tear the whole menu down on this backend, so the tests would have
+        // measured the teardown rather than the navigation. That no longer happens -- the popup being
+        // shown is active before its parent's deactivation is weighed -- so the two behaviours the
+        // issue named, Right into a submenu and Escape one level back out, are pinned below, with Left
+        // and the arrows inside the deepest open menu.
+        private static (Form form, MenuStrip strip, ToolStripMenuItem file, ToolStripMenuItem recent, ToolStripMenuItem edit) Nested ()
+        {
+            HeadlessRenderer.Use ();
+            var form = new Form { Width = 400, Height = 300 };
+            var strip = new MenuStrip { Width = 400, Height = 24 };
+            var file = new ToolStripMenuItem { Text = "&File" };
+            var recent = new ToolStripMenuItem { Text = "&Recent" };
+            var edit = new ToolStripMenuItem { Text = "&Edit" };
+
+            recent.DropDownItems.Add (new ToolStripMenuItem { Text = "&One" });
+            recent.DropDownItems.Add (new ToolStripMenuItem { Text = "&Two" });
+            file.DropDownItems.Add (recent);
+            file.DropDownItems.Add (new ToolStripMenuItem { Text = "&Save" });
+            edit.DropDownItems.Add (new ToolStripMenuItem { Text = "&Copy" });
+
+            strip.Items.Add (file);
+            strip.Items.Add (edit);
+            form.Controls.Add (strip);
+            form.MainMenuStrip = strip;
+            form.Show ();
+
+            // File open, with Recent -- the item that has a submenu -- selected in it.
+            HeadlessRenderer.KeyDown (form, Keys.Alt | Keys.F);
+
+            if (file.OpenDropDown?.SelectedItem is null)
+                HeadlessRenderer.KeyDown (form, Keys.Down);
+
+            return (form, strip, file, recent, edit);
+        }
+
+        [Fact]
+        public void Right_opens_the_selected_items_submenu_and_the_arrows_then_move_inside_it ()
+        {
+            var (form, _, file, recent, _) = Nested ();
+            using var _form = form;
+
+            try {
+                Assert.Same (recent, file.OpenDropDown?.SelectedItem);
+
+                HeadlessRenderer.KeyDown (form, Keys.Right);
+
+                Assert.True (file.IsDropDownOpened, "the parent menu stays open");
+                Assert.True (recent.IsDropDownOpened);
+                Assert.Equal ("&One", recent.OpenDropDown?.SelectedItem?.Text);
+
+                // The deepest open menu owns the arrows.
+                HeadlessRenderer.KeyDown (form, Keys.Down);
+                Assert.Equal ("&Two", recent.OpenDropDown?.SelectedItem?.Text);
+                Assert.Same (recent, file.OpenDropDown?.SelectedItem);
+            } finally {
+                form.Close ();
+            }
+        }
+
+        [Fact]
+        public void Escape_closes_one_level_at_a_time ()
+        {
+            var (form, _, file, recent, _) = Nested ();
+            using var _form = form;
+
+            try {
+                HeadlessRenderer.KeyDown (form, Keys.Right);
+                Assert.True (recent.IsDropDownOpened);
+
+                HeadlessRenderer.KeyDown (form, Keys.Escape);
+                Assert.False (recent.IsDropDownOpened);
+                Assert.True (file.IsDropDownOpened, "Escape out of a submenu returns to its parent");
+
+                HeadlessRenderer.KeyDown (form, Keys.Escape);
+                Assert.False (file.IsDropDownOpened);
+            } finally {
+                form.Close ();
+            }
+        }
+
+        [Fact]
+        public void Left_closes_a_submenu_back_to_its_parent_rather_than_moving_along_the_bar ()
+        {
+            var (form, strip, file, recent, edit) = Nested ();
+            using var _form = form;
+
+            try {
+                HeadlessRenderer.KeyDown (form, Keys.Right);
+                Assert.True (recent.IsDropDownOpened);
+
+                HeadlessRenderer.KeyDown (form, Keys.Left);
+
+                Assert.False (recent.IsDropDownOpened);
+                Assert.True (file.IsDropDownOpened);
+                Assert.Same (file, strip.SelectedItem);
+                Assert.False (edit.IsDropDownOpened);
+            } finally {
+                form.Close ();
+            }
+        }
+
+        [Fact]
+        public void Down_moves_past_an_item_whose_submenu_it_opened_rather_than_into_it ()
+        {
+            // Selecting Recent opens its submenu, but the user has not entered it: the next Down moves
+            // on to Save in the parent, as it does in WinForms, not to the submenu's first item.
+            var (form, _, file, recent, _) = Nested ();
+            using var _form = form;
+
+            try {
+                Assert.Same (recent, file.OpenDropDown?.SelectedItem);
+
+                HeadlessRenderer.KeyDown (form, Keys.Down);
+
+                Assert.Equal ("&Save", file.OpenDropDown?.SelectedItem?.Text);
+                Assert.True (file.IsDropDownOpened);
+            } finally {
+                form.Close ();
+            }
+        }
+
+        [Fact]
+        public void Enter_on_an_item_with_a_submenu_opens_it ()
+        {
+            var (form, _, file, recent, _) = Nested ();
+            using var _form = form;
+
+            try {
+                HeadlessRenderer.KeyDown (form, Keys.Enter);
+
+                Assert.True (recent.IsDropDownOpened);
+                Assert.True (file.IsDropDownOpened);
+            } finally {
+                form.Close ();
+            }
+        }
 
         [Fact]
         public void An_open_menu_takes_the_arrows_away_from_a_focused_text_box ()

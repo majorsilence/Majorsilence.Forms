@@ -25,10 +25,12 @@ routing neutralized. Two things to know:
 - **Selecting a menu item opens it** here (`MenuItem.Selected`'s setter calls `ShowDropDown`), so
   entering menu mode with F10 opens the first menu, where upstream would only highlight it. Splitting
   "highlighted" from "dropped down" would change every mouse path into a menu.
-- **Nested submenus are implemented but untested.** Right opens a submenu and Escape closes one level
-  back; neither can be evaluated on the headless backend, because showing a second popup while the
-  first is up tears the menu down via `Application.ScheduleClosePopupsOnDeactivate` (the new popup does
-  not report itself active without a window server). Needs a GUI check.
+- **Nested submenus are tested (#95, 2026-09-30).** The headless backend no longer tears the menu down when
+  a second popup opens, so Right into a submenu, Escape and Left one level back out, and Down past an item
+  whose submenu selection opened are pinned in `MenuKeyboardNavigationTests`. Writing them found a real
+  bug: selecting an item with a submenu opens it, and the keys then went to that unentered submenu -- a
+  second Down moved into it and Right walked the bar, closing the menu. Only an entered submenu owns the
+  keys now.
 
 Also fixed here, because this routing made it matter: `Application.ActiveMenu` was cleared only by
 `MenuBase.Deactivate`, so a **closed form left its menu bar as the active menu** and a later keystroke
