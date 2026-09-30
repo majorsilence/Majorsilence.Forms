@@ -12,6 +12,12 @@ namespace Majorsilence.Forms.Tests
     // Majorsilence.Forms.Mvvm: Observe pushes a view model's state into a control, BindCommand wires an ICommand to a control, and
     // BindingScope disposes them together. Threading is tested through a fake dispatcher, because what is being proved is that work is
     // posted when the caller is not on the UI thread and applied at once when it is.
+    //
+    // [Collection ("Headless")]: one test below calls HeadlessRenderer.Use (), which sets the truly global, process-wide
+    // Backends.Platform.Backend -- missing this tag (found by a real, twice-reproduced Windows CI failure, not guessed) let it run
+    // concurrently with any of the 100+ other test classes that also touch that same ambient backend and read back a stale or
+    // swapped one mid-assertion. Every one of those already carries this same collection name for the same reason.
+    [Collection ("Headless")]
     public class MvvmHelpersTests
     {
         private sealed class FakeDispatcher : IUiDispatcher
