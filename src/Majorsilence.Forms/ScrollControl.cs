@@ -50,18 +50,21 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override Rectangle PaddedClientRectangle {
             get {
+                // Device throughout (RC-8): the padding and the scroll bars' own sizes are logical, and
+                // subtracting them unscaled left the content running under half of each bar at 200%.
                 var client_rect = ClientRectangle;
+                var padding = LogicalToDeviceUnits (Padding);
 
-                var x = client_rect.Left + Padding.Left;
-                var y = client_rect.Top + Padding.Top;
-                var w = client_rect.Width - Padding.Horizontal;
-                var h = client_rect.Height - Padding.Vertical;
+                var x = client_rect.Left + padding.Left;
+                var y = client_rect.Top + padding.Top;
+                var w = client_rect.Width - padding.Horizontal;
+                var h = client_rect.Height - padding.Vertical;
 
                 if (hscrollbar.Visible)
-                    h -= hscrollbar.Height;
+                    h -= LogicalToDeviceUnits (hscrollbar.Height);
 
                 if (vscrollbar.Visible)
-                    w -= vscrollbar.Width;
+                    w -= LogicalToDeviceUnits (vscrollbar.Width);
 
                 return new Rectangle (x, y, w, h);
             }
