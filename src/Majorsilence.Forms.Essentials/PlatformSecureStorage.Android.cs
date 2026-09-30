@@ -61,8 +61,12 @@ namespace Majorsilence.Forms.Essentials
                 cipher!.Init (CipherMode.DecryptMode, GetOrCreateKey (), new GCMParameterSpec (GcmTagBits, iv));
                 var plain = cipher.DoFinal (cipherText);
                 return Task.FromResult<string?> (plain is null ? null : Encoding.UTF8.GetString (plain));
-            } catch {
-                // Never worth a crash: a corrupt entry, a keystore that rejects the key, or any other failure reads as "not there".
+            } catch (Exception ex) {
+                // TEMP-DEBUG (F16 CI investigation): the android-smoke job's own F16 check found a real "got '' instead of the
+                // stored value" failure with no exception anywhere in logcat, because every other Android backend's catch here
+                // is silent too (see AndroidHapticsBackend for the same shape). Logging once to find the real cause; remove
+                // once the real cause is fixed, to match that same established "never log internally" convention.
+                global::Android.Util.Log.Error ("F16_SECURESTORAGE_DEBUG", $"GetAsync failed: {ex}");
                 return Task.FromResult<string?> (null);
             }
         }
@@ -82,8 +86,9 @@ namespace Majorsilence.Forms.Essentials
                 var stored = Convert.ToBase64String (iv) + "." + Convert.ToBase64String (cipherText);
                 using var editor = Application.Context.GetSharedPreferences (PreferencesName, FileCreationMode.Private)?.Edit ();
                 editor?.PutString (key, stored)?.Apply ();
-            } catch {
-                // Never worth a crash, per the type summary.
+            } catch (Exception ex) {
+                // TEMP-DEBUG (F16 CI investigation): see GetAsync's own catch above.
+                global::Android.Util.Log.Error ("F16_SECURESTORAGE_DEBUG", $"SetAsync failed: {ex}");
             }
 
             return Task.CompletedTask;
