@@ -230,9 +230,8 @@ Majorsilence.Forms.Telerik.RadDock.SplitterWidth
 Majorsilence.Forms.Telerik.RadDock.ToolTabsAlignment
 Majorsilence.Forms.Telerik.RadDock.ToolTabsVisible
 Majorsilence.Forms.Telerik.RadDropDownButton.ShowArrow
-Majorsilence.Forms.Telerik.RadDropDownList.DropDownAnimationEnabled
-Majorsilence.Forms.Telerik.RadDropDownList.NullText
-Majorsilence.Forms.Telerik.RadDropDownList.ThemeName
+Majorsilence.Forms.Telerik.RadDropDownList.DropDownAnimationEnabled    -- the drop-down opens without animation
+Majorsilence.Forms.Telerik.RadDropDownList.ThemeName    -- Telerik theme name; the compat controls have no theme engine
 Majorsilence.Forms.Telerik.RadElement.AllowDrop
 Majorsilence.Forms.Telerik.RadElement.ControlBounds
 Majorsilence.Forms.Telerik.RadElement.DrawBorder
@@ -251,7 +250,7 @@ Majorsilence.Forms.Telerik.RadGridView.AutoScroll
 Majorsilence.Forms.Telerik.RadGridView.AutoSizeRows
 Majorsilence.Forms.Telerik.RadGridView.ColumnChooserSortOrder
 Majorsilence.Forms.Telerik.RadGridView.SynchronizeCurrentRowInSplitMode
-Majorsilence.Forms.Telerik.RadGridView.ThemeName
+Majorsilence.Forms.Telerik.RadGridView.ThemeName    -- Telerik theme name; the compat controls have no theme engine
 Majorsilence.Forms.Telerik.RadGridView.UseScrollbarsInHierarchy
 Majorsilence.Forms.Telerik.RadGroupBox.FooterText
 Majorsilence.Forms.Telerik.RadItem.ToolTipText
@@ -262,17 +261,16 @@ Majorsilence.Forms.Telerik.RadListDataItem.Tag
 Majorsilence.Forms.Telerik.RadListDataItem.Value
 Majorsilence.Forms.Telerik.RadMenuItem.CheckOnClick
 Majorsilence.Forms.Telerik.RadMessageBox.ThemeName
-Majorsilence.Forms.Telerik.RadPageView.DefaultPage
-Majorsilence.Forms.Telerik.RadPageView.ItemSizeMode
-Majorsilence.Forms.Telerik.RadPageView.ThemeName
+Majorsilence.Forms.Telerik.RadPageView.ItemSizeMode    -- tabs are sized by the core tab strip
+Majorsilence.Forms.Telerik.RadPageView.ThemeName    -- Telerik theme name; the compat controls have no theme engine
 Majorsilence.Forms.Telerik.RadPageViewCancelEventArgs.Page
 Majorsilence.Forms.Telerik.RadPageViewItem.Page
 Majorsilence.Forms.Telerik.RadPageViewPage.ItemSize
-Majorsilence.Forms.Telerik.RadPageViewStripElement.HighlightColor
-Majorsilence.Forms.Telerik.RadPageViewStripElement.ItemFitMode
-Majorsilence.Forms.Telerik.RadPageViewStripElement.ItemSizeMode
-Majorsilence.Forms.Telerik.RadPageViewStripElement.ShowItemCloseButton
-Majorsilence.Forms.Telerik.RadPageViewStripElement.StripButtons
+Majorsilence.Forms.Telerik.RadPageViewStripElement.HighlightColor    -- the core tab strip draws the selected tab from the theme
+Majorsilence.Forms.Telerik.RadPageViewStripElement.ItemFitMode    -- tabs are sized by the core tab strip
+Majorsilence.Forms.Telerik.RadPageViewStripElement.ItemSizeMode    -- tabs are sized by the core tab strip
+Majorsilence.Forms.Telerik.RadPageViewStripElement.ShowItemCloseButton    -- the core tab strip draws no close glyph on a tab
+Majorsilence.Forms.Telerik.RadPageViewStripElement.StripButtons    -- the core tab strip scrolls with arrows of its own and has no item-list button
 Majorsilence.Forms.Telerik.RadPageViewTabStripElement.ItemContentOrientation
 Majorsilence.Forms.Telerik.RadPanel.Text
 Majorsilence.Forms.Telerik.RadPdfViewer.ReadingMode
@@ -301,17 +299,11 @@ Majorsilence.Forms.Telerik.RadTextBox.ThemeName
 Majorsilence.Forms.Telerik.RadTextBoxItem.Alignment
 Majorsilence.Forms.Telerik.RadTextBoxItem.Text
 Majorsilence.Forms.Telerik.RadTimePicker.ThemeName
-Majorsilence.Forms.Telerik.RadToggleSwitch.OffText
-Majorsilence.Forms.Telerik.RadToggleSwitch.OnText
-Majorsilence.Forms.Telerik.RadToggleSwitch.ThumbTickness
-Majorsilence.Forms.Telerik.RadToggleSwitch.ToggleStateMode
 Majorsilence.Forms.Telerik.RadTreeNode.DataBoundItem    -- set by the tree as it binds; the application reads it back
 Majorsilence.Forms.Telerik.RadTreeNode.Value    -- set by the tree as it binds (ValueMember) or by the application; the application reads it back
 Majorsilence.Forms.Telerik.RadTreeView.ThemeName    -- Telerik theme name; the compat controls have no theme engine
-Majorsilence.Forms.Telerik.RadWaitingBar.IsWaiting
-Majorsilence.Forms.Telerik.RadWaitingBar.WaitingIndicatorSize
-Majorsilence.Forms.Telerik.RadWaitingBar.WaitingStep
-Majorsilence.Forms.Telerik.RadWaitingBar.WaitingStyle
+Majorsilence.Forms.Telerik.RadWaitingBar.WaitingStep    -- read by MarqueeStep, which the core marquee timer calls; the Telerik scan does not follow calls in from core
+Majorsilence.Forms.Telerik.RadWaitingBar.WaitingStyle    -- every style draws as the dash; the data cloud, rotating and spinner styles are not drawn
 Majorsilence.Forms.Telerik.RadWaitingBarElement.WaitingSpeed
 Majorsilence.Forms.Telerik.RenderElementEventArgs.Element
 Majorsilence.Forms.Telerik.ResourceMappingInfo.Color

@@ -29,15 +29,30 @@ namespace Majorsilence.Forms
         /// <summary>Advances the marquee by one step, as its timer does. Wraps at the end of the travel.</summary>
         internal void AdvanceMarquee ()
         {
-            marquee_phase = (marquee_phase + 1) % MarqueeSteps;
+            marquee_phase = (marquee_phase + MarqueeStep) % MarqueeSteps;
             Invalidate ();
         }
+
+        // Extension points for a derived bar (Telerik's RadWaitingBar, W6 mechanisms #176): whether the
+        // marquee may run at all, how many of the MarqueeSteps positions one tick moves it, and how
+        // wide the travelling block is.
+        internal virtual bool MarqueeRuns => true;
+
+        internal virtual int MarqueeStep => 1;
+
+        internal virtual int MarqueeBlockWidth (int trackWidth) => (int)(trackWidth * 0.3f);
+
+        /// <summary>Whether the marquee timer is running. Test seam.</summary>
+        internal bool MarqueeTimerRunning => marquee_timer?.Enabled == true;
+
+        /// <summary>Re-reads whether the marquee timer should run, after a derived bar changes its answer.</summary>
+        internal void RefreshMarquee () => UpdateMarqueeTimer ();
 
         // Started and stopped from one place so every route into Marquee (the Style setter, the speed
         // setter, becoming visible) agrees about whether the timer should be running.
         private void UpdateMarqueeTimer ()
         {
-            var should_run = Style == ProgressBarStyle.Marquee && MarqueeAnimationSpeed > 0 && Visible && Enabled;
+            var should_run = Style == ProgressBarStyle.Marquee && MarqueeAnimationSpeed > 0 && Visible && Enabled && MarqueeRuns;
 
             if (!should_run) {
                 if (marquee_timer is not null) {

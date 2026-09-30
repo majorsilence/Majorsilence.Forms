@@ -16,8 +16,40 @@ namespace Majorsilence.Forms.Telerik
             set => SelectedTabPage = value;
         }
 
-        /// <summary>Gets or sets the default page. Stub.</summary>
-        public TabPage? DefaultPage { get; set; }
+        /// <summary>Gets or sets the page shown when the view starts.</summary>
+        /// <remarks>Real as of W6 mechanisms (#176): the page is selected when this is set, or -- the
+        /// designer's order, the property before the pages -- at the first layout after it is added.</remarks>
+        public TabPage? DefaultPage {
+            get => default_page;
+            set {
+                default_page = value;
+                default_pending = value is not null;
+                ApplyDefaultPage ();
+            }
+        }
+
+        private TabPage? default_page;
+        private bool default_pending;
+
+        private void ApplyDefaultPage ()
+        {
+            // Both lists must hold it: a layout can run partway through adding a page, after the page is
+            // in TabPages but before its tab is in the strip.
+            if (!default_pending || default_page is null || TabPages.IndexOf (default_page) is var index && (index < 0 || index >= TabStrip.Tabs.Count))
+                return;
+
+            default_pending = false;
+            SelectedTabPage = default_page;
+        }
+
+        /// <inheritdoc/>
+        protected override void OnLayout (LayoutEventArgs e)
+        {
+            base.OnLayout (e);
+
+            // Not from ControlAdded: the tab list is not up to date yet at that moment.
+            ApplyDefaultPage ();
+        }
         /// <summary>Gets or sets the item size mode. Stub.</summary>
         public PageViewItemSizeMode ItemSizeMode { get; set; } = PageViewItemSizeMode.EqualWidth;
         /// <summary>Gets or sets the theme name. No-op stub.</summary>

@@ -118,6 +118,20 @@ namespace Majorsilence.Forms
         // reach the region the caret lives in.
         internal TextBox EditRegion => edit;
 
+        /// <summary>Text shown, dimmed, while nothing is selected; a derived combo sets it (Telerik's NullText).</summary>
+        /// <remarks>The editable region shows it as its placeholder; a drop-down list draws it itself (W6
+        /// mechanisms, #176).</remarks>
+        internal string EmptyText {
+            get => empty_text;
+            set {
+                empty_text = value ?? string.Empty;
+                edit.PlaceholderText = empty_text;
+                Invalidate ();
+            }
+        }
+
+        private string empty_text = string.Empty;
+
         // The list a combo box drops down is a real ListBox, and the combo's items are that list's items.
         // This subclass exists only so the collection they live in is a ComboBox.ObjectCollection -- the
         // type name WinForms code uses for a combo's items -- rather than the list box's own.

@@ -15,7 +15,6 @@ namespace Majorsilence.Forms.Renderers
         private const int BlockGap = 2;
 
         // The marquee block covers about a third of the track, which is what Windows draws.
-        private const float MarqueeBlockFraction = 0.3f;
 
         /// <inheritdoc/>
         protected override void Render (ProgressBar control, PaintEventArgs e)
@@ -72,7 +71,7 @@ namespace Majorsilence.Forms.Renderers
 
         private static void RenderMarquee (ProgressBar control, PaintEventArgs e, Rectangle clientArea, SkiaSharp.SKColor fill)
         {
-            var block_width = Math.Max (1, (int)(clientArea.Width * MarqueeBlockFraction));
+            var block_width = Math.Max (1, Math.Min (clientArea.Width, control.MarqueeBlockWidth (clientArea.Width)));
 
             // The block's left edge travels the width of the track and wraps, so at every phase --
             // phase zero included -- some of it is over the bar. Starting it fully off the left edge
