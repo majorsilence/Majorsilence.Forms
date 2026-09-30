@@ -77,6 +77,45 @@ All coordinates crossing the seam are `System.Drawing` value types and `Majorsil
 (`MouseButtons`, `Keys`, `CursorType`, `WindowEdge`, `FormWindowState`); no toolkit types leak into
 the core.
 
+### Logical vs. device pixels
+
+Not every size-shaped member is in the same units. On `Control`:
+
+- `Width`, `Height`, `Left`, `Top`, `Right`, `Bottom`, `Location`, `Bounds` and `Size` are **unscaled
+  (logical)** — the numbers an app sets are the numbers it reads back, at any display scaling.
+- `ClientSize` and `ClientRectangle` are **scaled (device pixels)**: the getter runs `Bounds` through
+  `ScaleFactor`, so at scaling 2 a control with `Width = 200` reports `ClientSize.Width` around 400
+  (minus border), not 200. The two families are identical at scaling 1 and diverge everywhere else, so
+  manual layout code that reads `ClientSize.Width` to centre or size a child breaks at any scaling
+  other than 1:
+
+  ```csharp
+  // Correct at every scaling -- Width is logical, same units as child.Width/child.Left.
+  child.Left = (Width - child.Width) / 2;
+
+  // Wrong above scaling 1 -- ClientSize.Width is device pixels, child.Width is logical, so the
+  // child lands roughly ScaleFactor times further right than centred.
+  child.Left = (ClientSize.Width - child.Width) / 2;
+  ```
+
+  This split is intentional as far as it goes — `ClientRectangle` also backs the paint canvas
+  (`PaintEventArgs.Graphics` draws in device pixels too), and `BACKLOG.md`'s HiDPI section counts 81
+  call sites against it, 33 of them renderers that genuinely want device pixels, so it is not something
+  to flip in passing. But nothing marks `ClientSize` as the odd one out the way the explicitly-named
+  `Scaled*` family (`ScaledWidth`, `ScaledHeight`, `ScaledBounds`, …) announces itself — `ClientSize`
+  predates that convention. See the remarks on `Control.ClientSize` in source for the full picture.
+- `Form.ClientSize` is a **separate property**, declared on `Form` itself rather than inherited from
+  `Control` (`Form` derives from `WindowBase`, not `Control`), and it is logical: built from `Size`
+  minus the caption height, not from `ClientRectangle`. A `Form`'s own `ClientSize` mixes safely with
+  its `Width`/`Height`; a child `Control`'s (`UserControl`, `Panel`, …) does not.
+- At the backend seam itself, `IWindowBackend.ClientSize`/`Size` (the block above) are logical — each
+  backend converts its own native device pixels before handing a value up through the seam (see e.g.
+  `HeadlessWindowHost.ClientSize`, or the Avalonia presenter's `Bounds`) — a third, unrelated meaning of
+  "ClientSize" behind the same two words. Don't assume it lines up with `Control.ClientSize`.
+
+Test scaling assumptions like these under `MF_HEADLESS_SCALE=2` ([`docs/automation.md`](automation.md))
+— they are identical to scaling 1 and wrong on any other display.
+
 ### Selecting the backend
 
 `Majorsilence.Forms.Backends.Platform.Backend` holds the active `IPlatformBackend`. If unset, it is

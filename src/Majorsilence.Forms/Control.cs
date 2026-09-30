@@ -301,6 +301,12 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets the scaled bounds of the control's canvas minus any borders.
         /// </summary>
+        /// <remarks>
+        /// Scaled means device pixels here, same as <see cref="ClientSize"/> (this rectangle's
+        /// <see cref="Rectangle.Size"/>) -- while <see cref="Bounds"/>, <see cref="Location"/> and the
+        /// rest of the unscaled bounds family stay logical. See the remarks on <see cref="ClientSize"/>
+        /// for the split and a worked example.
+        /// </remarks>
         public virtual Rectangle ClientRectangle {
             get {
                 // TODO: We should be scaling the Border as well
@@ -316,15 +322,50 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Gets or sets the size of the control's client area.
+        /// Gets or sets the scaled size of the control's client area.
         /// </summary>
         /// <remarks>
+        /// <para>
+        /// <b>Scaled means device pixels, not logical ones -- the one exception in the bounds family.</b>
+        /// The getter is <see cref="ClientRectangle"/>'s size, which runs <see cref="Bounds"/> through
+        /// <see cref="ScaleFactor"/>, while <see cref="Width"/>, <see cref="Height"/>,
+        /// <see cref="Location"/>, <see cref="Left"/>, <see cref="Top"/>, <see cref="Right"/> and
+        /// <see cref="Bottom"/> all stay unscaled (logical) -- the units an app sets them in. The two
+        /// families read identically at <see cref="ScaleFactor"/> 1 and diverge at any other scaling, so
+        /// manual layout code that mixes them (e.g. centering a child with <c>ClientSize.Width</c> instead
+        /// of <c>Width</c>) breaks only on a scaled display -- see the example below.
+        /// </para>
+        /// <para>
+        /// Elsewhere on <see cref="Control"/>, code that deliberately wants device pixels uses the
+        /// explicitly-named <see cref="ScaledWidth"/>/<see cref="ScaledHeight"/>/<see cref="ScaledBounds"/>
+        /// family, which announces itself by name; <c>ClientSize</c> predates that convention and does not
+        /// follow it. <see cref="Form.ClientSize"/> does not have this behaviour either -- it is a
+        /// separate property declared on <see cref="Form"/> itself (<see cref="Form"/> derives from
+        /// <see cref="WindowBase"/>, not <see cref="Control"/>, so it does not inherit this one), and it is
+        /// logical, built from <see cref="Size"/> rather than <see cref="ClientRectangle"/>. So a
+        /// <see cref="Form"/>'s own <c>ClientSize</c> mixes safely with its <c>Width</c>/<c>Height</c>; a
+        /// child <see cref="Control"/>'s (<see cref="UserControl"/>, <see cref="Panel"/>, …) does not. See
+        /// <c>docs/backends.md</c> ("Logical vs. device pixels") for the wider picture.
+        /// </para>
+        /// <para>
         /// The setter grows <see cref="Size"/> by whatever the border currently takes, which is what makes
         /// <c>ClientSize = contentSize</c> mean the same thing here as in WinForms: a caller that has
         /// measured its content and wants exactly that much room inside the border gets it, rather than
         /// losing the border's width off the inside. It was read-only before, so those assignments -- the
         /// normal way a dialog sizes itself to its content -- did not compile.
+        /// </para>
         /// </remarks>
+        /// <example>
+        /// <code>
+        /// // Correct at every scaling -- Width is logical, same units as child.Width/child.Left.
+        /// child.Left = (Width - child.Width) / 2;
+        ///
+        /// // Wrong above scaling 1 -- ClientSize.Width is device pixels while child.Width is logical,
+        /// // so the child lands roughly ScaleFactor times further right than centred (and, for a
+        /// // sibling near the far edge, off it entirely).
+        /// child.Left = (ClientSize.Width - child.Width) / 2;
+        /// </code>
+        /// </example>
         public Size ClientSize {
             get => ClientRectangle.Size;
             set {
@@ -961,6 +1002,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the unscaled height of the control.
         /// </summary>
+        /// <remarks>Logical, unlike <see cref="ClientSize"/> -- see its remarks for the split.</remarks>
         public int Height {
             get => _height;
             set => SetBounds (_x, _y, _width, value, BoundsSpecified.Height);
@@ -3027,6 +3069,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the unscaled width of the control.
         /// </summary>
+        /// <remarks>Logical, unlike <see cref="ClientSize"/> -- see its remarks for the split.</remarks>
         public int Width {
             get => _width;
             set => SetBounds (_x, _y, value, _height, BoundsSpecified.Width);
