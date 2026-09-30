@@ -174,7 +174,7 @@ fi
 # ThreadPool batch as F13/F14 in App.cs, so it is already in this same early $LOG capture.
 echo "Checking for the F16 SecureStorage smoke-test result ..."
 if grep -q "F16_SECURESTORAGE_SMOKE.*FAIL" <<<"$LOG"; then
-  echo "$LOG" | grep -E "F16_SECURESTORAGE_SMOKE|F16_SECURESTORAGE_DEBUG" >&2
+  echo "$LOG" | grep "F16_SECURESTORAGE_SMOKE" >&2
   fail "F16 SecureStorage smoke test reported FAIL (see F16_SECURESTORAGE_SMOKE lines above)"
 elif grep -q "F16_SECURESTORAGE_SMOKE.*PASS" <<<"$LOG"; then
   echo "F16 SecureStorage smoke test: PASS"
