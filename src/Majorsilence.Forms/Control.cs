@@ -1910,16 +1910,23 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// The scaled control canvas minus any borders and Padding.
+        /// The scaled control canvas minus any borders and Padding, in device pixels.
         /// </summary>
+        /// <remarks>
+        /// <see cref="ClientRectangle"/> is device and <see cref="Padding"/> logical, so the padding is
+        /// scaled before it is taken off (RC-8). It used to be subtracted as it was, and at 200% every
+        /// padded control -- text box, list view, status bar, progress bar, combo box, picture box --
+        /// kept only half its padding. Found through a picture-box regression test at scale 2.
+        /// </remarks>
         public virtual Rectangle PaddedClientRectangle {
             get {
                 var client_rect = ClientRectangle;
+                var padding = LogicalToDeviceUnits (Padding);
 
-                var x = client_rect.Left + Padding.Left;
-                var y = client_rect.Top + Padding.Top;
-                var w = client_rect.Width - Padding.Horizontal;
-                var h = client_rect.Height - Padding.Vertical;
+                var x = client_rect.Left + padding.Left;
+                var y = client_rect.Top + padding.Top;
+                var w = client_rect.Width - padding.Horizontal;
+                var h = client_rect.Height - padding.Vertical;
                 return new Rectangle (x, y, w, h);
             }
         }

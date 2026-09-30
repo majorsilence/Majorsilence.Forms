@@ -4058,6 +4058,24 @@ drop-down animation flag; `WaitingStyle`; and `WaitingStep`, which is read from 
 7 tests; three neutralization rounds (the waiting bar; the toggle switch; `NullText` and `DefaultPage`),
 failing 2, 3 and 2 of the 7, snapshot verified before and after.
 
+**RC-8 follow-up: `PaddedClientRectangle` took logical padding off a device rectangle. — 2026-09-30.**
+Found by #323's padded-picture regression test at scale 2, which #323 fixed locally in the picture box
+renderer. The cause was shared.
+
+- **`Control.PaddedClientRectangle`** subtracted `Padding`, which is logical, from `ClientRectangle`, which is
+  device. At scale 1 the two agree. At 200% every padded control kept half its padding: the text box's text
+  origin, wrap width and scroll extents, the list view's header band, the status bar and progress bar
+  areas, the combo box's text area, the rich text box's selection margin and the picture box's image
+  rectangle. The padding is now scaled first.
+- **`ScrollControl.PaddedClientRectangle`** had the same mistake and one more: it also subtracted the scroll
+  bars' logical `Width` and `Height`, so a scrolling control's content ran under half of each bar at 200%.
+- Every caller already treated the result as device -- the renderers draw with it and two callers say so
+  in comments -- so no caller changes. The picture box renderer's local workaround from #323 is removed in
+  favour of the shared fix.
+
+2 tests, plus #323's picture test now exercising the shared helper; one neutralization round at scale 2
+(both helpers back to the old arithmetic) fails all three, snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.
