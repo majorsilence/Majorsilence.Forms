@@ -177,7 +177,12 @@ public class W6MechanismTests
         form.Show ();
         Assert.False (form.TitleBar.AllowHelp);
 
+        // Upstream shows the help button only on a caption without minimize/maximize.
         form.HelpButton = true;
+        Assert.False (form.TitleBar.AllowHelp);
+
+        form.MinimizeBox = false;
+        form.MaximizeBox = false;
         Assert.True (form.TitleBar.AllowHelp);
         // Only where the library draws its own caption; under system decorations the title bar is hidden.
         if (form.TitleBar.Visible && !form.TitleBar.NativeOverlay)

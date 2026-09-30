@@ -163,7 +163,12 @@ namespace Majorsilence.Forms.Renderers
                     bounds.Top, bounds.Right, bounds.Bottom);
             }
 
-            e.Canvas.DrawText (item.Text, font, font_size, text_bounds, font_color, ContentAlignment.MiddleCenter);
+            if (control.ItemTextAlign != ContentAlignment.MiddleCenter && item.Image is null) {
+                var lead = control.LogicalToDeviceUnits (item.Padding.Left);
+                text_bounds = Rectangle.FromLTRB (text_bounds.Left + lead, text_bounds.Top, text_bounds.Right - lead, text_bounds.Bottom);
+            }
+
+            e.Canvas.DrawText (item.Text, font, font_size, text_bounds, font_color, control.ItemTextAlign, maxLines: 1);
 
             if (item.Selected && appearance == TabAppearance.Normal) {
                 var underline = TabStrip.DefaultSelectedItemStyle.Border.Bottom;

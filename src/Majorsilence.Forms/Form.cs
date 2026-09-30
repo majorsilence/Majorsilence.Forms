@@ -1430,13 +1430,32 @@ namespace Majorsilence.Forms
         private bool IsBorderless => form_border_style == FormBorderStyle.None;
 
         /// <summary>Gets or sets whether a maximize button appears in the title bar.</summary>
+        /// <remarks>
+        /// Both boxes used to stop short of the caption this library draws: MaximizeBox only forwarded to
+        /// the backend and MinimizeBox was stored, so a designer's <c>MaximizeBox = False</c> still showed
+        /// a live maximize button. Each now re-applies the caption-button rules (see ApplyControlBox).
+        /// </remarks>
         public bool MaximizeBox {
-            get => Backend.CanResize;
-            set => Backend.CanResize = value;
+            get => maximize_box;
+            set {
+                maximize_box = value;
+                Backend.CanResize = value;
+                ApplyControlBox ();
+            }
         }
 
+        private bool maximize_box = true;
+
         /// <summary>Gets or sets whether a minimize button appears in the title bar.</summary>
-        public bool MinimizeBox { get; set; } = true;
+        public bool MinimizeBox {
+            get => minimize_box;
+            set {
+                minimize_box = value;
+                ApplyControlBox ();
+            }
+        }
+
+        private bool minimize_box = true;
 
         /// <summary>Gets or sets whether the form is displayed in the taskbar.</summary>
         public bool ShowInTaskbar {
@@ -2185,12 +2204,20 @@ namespace Majorsilence.Forms
         //
         // MinimizeBox and MaximizeBox keep their own say: ControlBox = false hides everything, and
         // turning it back on restores whatever those two were set to rather than forcing all three on.
+        //
+        // The rest is the Win32 caption rule upstream inherits (WS_MINIMIZEBOX/WS_MAXIMIZEBOX with
+        // WS_EX_CONTEXTHELP): minimize and maximize are shown or hidden as a PAIR -- turning off just one
+        // leaves both visible with that one disabled -- and the help button appears only when both are
+        // off, since it would otherwise have no room beside them.
         private void ApplyControlBox ()
         {
+            var any_box = minimize_box || maximize_box;
+
             TitleBar.AllowClose = control_box;
-            TitleBar.AllowMinimize = control_box && MinimizeBox;
-            TitleBar.AllowMaximize = control_box && MaximizeBox;
-            TitleBar.AllowHelp = control_box && help_button;
+            TitleBar.AllowMinimize = control_box && any_box;
+            TitleBar.AllowMaximize = control_box && any_box;
+            TitleBar.SetCaptionButtonsEnabled (minimize_box, maximize_box);
+            TitleBar.AllowHelp = control_box && help_button && !any_box;
         }
 
         /// <summary>Gets or sets the help button visibility in the title bar. Stub in Majorsilence.Forms.</summary>

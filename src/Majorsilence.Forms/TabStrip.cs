@@ -24,6 +24,11 @@ namespace Majorsilence.Forms
         // from here rather than mirrored into a second set of fields.
         internal TabControl? OwnerTabControl => Parent as TabControl;
 
+        // Where a tab's caption sits inside the tab. WinForms centres it; a compat layer for a toolkit
+        // that leads with it (Telerik's page view) sets MiddleLeft, and the caption is then inset by
+        // the tab's own leading padding.
+        internal ContentAlignment ItemTextAlign { get; set; } = ContentAlignment.MiddleCenter;
+
         // Vetoable notification handed to the owner BEFORE a selection change is committed. The owner
         // raises TabControl.Deselecting/Deselected from it, which is the only point at which
         // TabControl.SelectedTab still reports the OUTGOING page -- a handler saving the page it is
