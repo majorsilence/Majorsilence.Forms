@@ -119,6 +119,15 @@ namespace Majorsilence.Forms.Tests
             HeadlessRenderer.Use ();
 
             using var form = new Form { Size = new Size (300, 200), HelpButton = true };
+            form.Show ();
+
+            // Skipped when the title bar is a native overlay (macOS's default): the OS draws the traffic
+            // lights there and every managed caption button is hidden regardless, so nothing this rule
+            // decides is observable -- the same guard W62RemainingTypesTests uses. The caption getters
+            // report the buttons' visibility, which is also why the form has to be shown first.
+            if (!form.TitleBar.Visible || form.TitleBar.NativeOverlay)
+                return;
+
             form.MaximizeBox = false;
 
             Assert.True (form.TitleBar.AllowMinimize);
@@ -154,9 +163,12 @@ namespace Majorsilence.Forms.Tests
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
             var painted = (SkiaSharp.SKBitmap)buffer.Invoke (box, null)!;
 
-            Assert.Equal (SkiaSharp.SKColors.White, painted.GetPixel (4, 4));   // inside the padding
-            Assert.Equal (SkiaSharp.SKColors.Red, painted.GetPixel (17, 17));   // the centre
-            Assert.Equal (SkiaSharp.SKColors.White, painted.GetPixel (29, 29)); // the far padding
+            // The back buffer is in device pixels, the points below logical (RC-8).
+            SkiaSharp.SKColor At (int logical) => painted.GetPixel (box.LogicalToDeviceUnits (logical), box.LogicalToDeviceUnits (logical));
+
+            Assert.Equal (SkiaSharp.SKColors.White, At (4));   // inside the padding
+            Assert.Equal (SkiaSharp.SKColors.Red, At (17));    // the centre
+            Assert.Equal (SkiaSharp.SKColors.White, At (29));  // the far padding
         }
 
         private static RadPageView DesignerPageView (Form form)
@@ -242,10 +254,15 @@ namespace Majorsilence.Forms.Tests
                     }
 
             Assert.True (first >= 0, "the caption was not drawn");
+
+            // The back buffer is in device pixels, so the limits are logical ones scaled (RC-8).
+            var one_line = button.LogicalToDeviceUnits (16);
+            var slack = button.LogicalToDeviceUnits (5);
+
             // One whole line only: a sliced second line under the first would make the ink taller.
-            Assert.InRange (last - first, 1, 16);
+            Assert.InRange (last - first, 1, one_line);
             // Centred: the gap above the ink and the gap below it agree to within a few pixels.
-            Assert.InRange (first - (painted.Height - 1 - last), -5, 5);
+            Assert.InRange (first - (painted.Height - 1 - last), -slack, slack);
         }
     }
 }

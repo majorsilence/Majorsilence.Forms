@@ -7,11 +7,23 @@ namespace Majorsilence.Forms.Renderers
     /// </summary>
     public class PictureBoxRenderer : Renderer<PictureBox>
     {
+        // The client rectangle inset by the padding, both in device pixels. Control.PaddedClientRectangle
+        // insets the device client rectangle by the LOGICAL padding, so at scale 2 a padded image sat
+        // half as far in as it should (RC-8) -- found by the padded-zoom regression test at scale 2.
+        private static Rectangle PaddedDeviceRectangle (PictureBox control)
+        {
+            var client = control.ClientRectangle;
+            var padding = control.LogicalToDeviceUnits (control.Padding);
+
+            return new Rectangle (client.X + padding.Left, client.Y + padding.Top,
+                Math.Max (0, client.Width - padding.Horizontal), Math.Max (0, client.Height - padding.Vertical));
+        }
+
         /// <inheritdoc/>
         protected override void Render (PictureBox control, PaintEventArgs e)
         {
             if (control.SKImage != null) {
-                var client = control.PaddedClientRectangle;
+                var client = PaddedDeviceRectangle (control);
 
                 switch (control.SizeMode) {
                     // AutoSize draws the image at its natural size, exactly as Normal does -- the
@@ -45,7 +57,7 @@ namespace Majorsilence.Forms.Renderers
                         break;
                 }
             } else if (control.IsErrored) {
-                var client = control.PaddedClientRectangle;
+                var client = PaddedDeviceRectangle (control);
 
                 e.Canvas.DrawLine (client.Left, client.Top, client.Right, client.Bottom, Theme.WarningHighlightColor, control.LogicalToDeviceUnits (2));
                 e.Canvas.DrawLine (client.Left, client.Bottom, client.Right, client.Top, Theme.WarningHighlightColor, control.LogicalToDeviceUnits (2));
