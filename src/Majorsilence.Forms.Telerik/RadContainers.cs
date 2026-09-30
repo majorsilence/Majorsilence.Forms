@@ -441,18 +441,45 @@ namespace Majorsilence.Forms.Telerik
         public RadElement RootElement { get; } = new RadElement ();
         private bool _isExpanded = true;
 
+        private readonly Label _header;
+        private int _expandedHeight;
+
+        // The header strip's height, in logical units.
+        internal const int HeaderHeight = 24;
+
         /// <summary>Initializes a new instance of the RadCollapsiblePanel class.</summary>
+        /// <remarks>
+        /// W6 mechanisms (#176): the panel had no header, so <see cref="HeaderText"/> was never shown and
+        /// nothing in the UI could expand or collapse it. The header is added after the content so it docks
+        /// first, at the top; clicking it toggles <see cref="IsExpanded"/>.
+        /// </remarks>
         public RadCollapsiblePanel ()
         {
             PanelContainer = new Panel { Dock = DockStyle.Fill };
             Controls.Add (PanelContainer);
+
+            _header = new Label { Dock = DockStyle.Top, Height = HeaderHeight, TextAlign = ContentAlignment.MiddleLeft };
+            _header.Click += (_, _) => IsExpanded = !IsExpanded;
+            Controls.AddImplicitControl (_header);
+            UpdateHeader ();
         }
+
+        internal Label Header => _header;
+
+        private void UpdateHeader () => _header.Text = (_isExpanded ? "\u25BE " : "\u25B8 ") + _headerText;
 
         /// <summary>Gets the panel hosting the collapsible content.</summary>
         public Panel PanelContainer { get; }
 
+        private string _headerText = string.Empty;
         /// <summary>Gets or sets the header text shown above the content.</summary>
-        public string HeaderText { get; set; } = string.Empty;
+        public string HeaderText {
+            get => _headerText;
+            set {
+                _headerText = value ?? string.Empty;
+                UpdateHeader ();
+            }
+        }
 
         /// <summary>Gets or sets whether the panel is expanded (showing its content) or collapsed.</summary>
         public bool IsExpanded {
@@ -475,11 +502,18 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Raised after the panel collapses.</summary>
         public event EventHandler? Collapsed;
 
+        private bool FillsVertically => Dock is DockStyle.Fill or DockStyle.Left or DockStyle.Right;
+
         /// <summary>Expands the panel, showing its content.</summary>
         public void Expand ()
         {
             _isExpanded = true;
             PanelContainer.Visible = true;
+            UpdateHeader ();
+
+            // Back to the height it had before collapsing -- unless docking sizes it.
+            if (_expandedHeight > 0 && !FillsVertically)
+                Height = _expandedHeight;
             Expanded?.Invoke (this, EventArgs.Empty);
         }
 
@@ -488,6 +522,13 @@ namespace Majorsilence.Forms.Telerik
         {
             _isExpanded = false;
             PanelContainer.Visible = false;
+            UpdateHeader ();
+
+            // Shrink to the header, as Telerik's does, so what sits below moves up.
+            if (!FillsVertically) {
+                _expandedHeight = Height;
+                Height = HeaderHeight + Padding.Vertical;   // Height is logical, like Bounds (RC-8)
+            }
             Collapsed?.Invoke (this, EventArgs.Empty);
         }
     }

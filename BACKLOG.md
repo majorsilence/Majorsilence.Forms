@@ -187,6 +187,16 @@ the legacy `ToolBar.Buttons` collection is not rendered at all, unlike `Items`.
   read-only table, not a hosted grid, so there is no scroll region. Honouring it means building the
   hosted child grid. The 320px height cap that silently drops rows past roughly the thirteenth is part
   of the same gap.
+- **`RadGridView.AutoSizeRows` (deferred 2026-09-30, #176).** It would forward to the core grid's
+  `AutoSizeRowsMode`, but that is itself stored only: layout never applies it; only an explicit
+  `AutoResizeRows ()` call sizes rows. Fix the core first, and the Telerik flag becomes one line.
+- **Dock tool-window caption buttons (deferred 2026-09-30, #176).** `ToolCaptionButtons` has nothing
+  to show or hide: the tool strip's caption band draws only the caption. A close box there would be the
+  same code as the document tabs' one, but auto-hide and the menu button need the auto-hide and floating
+  windowing deferred under split layout below.
+- **`RadCheckedDropDownList`'s check boxes (deferred 2026-09-30, #176).** The model is real (`CheckedItems`
+  follows each item's `Checked`) but the drop-down is the plain `ComboBox` list, so a user cannot check
+  anything: it needs a checked list as the drop-down, and a display of the checked items in the box.
 
 `Majorsilence.Forms.Telerik` (`src/Majorsilence.Forms/Telerik/*.cs`) now covers every heavyweight Telerik
 UI for WinForms surface previously tracked here (PDF viewer, rich text editor, spell checker, scheduler
