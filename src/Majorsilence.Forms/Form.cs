@@ -1246,11 +1246,21 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the size of the form's client area — the region below the caption.</summary>
         /// <remarks>
+        /// <para>
         /// This reported the whole backend client size, caption included, and assigning it sized the
         /// window to exactly that. Since the library draws its own title bar everywhere but macOS, a
         /// designer form built as <c>ClientSize = (800, 450)</c> got 450 pixels of which the top
         /// caption-height was behind the caption -- so the first row of controls was hidden and an
         /// <c>Anchor = Bottom</c> row hung off the bottom of the window by the same amount.
+        /// </para>
+        /// <para>
+        /// Unlike <see cref="Control.ClientSize"/>, this one is logical, not device pixels: it is built
+        /// from <see cref="WindowBase.Size"/> (itself unscaled) rather than from a device-scaled
+        /// <c>ClientRectangle</c> -- <see cref="Form"/> derives from <see cref="WindowBase"/>, not
+        /// <see cref="Control"/>, so it declares its own <c>ClientSize</c> rather than inheriting
+        /// <see cref="Control"/>'s. A <see cref="Form"/>'s <c>ClientSize</c> therefore mixes safely with
+        /// its own <c>Width</c>/<c>Height</c>; a child <see cref="Control"/>'s does not.
+        /// </para>
         /// </remarks>
         public System.Drawing.Size ClientSize {
             get {
