@@ -780,6 +780,14 @@ Unlike Haptics/local notifications, Headless implements `IKeepScreenAwakeBackend
 
 **Verification, three different ways for three different rows.** Android: `MainActivity.RunKeepScreenAwakeSmokeTest` sets `KeepScreenAwake` true then false on the real Activity `RegisterAndroidActivity` already registers (register item F14), confirmed via `android-smoke-test.sh`'s `F12_KEEPAWAKE_SMOKE` log line. Linux: `KeepScreenAwakeTests.The_real_desktop_set_never_throws_and_toggles_IsEnabled_regardless_of_host` calls the real `Set (true)`/`Set (false)` (not the injectable `Dispatch`) directly, genuinely spawning and killing a real `systemd-inhibit` child process on whatever Linux CI runner executes it. Windows and macOS: unlike `DesktopReducedMotion`'s own P/Invoke, which has run on this project's real Windows/macOS CI build jobs ever since F7 merged without a reported failure, this specific P/Invoke is new as of this register item — the *same* test above also runs for real on CI's `build (windows-latest)`/`build (macos-latest)` jobs (which run the full test suite, not just a compile check), so a wrong `DllImport` signature or constant value there would show up as an actual test failure, not just "written from the documented API, not run." iOS: written from the documented `UIApplication.IdleTimerDisabled` API, compiles clean via CI's `ios`/`sample-ios` jobs, but not run on a simulator or device — the same honest gap F13/F14 already have for iOS.
 
+## SecureStorage is not part of this seam (register item F16)
+
+`Majorsilence.Forms.Essentials.SecureStorage` deliberately does not go through `Backends.Platform`/`IPlatformBackend` the way
+Haptics, local notifications and `Application.KeepScreenAwake` above do: which OS credential store exists has nothing to do
+with which UI backend (Avalonia, WinForms, Uno) is active, so it picks its own `ISecureStorageBackend` per target framework
+directly instead. `Majorsilence.Forms.Essentials` has no `ProjectReference` to this project at all. See
+`COMPATIBILITY_MATRIX.md`'s "SecureStorage" entry for the full per-platform detail and verification.
+
 ### Adding another backend
 
 A new backend is a new assembly referencing `Majorsilence.Forms` (core) + the toolkit, implementing the two

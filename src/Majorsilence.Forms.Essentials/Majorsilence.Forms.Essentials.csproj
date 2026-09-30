@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Desktop (Windows/macOS/Linux, told apart at run time, the same shape Majorsilence.Forms.Backends.DesktopKeepAwake already
+         uses) needs no platform workload to compile against, so it is unconditional. Android and iOS are opt-in for the same reason
+         Majorsilence.Forms.Avalonia's own rows are: compiling against those TFMs needs their workload's reference assemblies
+         installed, which not every contributor or CI leg has. -->
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(EnableAndroidHead)' == 'true'">$(TargetFrameworks);net10.0-android</TargetFrameworks>
+    <TargetFrameworks Condition="'$(EnableIOSHead)' == 'true'">$(TargetFrameworks);net10.0-ios</TargetFrameworks>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Trim + AOT + single-file analyzers; see docs/backends.md "Trimming and NativeAOT". No reflection, no expression trees. -->
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Majorsilence.Forms.Essentials</PackageId>
+    <Description>Platform capabilities that carry per-platform dependencies the Majorsilence.Forms core deliberately avoids: secure storage (Android Keystore, iOS Keychain, Windows Credential Manager, macOS Keychain Services, Linux Secret Service) today, text to speech to follow.</Description>
+    <PackageTags>majorsilence-forms;winforms;secure-storage;keychain;credential-manager;secret-service;cross-platform</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Majorsilence.Forms.Tests" />
+  </ItemGroup>
+
+  <!-- One PlatformSecureStorage.*.cs file per platform family, each declaring the same internal PlatformSecureStorage.Create();
+       MSBuild's default glob compiles all three into every row unless explicitly excluded, so these Remove entries keep exactly
+       one in each build and avoid a duplicate-type error. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-android'">
+    <Compile Remove="PlatformSecureStorage.Desktop.cs" />
+    <Compile Remove="PlatformSecureStorage.iOS.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-ios'">
+    <Compile Remove="PlatformSecureStorage.Desktop.cs" />
+    <Compile Remove="PlatformSecureStorage.Android.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' != 'net10.0-android' and '$(TargetFramework)' != 'net10.0-ios'">
+    <Compile Remove="PlatformSecureStorage.Android.cs" />
+    <Compile Remove="PlatformSecureStorage.iOS.cs" />
+  </ItemGroup>
+
+</Project>

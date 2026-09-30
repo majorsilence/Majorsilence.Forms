@@ -31,6 +31,7 @@
   <Folder Name="/src/">
     <Project Path="src/Majorsilence.Forms.Avalonia/Majorsilence.Forms.Avalonia.csproj" />
     <Project Path="src/Majorsilence.Forms.Drawing.Common/Majorsilence.Forms.Drawing.Common.csproj" />
+    <Project Path="src/Majorsilence.Forms.Essentials/Majorsilence.Forms.Essentials.csproj" />
     <Project Path="src/Majorsilence.Forms.Gtk4/Majorsilence.Forms.Gtk4.csproj" />
     <Project Path="src/Majorsilence.Forms.DrawingShims/Majorsilence.Forms.DrawingShims.csproj" />
     <Project Path="src/Majorsilence.Forms.Headless/Majorsilence.Forms.Headless.csproj" />
