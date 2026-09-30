@@ -35,6 +35,11 @@ namespace Majorsilence.Forms.Renderers
                     control.RaiseEditAreaDrawItem (text_area, e);
                 else
                     e.Canvas.DrawText (control.GetItemText (control.Items.SelectedItem), text_area, control, ContentAlignment.MiddleLeft, maxLines: 1);
+            } else if (!control.IsEditable && control.Items.SelectedItem is null && control.EmptyText.Length > 0) {
+                // Nothing selected: the empty text, dimmed (W6 mechanisms, #176). The editable region
+                // shows it itself, as its placeholder.
+                e.Canvas.DrawText (control.EmptyText, control.GetEffectiveFont (), e.LogicalToDeviceUnits (control.GetEffectiveFontSize ()),
+                    text_area, Theme.ForegroundDisabledColor, ContentAlignment.MiddleLeft, maxLines: 1);
             }
 
             // Draw the drop down glyph

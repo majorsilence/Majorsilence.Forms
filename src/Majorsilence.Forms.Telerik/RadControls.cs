@@ -115,13 +115,97 @@ namespace Majorsilence.Forms.Telerik
         }
 
         /// <summary>Gets or sets the text shown in the "on" position.</summary>
-        public string OnText { get; set; } = "On";
+        /// <remarks>Drawn as of W6 mechanisms (#176): the switch paints as a track and thumb, with this
+        /// in the half the thumb has left. It used to paint as a plain check box and show neither text.</remarks>
+        public string OnText {
+            get => on_text;
+            set {
+                on_text = value ?? string.Empty;
+                Invalidate ();
+            }
+        }
+
+        private string on_text = "On";
+
         /// <summary>Gets or sets the text shown in the "off" position.</summary>
-        public string OffText { get; set; } = "Off";
-        /// <summary>Gets or sets how the switch changes state.</summary>
+        /// <remarks>See <see cref="OnText"/>.</remarks>
+        public string OffText {
+            get => off_text;
+            set {
+                off_text = value ?? string.Empty;
+                Invalidate ();
+            }
+        }
+
+        private string off_text = "Off";
+
+        /// <summary>Gets or sets whether a click (press and release) or a press alone toggles the switch.</summary>
+        /// <remarks>Real as of W6 mechanisms (#176): with <see cref="Telerik.ToggleStateMode.Press"/> the
+        /// switch toggles on mouse down, and the click that follows does not toggle it back.</remarks>
         public ToggleStateMode ToggleStateMode { get; set; } = ToggleStateMode.Click;
-        /// <summary>Gets or sets the thumb thickness (Telerik spelling preserved). Stub.</summary>
-        public int ThumbTickness { get; set; }
+
+        /// <summary>Gets or sets the thumb's width in logical pixels (Telerik spelling preserved); zero for a square thumb.</summary>
+        /// <remarks>Real as of W6 mechanisms (#176).</remarks>
+        public int ThumbTickness {
+            get => thumb_thickness;
+            set {
+                thumb_thickness = Math.Max (0, value);
+                Invalidate ();
+            }
+        }
+
+        private int thumb_thickness;
+
+        static RadToggleSwitch ()
+            => Majorsilence.Forms.Renderers.RenderManager.SetRenderer<RadToggleSwitch> (new Majorsilence.Forms.Renderers.RadToggleSwitchRenderer ());
+
+        // Press mode: the press has toggled, so the click it becomes must not toggle again.
+        private bool toggled_on_press;
+
+        /// <inheritdoc/>
+        protected override void OnMouseDown (MouseEventArgs e)
+        {
+            base.OnMouseDown (e);
+
+            if (ToggleStateMode == ToggleStateMode.Press && e.Button == MouseButtons.Left && Enabled && AutoCheck) {
+                Checked = !Checked;
+                toggled_on_press = true;
+            }
+        }
+
+        /// <inheritdoc/>
+        protected override void OnClick (EventArgs e)
+        {
+            if (!toggled_on_press) {
+                base.OnClick (e);
+                return;
+            }
+
+            toggled_on_press = false;
+
+            // The click event still happens; only the toggle it would make is skipped.
+            var auto = AutoCheck;
+            AutoCheck = false;
+
+            try {
+                base.OnClick (e);
+            } finally {
+                AutoCheck = auto;
+            }
+        }
+
+        /// <summary>The track and thumb rectangles, in device pixels. Shared by the renderer and tests.</summary>
+        internal (Rectangle Track, Rectangle Thumb) SwitchGeometry ()
+        {
+            var client = ClientRectangle;
+            var track = new Rectangle (client.X + 1, client.Y + 1, Math.Max (0, client.Width - 2), Math.Max (0, client.Height - 2));
+            var inset = Math.Max (1, LogicalToDeviceUnits (2));
+            var height = Math.Max (0, track.Height - (2 * inset));
+            var width = thumb_thickness > 0 ? Math.Min (LogicalToDeviceUnits (thumb_thickness), track.Width / 2) : height;
+            var left = Checked ? track.Right - inset - width : track.Left + inset;
+
+            return (track, new Rectangle (left, track.Top + inset, width, height));
+        }
         /// <summary>Gets the root element of the control (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
 
@@ -181,28 +265,64 @@ namespace Majorsilence.Forms.Telerik
             Style = ProgressBarStyle.Marquee;
         }
 
-        /// <summary>Gets whether the bar is currently animating.</summary>
+        /// <summary>Gets whether the bar is animating: true between <see cref="StartWaiting"/> and <see cref="StopWaiting"/>.</summary>
+        /// <remarks>Real as of W6 mechanisms (#176): the indicator moves only while this is true, as
+        /// Telerik's does. It used to travel from the moment the bar was created, so a bar a form
+        /// showed idle looked busy, and StopWaiting did not stop it.</remarks>
         public bool IsWaiting { get; private set; }
-        /// <summary>Gets or sets the waiting animation style. Stub.</summary>
+
+        /// <summary>Gets or sets the waiting animation style.</summary>
+        /// <remarks>Stored: every style draws as the dash -- a block travelling the track. Telerik's
+        /// data cloud, rotating and spinner styles are not drawn.</remarks>
         public WaitingBarStyles WaitingStyle { get; set; } = WaitingBarStyles.Dash;
-        /// <summary>Gets or sets the animation speed, in ms.</summary>
-        public int WaitingSpeed { get; set; } = 100;
-        /// <summary>Gets or sets the animation step. Stub.</summary>
+
+        /// <summary>Gets or sets the time between animation steps, in ms.</summary>
+        public int WaitingSpeed {
+            get => waiting_speed;
+            set {
+                waiting_speed = Math.Max (1, value);
+
+                if (IsWaiting)
+                    MarqueeAnimationSpeed = waiting_speed;
+            }
+        }
+
+        private int waiting_speed = 100;
+
+        /// <summary>Gets or sets how far the indicator moves on each step.</summary>
+        /// <remarks>Real as of W6 mechanisms (#176): each step moves it this many of the track's twenty
+        /// positions.</remarks>
         public int WaitingStep { get; set; } = 1;
+
         /// <summary>Gets the waiting indicator elements (designer-populated; count is informational only). Stub.</summary>
         public List<VisualElement> WaitingIndicators { get; } = new ();
-        /// <summary>Gets or sets the size of each indicator. Stub.</summary>
+
+        /// <summary>Gets or sets the size of the travelling indicator.</summary>
+        /// <remarks>Real as of W6 mechanisms (#176): its width, in logical pixels, is the indicator's
+        /// width; empty keeps the default of three tenths of the track.</remarks>
         public Size WaitingIndicatorSize { get; set; }
 
         /// <summary>Starts the waiting animation.</summary>
         public void StartWaiting ()
         {
             IsWaiting = true;
-            MarqueeAnimationSpeed = WaitingSpeed;
+            MarqueeAnimationSpeed = waiting_speed;
+            RefreshMarquee ();
         }
 
-        /// <summary>Stops the waiting animation.</summary>
-        public void StopWaiting () => IsWaiting = false;
+        /// <summary>Stops the waiting animation, leaving the indicator where it is.</summary>
+        public void StopWaiting ()
+        {
+            IsWaiting = false;
+            RefreshMarquee ();
+        }
+
+        internal override bool MarqueeRuns => IsWaiting;
+
+        internal override int MarqueeStep => Math.Max (1, WaitingStep);
+
+        internal override int MarqueeBlockWidth (int trackWidth)
+            => WaitingIndicatorSize.Width > 0 ? LogicalToDeviceUnits (WaitingIndicatorSize.Width) : base.MarqueeBlockWidth (trackWidth);
 
         /// <summary>Gets the waiting bar's element tree root (stub).</summary>
         public RadWaitingBarElement WaitingBarElement { get; } = new RadWaitingBarElement ();

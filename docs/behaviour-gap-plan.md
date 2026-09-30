@@ -4030,6 +4030,34 @@ Telerik scan does not follow).
 cap; `IsCurrent` and the formatting element; the RC-8 conversion, at scale 2), failing 1, 2, 2, 2 and 1 of
 the 7, snapshot verified before and after.
 
+**W6 mechanisms, twenty-fourth chunk: Telerik controls that looked or started wrong (#176). — 2026-09-30.**
+Eight stored-only members that decided how four Telerik controls look and start.
+
+- **`RadToggleSwitch`** is a `CheckBox` underneath, and it drew as one: `OnText` and `OffText` were stored and
+  never shown. It now has its own renderer -- a rounded track, accent-filled when on, a thumb at the end it is
+  switched to and as wide as `ThumbTickness` (square when zero), and the matching caption in the free half.
+  `ToggleStateMode.Press` toggles on the press, and the click that follows does not toggle it back.
+- **`RadWaitingBar`** animated from the moment it was created -- the marquee timer started in the constructor --
+  so an idle bar looked busy and `StopWaiting` did not stop it. The core progress bar now asks a derived bar
+  whether its marquee runs, how far a tick moves it and how wide its block is: the waiting bar answers with
+  `IsWaiting`, `WaitingStep` and `WaitingIndicatorSize`. `WaitingSpeed` changes a running bar's pace. Every
+  `WaitingStyle` still draws as the dash.
+- **`RadDropDownList.NullText`** shows, dimmed, while nothing is selected: the editable style through its text
+  box's placeholder, the drop-down-list style drawn by the combo renderer, both through one internal core
+  property.
+- **`RadPageView.DefaultPage`** selects its page when set or, in the designer's order, at the first layout
+  after the page is in both the page list and the tab strip -- a layout can run between the two while a page is
+  being added, and selecting then threw.
+
+*Annotated.* Twelve more members of this cluster, each with its reason: the page-view strip's close button,
+strip buttons, fit, size and highlight settings, which the core tab strip decides; three `ThemeName`s; the
+drop-down animation flag; `WaitingStyle`; and `WaitingStep`, which is read from core.
+
+*Counts.* Telerik stored-only **324 → 316**, 62 of them annotated.
+
+7 tests; three neutralization rounds (the waiting bar; the toggle switch; `NullText` and `DefaultPage`),
+failing 2, 3 and 2 of the 7, snapshot verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

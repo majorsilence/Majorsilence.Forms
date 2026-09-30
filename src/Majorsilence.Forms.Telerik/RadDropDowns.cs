@@ -29,8 +29,13 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets or sets whether the drop-down animates. No-op stub.</summary>
         public bool DropDownAnimationEnabled { get; set; } = true;
-        /// <summary>Gets or sets the text shown when nothing is selected. Stub.</summary>
-        public string NullText { get; set; } = string.Empty;
+        /// <summary>Gets or sets the text shown, dimmed, while nothing is selected.</summary>
+        /// <remarks>Real as of W6 mechanisms (#176): the editable style shows it as its placeholder, the
+        /// drop-down-list style draws it in the box.</remarks>
+        public string NullText {
+            get => EmptyText;
+            set => EmptyText = value;
+        }
         /// <summary>Gets the root element of the control (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Gets or sets the theme name. No-op stub.</summary>
