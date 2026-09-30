@@ -822,6 +822,60 @@ real, assertable fake is what a view-model test actually needs here — unlike a
   `ios`/`sample-ios` jobs, but not run on a simulator or device — the same honest gap F13/F14 already
   record for iOS.
 
+## SecureStorage
+
+**`Majorsilence.Forms.Essentials.SecureStorage.GetAsync`/`SetAsync`/`Remove`/`IsSupported`** (added 2026-09,
+register item F16) is the first capability shipped in the new `Majorsilence.Forms.Essentials` package
+(PLAN.md-style per-platform-dependency packaging decision recorded in `majorsilence/alert-buddy`'s own
+plan): Android (an AES-256/GCM key generated inside the AndroidKeyStore — the key material itself never
+leaves the hardware-backed keystore — encrypts each value; the ciphertext and its IV sit in a
+private-mode `SharedPreferences` file), iOS (`Security.SecKeyChain`/`SecRecord`, the Keychain), and all
+three desktop OSes: Windows Credential Manager (`CredWrite`/`CredRead`/`CredDelete`, `CRED_PERSIST_LOCAL_MACHINE`
+so a value survives a reboot), macOS Keychain Services (the older `SecKeychainAddGenericPassword`/
+`SecKeychainFindGenericPassword`/`SecKeychainItemDelete` C API, which takes plain byte buffers directly,
+reached via raw P/Invoke rather than a CFDictionary-based `SecItem*` call or a Xamarin.Mac/.NET-for-macOS
+binding — the same reasoning F7's and F12's own macOS sections document), and Linux via `secret-tool`
+(libsecret, the Secret Service over D-Bus), shelled out to rather than a hand-rolled D-Bus client, the same
+choice F12's Linux inhibitor makes.
+
+**Not routed through the `Backends.Platform` seam** every UI-facing capability (`Haptics`,
+`LocalNotifications`, `Application.KeepScreenAwake`) uses: which OS credential store exists has nothing to
+do with which UI backend (Avalonia, WinForms, Uno) is active, so `SecureStorage` picks its own
+`ISecureStorageBackend` per target framework directly (`net10.0-android`/`net10.0-ios`/desktop
+`net8.0`+`net10.0` each compile in exactly one `PlatformSecureStorage.*.cs`) instead of asking
+`AvaloniaPlatformBackend` for one. `Majorsilence.Forms.Essentials` has no `ProjectReference` to core
+`Majorsilence.Forms` at all.
+
+**Linux is the one row where "unsupported" is a real, load-bearing answer, not a placeholder.** A missing
+`secret-tool` binary (no `libsecret-tools` package) or no keyring daemon actually running — both true of a
+typical headless box and of this project's own Linux CI runner — means secrets genuinely cannot be stored
+securely there, so `IsSupported` reports `false` rather than the register item's acceptance criterion
+("not readable from plain files") being quietly broken by a plain-file fallback. Confirmed for real: this
+session's own sandbox has no `secret-tool` installed, and `SecureStorageTests.
+The_real_desktop_backend_round_trips_when_supported_and_degrades_gracefully_when_not` runs the real
+(non-injected) `DesktopSecureStorageBackend` there and asserts on whichever branch — supported or not —
+actually applies, rather than assuming one.
+
+**Verification, honestly split by platform, the same shape F12's own section above documents.**
+- **Linux** — real, on this session's own machine and (expected) on CI's Linux runner: `IsSupported` is
+  `false`, and `Get`/`Set`/`Remove` all degrade to doing nothing rather than throwing, confirmed by the
+  test above actually running against the real backend, not a fake.
+- **Windows and macOS** — the `CredWrite`/`CredRead`/`CredDelete` and `SecKeychain*` P/Invoke declarations
+  are written from the documented Win32 and Keychain Services APIs; neither has been run for real, since
+  this session had access to neither OS. CI's `build (windows-latest)`/`build (macos-latest)` jobs run the
+  full test suite, including `SecureStorageTests.
+  The_real_desktop_backend_round_trips_when_supported_and_degrades_gracefully_when_not` against the real
+  backend on each — if either OS's keychain/credential store is available and unlocked on those runners,
+  that test proves a real round-trip there for the first time; if not, it at least proves the P/Invoke
+  declarations load and bind without throwing, the same fallback reasoning F12's own Windows/macOS section
+  documents for `DesktopKeepAwake`.
+- **Android** — `MainActivity.RunSecureStorageSmokeTest` sets, reads back and removes a value through the
+  real `AndroidKeyStore`-backed path on a real Activity/Application context, confirmed via CI's
+  `android-smoke` job (`F16_SECURESTORAGE_SMOKE`), including that the value is gone after `Remove`.
+- **iOS** — written from the documented `Security.SecKeyChain`/`SecRecord` API, compiles clean via CI's
+  `ios`/`sample-ios` jobs, but not run on a simulator or device — the same honest gap F12/F13/F14 already
+  record for iOS.
+
 ## Design-time smart tags
 
 `DesignerActionUIService` exists so that the guarded calls around it compile: a component's action list

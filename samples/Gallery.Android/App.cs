@@ -32,6 +32,7 @@ namespace Gallery.Android
             ThreadPool.QueueUserWorkItem (_ => RunAudioPlayerSmokeTest ());
             ThreadPool.QueueUserWorkItem (_ => RunHapticsSmokeTest ());
             ThreadPool.QueueUserWorkItem (_ => RunNotificationsSmokeTest ());
+            ThreadPool.QueueUserWorkItem (_ => RunSecureStorageSmokeTest ());
 
             // Register item F10: real signals need a real backgrounding, which nothing in-process can
             // trigger -- android-smoke-test.sh drives it externally (KEYCODE_HOME, then relaunch) and
@@ -231,6 +232,42 @@ namespace Gallery.Android
                 }
 
                 Log.Info (Tag, "PASS: RegisterChannel, RequestPermission, Show and ActiveNotifications all confirm the notification posted");
+            } catch (Exception ex) {
+                Log.Error (Tag, $"FAIL: {ex}");
+            }
+        }
+
+        // Register item F16: set, get and remove round-trip through the real AndroidKeyStore-backed path
+        // (GetOrCreateKey generates its AES/GCM key inside the keystore itself on first use), and the value
+        // is actually gone from SharedPreferences after Remove, not just "Remove didn't throw" -- the same
+        // "prove the round-trip, not just the absence of an exception" reasoning F14's own ActiveNotifications
+        // check documents above. SecureStorage needs no live Activity (unlike F12's KeepScreenAwake), so
+        // this runs from the same background-thread queue as F8/F9/F13/F14 rather than from MainActivity.
+        private void RunSecureStorageSmokeTest ()
+        {
+            const string Tag = "F16_SECURESTORAGE_SMOKE";
+            const string Key = "f16-smoke-key";
+            try {
+                if (!Majorsilence.Forms.Essentials.SecureStorage.IsSupported) {
+                    Log.Error (Tag, "FAIL: SecureStorage.IsSupported is false on Android");
+                    return;
+                }
+
+                Majorsilence.Forms.Essentials.SecureStorage.SetAsync (Key, "f16-smoke-value").GetAwaiter ().GetResult ();
+                var stored = Majorsilence.Forms.Essentials.SecureStorage.GetAsync (Key).GetAwaiter ().GetResult ();
+                if (stored != "f16-smoke-value") {
+                    Log.Error (Tag, $"FAIL: expected 'f16-smoke-value' back, got '{stored}'");
+                    return;
+                }
+
+                Majorsilence.Forms.Essentials.SecureStorage.Remove (Key);
+                var afterRemove = Majorsilence.Forms.Essentials.SecureStorage.GetAsync (Key).GetAwaiter ().GetResult ();
+                if (afterRemove is not null) {
+                    Log.Error (Tag, $"FAIL: expected null after Remove, got '{afterRemove}'");
+                    return;
+                }
+
+                Log.Info (Tag, "PASS: IsSupported is true, Set/Get round-tripped the value, and Remove actually removed it");
             } catch (Exception ex) {
                 Log.Error (Tag, $"FAIL: {ex}");
             }
