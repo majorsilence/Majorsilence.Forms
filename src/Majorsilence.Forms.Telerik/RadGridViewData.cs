@@ -595,11 +595,34 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Initializes a new instance of the EnumBinder class and adds it to the specified container.</summary>
         public EnumBinder (IContainer container) => container.Add (this);
 
-        /// <summary>Gets or sets the enum <see cref="Type"/> whose named values are exposed as items.</summary>
-        public Type? Source { get; set; }
+        private Type? _source;
+        private object? _target;
 
-        /// <summary>Gets or sets the column (or other data-bindable target) this binder feeds. Designer-shape alias; not itself resolved.</summary>
-        public object? Target { get; set; }
+        /// <summary>Gets or sets the enum <see cref="Type"/> whose named values are exposed as items.</summary>
+        public Type? Source { get => _source; set { _source = value; Bind (); } }
+
+        /// <summary>
+        /// Gets or sets what this binder feeds: a <see cref="GridViewComboBoxColumn"/> or a combo box gets the
+        /// enum's values as its <c>DataSource</c> once both this and <see cref="Source"/> are set, in either order.
+        /// </summary>
+        /// <remarks>W6 mechanisms (#176): designer code sets Source and Target and expects the column filled;
+        /// Target was stored only, so the column's drop-down was empty.</remarks>
+        public object? Target { get => _target; set { _target = value; Bind (); } }
+
+        private void Bind ()
+        {
+            if (_source is not { IsEnum: true })
+                return;
+
+            switch (_target) {
+                case GridViewComboBoxColumn column:
+                    column.DataSource = Values;
+                    break;
+                case Majorsilence.Forms.ComboBox combo:
+                    combo.DataSource = Values;
+                    break;
+            }
+        }
 
         /// <summary>Gets the enum values of <see cref="Source"/> as a list, suitable for combo-column binding. Empty when <see cref="Source"/> is not an enum type.</summary>
         public IList Values => Source is { IsEnum: true } ? Enum.GetValues (Source) : Array.Empty<object> ();

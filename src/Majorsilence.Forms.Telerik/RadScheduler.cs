@@ -36,11 +36,22 @@ namespace Majorsilence.Forms.Telerik
             _agenda.AppointmentSelecting += (_, appt) => AppointmentSelecting?.Invoke (this, new SchedulerAppointmentCancelEventArgs (appt));
             _agenda.ScreenTipNeeded += (_, appt) => ScreenTipNeeded?.Invoke (this, new ScreenTipNeededEventArgs (new AppointmentElement (appt)));
 
+            // A right-click raises ContextMenuOpening with a menu for the handler to fill, and shows it unless
+            // the handler cancels (W6 mechanisms, #176: nothing raised it, so Cancel was read by no one). There
+            // is no built-in menu, so an unfilled one shows nothing.
+            _agenda.ContextMenuRequested += (_, location) => {
+                var menu = new RadContextMenu ();
+                if (!RaiseContextMenuOpening (menu).Cancel)
+                    menu.Show (_agenda, location);
+            };
+
             ActiveView = new SchedulerActiveView (this);
         }
 
         /// <inheritdoc/>
         protected override Size DefaultSize => new Size (600, 400);
+
+        internal Control Agenda => _agenda;
 
         // ── Data binding ────────────────────────────────────────────────────────────────────────────
 

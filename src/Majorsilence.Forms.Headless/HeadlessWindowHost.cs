@@ -118,11 +118,17 @@ namespace Majorsilence.Forms.Headless
         // overlay to hit-test its drop guides clean past where they were drawn.
         public static Size ChromeOffset { get; set; }
 
+        // Logical client in, desktop pixels out -- what the real backends do (Avalonia's PointToScreen
+        // returns a PixelPoint, the WinForms host scales by Scaling before asking Win32), and what
+        // Control.PointToScreen assumes when it scales a child's offset by DesktopScaling. Unscaled, the
+        // two disagreed at any scale but 1: form.PointToClient (child.PointToScreen (p)) doubled p.
         public Point PointToClient (Point screen) =>
-            new (screen.X - _location.X - ChromeOffset.Width, screen.Y - _location.Y - ChromeOffset.Height);
+            new ((int) Math.Round ((screen.X - _location.X - ChromeOffset.Width) / Scaling),
+                 (int) Math.Round ((screen.Y - _location.Y - ChromeOffset.Height) / Scaling));
 
         public Point PointToScreen (Point client) =>
-            new (client.X + _location.X + ChromeOffset.Width, client.Y + _location.Y + ChromeOffset.Height);
+            new ((int) Math.Round (client.X * Scaling) + _location.X + ChromeOffset.Width,
+                 (int) Math.Round (client.Y * Scaling) + _location.Y + ChromeOffset.Height);
 
         // ── Drag (no chrome in headless) ──
         //

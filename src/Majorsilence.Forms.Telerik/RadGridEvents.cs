@@ -2,23 +2,81 @@ using System.Drawing;
 
 namespace Majorsilence.Forms.Telerik
 {
-    /// <summary>Telerik-compat cell style used in formatting handlers. Settable no-op stub.</summary>
+    /// <summary>
+    /// Telerik-compat cell style: a cell's own appearance (<c>row.Cells[i].Style</c>), or a formatting
+    /// handler's (<c>e.CellElement.Style</c>).
+    /// </summary>
+    /// <remarks>
+    /// As in Telerik, <see cref="BackColor"/> is painted only once <see cref="CustomizeFill"/> is set;
+    /// <see cref="ForeColor"/>, <see cref="Font"/> and <see cref="Alignment"/> apply as soon as they are set.
+    /// A cell's style is kept per cell, so the <c>Cells[i]</c> wrapper can be fetched again and still
+    /// return the same one (W6 mechanisms, #176: it was a new, discarded object on every access).
+    /// Cell formatting handlers run after it, so they override it for that paint.
+    /// </remarks>
     public class RadCellStyle
     {
-        /// <summary>Gets or sets the fill (background) color.</summary>
-        public Color BackColor { get; set; } = Color.Empty;
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<DataGridViewCell, RadCellStyle> cell_styles = new ();
+
+        private DataGridViewCell? owner;
+        private Color back_color = Color.Empty;
+        private Color fore_color = Color.Empty;
+        private ContentAlignment alignment = ContentAlignment.MiddleLeft;
+        private bool alignment_set;
+        private Majorsilence.Forms.Drawing.Font? font;
+        private bool font_applied;
+        private bool customize_fill;
+
+        internal static RadCellStyle For (DataGridViewCell cell) => cell_styles.GetValue (cell, c => new RadCellStyle { owner = c });
+
+        internal static RadCellStyle? Existing (DataGridViewCell cell) => cell_styles.TryGetValue (cell, out var style) ? style : null;
+
+        /// <summary>Gets or sets the fill (background) color. Painted once <see cref="CustomizeFill"/> is true.</summary>
+        public Color BackColor { get => back_color; set { back_color = value; Changed (); } }
         /// <summary>Gets or sets the text color.</summary>
-        public Color ForeColor { get; set; } = Color.Empty;
+        public Color ForeColor { get => fore_color; set { fore_color = value; Changed (); } }
         /// <summary>Gets or sets the text alignment.</summary>
-        public ContentAlignment Alignment { get; set; } = ContentAlignment.MiddleLeft;
+        public ContentAlignment Alignment { get => alignment; set { alignment = value; alignment_set = true; Changed (); } }
         /// <summary>Gets or sets the font.</summary>
-        public Majorsilence.Forms.Drawing.Font? Font { get; set; }
-        /// <summary>Gets or sets whether the fill is customized.</summary>
-        public bool CustomizeFill { get; set; }
-        /// <summary>Gets or sets the gradient style. Stub.</summary>
+        public Majorsilence.Forms.Drawing.Font? Font { get => font; set { font = value; Changed (); } }
+        /// <summary>Gets or sets whether the fill is customized -- whether <see cref="BackColor"/> is painted.</summary>
+        public bool CustomizeFill { get => customize_fill; set { customize_fill = value; Changed (); } }
+        /// <summary>Gets or sets the gradient style. Stored: fills are always solid.</summary>
         public object? GradientStyle { get; set; }
-        /// <summary>Resets the style to defaults. Stub.</summary>
-        public void Reset () { }
+
+        /// <summary>Resets the style to defaults.</summary>
+        public void Reset ()
+        {
+            back_color = Color.Empty;
+            fore_color = Color.Empty;
+            alignment = ContentAlignment.MiddleLeft;
+            alignment_set = false;
+            font = null;
+            customize_fill = false;
+            Changed ();
+        }
+
+        private void Changed () => owner?.DataGridView?.Invalidate ();
+
+        // Called for every paint of the cell, after the per-frame colour reset and conditional formatting.
+        internal void ApplyTo (DataGridViewCell cell)
+        {
+            if (customize_fill && back_color != Color.Empty)
+                cell.Style.BackgroundColor = new SkiaSharp.SKColor (back_color.R, back_color.G, back_color.B, back_color.A);
+            if (fore_color != Color.Empty)
+                cell.Style.ForegroundColor = new SkiaSharp.SKColor (fore_color.R, fore_color.G, fore_color.B, fore_color.A);
+            if (alignment_set)
+                cell.Style.Alignment = (DataGridViewContentAlignment) (int) alignment;
+
+            if (font is not null) {
+                cell.Style.Font = TypefaceCache.Resolve (font);
+                cell.Style.FontSize = (int) System.Math.Round (font.SizeInPoints * 96f / 72f);   // pixels, as Control.Font does
+                font_applied = true;
+            } else if (font_applied) {
+                cell.Style.Font = null;
+                cell.Style.FontSize = null;
+                font_applied = false;
+            }
+        }
     }
 
     /// <summary>Telerik-compat cell visual element, exposed by formatting/create-cell events.</summary>

@@ -306,5 +306,23 @@ namespace Majorsilence.Forms.Tests
         // multiply), so it failed in the one configuration it was least about. The claim is covered far
         // better by the rest of the suite -- ~4800 tests written against scale 1, none of which moved.
 
+        [Fact]
+        public void A_childs_screen_point_is_the_forms_screen_point ()
+        {
+            // Control.PointToScreen scales a child's logical offset to desktop pixels (DesktopScaling) and
+            // adds the window's client origin; the headless backend's own PointToScreen did not scale, so
+            // at scale 2 form.PointToClient (child.PointToScreen (p)) came back doubled -- a click computed
+            // that way missed its control. Only the scale-2 gate can see this; at scale 1 both agree.
+            using var form = new Form { Width = 400, Height = 400, Left = 100, Top = 50 };
+            var label = new Label { Left = 20, Top = 30, Width = 50, Height = 20 };
+            form.Controls.Add (label);
+            form.Show ();
+
+            var p = new System.Drawing.Point (5, 5);
+            var inForm = label.GetPositionInForm ();
+
+            Assert.Equal (new System.Drawing.Point (inForm.X + 5, inForm.Y + 5), form.PointToClient (label.PointToScreen (p)));
+            Assert.Equal (form.PointToScreen (new System.Drawing.Point (inForm.X + 5, inForm.Y + 5)), label.PointToScreen (p));
+        }
     }
 }

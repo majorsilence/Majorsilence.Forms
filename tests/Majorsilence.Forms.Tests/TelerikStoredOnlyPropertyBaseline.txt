@@ -45,18 +45,18 @@
 # this assembly can read it. When that is the case, say so beside the entry with a trailing
 # " -- reason" rather than deleting it.
 # Regenerate with MAJORSILENCE_WRITE_STORED_ONLY_BASELINE=1.
-Majorsilence.Forms.Telerik.AppointmentEditDialogShowingEventArgs.Cancel
-Majorsilence.Forms.Telerik.AppointmentElement.ToolTipText
-Majorsilence.Forms.Telerik.BaseDateTimeEditorElement.CustomFormat
-Majorsilence.Forms.Telerik.BaseDateTimeEditorElement.Format
-Majorsilence.Forms.Telerik.BaseDateTimeEditorElement.Value
-Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.DataSource
-Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.DisplayMember
-Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.DropDownStyle
-Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.SelectedIndex
-Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.Text
-Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.ValueMember
-Majorsilence.Forms.Telerik.CellFormattingEventArgs.CellElement
+Majorsilence.Forms.Telerik.AppointmentEditDialogShowingEventArgs.Cancel    -- there is no built-in edit dialog for Cancel to suppress; the event is where a handler shows its own
+Majorsilence.Forms.Telerik.AppointmentElement.ToolTipText    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.BaseDateTimeEditorElement.CustomFormat    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.BaseDateTimeEditorElement.Format    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.BaseDateTimeEditorElement.Value    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.DataSource    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.DisplayMember    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.DropDownStyle    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.SelectedIndex    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.Text    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.BaseDropDownListEditorElement.ValueMember    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.CellFormattingEventArgs.CellElement    -- event data: set as the event is raised, read by the handler
 Majorsilence.Forms.Telerik.CellFormattingEventArgs.Column    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.CellFormattingEventArgs.ColumnIndex    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.CellFormattingEventArgs.Row    -- event data: set by RadGridView as it raises the event, read by the handler
@@ -74,110 +74,105 @@ Majorsilence.Forms.Telerik.CellValidatingEventArgs.OldValue    -- event data: se
 Majorsilence.Forms.Telerik.CellValidatingEventArgs.Row    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.CellValidatingEventArgs.RowIndex    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.CellValidatingEventArgs.Value    -- event data: set by RadGridView as it raises the event, read by the handler
-Majorsilence.Forms.Telerik.ChildViewExpandingEventArgs.Row
-Majorsilence.Forms.Telerik.CommandBarButton.DrawText
-Majorsilence.Forms.Telerik.CommandBarButton.Image
-Majorsilence.Forms.Telerik.CommandBarStripElement.DisplayName
-Majorsilence.Forms.Telerik.CommandBarStripElement.Name
-Majorsilence.Forms.Telerik.CommandBarStripElement.Text
-Majorsilence.Forms.Telerik.ConditionalFormattingObject.Name
-Majorsilence.Forms.Telerik.ContextMenuDisplayingEventArgs.DockWindow
-Majorsilence.Forms.Telerik.ContextMenuOpeningEventArgs.ContextMenuProvider
-Majorsilence.Forms.Telerik.ContextMenuOpeningEventArgs.RowElement
-Majorsilence.Forms.Telerik.CurrentCellChangedEventArgs.NewCell
-Majorsilence.Forms.Telerik.CurrentCellChangedEventArgs.OldCell
-Majorsilence.Forms.Telerik.CurrentRowChangingEventArgs.NewRow
-Majorsilence.Forms.Telerik.CurrentRowChangingEventArgs.OldRow
-Majorsilence.Forms.Telerik.DataGroup.HeaderText
-Majorsilence.Forms.Telerik.DataGroup.Level
-Majorsilence.Forms.Telerik.DockWindowBase.AutoScaleMode
-Majorsilence.Forms.Telerik.DockWindowBase.DefaultFloatingSize
-Majorsilence.Forms.Telerik.DockWindowBase.PreviousDockState
-Majorsilence.Forms.Telerik.DockWindowBase.ToolCaptionButtons
-Majorsilence.Forms.Telerik.DockWindowEventArgs.DockWindow
-Majorsilence.Forms.Telerik.DockWindowPlaceholder.DockWindow
-Majorsilence.Forms.Telerik.DockWindowPlaceholder.DockWindowName
-Majorsilence.Forms.Telerik.DocumentContainer.Collapsed
-Majorsilence.Forms.Telerik.DocumentContainer.Orientation
-Majorsilence.Forms.Telerik.DocumentContainer.SelectedTab
-Majorsilence.Forms.Telerik.DocumentContainer.SplitterWidth
-Majorsilence.Forms.Telerik.EnumBinder.Source
-Majorsilence.Forms.Telerik.EnumBinder.Target
-Majorsilence.Forms.Telerik.FilterDescriptor.IsFilterEditor
-Majorsilence.Forms.Telerik.FilterOperationContext.FieldName
-Majorsilence.Forms.Telerik.FilterPopupRequiredEventArgs.Column
-Majorsilence.Forms.Telerik.GridExportBase.ExportHierarchy
-Majorsilence.Forms.Telerik.GridExportBase.ExportVisualSettings
-Majorsilence.Forms.Telerik.GridExportBase.FileExtension
-Majorsilence.Forms.Telerik.GridExportBase.PagingExportOption
-Majorsilence.Forms.Telerik.GridTableElement.ViewElement
+Majorsilence.Forms.Telerik.ChildViewExpandingEventArgs.Row    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.CommandBarButton.DrawText    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.CommandBarButton.Image    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.CommandBarStripElement.DisplayName    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.CommandBarStripElement.Name    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.CommandBarStripElement.Text    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.ConditionalFormattingObject.Name    -- a label for the rule; the application reads it
+Majorsilence.Forms.Telerik.ContextMenuDisplayingEventArgs.DockWindow    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.ContextMenuOpeningEventArgs.ContextMenuProvider    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.ContextMenuOpeningEventArgs.RowElement    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.CurrentCellChangedEventArgs.NewCell    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.CurrentCellChangedEventArgs.OldCell    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.CurrentRowChangingEventArgs.NewRow    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.CurrentRowChangingEventArgs.OldRow    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.DataGroup.HeaderText    -- set by the grid as it builds Groups, read by the application
+Majorsilence.Forms.Telerik.DataGroup.Level    -- set by the grid as it builds Groups, read by the application
+Majorsilence.Forms.Telerik.DockWindowBase.AutoScaleMode    -- designer-shape value: scaling follows the host form
+Majorsilence.Forms.Telerik.DockWindowBase.DefaultFloatingSize    -- windows do not float here: tabbed docking only
+Majorsilence.Forms.Telerik.DockWindowBase.PreviousDockState    -- kept up to date by DockState and read by the application
+Majorsilence.Forms.Telerik.DockWindowBase.ToolCaptionButtons    -- the tool-window caption band draws no buttons yet (BACKLOG.md, dock caption buttons)
+Majorsilence.Forms.Telerik.DockWindowEventArgs.DockWindow    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.DockWindowPlaceholder.DockWindow    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.DockWindowPlaceholder.DockWindowName    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.DocumentContainer.Collapsed    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
+Majorsilence.Forms.Telerik.DocumentContainer.Orientation    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
+Majorsilence.Forms.Telerik.DocumentContainer.SelectedTab    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
+Majorsilence.Forms.Telerik.DocumentContainer.SplitterWidth    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
+Majorsilence.Forms.Telerik.FilterDescriptor.IsFilterEditor    -- marks descriptors made by the Telerik filter editor, which does not exist here
+Majorsilence.Forms.Telerik.FilterOperationContext.FieldName    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.FilterPopupRequiredEventArgs.Column    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.GridExportBase.ExportHierarchy    -- export option not implemented: the compat exporters always write plain, full, flat data (documented on the member)
+Majorsilence.Forms.Telerik.GridExportBase.ExportVisualSettings    -- export option not implemented: the compat exporters always write plain, full, flat data (documented on the member)
+Majorsilence.Forms.Telerik.GridExportBase.FileExtension    -- export option not implemented: the compat exporters always write plain, full, flat data (documented on the member)
+Majorsilence.Forms.Telerik.GridExportBase.PagingExportOption    -- export option not implemented: the compat exporters always write plain, full, flat data (documented on the member)
+Majorsilence.Forms.Telerik.GridTableElement.ViewElement    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.GridViewCellCancelEventArgs.Column    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.GridViewCellCancelEventArgs.ColumnIndex    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.GridViewCellCancelEventArgs.Row    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.GridViewCellCancelEventArgs.RowIndex    -- event data: set by RadGridView as it raises the event, read by the handler
-Majorsilence.Forms.Telerik.GridViewCellElement.ClipDrawing
-Majorsilence.Forms.Telerik.GridViewCellElement.ColumnIndex
-Majorsilence.Forms.Telerik.GridViewCellElement.ColumnInfo
-Majorsilence.Forms.Telerik.GridViewCellElement.DrawFill
-Majorsilence.Forms.Telerik.GridViewCellElement.GradientStyle
-Majorsilence.Forms.Telerik.GridViewCellElement.NumberOfColors
-Majorsilence.Forms.Telerik.GridViewCellElement.RowIndex
-Majorsilence.Forms.Telerik.GridViewCellElement.Value
+Majorsilence.Forms.Telerik.GridViewCellElement.ClipDrawing    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.GridViewCellElement.ColumnIndex    -- element data handed to the formatting handler, which reads it
+Majorsilence.Forms.Telerik.GridViewCellElement.ColumnInfo    -- element data handed to the formatting handler, which reads it
+Majorsilence.Forms.Telerik.GridViewCellElement.DrawFill    -- the fill is drawn whenever BackColor is set; DrawFill = false does not suppress it
+Majorsilence.Forms.Telerik.GridViewCellElement.GradientStyle    -- fills are solid: there is no gradient painting
+Majorsilence.Forms.Telerik.GridViewCellElement.NumberOfColors    -- fills are solid: there is no gradient painting
+Majorsilence.Forms.Telerik.GridViewCellElement.RowIndex    -- element data handed to the formatting handler, which reads it
+Majorsilence.Forms.Telerik.GridViewCellElement.Value    -- element data handed to the formatting handler, which reads it
 Majorsilence.Forms.Telerik.GridViewCellEventArgs.CellBounds    -- event data: set by RadGridView as it raises the event, read by the handler
-Majorsilence.Forms.Telerik.GridViewCellEventArgs.CellElement
+Majorsilence.Forms.Telerik.GridViewCellEventArgs.CellElement    -- event data: set as the event is raised, read by the handler
 Majorsilence.Forms.Telerik.GridViewCellEventArgs.Column    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.GridViewCellEventArgs.ColumnIndex    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.GridViewCellEventArgs.RowIndex    -- event data: set by RadGridView as it raises the event, read by the handler
-Majorsilence.Forms.Telerik.GridViewCellInfo.IsCurrent
-Majorsilence.Forms.Telerik.GridViewCellInfo.IsSelected
-Majorsilence.Forms.Telerik.GridViewCellValueEventArgs.Value
-Majorsilence.Forms.Telerik.GridViewCollectionChangingEventArgs.NewItem
-Majorsilence.Forms.Telerik.GridViewColumn.AllowHide
-Majorsilence.Forms.Telerik.GridViewColumn.EnableExpressionEditor
+Majorsilence.Forms.Telerik.GridViewCellValueEventArgs.Value    -- no event in this layer carries these args: the grid has no virtual mode to raise one
+Majorsilence.Forms.Telerik.GridViewCollectionChangingEventArgs.NewItem    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.GridViewColumn.AllowHide    -- there is no column chooser or header menu to hide a column from
+Majorsilence.Forms.Telerik.GridViewColumn.EnableExpressionEditor    -- there is no expression editor (the advanced filter dialog is a bounded gap; COMPATIBILITY_MATRIX)
 Majorsilence.Forms.Telerik.GridViewColumn.MaxWidth    -- read by MaximumResizeWidth, which the core grid's resize drag calls; the Telerik scan does not follow calls in from core
-Majorsilence.Forms.Telerik.GridViewComboBoxColumn.IsAutoGenerated
-Majorsilence.Forms.Telerik.GridViewCommandColumn.AutoEllipsis
-Majorsilence.Forms.Telerik.GridViewCommandColumn.Image
-Majorsilence.Forms.Telerik.GridViewCommandColumn.ImageAlignment
-Majorsilence.Forms.Telerik.GridViewCommandColumn.ImageLayout
-Majorsilence.Forms.Telerik.GridViewCommandColumn.TextImageRelation
-Majorsilence.Forms.Telerik.GridViewCreateCellEventArgs.CellElement
-Majorsilence.Forms.Telerik.GridViewCreateCellEventArgs.CellType
-Majorsilence.Forms.Telerik.GridViewCreateCellEventArgs.Column
-Majorsilence.Forms.Telerik.GridViewCreateCellEventArgs.Row
-Majorsilence.Forms.Telerik.GridViewCreateCellEventArgs.RowIndex
-Majorsilence.Forms.Telerik.GridViewCustomFilteringEventArgs.Row
-Majorsilence.Forms.Telerik.GridViewGroupRowInfo.Group
-Majorsilence.Forms.Telerik.GridViewPdfExport.ReverseHeaderOnEvenPages
-Majorsilence.Forms.Telerik.GridViewRowElement.DrawFill
-Majorsilence.Forms.Telerik.GridViewRowElement.Font
-Majorsilence.Forms.Telerik.GridViewRowElement.GradientStyle
-Majorsilence.Forms.Telerik.GridViewRowElement.NumberOfColors
-Majorsilence.Forms.Telerik.GridViewRowElement.TableElement
-Majorsilence.Forms.Telerik.GridViewRowEventArgs.Row
-Majorsilence.Forms.Telerik.GridViewRowInfo.IsPinned
-Majorsilence.Forms.Telerik.GridViewSummaryItem.AggregateExpression
-Majorsilence.Forms.Telerik.GridViewTemplate.AllowRowReorder
-Majorsilence.Forms.Telerik.GridViewTemplate.MultiSelect
-Majorsilence.Forms.Telerik.GridViewTemplate.ViewDefinition
-Majorsilence.Forms.Telerik.GroupDescriptor.Expression
-Majorsilence.Forms.Telerik.GroupExpandingEventArgs.DataGroup
-Majorsilence.Forms.Telerik.GroupFieldElement.FieldName
-Majorsilence.Forms.Telerik.GroupFieldElement.Text
-Majorsilence.Forms.Telerik.GroupSummaryEvaluationEventArgs.Group
-Majorsilence.Forms.Telerik.GroupSummaryEvaluationEventArgs.SummaryItem
-Majorsilence.Forms.Telerik.HtmlExportSettings.DocumentExportLevel
-Majorsilence.Forms.Telerik.HtmlExportSettings.StylesExportMode
-Majorsilence.Forms.Telerik.LightVisualElement.GradientStyle
-Majorsilence.Forms.Telerik.MasterGridViewTemplate.AllowDragToGroup
-Majorsilence.Forms.Telerik.MasterGridViewTemplate.HorizontalScrollState
-Majorsilence.Forms.Telerik.MasterGridViewTemplate.PagingBeforeGrouping
-Majorsilence.Forms.Telerik.MasterGridViewTemplate.ShowHeaderCellButtons
-Majorsilence.Forms.Telerik.MasterGridViewTemplate.ShowTotals
-Majorsilence.Forms.Telerik.MasterGridViewTemplate.ThrowExceptionOnDataOperationInVirtualMode
-Majorsilence.Forms.Telerik.MasterGridViewTemplate.VerticalScrollState
-Majorsilence.Forms.Telerik.Primitives.BorderPrimitive.ForeColor
-Majorsilence.Forms.Telerik.Primitives.FillPrimitive.GradientStyle
+Majorsilence.Forms.Telerik.GridViewComboBoxColumn.IsAutoGenerated    -- set by designer code, read by the application
+Majorsilence.Forms.Telerik.GridViewCommandColumn.AutoEllipsis    -- command buttons draw text only: no image layout
+Majorsilence.Forms.Telerik.GridViewCommandColumn.Image    -- command buttons draw text only: no image layout
+Majorsilence.Forms.Telerik.GridViewCommandColumn.ImageAlignment    -- command buttons draw text only: no image layout
+Majorsilence.Forms.Telerik.GridViewCommandColumn.ImageLayout    -- command buttons draw text only: no image layout
+Majorsilence.Forms.Telerik.GridViewCommandColumn.TextImageRelation    -- command buttons draw text only: no image layout
+Majorsilence.Forms.Telerik.GridViewCreateCellEventArgs.CellElement    -- event data for CreateCell, which is unraised (the grid builds no cell elements; see TelerikUnraisedEventBaseline.txt)
+Majorsilence.Forms.Telerik.GridViewCreateCellEventArgs.CellType    -- event data for CreateCell, which is unraised (the grid builds no cell elements; see TelerikUnraisedEventBaseline.txt)
+Majorsilence.Forms.Telerik.GridViewCreateCellEventArgs.Column    -- event data for CreateCell, which is unraised (the grid builds no cell elements; see TelerikUnraisedEventBaseline.txt)
+Majorsilence.Forms.Telerik.GridViewCreateCellEventArgs.Row    -- event data for CreateCell, which is unraised (the grid builds no cell elements; see TelerikUnraisedEventBaseline.txt)
+Majorsilence.Forms.Telerik.GridViewCreateCellEventArgs.RowIndex    -- event data for CreateCell, which is unraised (the grid builds no cell elements; see TelerikUnraisedEventBaseline.txt)
+Majorsilence.Forms.Telerik.GridViewCustomFilteringEventArgs.Row    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.GridViewGroupRowInfo.Group    -- group header rows are drawn by the grid itself; Groups is the group object model
+Majorsilence.Forms.Telerik.GridViewPdfExport.ReverseHeaderOnEvenPages    -- export option not implemented: the compat exporters always write plain, full, flat data (documented on the member)
+Majorsilence.Forms.Telerik.GridViewRowElement.DrawFill    -- the fill is drawn whenever BackColor is set; DrawFill = false does not suppress it
+Majorsilence.Forms.Telerik.GridViewRowElement.Font    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.GridViewRowElement.GradientStyle    -- fills are solid: there is no gradient painting
+Majorsilence.Forms.Telerik.GridViewRowElement.NumberOfColors    -- fills are solid: there is no gradient painting
+Majorsilence.Forms.Telerik.GridViewRowElement.TableElement    -- element data handed to the formatting handler, which reads it
+Majorsilence.Forms.Telerik.GridViewRowEventArgs.Row    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.GridViewRowInfo.IsPinned    -- rows are not pinned: the grid has no frozen-row region
+Majorsilence.Forms.Telerik.GridViewSummaryItem.AggregateExpression    -- aggregate expressions are not parsed; Aggregate and Name drive the summary
+Majorsilence.Forms.Telerik.GridViewTemplate.AllowRowReorder    -- rows cannot be drag-reordered
+Majorsilence.Forms.Telerik.GridViewTemplate.ViewDefinition    -- only the table view exists, so there is nothing to select
+Majorsilence.Forms.Telerik.GroupDescriptor.Expression    -- grouping expressions are not parsed; PropertyName and GroupNames drive grouping
+Majorsilence.Forms.Telerik.GroupExpandingEventArgs.DataGroup    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.GroupFieldElement.FieldName    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.GroupFieldElement.Text    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.GroupSummaryEvaluationEventArgs.Group    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.GroupSummaryEvaluationEventArgs.SummaryItem    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.HtmlExportSettings.DocumentExportLevel    -- export option not implemented: the compat exporters always write plain, full, flat data (documented on the member)
+Majorsilence.Forms.Telerik.HtmlExportSettings.StylesExportMode    -- export option not implemented: the compat exporters always write plain, full, flat data (documented on the member)
+Majorsilence.Forms.Telerik.LightVisualElement.GradientStyle    -- fills are solid: there is no gradient painting
+Majorsilence.Forms.Telerik.MasterGridViewTemplate.AllowDragToGroup    -- there is no group panel to drag a column to
+Majorsilence.Forms.Telerik.MasterGridViewTemplate.HorizontalScrollState    -- scroll bars show when needed; there is no auto-hide state
+Majorsilence.Forms.Telerik.MasterGridViewTemplate.PagingBeforeGrouping    -- the order of paging and grouping is not configurable here
+Majorsilence.Forms.Telerik.MasterGridViewTemplate.ShowHeaderCellButtons    -- header cells draw no filter or menu buttons
+Majorsilence.Forms.Telerik.MasterGridViewTemplate.ShowTotals    -- no totals row is drawn for this flag; summary rows come from SummaryRowsBottom/Top
+Majorsilence.Forms.Telerik.MasterGridViewTemplate.ThrowExceptionOnDataOperationInVirtualMode    -- the grid has no virtual mode
+Majorsilence.Forms.Telerik.MasterGridViewTemplate.VerticalScrollState    -- scroll bars show when needed; there is no auto-hide state
+Majorsilence.Forms.Telerik.Primitives.BorderPrimitive.ForeColor    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.Primitives.FillPrimitive.GradientStyle    -- fills are solid: there is no gradient painting
 Majorsilence.Forms.Telerik.PropertyGridCheckBoxItemElement.Value    -- Telerik editor-element stand-in; the grid edits with real controls, see EditorRequired
 Majorsilence.Forms.Telerik.PropertyGridEditorRequiredEventArgs.Item    -- event data: set by RadPropertyGrid as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.PropertyGridGroupElement.Data    -- visual-element data slot; group rows are painted by the core grid
@@ -192,168 +187,157 @@ Majorsilence.Forms.Telerik.PropertyGridItemFormattingEventArgs.Item    -- event 
 Majorsilence.Forms.Telerik.PropertyGridItemFormattingEventArgs.VisualElement    -- event data: set by RadPropertyGrid as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.PropertyGridItemValueChangedEventArgs.Item    -- event data: set by RadPropertyGrid as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.PropertyGridSpinEditor.Value    -- Telerik editor-element stand-in; the grid edits with real controls, see EditorRequired
-Majorsilence.Forms.Telerik.PropertyValidatingEventArgs.Item
-Majorsilence.Forms.Telerik.PropertyValidatingEventArgs.NewValue
-Majorsilence.Forms.Telerik.PropertyValidatingEventArgs.OldValue
-Majorsilence.Forms.Telerik.RadBrowseEditorElement.DialogType
-Majorsilence.Forms.Telerik.RadBrowseEditorElement.Value
-Majorsilence.Forms.Telerik.RadButton.ThemeName
-Majorsilence.Forms.Telerik.RadButtonElement.DisplayStyle
-Majorsilence.Forms.Telerik.RadButtonElement.Image
-Majorsilence.Forms.Telerik.RadButtonElement.ImageScaling
-Majorsilence.Forms.Telerik.RadButtonElement.ShowBorder
-Majorsilence.Forms.Telerik.RadButtonElement.UseDefaultDisabledPaint
-Majorsilence.Forms.Telerik.RadCalendar.ThemeName
-Majorsilence.Forms.Telerik.RadCellStyle.Alignment
-Majorsilence.Forms.Telerik.RadCellStyle.BackColor
-Majorsilence.Forms.Telerik.RadCellStyle.CustomizeFill
-Majorsilence.Forms.Telerik.RadCellStyle.Font
-Majorsilence.Forms.Telerik.RadCellStyle.ForeColor
-Majorsilence.Forms.Telerik.RadCellStyle.GradientStyle
-Majorsilence.Forms.Telerik.RadCheckBoxEditor.Value
-Majorsilence.Forms.Telerik.RadCheckedDropDownList.DropDownAnimationEnabled
-Majorsilence.Forms.Telerik.RadCheckedDropDownList.TextBlockFormatting
-Majorsilence.Forms.Telerik.RadCheckedListDataItem.Checked
-Majorsilence.Forms.Telerik.RadCheckedListDataItem.Tag
-Majorsilence.Forms.Telerik.RadCheckedListDataItem.Value
-Majorsilence.Forms.Telerik.RadCollapsiblePanel.EnableAnimation
-Majorsilence.Forms.Telerik.RadCollapsiblePanel.HeaderText
-Majorsilence.Forms.Telerik.RadCommandBarBaseItem.DisplayName
-Majorsilence.Forms.Telerik.RadCommandBarBaseItem.DrawImage
-Majorsilence.Forms.Telerik.RadCommandBarBaseItem.VisibleInOverflowMenu
-Majorsilence.Forms.Telerik.RadDateTimePickerCalendar.ShowTimePicker
-Majorsilence.Forms.Telerik.RadDesktopAlertCaptionGrip.GradientStyle
-Majorsilence.Forms.Telerik.RadDesktopAlertElement.GradientStyle
-Majorsilence.Forms.Telerik.RadDock.IsCleanUpTarget
-Majorsilence.Forms.Telerik.RadDock.Orientation
-Majorsilence.Forms.Telerik.RadDock.SplitterWidth
-Majorsilence.Forms.Telerik.RadDock.ToolTabsAlignment
-Majorsilence.Forms.Telerik.RadDock.ToolTabsVisible
-Majorsilence.Forms.Telerik.RadDropDownButton.ShowArrow
+Majorsilence.Forms.Telerik.PropertyValidatingEventArgs.Item    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.PropertyValidatingEventArgs.NewValue    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.PropertyValidatingEventArgs.OldValue    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.RadBrowseEditorElement.DialogType    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadBrowseEditorElement.Value    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadButton.ThemeName    -- Telerik theme name: Telerik themes are not mapped (CSS themes instead; COMPATIBILITY_MATRIX, Telerik.WinControls.Themes)
+Majorsilence.Forms.Telerik.RadButtonElement.DisplayStyle    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadButtonElement.Image    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadButtonElement.ImageScaling    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadButtonElement.ShowBorder    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadButtonElement.UseDefaultDisabledPaint    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadCalendar.ThemeName    -- Telerik theme name: Telerik themes are not mapped (CSS themes instead; COMPATIBILITY_MATRIX, Telerik.WinControls.Themes)
+Majorsilence.Forms.Telerik.RadCellStyle.GradientStyle    -- fills are solid: there is no gradient painting
+Majorsilence.Forms.Telerik.RadCheckBoxEditor.Value    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadCheckedDropDownList.DropDownAnimationEnabled    -- no animation is performed
+Majorsilence.Forms.Telerik.RadCheckedDropDownList.TextBlockFormatting    -- designer-shape value with nothing behind it to configure
+Majorsilence.Forms.Telerik.RadCheckedListDataItem.Tag    -- application storage, read back by the application
+Majorsilence.Forms.Telerik.RadCheckedListDataItem.Value    -- item data for the application: the drop-down draws no check boxes and a checked list reads RadCheckedListDataItem
+Majorsilence.Forms.Telerik.RadCollapsiblePanel.EnableAnimation    -- no animation is performed
+Majorsilence.Forms.Telerik.RadCommandBarBaseItem.DisplayName    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadCommandBarBaseItem.DrawImage    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadCommandBarBaseItem.VisibleInOverflowMenu    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadDateTimePickerCalendar.ShowTimePicker    -- the drop-down calendar has no time panel
+Majorsilence.Forms.Telerik.RadDesktopAlertCaptionGrip.GradientStyle    -- fills are solid: there is no gradient painting
+Majorsilence.Forms.Telerik.RadDesktopAlertElement.GradientStyle    -- fills are solid: there is no gradient painting
+Majorsilence.Forms.Telerik.RadDock.IsCleanUpTarget    -- empty-container clean-up is not modelled: the dock keeps its strips
+Majorsilence.Forms.Telerik.RadDock.Orientation    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
+Majorsilence.Forms.Telerik.RadDock.SplitterWidth    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
+Majorsilence.Forms.Telerik.RadDock.ToolTabsAlignment    -- there are no auto-hide tool tabs
+Majorsilence.Forms.Telerik.RadDock.ToolTabsVisible    -- there are no auto-hide tool tabs
+Majorsilence.Forms.Telerik.RadDropDownButton.ShowArrow    -- the arrow is always drawn
 Majorsilence.Forms.Telerik.RadDropDownList.DropDownAnimationEnabled    -- the drop-down opens without animation
 Majorsilence.Forms.Telerik.RadDropDownList.ThemeName    -- Telerik theme name; the compat controls have no theme engine
-Majorsilence.Forms.Telerik.RadElement.AllowDrop
-Majorsilence.Forms.Telerik.RadElement.ControlBounds
-Majorsilence.Forms.Telerik.RadElement.DrawBorder
-Majorsilence.Forms.Telerik.RadElement.Enabled
-Majorsilence.Forms.Telerik.RadElement.MaxSize
-Majorsilence.Forms.Telerik.RadElement.MinSize
-Majorsilence.Forms.Telerik.RadElement.Name
-Majorsilence.Forms.Telerik.RadElement.Padding
-Majorsilence.Forms.Telerik.RadElement.StretchHorizontally
-Majorsilence.Forms.Telerik.RadElement.StretchVertically
-Majorsilence.Forms.Telerik.RadElement.Tag
-Majorsilence.Forms.Telerik.RadElement.Visibility
-Majorsilence.Forms.Telerik.RadForm.IconScaling
-Majorsilence.Forms.Telerik.RadForm.ThemeName
-Majorsilence.Forms.Telerik.RadGridView.AutoScroll
-Majorsilence.Forms.Telerik.RadGridView.AutoSizeRows
-Majorsilence.Forms.Telerik.RadGridView.ColumnChooserSortOrder
-Majorsilence.Forms.Telerik.RadGridView.SynchronizeCurrentRowInSplitMode
+Majorsilence.Forms.Telerik.RadElement.AllowDrop    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadElement.ControlBounds    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadElement.DrawBorder    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadElement.Enabled    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadElement.MaxSize    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadElement.MinSize    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadElement.Name    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadElement.Padding    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadElement.StretchHorizontally    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadElement.StretchVertically    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadElement.Tag    -- application storage, read back by the application
+Majorsilence.Forms.Telerik.RadElement.Visibility    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadForm.IconScaling    -- form chrome setting with no counterpart in this chrome
+Majorsilence.Forms.Telerik.RadForm.ThemeName    -- Telerik theme name: Telerik themes are not mapped (CSS themes instead; COMPATIBILITY_MATRIX, Telerik.WinControls.Themes)
+Majorsilence.Forms.Telerik.RadGridView.AutoScroll    -- the grid manages its own scroll bars
+Majorsilence.Forms.Telerik.RadGridView.AutoSizeRows    -- rows keep their height: the core grid does not apply AutoSizeRowsMode during layout either (BACKLOG.md)
+Majorsilence.Forms.Telerik.RadGridView.ColumnChooserSortOrder    -- there is no column chooser
+Majorsilence.Forms.Telerik.RadGridView.SynchronizeCurrentRowInSplitMode    -- there is no split mode
 Majorsilence.Forms.Telerik.RadGridView.ThemeName    -- Telerik theme name; the compat controls have no theme engine
-Majorsilence.Forms.Telerik.RadGridView.UseScrollbarsInHierarchy
-Majorsilence.Forms.Telerik.RadGroupBox.FooterText
-Majorsilence.Forms.Telerik.RadItem.ToolTipText
-Majorsilence.Forms.Telerik.RadLabel.ThemeName
-Majorsilence.Forms.Telerik.RadListDataItem.Checked
-Majorsilence.Forms.Telerik.RadListDataItem.DataBoundItem
-Majorsilence.Forms.Telerik.RadListDataItem.Tag
-Majorsilence.Forms.Telerik.RadListDataItem.Value
-Majorsilence.Forms.Telerik.RadMenuItem.CheckOnClick
-Majorsilence.Forms.Telerik.RadMessageBox.ThemeName
+Majorsilence.Forms.Telerik.RadGridView.UseScrollbarsInHierarchy    -- inert by necessity: a child view is a band painted into the row, with no child control or scroll region to gate (member remarks)
+Majorsilence.Forms.Telerik.RadGroupBox.FooterText    -- not drawn: Telerik shows the footer only with FooterVisibility, which this layer does not have
+Majorsilence.Forms.Telerik.RadItem.ToolTipText    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadLabel.ThemeName    -- Telerik theme name: Telerik themes are not mapped (CSS themes instead; COMPATIBILITY_MATRIX, Telerik.WinControls.Themes)
+Majorsilence.Forms.Telerik.RadListDataItem.Checked    -- item data for the application: the drop-down draws no check boxes and a checked list reads RadCheckedListDataItem
+Majorsilence.Forms.Telerik.RadListDataItem.DataBoundItem    -- set by the list for the application to read back
+Majorsilence.Forms.Telerik.RadListDataItem.Tag    -- application storage, read back by the application
+Majorsilence.Forms.Telerik.RadMessageBox.ThemeName    -- Telerik theme name: Telerik themes are not mapped (CSS themes instead; COMPATIBILITY_MATRIX, Telerik.WinControls.Themes)
 Majorsilence.Forms.Telerik.RadPageView.ThemeName    -- Telerik theme name; the compat controls have no theme engine
-Majorsilence.Forms.Telerik.RadPageViewCancelEventArgs.Page
-Majorsilence.Forms.Telerik.RadPageViewItem.Page
+Majorsilence.Forms.Telerik.RadPageViewCancelEventArgs.Page    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.RadPageViewItem.Page    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.RadPageViewStripElement.HighlightColor    -- the core tab strip draws the selected tab from the theme
 Majorsilence.Forms.Telerik.RadPageViewStripElement.ShowItemCloseButton    -- the core tab strip draws no close glyph on a tab
 Majorsilence.Forms.Telerik.RadPageViewStripElement.StripButtons    -- the core tab strip scrolls with arrows of its own and has no item-list button
-Majorsilence.Forms.Telerik.RadPageViewTabStripElement.ItemContentOrientation
-Majorsilence.Forms.Telerik.RadPanel.Text
-Majorsilence.Forms.Telerik.RadPdfViewer.ReadingMode
-Majorsilence.Forms.Telerik.RadPdfViewer.ThemeName
-Majorsilence.Forms.Telerik.RadPdfViewer.ViewerMode
-Majorsilence.Forms.Telerik.RadPdfViewerNavigator.AssociatedViewer
+Majorsilence.Forms.Telerik.RadPageViewTabStripElement.ItemContentOrientation    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadPanel.Text    -- not drawn: the panel paints no caption
+Majorsilence.Forms.Telerik.RadPdfViewer.ReadingMode    -- the browser PDF engine decides this (documented on the member)
+Majorsilence.Forms.Telerik.RadPdfViewer.ThemeName    -- Telerik theme name: Telerik themes are not mapped (CSS themes instead; COMPATIBILITY_MATRIX, Telerik.WinControls.Themes)
+Majorsilence.Forms.Telerik.RadPdfViewer.ViewerMode    -- the browser PDF engine decides this (documented on the member)
+Majorsilence.Forms.Telerik.RadPdfViewerNavigator.AssociatedViewer    -- nothing to drive: the browser PDF engine shows its own page navigation
 Majorsilence.Forms.Telerik.RadPropertyGrid.EnableSorting    -- ordering is PropertySort, driven by the toolbar; descriptor-based sort is not modelled
 Majorsilence.Forms.Telerik.RadPropertyGrid.SortOrder    -- ordering is PropertySort, driven by the toolbar; descriptor-based sort is not modelled
-Majorsilence.Forms.Telerik.RadRibbonBarElement.Text
-Majorsilence.Forms.Telerik.RadRichTextEditor.SpellChecker
-Majorsilence.Forms.Telerik.RadRichTextEditor.ThemeName
-Majorsilence.Forms.Telerik.RadScheduler.AllowAppointmentCreateInline
-Majorsilence.Forms.Telerik.RadScheduler.AppointmentTitleFormat
-Majorsilence.Forms.Telerik.RadScheduler.DateTimeFormat
-Majorsilence.Forms.Telerik.RadScheduler.ThemeName
-Majorsilence.Forms.Telerik.RadSchedulerNavigator.DateFormat
-Majorsilence.Forms.Telerik.RadSchedulerNavigator.NavigationStepType
-Majorsilence.Forms.Telerik.RadSchedulerNavigator.ShowWeekendCheckBox_Visible
-Majorsilence.Forms.Telerik.RadSpellChecker.SpellCheckMode
-Majorsilence.Forms.Telerik.RadSplitContainer.Collapsed
-Majorsilence.Forms.Telerik.RadSplitContainer.IsCleanUpTarget
-Majorsilence.Forms.Telerik.RadTabbedForm.ShowCaption
-Majorsilence.Forms.Telerik.RadTabbedFormControl.ShowDocumentTabsSeparator
-Majorsilence.Forms.Telerik.RadTabbedFormControl.ShowItemCloseButton
-Majorsilence.Forms.Telerik.RadTextBox.ThemeName
-Majorsilence.Forms.Telerik.RadTextBoxItem.Alignment
-Majorsilence.Forms.Telerik.RadTextBoxItem.Text
-Majorsilence.Forms.Telerik.RadTimePicker.ThemeName
+Majorsilence.Forms.Telerik.RadRibbonBarElement.Text    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadRichTextEditor.SpellChecker    -- spell checking is the browser's own (documented on the member)
+Majorsilence.Forms.Telerik.RadRichTextEditor.ThemeName    -- Telerik theme name: Telerik themes are not mapped (CSS themes instead; COMPATIBILITY_MATRIX, Telerik.WinControls.Themes)
+Majorsilence.Forms.Telerik.RadScheduler.AllowAppointmentCreateInline    -- calendar-grid setting: the grid views are deliberately out of scope (COMPATIBILITY_MATRIX); the agenda has nothing to apply it to
+Majorsilence.Forms.Telerik.RadScheduler.AppointmentTitleFormat    -- read by the application; the agenda formats with the current culture
+Majorsilence.Forms.Telerik.RadScheduler.DateTimeFormat    -- read by the application; the agenda formats with the current culture
+Majorsilence.Forms.Telerik.RadScheduler.ThemeName    -- Telerik theme name: Telerik themes are not mapped (CSS themes instead; COMPATIBILITY_MATRIX, Telerik.WinControls.Themes)
+Majorsilence.Forms.Telerik.RadSchedulerNavigator.DateFormat    -- the navigator's minimal bar does not draw or use this (documented on the member)
+Majorsilence.Forms.Telerik.RadSchedulerNavigator.NavigationStepType    -- the navigator's minimal bar does not draw or use this (documented on the member)
+Majorsilence.Forms.Telerik.RadSchedulerNavigator.ShowWeekendCheckBox_Visible    -- the navigator's minimal bar does not draw or use this (documented on the member)
+Majorsilence.Forms.Telerik.RadSpellChecker.SpellCheckMode    -- spell checking is the browser's own (documented on the member)
+Majorsilence.Forms.Telerik.RadSplitContainer.Collapsed    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
+Majorsilence.Forms.Telerik.RadSplitContainer.IsCleanUpTarget    -- empty-container clean-up is not modelled: the dock keeps its strips
+Majorsilence.Forms.Telerik.RadTabbedForm.ShowCaption    -- form chrome setting with no counterpart in this chrome
+Majorsilence.Forms.Telerik.RadTabbedFormControl.ShowDocumentTabsSeparator    -- form chrome setting with no counterpart in this chrome
+Majorsilence.Forms.Telerik.RadTabbedFormControl.ShowItemCloseButton    -- form chrome setting with no counterpart in this chrome
+Majorsilence.Forms.Telerik.RadTextBox.ThemeName    -- Telerik theme name: Telerik themes are not mapped (CSS themes instead; COMPATIBILITY_MATRIX, Telerik.WinControls.Themes)
+Majorsilence.Forms.Telerik.RadTextBoxItem.Alignment    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadTextBoxItem.Text    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadTimePicker.ThemeName    -- Telerik theme name: Telerik themes are not mapped (CSS themes instead; COMPATIBILITY_MATRIX, Telerik.WinControls.Themes)
 Majorsilence.Forms.Telerik.RadTreeNode.DataBoundItem    -- set by the tree as it binds; the application reads it back
 Majorsilence.Forms.Telerik.RadTreeNode.Value    -- set by the tree as it binds (ValueMember) or by the application; the application reads it back
 Majorsilence.Forms.Telerik.RadTreeView.ThemeName    -- Telerik theme name; the compat controls have no theme engine
 Majorsilence.Forms.Telerik.RadWaitingBar.WaitingStep    -- read by MarqueeStep, which the core marquee timer calls; the Telerik scan does not follow calls in from core
 Majorsilence.Forms.Telerik.RadWaitingBar.WaitingStyle    -- every style draws as the dash; the data cloud, rotating and spinner styles are not drawn
-Majorsilence.Forms.Telerik.RadWaitingBarElement.WaitingSpeed
-Majorsilence.Forms.Telerik.RenderElementEventArgs.Element
-Majorsilence.Forms.Telerik.ResourceMappingInfo.Color
-Majorsilence.Forms.Telerik.ResourceMappingInfo.Id
-Majorsilence.Forms.Telerik.ResourceMappingInfo.Image
-Majorsilence.Forms.Telerik.ResourceMappingInfo.Name
-Majorsilence.Forms.Telerik.RichTextEditorRibbonBar.AssociatedRichTextEditor
-Majorsilence.Forms.Telerik.RichTextEditorRibbonBar.CloseButton
-Majorsilence.Forms.Telerik.RichTextEditorRibbonBar.LayoutMode
-Majorsilence.Forms.Telerik.RichTextEditorRibbonBar.MaximizeButton
-Majorsilence.Forms.Telerik.RichTextEditorRibbonBar.MinimizeButton
-Majorsilence.Forms.Telerik.RichTextEditorRibbonBar.ShowLayoutModeButton
-Majorsilence.Forms.Telerik.RichTextEditorRibbonBar.SimplifiedHeight
-Majorsilence.Forms.Telerik.RichTextEditorRibbonTab.IsSelected
-Majorsilence.Forms.Telerik.RowFormattingEventArgs.CellElement
+Majorsilence.Forms.Telerik.RadWaitingBarElement.WaitingSpeed    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RenderElementEventArgs.Element    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.ResourceMappingInfo.Color    -- resource binding is not implemented: the agenda shows no resources
+Majorsilence.Forms.Telerik.ResourceMappingInfo.Id    -- resource binding is not implemented: the agenda shows no resources
+Majorsilence.Forms.Telerik.ResourceMappingInfo.Image    -- resource binding is not implemented: the agenda shows no resources
+Majorsilence.Forms.Telerik.ResourceMappingInfo.Name    -- resource binding is not implemented: the agenda shows no resources
+Majorsilence.Forms.Telerik.RichTextEditorRibbonBar.CloseButton    -- the bar is one fixed single-row toolbar (documented on the member)
+Majorsilence.Forms.Telerik.RichTextEditorRibbonBar.LayoutMode    -- the bar is one fixed single-row toolbar (documented on the member)
+Majorsilence.Forms.Telerik.RichTextEditorRibbonBar.MaximizeButton    -- the bar is one fixed single-row toolbar (documented on the member)
+Majorsilence.Forms.Telerik.RichTextEditorRibbonBar.MinimizeButton    -- the bar is one fixed single-row toolbar (documented on the member)
+Majorsilence.Forms.Telerik.RichTextEditorRibbonBar.ShowLayoutModeButton    -- the bar is one fixed single-row toolbar (documented on the member)
+Majorsilence.Forms.Telerik.RichTextEditorRibbonBar.SimplifiedHeight    -- the bar is one fixed single-row toolbar (documented on the member)
+Majorsilence.Forms.Telerik.RichTextEditorRibbonTab.IsSelected    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RowFormattingEventArgs.CellElement    -- event data: set as the event is raised, read by the handler
 Majorsilence.Forms.Telerik.RowFormattingEventArgs.Row    -- event data: set by RadGridView as it raises the event, read by the handler
-Majorsilence.Forms.Telerik.RowFormattingEventArgs.RowElement
+Majorsilence.Forms.Telerik.RowFormattingEventArgs.RowElement    -- event data: set as the event is raised, read by the handler
 Majorsilence.Forms.Telerik.RowFormattingEventArgs.Value    -- event data: set by RadGridView as it raises the event, read by the handler
-Majorsilence.Forms.Telerik.RowValidatingEventArgs.Row
-Majorsilence.Forms.Telerik.SchedulerAppointmentCancelEventArgs.Cancel
-Majorsilence.Forms.Telerik.SchedulerContextMenuOpeningEventArgs.Cancel
-Majorsilence.Forms.Telerik.SchedulerDayView.DayCount
-Majorsilence.Forms.Telerik.SchedulerMonthView.ShowWeekend
-Majorsilence.Forms.Telerik.SchedulerMonthView.WeekCount
-Majorsilence.Forms.Telerik.SchedulerPrintSettingsDialog.EndDate
-Majorsilence.Forms.Telerik.SchedulerPrintSettingsDialog.PrintDocument
-Majorsilence.Forms.Telerik.SchedulerPrintSettingsDialog.StartDate
-Majorsilence.Forms.Telerik.SchedulerPrintSettingsDialog.ThemeName
-Majorsilence.Forms.Telerik.SchedulerResourceProvider.DataSource
-Majorsilence.Forms.Telerik.SchedulerResourceProvider.Mapping
-Majorsilence.Forms.Telerik.SchedulerTimescale.DisplayedCellsCount
-Majorsilence.Forms.Telerik.SchedulerTimescale.Unit
-Majorsilence.Forms.Telerik.SchedulerWeekView.ShowWeekend
-Majorsilence.Forms.Telerik.SelectedTabChangedEventArgs.NewWindow
-Majorsilence.Forms.Telerik.SelectedTabChangedEventArgs.OldWindow
+Majorsilence.Forms.Telerik.RowValidatingEventArgs.Row    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.SchedulerAppointmentCancelEventArgs.Cancel    -- the agenda keeps no appointment selection for Cancel to prevent
+Majorsilence.Forms.Telerik.SchedulerDayView.DayCount    -- calendar-grid setting: the grid views are deliberately out of scope (COMPATIBILITY_MATRIX); the agenda has nothing to apply it to
+Majorsilence.Forms.Telerik.SchedulerMonthView.ShowWeekend    -- calendar-grid setting: the grid views are deliberately out of scope (COMPATIBILITY_MATRIX); the agenda has nothing to apply it to
+Majorsilence.Forms.Telerik.SchedulerMonthView.WeekCount    -- calendar-grid setting: the grid views are deliberately out of scope (COMPATIBILITY_MATRIX); the agenda has nothing to apply it to
+Majorsilence.Forms.Telerik.SchedulerPrintSettingsDialog.EndDate    -- the dialog is not shown here; the settings are for the application's own print code
+Majorsilence.Forms.Telerik.SchedulerPrintSettingsDialog.PrintDocument    -- the dialog is not shown here; the settings are for the application's own print code
+Majorsilence.Forms.Telerik.SchedulerPrintSettingsDialog.StartDate    -- the dialog is not shown here; the settings are for the application's own print code
+Majorsilence.Forms.Telerik.SchedulerPrintSettingsDialog.ThemeName    -- Telerik theme name: Telerik themes are not mapped (CSS themes instead; COMPATIBILITY_MATRIX, Telerik.WinControls.Themes)
+Majorsilence.Forms.Telerik.SchedulerResourceProvider.DataSource    -- resource binding is not implemented: the agenda shows no resources
+Majorsilence.Forms.Telerik.SchedulerResourceProvider.Mapping    -- resource binding is not implemented: the agenda shows no resources
+Majorsilence.Forms.Telerik.SchedulerTimescale.DisplayedCellsCount    -- calendar-grid setting: the grid views are deliberately out of scope (COMPATIBILITY_MATRIX); the agenda has nothing to apply it to
+Majorsilence.Forms.Telerik.SchedulerTimescale.Unit    -- calendar-grid setting: the grid views are deliberately out of scope (COMPATIBILITY_MATRIX); the agenda has nothing to apply it to
+Majorsilence.Forms.Telerik.SchedulerWeekView.ShowWeekend    -- calendar-grid setting: the grid views are deliberately out of scope (COMPATIBILITY_MATRIX); the agenda has nothing to apply it to
+Majorsilence.Forms.Telerik.SelectedTabChangedEventArgs.NewWindow    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.SelectedTabChangedEventArgs.OldWindow    -- event data: set as the event is raised, read by the handler
 Majorsilence.Forms.Telerik.SortChangingEventArgs.ColumnIndex    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.SortChangingEventArgs.NewDirection    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.SortChangingEventArgs.OldDirection    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.SortChangingEventArgs.PropertyName    -- event data: set by RadGridView as it raises the event, read by the handler
-Majorsilence.Forms.Telerik.SplitPanel.Collapsed
-Majorsilence.Forms.Telerik.SplitPanel.Orientation
-Majorsilence.Forms.Telerik.SplitPanel.SplitterWidth
-Majorsilence.Forms.Telerik.SplitPanelSizeInfo.AbsoluteSize
-Majorsilence.Forms.Telerik.SplitPanelSizeInfo.AutoSizeScale
-Majorsilence.Forms.Telerik.SplitPanelSizeInfo.SizeMode
-Majorsilence.Forms.Telerik.SplitPanelSizeInfo.SplitterCorrection
-Majorsilence.Forms.Telerik.TabStripItem.Image
-Majorsilence.Forms.Telerik.TabStripItem.IsPinned
-Majorsilence.Forms.Telerik.TabStripItem.IsSelected
-Majorsilence.Forms.Telerik.ToolTabStrip.SplitterWidth
-Majorsilence.Forms.Telerik.ToolWindow.AutoHideSize
-Majorsilence.Forms.Telerik.ToolWindow.DocumentButtons
-Majorsilence.Forms.Telerik.ValueChangingEventArgs.NewValue
-Majorsilence.Forms.Telerik.ValueChangingEventArgs.OldValue
-Majorsilence.Forms.Telerik.VisualElement.TextAlignment
-Majorsilence.Forms.Telerik.WaitingBarContentElement.WaitingStyle
-Majorsilence.Forms.Telerik.WaitingBarSeparatorElement.Dash
+Majorsilence.Forms.Telerik.SplitPanel.Collapsed    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
+Majorsilence.Forms.Telerik.SplitPanel.Orientation    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
+Majorsilence.Forms.Telerik.SplitPanel.SplitterWidth    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
+Majorsilence.Forms.Telerik.SplitPanelSizeInfo.AbsoluteSize    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
+Majorsilence.Forms.Telerik.SplitPanelSizeInfo.AutoSizeScale    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
+Majorsilence.Forms.Telerik.SplitPanelSizeInfo.SizeMode    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
+Majorsilence.Forms.Telerik.SplitPanelSizeInfo.SplitterCorrection    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
+Majorsilence.Forms.Telerik.TabStripItem.Image    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.TabStripItem.IsPinned    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.TabStripItem.IsSelected    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.ToolTabStrip.SplitterWidth    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
+Majorsilence.Forms.Telerik.ToolWindow.AutoHideSize    -- there is no auto-hide slide-out
+Majorsilence.Forms.Telerik.ToolWindow.DocumentButtons    -- a tool strip draws no document buttons; DocumentTabStrip.DocumentButtons is the one read
+Majorsilence.Forms.Telerik.ValueChangingEventArgs.NewValue    -- event data; Cancel is honoured, but a handler changing NewValue is not applied
+Majorsilence.Forms.Telerik.ValueChangingEventArgs.OldValue    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.VisualElement.TextAlignment    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.WaitingBarContentElement.WaitingStyle    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.WaitingBarSeparatorElement.Dash    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it

@@ -4094,6 +4094,73 @@ and they found a navigation bug the untestability had hidden.
 
 5 tests; one neutralization round (the old descent) fails 4 of them, snapshot verified before and after.
 
+**W6 mechanisms, twenty-fifth chunk: the Telerik stored-only baseline, sorted (#176). — 2026-09-30.**
+`TelerikStoredOnlyPropertyBaseline.txt` listed 312 entries, of which 246 had no annotation. Each was
+either wired or given its reason; it now lists 296, every one annotated. Most were legitimately inert:
+
+- event data a handler reads;
+- Telerik theme names;
+- the element-tree stand-ins (`RadElement` and its kin);
+- gradient styles;
+- export options the exporters do not implement;
+- calendar-grid, split-layout and resource settings already deferred.
+
+Sixteen were real gaps:
+
+- **A cell's own style was thrown away.** `row.Cells[i]` built a new `GridViewCellInfo` on every access,
+  each with a new `RadCellStyle`, so `Cells[0].Style.BackColor = …` set an object nothing kept. The style
+  is now kept per cell (a `ConditionalWeakTable` on the core cell) and applied on every paint, after the
+  conditional-formatting rules and before the handlers. As in Telerik, `BackColor` paints only once
+  `CustomizeFill` is set. A formatting handler's `e.CellElement.Style` is applied too.
+  `GridViewCellInfo.IsSelected` and `IsCurrent` became the cell's real state for the same reason.
+- **`MasterTemplate.MultiSelect`**, which is what designer code sets, now reaches the grid; only
+  `RadGridView.MultiSelect` did.
+- **`EnumBinder.Target`** was "not itself resolved". It now fills its combo column's or combo box's
+  `DataSource` with the enum's values once both it and `Source` are set, in either order.
+- **`RadDropDownList.SelectedItem`** wrapped even an added `RadListDataItem` in a new, empty item, so
+  `SelectedItem.Value` was always null. It returns the item itself, `SelectedValue` reads and selects by
+  `Value`, and a bound list's wrapper carries the `SelectedValue`.
+- **`RadCheckedDropDownList.CheckedItems`** saw only `SetItemChecked`. It now follows each item's
+  `Checked`. The drop-down still draws no check boxes (BACKLOG).
+- **`RadMenuItem.CheckOnClick`** toggles the item before its `Click` handler runs, as WinForms'
+  `ToolStripMenuItem` does.
+- **`RadCollapsiblePanel` had no header**, so `HeaderText` never showed and nothing in the UI could
+  collapse it. It now has a header that shows the text, and clicking it collapses the panel down to the
+  header and back.
+- **`RichTextEditorRibbonBar` was documented as a toolbar and had no buttons**, so
+  `AssociatedRichTextEditor` was unused. It now has ten buttons (bold, italic, underline, two lists,
+  three alignments, undo, redo), each sending its `execCommand` to the editor. The toolbar is
+  transparent, so a theme's `ToolBar` rule does not cover the bar's own background.
+- **The scheduler's `ContextMenuOpening`** was raised only by an explicit call. A right-click now raises
+  it with a menu for the handler to fill, and shows the menu unless the handler cancels.
+
+Deferred with reasons (BACKLOG.md):
+
+- `AutoSizeRows`: the core grid's `AutoSizeRowsMode` is itself not applied during layout.
+- Dock tool-window caption buttons.
+- The checked drop-down's check boxes.
+
+The advanced-filter decision (#176 step 5) was already recorded as a bounded gap in both files.
+
+**Found by the scale-2 gate: the headless backend's screen conversions did not scale.** The real
+backends take a logical client point to desktop pixels: Avalonia returns a `PixelPoint`, and the
+WinForms host scales by `Scaling` before calling Win32. `Control.PointToScreen` assumes this when it
+scales a child's offset by `DesktopScaling`. `HeadlessWindowHost` added the location without scaling,
+so at scale 2 `form.PointToClient (child.PointToScreen (p))` came back doubled. The collapsible-panel
+test, which clicked through that round trip, missed its header. The headless host now scales both
+ways, and nothing else in the suite moved at scale 2. `CoordinateSpaceTests` pins the round trip; like
+the other RC-8 tests it can fail only in the scale-2 shape, and it does so without the fix.
+
+Tests: 12 in `W6TelerikStoredOnlyTests`, plus 1 in `CoordinateSpaceTests`. There were 20 neutralization rounds, each undoing one fix, and
+all of them went red:
+
+- Three first mutations did not compile (CS0162, CS8604, CS0067) and were redone as impossible runtime
+  conditions.
+- One stayed green: the transparent toolbar makes no difference until a `ToolBar` rule exists. The test
+  now loads one, and it goes red.
+
+Every file was restored and byte-compared after each round.
+
 **Every control reaches a CSS selector, and the reference says which (#100). — 2026-09-30.**
 Control rules (`Button { … }`) reached the 30 documented selectors and whatever derived from them; the
 rest of both assemblies followed the `:root` tokens only, and the reference's hand-written "Also styles"

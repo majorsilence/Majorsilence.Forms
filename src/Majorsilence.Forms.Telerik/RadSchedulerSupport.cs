@@ -251,6 +251,15 @@ namespace Majorsilence.Forms.Telerik
         public event EventHandler<Appointment>? AppointmentActivated;
         public event EventHandler<Appointment>? AppointmentSelecting;
         public event EventHandler<Appointment>? ScreenTipNeeded;
+        public event EventHandler<Point>? ContextMenuRequested;
+
+        protected override void OnMouseUp (MouseEventArgs e)
+        {
+            base.OnMouseUp (e);
+
+            if (e.Button == MouseButtons.Right)
+                ContextMenuRequested?.Invoke (this, e.Location);
+        }
 
         public void SetAppointments (IEnumerable<Appointment> appointments, DateTime rangeStart, DateTime rangeEnd)
         {

@@ -4,8 +4,10 @@ namespace Majorsilence.Forms.Telerik
 {
     /// <summary>
     /// Telerik-compat rich text editor ribbon bar. A single-row, Majorsilence-painted toolbar (bold,
-    /// italic, underline, font/size, color, lists, alignment, undo/redo); each button calls
-    /// <see cref="RadRichTextEditor.ExecCommand"/> on <see cref="AssociatedRichTextEditor"/>.
+    /// italic, underline, lists, alignment, undo/redo); each button calls
+    /// <see cref="RadRichTextEditor.ExecCommand"/> on <see cref="AssociatedRichTextEditor"/>. There are no
+    /// font, size or colour pickers: those need a value the browser's <c>execCommand</c> takes from a
+    /// picker this bar does not have.
     ///
     /// <para>
     /// Designer-generated code frequently reaches into the (real Telerik) element tree via chained
@@ -31,6 +33,45 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets the root element of the bar (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
         private readonly RadRibbonBarElement _rootElement = new ();
+        private readonly ToolBar _toolbar;
+
+        // The buttons, and the document.execCommand name each sends (W6 mechanisms, #176: the bar was
+        // documented as this toolbar but had no buttons at all, so AssociatedRichTextEditor went unused).
+        internal static readonly (string Text, string ToolTip, string Command)[] Commands = {
+            ("B", "Bold", "bold"),
+            ("I", "Italic", "italic"),
+            ("U", "Underline", "underline"),
+            ("\u2022 List", "Bulleted list", "insertUnorderedList"),
+            ("1. List", "Numbered list", "insertOrderedList"),
+            ("Left", "Align left", "justifyLeft"),
+            ("Center", "Center", "justifyCenter"),
+            ("Right", "Align right", "justifyRight"),
+            ("Undo", "Undo", "undo"),
+            ("Redo", "Redo", "redo"),
+        };
+
+        /// <summary>Initializes a new instance of the <see cref="RichTextEditorRibbonBar"/> class.</summary>
+        public RichTextEditorRibbonBar ()
+        {
+            _toolbar = Controls.AddImplicitControl (new ToolBar { Dock = DockStyle.Fill });
+
+            // The bar's own background shows through: the toolbar is how the bar is built, not a second
+            // surface a theme rule for the bar would have to get past.
+            _toolbar.Style.BackgroundColor = SkiaSharp.SKColors.Transparent;
+
+            foreach (var (text, tip, command) in Commands) {
+                var button = _toolbar.Buttons.Add (text);
+                button.ToolTipText = tip;
+                button.Tag = command;
+            }
+
+            _toolbar.ButtonClick += (_, e) => {
+                if (e.Button.Tag is string command)
+                    ExecuteCommand (command);
+            };
+        }
+
+        internal ToolBar Toolbar => _toolbar;
 
         /// <summary>Gets or sets the <see cref="RadRichTextEditor"/> this ribbon bar controls.</summary>
         public RadRichTextEditor? AssociatedRichTextEditor { get; set; }

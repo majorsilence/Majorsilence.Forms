@@ -204,8 +204,14 @@ namespace Majorsilence.Forms.Telerik
         /// <c>"foreColor"</c> with a value). This is the entry point <see cref="RichTextEditorRibbonBar"/>'s
         /// buttons call. No-op on the plain-text fallback.
         /// </summary>
+        // Raised for every command, before the page-ready check -- where a test (or the headless backend,
+        // which has no page) observes what the ribbon bar asked for.
+        internal event Action<string, string?>? CommandRequested;
+
         internal void ExecCommand (string command, string? value = null)
         {
+            CommandRequested?.Invoke (command, value);
+
             if (!_pageReady)
                 return;
 

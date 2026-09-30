@@ -459,6 +459,8 @@ namespace Majorsilence.Forms.Telerik
         public bool AllowColumnChooser { get => MasterTemplate.AllowColumnChooser; set => MasterTemplate.AllowColumnChooser = value; }
         /// <summary>Gets or sets whether multiple rows can be selected.</summary>
         public new bool MultiSelect { get => MasterTemplate.MultiSelect; set { MasterTemplate.MultiSelect = value; base.MultiSelect = value; } }
+
+        internal void SetEngineMultiSelect (bool value) => base.MultiSelect = value;
         /// <summary>Gets or sets the auto-size columns mode. Forwards to MasterGridViewTemplate's own AutoSizeColumnsMode.</summary>
         public new GridViewAutoSizeColumnsMode AutoSizeColumnsMode { get => MasterTemplate.AutoSizeColumnsMode; set => MasterTemplate.AutoSizeColumnsMode = value; }
 
@@ -2685,6 +2687,9 @@ namespace Majorsilence.Forms.Telerik
             // Cell-level conditional formatting (rules not flagged ApplyToRow). User events override below.
             ApplyCellConditionalFormatting (cell, column, displayText);
 
+            // The cell's own Telerik style (row.Cells[i].Style) -- after the rules, before the handlers.
+            RadCellStyle.Existing (cell)?.ApplyTo (cell);
+
             // Raise the Telerik formatting events (handlers may further change Text / colors).
             if (_cellFormatting is not null || _viewCellFormatting is not null) {
                 // Financial does e.g. TryCast(e.CellElement, GridCommandCellElement) — construct the
@@ -2724,6 +2729,9 @@ namespace Majorsilence.Forms.Telerik
                     cell.Style.Alignment = (DataGridViewContentAlignment) (int) element.TextAlignment;
                 if (element.TextWrap)
                     cell.Style.WrapMode = DataGridViewTriState.True;
+
+                // A handler may style through e.CellElement.Style as well as the element's own colours.
+                element.Style.ApplyTo (cell);
             }
 
             // Only override the displayed text when formatting actually changed it.
@@ -2968,8 +2976,18 @@ namespace Majorsilence.Forms.Telerik
         public bool EnableSorting { get; set; } = true;
         /// <summary>Gets or sets whether grouped data auto-expands.</summary>
         public bool AutoExpandGroups { get; set; } = true;
+        private bool _multiSelect;
         /// <summary>Gets or sets whether multiple rows can be selected.</summary>
-        public bool MultiSelect { get; set; }
+        /// <remarks>On the master template this is the grid's own <see cref="RadGridView.MultiSelect"/>
+        /// (W6 mechanisms, #176: designer code sets <c>MasterTemplate.MultiSelect</c>, and the grid never saw it).</remarks>
+        public bool MultiSelect {
+            get => _multiSelect;
+            set {
+                _multiSelect = value;
+                if (_grid is { } grid && ReferenceEquals (grid.MasterTemplate, this))
+                    grid.SetEngineMultiSelect (value);
+            }
+        }
         /// <summary>Gets or sets whether the user can drag-reorder rows. Stub.</summary>
         public bool AllowRowReorder { get; set; }
         private bool _readOnly;
@@ -3690,8 +3708,11 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat cell info. Wraps a <see cref="DataGridViewCell"/>.</summary>
     public class GridViewCellInfo
     {
-        /// <summary>Whether the cell is selected. Stored for Telerik compat.</summary>
-        public bool IsSelected { get; set; }
+        /// <summary>Whether the cell is selected (the same state as <see cref="Selected"/>).</summary>
+        public bool IsSelected {
+            get => _cell.Selected;
+            set => _cell.Selected = value;
+        }
 
         private readonly DataGridViewCell _cell;
 
@@ -3704,8 +3725,8 @@ namespace Majorsilence.Forms.Telerik
         }
         /// <summary>Gets the owning column.</summary>
         public DataGridViewColumn? ColumnInfo => _cell.OwningColumn;
-        /// <summary>Gets the cell style (Telerik-compat style object).</summary>
-        public RadCellStyle Style { get; } = new RadCellStyle ();
+        /// <summary>Gets the cell's own style. The same object every time for the same cell; see <see cref="RadCellStyle"/>.</summary>
+        public RadCellStyle Style => RadCellStyle.For (_cell);
         /// <summary>Gets or sets whether the cell is read-only.</summary>
         public bool ReadOnly {
             get => _cell.ReadOnly;
@@ -3716,8 +3737,14 @@ namespace Majorsilence.Forms.Telerik
             get => _cell.Selected;
             set => _cell.Selected = value;
         }
-        /// <summary>Telerik compat: whether this is the grid's current cell.</summary>
-        public bool IsCurrent { get; set; }
+        /// <summary>Telerik compat: whether this is the grid's current cell. Setting it true makes it current.</summary>
+        public bool IsCurrent {
+            get => _cell.DataGridView is { } grid && ReferenceEquals (grid.CurrentCell, _cell);
+            set {
+                if (value && _cell.DataGridView is { } grid)
+                    grid.CurrentCell = _cell;
+            }
+        }
         /// <summary>Telerik compat: ends edit mode on the cell. Stub (compat cells are not in edit mode).</summary>
         public bool EndEdit () => true;
     }

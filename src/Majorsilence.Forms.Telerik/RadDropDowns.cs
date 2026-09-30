@@ -17,9 +17,37 @@ namespace Majorsilence.Forms.Telerik
         /// </summary>
         public new event PositionChangedEventHandler? SelectedIndexChanged;
 
-        /// <summary>Gets the selected item wrapped as a Telerik list item (typed DataBoundItem access).</summary>
-        public new RadListDataItem? SelectedItem =>
-            base.SelectedItem is null ? null : new RadListDataItem { Text = base.SelectedItem.ToString () ?? string.Empty, DataBoundItem = base.SelectedItem };
+        /// <summary>
+        /// Gets the selected item as a Telerik list item: the item itself when it is a
+        /// <see cref="RadListDataItem"/>, otherwise a wrapper whose <c>DataBoundItem</c> is the item and whose
+        /// <c>Value</c> is the <see cref="SelectedValue"/>.
+        /// </summary>
+        /// <remarks>W6 mechanisms (#176): an added <see cref="RadListDataItem"/> used to come back as a new
+        /// wrapper around itself, so <c>SelectedItem.Value</c> was always null.</remarks>
+        public new RadListDataItem? SelectedItem => base.SelectedItem switch {
+            null => null,
+            RadListDataItem item => item,
+            var item => new RadListDataItem { Text = GetItemText (item), DataBoundItem = item, Value = base.SelectedValue },
+        };
+
+        /// <summary>
+        /// Gets or sets the selected value. For an unbound list of <see cref="RadListDataItem"/>s it is the
+        /// selected item's <see cref="RadListDataItem.Value"/>, as in Telerik; otherwise the
+        /// <see cref="ComboBox"/> rules (<c>ValueMember</c>, else the item) apply.
+        /// </summary>
+        public override object? SelectedValue {
+            get => DataSource is null && base.SelectedItem is RadListDataItem item ? item.Value : base.SelectedValue;
+            set {
+                if (DataSource is null)
+                    for (var i = 0; i < Items.Count; i++)
+                        if (Items[i] is RadListDataItem item && Equals (item.Value, value)) {
+                            SelectedIndex = i;
+                            return;
+                        }
+
+                base.SelectedValue = value;
+            }
+        }
 
         /// <summary>Gets or sets the drop-down style using Telerik's enum; maps onto the base ComboBox style.</summary>
         public new RadDropDownStyle DropDownStyle {
@@ -50,8 +78,20 @@ namespace Majorsilence.Forms.Telerik
     {
         private readonly List<RadCheckedListDataItem> _checkedItems = new ();
 
-        /// <summary>Gets the collection of checked items.</summary>
-        public IReadOnlyList<RadCheckedListDataItem> CheckedItems => _checkedItems;
+        /// <summary>
+        /// Gets the checked items: every item in <c>Items</c> whose <see cref="RadCheckedListDataItem.Checked"/>
+        /// is set, in list order, then any item checked through <see cref="SetItemChecked"/> that is not in the list.
+        /// </summary>
+        /// <remarks>W6 mechanisms (#176): an item added already checked, or checked by setting
+        /// <c>item.Checked</c>, used to be missing -- only <see cref="SetItemChecked"/> reached this list.</remarks>
+        public IReadOnlyList<RadCheckedListDataItem> CheckedItems {
+            get {
+                var listed = Items.OfType<RadCheckedListDataItem> ().ToList ();
+                return listed.Where (i => i.Checked)
+                    .Concat (_checkedItems.Where (i => i.Checked && !listed.Contains (i)))
+                    .ToList ();
+            }
+        }
 
         /// <summary>Gets or sets whether the drop-down animates. No-op stub.</summary>
         public bool DropDownAnimationEnabled { get; set; } = true;

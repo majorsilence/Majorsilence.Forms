@@ -74,6 +74,17 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets whether clicking toggles the checked state. Mirrors Telerik.</summary>
         public bool CheckOnClick { get; set; }
 
+        /// <inheritdoc/>
+        /// <remarks>Toggles first, so a Click handler reads the new state, as WinForms'
+        /// ToolStripMenuItem.OnClick does (W6 mechanisms, #176: CheckOnClick was stored only).</remarks>
+        protected override void OnClick (EventArgs e)
+        {
+            if (CheckOnClick)
+                Checked = !Checked;
+
+            base.OnClick (e);
+        }
+
         /// <summary>Telerik-style alias of <see cref="MenuItem.Checked"/>.</summary>
         public bool IsChecked {
             get => Checked;
