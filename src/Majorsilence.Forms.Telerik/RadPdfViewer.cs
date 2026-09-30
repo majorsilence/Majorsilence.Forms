@@ -178,6 +178,12 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadPdfViewerNavigator : Control, ISupportInitializeCompat
     {
+        /// <summary>Gets the default style for all RadPdfViewerNavigators: what a <c>RadPdfViewerNavigator { ... }</c> theme rule sets (#100).</summary>
+        public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle);
+
+        /// <inheritdoc/>
+        public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
+
         /// <summary>Initializes a new instance of the <see cref="RadPdfViewerNavigator"/> class.</summary>
         public RadPdfViewerNavigator ()
         {

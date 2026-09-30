@@ -22,6 +22,12 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RichTextEditorRibbonBar : Control, ISupportInitializeCompat
     {
+        /// <summary>Gets the default style for all RichTextEditorRibbonBars: what a <c>RichTextEditorRibbonBar { ... }</c> theme rule sets (#100).</summary>
+        public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle);
+
+        /// <inheritdoc/>
+        public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
+
         /// <summary>Gets the root element of the bar (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
         private readonly RadRibbonBarElement _rootElement = new ();
@@ -164,6 +170,12 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadRibbonBar : Control, ISupportInitializeCompat
     {
+        /// <summary>Gets the default style for all RadRibbonBars: what a <c>RadRibbonBar { ... }</c> theme rule sets (#100).</summary>
+        public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle);
+
+        /// <inheritdoc/>
+        public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
+
         /// <summary>Gets the root element of the bar (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
         /// <summary>Gets the ribbon's tabs. Stub list.</summary>

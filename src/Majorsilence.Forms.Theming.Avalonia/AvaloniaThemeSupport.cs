@@ -397,7 +397,23 @@ namespace Majorsilence.Forms.Theming.Avalonia
             Map ("PictureBox", null, "Avalonia's Image has no background or border.");
             Map ("PropertyGrid", null, "Avalonia has no PropertyGrid.");
             Map ("Ribbon", null, "Avalonia has no ribbon control.");
+            Map ("DateTimePicker", null, "No counterpart: Avalonia's DatePicker is themed by its own template, which this matrix does not map.");
+            Map ("FormTitleBar", null, "No counterpart: Avalonia windows draw their own chrome.");
+            Map ("HostedSurface", null, "No counterpart: it is the surface Majorsilence.Forms embeds in an Avalonia host.");
+            Map ("MdiClient", null, "No counterpart: Avalonia has no MDI workspace.");
+            Map ("PopupWindow", null, "No counterpart: Avalonia popups are themed by their own templates.");
+            Map ("PrintPreviewControl", null, "No counterpart: Avalonia has no print preview control.");
+            Map ("ProgressBar", null, "No counterpart: Avalonia's ProgressBar is themed by its own template, which this matrix does not map.");
+            Map ("DockWindowBase", null, "A Majorsilence.Forms.Telerik control with no Avalonia counterpart.");
+            Map ("RadCommandBar", null, "A Majorsilence.Forms.Telerik control with no Avalonia counterpart.");
+            Map ("RadPdfViewerNavigator", null, "A Majorsilence.Forms.Telerik control with no Avalonia counterpart.");
+            Map ("RadRibbonBar", null, "A Majorsilence.Forms.Telerik control with no Avalonia counterpart.");
+            Map ("RadScheduler", null, "A Majorsilence.Forms.Telerik control with no Avalonia counterpart.");
+            Map ("RadSchedulerNavigator", null, "A Majorsilence.Forms.Telerik control with no Avalonia counterpart.");
+            Map ("RadStatusStrip", null, "A Majorsilence.Forms.Telerik control with no Avalonia counterpart.");
+            Map ("RichTextEditorRibbonBar", null, "A Majorsilence.Forms.Telerik control with no Avalonia counterpart.");
             Map ("StatusBar", null, "Avalonia has no status bar control; bind your own status row to the published token resources instead.");
+            Map ("StatusStrip", null, "Avalonia has no status bar control; bind your own status row to the published token resources instead.");
             Map ("ToolBar", null, "Avalonia has no tool bar control; bind your own tool row to the published token resources instead.");
 
             // Anything the explicit rows above left open on a mapped selector is unsupported.
