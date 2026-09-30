@@ -6,6 +6,7 @@ namespace Majorsilence.Forms.Tests
     // End-to-end wrap regression through a real offscreen render: overflowing tabs wrap, the strip
     // grows to hold every row (settling within the first frames), and the selected page moves
     // below the whole band.
+    [Collection ("Headless")]
     public class TabStripWrapRenderTests
     {
         [Fact]

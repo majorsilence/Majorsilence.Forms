@@ -8,6 +8,7 @@ namespace Majorsilence.Forms.Tests
     // it: a themed control library scans grid.Controls for them so it can mirror their state onto its own
     // skinned scrollbars. Ours kept them as implicit chrome, which the public collection does not show, so
     // that scan found nothing and the library NREd while the grid painted.
+    [Collection ("Headless")]
     public class DataGridViewScrollBarChildrenTests
     {
         [Fact]

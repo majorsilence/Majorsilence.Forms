@@ -8,6 +8,7 @@ namespace Majorsilence.Forms.Tests
     // SystemInformation.PrefersReducedMotion answers false when the active backend cannot tell (the same conservative default every
     // other UI-effect member on that page uses), Headless can be told directly for tests, and PolledSetting is the platform-agnostic
     // mechanism a backend that can only re-read a setting (no push notification) uses to raise a change event anyway.
+    [Collection ("Headless")]
     public class ReducedMotionTests : IDisposable
     {
         public ReducedMotionTests () => HeadlessRenderer.Use ();

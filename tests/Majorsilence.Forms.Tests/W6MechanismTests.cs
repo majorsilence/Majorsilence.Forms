@@ -9,6 +9,7 @@ namespace Majorsilence.Forms.Tests;
 /// W6 mechanisms: the hover rest-timer, ListView.BackgroundImageTiled, DataGridView error glyphs with
 /// the *ErrorTextNeeded events, and the managed caption's help button and icon switch.
 /// </summary>
+[Collection ("Headless")]
 public class W6MechanismTests
 {
     private static MouseEventArgs At (int x, int y) => new (MouseButtons.None, 0, x, y, 0);

@@ -8,6 +8,7 @@ namespace Majorsilence.Forms.Tests;
 // every hook ported code overrides has to be declared explicitly -- and until it is, the override is a
 // compile error (CS0115 "no suitable method found to override"), which is how these were found: a real
 // app's main window overrode OnLostFocus, OnMove, OnDragEnter and OnDragDrop and none of them existed.
+[Collection ("Headless")]
 public class FormOverridableHooksTests
 {
     private sealed class HookForm : Form

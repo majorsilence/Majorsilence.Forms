@@ -9,6 +9,7 @@ namespace Majorsilence.Forms.Tests;
 /// UserAddedRow, real IsNewRow and NewRowIndex) and the legacy ToolBar.Buttons surface mirrored into
 /// strip items (ButtonClick / ButtonDropDown and the nineteen button and bar properties).
 /// </summary>
+[Collection ("Headless")]
 public class W6NewRowAndToolBarTests
 {
     // ── DataGridView new row ────────────────────────────────────────────────────────────────────────

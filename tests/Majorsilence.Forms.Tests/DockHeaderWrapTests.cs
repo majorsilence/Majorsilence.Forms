@@ -7,6 +7,7 @@ namespace Majorsilence.Forms.Tests
     // When a dock strip holds more tab headers than fit its width, the headers wrap into
     // additional rows (WinForms multiline tab behavior) and the selected window's content starts
     // below the whole band, so every tab stays visible and clickable.
+    [Collection ("Headless")]
     public class DockHeaderWrapTests
     {
         private static (Form form, DocumentTabStrip strip) BuildDock (int windowCount, int width)

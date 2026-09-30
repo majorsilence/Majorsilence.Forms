@@ -13,6 +13,7 @@ namespace Majorsilence.Forms.Tests;
 // which modelled a form as shown-once. WinForms models the HANDLE as the unit of lifetime and destroys
 // it on every close, so Load, Shown and FormClosed fire on each cycle. See findings FRM-02 (P0),
 // FRM-03, FRM-04, FRM-07, FRM-12, FRM-13, FRM-16, and FRM-01/SVC-01 for the ownerless dialog.
+[Collection ("Headless")]
 public class FormLifecycleTests
 {
     private static Form ShowForm ()

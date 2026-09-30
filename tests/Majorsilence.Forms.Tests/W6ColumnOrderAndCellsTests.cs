@@ -9,6 +9,7 @@ namespace Majorsilence.Forms.Tests;
 /// ColumnDisplayIndexChanged), three-state check-box cells, image-cell layout and icons, the
 /// column-text fallback for button and link cells, and the text editing control's grid plumbing.
 /// </summary>
+[Collection ("Headless")]
 public class W6ColumnOrderAndCellsTests
 {
     private static DataGridView Grid (out Form form, params string[] columns)

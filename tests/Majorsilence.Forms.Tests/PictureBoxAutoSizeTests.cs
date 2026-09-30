@@ -19,6 +19,7 @@ namespace Majorsilence.Forms.Tests;
 /// on screen, and the hot-spot lookup indexed that artwork at coordinates that did not correspond to it,
 /// so dropping on a lobe mostly missed.
 /// </remarks>
+[Collection ("Headless")]
 public class PictureBoxAutoSizeTests
 {
     private static SKBitmap Image (int width, int height) => new (width, height, SKColorType.Bgra8888, SKAlphaType.Premul);

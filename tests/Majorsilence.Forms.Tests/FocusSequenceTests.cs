@@ -12,6 +12,7 @@ namespace Majorsilence.Forms.Tests;
 // A.Leave, A.LostFocus while Tab produced the opposite order, in the same application. Validation ran
 // inside OnLostFocus, after focus had already moved, so e.Cancel had nothing left to prevent. See
 // findings EVT-02 (P0), CTL-01, CTL-08 and EVT-05.
+[Collection ("Headless")]
 public class FocusSequenceTests
 {
     private static Form ShowForm ()

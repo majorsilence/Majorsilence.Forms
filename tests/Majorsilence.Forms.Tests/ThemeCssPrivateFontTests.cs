@@ -12,6 +12,7 @@ namespace Majorsilence.Forms.Tests
     // A font registered with PrivateFontCollection is unknown to the system font manager, and the CSS font-family resolver asked only
     // that manager. So `new Font ("Caladea", ...)` drew the font while `font-family: "Caladea"` silently fell back to the default face:
     // the theme could not name a bundled typeface. Every test names a family that exists only because a collection loaded it.
+    [Collection ("Headless")]
     public class ThemeCssPrivateFontTests : IDisposable
     {
         private const string Missing = "No Such Family 4E5A9C";

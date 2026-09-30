@@ -9,6 +9,7 @@ namespace Majorsilence.Forms.Tests
     // an empty stub, so nothing moves a value yet. These tests therefore check what can be true today: that
     // the members exist, and that they are wired to the right OBJECTS, so implementing Binding later makes
     // them work rather than making them quietly wrong.
+    [Collection ("Headless")]
     public class WindowDataBindingParityTests
     {
         [Fact]

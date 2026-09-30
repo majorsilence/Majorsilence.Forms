@@ -9,6 +9,7 @@ namespace Majorsilence.Forms.Tests;
 /// DrawSubItem, ListBox and ComboBox DrawMode with DrawItem / MeasureItem, ToolTip.OwnerDraw with
 /// Draw, and StatusBar panels with DrawItem and PanelClick.
 /// </summary>
+[Collection ("Headless")]
 public class W6OwnerDrawTests
 {
     private static ListView DetailsList ()

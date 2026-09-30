@@ -9,6 +9,7 @@ namespace Majorsilence.Forms.Tests
     // it) when it holds more than one document window -- mirroring how a designer-serialized dock
     // shows its documents as tabs. Repro for a harness finding where the selected window rendered at
     // the strip's top with no header band visible despite LayoutTabs having positioned it at y=26.
+    [Collection ("Headless")]
     public class DockHeaderRenderTests
     {
         [Fact]

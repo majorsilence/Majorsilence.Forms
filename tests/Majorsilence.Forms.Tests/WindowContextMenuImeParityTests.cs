@@ -9,6 +9,7 @@ namespace Majorsilence.Forms.Tests
     // child controls' menus worked -- which reads as the form's menu being broken rather than absent.
     // Both now forward to the root adapter, which is the window's client surface and already knows how to
     // open a context menu on right-click.
+    [Collection ("Headless")]
     public class WindowContextMenuImeParityTests
     {
         [Fact]

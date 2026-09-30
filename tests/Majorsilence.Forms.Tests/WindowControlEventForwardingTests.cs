@@ -8,6 +8,7 @@ namespace Majorsilence.Forms.Tests
     // `form.MouseClick += ...` did not even compile. They now forward from WindowBase to the root
     // ControlAdapter, which is the window's client surface. Compiling is only half of it: a forward that
     // subscribes to the wrong object compiles and never fires, so these check they actually arrive.
+    [Collection ("Headless")]
     public class WindowControlEventForwardingTests
     {
         [Fact]

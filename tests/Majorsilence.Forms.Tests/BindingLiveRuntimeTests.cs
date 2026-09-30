@@ -12,6 +12,7 @@ namespace Majorsilence.Forms.Tests
     // which are in turn the shapes designer-generated code produces. The recurring theme: everything
     // here used to fail SILENTLY -- blank controls, zeroed records, dead buttons -- so these assert the
     // value moved, not merely that nothing threw.
+    [Collection ("Headless")]
     public class BindingLiveRuntimeTests
     {
         private sealed class Person
@@ -464,6 +465,7 @@ namespace Majorsilence.Forms.Tests
 
 namespace Majorsilence.Forms.Tests
 {
+    [Collection ("Headless")]
     public partial class BindingLiveRuntimeTests2
     {
         private sealed class Person

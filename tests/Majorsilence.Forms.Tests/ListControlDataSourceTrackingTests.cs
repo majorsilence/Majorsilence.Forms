@@ -8,6 +8,7 @@ namespace Majorsilence.Forms.Tests
     // for the way designer code is written -- InitializeComponent assigns DataSource and the form fills
     // the data afterwards -- so the control kept the empty list it saw at bind time and never showed a
     // row. BindingSource.ListChanged exists to say when to look again and nothing was listening.
+    [Collection ("Headless")]
     public class ListControlDataSourceTrackingTests
     {
         private sealed class Person

@@ -10,6 +10,7 @@ namespace Majorsilence.Forms.Tests;
 // back in so a Form keeps its docked/anchored children clear of the status bar / notch. Both seams are
 // exercised here on the Headless backend (which records the keyboard request and lets a test inject a
 // safe area) -- the real behaviour needs a device, but the wiring does not.
+[Collection ("Headless")]
 public class SoftKeyboardAndSafeAreaTests
 {
     private static Form ShowForm (int w = 400, int h = 300)

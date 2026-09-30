@@ -11,6 +11,7 @@ namespace Majorsilence.Forms.Tests
     // A later redundant re-init (harmless on its own) must not treat "this element's own bounds
     // haven't changed" as license to skip forever once the parent's real size does show up --
     // otherwise the next real anchor stretch computes from a garbage snapshot.
+    [Collection ("Headless")]
     public class AnchorLayoutEarlyCaptureTests
     {
         [Fact]

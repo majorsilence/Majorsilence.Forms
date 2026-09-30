@@ -11,6 +11,7 @@ namespace Majorsilence.Forms.Tests;
 // a looping-alarm UX, unlike SoundPlayer's silent degrade. HeadlessRenderer.AudioIsSupported is false by
 // default (the rest of the suite runs with Headless already active as the ambient backend), so a test that
 // wants AudioPlayer to actually play sets it true itself.
+[Collection ("Headless")]
 public class AudioPlayerTests : IDisposable
 {
     public AudioPlayerTests ()

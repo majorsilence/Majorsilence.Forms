@@ -8,6 +8,7 @@ namespace Majorsilence.Forms.Tests;
 /// W6 mechanisms, fifth chunk: in-place label editing on ListView and TreeView, ListView column
 /// reordering through DisplayIndex, ItemDrag on both lists, the divider cursor, and ListView virtual mode.
 /// </summary>
+[Collection ("Headless")]
 public class W6ListEditingAndVirtualTests
 {
     private static ListView List (bool labelEdit = true)

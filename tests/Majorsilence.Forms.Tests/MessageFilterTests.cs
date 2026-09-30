@@ -9,6 +9,7 @@ namespace Majorsilence.Forms.Tests;
 // inert: watching input application-wide is what ported code needs in order to dismiss a popup on an
 // outside click, and with no working filter the only remaining option is a global OS hook -- which is
 // exactly the SetWindowsHookEx P/Invoke that aborts the process off Windows.
+[Collection ("Headless")]
 public class MessageFilterTests
 {
     private sealed class RecordingFilter : IMessageFilter

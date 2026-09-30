@@ -7,6 +7,7 @@ namespace Majorsilence.Forms.Tests
     // DESCRIBED surface rather than a live one -- nothing is published to a platform accessibility API yet
     // -- so what can be checked is that they are window-owned (a screen reader addresses the window, not
     // its internal adapter) and that they hold what they are told.
+    [Collection ("Headless")]
     public class WindowAccessibilityParityTests
     {
         [Fact]

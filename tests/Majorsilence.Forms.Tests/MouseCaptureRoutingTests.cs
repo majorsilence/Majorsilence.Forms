@@ -7,6 +7,7 @@ namespace Majorsilence.Forms.Tests
     // up -- including while the pointer is over one of its own children. Routing by hit-test instead
     // hands the move to the child and silently ends the gesture, which is what broke dragging a window
     // by a custom title bar: the drag died the moment the pointer crossed the caption buttons.
+    [Collection ("Headless")]
     public class MouseCaptureRoutingTests
     {
         // Builds a form with a "title bar" panel carrying two buttons, like a custom-chrome app.

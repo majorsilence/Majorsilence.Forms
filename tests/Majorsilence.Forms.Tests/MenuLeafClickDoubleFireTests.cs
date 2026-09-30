@@ -18,6 +18,7 @@ namespace Majorsilence.Forms.Tests
     // click-dispatch path the duplicated delivery goes through -- RaiseClick -> OnMouseClick -> the
     // leaf's Click -- twice for one release, the way the two windows do, and assert the guard
     // (MenuBase.TryBeginLeafClick / EndLeafClick) collapses it to one.
+    [Collection ("Headless")]
     public class MenuLeafClickDoubleFireTests
     {
         private sealed class TestableMenuDropDown : MenuDropDown

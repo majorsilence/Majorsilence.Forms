@@ -9,6 +9,7 @@ namespace Majorsilence.Forms.Tests
     // the ValidationConstraints overload beside it was real), and Form.Validating was a discarding
     // `add { } remove { }` that threw handlers away. A form gating a Save button on Validate() always
     // saved.
+    [Collection ("Headless")]
     public class WindowValidationParityTests
     {
         [Fact]

@@ -13,6 +13,7 @@ namespace Majorsilence.Forms.Tests
     //
     // It now routes through the same RichTextKit path, and these tests pin that -- because the two sides
     // silently disagreeing is exactly how the bug arose in the first place.
+    [Collection ("Headless")]
     public class DrawStringFontFallbackTests
     {
         private const string Chinese = "通用布局导航";

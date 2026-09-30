@@ -10,6 +10,7 @@ namespace Majorsilence.Forms.Tests
     // #100: the selectors added so every control is reachable. Each one is proved by paint, not by the
     // parser accepting it -- a rule on a style the control never reads is the silent no-op the subset
     // forbids. Magenta appears nowhere in the built-in themes, so any magenta is the rule's.
+    [Collection ("Headless")]
     public class ThemeCssSelectorPaintTests : IDisposable
     {
         private static readonly SKColor Magenta = new SKColor (255, 0, 255);
