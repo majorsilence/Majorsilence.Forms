@@ -261,14 +261,10 @@ Majorsilence.Forms.Telerik.RadListDataItem.Tag
 Majorsilence.Forms.Telerik.RadListDataItem.Value
 Majorsilence.Forms.Telerik.RadMenuItem.CheckOnClick
 Majorsilence.Forms.Telerik.RadMessageBox.ThemeName
-Majorsilence.Forms.Telerik.RadPageView.ItemSizeMode    -- tabs are sized by the core tab strip
 Majorsilence.Forms.Telerik.RadPageView.ThemeName    -- Telerik theme name; the compat controls have no theme engine
 Majorsilence.Forms.Telerik.RadPageViewCancelEventArgs.Page
 Majorsilence.Forms.Telerik.RadPageViewItem.Page
-Majorsilence.Forms.Telerik.RadPageViewPage.ItemSize
 Majorsilence.Forms.Telerik.RadPageViewStripElement.HighlightColor    -- the core tab strip draws the selected tab from the theme
-Majorsilence.Forms.Telerik.RadPageViewStripElement.ItemFitMode    -- tabs are sized by the core tab strip
-Majorsilence.Forms.Telerik.RadPageViewStripElement.ItemSizeMode    -- tabs are sized by the core tab strip
 Majorsilence.Forms.Telerik.RadPageViewStripElement.ShowItemCloseButton    -- the core tab strip draws no close glyph on a tab
 Majorsilence.Forms.Telerik.RadPageViewStripElement.StripButtons    -- the core tab strip scrolls with arrows of its own and has no item-list button
 Majorsilence.Forms.Telerik.RadPageViewTabStripElement.ItemContentOrientation

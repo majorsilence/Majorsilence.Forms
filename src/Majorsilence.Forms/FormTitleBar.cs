@@ -61,11 +61,17 @@ namespace Majorsilence.Forms
             help_button = Controls.AddImplicitControl (new TitleBarButton (TitleBarButton.TitleBarButtonGlyph.Help) { Visible = false });
             help_button.Click += (o, e) => FindForm ()?.RaiseHelpButtonClicked ();
 
+            // The caption shows the SMALL icon, as upstream does: an .ico decodes to its largest frame
+            // (typically 48 or 256px), which CenterImage drew at full size and cropped to the caption,
+            // so only a corner of the icon was visible. Zoom into a SmallIconSize box instead.
+            var icon_inset = (DefaultSize.Height - SystemInformation.SmallIconSize.Height) / 2;
+
             form_image = Controls.AddImplicitControl (new PictureBox {
                 Width = DefaultSize.Height,
                 Dock = DockStyle.Left,
                 Visible = false,
-                SizeMode = PictureBoxSizeMode.CenterImage
+                SizeMode = PictureBoxSizeMode.Zoom,
+                Padding = new Padding (icon_inset),
             });
 
             // It's ok to hardcode SKColors.Transparent here.
@@ -169,6 +175,22 @@ namespace Majorsilence.Forms
 
         internal Control HelpButtonControl => help_button;
 
+        internal Control MinimizeButtonControl => minimize_button;
+
+        internal Control MaximizeButtonControl => maximize_button;
+
+        /// <summary>
+        /// Enables or greys out the minimize/maximize buttons independently of whether they are shown,
+        /// for <see cref="Form.MinimizeBox"/>/<see cref="Form.MaximizeBox"/>: when only one of the two
+        /// is turned off, upstream keeps both buttons and disables the one that was turned off.
+        /// </summary>
+        internal void SetCaptionButtonsEnabled (bool minimize, bool maximize)
+        {
+            minimize_button.Enabled = minimize;
+            maximize_button.Enabled = maximize;
+            Invalidate ();
+        }
+
         /// <summary>
         /// Gets or sets whether the Minimize button is shown.
         /// </summary>
@@ -190,6 +212,12 @@ namespace Majorsilence.Forms
                     + (maximize_button.Visible ? maximize_button.Width : 0)
                     + (minimize_button.Visible ? minimize_button.Width : 0)
                     + (help_button.Visible ? help_button.Width : 0);
+
+        // Logical room the caption text must keep clear of on each side: the icon (and, merged into a
+        // native bar, the traffic lights) on the left, our own caption buttons on the right.
+        internal int TitleLeftInset => (native_overlay ? CaptionButtonsWidth : 0) + (form_image.Visible ? form_image.Width : 0);
+
+        internal int TitleRightInset => native_overlay ? 0 : CaptionButtonsWidth;
 
         // The preferred title-bar height, used to size the extended (merged) title-bar region.
         internal int PreferredHeight => CaptionHeight;
@@ -344,16 +372,28 @@ namespace Majorsilence.Forms
                 TabStop = false;
 
                 Style.BackgroundColor = SKColors.Transparent;
-                Style.Border.Width = 0;
-                StyleHover.Border.Width = 0;
+
+                // Borderless through the flat-appearance route rather than by writing Style.Border.Width:
+                // ButtonBase.ApplyFlatAppearance re-derives the border width from FlatStyle before every
+                // paint, so a Standard-style button got the themed 1px frame back and every caption
+                // button was drawn boxed.
+                FlatStyle = FlatStyle.Flat;
+                FlatAppearance.BorderSize = 0;
             }
 
             protected override void OnPaint (PaintEventArgs e)
             {
                 base.OnPaint (e);
 
-                if (IsHovering)
+                if (IsHovering && Enabled)
                     e.Canvas.Clear (glyph == TitleBarButtonGlyph.Close ? Theme.WarningHighlightColor : Theme.AccentColor);
+
+                // A disabled caption button (MaximizeBox = false beside a live MinimizeBox, as upstream
+                // draws it) keeps its slot but greys its glyph.
+                using var dim = Enabled ? null : new SKPaint { Color = SKColors.White.WithAlpha (0x60) };
+
+                if (dim is not null)
+                    e.Canvas.SaveLayer (dim);
 
                 var glyph_bounds = glyph == TitleBarButtonGlyph.Minimize ?
                     DrawingExtensions.CenterRectangle (ClientRectangle, e.LogicalToDeviceUnits (new Size (BUTTON_PADDING, 1))) :
@@ -377,6 +417,9 @@ namespace Majorsilence.Forms
                             Theme.ForegroundColorOnAccent, ContentAlignment.MiddleCenter);
                         break;
                 }
+
+                if (dim is not null)
+                    e.Canvas.Restore ();
             }
 
             /// <summary>

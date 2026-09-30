@@ -94,8 +94,12 @@ namespace Majorsilence.Forms.Tests
                 form.ControlBox = false;
                 form.ControlBox = true;
 
+                // Upstream keeps minimize and maximize as a pair: with MinimizeBox still on, the refused
+                // maximize button stays in the caption but disabled.
                 Assert.True (form.TitleBar.AllowClose);
-                Assert.False (form.TitleBar.AllowMaximize);
+                Assert.True (form.TitleBar.AllowMaximize);
+                Assert.False (form.TitleBar.MaximizeButtonControl.Enabled);
+                Assert.True (form.TitleBar.MinimizeButtonControl.Enabled);
             } finally {
                 form.Close ();
             }

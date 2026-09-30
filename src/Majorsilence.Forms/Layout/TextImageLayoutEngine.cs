@@ -22,22 +22,12 @@ internal static class TextImageLayoutEngine
         return result;
     }
 
+    // Control.ClientRectangle is already the area inside the border -- as in WinForms, where the border
+    // is non-client -- so the face IS the client rectangle. This used to subtract the border a second
+    // time, which cost every bordered control twice its border width off the text field: a 20px
+    // Fixed3D label kept a 12px field instead of 16px, and its text lost its lower third to the clip.
     private static void CalculateFace (Control control, TextImageLayoutData layout)
-    {
-        var left_border = control.Style.Border.Left.GetWidth ();
-        var top_border = control.Style.Border.Top.GetWidth ();
-        var right_border = control.Style.Border.Right.GetWidth ();
-        var bottom_border = control.Style.Border.Bottom.GetWidth ();
-
-        var face = new Rectangle (
-            layout.Client.X + left_border,
-            layout.Client.Y + top_border,
-            layout.Client.Width - (left_border + right_border),
-            layout.Client.Height - (top_border + bottom_border)
-        );
-
-        layout.Face = face;
-    }
+        => layout.Face = layout.Client;
 
     private static void CalculateInitialField (Control control, TextImageLayoutData layout)
     {

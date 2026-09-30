@@ -16,6 +16,30 @@ namespace Majorsilence.Forms.Telerik
             set => SelectedTabPage = value;
         }
 
+        /// <summary>Initializes a new instance of the <see cref="RadPageView"/> class.</summary>
+        public RadPageView ()
+        {
+            // Telerik's themes frame the whole page view (strip and content) in a 1px border.
+            Style.Border.Width = 1;
+            // Telerik's strip items lead with their caption rather than centring it.
+            TabStrip.ItemTextAlign = ContentAlignment.MiddleLeft;
+            _strip = new RadPageViewStripElement (PerformLayout);
+        }
+
+        // A themed Telerik control takes its text colour from the theme, not from the ambient ForeColor
+        // of the form it sits on -- RadControl.ForeColor reads the theme's root element -- and its pages'
+        // children inherit THAT. A form with ForeColor = White (a common way to recolour labels on a dark
+        // header) therefore still shows dark tab captions, and dark text in the combos and labels on each
+        // page. The underlying TabControl follows the WinForms ambient rule, so the type-level style
+        // supplies the theme colour; an explicit ForeColor on the page view still wins, and the default
+        // is re-applied on theme change like every other type-level style.
+        /// <inheritdoc/>
+        public new static readonly ControlStyle DefaultStyle = new ControlStyle (TabControl.DefaultStyle,
+            (style) => style.ForegroundColor = Theme.ForegroundColor);
+
+        /// <inheritdoc/>
+        public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
+
         /// <summary>Gets or sets the page shown when the view starts.</summary>
         /// <remarks>Real as of W6 mechanisms (#176): the page is selected when this is set, or -- the
         /// designer's order, the property before the pages -- at the first layout after it is added.</remarks>
@@ -42,20 +66,66 @@ namespace Majorsilence.Forms.Telerik
             SelectedTabPage = default_page;
         }
 
+        /// <summary>Gets or sets how the tab items are sized; applied with the strip's <see cref="RadPageViewStripElement.ItemFitMode"/>.</summary>
+        /// <remarks>Telerik's default is <see cref="PageViewItemSizeMode.Individual"/> -- which is why designers serialize <c>EqualWidth</c> explicitly.</remarks>
+        public PageViewItemSizeMode ItemSizeMode {
+            get => _strip.ItemSizeMode;
+            set => _strip.ItemSizeMode = value;
+        }
+
+        /// <summary>Gets or sets the theme name. No-op stub.</summary>
+        public string ThemeName { get; set; } = string.Empty;
+
+        private readonly RadPageViewStripElement _strip;
+
         /// <inheritdoc/>
         protected override void OnLayout (LayoutEventArgs e)
         {
+            ApplyStripItemSizing ();
             base.OnLayout (e);
 
             // Not from ControlAdded: the tab list is not up to date yet at that moment.
             ApplyDefaultPage ();
         }
-        /// <summary>Gets or sets the item size mode. Stub.</summary>
-        public PageViewItemSizeMode ItemSizeMode { get; set; } = PageViewItemSizeMode.EqualWidth;
-        /// <summary>Gets or sets the theme name. No-op stub.</summary>
-        public string ThemeName { get; set; } = string.Empty;
 
-        private readonly RadPageViewStripElement _strip = new ();
+        // Translates Telerik's strip sizing onto the TabControl's ItemSize/SizeMode, which the strip
+        // already lays out from: EqualWidth gives every tab the widest one's width, Fill stretches the
+        // row across the strip (both together: equal shares of the whole width), and the height the
+        // designer recorded on each page's ItemSize becomes the row height. Setting an unchanged
+        // ItemSize/SizeMode is a no-op, so re-entering from the layout this triggers settles at once.
+        private void ApplyStripItemSizing ()
+        {
+            var height = 0;
+            var widest = 0;
+
+            foreach (var page in TabPages)
+                if (page is RadPageViewPage rad)
+                    height = Math.Max (height, (int)Math.Round (rad.ItemSize.Height));
+
+            foreach (var tab in TabStrip.Tabs)
+                widest = Math.Max (widest, tab.GetPreferredSize (Size.Empty).Width);
+
+            var equal = _strip.ItemSizeMode == PageViewItemSizeMode.EqualWidth;
+            var fill = (_strip.ItemFitMode & StripViewItemFitMode.Fill) != 0;
+            var count = TabStrip.Tabs.Count;
+
+            if (!equal && !fill && height == 0)
+                return;
+
+            var width = ItemSize.Width;
+
+            if (equal && fill && count > 0) {
+                width = Math.Max (1, DeviceToLogicalUnits (ClientRectangle.Width) / count);
+                SizeMode = TabSizeMode.Fixed;
+            } else if (fill) {
+                SizeMode = TabSizeMode.FillToRight;
+            } else if (equal) {
+                width = TabStrip.DeviceToLogicalUnits (widest);
+                SizeMode = TabSizeMode.Fixed;
+            }
+
+            ItemSize = new Size (width, height > 0 ? height : ItemSize.Height);
+        }
 
         /// <summary>Returns the strip element at the given index (stub; index 0 is the tab strip).</summary>
         public RadPageViewStripElement GetChildAt (int index) => _strip;
@@ -108,8 +178,16 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat page-view page. Backed by <see cref="Majorsilence.Forms.TabPage"/>.</summary>
     public class RadPageViewPage : TabPage, ISupportInitializeCompat
     {
-        /// <summary>Gets or sets the tab item size. Stub.</summary>
-        public SizeF ItemSize { get; set; }
+        /// <summary>Gets or sets the tab item size; its height becomes the owning <see cref="RadPageView"/>'s tab row height.</summary>
+        public SizeF ItemSize {
+            get => item_size;
+            set {
+                item_size = value;
+                Parent?.PerformLayout ();
+            }
+        }
+
+        private SizeF item_size;
         /// <summary>Gets the strip item element for this page (stub).</summary>
         public RadElement Item { get; } = new RadElement ();
     }
@@ -117,16 +195,43 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat page-view strip element (the tab header strip). Stub.</summary>
     public class RadPageViewStripElement : RadElement
     {
+        // The owning page view's re-layout, so a designer line such as
+        // `CType(pv.GetChildAt(0), RadPageViewStripElement).ItemFitMode = Fill` re-sizes the tabs.
+        private readonly Action? relayout;
+
+        /// <summary>Initializes a new, freestanding instance of the <see cref="RadPageViewStripElement"/> class.</summary>
+        public RadPageViewStripElement () { }
+
+        internal RadPageViewStripElement (Action relayout) => this.relayout = relayout;
+
         /// <summary>Gets the strip items. Empty stub -- the compat page view has no per-item element tree.</summary>
         public List<RadPageViewItem> Items { get; } = new ();
         /// <summary>Gets or sets which strip buttons are shown. Stub.</summary>
         public StripViewButtons StripButtons { get; set; } = StripViewButtons.None;
         /// <summary>Gets or sets whether each item shows a close button. Stub.</summary>
         public bool ShowItemCloseButton { get; set; }
-        /// <summary>Gets or sets the item fit mode. Stub.</summary>
-        public StripViewItemFitMode ItemFitMode { get; set; } = StripViewItemFitMode.Default;
-        /// <summary>Gets or sets the item size mode. Stub.</summary>
-        public PageViewItemSizeMode ItemSizeMode { get; set; } = PageViewItemSizeMode.EqualWidth;
+
+        /// <summary>Gets or sets the item fit mode; <see cref="StripViewItemFitMode.Fill"/> stretches the tabs across the strip.</summary>
+        public StripViewItemFitMode ItemFitMode {
+            get => item_fit_mode;
+            set {
+                item_fit_mode = value;
+                relayout?.Invoke ();
+            }
+        }
+
+        private StripViewItemFitMode item_fit_mode = StripViewItemFitMode.Default;
+
+        /// <summary>Gets or sets the item size mode; <see cref="PageViewItemSizeMode.EqualWidth"/> gives every tab the same width.</summary>
+        public PageViewItemSizeMode ItemSizeMode {
+            get => item_size_mode;
+            set {
+                item_size_mode = value;
+                relayout?.Invoke ();
+            }
+        }
+
+        private PageViewItemSizeMode item_size_mode = PageViewItemSizeMode.Individual;
         /// <summary>Gets or sets the highlight color. Stub.</summary>
         public Color HighlightColor { get; set; } = Color.Empty;
     }

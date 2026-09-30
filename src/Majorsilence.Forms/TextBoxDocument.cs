@@ -28,7 +28,17 @@ namespace Majorsilence.Forms
         private bool multiline;
         private char? password_char;
         private int width = -1;
-        private SKTypeface font = Theme.UIFont;
+        // An explicit typeface for the document, or null to follow the control's effective (ambient)
+        // font. It used to be a fixed Theme.UIFont that nothing ever reassigned, so a TextBox ignored
+        // its designer Font entirely: `Font = Microsoft Sans Serif 12pt Bold` laid the text out in the
+        // theme's regular UI face (only the size followed the control).
+        private SKTypeface? font_override;
+
+        // The typeface cached_text_block was laid out with, so a Font change -- on the box or on an
+        // ancestor it inherits from -- rebuilds the layout instead of reusing the stale one.
+        private SKTypeface? cached_text_block_font;
+
+        private SKTypeface font => font_override ?? textbox.GetEffectiveFont ();
         private TextAlignment alignment = TextAlignment.Left;
         private SKColor placeholder_font_color = Theme.ForegroundDisabledColor;
         private SKColor selection_color = Theme.TextSelectionBackgroundColor;
@@ -181,8 +191,8 @@ namespace Majorsilence.Forms
         public SKTypeface Font {
             get => font;
             set {
-                if (font != value) {
-                    font = value;
+                if (font_override != value) {
+                    font_override = value;
                     cached_text_block = null;
                     Invalidate ();
                 }
@@ -201,7 +211,8 @@ namespace Majorsilence.Forms
         public TextBlock GetTextBlock ()
         {
             var font_size = textbox.CurrentFontSize;
-            if (cached_text_block != null && cached_text_block_font_size == font_size)
+            var typeface = font;
+            if (cached_text_block != null && cached_text_block_font_size == font_size && ReferenceEquals (cached_text_block_font, typeface))
                 return cached_text_block;
 
             // A single line normally lays out in an unbounded width, so long text scrolls sideways
@@ -226,9 +237,10 @@ namespace Majorsilence.Forms
 
             var block = textbox.Colorizer is { } colorizer && DisplayText.HasValue ()
                 ? BuildColorizedTextBlock (colorizer, max_size, color)
-                : TextMeasurer.CreateTextBlock (DisplayText, font, font_size, max_size, alignment, color, MaxLines);
+                : TextMeasurer.CreateTextBlock (DisplayText, typeface, font_size, max_size, alignment, color, MaxLines);
 
             cached_text_block_font_size = font_size;
+            cached_text_block_font = typeface;
             return cached_text_block = block;
         }
 

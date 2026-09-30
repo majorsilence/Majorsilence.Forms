@@ -27,8 +27,11 @@ namespace Majorsilence.Forms.Renderers
                     case PictureBoxSizeMode.StretchImage:
                         e.Canvas.DrawBitmap (control.SKImage, client, !control.Enabled);
                         break;
+                    // CenterImage and Zoom centre within the PADDED client rectangle, so its origin is
+                    // part of the position; measuring from 0 instead pushed a padded image up and to the
+                    // left by the padding.
                     case PictureBoxSizeMode.CenterImage:
-                        e.Canvas.DrawBitmap (control.SKImage, (client.Width / 2) - (control.SKImage.Width / 2), (client.Height / 2) - (control.SKImage.Height / 2), !control.Enabled);
+                        e.Canvas.DrawBitmap (control.SKImage, client.X + (client.Width / 2) - (control.SKImage.Width / 2), client.Y + (client.Height / 2) - (control.SKImage.Height / 2), !control.Enabled);
                         break;
                     case PictureBoxSizeMode.Zoom:
                         Size image_size;
@@ -38,7 +41,7 @@ namespace Majorsilence.Forms.Renderers
                         else
                             image_size = new Size ((control.SKImage.Width * client.Height) / control.SKImage.Height, client.Height);
 
-                        e.Canvas.DrawBitmap (control.SKImage, new Rectangle ((client.Width / 2) - (image_size.Width / 2), (client.Height / 2) - (image_size.Height / 2), image_size.Width, image_size.Height), !control.Enabled);
+                        e.Canvas.DrawBitmap (control.SKImage, new Rectangle (client.X + (client.Width / 2) - (image_size.Width / 2), client.Y + (client.Height / 2) - (image_size.Height / 2), image_size.Width, image_size.Height), !control.Enabled);
                         break;
                 }
             } else if (control.IsErrored) {
