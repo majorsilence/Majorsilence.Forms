@@ -2793,7 +2793,18 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets the ControlStyle properties for this instance of the Control.
         /// </summary>
-        public virtual ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
+        public virtual ControlStyle Style => instance_style ??= new ControlStyle (TypeDefaultStyle);
+
+        private ControlStyle? instance_style;
+
+        /// <summary>The type's default style this control's own <see cref="Style"/> inherits from.</summary>
+        /// <remarks>
+        /// A derived type overrides <see cref="Style"/> to put its own <c>DefaultStyle</c> in the chain,
+        /// and most still do. One whose <see cref="Style"/> is hidden -- <see cref="ProgressBar"/>, whose
+        /// WinForms-compatible <c>Style</c> is a <see cref="ProgressBarStyle"/> -- cannot, and overrides
+        /// this instead, so a <c>ProgressBar { ... }</c> theme rule reaches every bar (#100).
+        /// </remarks>
+        internal virtual ControlStyle TypeDefaultStyle => DefaultStyle;
 
         /// <summary>
         /// Gets the ControlStyle properties for this instance of the Control when the user is hovering over it.

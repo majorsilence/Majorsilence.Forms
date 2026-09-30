@@ -4161,6 +4161,45 @@ all of them went red:
 
 Every file was restored and byte-compared after each round.
 
+**Every control reaches a CSS selector, and the reference says which (#100). — 2026-09-30.**
+Control rules (`Button { … }`) reached the 30 documented selectors and whatever derived from them; the
+rest of both assemblies followed the `:root` tokens only, and the reference's hand-written "Also styles"
+column named four types where more than eighty inherit.
+
+- **Seventeen new selectors.** Core: `DateTimePicker`, `FormTitleBar`, `HostedSurface`, `MdiClient`,
+  `PopupWindow`, `PrintPreviewControl`, `ProgressBar`, `StatusStrip`. Telerik: `DockWindowBase`,
+  `RadCommandBar`, `RadPdfViewerNavigator`, `RadRibbonBar`, `RadScheduler`, `RadSchedulerNavigator`,
+  `RadStatusStrip`, `RichTextEditorRibbonBar`. The Telerik ones resolve their type by name, so the core
+  assembly still does not reference Telerik; with Telerik absent the rule parses and styles nothing.
+- **`ProgressBar` could not be styled at all.** It shadows `Style` with the WinForms `ProgressBarStyle`, so
+  it could not override the `ControlStyle` property, and its `DefaultStyle` was in no instance's chain.
+  `Control.Style` is now built from an internal virtual `TypeDefaultStyle`, which `ProgressBar` overrides;
+  `RadWaitingBar` follows through inheritance. Internal rather than the protected hook the issue proposed,
+  so the public surface is unchanged.
+- **`FormTitleBar` pinned its colours in code.** Every layout change copied `DefaultStyle`'s background into
+  the instance, which no later rule could change. Outside the native overlay it now leaves the instance
+  unset, and the caption colour comes from the style (`ForegroundColorOnAccent` by default) rather than
+  the token. `MdiClient` set its background the same way in its constructor; that became a `DefaultStyle`.
+- **"Also styles" is generated from the class tree,** and a new runtime check instantiates every type the
+  reference lists and walks its live `Style` chain to the rule's style. That check caught four false claims
+  the hierarchy alone would have kept. `StatusStrip` (listed under `ToolBar`, and so in the issue) and the
+  three Telerik dock windows (under `Panel`) each re-parent on `Control.DefaultStyle`, so the rule never
+  reached them; they got their own selectors. The old hand list's `TextBox → DateTimePicker` was false the
+  same way.
+- **Docs.** `docs/theming.md` gains a Telerik table (each `Rad*` control and the selector it follows) and a
+  frame-only list (`NativeControlHost`, `SKControl`, `SKGLControl`, `WebBrowser`, `RadPdfViewer`,
+  `RadRichTextEditor`: the rule styles the frame, not content the library does not paint). The tokens'
+  "Read by" text names the Telerik readers, from a survey of `Theme.*` reads in the Telerik project. The
+  Avalonia and WinForms support matrices list every new selector as having no counterpart.
+  `docs/theming-winforms.md` was updated by hand in the generator's exact row format, because its
+  generator test runs only on Windows.
+
+Tests: `ThemeCssCoverageTests` (0 uncovered controls outside the frame-only and base lists; the runtime
+chain check; spot checks), and a background-colour pixel test per new selector (`ThemeCssSelectorPaintTests`,
+and `HostedSurface_Rule_Makes_It_Opaque`). One neutralization round per control, 16 in all, each pointing
+that control's `Style` back at `Control.DefaultStyle`, and each turned exactly its own test red. The
+snapshot was verified before and after.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

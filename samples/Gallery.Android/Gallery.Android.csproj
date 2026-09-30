@@ -39,6 +39,8 @@
     <!-- EnableAndroidHead (a repo-wide property) also opts Majorsilence.Forms.Avalonia's net10.0-android
          TFM row in, so this reference resolves to it; see that csproj's TargetFrameworks comment. -->
     <ProjectReference Include="..\..\src\Majorsilence.Forms.Avalonia\Majorsilence.Forms.Avalonia.csproj" />
+    <!-- Same EnableAndroidHead gating opts Majorsilence.Forms.Essentials's own net10.0-android row in. -->
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Essentials\Majorsilence.Forms.Essentials.csproj" />
     <!-- Reuse the full ControlGallery MainForm/panels to render the whole gallery on Avalonia-on-Android. -->
     <ProjectReference Include="..\ControlGallery\ControlGallery.csproj" />
     <PackageReference Include="Avalonia.Android" />

@@ -14,6 +14,12 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadScheduler : ScrollableControl, ISupportInitializeCompat
     {
+        /// <summary>Gets the default style for all RadSchedulers: what a <c>RadScheduler { ... }</c> theme rule sets (#100).</summary>
+        public new static ControlStyle DefaultStyle = new ControlStyle (ScrollableControl.DefaultStyle);
+
+        /// <inheritdoc/>
+        public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
+
         /// <summary>Gets the root element of the scheduler (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
         private readonly SchedulerAgendaList _agenda;
@@ -253,6 +259,12 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadSchedulerNavigator : Control, ISupportInitializeCompat
     {
+        /// <summary>Gets the default style for all RadSchedulerNavigators: what a <c>RadSchedulerNavigator { ... }</c> theme rule sets (#100).</summary>
+        public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle);
+
+        /// <inheritdoc/>
+        public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
+
         private RadScheduler? _associatedScheduler;
 
         /// <summary>Initializes a new instance of the <see cref="RadSchedulerNavigator"/> class.</summary>

@@ -29,6 +29,14 @@ namespace Majorsilence.Forms
     /// </remarks>
     public partial class DateTimePicker : Control
     {
+        /// <summary>Gets the default style for all date pickers: what a <c>DateTimePicker { ... }</c> theme rule sets.</summary>
+        /// <remarks>Its own as of #100. The picker stopped deriving from TextBox when it gained a real
+        /// drop-down calendar, and the theming reference still said the TextBox rule reached it.</remarks>
+        public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle);
+
+        /// <inheritdoc/>
+        public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
+
         /// <summary>The minimum date value supported by the DateTimePicker (January 1, 1753).</summary>
         public static readonly DateTime MinDateTime = new DateTime (1753, 1, 1);
 

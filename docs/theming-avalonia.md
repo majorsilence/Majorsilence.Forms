@@ -128,12 +128,17 @@ with `MAJORSILENCE_WRITE_THEMING_AVALONIA_DOC=1 dotnet test tests/Majorsilence.F
 | `CheckBox` | `CheckBox` | Text colour and backdrop through the CheckBox* resources; the box glyph follows --accent-color. |
 | `ComboBox` | `ComboBox` | The closed box through the ComboBox* resources; the open list follows the ListBox rules. |
 | `DataGridView` | `DataGrid (Avalonia.Controls.DataGrid)` | The grid is style setters; headers, rows and selection are the DataGrid* resources and row styles. |
+| `DateTimePicker` | — | No counterpart: Avalonia's DatePicker is themed by its own template, which this matrix does not map. |
+| `DockWindowBase` | — | A Majorsilence.Forms.Telerik control with no Avalonia counterpart. |
 | `Form` | `Window` | Style setters on every Window; Foreground and the font properties are inherited by the controls inside. |
+| `FormTitleBar` | — | No counterpart: Avalonia windows draw their own chrome. |
 | `GroupBox` | — | Avalonia has no GroupBox; a HeaderedContentControl or a Border with a header has no Fluent theme to restyle. |
+| `HostedSurface` | — | No counterpart: it is the surface Majorsilence.Forms embeds in an Avalonia host. |
 | `Label` | `Label` | Style setters on Avalonia's Label (TextBlock is left alone: it is the text inside every control). |
 | `LinkLabel` | `HyperlinkButton` | The HyperlinkButton* resources; :hover is pointer-over (and pressed). |
 | `ListBox` | `ListBox` | The control is style setters; ::selection writes Fluent's shared list-accent resources. |
 | `ListView` | — | Avalonia has no ListView; use ListBox (the ListBox rules) or DataGrid (the DataGridView rules). |
+| `MdiClient` | — | No counterpart: Avalonia has no MDI workspace. |
 | `Menu` | `Menu (and its top-level MenuItems)` | The bar is style setters; ::item targets the top-level MenuItems, :hover their pointer-over template parts. |
 | `MenuDropDown` | `MenuFlyoutPresenter, ContextMenu (and their MenuItems)` | The MenuFlyoutPresenter* and MenuFlyoutItem* resources, shared by drop-downs and context menus. |
 | `MonthCalendar` | `Calendar` | The CalendarView* resources; the selected day uses --accent-color. |
@@ -141,13 +146,24 @@ with `MAJORSILENCE_WRITE_THEMING_AVALONIA_DOC=1 dotnet test tests/Majorsilence.F
 | `NumericUpDown` | `NumericUpDown` | Style setters on the spinner; its inner text editor also follows the TextBox rule. |
 | `Panel` | — | Avalonia panels are layout primitives used inside every control template; restyling them would restyle the controls' internals. |
 | `PictureBox` | — | Avalonia's Image has no background or border. |
+| `PopupWindow` | — | No counterpart: Avalonia popups are themed by their own templates. |
+| `PrintPreviewControl` | — | No counterpart: Avalonia has no print preview control. |
+| `ProgressBar` | — | No counterpart: Avalonia's ProgressBar is themed by its own template, which this matrix does not map. |
 | `PropertyGrid` | — | Avalonia has no PropertyGrid. |
+| `RadCommandBar` | — | A Majorsilence.Forms.Telerik control with no Avalonia counterpart. |
+| `RadPdfViewerNavigator` | — | A Majorsilence.Forms.Telerik control with no Avalonia counterpart. |
+| `RadRibbonBar` | — | A Majorsilence.Forms.Telerik control with no Avalonia counterpart. |
+| `RadScheduler` | — | A Majorsilence.Forms.Telerik control with no Avalonia counterpart. |
+| `RadSchedulerNavigator` | — | A Majorsilence.Forms.Telerik control with no Avalonia counterpart. |
+| `RadStatusStrip` | — | A Majorsilence.Forms.Telerik control with no Avalonia counterpart. |
 | `RadioButton` | `RadioButton` | Text colour, backdrop and the ring outline through the RadioButton* resources. |
 | `Ribbon` | — | Avalonia has no ribbon control. |
+| `RichTextEditorRibbonBar` | — | A Majorsilence.Forms.Telerik control with no Avalonia counterpart. |
 | `ScrollBar` | `ScrollBar` | The ScrollBar* resources: track, thumb and line buttons. |
 | `SplitContainer` | `GridSplitter` | The splitter bar's background. |
 | `Splitter` | `GridSplitter` | The splitter bar's background. |
 | `StatusBar` | — | Avalonia has no status bar control; bind your own status row to the published token resources instead. |
+| `StatusStrip` | — | Avalonia has no status bar control; bind your own status row to the published token resources instead. |
 | `TabControl` | `TabControl` | Style setters on the TabControl (the frame around the pages). |
 | `TabStrip` | `TabItem headers (TabControl)` | The TabItemHeader* resources; Avalonia's tab row has no brush of its own, so the strip's own colours apply to the unselected tabs. |
 | `TextBox` | `TextBox, CalendarDatePicker` | Colours go to the TextControl* (and CalendarDatePicker*) resources, so NumericUpDown's and ComboBox's inner editors follow too; the focused state keeps Fluent's accent border. |

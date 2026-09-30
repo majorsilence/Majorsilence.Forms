@@ -224,64 +224,153 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 
 | Token | Value | Sets `Theme.` | What it is | Read by |
 |---|---|---|---|---|
-| `--accent-color` | color | `AccentColor` | The primary accent. | Button hover background, LinkLabel text, selected DataGridView cells, MonthCalendar selection, TrackBar thumb, the custom title bar. |
+| `--accent-color` | color | `AccentColor` | The primary accent. | Button hover background, LinkLabel text, selected DataGridView cells, MonthCalendar selection, TrackBar thumb, the custom title bar. Telerik: RadGridView, RadToggleSwitch. |
 | `--accent-color-2` | color | `AccentColor2` | The secondary accent, used where the primary one needs a companion. | Button hover border, Form border, ProgressBar fill, the selected TabStrip tab underline, StatusStrip, NavigationPane, TrackBar. |
-| `--background-color` | color | `BackgroundColor` | The window background and the default background of every control that does not pin its own. | Form, Panel and every ambient control; Menu, ToolBar and Ribbon items when the strip itself has no background rule. |
-| `--border-low-color` | color | `BorderLowColor` | The everyday border colour. | Default control borders (TextBox, ListBox, ComboBox, GroupBox, NumericUpDown), DataGridView grid lines, ScrollBar outlines, ListView lines, Ribbon. |
-| `--border-mid-color` | color | `BorderMidColor` | A stronger border colour. | DataGridView header separators, ListView. |
-| `--border-high-color` | color | `BorderHighColor` | The strongest border colour. | DataGridView row headers, TrackBar ticks. |
-| `--control-low-color` | color | `ControlLowColor` | The lightest control surface -- the 'paper' that lists and inputs sit on. | ListBox, DataGridView, PropertyGrid and TreeView backgrounds, the selected TabStrip tab, ScrollBar arrows and thumb, MenuDropDown, NavigationPane. |
-| `--control-mid-color` | color | `ControlMidColor` | The default control surface. | Button, ComboBox and NumericUpDown faces, alternating DataGridView rows, ListBox items, TrackBar groove. |
-| `--control-mid-high-color` | color | `ControlMidHighColor` | A slightly darker surface. | ScrollBar track (ScrollBar background), TrackBar. |
-| `--control-high-color` | color | `ControlHighColor` | A dark control surface. Not read by the built-in renderers; available to custom controls and VisualStyleRenderer. | Custom controls. |
-| `--control-very-high-color` | color | `ControlVeryHighColor` | The darkest control surface. Not read by the built-in renderers; available to custom controls. | Custom controls. |
+| `--background-color` | color | `BackgroundColor` | The window background and the default background of every control that does not pin its own. | Form, Panel and every ambient control; Menu, ToolBar and Ribbon items when the strip itself has no background rule. Telerik: the dock windows (ToolWindow, DocumentWindow, DockWindow). |
+| `--border-low-color` | color | `BorderLowColor` | The everyday border colour. | Default control borders (TextBox, ListBox, ComboBox, GroupBox, NumericUpDown), DataGridView grid lines, ScrollBar outlines, ListView lines, Ribbon. Telerik: RadGridView, RadScheduler. |
+| `--border-mid-color` | color | `BorderMidColor` | A stronger border colour. | DataGridView header separators, ListView. Telerik: RadGridView. |
+| `--border-high-color` | color | `BorderHighColor` | The strongest border colour. | DataGridView row headers, TrackBar ticks. Telerik: RadGridView. |
+| `--control-low-color` | color | `ControlLowColor` | The lightest control surface -- the 'paper' that lists and inputs sit on. | ListBox, DataGridView, PropertyGrid and TreeView backgrounds, the selected TabStrip tab, ScrollBar arrows and thumb, MenuDropDown, NavigationPane. Telerik: RadGridView. |
+| `--control-mid-color` | color | `ControlMidColor` | The default control surface. | Button, ComboBox and NumericUpDown faces, alternating DataGridView rows, ListBox items, TrackBar groove. Telerik: RadGridView, RadToggleSwitch, RadScheduler agenda day headers, RadDock tab strips. |
+| `--control-mid-high-color` | color | `ControlMidHighColor` | A slightly darker surface. | ScrollBar track (ScrollBar background), TrackBar. Telerik: RadGridView. |
+| `--control-high-color` | color | `ControlHighColor` | A dark control surface. Not read by the built-in renderers; available to custom controls and VisualStyleRenderer. | Custom controls. Telerik: RadToggleSwitch. |
+| `--control-very-high-color` | color | `ControlVeryHighColor` | The darkest control surface. Not read by the built-in renderers; available to custom controls. | Custom controls. Telerik: RadGridView. |
 | `--control-highlight-low-color` | color | `ControlHighlightLowColor` | The hover highlight for items inside a control. | Hovered Menu, ToolBar, Ribbon and MenuDropDown items, hovered ListBox/ListView rows, selected DataGridView rows, MonthCalendar hover. |
 | `--control-highlight-mid-color` | color | `ControlHighlightMidColor` | The pressed / selected item highlight. | Selected Ribbon item, ScrollBar and NumericUpDown arrow glyphs, MonthCalendar. |
 | `--control-highlight-high-color` | color | `ControlHighlightHighColor` | The strongest item highlight. Not read by the built-in renderers; available to custom controls. | Custom controls. |
-| `--foreground-color` | color | `ForegroundColor` | The default text colour. | Every control's text unless a rule or the control sets its own; menu, toolbar, grid, tree and title bar text. |
-| `--foreground-color-on-accent` | color | `ForegroundColorOnAccent` | Text drawn on top of an accent-coloured surface. Keep it readable against --accent-color. | Hovered Button text, the custom title bar caption, selected MonthCalendar day, DataGridView selection text. |
-| `--foreground-disabled-color` | color | `ForegroundDisabledColor` | Text and glyphs of disabled controls and items. | Every renderer, when the control or item is disabled; the ProgressBar fill when disabled. |
+| `--foreground-color` | color | `ForegroundColor` | The default text colour. | Every control's text unless a rule or the control sets its own; menu, toolbar, grid, tree and title bar text. Telerik: RadGridView, RadToggleSwitch, RadPageView. |
+| `--foreground-color-on-accent` | color | `ForegroundColorOnAccent` | Text drawn on top of an accent-coloured surface. Keep it readable against --accent-color. | Hovered Button text, the custom title bar caption, selected MonthCalendar day, DataGridView selection text. Telerik: RadGridView, RadToggleSwitch. |
+| `--foreground-disabled-color` | color | `ForegroundDisabledColor` | Text and glyphs of disabled controls and items. | Every renderer, when the control or item is disabled; the ProgressBar fill when disabled. Telerik: RadGridView, RadToggleSwitch, RadDock tab strips. |
 | `--text-selection-background-color` | color | `TextSelectionBackgroundColor` | The highlight behind selected text. | TextBox, NumericUpDown and other text editors. |
 | `--warning-highlight-color` | color | `WarningHighlightColor` | The colour of a destructive affordance. | The custom title bar's Close button when hovered; PictureBox error state. |
 | `--font-size` | length (px) | `FontSize` | The pixel size of text drawn with the theme font. | Menu, ToolBar, StatusStrip, MenuDropDown, TreeView, NumericUpDown, NavigationPane and the custom title bar. Button/Label/TextBox text uses the ambient font instead -- set that with a `Form { font-size }` rule. |
-| `--item-font-size` | length (px) | `ItemFontSize` | A smaller pixel size for dense item text. | DataGridView cells, ListView items, Ribbon items. |
-| `--ui-font` | font family list | `UIFont` | The theme font family (regular weight). | Menu, ToolBar, StatusStrip, MenuDropDown, DataGridView, ListView, NavigationPane and the custom title bar. Button/Label/TextBox text uses the ambient font instead -- set that with a `Form { font-family }` rule. |
-| `--ui-font-bold` | font family list | `UIFontBold` | The theme font family used where text is bold. Resolved at bold weight. | DataGridView column headers, MonthCalendar title, NavigationPane group headers. |
+| `--item-font-size` | length (px) | `ItemFontSize` | A smaller pixel size for dense item text. | DataGridView cells, ListView items, Ribbon items. Telerik: RadGridView. |
+| `--ui-font` | font family list | `UIFont` | The theme font family (regular weight). | Menu, ToolBar, StatusStrip, MenuDropDown, DataGridView, ListView, NavigationPane and the custom title bar. Button/Label/TextBox text uses the ambient font instead -- set that with a `Form { font-family }` rule. Telerik: RadGridView. |
+| `--ui-font-bold` | font family list | `UIFontBold` | The theme font family used where text is bold. Resolved at bold weight. | DataGridView column headers, MonthCalendar title, NavigationPane group headers. Telerik: RadGridView. |
 
 ### Selectors (control type names)
 
 | Selector | `:hover` | Also styles | Notes |
 |---|---|---|---|
-| `Button` | yes |  | Push buttons. Hovering applies the :hover rule on top of the normal one. |
-| `CheckBox` | no |  | Check boxes: the text and the box glyph's surround. |
-| `ComboBox` | no |  | Drop-down selectors (the closed box; the open list is a ListBox). |
-| `DataGridView` | no |  | Data grids: the control background and border. Cells follow the tokens (--control-low-color, --border-low-color); headers, selection and alternating rows are parts. |
-| `Form` | no |  | The window. background-color is the window background; border sets the window frame on platforms that draw their own; font-family / font-size / color here become the ambient defaults every child control inherits when it sets none of its own. |
-| `GroupBox` | no |  | Titled group frames: the border colour is the frame, color is the caption. |
-| `Label` | no |  | Static text. |
-| `LinkLabel` | yes |  | Hyperlink text; color is the link colour. Supports :hover. |
-| `ListBox` | no | `CheckedListBox` | Single-column lists (also the ComboBox drop-down list). The selected item is the ::selection part. |
+| `Button` | yes | `RadButton`, `RadDropDownButton` | Push buttons. Hovering applies the :hover rule on top of the normal one. |
+| `CheckBox` | no | `RadCheckBox`, `RadToggleSwitch` | Check boxes: the text and the box glyph's surround. |
+| `ComboBox` | no | `CompatComboBox`, `DataGridViewComboBoxEditingControl`, `RadCheckedDropDownList`, `RadDropDownList` | Drop-down selectors (the closed box; the open list is a ListBox). |
+| `DataGridView` | no | `RadGridView` | Data grids: the control background and border. Cells follow the tokens (--control-low-color, --border-low-color); headers, selection and alternating rows are parts. |
+| `DateTimePicker` | no | `RadDateTimePicker` | Date pickers: background-color is behind the date text; the drop button and the check box follow the tokens. |
+| `Form` | no | `ColorDialog`, `FontDialog`, `MessageBoxForm`, `PageSetupDialog`, `PrintDialog`, `PrintPreviewDialog`, `RadDesktopAlertPopup`, `RadForm`, `RadRibbonForm`, `RadTabbedForm`, `SchedulerPrintSettingsDialog`, `ThreadExceptionDialog` | The window. background-color is the window background; border sets the window frame on platforms that draw their own; font-family / font-size / color here become the ambient defaults every child control inherits when it sets none of its own. |
+| `FormTitleBar` | no |  | The title bar a window draws for itself (every platform but macOS, which uses the system's). background-color is the bar, color the caption text. On macOS's merged title bar it blends with the window background instead. |
+| `GroupBox` | no | `RadGroupBox` | Titled group frames: the border colour is the frame, color is the caption. |
+| `HostedSurface` | no |  | A Majorsilence.Forms surface embedded in an Avalonia or Uno host. Transparent by default so the host shows through; a background-color rule makes it opaque. |
+| `Label` | no | `RadLabel` | Static text. |
+| `LinkLabel` | yes | `RadLinkLabel` | Hyperlink text; color is the link colour. Supports :hover. |
+| `ListBox` | no | `CheckedListBox`, `RadListControl` | Single-column lists (also the ComboBox drop-down list). The selected item is the ::selection part. |
 | `ListView` | no |  | Icon / detail lists. The selected item is the ::selection part. |
-| `Menu` | no |  | The menu bar. Items are the ::item part; they paint on the strip's background unless ::item sets one. |
-| `MenuDropDown` | no |  | Drop-down and context menus. Items are the ::item part. |
-| `MonthCalendar` | no |  | The calendar grid; the selected day uses --accent-color. |
+| `MdiClient` | no |  | The workspace of an MDI parent form, behind its child windows: background-color is the workspace colour. |
+| `Menu` | no | `MainMenu`, `MenuStrip`, `MenuStripClickThrough`, `RadMenu` | The menu bar. Items are the ::item part; they paint on the strip's background unless ::item sets one. |
+| `MenuDropDown` | no | `ContextMenu`, `ContextMenuStrip`, `ToolStripDropDown`, `ToolStripDropDownMenu`, `ToolStripOverflow` | Drop-down and context menus. Items are the ::item part. |
+| `MonthCalendar` | no | `RadCalendar` | The calendar grid; the selected day uses --accent-color. |
 | `NavigationPane` | no |  | The Outlook-style side navigation bar. |
 | `NumericUpDown` | no |  | Numeric spinners. |
-| `Panel` | no | `FlowLayoutPanel`, `TableLayoutPanel`, `TabPage`, `SplitterPanel` | Plain containers, including layout panels and tab pages. |
+| `Panel` | no | `ContainerControl`, `DataGrid`, `DocumentContainer`, `DocumentTabStrip`, `DomainUpDown`, `FlowLayoutPanel`, `LayoutControlGroup`, `LayoutControlItem`, `RadCollapsiblePanel`, `RadDock`, `RadLayoutControl`, `RadPageViewPage`, `RadPanel`, `RadScrollablePanel`, `RadScrollablePanelContainer`, `SplitPanel`, `SplitterPanel`, `TabPage`, `TableLayoutPanel`, `ToolStripContainer`, `ToolStripContentPanel`, `ToolStripPanel`, `ToolTabStrip`, `UserControl` | Plain containers, including layout panels and tab pages. |
 | `PictureBox` | no |  | Image boxes. |
-| `PropertyGrid` | no |  | Property editors. |
-| `RadioButton` | no |  | Radio buttons. |
+| `PopupWindow` | no |  | Floating popup windows -- a combo box's list, a tool tip, a menu host: background-color is the popup behind its content. |
+| `PrintPreviewControl` | no |  | Print previews: background-color is the surround the pages sit on; the pages themselves are paper and stay white. |
+| `ProgressBar` | no | `RadWaitingBar` | Progress bars: background-color is the track and border its frame; the fill is --accent-color-2. |
+| `PropertyGrid` | no | `RadPropertyGrid` | Property editors. |
+| `RadioButton` | no | `RadRadioButton` | Radio buttons. |
 | `Ribbon` | no |  | The ribbon; items paint on its background and highlight with --control-highlight-low-color / --control-highlight-mid-color. |
-| `ScrollBar` | no |  | Scroll bars: background-color is the track; the grip and the arrow buttons are the ::thumb and ::arrow parts. |
-| `SplitContainer` | no |  | Split containers (the splitter bar between the two panels). |
+| `ScrollBar` | no | `HScrollBar`, `HorizontalScrollBar`, `VScrollBar`, `VerticalScrollBar` | Scroll bars: background-color is the track; the grip and the arrow buttons are the ::thumb and ::arrow parts. |
+| `SplitContainer` | no | `RadSplitContainer` | Split containers (the splitter bar between the two panels). |
 | `Splitter` | no |  | Stand-alone splitter bars. |
 | `StatusBar` | no |  | The status bar along the bottom of a form. |
-| `TabControl` | no |  | Tab controls: the frame around the pages (the tab headers are a TabStrip, the pages are Panels). |
+| `StatusStrip` | no |  | Status strips (the ToolStrip-based status bar): background-color is the strip, border-top its seam with the form above. |
+| `TabControl` | no | `RadPageView` | Tab controls: the frame around the pages (the tab headers are a TabStrip, the pages are Panels). |
 | `TabStrip` | no |  | The row of tab headers. Tabs are the ::item part (with :hover) and the current one the ::selected part. |
-| `TextBox` | no | `DateTimePicker` | Text inputs. Selected text uses --text-selection-background-color. |
-| `ToolBar` | no |  | Tool bars. Items are the ::item part; :hover also covers a checked (toggled) item. |
+| `TextBox` | no | `DataGridViewTextBoxEditingControl`, `MaskedTextBox`, `RadTextBox`, `RadTextBoxControl`, `RadTimePicker`, `RichTextBox`, `TimePicker` | Text inputs. Selected text uses --text-selection-background-color. |
+| `ToolBar` | no | `BindingNavigator`, `ToolStrip`, `ToolStripClickThrough` | Tool bars. Items are the ::item part; :hover also covers a checked (toggled) item. |
 | `TrackBar` | yes |  | Sliders. Supports :hover. |
-| `TreeView` | no |  | Tree views. The selected node is the ::selection part. |
+| `TreeView` | no | `RadTreeView` | Tree views. The selected node is the ::selection part. |
+| `DockWindowBase` | no | `DockWindow`, `DocumentWindow`, `ToolWindow` | Telerik dock windows (tool, document and plain dock windows): background-color is the window behind its content, which is --background-color by default rather than the form's. |
+| `RadCommandBar` | no |  | Telerik command bars: background-color is the bar behind its strips. |
+| `RadPdfViewerNavigator` | no |  | The Telerik PDF viewer's navigation toolbar. |
+| `RadRibbonBar` | no |  | Telerik ribbon bars: background-color is the ribbon behind its tabs and groups. |
+| `RadScheduler` | no |  | The Telerik scheduler's agenda view: background-color is behind the appointment list. |
+| `RadSchedulerNavigator` | no |  | The Telerik scheduler's navigation bar. |
+| `RadStatusStrip` | no |  | Telerik status strips along the bottom of a form. |
+| `RichTextEditorRibbonBar` | no |  | The Telerik rich text editor's ribbon bar. |
+
+### Telerik controls (`Majorsilence.Forms.Telerik`)
+
+Each `Rad*` control follows the selector named here -- its own, or the core control it is built on. "Tokens only" means no control rule reaches it, and it follows the `:root` tokens alone.
+
+| Control | Follows |
+|---|---|
+| `DockWindow` | `DockWindowBase` |
+| `DocumentContainer` | `Panel` |
+| `DocumentTabStrip` | `Panel` |
+| `DocumentWindow` | `DockWindowBase` |
+| `LayoutControlGroup` | `Panel` |
+| `LayoutControlItem` | `Panel` |
+| `RadButton` | `Button` |
+| `RadCalendar` | `MonthCalendar` |
+| `RadCheckBox` | `CheckBox` |
+| `RadCheckedDropDownList` | `ComboBox` |
+| `RadCollapsiblePanel` | `Panel` |
+| `RadCommandBar` | `RadCommandBar` |
+| `RadDateTimePicker` | `DateTimePicker` |
+| `RadDesktopAlertPopup` | `Form` |
+| `RadDock` | `Panel` |
+| `RadDropDownButton` | `Button` |
+| `RadDropDownList` | `ComboBox` |
+| `RadForm` | `Form` |
+| `RadGridView` | `DataGridView` |
+| `RadGroupBox` | `GroupBox` |
+| `RadLabel` | `Label` |
+| `RadLayoutControl` | `Panel` |
+| `RadLinkLabel` | `LinkLabel` |
+| `RadListControl` | `ListBox` |
+| `RadMenu` | `Menu` |
+| `RadPageView` | `TabControl` |
+| `RadPageViewPage` | `Panel` |
+| `RadPanel` | `Panel` |
+| `RadPdfViewer` | tokens only (frame only) |
+| `RadPdfViewerNavigator` | `RadPdfViewerNavigator` |
+| `RadPropertyGrid` | `PropertyGrid` |
+| `RadRadioButton` | `RadioButton` |
+| `RadRibbonBar` | `RadRibbonBar` |
+| `RadRibbonForm` | `Form` |
+| `RadRichTextEditor` | tokens only (frame only) |
+| `RadScheduler` | `RadScheduler` |
+| `RadSchedulerNavigator` | `RadSchedulerNavigator` |
+| `RadScrollablePanel` | `Panel` |
+| `RadScrollablePanelContainer` | `Panel` |
+| `RadSplitContainer` | `SplitContainer` |
+| `RadStatusStrip` | `RadStatusStrip` |
+| `RadTabbedForm` | `Form` |
+| `RadTextBox` | `TextBox` |
+| `RadTextBoxControl` | `TextBox` |
+| `RadTimePicker` | `TextBox` |
+| `RadToggleSwitch` | `CheckBox` |
+| `RadTreeView` | `TreeView` |
+| `RadWaitingBar` | `ProgressBar` |
+| `RichTextEditorRibbonBar` | `RichTextEditorRibbonBar` |
+| `SchedulerPrintSettingsDialog` | `Form` |
+| `SplitPanel` | `Panel` |
+| `ToolTabStrip` | `Panel` |
+| `ToolWindow` | `DockWindowBase` |
+
+### Frame-only controls
+
+A rule for the selector these follow styles their background and border; the content is not the library's to paint.
+
+| Control | Why |
+|---|---|
+| `NativeControlHost` | a native platform widget draws the content |
+| `SKControl` | the application paints the content |
+| `SKGLControl` | the application paints the content |
+| `WebBrowser` | a native browser widget draws the content |
+| `RadPdfViewer` | the page area is the browser's own PDF renderer |
+| `RadRichTextEditor` | the document is web-view content |
 
 ### Parts (`Selector::part` pseudo-elements)
 

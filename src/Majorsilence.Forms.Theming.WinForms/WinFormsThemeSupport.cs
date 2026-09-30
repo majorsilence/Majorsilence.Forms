@@ -363,6 +363,22 @@ namespace Majorsilence.Forms.Theming.WinForms
             // ---- Selectors with no WinForms counterpart ------------------------------------------
             Map ("NavigationPane", null, "System.Windows.Forms has no Outlook-style navigation pane; the rule is reported as an info diagnostic and skipped.");
             Map ("Ribbon", null, "System.Windows.Forms has no ribbon control; the rule is reported as an info diagnostic and skipped.");
+            Map ("DateTimePicker", null, "No counterpart: the WinForms DateTimePicker is themed by the TextBox rule here; the rule is reported as an info diagnostic and skipped.");
+            Map ("FormTitleBar", null, "No counterpart: the Windows title bar is themed through the Form rule (DwmSetWindowAttribute); the rule is reported as an info diagnostic and skipped.");
+            Map ("HostedSurface", null, "No counterpart: it is the surface Majorsilence.Forms embeds in another UI toolkit; the rule is reported as an info diagnostic and skipped.");
+            Map ("MdiClient", null, "No counterpart: the WinForms MDI workspace is native-drawn; the rule is reported as an info diagnostic and skipped.");
+            Map ("PopupWindow", null, "No counterpart: WinForms popups are native windows; the rule is reported as an info diagnostic and skipped.");
+            Map ("PrintPreviewControl", null, "No counterpart: the WinForms print preview is native-drawn; the rule is reported as an info diagnostic and skipped.");
+            Map ("ProgressBar", null, "No counterpart: the WinForms ProgressBar is native-drawn; the rule is reported as an info diagnostic and skipped.");
+            Map ("StatusStrip", null, "No separate counterpart: a real StatusStrip is themed by the StatusBar rule; the rule is reported as an info diagnostic and skipped.");
+            Map ("DockWindowBase", null, "A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped.");
+            Map ("RadCommandBar", null, "A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped.");
+            Map ("RadPdfViewerNavigator", null, "A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped.");
+            Map ("RadRibbonBar", null, "A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped.");
+            Map ("RadScheduler", null, "A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped.");
+            Map ("RadSchedulerNavigator", null, "A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped.");
+            Map ("RadStatusStrip", null, "A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped.");
+            Map ("RichTextEditorRibbonBar", null, "A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped.");
 
             Mappings = mappings;
             Entries = entries;

@@ -251,7 +251,12 @@ namespace Majorsilence.Forms
 
         private double zoom = 0.3;
 
+        /// <summary>Gets the default style for all print previews: the surround the pages sit on.</summary>
+        /// <remarks>Its own as of #100, so a <c>PrintPreviewControl { ... }</c> theme rule has something to
+        /// set; the pages themselves are paper and stay white.</remarks>
+        public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle);
+
         /// <inheritdoc/>
-        public override ControlStyle Style { get; } = new ControlStyle (Control.DefaultStyle);
+        public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
     }
 }

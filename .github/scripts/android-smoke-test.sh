@@ -21,7 +21,9 @@
 # (channel, importance, permission, ongoing, full-screen intent), confirms via dumpsys that it actually
 # posted, and replays a notification tap to prove LocalNotifications.Tapped fires. It also sets
 # Application.KeepScreenAwake true then false on a real Activity (register item F12) and confirms both
-# read back correctly with no exception.
+# read back correctly with no exception. It also sets, reads back and removes a value through
+# SecureStorage's real AndroidKeyStore-backed path (register item F16), and confirms the value is
+# actually gone after Remove.
 #
 # Usage: android-smoke-test.sh <apk-or-dir> [screenshot-output-path]
 #   <apk-or-dir>  a *-Signed.apk file, or a directory to search for one (recursively).
@@ -164,6 +166,21 @@ elif grep -q "F14_NOTIFICATIONS_SMOKE.*PASS" <<<"$LOG"; then
 else
   echo "$LOG" | grep -E "F14_NOTIFICATIONS_SMOKE|MajorsilenceFormsNotifications" >&2 || true
   fail "no F14_NOTIFICATIONS_SMOKE PASS line in logcat within ${SETTLE_SECONDS}s"
+fi
+
+# GalleryApplication.RunSecureStorageSmokeTest (register item F16): Set/Get round-trip through the real
+# AndroidKeyStore-backed path, and Remove actually clears it -- not just "no exception", the same
+# "prove the round-trip" reasoning the F14 ActiveNotifications check above documents. Queued from the same
+# ThreadPool batch as F13/F14 in App.cs, so it is already in this same early $LOG capture.
+echo "Checking for the F16 SecureStorage smoke-test result ..."
+if grep -q "F16_SECURESTORAGE_SMOKE.*FAIL" <<<"$LOG"; then
+  echo "$LOG" | grep "F16_SECURESTORAGE_SMOKE" >&2
+  fail "F16 SecureStorage smoke test reported FAIL (see F16_SECURESTORAGE_SMOKE lines above)"
+elif grep -q "F16_SECURESTORAGE_SMOKE.*PASS" <<<"$LOG"; then
+  echo "F16 SecureStorage smoke test: PASS"
+else
+  echo "$LOG" | grep "F16_SECURESTORAGE_SMOKE" >&2 || true
+  fail "no F16_SECURESTORAGE_SMOKE PASS line in logcat within ${SETTLE_SECONDS}s"
 fi
 
 echo "Confirming the F14 smoke notification actually posted (dumpsys notification) ..."

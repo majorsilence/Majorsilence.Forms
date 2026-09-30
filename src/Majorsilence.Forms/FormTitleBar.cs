@@ -119,7 +119,10 @@ namespace Majorsilence.Forms
             if (overlay_spacer is not null)
                 overlay_spacer.Visible = native_overlay;
 
-            Style.BackgroundColor = native_overlay ? Theme.BackgroundColor : DefaultStyle.GetBackgroundColor ();
+            // The native overlay blends with the window, so it pins the window background. Otherwise the bar
+            // takes FormTitleBar.DefaultStyle -- which a FormTitleBar { ... } theme rule sets -- rather than
+            // a copy of it taken now, which no later rule could change (#100).
+            Style.BackgroundColor = native_overlay ? Theme.BackgroundColor : null;
             Invalidate ();
         }
 
@@ -230,7 +233,10 @@ namespace Majorsilence.Forms
 
         /// <inheritdoc/>
         public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle,
-           (style) => style.BackgroundColor = Theme.AccentColor2);
+           (style) => {
+               style.BackgroundColor = Theme.AccentColor2;
+               style.ForegroundColor = Theme.ForegroundColorOnAccent;
+           });
 
         /// <summary>
         /// Gets or sets the image used as the upper-left icon of the titlebar.
