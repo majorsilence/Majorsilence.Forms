@@ -184,7 +184,10 @@ dotnet run --project tools/Majorsilence.Forms.ApiDiff -- --surface winforms --ch
 
 Render to a PNG on the headless backend rather than launching a GUI: `HeadlessRenderer.Use ()`,
 `form.Show ()`, then `HeadlessRenderer.CapturePng (form)`. It avoids the window server entirely and is
-reproducible. Two things that repeatedly decide investigations:
+reproducible. In a test, the class that calls `HeadlessRenderer.Use ()` must be
+`[Collection ("Headless")]`: the backend is process-wide, and xunit runs that collection serially.
+`HeadlessCollectionConventionTests` fails the build for a class that forgets (#330). Two things
+repeatedly decide investigations:
 
 - **Sample pixels** to tell a colour bug from a geometry bug — decode and print the colour at chosen
   points. "Inside the control it is F0F0F0, one pixel outside it is 636C87" settles in one step what
