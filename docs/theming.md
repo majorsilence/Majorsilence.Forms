@@ -160,19 +160,19 @@ TextBox, ComboBox { border: 1px solid #808080; }
   `inset` -- so pairing it with a pressed `:active` rule (a smaller or zero offset) is how a "hard
   shadow that collapses on press" look is built entirely in CSS:
 
-  ```css
-  Button {
-    box-shadow: 4px 4px #2b1b4d;
-  }
+```css
+Button {
+  box-shadow: 4px 4px #2b1b4d;
+}
 
-  Button:active {
-    box-shadow: 0px 0px #2b1b4d;
-  }
+Button:active {
+  box-shadow: 0px 0px #2b1b4d;
+}
 
-  Button:disabled {
-    box-shadow: 4px 4px #9aa0ab;
-  }
-  ```
+Button:disabled {
+  box-shadow: 4px 4px #9aa0ab;
+}
+```
 
 ### 4. Parts -- `Type::part`
 

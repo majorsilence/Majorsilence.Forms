@@ -705,7 +705,10 @@ namespace Majorsilence.Forms.Tests
 
             Assert.Equal (new SKColor (0x12, 0x34, 0x56), Button.DefaultStyleActive.BackgroundColor);
             Assert.Null (Button.DefaultStyle.BackgroundColor);
-            Assert.Null (Button.DefaultStyleHover.BackgroundColor);
+
+            // Button's hover background is its own built-in accent-coloured look (Button.cs), not CSS-driven --
+            // a :active-only rule must not disturb it.
+            Assert.Equal (Theme.AccentColor, Button.DefaultStyleHover.BackgroundColor);
         }
 
         [Fact]

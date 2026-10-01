@@ -61,6 +61,9 @@ OnEnter/1
 OnLeave/1
 Selected
 StyleHover
+StyleActive
+StyleDisabled
+StyleFocus
 
 # N/A -- Majorsilence.Forms-internal plumbing, not WinForms surface.
 InvokeGotFocus/2
