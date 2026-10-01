@@ -71,6 +71,7 @@ namespace Majorsilence.Forms
             ForegroundColor = null;
             Font = null;
             FontSize = null;
+            BoxShadow = null;
             Border.ClearValues ();
 
             ApplyDefaults ();
@@ -92,6 +93,20 @@ namespace Majorsilence.Forms
         /// Provides access to border style properties.
         /// </summary>
         public ControlBorderStyle Border { get; }
+
+        /// <summary>
+        /// Gets or sets a hard, offset, no-blur shadow painted behind the control (see
+        /// <see cref="ControlBoxShadow"/>), or null for none. Set by the CSS <c>box-shadow</c> property
+        /// (#285); unlike <see cref="BackgroundColor"/> there is no theme default, so a style chain
+        /// that never sets one paints no shadow at all.
+        /// </summary>
+        public ControlBoxShadow? BoxShadow { get; set; }
+
+        /// <summary>
+        /// Gets the shadow this style chain resolves to: this style's own <see cref="BoxShadow"/> if
+        /// set, otherwise the nearest ancestor's, otherwise null.
+        /// </summary>
+        public ControlBoxShadow? GetBoxShadow () => BoxShadow ?? _parent?.GetBoxShadow ();
 
         /// <summary>
         /// Gets or sets the font.

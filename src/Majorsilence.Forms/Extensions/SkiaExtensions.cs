@@ -38,6 +38,29 @@ namespace Majorsilence.Forms
         {
             var radius = style.Border.GetRadius ();
 
+            if (style.GetBoxShadow () is { } shadow) {
+                var (fx, fy, fw, fh) = ShadowFace (bounds.Width, bounds.Height, shadow);
+
+                // Shadow first, the control's own face on top -- a positive offset (the only direction
+                // alert-buddy's own design brief uses, "4px down and right") leaves the face flush with
+                // the near corner and only the shadow's own sliver showing past its far edge, which is
+                // what reads as a flat, hard, offset shadow with no blur (#285). The strip the offset
+                // claims outside the face is left transparent, exactly like a Transparent control, so
+                // whatever sits behind this one shows through it -- the space an app using box-shadow is
+                // expected to have reserved for it.
+                canvas.Clear (SKColors.Transparent);
+
+                if (radius > 0) {
+                    canvas.FillRoundedRectangle (fx + shadow.OffsetX, fy + shadow.OffsetY, fw, fh, shadow.Color, radius, radius, 0);
+                    canvas.FillRoundedRectangle (fx, fy, fw - style.Border.GetWidth (), fh - style.Border.GetWidth (), backgroundColor, radius, radius, style.Border.GetWidth ());
+                } else {
+                    canvas.FillRectangle (fx + shadow.OffsetX, fy + shadow.OffsetY, fw, fh, shadow.Color);
+                    canvas.FillRectangle (fx, fy, fw, fh, backgroundColor);
+                }
+
+                return;
+            }
+
             if (radius > 0) {
                 canvas.Clear (SKColors.Transparent);
                 canvas.FillRoundedRectangle (0, 0, bounds.Width - style.Border.GetWidth (), bounds.Height - style.Border.GetWidth (), backgroundColor, radius, radius, style.Border.GetWidth ());
@@ -46,6 +69,15 @@ namespace Majorsilence.Forms
 
             canvas.Clear (backgroundColor);
         }
+
+        // Where box-shadow (#285) puts the control's own "face" once an offset has claimed a strip on
+        // its near side: the face shrinks by |offset| and shifts away from the shadow so the two never
+        // overlap incorrectly. A positive offset leaves the face flush with the top-left corner (the
+        // shadow peeks out past its bottom-right edge); a negative one is the mirror image. Shared by
+        // DrawBackground and DrawBorder so the border always lines up with the shrunk face.
+        private static (int X, int Y, int Width, int Height) ShadowFace (int width, int height, ControlBoxShadow shadow)
+            => (Math.Max (0, -shadow.OffsetX), Math.Max (0, -shadow.OffsetY),
+                Math.Max (0, width - Math.Abs (shadow.OffsetX)), Math.Max (0, height - Math.Abs (shadow.OffsetY)));
 
         /// <summary>
         /// Draws a bitmap.
@@ -81,33 +113,38 @@ namespace Majorsilence.Forms
             // If using border radius, currently all border sides are drawn, and all are the same color
             var radius = style.Border.GetRadius ();
 
+            // box-shadow (#285) shrinks the control's own face away from the full bounds (see
+            // ShadowFace/DrawBackground); the border has to be drawn around that same smaller rect, or
+            // it would ring the shadow as well as the face. Without a shadow this is (0, 0, bounds).
+            var (fx, fy, fw, fh) = style.GetBoxShadow () is { } shadow ? ShadowFace (bounds.Width, bounds.Height, shadow) : (0, 0, bounds.Width, bounds.Height);
+
             if (radius > 0) {
-                canvas.DrawRoundedRectangle (0, 0, bounds.Width - style.Border.GetWidth (), bounds.Height - style.Border.GetWidth (), style.Border.GetColor (), radius, radius, style.Border.GetWidth ());
+                canvas.DrawRoundedRectangle (fx, fy, fw - style.Border.GetWidth (), fh - style.Border.GetWidth (), style.Border.GetColor (), radius, radius, style.Border.GetWidth ());
                 return;
             }
 
             // Left Border
             if (style.Border.Left.GetWidth () > 0) {
-                var left_offset = style.Border.Left.GetWidth () / 2f;
-                canvas.DrawLine (left_offset, 0, left_offset, bounds.Height, style.Border.Left.GetColor (), style.Border.Left.GetWidth ());
+                var left_offset = fx + style.Border.Left.GetWidth () / 2f;
+                canvas.DrawLine (left_offset, fy, left_offset, fy + fh, style.Border.Left.GetColor (), style.Border.Left.GetWidth ());
             }
 
             // Right Border
             if (style.Border.Right.GetWidth () > 0) {
-                var right_offset = style.Border.Right.GetWidth () / 2f;
-                canvas.DrawLine (bounds.Width - right_offset, 0, bounds.Width - right_offset, bounds.Height, style.Border.Right.GetColor (), style.Border.Right.GetWidth ());
+                var right_offset = fx + fw - style.Border.Right.GetWidth () / 2f;
+                canvas.DrawLine (right_offset, fy, right_offset, fy + fh, style.Border.Right.GetColor (), style.Border.Right.GetWidth ());
             }
 
             // Top Border
             if (style.Border.Top.GetWidth () > 0) {
-                var top_offset = style.Border.Top.GetWidth () / 2f;
-                canvas.DrawLine (0, top_offset, bounds.Width, top_offset, style.Border.Top.GetColor (), style.Border.Top.GetWidth ());
+                var top_offset = fy + style.Border.Top.GetWidth () / 2f;
+                canvas.DrawLine (fx, top_offset, fx + fw, top_offset, style.Border.Top.GetColor (), style.Border.Top.GetWidth ());
             }
 
             // Bottom Border
             if (style.Border.Bottom.GetWidth () > 0) {
-                var bottom_offset = style.Border.Bottom.GetWidth () / 2f;
-                canvas.DrawLine (0, bounds.Height - bottom_offset, bounds.Width, bounds.Height - bottom_offset, style.Border.Bottom.GetColor (), style.Border.Bottom.GetWidth ());
+                var bottom_offset = fy + fh - style.Border.Bottom.GetWidth () / 2f;
+                canvas.DrawLine (fx, bottom_offset, fx + fw, bottom_offset, style.Border.Bottom.GetColor (), style.Border.Bottom.GetWidth ());
             }
         }
 

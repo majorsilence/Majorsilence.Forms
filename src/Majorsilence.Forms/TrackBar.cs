@@ -109,6 +109,33 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override ControlStyle StyleHover { get; } = new ControlStyle (DefaultStyleHover);
 
+        /// <summary>
+        /// The default active (<c>:active</c>) <see cref="ControlStyle"/> for all <see cref="TrackBar"/>
+        /// instances (#285), layered on <see cref="DefaultStyle"/>.
+        /// </summary>
+        public new static readonly ControlStyle DefaultStyleActive = new ControlStyle (DefaultStyle);
+
+        /// <inheritdoc/>
+        public override ControlStyle StyleActive { get; } = new ControlStyle (DefaultStyleActive);
+
+        /// <summary>
+        /// The default disabled (<c>:disabled</c>) <see cref="ControlStyle"/> for all
+        /// <see cref="TrackBar"/> instances (#285), layered on <see cref="DefaultStyle"/>.
+        /// </summary>
+        public new static readonly ControlStyle DefaultStyleDisabled = new ControlStyle (DefaultStyle);
+
+        /// <inheritdoc/>
+        public override ControlStyle StyleDisabled { get; } = new ControlStyle (DefaultStyleDisabled);
+
+        /// <summary>
+        /// The default focus (<c>:focus</c>) <see cref="ControlStyle"/> for all <see cref="TrackBar"/>
+        /// instances (#285), layered on <see cref="DefaultStyle"/>.
+        /// </summary>
+        public new static readonly ControlStyle DefaultStyleFocus = new ControlStyle (DefaultStyle);
+
+        /// <inheritdoc/>
+        public override ControlStyle StyleFocus { get; } = new ControlStyle (DefaultStyleFocus);
+
         /// <inheritdoc/>
         protected override Size DefaultSize
             => Orientation == Orientation.Horizontal

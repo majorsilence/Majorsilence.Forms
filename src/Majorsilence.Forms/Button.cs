@@ -100,6 +100,28 @@ namespace Majorsilence.Forms
             });
 
         /// <summary>
+        /// The default active (<c>:active</c>, mouse held down) ControlStyle for all instances of
+        /// Button (#285). No built-in theme gives it a look of its own -- it paints exactly like
+        /// <see cref="DefaultStyle"/> until a CSS rule sets one.
+        /// </summary>
+        public new static readonly ControlStyle DefaultStyleActive = new ControlStyle (DefaultStyle);
+
+        /// <summary>
+        /// The default disabled (<c>:disabled</c>) ControlStyle for all instances of Button (#285). No
+        /// built-in theme gives it a look of its own -- it paints exactly like <see cref="DefaultStyle"/>
+        /// until a CSS rule sets one (disabled text already follows <c>--foreground-disabled-color</c>
+        /// independently of this).
+        /// </summary>
+        public new static readonly ControlStyle DefaultStyleDisabled = new ControlStyle (DefaultStyle);
+
+        /// <summary>
+        /// The default focus (<c>:focus</c>) ControlStyle for all instances of Button (#285). No
+        /// built-in theme gives it a look of its own -- it paints exactly like <see cref="DefaultStyle"/>
+        /// until a CSS rule sets one.
+        /// </summary>
+        public new static readonly ControlStyle DefaultStyleFocus = new ControlStyle (DefaultStyle);
+
+        /// <summary>
         /// Gets or sets a value that is returned to the parent form when the button is clicked.
         /// </summary>
         public DialogResult DialogResult { get; set; }
@@ -251,6 +273,15 @@ namespace Majorsilence.Forms
 
         /// <inheritdoc/>
         public override ControlStyle StyleHover { get; } = new ControlStyle (DefaultStyleHover);
+
+        /// <inheritdoc/>
+        public override ControlStyle StyleActive { get; } = new ControlStyle (DefaultStyleActive);
+
+        /// <inheritdoc/>
+        public override ControlStyle StyleDisabled { get; } = new ControlStyle (DefaultStyleDisabled);
+
+        /// <inheritdoc/>
+        public override ControlStyle StyleFocus { get; } = new ControlStyle (DefaultStyleFocus);
 
         /// <inheritdoc/>
         /// <remarks>

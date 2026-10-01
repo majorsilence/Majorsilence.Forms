@@ -93,6 +93,10 @@ namespace Majorsilence.Forms
 
         public const string LengthSyntaxHelp = "Lengths are whole pixels: write e.g. '14px' or '14'.";
 
+        public const string BoxShadowSyntaxHelp =
+            "box-shadow is a hard, offset shadow only: '<horizontal-offset> <vertical-offset> <color>', e.g. 'box-shadow: 4px 4px #2b1b4d;'. "
+            + "There is no blur radius or spread -- exactly those three components, in that order, nothing more -- and no 'inset', gradients or images.";
+
         private static readonly ConcurrentDictionary<string, SKTypeface> typefaces = new (StringComparer.OrdinalIgnoreCase);
 
         // Whether the system font manager really has a family, as opposed to substituting a default for it. Only asked while a private
@@ -244,7 +248,7 @@ namespace Majorsilence.Forms
 
         // ---- lengths -----------------------------------------------------------------------------
 
-        public static bool TryParseLength (List<CssComponent> components, out Func<int> length, out string? error)
+        public static bool TryParseLength (List<CssComponent> components, out Func<int> length, out string? error, bool allowNegative = false)
         {
             length = null!;
             error = null;
@@ -260,7 +264,7 @@ namespace Majorsilence.Forms
                         error = $"Unsupported unit '{number.Unit}' in '{number.Raw}'. {LengthSyntaxHelp} Points, em, rem and percentages are not supported because every Majorsilence.Forms style size is a pixel value.";
                         return false;
                     }
-                    if (number.Value < 0) {
+                    if (number.Value < 0 && !allowNegative) {
                         error = $"'{number.Raw}' is negative; lengths must be zero or positive.";
                         return false;
                     }
@@ -281,6 +285,46 @@ namespace Majorsilence.Forms
                     error = $"'{components[0].Raw}' is not a valid length. {LengthSyntaxHelp}";
                     return false;
             }
+        }
+
+        // ---- box-shadow (#285) --------------------------------------------------------------------
+
+        /// <summary>
+        /// Parses a <c>box-shadow</c> value: exactly <c>&lt;horizontal-offset&gt; &lt;vertical-offset&gt;
+        /// &lt;color&gt;</c>, nothing more. A fourth component -- a blur radius, a spread, or the
+        /// 'inset' keyword -- is rejected with a diagnostic naming what was found, rather than parsed
+        /// loosely and silently ignored: the acceptance criterion this subset is built on is that a
+        /// declaration it cannot honour is never a silent no-op.
+        /// </summary>
+        public static bool TryParseBoxShadow (List<CssComponent> components, out Func<ControlBoxShadow> shadow, out string? error)
+        {
+            shadow = null!;
+            error = null;
+
+            if (components.Count != 3) {
+                error = components.Count > 3
+                    ? $"'{Join (components)}' has {components.Count} components. {BoxShadowSyntaxHelp}"
+                    : $"'{Join (components)}' has only {components.Count}. {BoxShadowSyntaxHelp}";
+                return false;
+            }
+
+            if (!TryParseLength (new List<CssComponent> { components[0] }, out var offsetX, out var xError, allowNegative: true)) {
+                error = $"box-shadow's horizontal offset: {xError}";
+                return false;
+            }
+
+            if (!TryParseLength (new List<CssComponent> { components[1] }, out var offsetY, out var yError, allowNegative: true)) {
+                error = $"box-shadow's vertical offset: {yError}";
+                return false;
+            }
+
+            if (!TryParseColor (new List<CssComponent> { components[2] }, out var color, out var colorError)) {
+                error = $"box-shadow's color: {colorError}";
+                return false;
+            }
+
+            shadow = () => new ControlBoxShadow (offsetX (), offsetY (), color ());
+            return true;
         }
 
         // ---- fonts -------------------------------------------------------------------------------

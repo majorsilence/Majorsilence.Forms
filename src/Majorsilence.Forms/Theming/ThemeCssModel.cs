@@ -38,8 +38,15 @@ namespace Majorsilence.Forms
         /// <summary>For <see cref="ThemeCssValueKind.Color"/>: the blue channel, 0–255.</summary>
         public byte Blue => (byte) Argb;
 
-        /// <summary>For <see cref="ThemeCssValueKind.Length"/>: whole logical pixels.</summary>
+        /// <summary>
+        /// For <see cref="ThemeCssValueKind.Length"/>: whole logical pixels. For
+        /// <see cref="ThemeCssValueKind.BoxShadow"/>: the horizontal offset (the vertical offset is
+        /// <see cref="OffsetY"/> and the colour is <see cref="Argb"/>).
+        /// </summary>
         public int Pixels { get; private set; }
+
+        /// <summary>For <see cref="ThemeCssValueKind.BoxShadow"/>: the vertical offset in pixels.</summary>
+        public int OffsetY { get; private set; }
 
         /// <summary>For <see cref="ThemeCssValueKind.FontFamily"/>: the family list in preference order, as written.</summary>
         public IReadOnlyList<string> FontFamilies { get; private set; }
@@ -60,24 +67,33 @@ namespace Majorsilence.Forms
 
         internal static ThemeCssValue Style (string style) => new (ThemeCssValueKind.FontStyle) { FontStyle = style };
 
+        internal static ThemeCssValue Shadow (ControlBoxShadow shadow) => new (ThemeCssValueKind.BoxShadow) {
+            Pixels = shadow.OffsetX, OffsetY = shadow.OffsetY, Argb = (uint) shadow.Color
+        };
+
         /// <summary>The value spelled the way the stylesheet would write it.</summary>
         public override string ToString ()
         {
             switch (Kind) {
                 case ThemeCssValueKind.Color:
-                    return Alpha == 255
-                        ? $"#{Red:x2}{Green:x2}{Blue:x2}"
-                        : $"#{Red:x2}{Green:x2}{Blue:x2}{Alpha:x2}";
+                    return FormatColor ();
                 case ThemeCssValueKind.Length:
                     return Pixels.ToString (CultureInfo.InvariantCulture) + "px";
                 case ThemeCssValueKind.FontFamily:
                     return string.Join (", ", FontFamilies.Select (f => f.Contains (' ') || f.Contains (',') ? "\"" + f + "\"" : f));
                 case ThemeCssValueKind.FontWeight:
                     return FontWeight == 400 ? "normal" : FontWeight == 700 ? "bold" : FontWeight.ToString (CultureInfo.InvariantCulture);
+                case ThemeCssValueKind.BoxShadow:
+                    return $"{Pixels}px {OffsetY}px {FormatColor ()}";
                 default:
                     return FontStyle;
             }
         }
+
+        private string FormatColor ()
+            => Alpha == 255
+                ? $"#{Red:x2}{Green:x2}{Blue:x2}"
+                : $"#{Red:x2}{Green:x2}{Blue:x2}{Alpha:x2}";
     }
 
     /// <summary>
@@ -120,17 +136,22 @@ namespace Majorsilence.Forms
     }
 
     /// <summary>
-    /// One control rule of a parsed stylesheet: a selector, whether it is the <c>:hover</c> variant, and
-    /// its declarations in source order (later declarations win). A comma list of selectors produces one
-    /// rule per selector, sharing the declarations.
+    /// One control rule of a parsed stylesheet: a selector, which (if any) pseudo-class variant it is,
+    /// and its declarations in source order (later declarations win). A comma list of selectors
+    /// produces one rule per selector, sharing the declarations. At most one of <see cref="Hover"/>,
+    /// <see cref="Active"/>, <see cref="Disabled"/> and <see cref="Focus"/> is ever true (#285): the
+    /// grammar accepts one pseudo-class per selector, e.g. <c>Button:active</c>, never a combination.
     /// </summary>
     public sealed class ThemeCssRule
     {
-        internal ThemeCssRule (ThemeCssSelector selector, ThemeCssPart? part, bool hover, IReadOnlyList<ThemeCssDeclaration> declarations, int line, int column)
+        internal ThemeCssRule (ThemeCssSelector selector, ThemeCssPart? part, bool hover, bool active, bool disabled, bool focus, IReadOnlyList<ThemeCssDeclaration> declarations, int line, int column)
         {
             Selector = selector;
             Part = part;
             Hover = hover;
+            Active = active;
+            Disabled = disabled;
+            Focus = focus;
             Declarations = declarations;
             Line = line;
             Column = column;
@@ -144,6 +165,15 @@ namespace Majorsilence.Forms
 
         /// <summary>Whether this is the <c>:hover</c> variant (of the control, or of the part when <see cref="Part"/> is set).</summary>
         public bool Hover { get; }
+
+        /// <summary>Whether this is the <c>:active</c> variant -- the mouse held down on the control (#285). Never set on a part.</summary>
+        public bool Active { get; }
+
+        /// <summary>Whether this is the <c>:disabled</c> variant -- <c>Control.Enabled</c> false (#285). Never set on a part.</summary>
+        public bool Disabled { get; }
+
+        /// <summary>Whether this is the <c>:focus</c> variant -- <c>Control.Focused</c> true (#285). Never set on a part.</summary>
+        public bool Focus { get; }
 
         /// <summary>The expanded declarations in source order.</summary>
         public IReadOnlyList<ThemeCssDeclaration> Declarations { get; }
@@ -163,6 +193,12 @@ namespace Majorsilence.Forms
                 sb.Append ("::").Append (Part.Name);
             if (Hover)
                 sb.Append (":hover");
+            else if (Active)
+                sb.Append (":active");
+            else if (Disabled)
+                sb.Append (":disabled");
+            else if (Focus)
+                sb.Append (":focus");
             sb.Append (" { ");
             foreach (var declaration in Declarations)
                 sb.Append (declaration).Append (' ');

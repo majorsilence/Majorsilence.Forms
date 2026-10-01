@@ -499,9 +499,37 @@ namespace Majorsilence.Forms
         public bool Created => GetState (States.Created);
 
         /// <summary>
-        /// Gets the current style of this control instance.
+        /// Gets the current style of this control instance: the pseudo-class style for whichever state
+        /// applies, or the plain <see cref="Style"/> when none does.
         /// </summary>
-        public virtual ControlStyle CurrentStyle => IsHovering && Enabled ? StyleHover : Style;
+        /// <remarks>
+        /// Exactly one state wins when more than one is true, in this order: <c>:disabled</c> (nothing
+        /// else matters once the control cannot be interacted with), then <c>:hover</c> -- kept as the
+        /// second check, precisely where the original <c>IsHovering &amp;&amp; Enabled ? StyleHover :
+        /// Style</c> formula placed it, so a hovering control's appearance (and anything layered onto
+        /// <see cref="StyleHover"/> at paint time, such as <c>ButtonBase</c>'s FlatAppearance handling)
+        /// is unchanged -- then <c>:active</c> (the mouse is held down but has left the control, e.g.
+        /// mid-drag under capture), then <c>:focus</c>. A selector without its own CSS rule for a state
+        /// resolves through that state's <c>Style*</c> chain to the same values as <see cref="Style"/>,
+        /// so a control nobody has themed for a state behaves exactly as before this existed (#285).
+        /// </remarks>
+        public virtual ControlStyle CurrentStyle {
+            get {
+                if (!Enabled)
+                    return StyleDisabled;
+
+                if (IsHovering)
+                    return StyleHover;
+
+                if (IsPressed)
+                    return StyleActive;
+
+                if (Focused)
+                    return StyleFocus;
+
+                return Style;
+            }
+        }
 
         /// <summary>
         /// Gets or sets the mouse cursor to be shown when the mouse is over the control.
@@ -597,6 +625,24 @@ namespace Majorsilence.Forms
         /// Gets the default style for all controls of this type when the user is hovering over it.
         /// </summary>
         public static readonly ControlStyle DefaultStyleHover = new ControlStyle (DefaultStyle);
+
+        /// <summary>
+        /// Gets the default style for all controls of this type while the mouse is held down on them
+        /// (the CSS <c>:active</c> pseudo-class, #285).
+        /// </summary>
+        public static readonly ControlStyle DefaultStyleActive = new ControlStyle (DefaultStyle);
+
+        /// <summary>
+        /// Gets the default style for all controls of this type while <see cref="Enabled"/> is false
+        /// (the CSS <c>:disabled</c> pseudo-class, #285).
+        /// </summary>
+        public static readonly ControlStyle DefaultStyleDisabled = new ControlStyle (DefaultStyle);
+
+        /// <summary>
+        /// Gets the default style for all controls of this type while <see cref="Focused"/> is true
+        /// (the CSS <c>:focus</c> pseudo-class, #285).
+        /// </summary>
+        public static readonly ControlStyle DefaultStyleFocus = new ControlStyle (DefaultStyle);
 
         /// <summary>
         /// Removes focus from the control.
@@ -2852,6 +2898,24 @@ namespace Majorsilence.Forms
         /// Gets the ControlStyle properties for this instance of the Control when the user is hovering over it.
         /// </summary>
         public virtual ControlStyle StyleHover { get; } = new ControlStyle (DefaultStyleHover);
+
+        /// <summary>
+        /// Gets the ControlStyle properties for this instance of the Control while the mouse is held
+        /// down on it (the CSS <c>:active</c> pseudo-class, #285).
+        /// </summary>
+        public virtual ControlStyle StyleActive { get; } = new ControlStyle (DefaultStyleActive);
+
+        /// <summary>
+        /// Gets the ControlStyle properties for this instance of the Control while
+        /// <see cref="Enabled"/> is false (the CSS <c>:disabled</c> pseudo-class, #285).
+        /// </summary>
+        public virtual ControlStyle StyleDisabled { get; } = new ControlStyle (DefaultStyleDisabled);
+
+        /// <summary>
+        /// Gets the ControlStyle properties for this instance of the Control while
+        /// <see cref="Focused"/> is true (the CSS <c>:focus</c> pseudo-class, #285).
+        /// </summary>
+        public virtual ControlStyle StyleFocus { get; } = new ControlStyle (DefaultStyleFocus);
 
         /// <summary>
         ///  Suspends the layout logic for the control.

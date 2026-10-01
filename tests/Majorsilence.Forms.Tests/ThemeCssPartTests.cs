@@ -108,7 +108,7 @@ namespace Majorsilence.Forms.Tests
         [InlineData ("DataGridView::header::text { color: red; }", "parts do not nest")]
         [InlineData ("Menu:hover::item { color: red; }", "put the part before the pseudo-class -- 'Menu::item:hover'")]
         [InlineData ("DataGridView:: { color: red; }", "expected a part name after '::'")]
-        [InlineData ("Menu::item:active { color: red; }", "':active' is not supported")]
+        [InlineData ("Menu::item:active { color: red; }", "a part only supports ':hover'")]
         public void Diagnostics_ExplainPartMistakes (string css, string expectedFragment)
         {
             Assert.Contains (expectedFragment, ErrorsOf (css));
