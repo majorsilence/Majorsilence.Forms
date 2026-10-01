@@ -72,3 +72,33 @@ static void Main (string [] args)
 ```
 
 Your application should now be ready to run.
+
+## Custom-painted controls
+
+A control's own `OnPaint` receives a canvas in **device pixels**, not the logical units everything
+else in the framework uses (`Left`, `Top`, `Width`, `Height`, `MouseEventArgs.X`/`Y`). The built-in
+renderers already scale explicitly when they paint; a custom `OnPaint` override has to do the same,
+or its drawing comes out the wrong physical size on any scaled display -- a HiDPI desktop, and every
+phone (Android reports a `Scaling` of roughly 2.6-2.75):
+
+```csharp
+protected override void OnPaint (PaintEventArgs e)
+{
+    var scale = (float)e.Scaling;
+    e.Graphics.ScaleTransform (scale, scale);   // now draw in logical units
+
+    e.Graphics.FillRectangle (Brushes.LimeGreen, 0, 0, 10, 10);   // a 10x10 LOGICAL square
+}
+```
+
+Without the `ScaleTransform`, that same call draws a 10x10 rectangle in *device* pixels: correct at
+scale 1, about a third of its intended size at Android's ~2.75x. `PaintEventArgs.Scaling` is the
+factor to use; `Graphics.LogicalToDeviceUnits (...)` is there too, for the odd value that has to be
+converted without going through a transform. `samples/ControlGallery/Panels/GameOfLifePanel.cs` is
+this idiom in a complete custom control.
+
+Anything a custom control computes *from* a point it was handed -- hit-testing in `OnMouseDown` or
+`OnMouseMove`, for instance -- stays consistent for free: `MouseEventArgs.X`/`Y` arrive already
+converted to the same logical units as `Left`/`Top`/`Width`/`Height`, so geometry built from those
+and compared against a mouse point needs no separate conversion, as long as it is built in the same
+logical units `OnPaint` now draws in.
