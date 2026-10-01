@@ -37,6 +37,10 @@ namespace Majorsilence.Forms
             // not a tab stop in its own right; PerformAutoUpdates grants one to the checked member of
             // the group.
             TabStop = false;
+            // Upstream turns StandardClick off (RadioButton.cs:46) and raises Click from OnMouseUp on every
+            // release, so a fast second click is a second Click and DoubleClick never fires (EVT-01). This
+            // layer raises Click through the standard path, so the same outcome is StandardDoubleClick off.
+            SetStyle (ControlStyles.StandardDoubleClick, false);
         }
 
         // Backing store for AutoCheck, whose setter lives in RadioButton.Group.cs because it drives
