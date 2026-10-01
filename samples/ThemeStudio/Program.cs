@@ -9,6 +9,7 @@ namespace ThemeStudio
     //
     //   dotnet run --project samples/ThemeStudio                        -- start from the Light theme
     //   dotnet run --project samples/ThemeStudio -- Themes/ocean.css    -- open (and watch) a file
+    //   dotnet run --project samples/ThemeStudio -- Themes/ocean.css --tab 4   -- ...on the Native Avalonia tab
     //   dotnet run --project samples/ThemeStudio -- --render-headless out.png [theme.css] [width height] [--tab N]
     //
     // The last form renders the preview offscreen and exits, which is how a script or a coding
@@ -47,8 +48,14 @@ namespace ThemeStudio
             }
 
             var path = args.Length > 0 && !args[0].StartsWith ('-') ? Path.GetFullPath (args[0]) : null;
+            var form = new MainForm (path);
 
-            Application.Run (new MainForm (path));
+            // --tab N opens on a preview tab (4 = Native Avalonia) in the window too, not only headless.
+            var openTab = Array.IndexOf (args, "--tab");
+            if (openTab >= 0 && openTab + 1 < args.Length && int.TryParse (args[openTab + 1], out var initial))
+                form.SelectPreviewTab (initial);
+
+            Application.Run (form);
             return 0;
         }
 

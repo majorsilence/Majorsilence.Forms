@@ -174,7 +174,13 @@ namespace ThemeStudio
             try {
                 // Apply whatever parsed, even mid-edit: the preview should track the author's intent,
                 // and the diagnostics list says what was dropped.
-                Theme.ApplyStyleSheet (sheet);
+                // Through AvaloniaCssTheme when an Avalonia application is running, so the native
+                // controls on the "Native Avalonia" tab follow the edit too; it applies the sheet to
+                // Theme itself first.
+                if (NativeAvaloniaPreview.Available)
+                    Majorsilence.Forms.Theming.Avalonia.AvaloniaCssTheme.Apply (sheet);
+                else
+                    Theme.ApplyStyleSheet (sheet);
             } catch (ThemeCssException ex) {
                 // An unknown or cyclic 'extends' is only discoverable at apply time.
                 LastDiagnostics = sheet.Diagnostics.Concat (ex.Diagnostics).ToList ();
