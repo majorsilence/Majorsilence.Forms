@@ -7,6 +7,7 @@ namespace Majorsilence.Forms.Tests
     // GDI parity: the classic radio/checkbox glyph is 13px with a ~5px gap before the text.
     // Designer AutoSize widths are frozen from those metrics (e.g. a "Vertical" radio serialized
     // at 60x17), so a larger glyph box eats into the text area and clips the last characters.
+    [Collection ("Headless")]
     public class GlyphMetricsParityTests
     {
         [Fact]

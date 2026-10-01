@@ -11,6 +11,7 @@ namespace Majorsilence.Forms.Tests;
 // on: Menu : ToolStrip and MenuDropDown : ToolStrip, which leaves every renderer registration and all
 // the real layout/popup behavior exactly where it was. These tests pin both halves of that: the
 // ToolStrip surface is genuinely reachable, AND nothing that already worked moved or broke.
+[Collection ("Headless")]
 public class StripHierarchyTests
 {
     // --- The hierarchy itself ---------------------------------------------------------------------

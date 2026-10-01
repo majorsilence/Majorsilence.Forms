@@ -10,6 +10,7 @@ namespace Majorsilence.Forms.Tests;
 /// ListViewItem.Position, RichTextBox.EnableAutoDragDrop), MenuItem owner draw, and the DataGridView
 /// divider hit-test in device coordinates (RC-8).
 /// </summary>
+[Collection ("Headless")]
 public class W6DragDropTests
 {
     // Window-device coordinates of a point inside a control, the way the backend reports them.

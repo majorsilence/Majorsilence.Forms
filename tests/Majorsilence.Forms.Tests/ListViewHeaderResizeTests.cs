@@ -8,6 +8,7 @@ namespace Majorsilence.Forms.Tests;
 /// W6: the ListView header divider drag -- ColumnWidthChanging on every notification (cancellable),
 /// ColumnWidthChanged when a width takes -- and the programmatic width change behind it.
 /// </summary>
+[Collection ("Headless")]
 public class ListViewHeaderResizeTests
 {
     private static ListView List ()

@@ -10,6 +10,7 @@ namespace Majorsilence.Forms.Tests
     // height from it, so the pair settled at 2px and every unsized text box in a ported form rendered as a
     // stray horizontal line next to its label. A text-entry control's height comes from its font; zero is
     // never a legitimate answer for one.
+    [Collection ("Headless")]
     public class PreferredHeightSizingTests
     {
         [Fact]

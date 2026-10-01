@@ -10,6 +10,7 @@ namespace Majorsilence.Forms.Tests
     // Format/Parse discarded their handlers, and WriteValue was empty -- so
     // `control.DataBindings.Add ("Text", customer, "Name")` compiled, ran, and moved nothing. These tests
     // pin that it now actually moves values, in both directions.
+    [Collection ("Headless")]
     public class BindingRuntimeTests
     {
         private sealed class Person : INotifyPropertyChanged

@@ -15,8 +15,8 @@
 
   <PropertyGroup>
     <PackageId>Majorsilence.Forms.Essentials</PackageId>
-    <Description>Platform capabilities that carry per-platform dependencies the Majorsilence.Forms core deliberately avoids: secure storage (Android Keystore, iOS Keychain, Windows Credential Manager, macOS Keychain Services, Linux Secret Service) today, text to speech to follow.</Description>
-    <PackageTags>majorsilence-forms;winforms;secure-storage;keychain;credential-manager;secret-service;cross-platform</PackageTags>
+    <Description>Platform capabilities that carry per-platform dependencies the Majorsilence.Forms core deliberately avoids: secure storage (Android Keystore, iOS Keychain, Windows Credential Manager, macOS Keychain Services, Linux Secret Service) and text to speech (Android TextToSpeech, iOS AVSpeechSynthesizer, and say/espeak/SAPI on desktop).</Description>
+    <PackageTags>majorsilence-forms;winforms;secure-storage;keychain;credential-manager;secret-service;text-to-speech;speech;cross-platform</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
@@ -33,22 +33,23 @@
     <InternalsVisibleTo Include="Majorsilence.Forms.Tests" />
   </ItemGroup>
 
-  <!-- One PlatformSecureStorage.*.cs file per platform family, each declaring the same internal PlatformSecureStorage.Create();
-       MSBuild's default glob compiles all three into every row unless explicitly excluded, so these Remove entries keep exactly
-       one in each build and avoid a duplicate-type error. -->
+  <!-- One Platform*.<Family>.cs file per capability per platform family (PlatformSecureStorage.Android.cs, PlatformSpeech.Android.cs,
+       and so on), each declaring that capability's own internal Create(); MSBuild's default glob compiles every family into every row
+       unless explicitly excluded, so these Remove entries keep exactly the matching family in each build and avoid a duplicate-type
+       error. -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-android'">
-    <Compile Remove="PlatformSecureStorage.Desktop.cs" />
-    <Compile Remove="PlatformSecureStorage.iOS.cs" />
+    <Compile Remove="Platform*.Desktop.cs" />
+    <Compile Remove="Platform*.iOS.cs" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-ios'">
-    <Compile Remove="PlatformSecureStorage.Desktop.cs" />
-    <Compile Remove="PlatformSecureStorage.Android.cs" />
+    <Compile Remove="Platform*.Desktop.cs" />
+    <Compile Remove="Platform*.Android.cs" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' != 'net10.0-android' and '$(TargetFramework)' != 'net10.0-ios'">
-    <Compile Remove="PlatformSecureStorage.Android.cs" />
-    <Compile Remove="PlatformSecureStorage.iOS.cs" />
+    <Compile Remove="Platform*.Android.cs" />
+    <Compile Remove="Platform*.iOS.cs" />
   </ItemGroup>
 
 </Project>

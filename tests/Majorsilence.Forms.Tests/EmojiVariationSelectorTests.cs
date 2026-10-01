@@ -13,6 +13,7 @@ namespace Majorsilence.Forms.Tests
     // exposed this: most text fonts include its plain monochrome triangle, so FontSubstitution.Covering saw primary already covering
     // "⚠" and never looked for an emoji face for the selector that followed -- drawn as a monochrome outline instead of the colour
     // triangle. Filed and evidenced on majorsilence/alert-buddy's tracker as #271/#281 ("Text: colour emoji on Android and iOS").
+    [Collection ("Headless")]
     public class EmojiVariationSelectorTests
     {
         private const string WarningSign = "⚠";

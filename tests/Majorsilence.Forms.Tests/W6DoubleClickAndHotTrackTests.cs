@@ -8,6 +8,7 @@ namespace Majorsilence.Forms.Tests;
 /// W6 mechanisms, third chunk: item double-clicks on strips and grid dividers, and the hot-tracking
 /// visuals (ListView, TreeView, TabControl).
 /// </summary>
+[Collection ("Headless")]
 public class W6DoubleClickAndHotTrackTests
 {
     private static MouseEventArgs Double (int x, int y) => new (MouseButtons.Left, 2, x, y, 0);

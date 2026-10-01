@@ -12,6 +12,12 @@ namespace Majorsilence.Forms.Tests
     // Majorsilence.Forms.Mvvm: Observe pushes a view model's state into a control, BindCommand wires an ICommand to a control, and
     // BindingScope disposes them together. Threading is tested through a fake dispatcher, because what is being proved is that work is
     // posted when the caller is not on the UI thread and applied at once when it is.
+    //
+    // [Collection ("Headless")]: one test below calls HeadlessRenderer.Use (), which sets the truly global, process-wide
+    // Backends.Platform.Backend -- missing this tag (found by a real, twice-reproduced Windows CI failure, not guessed) let it run
+    // concurrently with any of the 100+ other test classes that also touch that same ambient backend and read back a stale or
+    // swapped one mid-assertion. Every one of those already carries this same collection name for the same reason.
+    [Collection ("Headless")]
     public class MvvmHelpersTests
     {
         private sealed class FakeDispatcher : IUiDispatcher
@@ -239,10 +245,26 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void The_default_dispatcher_runs_on_the_active_backends_ui_thread ()
         {
-            HeadlessRenderer.Use ();
+            // HeadlessRenderer.Use () is a no-op once any Headless backend is already active (it only replaces a
+            // *different* backend type), and HeadlessPlatformBackend.Initialize () pins its UI-thread id once per
+            // instance and never again -- so by the time this test runs, the shared Headless backend's UI thread is
+            // whichever thread happened to construct the very first window anywhere in the whole assembly's test run,
+            // not necessarily this thread. A fresh instance, initialised here, is what actually proves the claim this
+            // test makes (found as a real, twice-reproduced Windows/macOS-only CI failure, not guessed: the shared
+            // instance's pinned thread and xUnit's own worker-thread scheduling for this specific test happened to
+            // differ often enough on those two runners but not on Linux's).
+            var previous = Majorsilence.Forms.Backends.Platform.ConfiguredBackend;
+            var backend = new HeadlessPlatformBackend ();
+            Majorsilence.Forms.Backends.Platform.Backend = backend;
+            try {
+                backend.Initialize ();
 
-            Assert.Same (UiDispatcher.Default, UiDispatcher.Default);
-            Assert.True (UiDispatcher.Default.CheckAccess ());
+                Assert.Same (UiDispatcher.Default, UiDispatcher.Default);
+                Assert.True (UiDispatcher.Default.CheckAccess ());
+            } finally {
+                if (previous is not null)
+                    Majorsilence.Forms.Backends.Platform.Backend = previous;
+            }
         }
 
         // ---- BindCommand --------------------------------------------------------------------------

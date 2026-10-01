@@ -9,6 +9,7 @@ namespace Majorsilence.Forms.Tests
     // Exercises the in-process automation surface (the foundation for the WebDriver/Selenium server and
     // for screen-reader bridging): build the element tree, locate by id/name/role, and drive controls
     // through the same neutral input pipeline a real backend uses.
+    [Collection ("Headless")]
     public class AutomationTests
     {
         private static Form BuildForm (out Button button, out TextBox textbox)

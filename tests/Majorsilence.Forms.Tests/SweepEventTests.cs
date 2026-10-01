@@ -10,6 +10,7 @@ namespace Majorsilence.Forms.Tests;
 /// W6.1 sweep: the remaining unraised events that had a hook site in reach. One test per event,
 /// each subscribing at the public surface and driving the public path that upstream raises from.
 /// </summary>
+[Collection ("Headless")]
 public class SweepEventTests
 {
     // ── DataGridView: the three ContextMenuStrip change events ───────────────────────────────────────

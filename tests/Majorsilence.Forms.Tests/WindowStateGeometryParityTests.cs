@@ -9,6 +9,7 @@ namespace Majorsilence.Forms.Tests
     // the root ControlAdapter, which is the window's client surface -- so these check the answers are about
     // the right rectangle and the right control tree, not merely that the members exist. (The parity test
     // only checks existence; a forward wired to the wrong object satisfies it and still lies.)
+    [Collection ("Headless")]
     public class WindowStateGeometryParityTests
     {
         [Fact]

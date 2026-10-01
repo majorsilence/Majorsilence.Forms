@@ -8,6 +8,7 @@ namespace Majorsilence.Forms.Tests
 {
     // Regressions found by running a migrated designer-generated login form side by side with the same
     // form on real WinForms: each of these rendered visibly differently there.
+    [Collection ("Headless")]
     public class DesignerParityRegressionTests
     {
         // ButtonBase.ApplyLatchedBackground cleared Style.ForegroundColor/BackgroundColor before every

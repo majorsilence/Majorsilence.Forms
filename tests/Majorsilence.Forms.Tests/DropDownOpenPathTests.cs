@@ -9,6 +9,7 @@ namespace Majorsilence.Forms.Tests
     // MenuItem's Selected setter, MenuDropDown's selection tracking, ToolStripDropDown's Visible setter --
     // holds the item as a MenuItem, so they all bound to the base method: opening a menu by clicking it
     // raised nothing, and only code calling ShowDropDown on the derived type by hand saw the events.
+    [Collection ("Headless")]
     public class DropDownOpenPathTests
     {
         private static (Form form, MenuStrip strip, ToolStripMenuItem item) BuildMenu ()

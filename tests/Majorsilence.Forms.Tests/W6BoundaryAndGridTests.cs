@@ -10,6 +10,7 @@ namespace Majorsilence.Forms.Tests;
 /// binding managers' DataError, Form.ResizeBegin/ResizeEnd, and the DataGridView's context-menu-needed,
 /// cell-style-content-changed and virtual-mode events.
 /// </summary>
+[Collection ("Headless")]
 public class W6BoundaryAndGridTests
 {
     // ── Application.ThreadException ─────────────────────────────────────────────────────────────────

@@ -10,6 +10,7 @@ namespace Majorsilence.Forms.Tests
 {
     // Easing, Tween and Animator. A tween has no clock, so it is tested at exact progress; an Animator runs on RequestAnimationFrame, so it is
     // stepped by hand on the Headless clock, which makes the values at t = 0, halfway, the end, completion and cancellation exact.
+    [Collection ("Headless")]
     public class AnimationTweenTests : IDisposable
     {
         private static readonly TimeSpan Ms100 = TimeSpan.FromMilliseconds (100);

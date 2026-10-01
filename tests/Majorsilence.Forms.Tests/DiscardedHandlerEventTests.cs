@@ -8,6 +8,7 @@ namespace Majorsilence.Forms.Tests;
 /// W6: the events that were declared <c>{ add { } remove { } }</c> and so discarded every handler.
 /// All of them keep their handlers now; these are the ones with a raise within reach.
 /// </summary>
+[Collection ("Headless")]
 public class DiscardedHandlerEventTests
 {
     private static MouseEventArgs At (int x, int y) => new (MouseButtons.None, 0, x, y, 0);

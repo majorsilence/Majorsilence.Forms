@@ -10,6 +10,7 @@ namespace Majorsilence.Forms.Tests
     // was the item's Text, drawn by the strip's renderer, which reads as a stray label rather than as an
     // unhosted control. This is the whole contract of the type, and it covers ToolStripTextBox and
     // ToolStripComboBox too.
+    [Collection ("Headless")]
     public class ToolStripControlHostingTests
     {
         [Fact]

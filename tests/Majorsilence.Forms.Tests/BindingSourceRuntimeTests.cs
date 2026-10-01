@@ -8,6 +8,7 @@ namespace Majorsilence.Forms.Tests
     // BindingSource had a working list/position core but three things that only matter once bindings are
     // live: it handed out a NEW CurrencyManager on every read (so nothing shared a current item),
     // AddNew put a literal null into the caller's list, and Find always answered -1.
+    [Collection ("Headless")]
     public class BindingSourceRuntimeTests
     {
         private sealed class Person

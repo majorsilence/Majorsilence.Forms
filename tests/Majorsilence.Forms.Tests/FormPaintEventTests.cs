@@ -10,6 +10,7 @@ namespace Majorsilence.Forms.Tests;
 // from WindowBase, which is NOT a Control and so inherits none of Control's paint pipeline, so the
 // Paint event WindowBase declares has to be raised by its own paint pass. It previously was not: the
 // event existed, `form.Paint += handler` compiled, and the handler silently never ran.
+[Collection ("Headless")]
 public class FormPaintEventTests
 {
     private static readonly SKColor HandlerFill = new SKColor (255, 0, 0);

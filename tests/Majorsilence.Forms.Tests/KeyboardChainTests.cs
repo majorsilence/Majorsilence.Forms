@@ -15,6 +15,7 @@ namespace Majorsilence.Forms.Tests;
 // FRM-08, SVC-02, CTL-28, EVT-06, EVT-07, TXT-09, TXT-10.
 //
 // The ordering is the contract, so most of these assert a sequence rather than a single outcome.
+[Collection ("Headless")]
 public class KeyboardChainTests
 {
     // Records and matches on the key CODE, deliberately dropping modifiers. Control.ModifierKeys is

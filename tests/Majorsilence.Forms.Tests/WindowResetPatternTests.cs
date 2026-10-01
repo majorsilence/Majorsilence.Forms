@@ -10,6 +10,7 @@ namespace Majorsilence.Forms.Tests
     // rather than merely that the method exists. The window's storage is not uniform: BackColor and
     // ForeColor live on its own ControlStyle, Cursor in its own field, Font and RightToLeft on the root
     // adapter, and Text on Form.
+    [Collection ("Headless")]
     public class WindowResetPatternTests
     {
         [Fact]

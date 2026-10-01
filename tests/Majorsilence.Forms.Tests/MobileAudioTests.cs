@@ -12,6 +12,7 @@ namespace Majorsilence.Forms.Tests;
 // OS-utility path. HeadlessRenderer.AudioIsSupported flips the Headless backend's own IAudioBackend
 // between "answers" and "does not" (false by default -- see the remarks on it), so both branches of that
 // routing are provable here without a device.
+[Collection ("Headless")]
 public class MobileAudioTests : IDisposable
 {
     public MobileAudioTests ()

@@ -10,6 +10,7 @@ namespace Majorsilence.Forms.Tests;
 /// ToolStripManager.Merge with MergeAction/MergeIndex/AllowMerge, and the rafting panel's rows and
 /// renderer-routed backgrounds.
 /// </summary>
+[Collection ("Headless")]
 public class W6StripLayoutTests
 {
     private static ToolStrip Strip (out Form form, int width, params string[] texts)

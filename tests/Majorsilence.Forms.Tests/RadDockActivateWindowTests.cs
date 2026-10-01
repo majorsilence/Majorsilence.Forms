@@ -7,6 +7,7 @@ namespace Majorsilence.Forms.Tests
     // RadDock.ActivateWindow is the programmatic equivalent of clicking a tab header: the target
     // window's tab becomes selected (window shown, siblings hidden) and the standard activation
     // events fire (Enter on the new window, Leave on the old, SelectedTabChanged on the dock).
+    [Collection ("Headless")]
     public class RadDockActivateWindowTests
     {
         private static (Form form, RadDock dock, DocumentWindow a, DocumentWindow b) BuildDock ()

@@ -7,6 +7,7 @@ namespace Majorsilence.Forms.Tests
     // it asked for none, text aligned where it said, and text sitting on the control's centre line.
     // All three were stored-but-ignored properties, so a designer layout looked nothing like it did
     // in WinForms while every property still reported the right value.
+    [Collection ("Headless")]
     public class TextBoxLayoutParityTests
     {
         // Renders a form and returns the TextBox's own back buffer.

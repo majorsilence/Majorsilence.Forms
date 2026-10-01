@@ -4,6 +4,7 @@ using Xunit;
 
 namespace Majorsilence.Forms.Tests
 {
+    [Collection ("Headless")]
     public class SpellCheckerTests
     {
         // --- Right-click suggestion menu (regression: MouseUp-vs-MouseDown ordering) ------------------

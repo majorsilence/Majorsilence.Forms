@@ -9,6 +9,7 @@ namespace Majorsilence.Forms.Tests
     // Controls[0] is the buttons. That ordering is the documented way to theme one of these: code hooks
     // Controls[0].Paint to draw its own arrows and calls Controls[0].PointToClient to hit-test them. This
     // control drew itself with no children, so the idiom threw before the control existed.
+    [Collection ("Headless")]
     public class NumericUpDownChildControlTests
     {
         [Fact]

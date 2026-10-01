@@ -10,6 +10,7 @@ namespace Majorsilence.Forms.Tests
     // directly. Backend.Activate() maps to the platform "make key and order front", so re-activating the
     // opener after the dialog closed displayed that empty window. The modal path has to resolve the
     // window actually presenting a hosted form instead.
+    [Collection ("Headless")]
     public class ModalOwnerHostedFormTests
     {
         private static Form MdiContainer ()

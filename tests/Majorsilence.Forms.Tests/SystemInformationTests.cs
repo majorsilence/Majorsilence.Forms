@@ -17,6 +17,7 @@ namespace Majorsilence.Forms.Tests
     // Majorsilence.Forms returns. The screen-derived members (WorkingArea, PrimaryMonitorSize,
     // MonitorCount, VirtualScreen) resolve through the Headless backend the test assembly installs,
     // which reports a single 1920x1080 primary monitor — so those assertions are deterministic too.
+    [Collection ("Headless")]
     public class SystemInformationTests
     {
         // The Headless backend (installed by the test assembly's ModuleInitializer) reports a

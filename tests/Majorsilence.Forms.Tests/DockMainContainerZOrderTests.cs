@@ -8,6 +8,7 @@ namespace Majorsilence.Forms.Tests
     // while the main document container fills the whole dock, so they always overlap it. The
     // container must end up frontmost (z-index 0) or a sibling strip serialized BEFORE it (a
     // designer-common shape for a top-docked tool strip row) paints over the document tab band.
+    [Collection ("Headless")]
     public class DockMainContainerZOrderTests
     {
         [Fact]

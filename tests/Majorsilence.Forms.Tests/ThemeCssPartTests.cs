@@ -11,6 +11,7 @@ namespace Majorsilence.Forms.Tests
     // tab, a hovered menu item, the scroll bar thumb) through a named type-level ControlStyle the
     // renderer reads with the theme tokens as defaults. Same reset semantics as control rules; each
     // part accepts only the properties its renderer honours, and says so.
+    [Collection ("Headless")]
     public class ThemeCssPartTests : IDisposable
     {
         public ThemeCssPartTests () => Theme.SetBuiltInTheme (BuiltInTheme.Light);

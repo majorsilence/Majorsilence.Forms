@@ -10,6 +10,7 @@ namespace Majorsilence.Forms.Tests;
 /// W6.2 sweep: stored-only properties that had a consumer within reach. One test per property, driving
 /// the public path that should read it.
 /// </summary>
+[Collection ("Headless")]
 public class StoredOnlySweepTests
 {
     [Fact]

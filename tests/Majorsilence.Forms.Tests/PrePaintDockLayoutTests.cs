@@ -8,6 +8,7 @@ namespace Majorsilence.Forms.Tests
     // WinForms has no such window: a form's client rectangle is real as soon as it has a size, which is
     // why WinForms code freely reads child geometry in a Load handler, and why a headless or
     // never-painted window is expected to lay out correctly all the same.
+    [Collection ("Headless")]
     public class PrePaintDockLayoutTests
     {
         [Fact]

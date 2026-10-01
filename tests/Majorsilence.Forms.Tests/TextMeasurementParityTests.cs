@@ -14,6 +14,7 @@ namespace Majorsilence.Forms.Tests;
 // Graphics.DrawString, which already used the pixel size, so measure and draw disagreed by a third and
 // text was clipped on the right and bottom of anything sized from the measurement. These tests pin the
 // relationship rather than either number, so neither half can drift again.
+[Collection ("Headless")]
 public class TextMeasurementParityTests
 {
     private static Majorsilence.Forms.Drawing.Font NewFont (float points = 9f)

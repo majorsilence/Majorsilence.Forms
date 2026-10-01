@@ -11,6 +11,7 @@ namespace Majorsilence.Forms.Tests
     // stretched every one of them from a rectangle the container never had: a bottom-right button
     // landed outside the container entirely and a top-left checkbox was pushed hundreds of pixels
     // down. Found on a search form whose controls outside its grid were all displaced or invisible.
+    [Collection ("Headless")]
     public class AnchorResizeWhileSuspendedTests
     {
         [Fact]

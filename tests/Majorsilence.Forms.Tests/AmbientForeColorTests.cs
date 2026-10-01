@@ -7,6 +7,7 @@ namespace Majorsilence.Forms.Tests
     // Setting it once on a container is the normal way to colour a themed strip -- every caption
     // inside picks it up. Only BackColor resolved that way here, so a dark panel that set
     // ForeColor = White got black captions on its own dark background, i.e. invisible ones.
+    [Collection ("Headless")]
     public class AmbientForeColorTests
     {
         [Fact]

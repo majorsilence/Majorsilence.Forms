@@ -11,6 +11,7 @@ namespace Majorsilence.Forms.Tests
     // container's already-updated DisplayRectangle, and stored a garbage delta that pinned it there.
     // Growing a window then shrinking it back therefore left its right-anchored controls hanging off
     // the edge, which is how this was found (a media player's transport buttons).
+    [Collection ("Headless")]
     public class AnchorRepeatedResizeTests
     {
         private static (Form Form, Panel Panel, Button Anchored) BuildBottomBar ()

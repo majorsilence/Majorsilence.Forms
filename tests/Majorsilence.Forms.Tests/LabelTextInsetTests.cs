@@ -7,6 +7,7 @@ namespace Majorsilence.Forms.Tests
     // starts flush at the control's left edge. Designer layouts rely on it: a label placed at a
     // slightly negative X still shows its first glyph fully. Without the inset, such labels
     // rendered with the first character shaved.
+    [Collection ("Headless")]
     public class LabelTextInsetTests
     {
         [Fact]

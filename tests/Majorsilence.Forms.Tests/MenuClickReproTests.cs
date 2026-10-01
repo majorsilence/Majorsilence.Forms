@@ -32,6 +32,7 @@ namespace Majorsilence.Forms.Tests
     // Existing MenuStrip/ToolStrip coverage (e.g. StripHierarchyTests.MenuStripItem_WithChildren_
     // StillOpensItsSubmenu) calls ShowDropDown() directly, so it never exercises the mouse-down/click/
     // mouse-up pipeline this bug lives in, or the deactivate-driven close path, at all.
+    [Collection ("Headless")]
     public class MenuClickReproTests
     {
         [Fact]

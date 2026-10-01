@@ -11,6 +11,7 @@ namespace Majorsilence.Forms.Tests
     // RequestAnimationFrame: a callback aligned to the display frame, so an animation does not depend on a timer. On Headless the frames are
     // stepped by hand, which is what makes an animation test deterministic. The Avalonia implementation is the top level's own frame
     // request and needs a running Avalonia app, so it is not tested here.
+    [Collection ("Headless")]
     public class AnimationFrameTests : IDisposable
     {
         private static readonly TimeSpan Frame = HeadlessAnimationClock.DefaultFrameInterval;

@@ -10,6 +10,7 @@ namespace Majorsilence.Forms.Tests;
 // MenuItem.Shortcut held a value nothing ever compared a keystroke against, and ProcessMnemonic was a
 // `=> false` stub, so `&File` underlined the F and Alt+F did nothing. See findings TSM-02 (rated P0),
 // FRM-09 and SMP-10.
+[Collection ("Headless")]
 public class MenuShortcutTests
 {
     private static Form ShowForm (Form form)

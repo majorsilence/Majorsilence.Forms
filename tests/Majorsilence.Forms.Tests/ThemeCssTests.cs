@@ -9,6 +9,7 @@ namespace Majorsilence.Forms.Tests
     // Tests for CSS-defined themes (Theme.Css.cs / ThemeStyleSheet). Theme is global state, so each test
     // resets to the Light built-in (which also clears every stylesheet control rule) and unregisters
     // anything it registered.
+    [Collection ("Headless")]
     public class ThemeCssTests : IDisposable
     {
         public ThemeCssTests () => Theme.SetBuiltInTheme (BuiltInTheme.Light);

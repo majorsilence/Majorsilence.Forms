@@ -9,6 +9,7 @@ namespace Majorsilence.Forms.Tests
     // child -- so the hosted control ran Control.RaiseMouseDown's menu-closing check, was not a MenuBase,
     // and closed the very menu it was sitting in. Choosing a colour button in a menu dismissed the menu
     // instead of dropping its palette.
+    [Collection ("Headless")]
     public class MenuHostedControlClickTests
     {
         private static (Form form, ToolStripMenuItem menu, Control hosted) BuildMenuWithHostedControl ()

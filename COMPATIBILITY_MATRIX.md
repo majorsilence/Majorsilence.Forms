@@ -876,6 +876,44 @@ actually applies, rather than assuming one.
   `ios`/`sample-ios` jobs, but not run on a simulator or device — the same honest gap F12/F13/F14 already
   record for iOS.
 
+## Speech
+
+**`Majorsilence.Forms.Essentials.Speech.SpeakAsync`/`IsSupported`** (added 2026-09, register item F15) reads a line aloud
+with the platform's own voice: Android (`Android.Speech.Tts.TextToSpeech`, its own asynchronous engine initialisation
+shared across calls so only the first one pays that cost), iOS (`AVSpeechSynthesizer`/`AVSpeechUtterance`), and all three
+desktop OSes via the owner's own "spawn an OS utility" policy for desktop capabilities (PLAN.md section 11.5): macOS's
+`say`, Linux's `espeak-ng` (falling back to `espeak`), and Windows via a short PowerShell script over
+`System.Speech.Synthesis` (spawned rather than referenced directly, since that assembly is Windows-only and this project
+also targets rows that run on every desktop OS). The text always travels over the spawned process's stdin, never as a
+command-line argument or interpolated into a shell string, so nothing needs escaping regardless of what punctuation or
+quotes it contains. Cancellation kills the process (desktop) or calls the platform's own stop API (`TextToSpeech.Stop`,
+`AVSpeechSynthesizer.StopSpeaking`); like `SecureStorage`, `Speech` is not routed through the `Backends.Platform` seam
+Haptics/LocalNotifications/KeepScreenAwake use, for the same reason — which speech engine exists has nothing to do with
+which UI backend is active.
+
+**Desktop `IsSupported` is a real, per-engine availability check, not a blanket per-OS assumption.** `say` and PowerShell
+are close to universal on their own OSes, but `espeak`/`espeak-ng` is genuinely often missing on a minimal Linux install
+(confirmed on this session's own sandbox and, it turned out, on the framework's own Linux CI runner too — the desktop
+test suite ran there for real and reported `IsSupported` false), the same shape `SecureStorage`'s Linux row already has
+for `secret-tool`.
+
+**Verification, honestly split by platform, the same shape `SecureStorage`'s own section above documents.**
+- **Linux** — real, on this session's own machine and on CI's Linux runner: `IsSupported` is `false` there, `SpeakAsync`
+  completes without throwing, and a second call is cancelled and confirmed to stop within a bounded wait — all against
+  the real, non-injected backend, not a fake.
+- **Windows and macOS** — the PowerShell/`System.Speech` and `say` process-spawning code is written and probed the same
+  way as the Linux path; neither has been run for real, since this session had access to neither OS. CI's
+  `build (windows-latest)`/`build (macos-latest)` jobs run the full test suite, including the same real-backend test, on
+  each — if the engine is available and unmuted there, that test proves a real spawn-and-speak round trip for the first
+  time; if not, it at least proves the process-spawning and cancellation code loads and runs without throwing.
+- **Android** — `MainActivity.RunSpeechSmokeTest` confirms `IsSupported`, that `SpeakAsync` completes with no exception,
+  and that a cancelled call stops within a bounded wait, confirmed via CI's `android-smoke` job (`F15_SPEECH_SMOKE`) —
+  the same "cannot prove the sound was heard, only that it ran" honesty `F13_HAPTICS_SMOKE` already has for feeling
+  nothing on an emulator with no speaker a test can listen to.
+- **iOS** — written from the documented `AVSpeechSynthesizer`/`AVSpeechUtterance` API, expected to compile clean via CI's
+  `ios`/`sample-ios` jobs but not run on a simulator or device — the same honest gap F12/F13/F14/F16 already record for
+  iOS.
+
 ## Design-time smart tags
 
 `DesignerActionUIService` exists so that the guarded calls around it compile: a component's action list

@@ -10,6 +10,7 @@ namespace Majorsilence.Forms.Tests
     // painting their transparent-background controls -- Krypton's VisualControlBase does it on every paint
     // of every label, check box, radio button and group caption. Nothing in this library calls it, so
     // neither the compiler nor any ordinary test protects its name, its signature or what it draws.
+    [Collection ("Headless")]
     public class TransparentBackgroundPaintTests
     {
         // Byte-for-byte the lookup Krypton's VisualControlBase performs. If this stops finding the method,
