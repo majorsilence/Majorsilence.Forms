@@ -1,16 +1,16 @@
 <!-- What a NativeAOT or trimmed app must keep for data binding, because binding finds members by name at run time and nothing in the
-     program refers to them. Every line is needed: the smoke test fails without it (see "Binding and trimming" in docs/backends.md). -->
+     program refers to them. Every line is needed: the smoke test fails without it (see "Binding and trimming" in docs/backends.md).
+
+     The control side used to need a Majorsilence.Forms/Control entry here too (the property that is bound, and the event the
+     control raises when it changes; without the event a bound control still shows the view model, but edits never reach it).
+     Majorsilence.Forms now ships that root itself, embedded in the assembly (#290, src/Majorsilence.Forms/ILLink.Descriptors.xml);
+     this file no longer declares it, and the smoke test passing is what proves the embedded one is doing its job. -->
 <linker>
-  <assembly fullname="Majorsilence.Forms">
-    <!-- The control side: the property that is bound, and the event the control raises when it changes, which is how a value typed
-         into the control is written back. Without the event a bound control still shows the view model, but edits never reach it. -->
-    <type fullname="Majorsilence.Forms.Control">
-      <property name="Text" />
-      <event name="TextChanged" />
-    </type>
-  </assembly>
   <assembly fullname="Majorsilence.Forms.AotSmoke">
-    <!-- The view-model side: every property a binding names. A missing one is not an error, the binding just never moves a value. -->
+    <!-- The view-model side: every property a binding names. A missing one used to not be an error, the binding would just never
+         move a value for a reflective lookup the trimmer could not see either; fixed in #290 for the "wrong name" case
+         (DataBindings.Add now throws), but a property trimmed out of the assembly for being otherwise unreferenced looks the same
+         as a wrong name from the binding's point of view, so it still has to be rooted here. -->
     <type fullname="SmokeViewModel">
       <property name="Title" />
       <property name="Name" />

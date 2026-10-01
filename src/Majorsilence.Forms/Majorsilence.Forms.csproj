@@ -150,4 +150,15 @@
     <EmbeddedResource Include="SpellCheck/en_US.words.gz" />
   </ItemGroup>
 
+  <ItemGroup Condition=" '$(TargetFramework)' != 'netstandard2.0' ">
+    <!-- ILLink auto-discovers a resource with exactly this logical name inside a trimmed assembly and
+         applies it as that assembly's own root descriptor; no MSBuild item required in the consuming
+         project. See the file itself for what it roots and why (#290). Conditioned out of
+         netstandard2.0 the same way IsTrimmable/IsAotCompatible above are: trimming is not a concept
+         that build consumes. -->
+    <EmbeddedResource Include="ILLink.Descriptors.xml">
+      <LogicalName>ILLink.Descriptors.xml</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
 </Project>
