@@ -542,9 +542,19 @@ namespace Majorsilence.Forms.Tests
         [Theory]
         [InlineData ("Button { colour: red; }", "Unknown property 'colour'. Did you mean 'color'?")]
         [InlineData ("Buton { color: red; }", "Unknown selector 'Buton'. Did you mean 'Button'?")]
-        [InlineData ("Button:disabled { color: red; }", "':disabled' is not supported")]
-        [InlineData ("Button:disabled { color: red; }", "--foreground-disabled-color")]
         [InlineData ("TextBox:hover { color: red; }", "'TextBox:hover' is not supported")]
+        [InlineData ("TextBox:disabled { color: red; }", "'TextBox:disabled' is not supported")]
+        [InlineData ("TextBox:active { color: red; }", "'TextBox:active' is not supported")]
+        [InlineData ("TextBox:focus { color: red; }", "'TextBox:focus' is not supported")]
+        [InlineData ("Button:oops { color: red; }", "the pseudo-classes are ':hover', ':active', ':disabled' and ':focus'")]
+        [InlineData ("Button:pressed { color: red; }", "Use ':active'")]
+        [InlineData ("DataGridView::header:active { color: red; }", "a part only supports ':hover'")]
+        [InlineData ("Button { box-shadow: 4px 4px; }", "box-shadow is a hard, offset shadow only")]
+        [InlineData ("Button { box-shadow: 4px 4px 8px red; }", "box-shadow is a hard, offset shadow only")]
+        [InlineData ("Button { box-shadow: 4px 4px red inset; }", "box-shadow is a hard, offset shadow only")]
+        [InlineData ("Button { box-shadow: red 4px 4px; }", "box-shadow's horizontal offset")]
+        [InlineData ("Button { box-shadow: linear-gradient(red, blue) 4px 4px; }", "box-shadow's horizontal offset")]
+        [InlineData ("Button { box-shadow: 4px 4px linear-gradient(red, blue); }", "is not a supported color function")]
         [InlineData ("* { color: red; }", "universal selector")]
         [InlineData (".primary { color: red; }", "class or id selector")]
         [InlineData ("#main { color: red; }", "class or id selector")]
@@ -664,7 +674,109 @@ namespace Majorsilence.Forms.Tests
                     Assert.NotSame (Control.DefaultStyleHover, hover);
                     Assert.True (seen.Add (hover), $"{selector.Name}:hover shares a style with another selector");
                 }
+
+                // #285: :active, :disabled and :focus follow the same rule as :hover.
+                if (selector.SupportsActive) {
+                    var active = selector.GetActiveStyle! ();
+                    Assert.NotSame (Control.DefaultStyleActive, active);
+                    Assert.True (seen.Add (active), $"{selector.Name}:active shares a style with another selector");
+                }
+
+                if (selector.SupportsDisabled) {
+                    var disabled = selector.GetDisabledStyle! ();
+                    Assert.NotSame (Control.DefaultStyleDisabled, disabled);
+                    Assert.True (seen.Add (disabled), $"{selector.Name}:disabled shares a style with another selector");
+                }
+
+                if (selector.SupportsFocus) {
+                    var focus = selector.GetFocusStyle! ();
+                    Assert.NotSame (Control.DefaultStyleFocus, focus);
+                    Assert.True (seen.Add (focus), $"{selector.Name}:focus shares a style with another selector");
+                }
             }
+        }
+
+        // ---- :active, :disabled, :focus and box-shadow (#285) --------------------------------------
+
+        [Fact]
+        public void ControlRule_Active ()
+        {
+            Theme.LoadFromCss ("Button:active { background-color: #123456; }");
+
+            Assert.Equal (new SKColor (0x12, 0x34, 0x56), Button.DefaultStyleActive.BackgroundColor);
+            Assert.Null (Button.DefaultStyle.BackgroundColor);
+            Assert.Null (Button.DefaultStyleHover.BackgroundColor);
+        }
+
+        [Fact]
+        public void ControlRule_Disabled ()
+        {
+            Theme.LoadFromCss ("Button:disabled { background-color: #abcdef; }");
+
+            Assert.Equal (new SKColor (0xab, 0xcd, 0xef), Button.DefaultStyleDisabled.BackgroundColor);
+            Assert.Null (Button.DefaultStyle.BackgroundColor);
+        }
+
+        [Fact]
+        public void ControlRule_Focus ()
+        {
+            Theme.LoadFromCss ("TrackBar:focus { background-color: #0a0b0c; }");
+
+            Assert.Equal (new SKColor (0x0a, 0x0b, 0x0c), TrackBar.DefaultStyleFocus.BackgroundColor);
+            Assert.Null (TrackBar.DefaultStyle.BackgroundColor);
+        }
+
+        [Fact]
+        public void ControlRule_BoxShadow_Parses ()
+        {
+            Theme.LoadFromCss ("Button { box-shadow: 4px 6px #2b1b4d; }");
+
+            var shadow = Button.DefaultStyle.BoxShadow;
+            Assert.NotNull (shadow);
+            Assert.Equal (4, shadow!.Value.OffsetX);
+            Assert.Equal (6, shadow.Value.OffsetY);
+            Assert.Equal (new SKColor (0x2b, 0x1b, 0x4d), shadow.Value.Color);
+        }
+
+        [Fact]
+        public void ControlRule_BoxShadow_AllowsNegativeOffsets ()
+        {
+            Theme.LoadFromCss ("Button { box-shadow: -4px -6px #2b1b4d; }");
+
+            var shadow = Button.DefaultStyle.BoxShadow;
+            Assert.NotNull (shadow);
+            Assert.Equal (-4, shadow!.Value.OffsetX);
+            Assert.Equal (-6, shadow.Value.OffsetY);
+        }
+
+        [Fact]
+        public void ControlRule_BoxShadow_AppliesToAnySelector ()
+        {
+            // Unlike the pseudo-classes, box-shadow is not restricted to Button/LinkLabel/TrackBar.
+            Theme.LoadFromCss ("Panel { box-shadow: 2px 2px #000000; }");
+
+            Assert.Equal (new SKColor (0, 0, 0), Panel.DefaultStyle.BoxShadow!.Value.Color);
+        }
+
+        [Fact]
+        public void ControlRule_BoxShadow_RejectedOnAPart ()
+        {
+            var errors = ErrorsOf ("DataGridView::header { box-shadow: 4px 4px red; }");
+
+            Assert.Contains ("does not apply to DataGridView::header", errors);
+        }
+
+        [Fact]
+        public void Reference_PseudoClasses_ListsAllFour ()
+        {
+            Assert.Equal (new[] { "hover", "active", "disabled", "focus" }, ThemeCssReference.PseudoClasses);
+        }
+
+        [Fact]
+        public void Reference_PropertyNames_IncludesBoxShadow ()
+        {
+            Assert.Contains ("box-shadow", ThemeCssReference.PropertyNames);
+            Assert.Contains (ThemeCssReference.Properties, p => p.Name == "box-shadow");
         }
 
         [Fact]

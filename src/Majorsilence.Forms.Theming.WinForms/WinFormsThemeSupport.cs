@@ -380,6 +380,24 @@ namespace Majorsilence.Forms.Theming.WinForms
             Map ("RadStatusStrip", null, "A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped.");
             Map ("RichTextEditorRibbonBar", null, "A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped.");
 
+            // box-shadow (#285): added after every row above was already complete for the properties
+            // that existed then. Folding it into the Fill() calls above would have it inherit whatever
+            // border-specific note each one happens to end on -- true of the borders, not of a shadow.
+            // A single explicit sweep instead: System.Windows.Forms has no concept of a hard, offset,
+            // no-blur drop shadow without an owner-drawn control, so it is Unsupported everywhere,
+            // never Approximate or Native, for every selector real WinForms has a counterpart for.
+            const string NoBoxShadow = "System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one.";
+
+            foreach (var mapping in mappings) {
+                if (mapping.WinFormsTypes is null)
+                    continue;
+
+                entries.Add (new WinFormsThemeSupportEntry (mapping.Selector, null, false, "box-shadow", WinFormsThemeSupportLevel.Unsupported, NoBoxShadow));
+
+                if (ThemeCssReference.FindSelector (mapping.Selector)?.SupportsHover == true)
+                    entries.Add (new WinFormsThemeSupportEntry (mapping.Selector, null, true, "box-shadow", WinFormsThemeSupportLevel.Unsupported, NoBoxShadow));
+            }
+
             Mappings = mappings;
             Entries = entries;
 

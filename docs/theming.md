@@ -87,7 +87,7 @@ Errors are reported with a line, a column, and what to write instead:
 
 ```text
 error (12:3): Unknown property 'colour'. Did you mean 'color'? Supported properties: background-color, color, border, ...
-error (20:1): 'TextBox:hover' is not supported: TextBox does not change appearance when hovered. ':hover' is available on: Button, LinkLabel, TrackBar.
+error (20:1): 'TextBox:hover' is not supported: TextBox does not change appearance for that state. ':hover' is available on: Button, LinkLabel, TrackBar.
 ```
 
 ## The language
@@ -137,19 +137,42 @@ Button:hover { background-color: #444; }
 TextBox, ComboBox { border: 1px solid #808080; }
 ```
 
-- A selector is a **control type name** from the table below, optionally `:hover`, or a comma-separated
-  list of those. Type names are matched case-insensitively.
+- A selector is a **control type name** from the table below, optionally one pseudo-class (`:hover`,
+  `:active`, `:disabled` or `:focus`), or a comma-separated list of those. Type names are matched
+  case-insensitively.
 - A rule sets the type's static default style (`Button.DefaultStyle`). Every instance that has not set
   the same property in code (`button.Style.BackgroundColor = ...`, or WinForms `BackColor`) picks it
   up; explicit per-control values still win, as in WinForms.
-- `:hover` is available only on controls that repaint on hover (`Button`, `LinkLabel`, `TrackBar`) and
-  on the parts whose renderer tracks item hover (see below). The hover style is layered on the normal
-  one, so a `Button:hover` rule only needs the properties that change.
+- Each pseudo-class is available only on the controls whose **:hover** / **:active** / **:disabled** /
+  **:focus** column in the reference says `yes` -- currently `Button`, `LinkLabel` and `TrackBar` take
+  all four; everything else takes none. A pseudo-class's style is layered on the normal rule, so e.g.
+  a `Button:active` rule only needs the properties that change, and exactly one state wins when more
+  than one applies at once (disabled, then hover, then active/pressed, then focus -- see
+  `Control.CurrentStyle`).
 - Later declarations replace earlier ones, within a rule and across rules. There is no specificity,
   no cascade, and no `!important`.
 - Derived controls without their own default style follow their base type's rule (`Panel` also styles
   `FlowLayoutPanel`, `TableLayoutPanel`, `TabPage`; `TextBox` also styles `DateTimePicker`; `ListBox`
   also styles `CheckedListBox`).
+- `box-shadow` is a control-rule property, not a pseudo-class, and applies to any selector: a hard,
+  offset, no-blur shadow painted behind the control's own shape, e.g. `box-shadow: 4px 4px #2b1b4d;`.
+  It accepts exactly `<horizontal-offset> <vertical-offset> <color>` -- no blur radius, no spread, no
+  `inset` -- so pairing it with a pressed `:active` rule (a smaller or zero offset) is how a "hard
+  shadow that collapses on press" look is built entirely in CSS:
+
+  ```css
+  Button {
+    box-shadow: 4px 4px #2b1b4d;
+  }
+
+  Button:active {
+    box-shadow: 0px 0px #2b1b4d;
+  }
+
+  Button:disabled {
+    box-shadow: 4px 4px #9aa0ab;
+  }
+  ```
 
 ### 4. Parts -- `Type::part`
 
@@ -200,7 +223,9 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `* { color: red; }` | There is no single style every control inherits from. | `:root { --foreground-color: red; }` for the theme-wide default. |
 | `.primary { color: red; }` | Controls have no CSS classes or ids. | A type rule, and `button.Style.ForegroundColor` in code for one control. |
 | `Panel Button { color: red; }` | A rule applies to every control of the type, wherever it sits. | `Button { color: red; }` |
-| `Button:disabled { color: gray; }` | The only pseudo-class is `:hover`. | `:root { --foreground-disabled-color: gray; }` |
+| `TextBox:disabled { color: gray; }` | `TextBox` does not change appearance for that state; only `Button`, `LinkLabel`, `TrackBar` take `:disabled`. | `:root { --foreground-disabled-color: gray; }`, which every disabled control's text already follows. |
+| `Button:oops { color: gray; }` | The pseudo-classes are `:hover`, `:active`, `:disabled` and `:focus`. | Pick one of those four. |
+| `Button { box-shadow: 4px 4px 8px red; }` | `box-shadow` is a hard, offset shadow only -- no blur radius or spread, so a fourth component is rejected rather than silently dropped. | `box-shadow: 4px 4px red;` |
 | `Button::icon { color: red; }` | `Button` has no separately styleable parts; parts exist only where a renderer paints a distinct piece. | `Button { color: red; }`; the reference lists the controls with parts. |
 | `DataGridView::header:hover { color: red; }` | Headers do not react to hover. | `:hover` on parts: `Menu::item`, `ToolBar::item`, `MenuDropDown::item`, `TabStrip::item`. |
 | `ScrollBar::thumb { font-size: 12px; }` | A part accepts only the properties its renderer reads. | See the part's **Accepts** column; the thumb takes `background-color`, `border-*`, `border-radius`. |
@@ -250,54 +275,54 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 
 ### Selectors (control type names)
 
-| Selector | `:hover` | Also styles | Notes |
-|---|---|---|---|
-| `Button` | yes | `RadButton`, `RadDropDownButton` | Push buttons. Hovering applies the :hover rule on top of the normal one. |
-| `CheckBox` | no | `RadCheckBox`, `RadToggleSwitch` | Check boxes: the text and the box glyph's surround. |
-| `ComboBox` | no | `CompatComboBox`, `DataGridViewComboBoxEditingControl`, `RadCheckedDropDownList`, `RadDropDownList` | Drop-down selectors (the closed box; the open list is a ListBox). |
-| `DataGridView` | no | `RadGridView` | Data grids: the control background and border. Cells follow the tokens (--control-low-color, --border-low-color); headers, selection and alternating rows are parts. |
-| `DateTimePicker` | no | `RadDateTimePicker` | Date pickers: background-color is behind the date text; the drop button and the check box follow the tokens. |
-| `Form` | no | `ColorDialog`, `FontDialog`, `MessageBoxForm`, `PageSetupDialog`, `PrintDialog`, `PrintPreviewDialog`, `RadDesktopAlertPopup`, `RadForm`, `RadRibbonForm`, `RadTabbedForm`, `SchedulerPrintSettingsDialog`, `ThreadExceptionDialog` | The window. background-color is the window background; border sets the window frame on platforms that draw their own; font-family / font-size / color here become the ambient defaults every child control inherits when it sets none of its own. |
-| `FormTitleBar` | no |  | The title bar a window draws for itself (every platform but macOS, which uses the system's). background-color is the bar, color the caption text. On macOS's merged title bar it blends with the window background instead. |
-| `GroupBox` | no | `RadGroupBox` | Titled group frames: the border colour is the frame, color is the caption. |
-| `HostedSurface` | no |  | A Majorsilence.Forms surface embedded in an Avalonia or Uno host. Transparent by default so the host shows through; a background-color rule makes it opaque. |
-| `Label` | no | `RadLabel` | Static text. |
-| `LinkLabel` | yes | `RadLinkLabel` | Hyperlink text; color is the link colour. Supports :hover. |
-| `ListBox` | no | `CheckedListBox`, `RadListControl` | Single-column lists (also the ComboBox drop-down list). The selected item is the ::selection part. |
-| `ListView` | no |  | Icon / detail lists. The selected item is the ::selection part. |
-| `MdiClient` | no |  | The workspace of an MDI parent form, behind its child windows: background-color is the workspace colour. |
-| `Menu` | no | `MainMenu`, `MenuStrip`, `MenuStripClickThrough`, `RadMenu` | The menu bar. Items are the ::item part; they paint on the strip's background unless ::item sets one. |
-| `MenuDropDown` | no | `ContextMenu`, `ContextMenuStrip`, `ToolStripDropDown`, `ToolStripDropDownMenu`, `ToolStripOverflow` | Drop-down and context menus. Items are the ::item part. |
-| `MonthCalendar` | no | `RadCalendar` | The calendar grid; the selected day uses --accent-color. |
-| `NavigationPane` | no |  | The Outlook-style side navigation bar. |
-| `NumericUpDown` | no |  | Numeric spinners. |
-| `Panel` | no | `ContainerControl`, `DataGrid`, `DocumentContainer`, `DocumentTabStrip`, `DomainUpDown`, `FlowLayoutPanel`, `LayoutControlGroup`, `LayoutControlItem`, `RadCollapsiblePanel`, `RadDock`, `RadLayoutControl`, `RadPageViewPage`, `RadPanel`, `RadScrollablePanel`, `RadScrollablePanelContainer`, `SplitPanel`, `SplitterPanel`, `TabPage`, `TableLayoutPanel`, `ToolStripContainer`, `ToolStripContentPanel`, `ToolStripPanel`, `ToolTabStrip`, `UserControl` | Plain containers, including layout panels and tab pages. |
-| `PictureBox` | no |  | Image boxes. |
-| `PopupWindow` | no |  | Floating popup windows -- a combo box's list, a tool tip, a menu host: background-color is the popup behind its content. |
-| `PrintPreviewControl` | no |  | Print previews: background-color is the surround the pages sit on; the pages themselves are paper and stay white. |
-| `ProgressBar` | no | `RadWaitingBar` | Progress bars: background-color is the track and border its frame; the fill is --accent-color-2. |
-| `PropertyGrid` | no | `RadPropertyGrid` | Property editors. |
-| `RadioButton` | no | `RadRadioButton` | Radio buttons. |
-| `Ribbon` | no |  | The ribbon; items paint on its background and highlight with --control-highlight-low-color / --control-highlight-mid-color. |
-| `ScrollBar` | no | `HScrollBar`, `HorizontalScrollBar`, `VScrollBar`, `VerticalScrollBar` | Scroll bars: background-color is the track; the grip and the arrow buttons are the ::thumb and ::arrow parts. |
-| `SplitContainer` | no | `RadSplitContainer` | Split containers (the splitter bar between the two panels). |
-| `Splitter` | no |  | Stand-alone splitter bars. |
-| `StatusBar` | no |  | The status bar along the bottom of a form. |
-| `StatusStrip` | no |  | Status strips (the ToolStrip-based status bar): background-color is the strip, border-top its seam with the form above. |
-| `TabControl` | no | `RadPageView` | Tab controls: the frame around the pages (the tab headers are a TabStrip, the pages are Panels). |
-| `TabStrip` | no |  | The row of tab headers. Tabs are the ::item part (with :hover) and the current one the ::selected part. |
-| `TextBox` | no | `DataGridViewTextBoxEditingControl`, `MaskedTextBox`, `RadTextBox`, `RadTextBoxControl`, `RadTimePicker`, `RichTextBox`, `TimePicker` | Text inputs. Selected text uses --text-selection-background-color. |
-| `ToolBar` | no | `BindingNavigator`, `ToolStrip`, `ToolStripClickThrough` | Tool bars. Items are the ::item part; :hover also covers a checked (toggled) item. |
-| `TrackBar` | yes |  | Sliders. Supports :hover. |
-| `TreeView` | no | `RadTreeView` | Tree views. The selected node is the ::selection part. |
-| `DockWindowBase` | no | `DockWindow`, `DocumentWindow`, `ToolWindow` | Telerik dock windows (tool, document and plain dock windows): background-color is the window behind its content, which is --background-color by default rather than the form's. |
-| `RadCommandBar` | no |  | Telerik command bars: background-color is the bar behind its strips. |
-| `RadPdfViewerNavigator` | no |  | The Telerik PDF viewer's navigation toolbar. |
-| `RadRibbonBar` | no |  | Telerik ribbon bars: background-color is the ribbon behind its tabs and groups. |
-| `RadScheduler` | no |  | The Telerik scheduler's agenda view: background-color is behind the appointment list. |
-| `RadSchedulerNavigator` | no |  | The Telerik scheduler's navigation bar. |
-| `RadStatusStrip` | no |  | Telerik status strips along the bottom of a form. |
-| `RichTextEditorRibbonBar` | no |  | The Telerik rich text editor's ribbon bar. |
+| Selector | `:hover` | `:active` | `:disabled` | `:focus` | Also styles | Notes |
+|---|---|---|---|---|---|---|
+| `Button` | yes | yes | yes | yes | `RadButton`, `RadDropDownButton` | Push buttons. Hovering applies the :hover rule on top of the normal one. Supports :active, :disabled and :focus. |
+| `CheckBox` | no | no | no | no | `RadCheckBox`, `RadToggleSwitch` | Check boxes: the text and the box glyph's surround. |
+| `ComboBox` | no | no | no | no | `CompatComboBox`, `DataGridViewComboBoxEditingControl`, `RadCheckedDropDownList`, `RadDropDownList` | Drop-down selectors (the closed box; the open list is a ListBox). |
+| `DataGridView` | no | no | no | no | `RadGridView` | Data grids: the control background and border. Cells follow the tokens (--control-low-color, --border-low-color); headers, selection and alternating rows are parts. |
+| `DateTimePicker` | no | no | no | no | `RadDateTimePicker` | Date pickers: background-color is behind the date text; the drop button and the check box follow the tokens. |
+| `Form` | no | no | no | no | `ColorDialog`, `FontDialog`, `MessageBoxForm`, `PageSetupDialog`, `PrintDialog`, `PrintPreviewDialog`, `RadDesktopAlertPopup`, `RadForm`, `RadRibbonForm`, `RadTabbedForm`, `SchedulerPrintSettingsDialog`, `ThreadExceptionDialog` | The window. background-color is the window background; border sets the window frame on platforms that draw their own; font-family / font-size / color here become the ambient defaults every child control inherits when it sets none of its own. |
+| `FormTitleBar` | no | no | no | no |  | The title bar a window draws for itself (every platform but macOS, which uses the system's). background-color is the bar, color the caption text. On macOS's merged title bar it blends with the window background instead. |
+| `GroupBox` | no | no | no | no | `RadGroupBox` | Titled group frames: the border colour is the frame, color is the caption. |
+| `HostedSurface` | no | no | no | no |  | A Majorsilence.Forms surface embedded in an Avalonia or Uno host. Transparent by default so the host shows through; a background-color rule makes it opaque. |
+| `Label` | no | no | no | no | `RadLabel` | Static text. |
+| `LinkLabel` | yes | yes | yes | yes | `RadLinkLabel` | Hyperlink text; color is the link colour. Supports :hover, :active, :disabled and :focus. |
+| `ListBox` | no | no | no | no | `CheckedListBox`, `RadListControl` | Single-column lists (also the ComboBox drop-down list). The selected item is the ::selection part. |
+| `ListView` | no | no | no | no |  | Icon / detail lists. The selected item is the ::selection part. |
+| `MdiClient` | no | no | no | no |  | The workspace of an MDI parent form, behind its child windows: background-color is the workspace colour. |
+| `Menu` | no | no | no | no | `MainMenu`, `MenuStrip`, `MenuStripClickThrough`, `RadMenu` | The menu bar. Items are the ::item part; they paint on the strip's background unless ::item sets one. |
+| `MenuDropDown` | no | no | no | no | `ContextMenu`, `ContextMenuStrip`, `ToolStripDropDown`, `ToolStripDropDownMenu`, `ToolStripOverflow` | Drop-down and context menus. Items are the ::item part. |
+| `MonthCalendar` | no | no | no | no | `RadCalendar` | The calendar grid; the selected day uses --accent-color. |
+| `NavigationPane` | no | no | no | no |  | The Outlook-style side navigation bar. |
+| `NumericUpDown` | no | no | no | no |  | Numeric spinners. |
+| `Panel` | no | no | no | no | `ContainerControl`, `DataGrid`, `DocumentContainer`, `DocumentTabStrip`, `DomainUpDown`, `FlowLayoutPanel`, `LayoutControlGroup`, `LayoutControlItem`, `RadCollapsiblePanel`, `RadDock`, `RadLayoutControl`, `RadPageViewPage`, `RadPanel`, `RadScrollablePanel`, `RadScrollablePanelContainer`, `SplitPanel`, `SplitterPanel`, `TabPage`, `TableLayoutPanel`, `ToolStripContainer`, `ToolStripContentPanel`, `ToolStripPanel`, `ToolTabStrip`, `UserControl` | Plain containers, including layout panels and tab pages. |
+| `PictureBox` | no | no | no | no |  | Image boxes. |
+| `PopupWindow` | no | no | no | no |  | Floating popup windows -- a combo box's list, a tool tip, a menu host: background-color is the popup behind its content. |
+| `PrintPreviewControl` | no | no | no | no |  | Print previews: background-color is the surround the pages sit on; the pages themselves are paper and stay white. |
+| `ProgressBar` | no | no | no | no | `RadWaitingBar` | Progress bars: background-color is the track and border its frame; the fill is --accent-color-2. |
+| `PropertyGrid` | no | no | no | no | `RadPropertyGrid` | Property editors. |
+| `RadioButton` | no | no | no | no | `RadRadioButton` | Radio buttons. |
+| `Ribbon` | no | no | no | no |  | The ribbon; items paint on its background and highlight with --control-highlight-low-color / --control-highlight-mid-color. |
+| `ScrollBar` | no | no | no | no | `HScrollBar`, `HorizontalScrollBar`, `VScrollBar`, `VerticalScrollBar` | Scroll bars: background-color is the track; the grip and the arrow buttons are the ::thumb and ::arrow parts. |
+| `SplitContainer` | no | no | no | no | `RadSplitContainer` | Split containers (the splitter bar between the two panels). |
+| `Splitter` | no | no | no | no |  | Stand-alone splitter bars. |
+| `StatusBar` | no | no | no | no |  | The status bar along the bottom of a form. |
+| `StatusStrip` | no | no | no | no |  | Status strips (the ToolStrip-based status bar): background-color is the strip, border-top its seam with the form above. |
+| `TabControl` | no | no | no | no | `RadPageView` | Tab controls: the frame around the pages (the tab headers are a TabStrip, the pages are Panels). |
+| `TabStrip` | no | no | no | no |  | The row of tab headers. Tabs are the ::item part (with :hover) and the current one the ::selected part. |
+| `TextBox` | no | no | no | no | `DataGridViewTextBoxEditingControl`, `MaskedTextBox`, `RadTextBox`, `RadTextBoxControl`, `RadTimePicker`, `RichTextBox`, `TimePicker` | Text inputs. Selected text uses --text-selection-background-color. |
+| `ToolBar` | no | no | no | no | `BindingNavigator`, `ToolStrip`, `ToolStripClickThrough` | Tool bars. Items are the ::item part; :hover also covers a checked (toggled) item. |
+| `TrackBar` | yes | yes | yes | yes |  | Sliders. Supports :hover, :active, :disabled and :focus. |
+| `TreeView` | no | no | no | no | `RadTreeView` | Tree views. The selected node is the ::selection part. |
+| `DockWindowBase` | no | no | no | no | `DockWindow`, `DocumentWindow`, `ToolWindow` | Telerik dock windows (tool, document and plain dock windows): background-color is the window behind its content, which is --background-color by default rather than the form's. |
+| `RadCommandBar` | no | no | no | no |  | Telerik command bars: background-color is the bar behind its strips. |
+| `RadPdfViewerNavigator` | no | no | no | no |  | The Telerik PDF viewer's navigation toolbar. |
+| `RadRibbonBar` | no | no | no | no |  | Telerik ribbon bars: background-color is the ribbon behind its tabs and groups. |
+| `RadScheduler` | no | no | no | no |  | The Telerik scheduler's agenda view: background-color is behind the appointment list. |
+| `RadSchedulerNavigator` | no | no | no | no |  | The Telerik scheduler's navigation bar. |
+| `RadStatusStrip` | no | no | no | no |  | Telerik status strips along the bottom of a form. |
+| `RichTextEditorRibbonBar` | no | no | no | no |  | The Telerik rich text editor's ribbon bar. |
 
 ### Telerik controls (`Majorsilence.Forms.Telerik`)
 
@@ -407,6 +432,7 @@ A rule for the selector these follow styles their background and border; the con
 | `font-size` | length | The text size in pixels (not points). |
 | `font-weight` | normal \| bold \| 100..900 | The weight. Without a font-family in the same rule, the default UI font family is used at that weight. |
 | `font-style` | normal \| italic \| oblique | The slant. Without a font-family in the same rule, the default UI font family is used. |
+| `box-shadow` | <horizontal-offset> <vertical-offset> <color> | A hard, offset shadow behind the control's own shape -- no blur, no spread, no 'inset'. Exactly three components, in that order, e.g. 'box-shadow: 4px 4px #2b1b4d;'; a negative offset shifts the shadow left/up instead of right/down. A fourth component (a blur radius, a spread, 'inset') is rejected, not silently dropped. |
 <!-- END GENERATED: reference -->
 
 Two things to know about **fonts**, because they are the one place the tokens and the rules meet:

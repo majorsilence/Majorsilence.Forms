@@ -33,11 +33,14 @@ namespace Majorsilence.Forms
 
         internal sealed class ControlRule
         {
-            public ControlRule (ThemeCssSelector selector, ThemeCssPart? part, bool hover, Action<ControlStyle> apply, ThemeCssRule model)
+            public ControlRule (ThemeCssSelector selector, ThemeCssPart? part, bool hover, bool active, bool disabled, bool focus, Action<ControlStyle> apply, ThemeCssRule model)
             {
                 Selector = selector;
                 Part = part;
                 Hover = hover;
+                Active = active;
+                Disabled = disabled;
+                Focus = focus;
                 Apply = apply;
                 Model = model;
             }
@@ -45,14 +48,29 @@ namespace Majorsilence.Forms
             public ThemeCssSelector Selector { get; }
             public ThemeCssPart? Part { get; }
             public bool Hover { get; }
+            public bool Active { get; }
+            public bool Disabled { get; }
+            public bool Focus { get; }
             public Action<ControlStyle> Apply { get; }
             public ThemeCssRule Model { get; }
 
             /// <summary>The type-level style this rule's declarations are installed on.</summary>
             public ControlStyle GetTargetStyle ()
-                => Part is not null
-                    ? (Hover ? Part.GetHoverStyle! () : Part.GetStyle ())
-                    : (Hover ? Selector.GetHoverStyle! () : Selector.GetStyle ());
+            {
+                if (Part is not null)
+                    return Hover ? Part.GetHoverStyle! () : Part.GetStyle ();
+
+                if (Active)
+                    return Selector.GetActiveStyle! ();
+                if (Disabled)
+                    return Selector.GetDisabledStyle! ();
+                if (Focus)
+                    return Selector.GetFocusStyle! ();
+                if (Hover)
+                    return Selector.GetHoverStyle! ();
+
+                return Selector.GetStyle ();
+            }
         }
 
         private ThemeStyleSheet (string? name, string? baseName, List<TokenDeclaration> tokens, List<ControlRule> rules, List<ThemeCssVariable> variables, List<ThemeCssDiagnostic> diagnostics)
@@ -804,32 +822,58 @@ namespace Majorsilence.Forms
                         }
 
                         var hover = false;
+                        var active = false;
+                        var disabled = false;
+                        var focus = false;
 
                         if (raw.Pseudo is not null) {
-                            if (!string.Equals (raw.Pseudo, "hover", StringComparison.OrdinalIgnoreCase)) {
-                                var hint = raw.Pseudo.ToLowerInvariant () switch {
-                                    "disabled" => " Disabled text is drawn with the '--foreground-disabled-color' token.",
-                                    "focus" or "focus-visible" => " The focus indicator is not themable.",
-                                    "active" or "pressed" => " Pressed state is not themable.",
+                            var pseudo = raw.Pseudo.ToLowerInvariant ();
+
+                            if (pseudo is not ("hover" or "active" or "disabled" or "focus")) {
+                                var hint = pseudo switch {
+                                    "focus-visible" => " Use ':focus'.",
+                                    "pressed" => " Use ':active'.",
                                     _ => string.Empty
                                 };
-                                Error (raw.Line, raw.Column, $"':{raw.Pseudo}' is not supported; the only pseudo-class is ':hover'.{hint}");
+                                Error (raw.Line, raw.Column, $"':{raw.Pseudo}' is not supported; the pseudo-classes are ':hover', ':active', ':disabled' and ':focus'.{hint}");
                                 continue;
                             }
 
-                            if (part is not null && !part.SupportsHover) {
-                                var hoverableParts = string.Join (", ", ThemeCssReference.Parts.Where (p => p.Part.SupportsHover).Select (p => $"{p.Selector.Name}::{p.Part.Name}"));
-                                Error (raw.Line, raw.Column, $"'{selector.Name}::{part.Name}:hover' is not supported: the {part.Name} does not change when hovered. Parts with ':hover': {hoverableParts}.");
-                                continue;
-                            }
+                            if (part is not null) {
+                                // A part is a piece painted inside a control (a header, a hovered item);
+                                // it has no independent pressed/disabled/focus identity of its own, only
+                                // hover (#285).
+                                if (pseudo != "hover") {
+                                    Error (raw.Line, raw.Column, $"'{selector.Name}::{part.Name}:{pseudo}' is not supported; a part only supports ':hover'.");
+                                    continue;
+                                }
 
-                            if (part is null && !selector.SupportsHover) {
-                                var hoverable = string.Join (", ", ThemeCssReference.Selectors.Where (s => s.SupportsHover).Select (s => s.Name));
-                                Error (raw.Line, raw.Column, $"'{selector.Name}:hover' is not supported: {selector.Name} does not change appearance when hovered. ':hover' is available on: {hoverable}.");
-                                continue;
-                            }
+                                if (!part.SupportsHover) {
+                                    var hoverableParts = string.Join (", ", ThemeCssReference.Parts.Where (p => p.Part.SupportsHover).Select (p => $"{p.Selector.Name}::{p.Part.Name}"));
+                                    Error (raw.Line, raw.Column, $"'{selector.Name}::{part.Name}:hover' is not supported: the {part.Name} does not change when hovered. Parts with ':hover': {hoverableParts}.");
+                                    continue;
+                                }
 
-                            hover = true;
+                                hover = true;
+                            } else {
+                                bool Supports (ThemeCssSelector s) => pseudo switch {
+                                    "hover" => s.SupportsHover,
+                                    "active" => s.SupportsActive,
+                                    "disabled" => s.SupportsDisabled,
+                                    _ => s.SupportsFocus,
+                                };
+
+                                if (!Supports (selector)) {
+                                    var withIt = string.Join (", ", ThemeCssReference.Selectors.Where (Supports).Select (s => s.Name));
+                                    Error (raw.Line, raw.Column, $"'{selector.Name}:{pseudo}' is not supported: {selector.Name} does not change appearance for that state. ':{pseudo}' is available on: {withIt}.");
+                                    continue;
+                                }
+
+                                hover = pseudo == "hover";
+                                active = pseudo == "active";
+                                disabled = pseudo == "disabled";
+                                focus = pseudo == "focus";
+                            }
                         }
 
                         // A part honours only the properties its renderer reads; anything else is dropped
@@ -845,10 +889,10 @@ namespace Majorsilence.Forms
                             continue;
 
                         var captured = actions;
-                        rules.Add (new ControlRule (selector, part, hover, style => {
+                        rules.Add (new ControlRule (selector, part, hover, active, disabled, focus, style => {
                             foreach (var action in captured)
                                 action (style);
-                        }, new ThemeCssRule (selector, part, hover, model, raw.Line, raw.Column)));
+                        }, new ThemeCssRule (selector, part, hover, active, disabled, focus, model, raw.Line, raw.Column)));
                     }
                 }
             }
@@ -1033,6 +1077,13 @@ namespace Majorsilence.Forms
                                 });
                                 AddFont (() => styleValue).Slant = parsedSlant;
                             } else
+                                Error (declaration.Line, declaration.Column, $"'{name}': {error}");
+                            break;
+
+                        case "box-shadow":
+                            if (ThemeCssValues.TryParseBoxShadow (value, out var boxShadow, out error))
+                                Add (() => ThemeCssValue.Shadow (boxShadow ()), s => s.BoxShadow = boxShadow ());
+                            else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
                     }

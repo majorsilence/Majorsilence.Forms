@@ -200,6 +200,13 @@ namespace Majorsilence.Forms.Theming.Avalonia
             const string StyleNote = "A setter in the generated Styles (application styles outrank the Fluent control theme).";
             const string HoverColoursOnly = "Fluent's pointer-over state only swaps colours; the rest comes from the normal rule.";
 
+            // box-shadow (#285) has no entry in all_properties: several Styled() calls below pass that
+            // array straight into P.For() to resolve an Avalonia style target, and box-shadow has none
+            // (Avalonia's own BoxShadow property is a different shape -- blur and spread included --
+            // and is not wired to this CSS property). It is added explicitly instead, in the trailing
+            // sweep below, always Unsupported.
+            const string NoBoxShadowTarget = "No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow.";
+
             // ---- Buttons -----------------------------------------------------------------------------
             Map ("Button", "Button, ToggleButton", "Colours go to the Fluent Button*/ToggleButton* resources (so every state follows); geometry and fonts are style setters.");
             Res ("Button", null, false, "background-color", AvaloniaThemeSupportLevel.Native, "ButtonBackground / ToggleButtonBackground.", "ButtonBackground", "ToggleButtonBackground");
@@ -425,6 +432,10 @@ namespace Majorsilence.Forms.Theming.Avalonia
                 Fill (selector.Name, null, false, "No Avalonia seam for this property on this control.");
                 if (selector.SupportsHover)
                     Fill (selector.Name, null, true, HoverColoursOnly);
+
+                Add (selector.Name, null, false, "box-shadow", AvaloniaThemeSupportLevel.Unsupported, NoBoxShadowTarget, Array.Empty<AvaloniaTarget> ());
+                if (selector.SupportsHover)
+                    Add (selector.Name, null, true, "box-shadow", AvaloniaThemeSupportLevel.Unsupported, NoBoxShadowTarget, Array.Empty<AvaloniaTarget> ());
 
                 foreach (var part in selector.Parts) {
                     Fill (selector.Name, part.Name, false, "No Avalonia seam for this property on this part.");

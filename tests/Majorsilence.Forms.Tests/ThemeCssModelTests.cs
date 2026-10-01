@@ -131,6 +131,35 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void Rules_ActiveDisabledFocus_SetExactlyOneFlag ()
+        {
+            // #285: at most one of Hover/Active/Disabled/Focus is ever true, and ToString() names
+            // whichever one it is.
+            var sheet = ParseClean ("Button:active { color: white; } Button:disabled { color: gray; } Button:focus { color: black; }");
+
+            var active = sheet.Rules[0];
+            Assert.True (active.Active);
+            Assert.False (active.Hover);
+            Assert.False (active.Disabled);
+            Assert.False (active.Focus);
+            Assert.StartsWith ("Button:active {", active.ToString ());
+
+            var disabled = sheet.Rules[1];
+            Assert.True (disabled.Disabled);
+            Assert.False (disabled.Hover);
+            Assert.False (disabled.Active);
+            Assert.False (disabled.Focus);
+            Assert.StartsWith ("Button:disabled {", disabled.ToString ());
+
+            var focus = sheet.Rules[2];
+            Assert.True (focus.Focus);
+            Assert.False (focus.Hover);
+            Assert.False (focus.Active);
+            Assert.False (focus.Disabled);
+            Assert.StartsWith ("Button:focus {", focus.ToString ());
+        }
+
+        [Fact]
         public void Rules_KeepSourceOrder_AndPositions ()
         {
             var sheet = ParseClean ("Button {\n  color: red;\n  background-color: blue;\n  color: green;\n}");
