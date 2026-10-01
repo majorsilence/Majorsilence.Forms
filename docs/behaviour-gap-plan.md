@@ -4200,6 +4200,43 @@ and `HostedSurface_Rule_Makes_It_Opaque`). One neutralization round per control,
 that control's `Style` back at `Control.DefaultStyle`, and each turned exactly its own test red. The
 snapshot was verified before and after.
 
+**The last P0, and the mouse half of the events area (EVT-01, EVT-14, EVT-19). — 2026-10-01.**
+A survey of the twelve area files (reconciling their status sections against this log) left one P0
+open: EVT-01, a double-click raising `Click` as well as `DoubleClick`. Fixing it as written would have
+been wrong, so it was fixed from upstream instead:
+
+- **EVT-01.** Upstream's `WmMouseUp` raises one or the other, keyed on
+  `ControlStyles.StandardDoubleClick`, and `Button`, `CheckBox` and `RadioButton` turn that style off
+  (`Button.cs:39`, `CheckBox.cs:45`; upstream `RadioButton` instead turns off `StandardClick` and clicks
+  from `OnMouseUp`). The finding's headline impact ("Save submits twice") is WinForms behaviour for a
+  `Button`, so it stays. The decision is made at the target, in `Control.RaiseClick`. Strip items follow
+  upstream's `ToolStripItem.HandleMouseUp`: `DoubleClick` only when `DoubleClickEnabled`, otherwise a
+  second `Click`. That needed `MenuBase.OnDoubleClick` to click the item, now that the strip's own second
+  release is a `DoubleClick`. One consumer had relied on the old behaviour: `RadCollapsiblePanel`'s new
+  header swallowed a fast second click as a `DoubleClick`. A header toggles on every click, so it now
+  uses a label with the style off.
+- **EVT-14.** Moving from a parent's own area onto a child never left the parent, so its `MouseEnter`
+  calls piled up. A second bug sat beside it: a control entered with the pointer already over a child
+  entered that child twice, because the entry was not recorded and the next move entered it again.
+  Each control now tracks whether the pointer is over its own area, and enter and leave come in pairs
+  per control, as they do in WinForms, where every control is its own window.
+- **EVT-19 was only half fixed.** Putting `MouseUp` before `Click` (the modal-capture fix) stopped a
+  drag off a button from clicking it. But the click was then hit-tested at the release point, so a press
+  on one button and a release on another clicked the second, and a release on the form clicked the
+  form. The window now records the control its press landed on, and a release clicks only that one.
+  This is asked only during a release the window dispatches, and only for a press in the same window,
+  so a drag from a menu bar into its drop-down, which is a separate popup, still selects.
+- **EVT-39** was already fixed (`HandleLongPressCore` converts to logical). **SVC-11** was EVT-01's
+  duplicate.
+
+Tests: `DoubleClickExclusiveTests` (7) and `MouseEnterLeavePairingTests` (3). There were 11
+neutralization rounds, all red. One first stayed green: the enter-once guard also hid the double entry.
+It went red once a test covered an enter followed by a leave with no move between. Every file was
+restored and byte-compared after each round.
+
+**Left open on purpose: EVT-37** (`OnPaint` gets a device-pixel canvas). It is now a documented
+contract: `docs/getting-started.md` teaches the `e.Scaling` idiom (#291), and BACKLOG counts 81 call
+sites that rely on it. Flipping it is a breaking API decision, not a fix.
 **Logical painting: application code draws in logical units (EVT-37, CTL-10). — 2026-10-01.**
 A decision rather than a fix, taken on the project owner's call. The paint canvas, `ClientRectangle` and
 `ClientSize` were device pixels while `Width`, `Height`, `Bounds` and the mouse were logical. Ported

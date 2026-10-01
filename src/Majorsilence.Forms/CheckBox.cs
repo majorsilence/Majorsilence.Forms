@@ -33,6 +33,11 @@ namespace Majorsilence.Forms
         public CheckBox ()
         {
             SetControlBehavior (ControlBehaviors.InvalidateOnTextChanged);
+            // Upstream turns StandardDoubleClick off here (CheckBox.cs:45), so a fast second click is a
+            // second Click -- a double-clicked checkbox toggles twice -- and DoubleClick never fires (EVT-01).
+            // Upstream turns StandardClick off too, because it raises Click from OnMouseUp itself; this
+            // layer raises it through the standard path, so only the double-click half applies.
+            SetStyle (ControlStyles.StandardDoubleClick, false);
         }
 
         /// <summary>

@@ -458,13 +458,20 @@ namespace Majorsilence.Forms.Telerik
             PanelContainer = new Panel { Dock = DockStyle.Fill };
             Controls.Add (PanelContainer);
 
-            _header = new Label { Dock = DockStyle.Top, Height = HeaderHeight, TextAlign = ContentAlignment.MiddleLeft };
+            _header = new HeaderLabel { Dock = DockStyle.Top, Height = HeaderHeight, TextAlign = ContentAlignment.MiddleLeft };
             _header.Click += (_, _) => IsExpanded = !IsExpanded;
             Controls.AddImplicitControl (_header);
             UpdateHeader ();
         }
 
         internal Label Header => _header;
+
+        // A header toggles on every click, as a button does: a fast second click collapses what the first
+        // expanded rather than being swallowed as a DoubleClick (EVT-01 made those exclusive).
+        private sealed class HeaderLabel : Label
+        {
+            public HeaderLabel () => SetStyle (ControlStyles.StandardDoubleClick, false);
+        }
 
         private void UpdateHeader () => _header.Text = (_isExpanded ? "\u25BE " : "\u25B8 ") + _headerText;
 
