@@ -413,7 +413,7 @@ namespace Majorsilence.Forms.Theming.WinForms
                 return;
             }
 
-            var bounds = button.DeviceClientRectangle;
+            var bounds = button.ClientRectangle;
             if (bounds.Width <= 0 || bounds.Height <= 0)
                 return;
 

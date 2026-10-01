@@ -132,10 +132,20 @@ namespace Majorsilence.Forms.Tests
             var placeholder = Solid (Color.Aqua);
 
             box.InitialImage = placeholder;
+
+            // Read at the 0% progress report, which LoadAsync raises synchronously after installing the
+            // placeholder and before the load starts. Reading box.Image after LoadAsync returned raced
+            // the load's failure: with no UI thread established the completion can run inline on the
+            // thread pool and swap the error image in first (seen once on a macOS runner, #336).
+            Image? shownWhileLoading = null;
+            box.LoadProgressChanged += (_, e) => {
+                if (e.ProgressPercentage == 0)
+                    shownWhileLoading = box.Image;
+            };
+
             box.LoadAsync ("/definitely/not/here.png");
 
-            // Synchronously after starting: the placeholder is in place before the load completes.
-            Assert.Same (placeholder, box.Image);
+            Assert.Same (placeholder, shownWhileLoading);
         }
 
         [Fact]

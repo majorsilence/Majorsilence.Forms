@@ -28,11 +28,13 @@ namespace ThemeStudio
             var tokens = tabs.TabPages.Add ("Tokens");
             tokens.AutoScroll = true;
             swatches = tokens.Controls.Add (new TokenSwatches { Dock = DockStyle.Top, Height = TokenSwatches.PreferredHeight });
+
+            NativeAvaloniaPreview.Build (tabs.TabPages.Add ("Native Avalonia"));
         }
 
         public void RefreshTokens () => swatches.Invalidate ();
 
-        /// <summary>Shows one of the preview tabs (0 = Inputs, 1 = Lists &amp; grids, 2 = Menus &amp; chrome, 3 = Tokens).</summary>
+        /// <summary>Shows one of the preview tabs (0 = Inputs, 1 = Lists &amp; grids, 2 = Menus &amp; chrome, 3 = Tokens, 4 = Native Avalonia).</summary>
         public void SelectTab (int index) => tabs.SelectedIndex = Math.Max (0, Math.Min (index, tabs.TabPages.Count - 1));
 
         private static void BuildInputs (TabPage page)

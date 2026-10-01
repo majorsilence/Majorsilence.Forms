@@ -57,6 +57,7 @@ public class LoadTimeDialogModalityTests
         form.Shown += (_, _) => order += "S";
 
         form.Show();
+        Application.DoEvents();   // Shown is posted, as upstream (EVT-11): it runs on the next turn of the message loop.
 
         Assert.Equal("LS", order);
     }

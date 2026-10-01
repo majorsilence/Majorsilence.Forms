@@ -12,6 +12,12 @@
     <!-- For the render-headless switch: renders the preview to a PNG with no display, so CI (or a coding
          assistant) can look at a theme. -->
     <ProjectReference Include="..\..\src\Majorsilence.Forms.Headless\Majorsilence.Forms.Headless.csproj" />
+    <!-- The "Native Avalonia" preview tab: native controls themed by the same sheet (#104). -->
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Theming.Avalonia\Majorsilence.Forms.Theming.Avalonia.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Themes.Fluent" />
   </ItemGroup>
 
   <ItemGroup>
