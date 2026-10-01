@@ -99,7 +99,8 @@ behaviour (existing tests are set/get round-trips).
 - **Test:** `new KeyEventArgs(Keys.Shift | Keys.A)` must not change `Control.ModifierKeys`.
 - **Tests today:** none.
 
-### SVC-11 — Double-click raises `Click` on the second press and before `DoubleClick` — Cat A — P2 — High
+### SVC-11 — Double-click raises `Click` on the second press and before `DoubleClick` — Cat A — P2 — High — **CLOSED (2026-10-01)**
+- **Fixed with EVT-01**, its duplicate in `events.md`.
 - **Ours:** `HandlePointerReleased`: `if (ev.Clicks > 1) adapter.RaiseDoubleClick(ev); adapter.RaiseClick(ev); adapter.RaiseMouseUp(ev);` (`src/Majorsilence.Forms/WindowBase.cs:1093-1097`).
 - **Upstream:** `WmMouseUp` raises either `Click`+`MouseClick` or `DoubleClick`+`MouseDoubleClick`, never both, for one release (`Control.cs:11664-11705`).
 - **Impact:** Handlers with both `Click` (toggle/select) and `DoubleClick` (open) see an extra Click on every double-click; a Click-toggled state flips twice.

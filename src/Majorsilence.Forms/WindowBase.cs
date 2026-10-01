@@ -1386,7 +1386,7 @@ namespace Majorsilence.Forms
             if (Filtered (WindowMessages.ButtonDownMessage (button), System.IntPtr.Zero, WindowMessages.MakeMouseLParam (lx, ly)))
                 return;
 
-            if (RoutedToCaptureHolder (button, 1, keys, static (c, e) => c.RaiseMouseDown (e)))
+            if (RoutedToCaptureHolder (button, 1, keys, static (c, e) => { Control.BeginPress (); c.RaiseMouseDown (e); }))
                 return;
 
             // A press can be the first pointer event a window sees (click-through onto an inactive
@@ -1397,6 +1397,8 @@ namespace Majorsilence.Forms
                 return;
 
             var ev = new MouseEventArgs (button, 1, lx, ly, System.Drawing.Point.Empty, keyData: keys);
+            // Only a press the window dispatches starts a press its release can end (EVT-19).
+            Control.BeginPress ();
             adapter.RaiseMouseDown (ev);
         }
 
@@ -1405,9 +1407,13 @@ namespace Majorsilence.Forms
         internal void HandlePointerReleased (MouseButtons button, int x, int y, Keys keys)
         {
             try {
+                Control.BeginRelease ();
                 HandlePointerReleasedCore (button, x, y, keys);
             } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
             
+            } finally {
+                // Every release ends the press, whichever path dispatched it (EVT-19).
+                Control.EndPress ();
             }
         }
 
@@ -1442,9 +1448,9 @@ namespace Majorsilence.Forms
 
             var ev = BuildMouseClickArgs (button, new System.Drawing.Point (lx, ly), keys);
 
-            if (ev.Clicks > 1)
-                adapter.RaiseDoubleClick (ev);
-
+            // RaiseClick decides at the target whether this release is a Click or, for the second release
+            // of a double-click, a DoubleClick -- one or the other, as upstream does (EVT-01). After
+            // MouseUp, for the capture reason above; a DoubleClick that opens a dialog has the same trap.
             adapter.RaiseMouseUp (ev);
             adapter.RaiseClick (ev);
         }
