@@ -48,6 +48,7 @@ namespace Majorsilence.Forms.Tests
         {
             using var form = new RecordingForm ();
             form.Show ();
+            Application.DoEvents ();   // Shown is posted, as upstream (EVT-11): it runs on the next turn of the message loop.
 
             // The WinForms order: the handle exists before the form is announced as shown.
             Assert.Equal (

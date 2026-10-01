@@ -17,6 +17,7 @@ namespace Majorsilence.Forms.Tests
             form.Shown += (s, e) => order.Add ("Shown");
 
             form.Show ();
+            Application.DoEvents ();   // Shown is posted, as upstream (EVT-11): it runs on the next turn of the message loop.
 
             Assert.Equal (new[] { "Load", "Shown" }, order);
         }

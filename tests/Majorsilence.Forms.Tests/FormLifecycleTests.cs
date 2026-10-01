@@ -124,6 +124,7 @@ public class FormLifecycleTests
         form.Shown += (_, _) => order.Add ("Shown");
 
         form.Show ();
+        Application.DoEvents ();   // Shown is posted, as upstream (EVT-11): it runs on the next turn of the message loop.
 
         Assert.Equal (["HandleCreated", "Load", "Shown"], order);
         form.Close ();

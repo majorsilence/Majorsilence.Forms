@@ -4237,6 +4237,32 @@ restored and byte-compared after each round.
 **Left open on purpose: EVT-37** (`OnPaint` gets a device-pixel canvas). It is now a documented
 contract: `docs/getting-started.md` teaches the `e.Scaling` idiom (#291), and BACKLOG counts 81 call
 sites that rely on it. Flipping it is a breaking API decision, not a fix.
+**The form lifecycle in upstream's order (EVT-10 to EVT-13). — 2026-10-01.**
+A probe of one show and close found the order wrong at both ends:
+
+- **Show** raised `Activated` first (the headless backend activates inside `Backend.Show`, before any
+  bookkeeping; real backends may do so too), then `VisibleChanged`, then `HandleCreated` and `Load`, and
+  `Shown` inline.
+- **Close** never raised `Deactivate`.
+- **`Controls.Add`** raised a child's `VisibleChanged` twice.
+
+Upstream's order, from `Form.SetVisibleCore`, `OnLoad` and `DestroyWindow`, is now the order here:
+
+- **Show:** `HandleCreated`, then `Load` with `Visible` still false, then `VisibleChanged`, then
+  `Activated`. An activation that arrives mid-show is held back until after `VisibleChanged`. `Shown` is
+  posted, so it comes after `Show ()` returns.
+- **Close:** `FormClosing`, `VisibleChanged`, `FormClosed`, `Deactivate`, `HandleDestroyed`.
+
+Moving `visible` after `Load` exposed a re-entrancy hazard. A `Show ()` from a `Load` handler saw "not
+visible yet" and started a second show, with a second backend window. A flag for the in-progress show
+closes it. The three hosted show paths (non-top-level, panel-hosted, MDI child) had the old order too, and
+now share one sequence. `Disposed` raised twice by a `Close` and a later `Dispose` is left alone:
+upstream's `Component.Dispose` raises it on every call.
+
+Tests: `FormLifecycleOrderTests` (4). Six existing tests that read `Shown` straight after `Show ()` now
+pump the loop once. There were six neutralization rounds, all red. One first stayed green, because
+counting `Load` and `Shown` cannot see a second backend window; asserting the headless host's
+`ShowCount` made it go red.
 
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
