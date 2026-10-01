@@ -21,6 +21,7 @@
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
     <ProjectReference Include="..\..\src\Majorsilence.Forms.Theming.Avalonia\Majorsilence.Forms.Theming.Avalonia.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Avalonia\Majorsilence.Forms.Avalonia.csproj" />
   </ItemGroup>
 
   <ItemGroup>
