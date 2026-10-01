@@ -17,6 +17,11 @@ public sealed class App : Application
 
     public override void OnFrameworkInitializationCompleted ()
     {
+        // One stylesheet for both halves of the window: AvaloniaCssTheme writes the Fluent resources and
+        // styles for the native controls and applies the same sheet to Majorsilence.Forms' Theme.
+        if (Program.ThemePath is { } path)
+            Majorsilence.Forms.Theming.Avalonia.AvaloniaCssTheme.Apply (System.IO.File.ReadAllText (path));
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             desktop.MainWindow = new MainWindow ();
 

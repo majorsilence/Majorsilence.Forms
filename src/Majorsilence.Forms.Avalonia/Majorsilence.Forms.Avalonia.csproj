@@ -117,6 +117,7 @@
     <!-- So the wheel-delta conversion can be tested directly; it is the kind of unit arithmetic that
          is easy to get subtly wrong and expensive to notice by hand. -->
     <InternalsVisibleTo Include="Majorsilence.Forms.Tests" />
+    <InternalsVisibleTo Include="Majorsilence.Forms.Theming.Avalonia.Tests" />
   </ItemGroup>
 
 </Project>
