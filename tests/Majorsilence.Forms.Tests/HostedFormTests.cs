@@ -131,6 +131,7 @@ public sealed class HostedFormTests : IDisposable
         form.Shown += (_, _) => order.Add ("shown");
 
         form.Show ();
+        Application.DoEvents ();   // Shown is posted, as upstream (EVT-11): it runs on the next turn of the message loop.
 
         Assert.Equal (new[] { "load", "shown" }, order);
     }

@@ -235,7 +235,13 @@ leaving control's `Leave`/`LostFocus`/`Validating`/`Validated`.
 - **Test:** headless: `TextBox { AcceptsTab = true }` focused, send Tab, assert focus unchanged.
 - **Tests today:** none.
 
-### EVT-10 — `WindowBase.EnsureShownBookkeeping` — Cat A — P1 — High
+### EVT-10 — `WindowBase.EnsureShownBookkeeping` — Cat A — P1 — High — **CLOSED (2026-10-01)**
+- **Fix (applied):** the show sequence is now `HandleCreated`, `Load`, `VisibleChanged`, `Activated`, as
+  upstream's `Form.SetVisibleCore` orders it (`OnLoad` before `base.SetVisibleCore`), so `Visible` is false
+  inside a `Load` handler. Some backends activate inside `Backend.Show`, before `Load`; that activation is
+  held back and raised after `VisibleChanged`. A `Show ()` from inside `Load` no longer starts a second
+  show (or a second backend window). The panel-hosted, non-top-level and MDI-child paths follow the same
+  order. Tests: `FormLifecycleOrderTests`.
 Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layout`; upstream is
 `HandleCreated, (children) HandleCreated, Load, Layout, VisibleChanged, Activated, Shown`.
 
@@ -262,7 +268,10 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
   call `Show ()`, assert the sequence.
 - **Tests today:** none for the relative order (form.md covers Load/Shown existence).
 
-### EVT-11 — `Form.Shown` is raised synchronously, not posted — Cat A — P1 — High
+### EVT-11 — `Form.Shown` is raised synchronously, not posted — Cat A — P1 — High — **CLOSED (2026-10-01)**
+- **Fix (applied):** `Shown` is posted with `BeginInvoke`, as upstream's `OnLoad` does, so it runs after
+  `Show ()` returns. Like upstream's `CallShownEvent` it is not withdrawn if the form closes first. Six
+  existing tests that read `Shown` straight after `Show ()` now pump the loop once.
 - **Ours:** `OnShown (EventArgs.Empty)` runs inline inside `EnsureShownBookkeeping`, which runs inside
   `Show ()`, before anything has painted (`src/Majorsilence.Forms/WindowBase.cs:1732-1734`; the code's
   own comment at `1738` confirms the first paint has not happened yet).
@@ -279,7 +288,11 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
   `HeadlessRenderer` render pass rather than during `Show ()`.
 - **Tests today:** none.
 
-### EVT-12 — Closing a Form never raises `VisibleChanged` and leaves `Visible == true` — Cat A — P1 — High
+### EVT-12 — Closing a Form never raises `VisibleChanged` and leaves `Visible == true` — Cat A — P1 — High — **CLOSED (2026-10-01)**
+- **Fix (applied):** `VisibleChanged` and `Visible == false` on close had already landed. What remained
+  was `Deactivate`: an active form now raises it between `FormClosed` and `HandleDestroyed`, where
+  upstream's `DestroyWindow` delivers `WM_ACTIVATE (WA_INACTIVE)`, and a backend deactivation that arrives
+  after the close is ignored rather than raising a second one.
 - **Ours:** `Close ()` raises FormClosing, removes from `OpenForms`, calls `Backend.Close ()`;
   `OnBackendClosed` then raises `Closed`, `FormClosed`, `CompleteClose`, `HandleDestroyed`
   (`src/Majorsilence.Forms/WindowBase.cs:47-77`, `204-226`). Nothing sets `visible = false` on this
@@ -297,7 +310,11 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
   `VisibleChanged` handler saw one `false` transition.
 - **Tests today:** none.
 
-### EVT-13 — `ControlCollection.Add` raises `VisibleChanged` on a control whose visibility did not change — Cat A — P1 — High
+### EVT-13 — `ControlCollection.Add` raises `VisibleChanged` on a control whose visibility did not change — Cat A — P1 — High — **CLOSED (2026-10-01)**
+- **Fix (applied):** `Controls.Add` no longer raises `VisibleChanged` a second time in its `finally`.
+  `AssignParent` raises it if, and only if, the effective visibility changed, which is upstream's rule.
+  (Upstream's unparented `Visible` is true where ours is false, `CTL-14`, so the two differ on *whether* an
+  add into an unshown form changes visibility; both raise it at most once.)
 - **Ours:** the `finally` of the reparent block does
   `if (item.Visible) { item.CreateControl (); item.OnVisibleChanged (EventArgs.Empty); }`
   (`src/Majorsilence.Forms/ControlCollection.cs:476-481`).
