@@ -1,0 +1,60 @@
+<!-- Embedded in Majorsilence.Forms.dll under the logical name "ILLink.Descriptors.xml": the trimmer
+     auto-discovers a resource with that exact name inside any assembly it trims and applies it to that
+     assembly, with no MSBuild item needed in the consuming project. This is the framework's half of
+     #290: the control side of data binding is resolved by name at run time (see BindingRuntime.cs,
+     SourceProperty/SubscribeToTarget), and a trimmed or NativeAOT app used to have to know the internal
+     type name "Majorsilence.Forms.Control" and declare its own TrimmerRootDescriptor to keep Text and
+     TextChanged alive (see the "Binding and trimming" section of docs/backends.md, and
+     tests/Majorsilence.Forms.AotSmoke/BindingRoots.xml, which no longer needs that entry because of
+     this file). An app's OWN view-model members are still its own responsibility to root; this file
+     cannot know what an app will bind to.
+
+     Deliberately NOT "preserve the whole Control type" or "preserve the whole assembly": the former
+     keeps far more than binding needs, and the latter is exactly what #290 found fails a
+     warnings-as-errors build with IL2026 from System.Resources.Extensions' deserializing resource
+     reader once ILLink has to analyse everything reachable from Control, not just the few members
+     below. Only the property/event pairs SubscribeToTarget's naming convention ("<Property>Changed")
+     can ever reach are listed: a known, closed, and bounded set of names, not a wildcard.
+
+     This list is a starting point, not exhaustive: it covers Control.Text/TextChanged (bound by every
+     control, since every control derives from Control; the Label/TextBox shape the AOT smoke test
+     exercises) plus the handful of other <Property>/<Property>Changed pairs most data-bound forms
+     actually use. A control bound through a property not listed here still works untrimmed, and under
+     partial/full trimming needs the same treatment an app's own view model does: add it to the app's
+     own TrimmerRootDescriptor (the docs/backends.md example shows how). -->
+<linker>
+  <assembly fullname="Majorsilence.Forms">
+    <type fullname="Majorsilence.Forms.Control">
+      <property name="Text" />
+      <event name="TextChanged" />
+    </type>
+    <type fullname="Majorsilence.Forms.CheckBox">
+      <property name="Checked" />
+      <event name="CheckedChanged" />
+    </type>
+    <type fullname="Majorsilence.Forms.RadioButton">
+      <property name="Checked" />
+      <event name="CheckedChanged" />
+    </type>
+    <type fullname="Majorsilence.Forms.ComboBox">
+      <property name="SelectedIndex" />
+      <event name="SelectedIndexChanged" />
+    </type>
+    <type fullname="Majorsilence.Forms.ListBox">
+      <property name="SelectedIndex" />
+      <event name="SelectedIndexChanged" />
+    </type>
+    <type fullname="Majorsilence.Forms.NumericUpDown">
+      <property name="Value" />
+      <event name="ValueChanged" />
+    </type>
+    <type fullname="Majorsilence.Forms.TrackBar">
+      <property name="Value" />
+      <event name="ValueChanged" />
+    </type>
+    <type fullname="Majorsilence.Forms.DateTimePicker">
+      <property name="Value" />
+      <event name="ValueChanged" />
+    </type>
+  </assembly>
+</linker>

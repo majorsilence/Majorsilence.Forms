@@ -276,9 +276,27 @@ namespace Majorsilence.Forms
         {
             var name = BindingMemberInfo.BindingField;
 
-            return name.Length == 0
-                ? null
-                : TypeDescriptor.GetProperties (source).Find (name, ignoreCase: true);
+            if (name.Length == 0)
+                // No member at all -- the convention for "bind to the object itself" (a whole-row
+                // SelectedItem-style binding), not a lookup that failed.
+                return null;
+
+            var property = TypeDescriptor.GetProperties (source).Find (name, ignoreCase: true);
+
+            // A source member that does not resolve used to be indistinguishable from one that
+            // resolved to a value nobody had changed yet: ReadValue/WriteValue just returned, so a
+            // typo, a trimmed-away view-model property and a value that is genuinely still at its
+            // default all looked identical (#290). The TARGET side already throws for exactly this
+            // reason (BND-30); the source side gets the same rule, and the same wording upstream uses
+            // ("Cannot bind to the property or column ... on the DataSource") since this is the one
+            // case a fix here can name correctly -- a member trimmed out of an assembly that was never
+            // rooted throws the same way a typo does, which is the point: both are a programming
+            // mistake, not a value that has not arrived yet.
+            if (property is null)
+                throw new ArgumentException (
+                    $"Cannot bind to the property or column '{name}' on the DataSource ({source.GetType ().Name}).");
+
+            return property;
         }
 
         private void SubscribeToSource ()
