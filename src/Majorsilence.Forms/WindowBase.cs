@@ -153,6 +153,16 @@ namespace Majorsilence.Forms
             // get FormClosed too, in FormClosing-then-FormClosed order.
             (this as Form)?.RaiseFormClosed ();
 
+            // An active window loses activation as it goes: upstream's DestroyWindow sends the closing
+            // form WM_ACTIVATE (WA_INACTIVE) after FormClosed and before WM_DESTROY, so Deactivate falls
+            // between FormClosed and HandleDestroyed (EVT-12). A save-on-deactivate handler used to be
+            // skipped by every close.
+            if (IsActive) {
+                IsActive = false;
+                OnDeactivate (EventArgs.Empty);
+                OnLostFocus (EventArgs.Empty);
+            }
+
             // After FormClosed, so ShowDialog returns to its caller only once the form is fully closed.
             (this as Form)?.CompleteClose ();
 
@@ -226,6 +236,18 @@ namespace Majorsilence.Forms
         internal void OnBackendActivated ()
         {
             IsActive = true;
+
+            // Mid-show (or before it): held back until after Load and VisibleChanged (EVT-10).
+            if (in_show_bookkeeping || !visible) {
+                pending_activation = true;
+                return;
+            }
+
+            RaiseActivated ();
+        }
+
+        private void RaiseActivated ()
+        {
             OnActivated (EventArgs.Empty);
             OnGotFocus (EventArgs.Empty);
         }
@@ -288,6 +310,11 @@ namespace Majorsilence.Forms
         /// <summary>Called by the backend when the window is deactivated.</summary>
         internal void OnBackendDeactivated ()
         {
+            // A closed window already raised its Deactivate as it closed (EVT-12); a backend that also
+            // reports the deactivation afterwards must not raise a second one.
+            if (!IsActive && !visible)
+                return;
+
             IsActive = false;
 
             // Don't dismiss synchronously: showing a popup deactivates its parent (and a submenu
@@ -2217,7 +2244,7 @@ namespace Majorsilence.Forms
             // empty shadow and typing into it appears in the one underneath. Calling Show twice is
             // ordinary in application code -- a factory that shows the form and a configure callback
             // that also calls Show -- and is harmless upstream.
-            if (visible)
+            if (visible || in_show_bookkeeping)
                 return;
 
             if (TryShowHosted ())
@@ -2323,12 +2350,28 @@ namespace Majorsilence.Forms
         // (e.g. a host window's Opened/Activated firing repeatedly) is harmless.
         internal void EnsureShownBookkeeping (bool activated = true)
         {
-            if (visible)
+            if (visible || in_show_bookkeeping)
                 return;
 
-            visible = true;
-            OnVisibleChanged (EventArgs.Empty);
+            in_show_bookkeeping = true;
+            try {
+                ShowBookkeeping (activated);
+            } finally {
+                in_show_bookkeeping = false;
+            }
+        }
 
+        // Set while the first-show sequence runs (Load included), so a Show () from a Load handler does
+        // not start a second one -- `visible` is not set until after Load, as upstream.
+        private bool in_show_bookkeeping;
+
+        // An activation the backend delivered before the show sequence finished. Some backends activate
+        // inside Backend.Show, before Load has run; upstream's order is Load, VisibleChanged, Activated
+        // (EVT-10), so it is held back and raised at that point instead.
+        private bool pending_activation;
+
+        private void ShowBookkeeping (bool activated)
+        {
             // Join OpenForms BEFORE Load is raised. Form.ShowDialog and MessageBox.Show pick their
             // modal owner out of Application.OpenForms and fall back to a non-blocking Show() when it
             // is empty, so registering afterwards made every dialog opened from a Load handler -- the
@@ -2367,6 +2410,18 @@ namespace Majorsilence.Forms
 
             RaiseLoadDeferringFocus ();  // WinForms raises Load around the window's first display.
 
+            // A Load handler that closed the form ends the show here, as upstream does. (Close takes a
+            // form out of OpenForms; IsDisposed cannot be the test, because a closed form may be shown
+            // again here and Close disposes a modeless one.)
+            if (this is Form loaded && !Application.OpenForms.Contains (loaded))
+                return;
+
+            // VisibleChanged AFTER Load (EVT-10). Upstream's Form.SetVisibleCore raises OnLoad before
+            // base.SetVisibleCore, which is what flips the state and raises VisibleChanged -- so Visible
+            // is false inside a Load handler, and a VisibleChanged handler sees a loaded form.
+            visible = true;
+            OnVisibleChanged (EventArgs.Empty);
+
             // Assume active the moment we ask the backend to show one of our own windows, rather than
             // waiting for its real Activated event (which, empirically, can arrive either before or
             // after this call returns depending on the platform) -- see IsActive's doc comment. The
@@ -2376,13 +2431,24 @@ namespace Majorsilence.Forms
             if (activated)
                 IsActive = true;
 
-            if (firstShow) {
-                OnShown (EventArgs.Empty);
+            if (pending_activation) {
+                pending_activation = false;
+                RaiseActivated ();
+            }
 
+            if (firstShow) {
                 // The pass above could not reach this window's own OnLayout: the adapter forwards its
                 // layout only once `shown` is set (see ControlAdapter.OnLayout, which explains why).
                 // Now that it is, run the pass the first painted frame used to be responsible for.
                 adapter.PerformLayout ();
+
+                // Shown is POSTED, as upstream's OnLoad does (BeginInvoke (CallShownEvent)), so it runs
+                // on a later turn of the message loop, after Show () has returned and the form has had
+                // a chance to paint (EVT-11). Raised inline, the standard "do the slow work in Shown so
+                // the user sees the form first" handler ran over an unpainted window and held up Show.
+                // Like upstream's CallShownEvent it is not withdrawn if the form closes first: a dialog
+                // whose result arrives before the posted call still raises Shown.
+                BeginInvoke (() => OnShown (EventArgs.Empty));
             }
         }
 

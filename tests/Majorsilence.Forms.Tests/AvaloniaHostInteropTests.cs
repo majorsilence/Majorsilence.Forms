@@ -32,6 +32,7 @@ public class AvaloniaHostInteropTests
 
         form.Show ();
         form.Show ();
+        Application.DoEvents ();   // Shown is posted, as upstream (EVT-11): it runs on the next turn of the message loop.
 
         Assert.Equal (1, shownCount);
 

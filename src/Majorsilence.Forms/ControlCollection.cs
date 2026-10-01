@@ -475,10 +475,13 @@ public partial class Control
                     // you could end up with a control half reparented.
                     item.AssignParent (Owner);
                 } finally {
-                    if (item.Visible) {
+                    // CreateControl only: AssignParent has already raised VisibleChanged if, and only
+                    // if, the effective visibility changed -- upstream's rule. Raising it again here
+                    // gave every Controls.Add a second, unconditional VisibleChanged (EVT-13), so a
+                    // control that loads data or starts a timer on VisibleChanged did it twice, at
+                    // construction time.
+                    if (item.Visible)
                         item.CreateControl ();
-                        item.OnVisibleChanged (EventArgs.Empty);
-                    }
                 }
 
                 item.InitLayout ();

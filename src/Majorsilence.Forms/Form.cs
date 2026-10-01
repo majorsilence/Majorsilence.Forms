@@ -1867,14 +1867,7 @@ namespace Majorsilence.Forms
             // bookkeeping until something hosts it. WinForms behaves the same -- a non-top-level form
             // with no parent simply is not on screen.
             if (!TopLevel && !IsFrameHosted) {
-                visible = true;
-                RaiseLoadDeferringFocus ();
-
-                if (!shown) {
-                    MarkHandleCreated ();
-                    OnShown (EventArgs.Empty);
-                }
-
+                ShowHostedSequence (RaiseLoadDeferringFocus);
                 return true;
             }
 
@@ -1884,15 +1877,9 @@ namespace Majorsilence.Forms
             // does not override where it currently lives.
             if (PanelHost is { } frame) {
                 frame.Visible = true;
-                visible = true;
                 Application.OpenForms.Add (this);
 
-                EnsureLoaded ();        // Load before the form is shown, matching WinForms.
-
-                if (!shown) {
-                    MarkHandleCreated ();
-                    OnShown (EventArgs.Empty);
-                }
+                ShowHostedSequence (EnsureLoaded);
 
                 frame.Invalidate ();
                 return true;
@@ -1903,17 +1890,28 @@ namespace Majorsilence.Forms
 
             PrepareAsMdiChild ();
             client.AddChild (this);
-            visible = true;
             Application.OpenForms.Add (this);
 
-            EnsureLoaded ();            // Load before the child is shown, matching WinForms.
-
-            if (!shown) {
-                MarkHandleCreated ();
-                OnShown (EventArgs.Empty);
-            }
+            ShowHostedSequence (EnsureLoaded);
 
             return true;
+        }
+
+        // The show sequence of a form that owns no OS window, in upstream's order -- the handle, Load,
+        // then Visible, with Shown posted to the next turn of the loop -- the same as a top-level form's
+        // (WindowBase.ShowBookkeeping, EVT-10/EVT-11).
+        private void ShowHostedSequence (Action load)
+        {
+            var firstShow = !shown;
+
+            if (firstShow)
+                MarkHandleCreated ();
+
+            load ();
+            visible = true;
+
+            if (firstShow)
+                BeginInvoke (() => OnShown (EventArgs.Empty));
         }
 
         /// <inheritdoc/>
