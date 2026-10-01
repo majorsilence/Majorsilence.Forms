@@ -414,6 +414,7 @@ namespace Majorsilence.Forms
         /// does; a handler that marks the args handled replaces the default fill (W6 mechanisms).</remarks>
         protected override void OnPaintBackground (PaintEventArgs e)
         {
+            using var device = e.DeviceSpace ();   // laid out in device pixels (EVT-37)
             var args = new ToolStripContentPanelRenderEventArgs (e.Graphics, this);
             Renderers.StripRendererBridge.ResolveMode (Renderer, RenderMode).DrawToolStripContentPanelBackground (args);
 

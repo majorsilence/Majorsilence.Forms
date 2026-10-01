@@ -115,7 +115,7 @@ namespace Majorsilence.Forms.Telerik
             var width = ItemSize.Width;
 
             if (equal && fill && count > 0) {
-                width = Math.Max (1, DeviceToLogicalUnits (ClientRectangle.Width) / count);
+                width = Math.Max (1, DeviceToLogicalUnits (DeviceClientRectangle.Width) / count);
                 SizeMode = TabSizeMode.Fixed;
             } else if (fill) {
                 SizeMode = TabSizeMode.FillToRight;

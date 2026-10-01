@@ -24,7 +24,7 @@ namespace Majorsilence.Forms.Renderers
 
             // If there are no items we still may need to draw a focus rectangle
             if (control.Items.Count == 0 && control.Selected && control.ShowFocusCues) {
-                var client = control.ClientRectangle;
+                var client = control.DeviceClientRectangle;
                 client.Height = control.ScaledItemHeight;
 
                 e.Canvas.DrawFocusRectangle (client, 1);

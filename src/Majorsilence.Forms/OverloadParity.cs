@@ -50,7 +50,7 @@ namespace Majorsilence.Forms
             // A region's bounds are the tightest rectangle this layer can invalidate; invalidating
             // more than asked is correct, just not minimal.
             var bounds = System.Drawing.Rectangle.Round (region.GetBounds ());
-            Invalidate (bounds.IsEmpty ? ClientRectangle : bounds, invalidateChildren);
+            Invalidate (bounds.IsEmpty ? DeviceClientRectangle : bounds, invalidateChildren);
         }
 
         /// <summary>Scales the control and its children by the same factor in both directions.</summary>

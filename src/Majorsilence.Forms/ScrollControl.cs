@@ -52,7 +52,7 @@ namespace Majorsilence.Forms
             get {
                 // Device throughout (RC-8): the padding and the scroll bars' own sizes are logical, and
                 // subtracting them unscaled left the content running under half of each bar at 200%.
-                var client_rect = ClientRectangle;
+                var client_rect = DeviceClientRectangle;
                 var padding = LogicalToDeviceUnits (Padding);
 
                 var x = client_rect.Left + padding.Left;

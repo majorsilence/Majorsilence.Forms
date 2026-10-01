@@ -70,9 +70,9 @@ namespace Majorsilence.Forms.Renderers
             var unit_15 = control.LogicalToDeviceUnits (15);
 
             if (control is VerticalScrollBar)
-                return control.ClientRectangle.Height < unit_15 * 2 ? control.ClientRectangle.Height / 2 : unit_15;
+                return control.DeviceClientRectangle.Height < unit_15 * 2 ? control.DeviceClientRectangle.Height / 2 : unit_15;
             else
-                return control.ClientRectangle.Width < unit_15 * 2 ? control.ClientRectangle.Width / 2 : unit_15;
+                return control.DeviceClientRectangle.Width < unit_15 * 2 ? control.DeviceClientRectangle.Width / 2 : unit_15;
         }
 
         /// <summary>
@@ -81,9 +81,9 @@ namespace Majorsilence.Forms.Renderers
         public virtual Rectangle GetDecrementArrowBounds (ScrollBar control)
         {
             if (control is VerticalScrollBar)
-                return new Rectangle (0, 0, control.ClientRectangle.Width, GetArrowButtonSize (control));
+                return new Rectangle (0, 0, control.DeviceClientRectangle.Width, GetArrowButtonSize (control));
             else
-                return new Rectangle (0, 0, GetArrowButtonSize (control), control.ClientRectangle.Height); ;
+                return new Rectangle (0, 0, GetArrowButtonSize (control), control.DeviceClientRectangle.Height); ;
         }
 
         /// <summary>
@@ -100,9 +100,9 @@ namespace Majorsilence.Forms.Renderers
             var thumb_drag_bounds = GetThumbDragBounds (control);
 
             if (control is VerticalScrollBar)
-                return new Rectangle (0, arrow_button_size + 1, control.ClientRectangle.Width, thumb_drag_bounds.Top - 1);
+                return new Rectangle (0, arrow_button_size + 1, control.DeviceClientRectangle.Width, thumb_drag_bounds.Top - 1);
             else
-                return new Rectangle (arrow_button_size + 1, 0, thumb_drag_bounds.Left - 1, control.ClientRectangle.Height);
+                return new Rectangle (arrow_button_size + 1, 0, thumb_drag_bounds.Left - 1, control.DeviceClientRectangle.Height);
         }
 
         /// <summary>
@@ -114,9 +114,9 @@ namespace Majorsilence.Forms.Renderers
             var thumb_drag_size = GetThumbDragSize (control);
 
             if (control is VerticalScrollBar)
-                return new Rectangle (0, arrow_button_size + (int)(thumb_drag_size / 2f), control.ClientRectangle.Width, control.ClientRectangle.Height - (2 * arrow_button_size) - thumb_drag_size);
+                return new Rectangle (0, arrow_button_size + (int)(thumb_drag_size / 2f), control.DeviceClientRectangle.Width, control.DeviceClientRectangle.Height - (2 * arrow_button_size) - thumb_drag_size);
             else
-                return new Rectangle (arrow_button_size + (int)(thumb_drag_size / 2f), 0, control.ClientRectangle.Width - (2 * arrow_button_size) - thumb_drag_size, control.ClientRectangle.Height);
+                return new Rectangle (arrow_button_size + (int)(thumb_drag_size / 2f), 0, control.DeviceClientRectangle.Width - (2 * arrow_button_size) - thumb_drag_size, control.DeviceClientRectangle.Height);
         }
 
         /// <summary>
@@ -125,9 +125,9 @@ namespace Majorsilence.Forms.Renderers
         public virtual Rectangle GetIncrementArrowBounds (ScrollBar control)
         {
             if (control is VerticalScrollBar)
-                return new Rectangle (0, control.ClientRectangle.Height - GetArrowButtonSize (control), control.ClientRectangle.Width, GetArrowButtonSize (control));
+                return new Rectangle (0, control.DeviceClientRectangle.Height - GetArrowButtonSize (control), control.DeviceClientRectangle.Width, GetArrowButtonSize (control));
             else
-                return new Rectangle (control.ClientRectangle.Width - GetArrowButtonSize (control), 0, GetArrowButtonSize (control), control.ClientRectangle.Height);
+                return new Rectangle (control.DeviceClientRectangle.Width - GetArrowButtonSize (control), 0, GetArrowButtonSize (control), control.DeviceClientRectangle.Height);
         }
 
         /// <summary>
@@ -144,9 +144,9 @@ namespace Majorsilence.Forms.Renderers
             var thumb_drag_bounds = GetThumbDragBounds (control);
 
             if (control is VerticalScrollBar)
-                return new Rectangle (0, thumb_drag_bounds.Bottom + 1, control.ClientRectangle.Width, control.ClientRectangle.Height - arrow_button_size - thumb_drag_bounds.Bottom);
+                return new Rectangle (0, thumb_drag_bounds.Bottom + 1, control.DeviceClientRectangle.Width, control.DeviceClientRectangle.Height - arrow_button_size - thumb_drag_bounds.Bottom);
             else
-                return new Rectangle (thumb_drag_bounds.Right + 1, 0, control.ClientRectangle.Width - arrow_button_size - thumb_drag_bounds.Right, control.ClientRectangle.Height);
+                return new Rectangle (thumb_drag_bounds.Right + 1, 0, control.DeviceClientRectangle.Width - arrow_button_size - thumb_drag_bounds.Right, control.DeviceClientRectangle.Height);
         }
 
         private static int GetPossibleValues (ScrollBar control) => control.Maximum - control.Minimum + 1;
@@ -160,9 +160,9 @@ namespace Majorsilence.Forms.Renderers
             var half_thumb = thumb_size / 2;
 
             if (control is VerticalScrollBar)
-                return new Rectangle (0, GetThumbDragPosition (control) - half_thumb, control.ClientRectangle.Width - 1, thumb_size - 1);
+                return new Rectangle (0, GetThumbDragPosition (control) - half_thumb, control.DeviceClientRectangle.Width - 1, thumb_size - 1);
             else
-                return new Rectangle (GetThumbDragPosition (control) - half_thumb, 0, thumb_size - 1, control.ClientRectangle.Height - 1);
+                return new Rectangle (GetThumbDragPosition (control) - half_thumb, 0, thumb_size - 1, control.DeviceClientRectangle.Height - 1);
         }
 
         /// <summary>
@@ -206,9 +206,9 @@ namespace Majorsilence.Forms.Renderers
         public virtual Rectangle GetTotalTrackBounds (ScrollBar control)
         {
             if (control is VerticalScrollBar)
-                return new Rectangle (0, GetArrowButtonSize (control), control.ClientRectangle.Width, control.ClientRectangle.Height - (2 * GetArrowButtonSize (control)));
+                return new Rectangle (0, GetArrowButtonSize (control), control.DeviceClientRectangle.Width, control.DeviceClientRectangle.Height - (2 * GetArrowButtonSize (control)));
             else
-                return new Rectangle (GetArrowButtonSize (control), 0, control.ClientRectangle.Width - (2 * GetArrowButtonSize (control)), control.ClientRectangle.Height);
+                return new Rectangle (GetArrowButtonSize (control), 0, control.DeviceClientRectangle.Width - (2 * GetArrowButtonSize (control)), control.DeviceClientRectangle.Height);
         }
     }
 }

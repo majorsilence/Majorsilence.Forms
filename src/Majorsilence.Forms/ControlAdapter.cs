@@ -14,7 +14,7 @@ namespace Majorsilence.Forms
         }
 
         // We need to override this because the ControlAdapter doesn't need to be scaled
-        public override Rectangle ClientRectangle {
+        internal override Rectangle DeviceClientRectangle {
             get {
                 var x = CurrentStyle.Border.Left.GetWidth ();
                 var y = CurrentStyle.Border.Top.GetWidth ();

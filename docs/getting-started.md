@@ -75,30 +75,29 @@ Your application should now be ready to run.
 
 ## Custom-painted controls
 
-A control's own `OnPaint` receives a canvas in **device pixels**, not the logical units everything
-else in the framework uses (`Left`, `Top`, `Width`, `Height`, `MouseEventArgs.X`/`Y`). The built-in
-renderers already scale explicitly when they paint; a custom `OnPaint` override has to do the same,
-or its drawing comes out the wrong physical size on any scaled display -- a HiDPI desktop, and every
-phone (Android reports a `Scaling` of roughly 2.6-2.75):
+A control's `OnPaint` and `OnPaintBackground` overrides, and its `Paint` handlers, draw in **logical
+units**, the same units as everything else in the framework: `Left`, `Top`, `Width`, `Height`,
+`ClientRectangle`, `ClientSize` and `MouseEventArgs.X`/`Y`. The framework scales the canvas to the
+display, so ordinary WinForms drawing code is the right size on a scaled display (a HiDPI desktop, or
+any phone, where Android reports a `Scaling` of roughly 2.6-2.75) with no changes:
 
 ```csharp
 protected override void OnPaint (PaintEventArgs e)
 {
-    var scale = (float)e.Scaling;
-    e.Graphics.ScaleTransform (scale, scale);   // now draw in logical units
+    base.OnPaint (e);
 
-    e.Graphics.FillRectangle (Brushes.LimeGreen, 0, 0, 10, 10);   // a 10x10 LOGICAL square
+    e.Graphics.DrawRectangle (Pens.Gray, 0, 0, Width - 1, Height - 1);   // frames the control
+    e.Graphics.FillRectangle (Brushes.LimeGreen, 0, 0, 10, 10);         // a 10x10 logical square
 }
 ```
 
-Without the `ScaleTransform`, that same call draws a 10x10 rectangle in *device* pixels: correct at
-scale 1, about a third of its intended size at Android's ~2.75x. `PaintEventArgs.Scaling` is the
-factor to use; `Graphics.LogicalToDeviceUnits (...)` is there too, for the odd value that has to be
-converted without going through a transform. `samples/ControlGallery/Panels/GameOfLifePanel.cs` is
-this idiom in a complete custom control.
+The same holds for `e.ClipRectangle`, and for `e.Canvas` if you draw with SkiaSharp directly.
+`PaintEventArgs.Scaling` is still there, for code that wants to place something on an exact device
+pixel. `samples/ControlGallery/Panels/GameOfLifePanel.cs` is a complete custom control.
 
-Anything a custom control computes *from* a point it was handed -- hit-testing in `OnMouseDown` or
-`OnMouseMove`, for instance -- stays consistent for free: `MouseEventArgs.X`/`Y` arrive already
-converted to the same logical units as `Left`/`Top`/`Width`/`Height`, so geometry built from those
-and compared against a mouse point needs no separate conversion, as long as it is built in the same
-logical units `OnPaint` now draws in.
+Before 2026-10-01 this canvas was in device pixels, and a custom control had to call
+`e.Graphics.ScaleTransform (e.Scaling, e.Scaling)` itself. Remove that call if you added it: the
+drawing would now be scaled twice.
+
+Hit-testing is consistent for free: `MouseEventArgs.X`/`Y` arrive in the same logical units as
+`Width`/`Height` and the paint canvas, so geometry built once serves both.

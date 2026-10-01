@@ -17,7 +17,7 @@ namespace Majorsilence.Forms.Renderers
 
             // The icon gutter, offered once for the whole drop-down as upstream does.
             if (ShowsImageMargin (control))
-                StripRendererBridge.ImageMargin (control, new Rectangle (0, 0, e.LogicalToDeviceUnits (28), control.ClientRectangle.Height), e);
+                StripRendererBridge.ImageMargin (control, new Rectangle (0, 0, e.LogicalToDeviceUnits (28), control.DeviceClientRectangle.Height), e);
 
             foreach (var item in control.Items) {
                 if (!item.Visible)
@@ -35,7 +35,7 @@ namespace Majorsilence.Forms.Renderers
             // BarBreak bars between the columns (W6 mechanisms).
             foreach (var bar in control.ColumnBars) {
                 var x = e.LogicalToDeviceUnits (bar);
-                e.Canvas.DrawLine (x, e.LogicalToDeviceUnits (2), x, control.ClientRectangle.Height - e.LogicalToDeviceUnits (2), Theme.BorderMidColor);
+                e.Canvas.DrawLine (x, e.LogicalToDeviceUnits (2), x, control.DeviceClientRectangle.Height - e.LogicalToDeviceUnits (2), Theme.BorderMidColor);
             }
 
             StripRendererBridge.Border (control, e);

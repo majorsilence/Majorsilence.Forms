@@ -67,7 +67,7 @@ namespace Majorsilence.Forms
         /// <summary>Gets the device-pixel bands the control is laid out in.</summary>
         internal MonthCalendarGeometry Geometry {
             get {
-                var client = ClientRectangle;
+                var client = DeviceClientRectangle;
 
                 // One band each for the title and the day-of-week header, six for the week rows, and
                 // -- when ShowToday -- one more for the "Today:" strip at the foot. Equal bands is

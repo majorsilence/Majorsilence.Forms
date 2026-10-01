@@ -336,9 +336,10 @@ namespace Majorsilence.Forms.Telerik
         protected override void OnPaint (PaintEventArgs e)
         {
             base.OnPaint (e);
+            using var device = e.DeviceSpace ();   // laid out in device pixels (EVT-37)
 
             if (_rows.Count == 0) {
-                e.Canvas.DrawText ("No appointments.", ClientRectangle, this, ContentAlignment.MiddleCenter);
+                e.Canvas.DrawText ("No appointments.", DeviceClientRectangle, this, ContentAlignment.MiddleCenter);
                 return;
             }
 

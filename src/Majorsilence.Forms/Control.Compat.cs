@@ -528,7 +528,7 @@ namespace Majorsilence.Forms
             // the two directly made this scale-dependent -- on a 2x display it read the viewport as
             // twice its logical height, decided the control already fitted, and scrolled too little
             // or not at all. Caught by the MF_HEADLESS_SCALE=2 gate, not by review.
-            var viewport = scroller.DeviceToLogicalUnits (scroller.ClientRectangle.Size);
+            var viewport = scroller.DeviceToLogicalUnits (scroller.DeviceClientRectangle.Size);
             var viewportBottom = viewport.Height - bottomInset;
             var current = scroller.AutoScrollPosition;      // WinForms-style negative offset
             var offsetY = -current.Y;

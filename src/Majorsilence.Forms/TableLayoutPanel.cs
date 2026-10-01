@@ -327,6 +327,7 @@ public partial class TableLayoutPanel : Panel, IExtenderProvider
     protected override void OnPaintBackground (PaintEventArgs e)
     {
         base.OnPaintBackground (e);
+        using var device = e.DeviceSpace ();   // laid out in device pixels (EVT-37)
 
         Guard.ThrowIfNull (e);
 

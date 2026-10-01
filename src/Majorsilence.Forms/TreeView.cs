@@ -742,7 +742,7 @@ namespace Majorsilence.Forms
 
             UpdateVerticalScrollBar (totalVisible - 1);  // -1 to exclude root
 
-            var client_rect = ClientRectangle;
+            var client_rect = DeviceClientRectangle;
 
             if (vscrollbar.Visible)
                 client_rect.Width -= (client_rect.Width - vscrollbar.ScaledLeft + 1);
@@ -1251,7 +1251,7 @@ namespace Majorsilence.Forms
             if (BackBufferPixels is not { } buffer || buffer.Width != ScaledSize.Width || buffer.Height != ScaledSize.Height)
                 return false;
 
-            var client = ClientRectangle;
+            var client = DeviceClientRectangle;
             var contentWidth = client.Width - (vscrollbar.Visible ? vscrollbar.ScaledWidth : 0);
             if (contentWidth <= 0 || System.Math.Abs (shiftPx) >= client.Height)
                 return false;
@@ -1485,7 +1485,7 @@ namespace Majorsilence.Forms
         // (border excluded), not ScaledHeight (the full control including its border) -- ListBox uses
         // the equivalent ClientRectangle.Height for the same reason: overcounting here understates
         // vscrollbar.Maximum/LargeChange, shrinking the usable scroll range and the thumb's travel.
-        private int VisibleItemCount => ClientRectangle.Height / ScaledItemHeight;
+        private int VisibleItemCount => DeviceClientRectangle.Height / ScaledItemHeight;
 
         /// <inheritdoc/>
         public class TreeViewControlStyle : ControlStyle

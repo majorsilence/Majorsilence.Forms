@@ -1560,7 +1560,7 @@ namespace Majorsilence.Forms
             // clip was twice the size it should be and cutOverflow cut nothing -- the method handed
             // back a rectangle running off the control, which is the one thing the flag exists to stop.
             if (cutOverflow)
-                bounds = Rectangle.Intersect (bounds, DeviceToLogicalUnits (ClientRectangle));
+                bounds = Rectangle.Intersect (bounds, DeviceToLogicalUnits (DeviceClientRectangle));
 
             return bounds;
         }
@@ -1639,7 +1639,7 @@ namespace Majorsilence.Forms
         /// </summary>
         internal Rectangle GetContentArea ()
         {
-            var client = ClientRectangle;
+            var client = DeviceClientRectangle;
             var top_offset = Math.Max (0, ContentTopOffset);
             var w = client.Width - (vscrollbar.Visible ? (int)Math.Ceiling (vscrollbar.Width * ScaleFactor.Width) : 0);
             var h = client.Height - top_offset - (hscrollbar.Visible ? (int)Math.Ceiling (hscrollbar.Height * ScaleFactor.Height) : 0);

@@ -478,7 +478,7 @@ namespace Majorsilence.Forms
         /// <summary>Returns how many columns are currently on screen.</summary>
         public int DisplayedColumnCount (bool includePartialColumns)
         {
-            var available = ClientRectangle.Width - (RowHeadersVisible ? RowHeadersWidth : 0);
+            var available = DeviceClientRectangle.Width - (RowHeadersVisible ? RowHeadersWidth : 0);
             var used = 0;
             var count = 0;
 
@@ -517,7 +517,7 @@ namespace Majorsilence.Forms
             // and the height came straight from ClientRectangle, which is in DEVICE pixels. One
             // rectangle, two spaces: on a scaled display the column came back the right width and
             // twice the height, and cutOverflow clipped against a box twice the size of the control.
-            var client = DeviceToLogicalUnits (ClientRectangle);
+            var client = DeviceToLogicalUnits (DeviceClientRectangle);
             var rectangle = new Rectangle (x, 0, Columns[columnIndex].Width, client.Height);
 
             return cutOverflow ? Rectangle.Intersect (rectangle, client) : rectangle;
@@ -537,7 +537,7 @@ namespace Majorsilence.Forms
 
             // W6.3: as GetColumnDisplayRectangle above -- y and Height are logical, the width was
             // device.
-            var client = DeviceToLogicalUnits (ClientRectangle);
+            var client = DeviceToLogicalUnits (DeviceClientRectangle);
             var rectangle = new Rectangle (0, y, client.Width, RowTotalHeight (rowIndex));
 
             return cutOverflow ? Rectangle.Intersect (rectangle, client) : rectangle;

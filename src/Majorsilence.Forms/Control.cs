@@ -299,15 +299,18 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Gets the scaled bounds of the control's canvas minus any borders.
+        /// Gets the bounds of the control's client area -- the control minus its border -- in the same
+        /// logical units as <see cref="Bounds"/>, <see cref="Width"/> and <see cref="Height"/>.
         /// </summary>
         /// <remarks>
-        /// Scaled means device pixels here, same as <see cref="ClientSize"/> (this rectangle's
-        /// <see cref="Rectangle.Size"/>) -- while <see cref="Bounds"/>, <see cref="Location"/> and the
-        /// rest of the unscaled bounds family stay logical. See the remarks on <see cref="ClientSize"/>
-        /// for the split and a worked example.
+        /// Logical as of 2026-10-01 (CTL-10): it used to be device pixels, the one member of the bounds
+        /// family that was, so manual layout and paint code that mixed it with <see cref="Width"/> broke
+        /// only on a scaled display. Paint code draws in these units too (see <see cref="OnPaint"/>).
         /// </remarks>
-        public virtual Rectangle ClientRectangle {
+        public virtual Rectangle ClientRectangle => DeviceToLogicalUnits (DeviceClientRectangle);
+
+        // The client area in device pixels: what the library's own renderers and layout lay out in.
+        internal virtual Rectangle DeviceClientRectangle {
             get {
                 // TODO: We should be scaling the Border as well
                 var x = CurrentStyle.Border.Left.GetWidth ();
@@ -322,50 +325,21 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Gets or sets the scaled size of the control's client area.
+        /// Gets or sets the size of the control's client area, in logical units -- the size of
+        /// <see cref="ClientRectangle"/>.
         /// </summary>
         /// <remarks>
         /// <para>
-        /// <b>Scaled means device pixels, not logical ones -- the one exception in the bounds family.</b>
-        /// The getter is <see cref="ClientRectangle"/>'s size, which runs <see cref="Bounds"/> through
-        /// <see cref="ScaleFactor"/>, while <see cref="Width"/>, <see cref="Height"/>,
-        /// <see cref="Location"/>, <see cref="Left"/>, <see cref="Top"/>, <see cref="Right"/> and
-        /// <see cref="Bottom"/> all stay unscaled (logical) -- the units an app sets them in. The two
-        /// families read identically at <see cref="ScaleFactor"/> 1 and diverge at any other scaling, so
-        /// manual layout code that mixes them (e.g. centering a child with <c>ClientSize.Width</c> instead
-        /// of <c>Width</c>) breaks only on a scaled display -- see the example below.
-        /// </para>
-        /// <para>
-        /// Elsewhere on <see cref="Control"/>, code that deliberately wants device pixels uses the
-        /// explicitly-named <see cref="ScaledWidth"/>/<see cref="ScaledHeight"/>/<see cref="ScaledBounds"/>
-        /// family, which announces itself by name; <c>ClientSize</c> predates that convention and does not
-        /// follow it. <see cref="Form.ClientSize"/> does not have this behaviour either -- it is a
-        /// separate property declared on <see cref="Form"/> itself (<see cref="Form"/> derives from
-        /// <see cref="WindowBase"/>, not <see cref="Control"/>, so it does not inherit this one), and it is
-        /// logical, built from <see cref="Size"/> rather than <see cref="ClientRectangle"/>. So a
-        /// <see cref="Form"/>'s own <c>ClientSize</c> mixes safely with its <c>Width</c>/<c>Height</c>; a
-        /// child <see cref="Control"/>'s (<see cref="UserControl"/>, <see cref="Panel"/>, …) does not. See
-        /// <c>docs/backends.md</c> ("Logical vs. device pixels") for the wider picture.
+        /// Logical as of 2026-10-01 (CTL-10), the same units as <see cref="Width"/> and
+        /// <see cref="Height"/>, so <c>child.Left = (ClientSize.Width - child.Width) / 2</c> centres the
+        /// child at every display scale. (It used to be device pixels.)
         /// </para>
         /// <para>
         /// The setter grows <see cref="Size"/> by whatever the border currently takes, which is what makes
         /// <c>ClientSize = contentSize</c> mean the same thing here as in WinForms: a caller that has
-        /// measured its content and wants exactly that much room inside the border gets it, rather than
-        /// losing the border's width off the inside. It was read-only before, so those assignments -- the
-        /// normal way a dialog sizes itself to its content -- did not compile.
+        /// measured its content and wants exactly that much room inside the border gets it.
         /// </para>
         /// </remarks>
-        /// <example>
-        /// <code>
-        /// // Correct at every scaling -- Width is logical, same units as child.Width/child.Left.
-        /// child.Left = (Width - child.Width) / 2;
-        ///
-        /// // Wrong above scaling 1 -- ClientSize.Width is device pixels while child.Width is logical,
-        /// // so the child lands roughly ScaleFactor times further right than centred (and, for a
-        /// // sibling near the far edge, off it entirely).
-        /// child.Left = (ClientSize.Width - child.Width) / 2;
-        /// </code>
-        /// </example>
         public Size ClientSize {
             get => ClientRectangle.Size;
             set {
@@ -1771,6 +1745,9 @@ namespace Majorsilence.Forms
         /// </summary>
         protected virtual void OnPaintBackground (PaintEventArgs e)
         {
+            // The default background and border are laid out in device pixels (ScaledBounds).
+            using var device = e.DeviceSpace ();
+
             // The ControlAdapter itself should not have a background/border -- the window paints those
             // (see WindowBase.RenderFrame) and repainting them here would cover what a Form.Paint
             // handler just drew.
@@ -2008,7 +1985,7 @@ namespace Majorsilence.Forms
         /// </remarks>
         public virtual Rectangle PaddedClientRectangle {
             get {
-                var client_rect = ClientRectangle;
+                var client_rect = DeviceClientRectangle;
                 var padding = LogicalToDeviceUnits (Padding);
 
                 var x = client_rect.Left + padding.Left;
@@ -2555,8 +2532,14 @@ namespace Majorsilence.Forms
             // await completes synchronously) must have that request survive. Clearing afterward
             // would silently clobber it, since it was already dirty when this pass started.
             SetState (States.IsDirty, false);
-            OnPaint (e);
-            Paint?.Invoke (this, e);
+
+            // Application paint code draws in logical units (EVT-37); the scope also takes back any
+            // transform or clip it leaves on the canvas before the children are composited.
+            using (e.LogicalSpace ()) {
+                OnPaint (e);
+                Paint?.Invoke (this, e);
+            }
+
             PaintChildren (e);
 
             // After the children, which is what makes this an ADORNER layer rather than another Paint
@@ -2579,7 +2562,12 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Calls the OnPaintBackground method.
         /// </summary>
-        internal void RaisePaintBackground (PaintEventArgs e) => OnPaintBackground (e);
+        internal void RaisePaintBackground (PaintEventArgs e)
+        {
+            // An OnPaintBackground override is application paint code too (EVT-37).
+            using (e.LogicalSpace ())
+                OnPaintBackground (e);
+        }
 
         /// <summary>
         /// Gets the unscaled right boundary of the control.

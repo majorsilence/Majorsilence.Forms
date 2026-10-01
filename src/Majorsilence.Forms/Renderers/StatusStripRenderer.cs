@@ -46,7 +46,7 @@ namespace Majorsilence.Forms.Renderers
                     RenderLabelBorder (e, item_bounds, label.BorderSides);
 
                 // Stop once we've run off the right-hand edge of the bar.
-                if (item_bounds.Right + StatusStrip.ItemSpacing >= control.ClientRectangle.Right)
+                if (item_bounds.Right + StatusStrip.ItemSpacing >= control.DeviceClientRectangle.Right)
                     break;
             }
         }

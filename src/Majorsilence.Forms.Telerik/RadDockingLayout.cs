@@ -76,7 +76,7 @@ namespace Majorsilence.Forms.Telerik
         // -> strip), which is why nothing wrapped and hit-testing missed every header.
         internal static Rectangle LogicalClient (Control c)
         {
-            var r = c.ClientRectangle;
+            var r = c.DeviceClientRectangle;
             return new Rectangle (
                 c.DeviceToLogicalUnits (r.X), c.DeviceToLogicalUnits (r.Y),
                 c.DeviceToLogicalUnits (r.Width), c.DeviceToLogicalUnits (r.Height));
@@ -169,6 +169,10 @@ namespace Majorsilence.Forms.Telerik
         // logical-unit drawing renders undersized text and boxes on scaled displays).
         internal static void PaintHeaders (Control strip, PaintEventArgs e, DockWindowBase? selected, HeaderState state)
         {
+            // Called from the strips' OnPaint, where the canvas is logical for application code; the
+            // headers are laid out in device pixels (EVT-37).
+            using var device = e.DeviceSpace ();
+
             state.Rects.Clear ();
             state.CloseRects.Clear ();
             state.RowCount = 1;

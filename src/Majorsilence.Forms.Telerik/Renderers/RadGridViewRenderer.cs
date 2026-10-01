@@ -332,7 +332,7 @@ namespace Majorsilence.Forms.Renderers
 
         private static void RenderGroupPanel (RadGridView grid, PaintEventArgs e)
         {
-            var client = grid.ClientRectangle;
+            var client = grid.DeviceClientRectangle;
             var height = grid.GroupPanelBandHeight;
             var band = new Rectangle (client.Left, client.Top, client.Width, height);
 
@@ -400,13 +400,13 @@ namespace Majorsilence.Forms.Renderers
                 var target = grid.Columns[grid.DragTargetColumn];
                 if (!target.HeaderBounds.IsEmpty) {
                     var lineX = target.HeaderBounds.Left;
-                    e.Canvas.DrawLine (lineX, target.HeaderBounds.Top, lineX, grid.ClientRectangle.Bottom, Theme.AccentColor, 2);
+                    e.Canvas.DrawLine (lineX, target.HeaderBounds.Top, lineX, grid.DeviceClientRectangle.Bottom, Theme.AccentColor, 2);
                 }
             }
 
             // Highlight the group panel when a header is dragged over it.
             if (grid.DragOverGroupPanel) {
-                var band = new Rectangle (grid.ClientRectangle.Left, grid.ClientRectangle.Top, grid.ClientRectangle.Width, grid.GroupPanelBandHeight);
+                var band = new Rectangle (grid.DeviceClientRectangle.Left, grid.DeviceClientRectangle.Top, grid.DeviceClientRectangle.Width, grid.GroupPanelBandHeight);
                 e.Canvas.DrawRectangle (band, Theme.AccentColor, 2);
             }
 

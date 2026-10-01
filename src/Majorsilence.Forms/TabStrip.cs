@@ -105,7 +105,7 @@ namespace Majorsilence.Forms
         /// <summary>The logical band the scroll arrows occupy; empty when nothing overflows.</summary>
         internal Rectangle ScrollArrowBand
             => TabsOverflow
-                ? new Rectangle (DeviceToLogicalUnits (ClientRectangle.Width) - ScrollArrowBandWidth, 0, ScrollArrowBandWidth, DeviceToLogicalUnits (ClientRectangle.Height))
+                ? new Rectangle (DeviceToLogicalUnits (DeviceClientRectangle.Width) - ScrollArrowBandWidth, 0, ScrollArrowBandWidth, DeviceToLogicalUnits (DeviceClientRectangle.Height))
                 : Rectangle.Empty;
 
         /// <summary>How far the single row is scrolled, in logical pixels.</summary>
@@ -118,7 +118,7 @@ namespace Majorsilence.Forms
                 return;
 
             var bounds = Tabs[index].Bounds;
-            var visible_right = DeviceToLogicalUnits (ClientRectangle.Width) - (TabsOverflow ? ScrollArrowBandWidth : 0);
+            var visible_right = DeviceToLogicalUnits (DeviceClientRectangle.Width) - (TabsOverflow ? ScrollArrowBandWidth : 0);
 
             if (bounds.Left < 0)
                 scroll_offset = Math.Max (0, scroll_offset + bounds.Left);
@@ -204,7 +204,7 @@ namespace Majorsilence.Forms
             // coordinates, but ClientRectangle is device-scaled and rowHeight was being scaled up too --
             // so on a 2x display tabs got device-sized rows and a logical width, and a click aimed at one
             // tab landed on another. Identity at scaling 1.
-            var avail = Math.Max (60, DeviceToLogicalUnits (ClientRectangle.Width));
+            var avail = Math.Max (60, DeviceToLogicalUnits (DeviceClientRectangle.Width));
 
             // A single row (Multiline = false, upstream's default) never wraps: the overflow scrolls
             // behind the arrow band instead (W6 mechanisms). An owner-less strip keeps wrapping.

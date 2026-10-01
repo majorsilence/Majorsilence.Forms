@@ -4200,6 +4200,47 @@ and `HostedSurface_Rule_Makes_It_Opaque`). One neutralization round per control,
 that control's `Style` back at `Control.DefaultStyle`, and each turned exactly its own test red. The
 snapshot was verified before and after.
 
+**Logical painting: application code draws in logical units (EVT-37, CTL-10). — 2026-10-01.**
+A decision rather than a fix, taken on the project owner's call. The paint canvas, `ClientRectangle` and
+`ClientSize` were device pixels while `Width`, `Height`, `Bounds` and the mouse were logical. Ported
+WinForms drawing (`DrawRectangle (pen, 0, 0, Width - 1, Height - 1)`) framed a quarter of the control at
+200%. Every custom-painted control needed `ScaleTransform (e.Scaling, e.Scaling)`, and only one sample,
+GameOfLife, had it. Upstream never has this split: under per-monitor DPI it scales the layout, so `Width`
+and the canvas agree.
+
+- **The canvas.** `PaintEventArgs` gained two scopes. `LogicalSpace` scales the canvas from the paint's
+  device matrix by `Scaling`. `DeviceSpace` puts it back. `RaisePaint`, `RaisePaintBackground`, `OnPrint`
+  and the window's `RenderFrame` run application code in a logical scope. `RenderManager.Render`, the
+  default `OnPaintBackground`, and the 15 overrides and helpers that draw on `e.Canvas` run in a device
+  scope, so a subclass that draws after `base.OnPaint` gets device pixels for the base and logical units
+  for itself. The logical scope is restored before the children are composited, which also fixes a latent
+  leak: a transform a `Paint` handler left behind used to reach the child pass. `ClipRectangle` now comes
+  from the exact device clip mapped back through the matrix. It used Skia's anti-alias-outset local
+  bounds, one unit too big at every scale.
+- **The rectangle.** The old device-pixel property became internal `DeviceClientRectangle`, and all 81
+  internal references point at it, unchanged. The public `ClientRectangle` is its logical conversion, and
+  `ClientSize` follows. The setter mixed a device client size with a logical `Width`, and now sizes
+  correctly.
+- **What moved.** Four places applied the old idiom and now double-scaled. GameOfLife and the
+  rounded-rectangle tests' drawing control called `ScaleTransform (e.Scaling, …)`; Theme Studio's token
+  swatches and Outlaw's message placeholder wrapped every coordinate in `LogicalToDeviceUnits`. Each just
+  dropped the scaling. A scale-2 render of every Theme Studio tab, against the same build without this
+  change, is pixel-identical except those swatches, whose 1-unit outline is now 2 device pixels thick,
+  the expected cost of drawing in logical units. About 30 tests read `ClientRectangle`
+  to probe device-pixel bitmaps and now read `DeviceClientRectangle`; their intent is unchanged.
+  `docs/getting-started.md` and `docs/backends.md` describe the new contract and the migration (remove
+  the `ScaleTransform`).
+- **Deferred:** owner-draw events (`DrawItem`, `DrawNode`, the `ListView` draw events, `CellPainting`, …)
+  are still device pixels, consistently with themselves. Each needs its default-drawing helpers audited
+  (BACKLOG).
+
+Tests: `LogicalPaintingTests` (10), all at an effective scale of 2. One gotcha cost two rounds. A render
+at an explicit scale over a window that is really at 1x lays children and chrome out at 1x, so the tests
+that check composition or chrome use a really scaled window (`Application.UiScale`). Seven
+neutralization rounds, all red. Two first stayed green: a plain-versus-subclass comparison cannot see a
+mistake both share, so chrome-reaches-the-far-edges and caption-stays-centred checks were added. One
+first did not compile and was redone as a runtime condition.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

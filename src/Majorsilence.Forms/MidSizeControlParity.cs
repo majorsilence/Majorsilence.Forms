@@ -166,7 +166,7 @@ namespace Majorsilence.Forms
         {
             var device = new Point (LogicalToDeviceUnits (point.X), LogicalToDeviceUnits (point.Y));
 
-            if (!ClientRectangle.Contains (device))
+            if (!DeviceClientRectangle.Contains (device))
                 return new HitTestInfo (point, HitArea.Nowhere, DateTime.MinValue);
 
             var geometry = Geometry;

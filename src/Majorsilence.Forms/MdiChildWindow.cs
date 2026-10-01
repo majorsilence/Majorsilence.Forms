@@ -70,6 +70,7 @@ namespace Majorsilence.Forms
 
         protected override void OnPaint (PaintEventArgs e)
         {
+            using var device = e.DeviceSpace ();   // laid out in device pixels (EVT-37)
             var scaling = e.Scaling;
             int D (int logical) => (int) Math.Round (logical * scaling);
 

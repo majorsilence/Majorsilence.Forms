@@ -20,7 +20,7 @@ public class W6PaddedClientRectangleTests
         form.Controls.Add (panel);
         form.Show ();
 
-        var client = panel.ClientRectangle;
+        var client = panel.DeviceClientRectangle;
         var padded = panel.PaddedClientRectangle;
 
         Assert.Equal (client.Left + panel.LogicalToDeviceUnits (10), padded.Left);
@@ -38,7 +38,7 @@ public class W6PaddedClientRectangleTests
         form.Controls.Add (box);
         form.Show ();
 
-        var client = box.ClientRectangle;
+        var client = box.DeviceClientRectangle;
         var padded = box.PaddedClientRectangle;
 
         Assert.True (box.VerticalScrollBar.Visible && box.HorizontalScrollBar.Visible, "PREMISE: both bars are shown");

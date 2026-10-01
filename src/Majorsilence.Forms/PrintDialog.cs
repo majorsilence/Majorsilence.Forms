@@ -208,7 +208,7 @@ namespace Majorsilence.Forms
                 return Rectangle.Empty;
 
             var gap = LogicalToDeviceUnits (8);
-            var client = ClientRectangle;
+            var client = DeviceClientRectangle;
             var cell_width = Math.Max (1, (client.Width - (gap * (Columns + 1))) / Columns);
             var cell_height = Math.Max (1, (client.Height - (gap * (Rows + 1))) / Rows);
 

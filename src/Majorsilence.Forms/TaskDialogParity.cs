@@ -363,6 +363,7 @@ namespace Majorsilence.Forms
         protected override void OnPaint (PaintEventArgs e)
         {
             base.OnPaint (e);
+            using var device = e.DeviceSpace ();   // laid out in device pixels (EVT-37)
 
             if (ShowShield) {
                 var side = LogicalToDeviceUnits (12);
@@ -394,6 +395,7 @@ namespace Majorsilence.Forms
         protected override void OnPaint (PaintEventArgs e)
         {
             base.OnPaint (e);
+            using var device = e.DeviceSpace ();   // laid out in device pixels (EVT-37)
 
             var box = new Rectangle (0, 0, ScaledWidth, ScaledHeight);
 

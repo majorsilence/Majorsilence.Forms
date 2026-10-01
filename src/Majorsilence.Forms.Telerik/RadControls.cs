@@ -197,7 +197,7 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>The track and thumb rectangles, in device pixels. Shared by the renderer and tests.</summary>
         internal (Rectangle Track, Rectangle Thumb) SwitchGeometry ()
         {
-            var client = ClientRectangle;
+            var client = DeviceClientRectangle;
             var track = new Rectangle (client.X + 1, client.Y + 1, Math.Max (0, client.Width - 2), Math.Max (0, client.Height - 2));
             var inset = Math.Max (1, LogicalToDeviceUnits (2));
             var height = Math.Max (0, track.Height - (2 * inset));

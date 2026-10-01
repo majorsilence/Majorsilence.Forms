@@ -98,7 +98,7 @@ namespace Majorsilence.Forms.Renderers
         /// <summary>Draws the diagonal dot grip in the trailing corner.</summary>
         protected virtual void RenderSizingGrip (StatusBar control, PaintEventArgs e)
         {
-            var client = control.ClientRectangle;
+            var client = control.DeviceClientRectangle;
             var dot = System.Math.Max (1, e.LogicalToDeviceUnits (2));
             var step = dot * 2;
 

@@ -99,8 +99,8 @@ namespace Majorsilence.Forms.Tests
             var bitmap = PaintSurface.RenderOnForm (calendar);
 
             Assert.True (bitmap.Width > 0 && bitmap.Height > 0, "nothing was measured");
-            Assert.Equal (calendar.ClientRectangle.Width, bitmap.Width);
-            Assert.Equal (calendar.ClientRectangle.Height, bitmap.Height);
+            Assert.Equal (calendar.DeviceClientRectangle.Width, bitmap.Width);
+            Assert.Equal (calendar.DeviceClientRectangle.Height, bitmap.Height);
 
             return bitmap;
         }

@@ -20,7 +20,7 @@ namespace Majorsilence.Forms.Renderers
                 return;
 
             e.Canvas.Save ();
-            e.Canvas.Clip (control.ClientRectangle);
+            e.Canvas.Clip (control.DeviceClientRectangle);
 
             // UseAntiAlias picks the sampling the page bitmap is scaled with: smooth, or the nearest
             // pixel, which is what a preview at a small zoom looks like without it.

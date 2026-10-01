@@ -110,7 +110,7 @@ public class W6ControlFeaturesTests
         Assert.Equal (95, box.Height);
 
         box.IntegralHeight = true;
-        var chrome = box.Height - box.DeviceToLogicalUnits (box.ClientRectangle.Height);
+        var chrome = box.Height - box.DeviceToLogicalUnits (box.DeviceClientRectangle.Height);
         Assert.Equal (0, (box.Height - chrome) % 20);
         Assert.InRange (box.Height, 95 - 19, 95);
 
@@ -346,7 +346,7 @@ public class W6ControlFeaturesTests
 
         // The renderer's border runs along the bottom of the client rectangle, inside the control's
         // own frame.
-        var client = strip.ClientRectangle;
+        var client = strip.DeviceClientRectangle;
         var bottom = client.Bottom - 1;
 
         using (var square = Strip (strip)) {

@@ -174,7 +174,11 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
 - **Test:** focused child cancels → `Assert.False(container.Validate())`.
 - **Tests today:** WindowValidationParityTests (Form's own Validating only).
 
-### CTL-10 — `Control.ClientRectangle` / `ClientSize` / `PaddedClientRectangle` units — Cat A — P1 — Medium
+### CTL-10 — `Control.ClientRectangle` / `ClientSize` / `PaddedClientRectangle` units — Cat A — P1 — Medium — **CLOSED (2026-10-01)**
+- **Fix (applied with EVT-37):** `ClientRectangle` and `ClientSize` are logical, the same units as
+  `Bounds`; the internal code that wanted device pixels uses `DeviceClientRectangle`. The `ClientSize`
+  setter, which mixed a device client size with a logical `Width`, now sizes the client area correctly
+  at every scale.
 - **Ours:** `ClientRectangle` is built from `GetScaledBounds(Bounds, ScaleFactor)` (device pixels) while `Bounds`,
   `Size`, `DisplayRectangle`, `Location` and all mouse coordinates are logical (`src/Majorsilence.Forms/Control.cs:289-302`,
   `:1651-1660`, `WindowBase.cs:1063-1064` uses `DeviceToLogical`). The `ClientSize` setter computes `border = Width -

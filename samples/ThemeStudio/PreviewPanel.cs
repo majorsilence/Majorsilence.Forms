@@ -197,19 +197,20 @@ namespace ThemeStudio
         public static int PreferredHeight
             => 10 + (ThemeCssReference.Tokens.Count + 2 + ThemeCssReference.Parts.Sum (p => p.Part.SupportsHover ? 2 : 1)) * RowHeight + 10;
 
+        // Drawn in logical units, like Width and the mouse: OnPaint's canvas is scaled to the display.
         protected override void OnPaint (PaintEventArgs e)
         {
             base.OnPaint (e);
 
-            var rowHeight = LogicalToDeviceUnits (RowHeight);
-            var swatch = LogicalToDeviceUnits (44);
-            var left = LogicalToDeviceUnits (12);
-            var y = LogicalToDeviceUnits (10);
-            var fontSize = LogicalToDeviceUnits (12);
+            var rowHeight = RowHeight;
+            var swatch = 44;
+            var left = 12;
+            var y = 10;
+            var fontSize = 12;
             var font = Theme.UIFont;
             var foreground = GetEffectiveForeground ();
-            var nameWidth = LogicalToDeviceUnits (280);
-            var valueWidth = LogicalToDeviceUnits (210);
+            var nameWidth = 280;
+            var valueWidth = 210;
             var border = Theme.BorderLowColor;
 
             foreach (var token in ThemeCssReference.Tokens) {
@@ -217,17 +218,17 @@ namespace ThemeStudio
 
                 if (token.Kind == ThemeCssValueKind.Color) {
                     var color = (SKColor) typeof (Theme).GetProperty (token.PropertyName)!.GetValue (null)!;
-                    e.Canvas.FillRectangle (left, y, swatch, rowHeight - LogicalToDeviceUnits (6), color);
-                    e.Canvas.DrawRectangle (left, y, swatch, rowHeight - LogicalToDeviceUnits (6), border);
+                    e.Canvas.FillRectangle (left, y, swatch, rowHeight - 6, color);
+                    e.Canvas.DrawRectangle (left, y, swatch, rowHeight - 6, border);
                 }
 
-                var textBounds = new Rectangle (left + swatch + LogicalToDeviceUnits (10), y, nameWidth, rowHeight - LogicalToDeviceUnits (6));
+                var textBounds = new Rectangle (left + swatch + 10, y, nameWidth, rowHeight - 6);
                 e.Canvas.DrawText (token.Name, font, fontSize, textBounds, foreground, ContentAlignment.MiddleLeft);
 
                 var valueBounds = new Rectangle (textBounds.Right, y, valueWidth, textBounds.Height);
                 e.Canvas.DrawText (value, font, fontSize, valueBounds, foreground, ContentAlignment.MiddleLeft);
 
-                var descriptionBounds = new Rectangle (valueBounds.Right, y, Math.Max (0, ScaledSize.Width - valueBounds.Right - left), textBounds.Height);
+                var descriptionBounds = new Rectangle (valueBounds.Right, y, Math.Max (0, Width - valueBounds.Right - left), textBounds.Height);
                 e.Canvas.DrawText (token.Description, font, fontSize, descriptionBounds, Theme.ForegroundDisabledColor, ContentAlignment.MiddleLeft, maxLines: 1, ellipsis: true);
 
                 y += rowHeight;
@@ -235,9 +236,9 @@ namespace ThemeStudio
 
             // Parts: the current background (left half) and text colour (right half) of each
             // `Selector::part`, so a designer sees which pseudo-element paints which piece.
-            y += LogicalToDeviceUnits (8);
+            y += 8;
             e.Canvas.DrawText ("Parts (Selector::part) -- background | text", Theme.UIFontBold, fontSize,
-                new Rectangle (left, y, LogicalToDeviceUnits (600), rowHeight), foreground, ContentAlignment.MiddleLeft);
+                new Rectangle (left, y, 600, rowHeight), foreground, ContentAlignment.MiddleLeft);
             y += rowHeight;
 
             foreach (var (selector, part) in ThemeCssReference.Parts) {
@@ -253,7 +254,7 @@ namespace ThemeStudio
 
         private void DrawPartRow (PaintEventArgs e, string name, ControlStyle style, string description, int left, int y, int swatch, int rowHeight, int nameWidth, int valueWidth, int fontSize, SKTypeface font, SKColor foreground, SKColor border)
         {
-            var height = rowHeight - LogicalToDeviceUnits (6);
+            var height = rowHeight - 6;
             var half = swatch / 2;
 
             // A part with no background of its own shows the strip/list behind it; draw that as a gap.
@@ -262,14 +263,14 @@ namespace ThemeStudio
             e.Canvas.FillRectangle (left + half, y, swatch - half, height, style.GetForegroundColor ());
             e.Canvas.DrawRectangle (left, y, swatch, height, border);
 
-            var textBounds = new Rectangle (left + swatch + LogicalToDeviceUnits (10), y, nameWidth, height);
+            var textBounds = new Rectangle (left + swatch + 10, y, nameWidth, height);
             e.Canvas.DrawText (name, font, fontSize, textBounds, foreground, ContentAlignment.MiddleLeft);
 
             var valueBounds = new Rectangle (textBounds.Right, y, valueWidth, height);
             var value = (style.BackgroundColor is { } bg ? ThemeCssValueText (bg) : "(inherits)") + " | " + ThemeCssValueText (style.GetForegroundColor ());
             e.Canvas.DrawText (value, font, fontSize, valueBounds, foreground, ContentAlignment.MiddleLeft);
 
-            var descriptionBounds = new Rectangle (valueBounds.Right, y, Math.Max (0, ScaledSize.Width - valueBounds.Right - left), height);
+            var descriptionBounds = new Rectangle (valueBounds.Right, y, Math.Max (0, Width - valueBounds.Right - left), height);
             e.Canvas.DrawText (description, font, fontSize, descriptionBounds, Theme.ForegroundDisabledColor, ContentAlignment.MiddleLeft, maxLines: 1, ellipsis: true);
         }
 
