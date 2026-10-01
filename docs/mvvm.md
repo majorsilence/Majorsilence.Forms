@@ -34,6 +34,24 @@ property. It returns an `IDisposable`.
   shows an older value after a newer one.
 - Disposing stops it and drops any push already queued but not yet run.
 
+## Two-way: `BindText`, `BindChecked`, `BindSelectedIndex`, `BindValue`
+
+```csharp
+nameBox.BindText (viewModel, nameof (ProfileViewModel.Name), vm => vm.Name, (vm, value) => vm.Name = value).AddTo (scope);
+```
+
+Each keeps one input control and one view model property equal in both directions: `TextBox.Text`, `CheckBox.Checked`,
+`ComboBox.SelectedIndex` and `NumericUpDown.Value`. Like `Observe` it names the property with `nameof` and reads and writes it with
+lambdas, so there is no reflection and nothing to root under trimming or NativeAOT.
+
+- The control is written to only when its value differs, so typing does not move the caret.
+- Writing to a control raises its change event, and writing to the view model raises `PropertyChanged`. While one direction is being
+  applied the other is ignored, so the two cannot trigger each other. The consequence to know: if a view model rewrites what it is
+  given (upper-casing, trimming), the control keeps what the person typed until the view model next raises a change of its own. Rewrite
+  the displayed text from the view model's side if that is wanted.
+- View model changes are marshalled to the UI thread like `Observe`. The control's own events already run there.
+- A `NumericUpDown` is clamped to its minimum and maximum, as the control itself does.
+
 ## `BindCommand`
 
 `control.BindCommand (command, parameter)` sets `Enabled` from `CanExecute` now and whenever `CanExecuteChanged` is raised, and runs
@@ -73,8 +91,6 @@ queues what it is given lets a test prove that work is marshalled, and run it wh
   NativeAOT smoke test.
 - The tests use a fake dispatcher. The default dispatcher is tested only for `CheckAccess` on the Headless backend; posting through a
   real backend is what `Application.RunOnUIThread` already does.
-- **Two-way text is not included.** The framework's own `DataBindings` does it but is reflective (see "Trimming and NativeAOT" in
-  `docs/backends.md`). The sample shows the by-hand form for the direction from control to view model:
-  `textBox.TextChanged += (_, _) => vm.Name = textBox.Text;`. A text box that the view model can also change (for example by
-  normalising what it is given) needs `Observe` writing back into it as well, and a guard so the two updates do not trigger each
-  other; that guard is not provided.
+- **Two-way covers four controls**: `TextBox`, `CheckBox`, `ComboBox` and `NumericUpDown`. Others (a `TrackBar`, a `DateTimePicker`, a
+  radio group) are wired by hand, or with `Observe` for one direction and the control's event for the other.
+- The framework's own `DataBindings` also does two-way but is reflective (see "Trimming and NativeAOT" in `docs/backends.md`).
