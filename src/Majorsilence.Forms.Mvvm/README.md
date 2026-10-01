@@ -20,6 +20,8 @@ scope.Dispose ();
 ```
 
 - **`Observe`** takes the property name (`nameof`) and a lambda that reads it, so nothing is looked up by string at run time.
+- **`BindText`, `BindChecked`, `BindSelectedIndex` and `BindValue`** keep a `TextBox`, `CheckBox`, `ComboBox` or `NumericUpDown` equal to a
+  view model property in both directions, with a guard so the two updates cannot trigger each other.
 - **`BindCommand`** works on any `Control`, including custom-painted ones, and on menu and tool strip items. A `Button` or a
   `ToolStripItem` can also take a command through its own `Command` property; use one or the other on a control.
 - **`BindingScope`** disposes every binding it collected, latest first.
