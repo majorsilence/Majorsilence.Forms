@@ -285,7 +285,10 @@ dotnet run --project samples/ThemeStudio -- --render-headless out.png samples/Th
 ```
 
 The last form renders the preview to a PNG with no display (tabs: 0 inputs, 1 lists and grids,
-2 menus and chrome, 3 token swatches) and exits non-zero if the theme has errors.
+2 menus and chrome, 3 token swatches, 4 native Avalonia) and exits non-zero if the theme has errors.
+`--tab` also opens the window on that tab. Tab 4 hosts real Avalonia controls, themed by the same sheet
+through `Majorsilence.Forms.Theming.Avalonia` (see [theming-avalonia.md](theming-avalonia.md)). They
+exist only on the Avalonia backend, so a headless render shows a note there instead.
 
 `samples/ThemeStudio/Themes/` ships example themes to start from: `light.css` and `dark.css` (a
 matched light/dark pair sharing one accent and identical control rules, so an app can switch modes
@@ -322,9 +325,12 @@ dotnet run --project samples/EmbeddingGtk4       # needs a display + GTK 4
 ```
 
 Each window puts native host controls and an embedded Majorsilence.Forms scene side by side, and
-demonstrates the embedding seams (`EmbeddingWinForms` also themes both halves from one stylesheet,
-`Themes/graphite.css`, through `WinFormsCssTheme` — see [theming-winforms.md](theming-winforms.md);
-pass `--no-theme` for the untreated look):
+demonstrates the embedding seams. `EmbeddingWinForms` also themes both halves from one stylesheet,
+`Themes/graphite.css`, through `WinFormsCssTheme` (see [theming-winforms.md](theming-winforms.md));
+pass `--no-theme` for the untreated look. `EmbeddingAvalonia` does the same through `AvaloniaCssTheme`:
+its **Apply ocean.css** button, or `--theme file.css`, applies one stylesheet to both halves, and
+`--render-headless out.png` draws the window offscreen and exits (see
+[theming-avalonia.md](theming-avalonia.md)):
 
 - `ToAvaloniaControl()` / `ToUnoControl()` / `ToWinFormsControl()` / `ToGtkWidget()` — a Majorsilence
   control hosted as a native one via `MajorsilenceFormsPresenter`.

@@ -50,6 +50,31 @@ Majorsilence.Forms side (`Theme.LoadFromCss`, `Theme.ApplyTheme`) is mirrored on
 `Theme.StyleSheetApplied`. `Majorsilence.Forms.Theming.WinForms` does the same, so one
 `Theme.LoadFromCss` in a process that uses both reaches all three hosts.
 
+### Both halves, one sheet
+
+![EmbeddingAvalonia with ocean.css: native Avalonia controls above, the embedded Majorsilence.Forms scene below](embedding-avalonia-ocean.png)
+
+`samples/EmbeddingAvalonia` is an Avalonia window with native controls above and an embedded
+Majorsilence.Forms scene below (`MajorsilenceFormsPresenter`). Its **Apply ocean.css** button, or
+`--theme`, applies one stylesheet to both halves. The picture above was made offscreen by the sample
+itself:
+
+```bash
+dotnet run --project samples/EmbeddingAvalonia -- --theme samples/ThemeStudio/Themes/ocean.css
+dotnet run --project samples/EmbeddingAvalonia -- --render-headless out.png --theme samples/ThemeStudio/Themes/ocean.css
+```
+
+The embedded presenter calls `MajorsilenceFormsTheme.FollowHost`, which keeps the Majorsilence theme in
+step with the host's light/dark variant. **A CSS theme wins over following the host.** On a variant
+change the matching built-in theme is put under the applied sheet and the sheet re-applied, so the
+sheet's own tokens stay, what it leaves unset follows the host, and a sheet that `extends Light` or
+`Dark` keeps that base. This matters because applying a sheet here sets `RequestedThemeVariant`
+itself: before #104, that variant change reset the embedded half to a built-in theme the moment the
+sheet was applied.
+
+Theme Studio has the same pairing on its **Native Avalonia** tab (`--tab 4`): one of each mapped
+native control, restyled by every edit next to the Majorsilence preview.
+
 ## How it works
 
 Avalonia's Fluent control themes read their colours through `{DynamicResource}` keys and bind their

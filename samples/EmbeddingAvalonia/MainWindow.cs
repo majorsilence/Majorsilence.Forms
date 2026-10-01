@@ -48,8 +48,15 @@ public sealed class MainWindow : Window
             var window = CF.AvaloniaHostInterop.ToAvaloniaWindow (form);
             await window.ShowDialog (this);   // ShowDialog sets Owner internally.
         };
+        // One stylesheet, both hosts: the native controls above and the embedded scene below restyle together.
+        var cssButton = new Button { Content = "Apply ocean.css" };
+        cssButton.Click += (_, _) => {
+            var path = System.IO.Path.Combine (System.AppContext.BaseDirectory, "Themes", "ocean.css");
+            Majorsilence.Forms.Theming.Avalonia.AvaloniaCssTheme.Apply (System.IO.File.ReadAllText (path));
+        };
         nativeRow.Children.Add (nativeBox);
         nativeRow.Children.Add (themeButton);
+        nativeRow.Children.Add (cssButton);
         nativeRow.Children.Add (dialogButton);
 
         var divider = new Border {

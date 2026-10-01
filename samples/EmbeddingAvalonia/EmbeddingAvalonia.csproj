@@ -9,6 +9,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
     <ProjectReference Include="..\..\src\Majorsilence.Forms.Avalonia\Majorsilence.Forms.Avalonia.csproj" />
+    <!-- One stylesheet for both halves of the window: native Avalonia controls and the embedded scene (#104). -->
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Theming.Avalonia\Majorsilence.Forms.Theming.Avalonia.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -16,6 +18,13 @@
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="Avalonia.Fonts.Inter" />
+    <!-- For the render-headless switch: draws the window offscreen with Skia and writes a PNG, no display needed. -->
+    <PackageReference Include="Avalonia.Headless" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The Theme Studio's sample theme, so "Apply ocean.css" works from the output directory. -->
+    <None Include="..\ThemeStudio\Themes\ocean.css" Link="Themes\ocean.css" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
