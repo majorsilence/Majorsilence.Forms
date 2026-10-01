@@ -212,7 +212,13 @@ namespace Majorsilence.Forms
         protected override void OnMouseClick (MouseEventArgs e)
         {
             base.OnMouseClick (e);
+            ClickItemAt (e);
+        }
 
+        // Clicks the item under the pointer -- for a click, and for the second release of a double-click
+        // on an item that is not DoubleClickEnabled.
+        private void ClickItemAt (MouseEventArgs e)
+        {
             var clicked_item = GetItemAtLocation (e.Location);
 
             // Clicking the currently dropped down item releases the menu. Only an item WITH a drop-down:
@@ -262,7 +268,14 @@ namespace Majorsilence.Forms
         protected override void OnDoubleClick (MouseEventArgs e)
         {
             base.OnDoubleClick (e);
-            (GetItemAtLocation (e.Location) as ToolStripItem)?.RaiseDoubleClick (e);
+
+            // The strip's second release is a DoubleClick (EVT-01), but its items keep their own rule:
+            // upstream ToolStripItem.HandleMouseUp raises DoubleClick only on a DoubleClickEnabled item and
+            // a plain Click on any other, so a fast second click on a toolbar button still clicks it.
+            if (GetItemAtLocation (e.Location) is ToolStripItem { DoubleClickEnabled: true } item)
+                item.RaiseDoubleClick (e);
+            else
+                ClickItemAt (e);
         }
 
         /// <inheritdoc/>
