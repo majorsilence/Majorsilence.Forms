@@ -22,7 +22,16 @@ independent statements".
 Counts: **38 findings — 4 P0, 15 P1, 18 P2, 1 P3.**
 
 ## Findings
-### EVT-01 — `WindowBase.HandlePointerReleased` / `Control.RaiseClick` — Cat A — P0 — High
+### EVT-01 — `WindowBase.HandlePointerReleased` / `Control.RaiseClick` — Cat A — P0 — High — **CLOSED (2026-10-01)**
+- **Fix (applied):** the release that completes a double-click is now one or the other, decided at the
+  target in `Control.RaiseClick`: `DoubleClick` + `MouseDoubleClick` when the control has
+  `ControlStyles.StandardDoubleClick`, a plain `Click` + `MouseClick` when it does not. `Button`,
+  `CheckBox` and `RadioButton` turn the style off, as upstream does (`Button.cs:39`, `CheckBox.cs:45`;
+  upstream `RadioButton` turns `StandardClick` off and clicks from `OnMouseUp`, to the same effect), so a
+  double-clicked button really is clicked twice and a double-clicked check box toggles twice -- the
+  finding's "Save submits twice" is WinForms behaviour for a `Button`, and stays. Strip items keep their
+  own rule (upstream `ToolStripItem.HandleMouseUp`): a `DoubleClickEnabled` item gets `DoubleClick`,
+  any other a second `Click`. Tests: `DoubleClickExclusiveTests`.
 Double-click raises `Click`/`MouseClick` **in addition to** `DoubleClick`/`MouseDoubleClick`.
 
 - **Ours:** on pointer release, `BuildMouseClickArgs` computes `Clicks`, then
@@ -320,7 +329,11 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
   panel.Controls.Add (t);` assert `n == 0`.
 - **Tests today:** none.
 
-### EVT-14 — Parent never gets `MouseLeave` when the pointer moves onto one of its children — Cat A — P1 — High
+### EVT-14 — Parent never gets `MouseLeave` when the pointer moves onto one of its children — Cat A — P1 — High — **CLOSED (2026-10-01)**
+- **Fix (applied):** a control tracks whether the pointer is over its own area. Moving from there onto a
+  child leaves it, moving back enters it, and leaving from over a child leaves only the child. Also
+  fixed: a control entered with the pointer already over a child entered that child twice (the entry was
+  not recorded, so the next move entered it again). Tests: `MouseEnterLeavePairingTests`.
 - **Ours:** `Control.RaiseMouseMove` only raises `MouseLeave` on the *previous child*
   (`current_mouse_in`), never on `this`. Moving from the parent's own area onto a child hits
   `current_mouse_in == null`, so the first `if` is skipped entirely and the parent's `OnMouseLeave` is
@@ -420,7 +433,13 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
   running a render pass; assert the new text is already drawn.
 - **Tests today:** none.
 
-### EVT-19 — `Click` fires even when the button is released outside the control — Cat A — P1 — High
+### EVT-19 — `Click` fires even when the button is released outside the control — Cat A — P1 — High — **CLOSED (2026-10-01)**
+- **Fix (applied):** an earlier change put `MouseUp` (which releases the capture) before `Click`, so a
+  drag off a button no longer clicked it -- but the click was then hit-tested at the release point, so
+  a press on one button and a release on another clicked the second, and a release on the form clicked
+  the form. The window now records the control a press landed on, and a release clicks only that
+  control (a press in another window, such as a drag from a menu bar into its drop-down, is left
+  alone). Test: `DoubleClickExclusiveTests.A_press_on_one_control_and_a_release_on_another_clicks_neither`.
 - **Ours:** on release, `Control.RaiseClick` hands the click to `Controls.FindCapturedChild ()` first
   and returns — with no test of whether the release point is inside that control
   (`src/Majorsilence.Forms/Control.cs:1743-1751`). Since `RaiseMouseDown` sets `Capture = true` on the
@@ -775,7 +794,9 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
   render; assert the red block starts at the client origin, not at pixel (0,0).
 - **Tests today:** none.
 
-### EVT-39 — `WindowBase.HandleLongPress` routes device pixels against logical bounds — Cat A — P1 — High
+### EVT-39 — `WindowBase.HandleLongPress` routes device pixels against logical bounds — Cat A — P1 — High — **CLOSED (2026-10-01)**
+- **Already fixed** before this pass: `HandleLongPress` converts the gesture point with `DeviceToLogical`
+  before routing (`WindowBase.HandleLongPressCore`), as the pinch and swipe entry points do.
 - **Ours:** the gesture entry points take DEVICE pixels (a backend multiplies by render scaling before
   calling them), but `Control.RaiseLongPress` routes by `Controls.FindVisibleChildAt (e.Location)`,
   which tests `c.Bounds.Contains (location)` against LOGICAL bounds

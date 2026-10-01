@@ -2118,6 +2118,25 @@ namespace Majorsilence.Forms
             if (!GetStyle (ControlStyles.StandardClick))
                 return;
 
+            // Pressed somewhere else: a release here is the end of a drag, not a click on this control.
+            // Asked only of a release the window is dispatching, and only when it recorded the press; a
+            // click raised directly, rather than by the pointer, counts. A press in ANOTHER window is left
+            // alone: dragging from a menu bar into its drop-down (a separate popup window) and releasing
+            // on an item selects it, as upstream's ToolStripItem.HandleMouseUp allows.
+            if (in_release && press_target is { } pressed && !ReferenceEquals (pressed, this)
+                && ReferenceEquals (pressed.FindWindow (), FindWindow ()))
+                return;
+
+            // The release that completes a double-click is EITHER a DoubleClick or a Click, never both
+            // (EVT-01). Upstream WmMouseUp raises DoubleClick + MouseDoubleClick only when the press was a
+            // WM_LBUTTONDBLCLK on a control with ControlStyles.StandardDoubleClick (DoubleClickFired), and
+            // Click + MouseClick otherwise -- so a control that turns the style off, as Button, CheckBox
+            // and RadioButton do, gets a second plain Click instead (Control.cs, WmMouseUp).
+            if (e.Clicks > 1 && GetStyle (ControlStyles.StandardDoubleClick)) {
+                OnDoubleClick (e);
+                return;
+            }
+
             // WinForms order: Click first, then the typed MouseClick.
             OnClick (e);
             OnMouseClick (e);
@@ -2258,6 +2277,8 @@ namespace Majorsilence.Forms
                 if (Enabled) {
                     Select ();
                     Capture = true;
+                    if (tracking_press)
+                        press_target = this;
 
                     if (e.Button == MouseButtons.Left)
                         IsPressed = true;
@@ -2265,6 +2286,38 @@ namespace Majorsilence.Forms
                     OnMouseDown (e);
                 }
             }
+        }
+
+        // The control the current press landed on, until its release. A click is a press and a release
+        // on the SAME control: upstream WmMouseUp fires Click only when the control has MousePressed --
+        // set by its own WM_xBUTTONDOWN -- and the release is over its own window (EVT-19). Here the
+        // capture is released by MouseUp before Click is raised, so the click is hit-tested at the
+        // release point, and without this a press on one button and a release on another clicked the
+        // second one (and a release on the form clicked the form).
+        private static Control? press_target;
+
+        // Only presses the window dispatches are tracked: code (and tests) raising RaiseMouseDown directly
+        // never gets the matching release that would clear the record.
+        private static bool tracking_press;
+
+        // Called by the window before it dispatches a press...
+        internal static void BeginPress ()
+        {
+            tracking_press = true;
+            press_target = null;
+        }
+
+        // Set while the window dispatches a release, the only time the press is asked about.
+        private static bool in_release;
+
+        internal static void BeginRelease () => in_release = true;
+
+        // ...and once its release has been dispatched.
+        internal static void EndPress ()
+        {
+            tracking_press = false;
+            in_release = false;
+            press_target = null;
         }
 
         /// <summary>
@@ -2308,14 +2361,44 @@ namespace Majorsilence.Forms
         {
             var child = Controls.FindVisibleChildAt (e.Location);
 
-            if (child != null)
+            if (child != null) {
+                // Recorded, so the move that follows does not enter the same child a second time.
+                current_mouse_in = child;
                 child.RaiseMouseEnter (TranslateMouseEvents (e, child));
-            else if (Enabled) {
+            } else {
+                EnterOwnArea (e);
+            }
+        }
+
+        // Whether the pointer is over this control's own area rather than over one of its children. In
+        // WinForms every control is its own window, so enter and leave come in pairs per control: moving
+        // from a parent's area onto a child LEAVES the parent, and moving back enters it again (EVT-14).
+        private bool mouse_in_own_area;
+
+        private void EnterOwnArea (MouseEventArgs e)
+        {
+            if (mouse_in_own_area)
+                return;
+
+            mouse_in_own_area = true;
+
+            if (Enabled) {
                 // OnMouseEnter takes EventArgs, as in WinForms, so the position the pointer entered at
                 // is recorded here for the few consumers (ToolTip) that need to place something at it.
                 LastMousePosition = e.Location;
                 OnMouseEnter (e);
             }
+        }
+
+        private void LeaveOwnArea (EventArgs e)
+        {
+            if (!mouse_in_own_area)
+                return;
+
+            mouse_in_own_area = false;
+
+            if (Enabled)
+                OnMouseLeave (e);
         }
 
         /// <summary>
@@ -2330,13 +2413,13 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void RaiseMouseLeave (EventArgs e)
         {
+            // Leaving from over a child leaves only the child: this control was already left when the
+            // pointer moved onto it.
             if (current_mouse_in != null)
                 current_mouse_in.RaiseMouseLeave (e);
 
             current_mouse_in = null;
-
-            if (Enabled)
-                OnMouseLeave (e);
+            LeaveOwnArea (e);
         }
 
         /// <summary>
@@ -2380,15 +2463,17 @@ namespace Majorsilence.Forms
             if (current_mouse_in != null && current_mouse_in != child) {
                 current_mouse_in.RaiseMouseLeave (e);
                 current_mouse_in = null;
-
-                // If we are leaving a child and not entering another child,
-                // we need to raise MouseEnter on this control
-                if (child == null)
-                    OnMouseEnter (e);
             }
 
-            if (current_mouse_in == null && child != null)
+            if (child == null) {
+                // Back on (or still on) this control's own area.
+                EnterOwnArea (e);
+            } else if (current_mouse_in == null) {
+                // From this control's own area onto a child: leave this one first, as WinForms does.
+                LeaveOwnArea (e);
+                current_mouse_in = child;
                 child.RaiseMouseEnter (TranslateMouseEvents (e, child));
+            }
 
             current_mouse_in = child;
 
