@@ -769,7 +769,14 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
   `ValidateChildren ()` is false and *both* `Validating` handlers ran.
 - **Tests today:** none.
 
-### EVT-37 — `PaintEventArgs.Graphics` is in DEVICE pixels while every control property is logical — Cat A — P1 — High
+### EVT-37 — `PaintEventArgs.Graphics` is in DEVICE pixels while every control property is logical — Cat A — P1 — High — **CLOSED (2026-10-01)**
+- **Fix (applied, a decision as much as a fix):** application paint code (`OnPaint`, `OnPaintBackground`,
+  `Paint` handlers, `OnPrint`, and a `Form`'s own) now draws on a canvas scaled to logical units, so
+  `e.Graphics`, `e.Canvas` and `e.ClipRectangle` are in the same units as `Width`/`Height`. The scope is
+  restored before the children are composited, which also stops a transform a handler leaves behind from
+  reaching them. The library's own drawing runs in an explicit device-pixel scope (`RenderManager.Render`,
+  the default background and border, and the overrides that draw on `e.Canvas`). Owner-draw events
+  are still device pixels (BACKLOG). Tests: `LogicalPaintingTests`.
 - **Ours:** the paint canvas for a control is created at `control.ScaledSize` and handed over with no
   transform: `new SKImageInfo (control.ScaledSize.Width, control.ScaledSize.Height, ...)`,
   `new SKCanvas (buffer)`, `new PaintEventArgs (info, canvas, Scaling)`

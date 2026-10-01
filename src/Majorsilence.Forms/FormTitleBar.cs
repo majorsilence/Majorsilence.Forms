@@ -390,6 +390,7 @@ namespace Majorsilence.Forms
             protected override void OnPaint (PaintEventArgs e)
             {
                 base.OnPaint (e);
+                using var device = e.DeviceSpace ();   // laid out in device pixels (EVT-37)
 
                 if (IsHovering && Enabled)
                     e.Canvas.Clear (glyph == TitleBarButtonGlyph.Close ? Theme.WarningHighlightColor : Theme.AccentColor);
@@ -402,8 +403,8 @@ namespace Majorsilence.Forms
                     e.Canvas.SaveLayer (dim);
 
                 var glyph_bounds = glyph == TitleBarButtonGlyph.Minimize ?
-                    DrawingExtensions.CenterRectangle (ClientRectangle, e.LogicalToDeviceUnits (new Size (BUTTON_PADDING, 1))) :
-                    DrawingExtensions.CenterSquare (ClientRectangle, e.LogicalToDeviceUnits (BUTTON_PADDING));
+                    DrawingExtensions.CenterRectangle (DeviceClientRectangle, e.LogicalToDeviceUnits (new Size (BUTTON_PADDING, 1))) :
+                    DrawingExtensions.CenterSquare (DeviceClientRectangle, e.LogicalToDeviceUnits (BUTTON_PADDING));
 
                 switch (glyph) {
                     case TitleBarButtonGlyph.Close:
@@ -419,7 +420,7 @@ namespace Majorsilence.Forms
                         ControlPaint.DrawRestoreGlyph (e, glyph_bounds);
                         break;
                     case TitleBarButtonGlyph.Help:
-                        e.Canvas.DrawText ("?", Theme.UIFont, e.LogicalToDeviceUnits (Theme.FontSize + 2), ClientRectangle,
+                        e.Canvas.DrawText ("?", Theme.UIFont, e.LogicalToDeviceUnits (Theme.FontSize + 2), DeviceClientRectangle,
                             Theme.ForegroundColorOnAccent, ContentAlignment.MiddleCenter);
                         break;
                 }

@@ -16,7 +16,7 @@ namespace Majorsilence.Forms.Renderers
 
             // The legacy bar's Divider: a rule along the top edge (W6 mechanisms).
             if (control.LegacyChrome && control.Divider) {
-                var client = control.ClientRectangle;
+                var client = control.DeviceClientRectangle;
                 e.Canvas.DrawLine (client.Left, client.Top, client.Right, client.Top, Theme.BorderLowColor, Math.Max (1, e.LogicalToDeviceUnits (1)));
             }
 

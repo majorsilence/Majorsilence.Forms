@@ -236,7 +236,7 @@ namespace Majorsilence.Forms
         /// </summary>
         internal Rectangle ItemsArea {
             get {
-                var client = ClientRectangle;
+                var client = DeviceClientRectangle;
                 var width = client.Width - (vscrollbar.Visible ? vscrollbar.ScaledWidth : 0);
                 var height = client.Height - (hscrollbar.Visible ? hscrollbar.ScaledHeight : 0);
                 return new Rectangle (client.Left, client.Top, Math.Max (0, width), Math.Max (0, height));
@@ -749,7 +749,7 @@ namespace Majorsilence.Forms
             if (BackBufferPixels is not { } buffer || buffer.Width != ScaledSize.Width || buffer.Height != ScaledSize.Height)
                 return false;   // no existing frame to shift (never painted yet, or just resized)
 
-            var client = ClientRectangle;
+            var client = DeviceClientRectangle;
             var contentWidth = client.Width - (vscrollbar.Visible ? vscrollbar.ScaledWidth : 0);
             if (contentWidth <= 0 || Math.Abs (shiftPx) >= client.Height)
                 return false;
@@ -958,7 +958,7 @@ namespace Majorsilence.Forms
                 return height;
 
             var item = Math.Max (1, ItemHeight);
-            var chrome = Math.Max (0, Height - DeviceToLogicalUnits (ClientRectangle.Height));
+            var chrome = Math.Max (0, Height - DeviceToLogicalUnits (DeviceClientRectangle.Height));
             var rows = Math.Max (1, (height - chrome) / item);
 
             return rows * item + chrome;
@@ -1476,7 +1476,7 @@ namespace Majorsilence.Forms
         // A single-column list with HorizontalScrollbar: the bar spans the extent in device pixels.
         private void UpdateHorizontalScrollBar ()
         {
-            var visible_width = ClientRectangle.Width - (vscrollbar.Visible ? vscrollbar.ScaledWidth : 0);
+            var visible_width = DeviceClientRectangle.Width - (vscrollbar.Visible ? vscrollbar.ScaledWidth : 0);
             var extent = horizontal_scrollbar ? ScaledHorizontalExtent : 0;
             var show = extent > visible_width && visible_width > 0;
 

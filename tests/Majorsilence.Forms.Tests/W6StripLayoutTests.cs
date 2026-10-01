@@ -269,7 +269,7 @@ public class W6StripLayoutTests
         form.Show ();
         panel.PerformLayout ();
 
-        var area = panel.ClientRectangle;
+        var area = panel.DeviceClientRectangle;
         Assert.True (menu.Stretch);
         Assert.Equal (area.Width - panel.RowMargin.Horizontal, menu.Width);
         Assert.False (toolbar.Stretch);

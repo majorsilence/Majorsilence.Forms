@@ -196,7 +196,7 @@ namespace Majorsilence.Forms
         /// </remarks>
         protected Rectangle LogicalClientRectangle {
             get {
-                var r = ClientRectangle;
+                var r = DeviceClientRectangle;
                 return new Rectangle (
                     DeviceToLogicalUnits (r.X), DeviceToLogicalUnits (r.Y),
                     DeviceToLogicalUnits (r.Width), DeviceToLogicalUnits (r.Height));

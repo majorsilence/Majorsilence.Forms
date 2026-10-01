@@ -40,6 +40,7 @@ namespace Majorsilence.Forms
 
             protected override void OnPaint (PaintEventArgs e)
             {
+                using var device = e.DeviceSpace ();   // laid out in device pixels (EVT-37)
                 if (Owner is { OwnerDraw: true } owner && owner.RaiseDraw (this, e))
                     return;
 

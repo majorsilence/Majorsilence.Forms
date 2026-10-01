@@ -78,6 +78,10 @@
         public static void Render<T> (T control, PaintEventArgs e) where T : Control
         {
             var renderer = GetRenderer<Renderer> (control);
+
+            // Renderers lay out in device pixels; this runs from inside an OnPaint override, where the
+            // canvas is in logical units for application code (EVT-37).
+            using var device = e.DeviceSpace ();
             renderer?.Render (control, e);
         }
 

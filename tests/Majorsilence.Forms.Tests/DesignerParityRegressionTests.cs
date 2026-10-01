@@ -96,7 +96,7 @@ namespace Majorsilence.Forms.Tests
 
             var layout = TextImageLayoutEngine.Layout (label);
 
-            Assert.Equal (label.ClientRectangle, layout.Field);
+            Assert.Equal (label.DeviceClientRectangle, layout.Field);
             Assert.Equal (16, layout.Field.Height);
         }
 
@@ -195,7 +195,7 @@ namespace Majorsilence.Forms.Tests
             view.PerformLayout ();
 
             var tabs = view.TabStrip.Tabs;
-            var share = view.DeviceToLogicalUnits (view.ClientRectangle.Width) / 2;
+            var share = view.DeviceToLogicalUnits (view.DeviceClientRectangle.Width) / 2;
 
             Assert.Equal (share, tabs[0].Bounds.Width);
             Assert.Equal (share, tabs[1].Bounds.Width);

@@ -416,7 +416,7 @@ namespace Majorsilence.Forms
         /// <summary>The device rectangle the property rows are drawn in.</summary>
         internal Rectangle ViewBounds {
             get {
-                var client = ClientRectangle;
+                var client = DeviceClientRectangle;
                 var top = client.Top + (ToolbarVisible ? toolbar.ScaledHeight : 0);
                 var bottom = client.Bottom - ScaledHelpHeight - ScaledCommandsHeight;
                 return new Rectangle (client.Left, top, client.Width, Math.Max (0, bottom - top));
@@ -431,7 +431,7 @@ namespace Majorsilence.Forms
                 if (height == 0)
                     return Rectangle.Empty;
 
-                var client = ClientRectangle;
+                var client = DeviceClientRectangle;
                 return new Rectangle (client.Left, client.Bottom - ScaledHelpHeight - height, client.Width, height);
             }
         }
@@ -444,7 +444,7 @@ namespace Majorsilence.Forms
                 if (height == 0)
                     return Rectangle.Empty;
 
-                var client = ClientRectangle;
+                var client = DeviceClientRectangle;
                 return new Rectangle (client.Left, client.Bottom - height, client.Width, height);
             }
         }

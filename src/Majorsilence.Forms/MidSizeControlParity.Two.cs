@@ -197,7 +197,7 @@ namespace Majorsilence.Forms
         public int VisibleCount {
             get {
                 var itemHeight = Math.Max (1, ItemHeight);
-                return Math.Max (0, ClientRectangle.Height / itemHeight);
+                return Math.Max (0, DeviceClientRectangle.Height / itemHeight);
             }
         }
 
@@ -214,7 +214,7 @@ namespace Majorsilence.Forms
             // saw: the expander indent measured twice its real width at scale 2, so clicks on a node's
             // LABEL came back as PlusMinus and the standard "did they hit the expander?" test broke.
             // Converted once here; everything below this line is logical.
-            if (!DeviceToLogicalUnits (ClientRectangle).Contains (pt))
+            if (!DeviceToLogicalUnits (DeviceClientRectangle).Contains (pt))
                 return new TreeViewHitTestInfo (null, TreeViewHitTestLocations.None);
 
             // GetNodeAt returns the library's TreeNode; TreeNode is the WinForms-named subclass

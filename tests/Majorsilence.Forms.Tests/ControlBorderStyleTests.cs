@@ -53,12 +53,12 @@ namespace Majorsilence.Forms.Tests
             using (form) {
                 Assert.Equal (BorderStyle.Fixed3D, BorderStyleOf (control));
 
-                Assert.Equal (Framed (control), control.ClientRectangle);
+                Assert.Equal (Framed (control), control.DeviceClientRectangle);
 
                 SetBorderStyle (control, BorderStyle.None);
 
                 var bounds = control.ScaledBounds;
-                Assert.Equal (new Rectangle (0, 0, bounds.Width, bounds.Height), control.ClientRectangle);
+                Assert.Equal (new Rectangle (0, 0, bounds.Width, bounds.Height), control.DeviceClientRectangle);
             }
         }
 
@@ -78,14 +78,14 @@ namespace Majorsilence.Forms.Tests
                 // Not Framed (control): a ToolBar already carries a themed 1px rule along its bottom
                 // edge, so "no border style" is not the same as "no inset anywhere" for every control
                 // here. What all three share is that nothing is inset at the top-left yet.
-                var bare = control.ClientRectangle;
+                var bare = control.DeviceClientRectangle;
                 Assert.Equal (0, bare.X);
                 Assert.Equal (0, bare.Y);
                 Assert.NotEqual (Framed (control), bare);
 
                 SetBorderStyle (control, BorderStyle.FixedSingle);
 
-                Assert.Equal (Framed (control), control.ClientRectangle);
+                Assert.Equal (Framed (control), control.DeviceClientRectangle);
             }
         }
 
@@ -102,15 +102,15 @@ namespace Majorsilence.Forms.Tests
 
             using (form) {
                 SetBorderStyle (box, BorderStyle.None);
-                var bare = box.ClientRectangle;
+                var bare = box.DeviceClientRectangle;
                 Assert.Equal (0, bare.X);
 
                 SetBorderStyle (box, BorderStyle.FixedSingle);
-                var single = box.ClientRectangle;
+                var single = box.DeviceClientRectangle;
 
                 SetBorderStyle (box, BorderStyle.None);
                 SetBorderStyle (box, BorderStyle.Fixed3D);
-                var raised = box.ClientRectangle;
+                var raised = box.DeviceClientRectangle;
 
                 Assert.Equal (Framed (box), single);
                 Assert.Equal (single, raised);

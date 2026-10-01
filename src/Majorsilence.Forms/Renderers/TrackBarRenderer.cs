@@ -18,7 +18,7 @@ namespace Majorsilence.Forms.Renderers
             DrawThumb (control, e, thumb_bounds);
 
             if (control.Selected && control.ShowFocusCues) {
-                var focus_bounds = control.ClientRectangle;
+                var focus_bounds = control.DeviceClientRectangle;
                 focus_bounds.Width -= 1;
                 focus_bounds.Height -= 1;
                 e.Canvas.DrawRectangle (focus_bounds, Theme.AccentColor2);
@@ -135,7 +135,7 @@ namespace Majorsilence.Forms.Renderers
 
         private Rectangle GetTrackBounds (TrackBar control, PaintEventArgs? e)
         {
-            var client = control.ClientRectangle;
+            var client = control.DeviceClientRectangle;
             var thumb_size = GetThumbSize (control, e);
             var track_thickness = e?.LogicalToDeviceUnits (4) ?? control.LogicalToDeviceUnits (4);
 
@@ -161,9 +161,9 @@ namespace Majorsilence.Forms.Renderers
 
             if (control.Maximum <= control.Minimum) {
                 if (control.Orientation == Orientation.Horizontal)
-                    return new Rectangle (track_bounds.Left, (control.ClientRectangle.Height - thumb_size.Height) / 2, thumb_size.Width, thumb_size.Height);
+                    return new Rectangle (track_bounds.Left, (control.DeviceClientRectangle.Height - thumb_size.Height) / 2, thumb_size.Width, thumb_size.Height);
 
-                return new Rectangle ((control.ClientRectangle.Width - thumb_size.Width) / 2, track_bounds.Bottom - thumb_size.Height, thumb_size.Width, thumb_size.Height);
+                return new Rectangle ((control.DeviceClientRectangle.Width - thumb_size.Width) / 2, track_bounds.Bottom - thumb_size.Height, thumb_size.Width, thumb_size.Height);
             }
 
             var percent = (double)(control.Value - control.Minimum) / (control.Maximum - control.Minimum);
@@ -172,13 +172,13 @@ namespace Majorsilence.Forms.Renderers
             if (control.Orientation == Orientation.Horizontal) {
                 var usable = Math.Max (1, track_bounds.Width - thumb_size.Width);
                 var x = track_bounds.Left + (int)Math.Round (percent * usable);
-                var y = (control.ClientRectangle.Height - thumb_size.Height) / 2;
+                var y = (control.DeviceClientRectangle.Height - thumb_size.Height) / 2;
 
                 return new Rectangle (x, y, thumb_size.Width, thumb_size.Height);
             } else {
                 var usable = Math.Max (1, track_bounds.Height - thumb_size.Height);
                 var y = track_bounds.Top + (int)Math.Round ((1d - percent) * usable);
-                var x = (control.ClientRectangle.Width - thumb_size.Width) / 2;
+                var x = (control.DeviceClientRectangle.Width - thumb_size.Width) / 2;
 
                 return new Rectangle (x, y, thumb_size.Width, thumb_size.Height);
             }

@@ -298,7 +298,7 @@ namespace Majorsilence.Forms.Tests
                 PaintSurface.Render (strip).Dispose ();
 
                 Assert.True (help.Bounds.Left > before, $"not moved right: {before} -> {help.Bounds.Left}");
-                Assert.Equal (strip.DeviceToLogicalUnits (strip.ClientRectangle.Right), help.Bounds.Right);
+                Assert.Equal (strip.DeviceToLogicalUnits (strip.DeviceClientRectangle.Right), help.Bounds.Right);
 
                 // The left-aligned item keeps its place -- compared against where it actually was,
                 // not against 0. The strip's leading edge is no longer x=0 now that a drag grip is
@@ -328,7 +328,7 @@ namespace Majorsilence.Forms.Tests
 
             try {
                 Assert.True (a.Bounds.Left < b.Bounds.Left, "declaration order not preserved at the trailing edge");
-                Assert.Equal (strip.DeviceToLogicalUnits (strip.ClientRectangle.Right), b.Bounds.Right);
+                Assert.Equal (strip.DeviceToLogicalUnits (strip.DeviceClientRectangle.Right), b.Bounds.Right);
             } finally {
                 form.Close ();
             }

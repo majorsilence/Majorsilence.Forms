@@ -24,7 +24,7 @@ namespace Majorsilence.Forms.Renderers
         protected override void Render (TreeView control, PaintEventArgs e)
         {
             e.Canvas.Save ();
-            e.Canvas.Clip (control.ClientRectangle);
+            e.Canvas.Clip (control.DeviceClientRectangle);
 
             // LayoutedItems is populated by TreeView.LayoutItems() before Render is called.
             // Using it avoids a second tree traversal on every paint.

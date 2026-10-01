@@ -202,8 +202,8 @@ namespace ControlGallery.Panels
 
             // px/py (from MouseEventArgs.X/Y) arrive already in LOGICAL units -- WindowBase converts
             // device pixels to logical at the window boundary, before any control sees them, the same
-            // space Left/Top/Width/Height are in. CellSize is a logical-unit size too (OnPaint's
-            // ScaleTransform below is what maps it to device pixels for drawing), so both sides of this
+            // space Left/Top/Width/Height are in. CellSize is a logical-unit size too (OnPaint draws
+            // in logical units, mapped to device pixels by the framework), so both sides of this
             // division are already the same unit: nothing here needs to convert.
             private static (int x, int y) ToCell (int px, int py)
             {
@@ -218,15 +218,9 @@ namespace ControlGallery.Panels
 
             protected override void OnPaint (PaintEventArgs e)
             {
-                // OnPaint's canvas is in DEVICE pixels, not the logical units CellSize is expressed in --
-                // a custom control is not pre-scaled the way the built-in renderers are (issue #291).
-                // Left unscaled, a cell drawn CellSize logical units wide comes out CellSize *device*
-                // pixels wide instead: correct at scale 1, about a third of its intended size on
-                // Android's ~2.75x displays. Scaling the canvas once, here, means everything below can
-                // keep drawing in the same logical units as the grid math above.
-                var scale = (float)e.Scaling;
-                e.Graphics.ScaleTransform (scale, scale);
-
+                // OnPaint draws in logical units -- the units CellSize, Width and the mouse are in -- and
+                // the framework maps them to device pixels, so a cell is the same size on screen at every
+                // display scale (EVT-37; until 2026-10-01 this had to scale the canvas by e.Scaling itself).
                 var g = e.Graphics;
 
                 for (var x = 0; x < Cols; x++) {

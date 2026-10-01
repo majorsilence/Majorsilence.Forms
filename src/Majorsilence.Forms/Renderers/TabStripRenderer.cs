@@ -22,7 +22,7 @@ namespace Majorsilence.Forms.Renderers
             e.Canvas.Save ();
 
             if (!arrow_band.IsEmpty)
-                e.Canvas.Clip (new Rectangle (0, 0, arrow_band.Left, control.ClientRectangle.Height));
+                e.Canvas.Clip (new Rectangle (0, 0, arrow_band.Left, control.DeviceClientRectangle.Height));
 
             if (owner?.IsOwnerDrawn == true) {
                 RenderOwnerDrawn (owner, control, e);

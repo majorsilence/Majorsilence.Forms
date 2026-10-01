@@ -636,9 +636,15 @@ namespace Majorsilence.Forms
 
             var e = new PaintEventArgs (skInfo, canvas, scaling);
 
-            OnPaintBackground (e);
+            // A Form's OnPaintBackground / OnPaint overrides and Paint handlers draw in logical units,
+            // like a control's (EVT-37); the window's own background and border are device pixels.
+            using (e.LogicalSpace ())
+                OnPaintBackground (e);
+
             canvas.DrawBorder (new System.Drawing.Rectangle (0, 0, physW, physH), CurrentStyle);
-            OnPaint (e);
+
+            using (e.LogicalSpace ()) {
+                OnPaint (e);
 
             // WinForms' Form derives from Control, so a Form.Paint handler runs immediately after
             // OnPaint and before the child controls are drawn. WindowBase is not a Control, so the
@@ -650,6 +656,7 @@ namespace Majorsilence.Forms
             // Control.OnPaintBackground returns early for ControlAdapter, so nothing repaints over
             // this before the children go down on top.
             Paint?.Invoke (this, e);
+            }
 
             // Clip canvas to the inner client area (excludes borders).
             canvas.ClipRect (new SkiaSharp.SKRect (
@@ -2021,6 +2028,8 @@ namespace Majorsilence.Forms
         /// <summary>Paints the Form's background.</summary>
         protected internal virtual void OnPaintBackground (PaintEventArgs e)
         {
+            // The window's own background, drawn as it always was; overrides draw in logical units.
+            using var device = e.DeviceSpace ();
             e.Canvas.DrawBackground (Bounds, CurrentStyle);
         }
 

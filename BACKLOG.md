@@ -54,10 +54,21 @@ until a scaled display shows up -- and it was mixed in six places:
 
 Two things worth keeping:
 
-- **`Control.ClientRectangle` is device-scaled while `Bounds` is logical.** That asymmetry is the root of
-  most of the above and it is still there -- 81 call sites, 33 of them renderers that genuinely want
-  device pixels, so it was not something to flip in passing. `DeviceToLogicalUnits` and the local
-  `LogicalClient` helpers convert at each layout site instead. Worth revisiting as its own change.
+- **`Control.ClientRectangle` was device-scaled while `Bounds` was logical** -- the root of most of the
+  above. Flipped on 2026-10-01 (EVT-37, CTL-10). `ClientRectangle`, `ClientSize` and the canvas
+  application paint code draws on are logical now. The library's own 81 call sites moved to an internal
+  `DeviceClientRectangle`, unchanged, and its renderers draw inside a device-pixel scope
+  (`PaintEventArgs.DeviceSpace`). Some of those sites convert straight back with `DeviceToLogicalUnits`
+  or a local `LogicalClient` helper; they could read `ClientRectangle` now, a cleanup for later.
+- **Owner-draw events are still device pixels** (deferred 2026-10-01). `DrawItem` (ListBox, ComboBox,
+  menu items, tab strips), `DrawNode`, the three `ListView` draw events, `StatusBar.DrawItem`,
+  `ToolTip.Draw` and the grid's `CellPainting`/`RowPrePaint`/`RowPostPaint` are raised from inside the
+  renderers, so their `Bounds` and `Graphics` are both device pixels. They agree with each other but not
+  with the control's logical `ClientRectangle`, and a font drawn on that canvas comes out at device size,
+  so it is small on a scaled display. Making them logical means raising each in a logical scope with
+  logical bounds, *and* auditing each args type's default-drawing helpers (`DrawBackground`,
+  `DrawFocusRectangle`, `DrawText`, `DrawDefault`), which draw through that `Graphics` too. It is about 17
+  sites, a change of its own.
 - **The scale-2 suite must run with `xunit.parallelizeTestCollections=false`.** It is not a scaling
   problem: a test that opens a modal dialog picks its owner from the global `Application.OpenForms`, and
   in parallel it can pick another test's window and wait on it forever. Run serially it finishes in

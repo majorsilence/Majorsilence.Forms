@@ -69,10 +69,10 @@ namespace Majorsilence.Forms.Tests
             // ClientRectangle is device-scaled, so comparing them directly only held at scaling 1 -- and
             // it was asserting the very mix-up that made docked children scale-times too large.
             var client = new System.Drawing.Rectangle (
-                dock.DeviceToLogicalUnits (dock.ClientRectangle.X),
-                dock.DeviceToLogicalUnits (dock.ClientRectangle.Y),
-                dock.DeviceToLogicalUnits (dock.ClientRectangle.Width),
-                dock.DeviceToLogicalUnits (dock.ClientRectangle.Height));
+                dock.DeviceToLogicalUnits (dock.DeviceClientRectangle.X),
+                dock.DeviceToLogicalUnits (dock.DeviceClientRectangle.Y),
+                dock.DeviceToLogicalUnits (dock.DeviceClientRectangle.Width),
+                dock.DeviceToLogicalUnits (dock.DeviceClientRectangle.Height));
 
             Assert.Equal (client, toolStrip.Bounds);
             Assert.Equal (0, dock.Controls.GetChildIndex (toolStrip));

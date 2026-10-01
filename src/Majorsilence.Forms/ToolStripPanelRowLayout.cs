@@ -39,6 +39,7 @@ namespace Majorsilence.Forms
         /// <see cref="ToolStripPanelRenderEventArgs.Handled"/> replaces the default fill (W6 mechanisms).</remarks>
         protected override void OnPaintBackground (PaintEventArgs e)
         {
+            using var device = e.DeviceSpace ();   // laid out in device pixels (EVT-37)
             var args = new ToolStripPanelRenderEventArgs (e.Graphics, this);
             Renderers.StripRendererBridge.ResolveMode (Renderer, RenderMode).DrawToolStripPanelBackground (args);
 
@@ -142,7 +143,7 @@ namespace Majorsilence.Forms
             _inRowLayout = true;
 
             try {
-                var area = ClientRectangle;
+                var area = DeviceClientRectangle;
 
                 area = new Rectangle (
                     area.X + Padding.Left,

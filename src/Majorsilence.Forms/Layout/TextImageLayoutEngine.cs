@@ -9,7 +9,7 @@ internal static class TextImageLayoutEngine
     public static TextImageLayoutData Layout (Control control)
     {
         var result = new TextImageLayoutData {
-            Client = control.ClientRectangle,
+            Client = control.DeviceClientRectangle,
         };
 
         CalculateFace (control, result);

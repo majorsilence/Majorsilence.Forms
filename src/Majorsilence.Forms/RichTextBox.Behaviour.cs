@@ -238,6 +238,7 @@ namespace Majorsilence.Forms
         protected override void OnPaint (PaintEventArgs e)
         {
             base.OnPaint (e);
+            using var device = e.DeviceSpace ();   // laid out in device pixels (EVT-37)
 
             if (ShowSelectionMargin) {
                 var margin = new Rectangle (PaddedClientRectangle.Left, PaddedClientRectangle.Top,

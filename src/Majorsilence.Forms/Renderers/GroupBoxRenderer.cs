@@ -10,7 +10,7 @@ namespace Majorsilence.Forms.Renderers
         /// <inheritdoc/>
         protected override void Render (GroupBox control, PaintEventArgs e)
         {
-            var bounds = control.ClientRectangle;
+            var bounds = control.DeviceClientRectangle;
 
             // Caption font/color resolve like any control text: the ambient effective font, not
             // the theme chrome font. The title band matches the caption inset DisplayRectangle

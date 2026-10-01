@@ -18,22 +18,16 @@ namespace Majorsilence.Forms.Tests;
 // asserted anywhere, because a square rectangle satisfies it.
 public class GraphicsRoundedRectangleTests
 {
-    // A control's OnPaint gets a canvas in DEVICE pixels (each control paints into a back buffer of its scaled size
-    // and the parent blits it), so a control that wants to think in logical units has to scale its own graphics.
-    // The theory below runs at 1 and 2 to prove the rounded shapes follow that transform rather than being
-    // computed against raw canvas pixels.
+    // A control's OnPaint draws in LOGICAL units: the framework scales the canvas to the display (EVT-37), and the
+    // back buffer underneath is device pixels. The theory below runs at 1 and 2 to prove the rounded shapes follow
+    // that transform rather than being computed against raw canvas pixels.
     private sealed class DrawingControl : Control
     {
         public Action<Graphics>? Draw { get; init; }
 
         protected override void OnPaintBackground (PaintEventArgs e) => e.Canvas.Clear (SKColors.Transparent);
 
-        protected override void OnPaint (PaintEventArgs e)
-        {
-            var scale = (float)e.Scaling;
-            e.Graphics.ScaleTransform (scale, scale);
-            Draw?.Invoke (e.Graphics);
-        }
+        protected override void OnPaint (PaintEventArgs e) => Draw?.Invoke (e.Graphics);
     }
 
     private static SKBitmap Render (int logicalWidth, int logicalHeight, int scale, Action<Graphics> draw)

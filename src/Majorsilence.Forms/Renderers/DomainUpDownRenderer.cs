@@ -15,7 +15,7 @@ namespace Majorsilence.Forms.Renderers
         /// <inheritdoc/>
         protected override void Render (DomainUpDown control, PaintEventArgs e)
         {
-            var client = control.ClientRectangle;
+            var client = control.DeviceClientRectangle;
             var button_width = control.LogicalToDeviceUnits (18);
             var buttons_left = control.UpDownAlign == LeftRightAlignment.Left;
             var strip_left = buttons_left ? client.X : client.Right - button_width;

@@ -246,7 +246,7 @@ namespace Majorsilence.Forms.Tests
                 // at 2x is twice as wide -- the only band where the guard's space matters.
                 var outside = new Point (tree.Width + 10, 10);
 
-                Assert.True (outside.X < tree.ClientRectangle.Width, "the point must be inside the device rectangle");
+                Assert.True (outside.X < tree.DeviceClientRectangle.Width, "the point must be inside the device rectangle");
                 Assert.Equal (TreeViewHitTestLocations.None, tree.HitTest (outside).Location);
             } finally {
                 form.Close ();
@@ -269,7 +269,7 @@ namespace Majorsilence.Forms.Tests
 
             try {
                 var clipped = grid.GetCellDisplayRectangle (1, 0, cutOverflow: true);
-                var client = grid.DeviceToLogicalUnits (grid.ClientRectangle);
+                var client = grid.DeviceToLogicalUnits (grid.DeviceClientRectangle);
 
                 Assert.True (clipped.Right <= client.Right,
                     $"a cut rectangle must not run past the control ({clipped.Right} vs {client.Right})");
@@ -290,7 +290,7 @@ namespace Majorsilence.Forms.Tests
             using var form = Scaled (2, grid);
 
             try {
-                var client = grid.DeviceToLogicalUnits (grid.ClientRectangle);
+                var client = grid.DeviceToLogicalUnits (grid.DeviceClientRectangle);
 
                 Assert.Equal (60, grid.GetColumnDisplayRectangle (0, false).Width);
                 Assert.Equal (client.Height, grid.GetColumnDisplayRectangle (0, false).Height);

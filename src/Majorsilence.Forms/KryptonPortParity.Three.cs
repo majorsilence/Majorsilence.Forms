@@ -175,6 +175,8 @@ namespace Majorsilence.Forms
 
             var scale = ScaleFactor;
 
+            // The rectangle is logical; the parent's pixels are sampled in device pixels (EVT-37).
+            using var device = e.DeviceSpace ();
             e.Canvas.Save ();
 
             try {

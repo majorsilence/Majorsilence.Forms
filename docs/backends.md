@@ -79,31 +79,33 @@ the core.
 
 ### Logical vs. device pixels
 
-Not every size-shaped member is in the same units. On `Control`:
+Everything an application sees on `Control` is in **logical** units, the numbers it sets and reads back
+at any display scaling:
 
-- `Width`, `Height`, `Left`, `Top`, `Right`, `Bottom`, `Location`, `Bounds` and `Size` are **unscaled
-  (logical)** — the numbers an app sets are the numbers it reads back, at any display scaling.
-- `ClientSize` and `ClientRectangle` are **scaled (device pixels)**: the getter runs `Bounds` through
-  `ScaleFactor`, so at scaling 2 a control with `Width = 200` reports `ClientSize.Width` around 400
-  (minus border), not 200. The two families are identical at scaling 1 and diverge everywhere else, so
-  manual layout code that reads `ClientSize.Width` to centre or size a child breaks at any scaling
-  other than 1:
+- `Width`, `Height`, `Left`, `Top`, `Right`, `Bottom`, `Location`, `Bounds` and `Size`;
+- `ClientSize` and `ClientRectangle` (the control minus its border);
+- `MouseEventArgs.X`/`Y`;
+- the paint canvas: `OnPaint`, `OnPaintBackground` and `Paint` handlers draw in these units, and
+  `e.ClipRectangle` is in them too. The framework scales the canvas to the display.
 
-  ```csharp
-  // Correct at every scaling -- Width is logical, same units as child.Width/child.Left.
-  child.Left = (Width - child.Width) / 2;
+So the ordinary layout and paint idioms are right at every scaling:
 
-  // Wrong above scaling 1 -- ClientSize.Width is device pixels, child.Width is logical, so the
-  // child lands roughly ScaleFactor times further right than centred.
-  child.Left = (ClientSize.Width - child.Width) / 2;
-  ```
+```csharp
+child.Left = (ClientSize.Width - child.Width) / 2;                 // centres the child
+e.Graphics.DrawRectangle (pen, 0, 0, Width - 1, Height - 1);       // frames the control
+```
 
-  This split is intentional as far as it goes — `ClientRectangle` also backs the paint canvas
-  (`PaintEventArgs.Graphics` draws in device pixels too), and `BACKLOG.md`'s HiDPI section counts 81
-  call sites against it, 33 of them renderers that genuinely want device pixels, so it is not something
-  to flip in passing. But nothing marks `ClientSize` as the odd one out the way the explicitly-named
-  `Scaled*` family (`ScaledWidth`, `ScaledHeight`, `ScaledBounds`, …) announces itself — `ClientSize`
-  predates that convention. See the remarks on `Control.ClientSize` in source for the full picture.
+**Until 2026-10-01, `ClientSize`, `ClientRectangle` and the paint canvas were device pixels** (EVT-37,
+CTL-10), and a custom control had to scale its own graphics by `e.Scaling`. Remove such a
+`ScaleTransform` if you added one: the drawing would now be scaled twice. Device pixels are still
+reachable for code that wants them: the explicitly named `Scaled*` family (`ScaledWidth`,
+`ScaledHeight`, `ScaledBounds`, …), `PaintEventArgs.Scaling` and `LogicalToDeviceUnits`. The library's
+own renderers draw in device pixels internally.
+
+One exception remains: **owner-draw events** (`DrawItem`, `DrawNode`, `DrawListViewItem`, the grid's
+`CellPainting`, …) still hand over device-pixel `Bounds` with a device-pixel `Graphics`. The two agree
+with each other, but not with the rest of the control. See `BACKLOG.md`.
+
 - `Form.ClientSize` is a **separate property**, declared on `Form` itself rather than inherited from
   `Control` (`Form` derives from `WindowBase`, not `Control`), and it is logical: built from `Size`
   minus the caption height, not from `ClientRectangle`. A `Form`'s own `ClientSize` mixes safely with

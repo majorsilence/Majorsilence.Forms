@@ -240,8 +240,11 @@ public partial class Control
     {
         Guard.ThrowIfNull (e);
 
-        OnPaintBackground (e);
-        OnPaint (e);
+        // The overrides are application paint code, in logical units, as in a normal paint (EVT-37).
+        using (e.LogicalSpace ()) {
+            OnPaintBackground (e);
+            OnPaint (e);
+        }
     }
 
     #endregion

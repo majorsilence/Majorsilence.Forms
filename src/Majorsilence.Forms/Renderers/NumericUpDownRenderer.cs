@@ -10,7 +10,7 @@ namespace Majorsilence.Forms.Renderers
         /// <inheritdoc/>
         protected override void Render (NumericUpDown control, PaintEventArgs e)
         {
-            var client = control.ClientRectangle;
+            var client = control.DeviceClientRectangle;
             var inc_area = control.GetIncrementArea ();
             var dec_area = control.GetDecrementArea ();
 

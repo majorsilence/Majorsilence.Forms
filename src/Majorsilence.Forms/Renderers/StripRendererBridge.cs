@@ -60,13 +60,13 @@ namespace Majorsilence.Forms.Renderers
         internal static void Background (ToolBar control, PaintEventArgs e)
         {
             if (Resolve (control) is { } r && control is ToolStrip strip)
-                r.DrawToolStripBackground (new ToolStripRenderEventArgs (e.Graphics, strip, control.ClientRectangle, control.GetEffectiveBackgroundColor ().ToDrawingColor ()));
+                r.DrawToolStripBackground (new ToolStripRenderEventArgs (e.Graphics, strip, control.DeviceClientRectangle, control.GetEffectiveBackgroundColor ().ToDrawingColor ()));
         }
 
         internal static void Border (ToolBar control, PaintEventArgs e)
         {
             if (Resolve (control) is { } r && control is ToolStrip strip)
-                r.DrawToolStripBorder (new ToolStripRenderEventArgs (e.Graphics, strip, control.ClientRectangle, control.GetEffectiveBackgroundColor ().ToDrawingColor ()));
+                r.DrawToolStripBorder (new ToolStripRenderEventArgs (e.Graphics, strip, control.DeviceClientRectangle, control.GetEffectiveBackgroundColor ().ToDrawingColor ()));
         }
 
         internal static void Grip (ToolBar control, Rectangle deviceBand, PaintEventArgs e)
