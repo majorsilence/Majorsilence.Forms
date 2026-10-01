@@ -397,6 +397,37 @@ Unsupported rows are reported as diagnostics when a stylesheet uses them — nev
 | `ScrollBar::thumb` | `background-color`, `color`, `border-width`, `border-color`, `border-radius`, `border-top-width`, `border-right-width`, `border-bottom-width`, `border-left-width`, `border-top-color`, `border-right-color`, `border-bottom-color`, `border-left-color`, `font-family`, `font-size`, `font-weight`, `font-style` | The thumb is native-drawn. |
 | `ScrollBar::arrow` | `background-color`, `color`, `border-width`, `border-color`, `border-radius`, `border-top-width`, `border-right-width`, `border-bottom-width`, `border-left-width`, `border-top-color`, `border-right-color`, `border-bottom-color`, `border-left-color`, `font-family`, `font-size`, `font-weight`, `font-style` | The arrows are native-drawn. |
 | `PropertyGrid` | `border-width`, `border-radius`, `border-top-width`, `border-right-width`, `border-bottom-width`, `border-left-width`, `border-top-color`, `border-right-color`, `border-bottom-color`, `border-left-color` | The grid draws no themable outer border. |
+| `Form` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `Button` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `Button:hover` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `Label` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `LinkLabel` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `LinkLabel:hover` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `TextBox` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `NumericUpDown` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `ComboBox` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `CheckBox` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `RadioButton` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `Panel` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `GroupBox` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `SplitContainer` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `Splitter` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `PictureBox` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `ListBox` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `ListView` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `TreeView` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `DataGridView` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `Menu` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `MenuDropDown` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `ToolBar` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `StatusBar` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `TabControl` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `TabStrip` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `TrackBar` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `TrackBar:hover` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `MonthCalendar` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `ScrollBar` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `PropertyGrid` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
 <!-- END GENERATED: winforms-support -->
 
 ## Out of scope

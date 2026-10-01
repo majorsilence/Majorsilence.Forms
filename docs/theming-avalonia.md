@@ -483,6 +483,30 @@ Unsupported rows are reported as diagnostics when a stylesheet uses them — nev
 | `Splitter` | `color`, `border-width`, `border-color`, `border-radius`, `border-top-width`, `border-right-width`, `border-bottom-width`, `border-left-width`, `border-top-color`, `border-right-color`, `border-bottom-color`, `border-left-color`, `font-family`, `font-size`, `font-weight`, `font-style` | A GridSplitter is a plain bar. |
 | `MonthCalendar` | `border-width`, `border-radius`, `border-top-width`, `border-right-width`, `border-bottom-width`, `border-left-width`, `border-top-color`, `border-right-color`, `border-bottom-color`, `border-left-color` | The calendar grid has a fixed Fluent geometry. |
 | `Form` | `border-width`, `border-color`, `border-radius`, `border-top-width`, `border-right-width`, `border-bottom-width`, `border-left-width`, `border-top-color`, `border-right-color`, `border-bottom-color`, `border-left-color` | The window frame is drawn by the OS (or Avalonia's own chrome, which has no border seam). |
+| `Button` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `Button:hover` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `CheckBox` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `ComboBox` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `DataGridView` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `Form` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `Label` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `LinkLabel` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `LinkLabel:hover` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `ListBox` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `Menu` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `MenuDropDown` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `MonthCalendar` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `NumericUpDown` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `RadioButton` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `ScrollBar` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `SplitContainer` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `Splitter` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TabControl` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TabStrip` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TextBox` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TrackBar` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TrackBar:hover` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TreeView` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
 <!-- END GENERATED: avalonia-support -->
 
 ## Out of scope
