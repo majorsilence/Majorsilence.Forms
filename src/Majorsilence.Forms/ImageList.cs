@@ -50,15 +50,35 @@ public partial class ImageList : Component
     /// </summary>
     public ImageCollection Images { get; }
 
+    // Upstream ImageList.s_maxImageWidth / s_maxImageHeight.
+    private const int MaxImageDimension = 256;
+
     /// <summary>
-    /// Gets or sets the size of the images in the ImageList. Note this cannot be set once images have been added.
+    /// Gets or sets the size of the images in the ImageList. Changing it once images are present
+    /// resizes every image to the new size, as upstream re-renders them.
     /// </summary>
+    /// <exception cref="ArgumentException">The value is <see cref="System.Drawing.Size.Empty"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A dimension is outside 1..256.</exception>
     public System.Drawing.Size ImageSize {
         get { var s = Images.ImageSize; return new System.Drawing.Size ((int)s.Width, (int)s.Height); }
-        set => Images.SetImageSize (new SKSize (value.Width, value.Height));
+        set {
+            // Upstream's validation and exception types (Controls/ImageList/ImageList.cs, ImageSize).
+            if (value.IsEmpty)
+                throw new ArgumentException ("Value of 'Size.Empty' is not valid for 'ImageSize'.", nameof (value));
+
+            if (value.Width <= 0 || value.Width > MaxImageDimension)
+                throw new ArgumentOutOfRangeException (nameof (value), value, $"Value of '{value.Width}' is not valid for 'ImageSize.Width'. 'ImageSize.Width' must be between 1 and {MaxImageDimension}.");
+
+            if (value.Height <= 0 || value.Height > MaxImageDimension)
+                throw new ArgumentOutOfRangeException (nameof (value), value, $"Value of '{value.Height}' is not valid for 'ImageSize.Height'. 'ImageSize.Height' must be between 1 and {MaxImageDimension}.");
+
+            Images.SetImageSize (new SKSize (value.Width, value.Height));
+        }
     }
 
-    /// <summary>Gets or sets the color depth used by the image list. Stored but not enforced in Majorsilence.Forms.</summary>
+    /// <summary>Gets or sets the color depth used by the image list.</summary>
+    /// <remarks>Stored, not applied, deliberately: every image is held as a 32-bit Skia bitmap, and
+    /// reducing the palette to emulate a comctl32 image list's lower depths would only lose colour.</remarks>
     public ColorDepth ColorDepth { get; set; } = ColorDepth.Depth32Bit;
 
     /// <summary>Gets or sets the color to treat as transparent.</summary>
@@ -100,17 +120,27 @@ public partial class ImageList : Component
     public void Draw (Graphics g, System.Drawing.Point pt, int index) => Draw (g, pt.X, pt.Y, index);
 
     /// <summary>Draws the image at the specified index at the given coordinates.</summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="index"/> is not an image's index.</exception>
     public void Draw (Graphics g, int x, int y, int index)
     {
-        if (index >= 0 && index < Images.Count)
-            g.DrawImage (Images[index], x, y);
+        ThrowIfBadIndex (index);
+        g.DrawImage (Images[index], x, y);
     }
 
     /// <summary>Draws the image at the specified index scaled to the given size.</summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="index"/> is not an image's index.</exception>
     public void Draw (Graphics g, int x, int y, int width, int height, int index)
     {
-        if (index >= 0 && index < Images.Count)
-            g.DrawImage (Images[index], new System.Drawing.Rectangle (x, y, width, height));
+        ThrowIfBadIndex (index);
+        g.DrawImage (Images[index], new System.Drawing.Rectangle (x, y, width, height));
+    }
+
+    // Upstream ImageList.Draw throws for a bad index (Controls/ImageList/ImageList.cs). Painting nothing
+    // instead hid a stale index, which is a bug in the caller (SMP-56).
+    private void ThrowIfBadIndex (int index)
+    {
+        if (index < 0 || index >= Images.Count)
+            throw new ArgumentOutOfRangeException (nameof (index), index, $"Index '{index}' is out of range for an image list of {Images.Count} images.");
     }
 
     /// <inheritdoc/>

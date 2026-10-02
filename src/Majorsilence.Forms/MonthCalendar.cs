@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using Majorsilence.Forms.Renderers;
 
@@ -45,6 +46,9 @@ namespace Majorsilence.Forms
                 if (_selectionStart == value)
                     return;
 
+                                // Against the RAW fields, which default to DateTime.MinValue/MaxValue, exactly as
+                // upstream's SelectionStart is (Controls/MonthCalendar/MonthCalendar.cs); only its
+                // SelectionEnd validates against the effective range (SMP-45).
                 Guard.ThrowIfLessThan (value, _minDate);
                 Guard.ThrowIfGreaterThan (value, _maxDate);
 
@@ -67,8 +71,12 @@ namespace Majorsilence.Forms
                 if (_selectionEnd == value)
                     return;
 
-                Guard.ThrowIfLessThan (value, _minDate);
-                Guard.ThrowIfGreaterThan (value, _maxDate);
+                                // Against the EFFECTIVE range (1753..9998), as upstream's SelectionEnd is -- unlike its
+                // SelectionStart, SetDate, SetSelectionRange and TodayDate, which use the raw fields.
+                // This used the raw ones, so SelectionEnd = 1200-01-01 was accepted where WinForms
+                // throws (SMP-45).
+                Guard.ThrowIfLessThan (value, MinDate);
+                Guard.ThrowIfGreaterThan (value, MaxDate);
 
                 // If we've moved SelectionEnd before SelectionStart, move SelectionStart back.
                 if (_selectionStart > value)
@@ -168,14 +176,41 @@ namespace Majorsilence.Forms
         /// <summary>Gets whether TodayDate has been set explicitly.</summary>
         public bool TodayDateSet => _todayDateSet;
 
-        /// <summary>Gets the array of bolded dates.</summary>
-        public DateTime[] BoldedDates { get; set; } = Array.Empty<DateTime> ();
+        // SMP-44: these three were auto-properties beside the lists Add*/Remove*/IsBoldedDate use, so
+        // an assigned array was neither bolded nor seen by IsBoldedDate, and UpdateBoldedDates then
+        // overwrote it from the (empty) list. Upstream's setters replace the very list the paint code
+        // reads, and the getters copy it out; so do these.
 
-        /// <summary>Gets the array of annually bolded dates.</summary>
-        public DateTime[] AnnuallyBoldedDates { get; set; } = Array.Empty<DateTime> ();
+        /// <summary>Gets or sets the dates drawn bold on that day only.</summary>
+        /// <remarks>The getter returns a copy; assigning replaces the set the Add/Remove methods edit.</remarks>
+        public DateTime[] BoldedDates {
+            get => [.. bolded];
+            set => ReplaceBolded (bolded, value);
+        }
 
-        /// <summary>Gets the array of monthly bolded dates.</summary>
-        public DateTime[] MonthlyBoldedDates { get; set; } = Array.Empty<DateTime> ();
+        /// <summary>Gets or sets the dates drawn bold every year on that month and day.</summary>
+        /// <remarks>The getter returns a copy; assigning replaces the set the Add/Remove methods edit.</remarks>
+        public DateTime[] AnnuallyBoldedDates {
+            get => [.. annually_bolded];
+            set => ReplaceBolded (annually_bolded, value);
+        }
+
+        /// <summary>Gets or sets the dates drawn bold every month on that day.</summary>
+        /// <remarks>The getter returns a copy; assigning replaces the set the Add/Remove methods edit.</remarks>
+        public DateTime[] MonthlyBoldedDates {
+            get => [.. monthly_bolded];
+            set => ReplaceBolded (monthly_bolded, value);
+        }
+
+        private void ReplaceBolded (List<DateTime> target, DateTime[]? dates)
+        {
+            target.Clear ();
+
+            foreach (var date in dates ?? [])
+                Add (target, date);
+
+            Invalidate ();
+        }
 
         /// <summary>Gets or sets the title's text and scroll-arrow colour; <c>Color.Empty</c> uses the theme's.</summary>
         public Color TitleForeColor { get; set; } = Color.Empty;

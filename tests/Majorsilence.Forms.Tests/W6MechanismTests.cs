@@ -193,6 +193,15 @@ public class W6MechanismTests
         form.HelpButtonClicked += (_, e) => { clicked++; e.Cancel = cancel; };
         form.HelpRequested += (_, _) => help++;
 
+        // Under system decorations the caption (and its help button) is hidden, and PerformClick does
+        // nothing on a hidden button, as upstream's CanSelect guard has it (SMP-08). The click half
+        // runs where the library draws the caption -- every CI leg but macOS, and MF_FORCE_CUSTOM_CHROME.
+        if (!form.TitleBar.Visible || form.TitleBar.NativeOverlay) {
+            ((Button)form.TitleBar.HelpButtonControl).PerformClick ();
+            Assert.Equal ((0, 0), (clicked, help));
+            return;
+        }
+
         ((Button)form.TitleBar.HelpButtonControl).PerformClick ();
         Assert.Equal ((1, 1), (clicked, help));
 

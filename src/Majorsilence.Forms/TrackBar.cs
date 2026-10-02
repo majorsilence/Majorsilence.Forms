@@ -40,12 +40,17 @@ namespace Majorsilence.Forms
     public partial class TrackBar : Control, System.ComponentModel.ISupportInitialize
     {
         // WinForms designer-generated InitializeComponent code brackets a TrackBar's property
-        // assignments with ((ISupportInitialize)(this.trackBar1)).BeginInit()/EndInit() -- the same
-        // convention as NumericUpDown/PictureBox/SplitContainer/DataGridView. Explicit no-op
-        // implementations so that (unconditional) cast succeeds instead of throwing
-        // InvalidCastException (found opening a real migrated form, frmMaintainCustomer).
-        void System.ComponentModel.ISupportInitialize.BeginInit () { }
-        void System.ComponentModel.ISupportInitialize.EndInit () { }
+        // assignments with ((ISupportInitialize)(this.trackBar1)).BeginInit()/EndInit() (found opening
+        // a real migrated form, frmMaintainCustomer). These were empty explicit implementations beside
+        // the public pair, so the designer's cast reached neither the deferred layout nor the
+        // suspended range check (SMP-30); they now are the public pair.
+        void System.ComponentModel.ISupportInitialize.BeginInit () => BeginInit ();
+        void System.ComponentModel.ISupportInitialize.EndInit () => EndInit ();
+
+        // Upstream TrackBar._initializing: while set, Value is not range-checked and Minimum/Maximum
+        // do not constrain it, because designer code assigns properties in declaration order and
+        // Value can come before the Maximum that admits it. EndInit constrains once.
+        private bool initializing;
 
         private const int DEFAULT_MINIMUM = 0;
         private const int DEFAULT_MAXIMUM = 10;
@@ -193,12 +198,7 @@ namespace Majorsilence.Forms
                     minimum = value;
 
                 maximum = value;
-
-                if (current_value > maximum)
-                    SetValueCore (maximum, raiseScroll: false);
-                else if (current_value < minimum)
-                    SetValueCore (minimum, raiseScroll: false);
-
+                ConstrainValue ();
                 Invalidate ();
             }
         }
@@ -221,12 +221,7 @@ namespace Majorsilence.Forms
                     maximum = value;
 
                 minimum = value;
-
-                if (current_value < minimum)
-                    SetValueCore (minimum, raiseScroll: false);
-                else if (current_value > maximum)
-                    SetValueCore (maximum, raiseScroll: false);
-
+                ConstrainValue ();
                 Invalidate ();
             }
         }
@@ -266,18 +261,19 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Gets or sets a value indicating whether the current value should be rounded
-        /// to the nearest tick position whenever it changes.
+        /// Gets or sets a value indicating whether the user's gestures -- dragging, clicking the track,
+        /// the keys and the wheel -- move the thumb to tick positions only.
         /// </summary>
+        /// <remarks>
+        /// A Majorsilence.Forms extension; upstream has no such property. It does not touch a value
+        /// assigned from code (SMP-30): <see cref="Value"/> stores what it is given, as upstream's does,
+        /// so a value round-tripped through a settings file comes back unchanged.
+        /// </remarks>
         public bool SnapToTicks {
             get => snap_to_ticks;
             set {
                 if (snap_to_ticks != value) {
                     snap_to_ticks = value;
-
-                    if (snap_to_ticks)
-                        SetValueCore (current_value, raiseScroll: false);
-
                     Invalidate ();
                 }
             }
@@ -295,10 +291,6 @@ namespace Majorsilence.Forms
             set {
                 if (tick_frequency != value) {
                     tick_frequency = value;
-
-                    if (SnapToTicks)
-                        SetValueCore (current_value, raiseScroll: false);
-
                     Invalidate ();
                 }
             }
@@ -321,19 +313,22 @@ namespace Majorsilence.Forms
         /// Gets or sets the current value of the control.
         /// </summary>
         /// <exception cref="ArgumentOutOfRangeException">
-        /// Thrown when the value is outside the <see cref="Minimum"/> and <see cref="Maximum"/> range.
+        /// Thrown when the value is outside the <see cref="Minimum"/> and <see cref="Maximum"/> range,
+        /// except between <see cref="BeginInit"/> and <see cref="EndInit"/>.
         /// </exception>
         public int Value {
             get => current_value;
             set {
-                if (value < minimum || value > maximum)
+                // Upstream TrackBar.Value (Controls/TrackBar/TrackBar.cs): no range check while
+                // initializing, and the value is stored verbatim -- never snapped to a tick (SMP-30).
+                if (!initializing && (value < minimum || value > maximum))
                     throw new ArgumentOutOfRangeException (nameof (Value), $"'{value}' is not a valid value for 'Value'. 'Value' should be between 'Minimum' and 'Maximum'.");
 
                 // SMP-29: Scroll means "the USER moved it". Upstream's setter raises only ValueChanged
                 // (TrackBar.cs:603-625); Scroll comes from the wheel handler and the reflected
                 // WM_HSCROLL/WM_VSCROLL, i.e. the gesture paths below. Apps drive a linked control from
                 // Scroll while writing Value back from code -- raising it here makes the pair re-entrant.
-                SetValueCore (value, raiseScroll: false);
+                CommitValue (value, raiseScroll: false);
             }
         }
 
@@ -650,11 +645,24 @@ namespace Majorsilence.Forms
         /// <param name="e">The event data.</param>
         protected virtual void OnValueChanged (EventArgs e) => ValueChanged?.Invoke (this, e);
 
+        // The gesture paths: clamped, and snapped when SnapToTicks asks for it.
         private void SetValueCore (int value, bool raiseScroll)
-        {
-            value = Clamp (value);
-            value = SnapValueToTick (value);
+            => CommitValue (SnapValueToTick (Clamp (value)), raiseScroll);
 
+        // Upstream TrackBar.ConstrainValue: skipped while initializing, EndInit runs it once.
+        private void ConstrainValue ()
+        {
+            if (initializing)
+                return;
+
+            if (current_value < minimum)
+                CommitValue (minimum, raiseScroll: false);
+            else if (current_value > maximum)
+                CommitValue (maximum, raiseScroll: false);
+        }
+
+        private void CommitValue (int value, bool raiseScroll)
+        {
             if (current_value == value)
                 return;
 

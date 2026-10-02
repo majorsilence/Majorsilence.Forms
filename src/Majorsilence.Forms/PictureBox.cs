@@ -143,8 +143,38 @@ namespace Majorsilence.Forms
         /// </summary>
         public event EventHandler? SizeModeChanged;
 
-        /// <summary>Gets or sets the border style of the PictureBox. Stub in Majorsilence.Forms.</summary>
-        public PictureBoxBorderStyle PictureBoxBorderStyle { get; set; } = PictureBoxBorderStyle.None;
+        private PictureBoxBorderStyle border_style = PictureBoxBorderStyle.None;
+
+        /// <summary>Gets or sets the border style of the PictureBox.</summary>
+        /// <remarks>
+        /// SMP-24: this was stored and read by nothing, so the near-universal designer setting for an
+        /// image placeholder drew no frame. Mapped onto the instance style's border, as
+        /// <see cref="Panel.BorderStyle"/> does, it both draws the frame and deflates the client area
+        /// the image is laid out in -- upstream's <c>WS_BORDER</c>/<c>WS_EX_CLIENTEDGE</c>, 1px for
+        /// FixedSingle and 2px for Fixed3D. None clears the override so a CSS rule still decides.
+        /// </remarks>
+        public PictureBoxBorderStyle PictureBoxBorderStyle {
+            get => border_style;
+            set {
+                // Upstream PictureBox.BorderStyle validates the enum (Controls/PictureBox/PictureBox.cs).
+                if (!EnumCompat.IsDefined (value))
+                    throw new InvalidEnumArgumentException (nameof (value), (int)value, typeof (BorderStyle));
+
+                if (border_style == value)
+                    return;
+
+                border_style = value;
+                Style.Border.Width = value switch {
+                    PictureBoxBorderStyle.FixedSingle => 1,
+                    PictureBoxBorderStyle.Fixed3D => 2,
+                    _ => null,
+                };
+
+                // The border is part of an auto-sized box's size (upstream AdjustSize).
+                UpdateSize ();
+                Invalidate ();
+            }
+        }
 
         /// <summary>Gets or sets the border style of the picture box (WinForms compatibility).</summary>
         public BorderStyle BorderStyle {
@@ -200,15 +230,36 @@ namespace Majorsilence.Forms
             // than the cluster drawn on screen, and the hot-spot lookup indexed the artwork at
             // coordinates that did not correspond to it -- so dropping on a lobe mostly missed.
             if (size_mode == PictureBoxSizeMode.AutoSize)
-                Size = new Size (_skImage.Width, _skImage.Height);
+                Size = AutoSizeFor (_skImage);
 
             Parent?.PerformLayout (this, nameof (AutoSize));
+        }
+
+        // Upstream PictureBox.GetPreferredSizeCore: the image plus SizeFromClientSize (Size.Empty) plus
+        // Padding, so an auto-sized box grows to keep its border and padding outside the image instead
+        // of clipping the image's right and bottom edges by them (SMP-25).
+        private Size AutoSizeFor (SKBitmap image)
+        {
+            var border = CurrentStyle.Border;
+
+            return new Size (
+                image.Width + Padding.Horizontal + border.Left.GetWidth () + border.Right.GetWidth (),
+                image.Height + Padding.Vertical + border.Top.GetWidth () + border.Bottom.GetWidth ());
+        }
+
+        /// <inheritdoc/>
+        protected override void OnPaddingChanged (EventArgs e)
+        {
+            base.OnPaddingChanged (e);
+
+            UpdateSize ();
+            Invalidate ();
         }
 
         /// <inheritdoc/>
         public override Size GetPreferredSize (Size proposedSize)
             => size_mode == PictureBoxSizeMode.AutoSize && _skImage is not null
-                ? new Size (_skImage.Width, _skImage.Height)
+                ? AutoSizeFor (_skImage)
                 : base.GetPreferredSize (proposedSize);
     }
 }

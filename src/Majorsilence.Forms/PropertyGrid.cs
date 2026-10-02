@@ -24,6 +24,7 @@ namespace Majorsilence.Forms
     public partial class PropertyGrid : ScrollableControl
     {
         private object? _selected_object;
+        private object[] _selected_objects = [];
         private readonly List<GridItem> _rows = [];
         private GridItem? _selected_item;
         private PropertyTab? _selected_tab;
@@ -58,23 +59,74 @@ namespace Majorsilence.Forms
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
 
         /// <summary>Gets or sets the object whose properties are shown.</summary>
+        /// <remarks>With several <see cref="SelectedObjects"/> this is the first of them, as upstream's
+        /// is; assigning it selects that one object alone.</remarks>
         public object? SelectedObject {
             get => _selected_object;
+            set => SelectedObjects = value is null ? [] : [value];
+        }
+
+        /// <summary>Gets or sets the objects whose properties are shown and edited together.</summary>
+        /// <remarks>
+        /// SMP-59: this kept only the first object, so "select five shapes, set FillColor once" edited
+        /// one shape, and reading the property back gave an array of length 1. As upstream does
+        /// (Controls/PropertyGrid/PropertyGrid.cs, SelectedObjects; MultiSelectRootGridEntry), the grid
+        /// now lists only the properties every object has -- same name and type, and not
+        /// <c>[MergableProperty (false)]</c> -- shows a value only where all the objects agree, and
+        /// writes a committed edit to every object. The getter returns a copy, empty rather than null
+        /// when nothing is selected.
+        /// </remarks>
+        /// <exception cref="ArgumentException">An element of the array is null.</exception>
+        public object[]? SelectedObjects {
+            get => [.. _selected_objects];
             set {
-                if (ReferenceEquals (_selected_object, value))
+                var objects = value ?? [];
+
+                for (var i = 0; i < objects.Length; i++) {
+                    if (objects[i] is null)
+                        throw new ArgumentException ($"Item {i} of the array is null.", nameof (value));
+                }
+
+                if (objects.Length == _selected_objects.Length && objects.Zip (_selected_objects, ReferenceEquals).All (same => same))
                     return;
 
-                _selected_object = value;
+                _selected_objects = [.. objects];
+                _selected_object = objects.Length > 0 ? objects[0] : null;
                 RebuildEntries ();
                 Invalidate ();
                 SelectedObjectsChanged?.Invoke (this, EventArgs.Empty);
             }
         }
 
-        /// <summary>Gets or sets the objects whose properties are shown; only the first is used.</summary>
-        public object[]? SelectedObjects {
-            get => _selected_object == null ? null : new[] { _selected_object };
-            set => SelectedObject = value?.Length > 0 ? value[0] : null;
+        // The descriptors the grid shows for one object: the selected tab's, or the type's own.
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2026", Justification = "PropertyGrid uses reflection at runtime; trimming is not supported for this control.")]
+        private PropertyDescriptorCollection DescriptorsOf (object component)
+            => SelectedTab is { } tab ? tab.GetProperties (component) : TypeDescriptor.GetProperties (component);
+
+        // The descriptor of the same-named, same-typed property on another selected object, or null.
+        // Each object needs its own: a reflection descriptor only accepts components of its own type.
+        internal PropertyDescriptor? CounterpartOf (object component, PropertyDescriptor property)
+        {
+            if (ReferenceEquals (component, _selected_object))
+                return property;
+
+            return DescriptorsOf (component).Find (property.Name, ignoreCase: false) is { } other
+                   && other.PropertyType == property.PropertyType
+                ? other
+                : null;
+        }
+
+        // Upstream's property merger: shown for a multiple selection only when every object has it and
+        // it allows merging.
+        private bool IsCommonToSelection (PropertyDescriptor property)
+        {
+            if (_selected_objects.Length < 2)
+                return true;
+
+            if (property.Attributes[typeof (MergablePropertyAttribute)] is MergablePropertyAttribute { AllowMerge: false })
+                return false;
+
+            return _selected_objects.All (o => CounterpartOf (o, property) is not null);
         }
 
         /// <summary>Rebuilds the grid from the selected object.</summary>
@@ -248,11 +300,9 @@ namespace Majorsilence.Forms
 
             // The selected tab decides which properties are shown, as upstream's does; with no tab the
             // type's own descriptors are used.
-            var descriptors = SelectedTab is { } tab
-                ? tab.GetProperties (_selected_object).Cast<PropertyDescriptor> ()
-                : TypeDescriptor.GetProperties (_selected_object).Cast<PropertyDescriptor> ();
+            var descriptors = DescriptorsOf (_selected_object).Cast<PropertyDescriptor> ();
 
-            var props = descriptors.Where (p => p.IsBrowsable).Where (MatchesBrowsableAttributes);
+            var props = descriptors.Where (p => p.IsBrowsable).Where (MatchesBrowsableAttributes).Where (IsCommonToSelection);
 
             if (PropertySort is PropertySort.Alphabetical or PropertySort.CategorizedAlphabetical)
                 props = props.OrderBy (p => p.Name, StringComparer.Ordinal);
@@ -285,6 +335,7 @@ namespace Majorsilence.Forms
                     PropertyDescriptor = prop,
                     Parent = parent,
                     Value = ReadValue (prop),
+                    ValuesDiffer = ValuesDiffer (prop),
                 };
 
                 if (parent is null)
@@ -357,12 +408,38 @@ namespace Majorsilence.Forms
             return true;
         }
 
+        // With several objects selected, the value is shown only when they all hold the same one;
+        // otherwise the cell is blank, as upstream's multi-select entry leaves it.
         private object? ReadValue (PropertyDescriptor property)
         {
             try {
-                return _selected_object is null ? null : property.GetValue (_selected_object);
+                if (_selected_object is null)
+                    return null;
+
+                var first = property.GetValue (_selected_object);
+
+                foreach (var other in _selected_objects.Skip (1)) {
+                    if (!Equals (CounterpartOf (other, property)?.GetValue (other), first))
+                        return null;
+                }
+
+                return first;
             } catch {
                 return null;
+            }
+        }
+
+        // Whether the selected objects disagree about a property's value, so the cell shows nothing.
+        internal bool ValuesDiffer (PropertyDescriptor property)
+        {
+            if (_selected_objects.Length < 2)
+                return false;
+
+            try {
+                var first = property.GetValue (_selected_object);
+                return _selected_objects.Skip (1).Any (o => !Equals (CounterpartOf (o, property)?.GetValue (o), first));
+            } catch {
+                return false;
             }
         }
 
@@ -402,6 +479,9 @@ namespace Majorsilence.Forms
         internal static string ValueTextOf (GridItem item)
         {
             if (item.PropertyDescriptor is null)
+                return string.Empty;
+
+            if (item is PropertyGridEntry { ValuesDiffer: true })
                 return string.Empty;
 
             try {
@@ -564,6 +644,9 @@ namespace Majorsilence.Forms
 
             // The value the grid last read, kept so a committed edit can report the old one.
             internal object? CurrentValue { get; set; }
+
+            // The selected objects held different values when the grid last read this one.
+            internal bool ValuesDiffer { get; set; }
         }
     }
 

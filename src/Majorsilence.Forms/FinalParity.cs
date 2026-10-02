@@ -307,8 +307,95 @@ namespace Majorsilence.Forms
     public partial class DomainUpDown
     {
         /// <summary>The items of a <see cref="DomainUpDown"/>.</summary>
+        /// <remarks>Mirrors upstream <c>DomainUpDown.DomainUpDownItemCollection</c>: adding, inserting or
+        /// replacing an item re-sorts the owner's list while <see cref="Sorted"/> is on, and removing
+        /// one keeps the owner's selection on the same item (SMP-38).</remarks>
         public class DomainUpDownItemCollection : ArrayList
         {
+            private readonly DomainUpDown? owner;
+
+            /// <summary>Initializes a new, unowned instance of the <see cref="DomainUpDownItemCollection"/> class.</summary>
+            public DomainUpDownItemCollection ()
+            {
+            }
+
+            internal DomainUpDownItemCollection (DomainUpDown owner) => this.owner = owner;
+
+            /// <inheritdoc/>
+            public override object? this[int index] {
+                get => base[index];
+                set {
+                    base[index] = value;
+
+                    if (owner is null)
+                        return;
+
+                    if (owner.SelectedIndex == index)
+                        owner.SelectIndex (index);
+
+                    if (owner.Sorted)
+                        owner.SortItems ();
+                }
+            }
+
+            /// <inheritdoc/>
+            public override int Add (object? value)
+            {
+                var index = base.Add (value);
+
+                if (owner is { Sorted: true })
+                    owner.SortItems ();
+
+                return index;
+            }
+
+            /// <inheritdoc/>
+            public override void Insert (int index, object? value)
+            {
+                base.Insert (index, value);
+
+                if (owner is { Sorted: true })
+                    owner.SortItems ();
+            }
+
+            /// <inheritdoc/>
+            public override void RemoveAt (int index)
+            {
+                base.RemoveAt (index);
+
+                if (owner is null)
+                    return;
+
+                if (index < owner.SelectedIndex)
+                    owner.SelectIndexQuietly (owner.SelectedIndex - 1);
+                else if (index == owner.SelectedIndex)
+                    owner.SelectIndex (-1);
+            }
+
+            /// <inheritdoc/>
+            public override void Remove (object? obj)
+            {
+                // ArrayList.Remove does not route through RemoveAt, so the selection bookkeeping above
+                // would be skipped.
+                var index = IndexOf (obj);
+
+                if (index >= 0)
+                    RemoveAt (index);
+            }
+
+            // Upstream DomainUpDownItemCompare: by ToString under the current culture, so items of
+            // mixed types sort instead of throwing as ArrayList's default comparer does.
+            internal void SortCore ()
+                => base.Sort (Comparer<object?>.Create ((p, q) => ReferenceEquals (p, q) || p is null || q is null
+                    ? 0
+                    : string.Compare (p.ToString (), q.ToString (), false, System.Globalization.CultureInfo.CurrentCulture)));
+        }
+
+        // The selected item moved index without changing (an earlier item was removed).
+        internal void SelectIndexQuietly (int index)
+        {
+            _selectedIndex = index;
+            Invalidate ();
         }
 
         /// <summary>Exposes a <see cref="DomainUpDown"/> to accessibility clients.</summary>

@@ -94,13 +94,19 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void ImageSize_SetAfterImageAdded_ThrowsInvalidOperationException ()
+        public void ImageSize_SetAfterImageAdded_ResizesTheImages ()
         {
+            // SMP-54: this pinned an InvalidOperationException upstream never throws; upstream
+            // recreates the list with every image at the new size.
             using var list = new ImageList ();
             using var image = CreateBitmap ();
             list.Images.Add ("key", image);
 
-            Assert.Throws<InvalidOperationException> (() => list.ImageSize = new Size (32, 32));
+            list.ImageSize = new Size (32, 24);
+
+            Assert.Equal (new Size (32, 24), list.ImageSize);
+            Assert.Equal (32, list.Images["key"].Width);
+            Assert.Equal (24, list.Images["key"].Height);
         }
 
         [Fact]

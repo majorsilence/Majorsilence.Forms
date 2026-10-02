@@ -42,10 +42,9 @@ namespace Majorsilence.Forms.Renderers
         {
             e.Canvas.FillRectangle (geometry.Title, Resolve (control.TitleBackColor, Theme.ControlHighlightLowColor));
 
-            var caption = control.DisplayMonth.ToString ("MMMM yyyy", CultureInfo.CurrentCulture);
-            var text_area = new Rectangle (geometry.PrevButton.Right, geometry.Title.Top,
-                                           System.Math.Max (0, geometry.NextButton.Left - geometry.PrevButton.Right),
-                                           geometry.Title.Height);
+            // Shared with HitTest, which finds the month and year runs inside this same caption.
+            var caption = control.TitleCaption;
+            var text_area = MonthCalendar.TitleTextArea (geometry);
 
             e.Canvas.DrawText (caption, font, fontSize, text_area,
                                Resolve (control.TitleForeColor, Theme.ForegroundColorOnAccent),

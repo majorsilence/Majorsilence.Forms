@@ -59,8 +59,6 @@ Majorsilence.Forms.TextBoxBase.ScrollToCaret/0
 Majorsilence.Forms.TextBoxBase.Undo/0
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.DrawBackground/2
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.DrawBackground/3
-Majorsilence.Forms.WebBrowser.GoBack/0
-Majorsilence.Forms.WebBrowser.GoForward/0
 Majorsilence.Forms.WebBrowser.GoHome/0
 Majorsilence.Forms.WebBrowser.GoSearch/0
 Majorsilence.Forms.WebBrowser.Print/0

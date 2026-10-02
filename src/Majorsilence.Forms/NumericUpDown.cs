@@ -44,8 +44,17 @@ namespace Majorsilence.Forms
             up_down_buttons?.SetBounds (ButtonStripLeft, 0, ButtonWidth, Height);
         }
 
-        void System.ComponentModel.ISupportInitialize.BeginInit () { }
-        void System.ComponentModel.ISupportInitialize.EndInit () { }
+        // The designer's ((ISupportInitialize)nud).BeginInit () reached two empty methods here while
+        // the public pair sat beside them (SMP-35); both routes are now the same pair.
+        void System.ComponentModel.ISupportInitialize.BeginInit () => BeginInit ();
+        void System.ComponentModel.ISupportInitialize.EndInit () => EndInit ();
+
+        // Upstream NumericUpDown._initializing: Value is neither range-checked nor shown while set,
+        // because designer code assigns Value before the Maximum that admits it. EndInit constrains.
+        private bool initializing;
+
+        // Upstream NumericUpDown.Constrain.
+        private decimal Constrain (decimal value) => Math.Min (Math.Max (value, minimum), maximum);
 
         /// <summary>Gets or sets the number of decimal places shown.</summary>
         public int DecimalPlaces {
@@ -65,7 +74,10 @@ namespace Majorsilence.Forms
                 if (maximum != value) {
                     maximum = value;
                     minimum = Math.Min (minimum, maximum);
-                    current_value = Math.Min (Math.Max (current_value, minimum), maximum);
+
+                    // Through Value, as upstream's Maximum setter does, so a value the new range moves
+                    // raises ValueChanged and redraws its text instead of changing silently.
+                    Value = Constrain (current_value);
                     Invalidate ();
                 }
             }
@@ -78,23 +90,35 @@ namespace Majorsilence.Forms
                 if (minimum != value) {
                     minimum = value;
                     maximum = Math.Max (minimum, maximum);
-                    current_value = Math.Min (Math.Max (current_value, minimum), maximum);
+                    Value = Constrain (current_value);
                     Invalidate ();
                 }
             }
         }
 
         /// <summary>Gets or sets the current value.</summary>
+        /// <exception cref="ArgumentOutOfRangeException">The value is outside
+        /// <see cref="Minimum"/>..<see cref="Maximum"/>, except between <see cref="BeginInit"/> and
+        /// <see cref="EndInit"/>.</exception>
+        /// <remarks>
+        /// Throws rather than clamps, as upstream's setter does (Controls/UpDown/NumericUpDown.cs):
+        /// a stale out-of-range value from a load routine must not be saved back as a different number
+        /// (SMP-34). The user's paths -- the buttons, the keys, a typed value -- constrain first.
+        /// </remarks>
         public decimal Value {
             get => current_value;
             set {
-                value = Math.Min (Math.Max (value, minimum), maximum);
-
                 if (current_value != value) {
+                    if (!initializing && (value < minimum || value > maximum))
+                        throw new ArgumentOutOfRangeException (nameof (value), value, $"'{value}' is not a valid value for 'Value'. 'Value' should be between 'Minimum' and 'Maximum'.");
+
                     current_value = value;
 
                     // The framework's write of the displayed text, flagged as such (ChangingText).
-                    SetFrameworkText (FormatValue (value));
+                    // Not while initializing: upstream's UpdateEditText waits for EndInit, in case the
+                    // value is not yet valid.
+                    if (!initializing)
+                        SetFrameworkText (FormatValue (value));
                     Invalidate ();
                     OnValueChanged (EventArgs.Empty);
                 }
@@ -193,7 +217,7 @@ namespace Majorsilence.Forms
             decimal new_value;
 
             try {
-                new_value = Math.Min (current_value + Increment, maximum);
+                new_value = Constrain (current_value + Increment);
             } catch (OverflowException) {
                 new_value = maximum;
             }
@@ -207,7 +231,7 @@ namespace Majorsilence.Forms
             decimal new_value;
 
             try {
-                new_value = Math.Max (current_value - Increment, minimum);
+                new_value = Constrain (current_value - Increment);
             } catch (OverflowException) {
                 new_value = minimum;
             }

@@ -167,13 +167,37 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether text is drawn through the compatible text renderer.</summary>
         public bool UseCompatibleTextRendering { get; set; }
 
-        /// <summary>Gets the height the label needs for its current text.</summary>
-        public virtual int PreferredHeight
-            => (int)Math.Ceiling (TextMeasurer.MeasureText (Text ?? string.Empty, this).Height) + Padding.Vertical;
+        /// <summary>Gets the height the label needs for its current text, border and padding.</summary>
+        /// <remarks>Upstream <c>Label.PreferredHeight</c> is <c>PreferredSize.Height</c>, so it
+        /// carries the border and measures the mnemonic-stripped caption. This measured the raw text
+        /// plus padding only, short by the border of every framed label (SMP-17).</remarks>
+        public virtual int PreferredHeight => PreferredTextSize ().Height;
 
-        /// <summary>Gets the width the label needs for its current text on one line.</summary>
-        public virtual int PreferredWidth
-            => (int)Math.Ceiling (TextMeasurer.MeasureText (Text ?? string.Empty, this).Width) + Padding.Horizontal;
+        /// <summary>Gets the width the label needs for its current text on one line, border and padding.</summary>
+        /// <remarks>Upstream <c>Label.PreferredWidth</c> is <c>PreferredSize.Width</c>; see
+        /// <see cref="PreferredHeight"/>.</remarks>
+        public virtual int PreferredWidth => PreferredTextSize ().Width;
+
+        // Whether the renderer draws '&' as a mnemonic prefix, and so whether measuring strips it.
+        // LinkLabel draws its text raw (its link ranges index the raw string), so it measures raw too.
+        internal virtual bool DrawsMnemonic => UseMnemonic;
+
+        private Size PreferredTextSize ()
+        {
+            if (Text.HasValue () || ImageSK is not null)
+                return GetPreferredSize (Size.Empty);
+
+            // Upstream Label.GetPreferredSizeCore: an empty label still wants a line of the font, the
+            // extent of "0" with no width, plus borders and padding. GetPreferredSizeCore keeps the
+            // specified bounds for an empty label instead, which is right for AutoSize (it must not
+            // collapse) but not for a property that answers "how tall is one line".
+            var border = Style.Border;
+            var line = (int)Math.Ceiling (TextMeasurer.MeasureText ("0", this).Height);
+
+            return new Size (
+                Padding.Horizontal + border.Left.GetWidth () + border.Right.GetWidth (),
+                line + Padding.Vertical + border.Top.GetWidth () + border.Bottom.GetWidth ());
+        }
     }
 
     /// <summary>How assistive technology is told about changes to a control's content.</summary>
@@ -221,11 +245,23 @@ namespace Majorsilence.Forms
 
         /// <summary>Starts a batch of designer-set properties; layout waits for <see cref="EndInit"/>.</summary>
         /// <remarks>Real as of W6 mechanisms: it used to do nothing, so a control the designer
-        /// initialises laid itself out once per property assigned instead of once at the end.</remarks>
-        public void BeginInit () => SuspendLayout ();
+        /// initialises laid itself out once per property assigned instead of once at the end. It also
+        /// suspends <see cref="Value"/>'s range check until <see cref="EndInit"/>, as upstream's does
+        /// (SMP-30).</remarks>
+        public void BeginInit ()
+        {
+            initializing = true;
+            SuspendLayout ();
+        }
 
-        /// <summary>Ends the batch <see cref="BeginInit"/> started and lays the control out once.</summary>
-        public void EndInit () => ResumeLayout (performLayout: true);
+        /// <summary>Ends the batch <see cref="BeginInit"/> started, constrains <see cref="Value"/> to
+        /// the range, and lays the control out once.</summary>
+        public void EndInit ()
+        {
+            initializing = false;
+            ConstrainValue ();
+            ResumeLayout (performLayout: true);
+        }
     }
 
     public partial class DateTimePicker
@@ -302,17 +338,18 @@ namespace Majorsilence.Forms
 
     public partial class DomainUpDown
     {
-        // Sorting the items in place, as upstream keeps the list sorted while Sorted is on. Items added
-        // afterwards are not re-sorted (W6.2 sweep).
         private bool sorted;
 
         /// <summary>Gets or sets whether the items are kept in alphabetical order.</summary>
+        /// <remarks>Kept sorted while on, as upstream does: <see cref="DomainUpDownItemCollection"/>
+        /// re-sorts after every add, insert and replacement (SMP-38). It used to sort once, on
+        /// assignment, so an item added afterwards landed at the end.</remarks>
         public bool Sorted {
             get => sorted;
             set {
                 sorted = value;
                 if (value)
-                    Items.Sort ();
+                    SortItems ();
             }
         }
 

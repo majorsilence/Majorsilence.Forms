@@ -133,8 +133,14 @@ namespace Majorsilence.Forms
 
             try {
                 var parsed = property.Converter.ConvertFromString (text);
-                property.SetValue (_selected_object, parsed);
+
+                // Every selected object, as upstream's multi-select entry writes them all (SMP-59).
+                // CounterpartOf is never null here: the row is listed only when all of them have it.
+                foreach (var target in _selected_objects)
+                    CounterpartOf (target, property)?.SetValue (target, parsed);
+
                 item.Value = property.GetValue (_selected_object);
+                ((PropertyGridEntry) item).ValuesDiffer = false;
             } catch {
                 // A value the converter or the setter refuses leaves the property alone, and the row
                 // goes back to showing what it holds -- the grid never reports a change that did not

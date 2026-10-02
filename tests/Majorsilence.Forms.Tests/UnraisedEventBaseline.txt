@@ -63,13 +63,8 @@ Majorsilence.Forms.RichTextBox.ImeChange    -- IME composition; no IME path
 Majorsilence.Forms.SystemEvents.DisplaySettingsChanged    -- no OS display-settings hook
 Majorsilence.Forms.ToolStripControlHost.ContentChanged    -- not an upstream member; nothing defines what it would mean
 Majorsilence.Forms.ToolStripItem.QueryAccessibilityHelp    -- accessibility infrastructure; no accessible-object tree
-Majorsilence.Forms.WebBrowser.CanGoBackChanged    -- no browser engine; the control is a placeholder
-Majorsilence.Forms.WebBrowser.CanGoForwardChanged    -- no browser engine; the control is a placeholder
-Majorsilence.Forms.WebBrowser.DocumentTitleChanged    -- no browser engine; the control is a placeholder
 Majorsilence.Forms.WebBrowser.EncryptionLevelChanged    -- no browser engine; the control is a placeholder
 Majorsilence.Forms.WebBrowser.FileDownload    -- no browser engine; the control is a placeholder
-Majorsilence.Forms.WebBrowser.Navigated    -- no browser engine; the control is a placeholder
-Majorsilence.Forms.WebBrowser.Navigating    -- no browser engine; the control is a placeholder
 Majorsilence.Forms.WebBrowser.NewWindow    -- no browser engine; the control is a placeholder
 Majorsilence.Forms.WebBrowser.ProgressChanged    -- no browser engine; the control is a placeholder
 Majorsilence.Forms.WebBrowser.StatusTextChanged    -- no browser engine; the control is a placeholder

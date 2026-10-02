@@ -41,19 +41,23 @@ namespace Majorsilence.Forms.Tests
         [Theory]
         [InlineData (-10)]
         [InlineData (-1)]
-        public void Value_SetBelowMinimum_ClampsToMinimum (int value)
+        public void Value_SetBelowMinimum_ThrowsArgumentOutOfRangeException (int value)
         {
-            using var control = new NumericUpDown { Minimum = 0, Maximum = 100, Value = value };
+            // Upstream's setter throws outside the range rather than clamping (SMP-34); this pinned
+            // the old clamp.
+            using var control = new NumericUpDown { Minimum = 0, Maximum = 100 };
+            Assert.Throws<ArgumentOutOfRangeException> (() => control.Value = value);
             Assert.Equal (0m, control.Value);
         }
 
         [Theory]
         [InlineData (101)]
         [InlineData (200)]
-        public void Value_SetAboveMaximum_ClampsToMaximum (int value)
+        public void Value_SetAboveMaximum_ThrowsArgumentOutOfRangeException (int value)
         {
-            using var control = new NumericUpDown { Minimum = 0, Maximum = 100, Value = value };
-            Assert.Equal (100m, control.Value);
+            using var control = new NumericUpDown { Minimum = 0, Maximum = 100 };
+            Assert.Throws<ArgumentOutOfRangeException> (() => control.Value = value);
+            Assert.Equal (0m, control.Value);
         }
 
         [Fact]
