@@ -159,12 +159,12 @@ namespace Majorsilence.Forms
             // pre-set from AutoClose exactly as upstream's SetVisibleCore does, and honoured: a cancelled
             // close leaves the menu on screen. It was never read.
             var closing = new ToolStripDropDownClosingEventArgs (reason) {
-                Cancel = reason != ToolStripDropDownCloseReason.CloseCalled && !AutoCloseCore,
+                Cancel = !force_close && reason != ToolStripDropDownCloseReason.CloseCalled && !AutoCloseCore,
             };
 
             OnClosing (closing);
 
-            if (closing.Cancel && was_shown)
+            if (closing.Cancel && was_shown && !force_close)
                 return;
 
             shown = false;
@@ -177,6 +177,23 @@ namespace Majorsilence.Forms
         }
 
         private bool shown;
+
+        private bool force_close;
+
+        /// <summary>
+        /// Closes the menu even if <c>Closing</c> is cancelled, which is still raised so a handler can tidy up.
+        /// For the one caller that has no business being vetoed: the form the menu hangs off is gone.
+        /// </summary>
+        internal void CloseUnconditionally ()
+        {
+            force_close = true;
+
+            try {
+                Deactivate ();
+            } finally {
+                force_close = false;
+            }
+        }
 
         private ToolStripDropDownCloseReason close_reason = ToolStripDropDownCloseReason.AppFocusChange;
 

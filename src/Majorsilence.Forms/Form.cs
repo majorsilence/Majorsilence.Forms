@@ -522,8 +522,18 @@ namespace Majorsilence.Forms
             // except MenuBase.Deactivate, which a close does not run, so the strip of a dead form
             // stayed "active" -- harmless while nothing consulted it, and a keystroke routed into a
             // window that no longer exists once menu-mode navigation started asking (TSM-13).
-            if (Application.ActiveMenu is { } menu && ReferenceEquals (menu.FindWindow (), this))
+            // A shown context menu lives in its own popup window, so FindWindow names that popup, not the form
+            // it was opened on; FindForm falls back to the form it was shown from.
+            if (Application.ActiveMenu is { } menu
+                && (ReferenceEquals (menu.FindWindow (), this) || ReferenceEquals (menu.FindForm (), this))) {
                 Application.ClosePopups ();
+
+                // A context menu can veto ClosePopups (a cancelled Closing, or AutoClose off). The window
+                // it hangs off is gone, so it must not stay as Application.ActiveMenu, where it would
+                // keep every later menu from becoming the active one (TSM-21).
+                if (ReferenceEquals (Application.ActiveMenu, menu))
+                    (menu as ContextMenu)?.CloseUnconditionally ();
+            }
 
             OnFormClosed (new FormClosedEventArgs (PendingCloseReason));
         }

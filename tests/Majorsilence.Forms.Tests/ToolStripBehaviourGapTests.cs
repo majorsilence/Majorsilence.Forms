@@ -449,6 +449,13 @@ public class ToolStripBehaviourGapTests
     private static (Form form, ContextMenuStrip menu, ToolStripMenuItem item) ShownMenu (Action<ContextMenuStrip>? configure = null)
     {
         HeadlessRenderer.Use ();
+
+        // Application.ActiveMenu is process-wide and a context menu only takes it when it is free, so a
+        // menu some earlier test left behind decides what Application.ClosePopups reaches here. These
+        // tests assert on exactly that, so each starts from a free slot rather than from whatever the
+        // suite's order left (CI saw it on Linux custom chrome and on macOS).
+        Application.ActiveMenu = null;
+
         var form = new Form { Width = 400, Height = 300 };
         form.Show ();
         var menu = new ContextMenuStrip ();
@@ -522,6 +529,27 @@ public class ToolStripBehaviourGapTests
             Assert.True (menu.Visible);
         } finally {
             form.Close ();
+            menu.Dispose ();
+        }
+    }
+
+    [Fact]
+    public void Closing_the_form_ends_a_menu_whose_Closing_vetoes_every_close ()
+    {
+        // A cancelled close leaves the menu shown and as Application.ActiveMenu. The form it hangs off
+        // going away must not be vetoable, or the dead form's menu stays "active" and every later
+        // context menu is shown without becoming the active one (ShowCore only takes the slot when it
+        // is free), which is how an Escape test's leftover broke the click tests that ran after it.
+        var (form, menu, _) = ShownMenu ();
+
+        try {
+            menu.Closing += (_, e) => e.Cancel = true;
+
+            form.Close ();
+
+            Assert.Null (Application.ActiveMenu);
+            Assert.False (menu.Visible);
+        } finally {
             menu.Dispose ();
         }
     }
