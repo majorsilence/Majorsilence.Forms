@@ -386,16 +386,24 @@ namespace Majorsilence.Forms.Tests
         public void First_keyboard_focus_after_Text_selects_all ()
         {
             using var box = ProbeBox ("abc");
+            var buttons = Control.MouseButtons;
 
-            box.GainFocus ();
+            try {
+                // Control.MouseButtons is process-wide: an earlier test that left a button down
+                // would suppress the select-all, so pin it for this test.
+                Control.MouseButtons = MouseButtons.None;
+                box.GainFocus ();
 
-            Assert.Equal (3, box.SelectionLength);
+                Assert.Equal (3, box.SelectionLength);
 
-            // One shot: a later focus leaves the caret where the user put it.
-            box.Select (1, 0);
-            box.GainFocus ();
+                // One shot: a later focus leaves the caret where the user put it.
+                box.Select (1, 0);
+                box.GainFocus ();
 
-            Assert.Equal (0, box.SelectionLength);
+                Assert.Equal (0, box.SelectionLength);
+            } finally {
+                Control.MouseButtons = buttons;
+            }
         }
 
         [Fact]
