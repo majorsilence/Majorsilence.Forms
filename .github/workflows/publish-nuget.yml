@@ -51,6 +51,12 @@ env:
     src/Majorsilence.Forms.WindowsFormsInterop/Majorsilence.Forms.WindowsFormsInterop.csproj
     src/Majorsilence.Forms.WindowsUIAutomation/Majorsilence.Forms.WindowsUIAutomation.csproj
     src/Majorsilence.Forms.Theming.WinForms/Majorsilence.Forms.Theming.WinForms.csproj
+  # Packages that need a macOS runner because they carry a net10.0-ios row (Apple's toolchain is a hard
+  # requirement). Majorsilence.Forms.Essentials ships android + ios + desktop in ONE package, so it is
+  # packed here with both workloads, and deliberately not in PACKABLE_PROJECTS above (two packs of
+  # the same id would collide on nuget.org). Keep in sync with the other two workflows.
+  PACKABLE_PROJECTS_MACOS: >-
+    src/Majorsilence.Forms.Essentials/Majorsilence.Forms.Essentials.csproj
 
 jobs:
   # Windows-only packages build only on a Windows runner; pack them here and hand the
@@ -92,8 +98,55 @@ jobs:
             nupkg/*.snupkg
           if-no-files-found: error
 
+  # Packages with a net10.0-ios row build only on a macOS runner (Apple's toolchain). Same hand-off
+  # as pack-windows. Not continue-on-error: failing here beats publishing Majorsilence.Forms.Essentials
+  # to nuget.org without its iOS asset, which could not be corrected later (versions are immutable).
+  pack-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      # Pinned to workload set 10.0.401 (iOS 26.5.10318), same as the ios job in dotnet.yml: set 10.0.401.1
+      # brought .NET for iOS 27.0, which refuses to build without Xcode 27, and the macos runner image
+      # still ships Xcode 26.6. Drop the pin when that job's does. android and ios go in together so
+      # the one Essentials package carries both rows.
+      - name: Install android and ios workloads
+        run: dotnet workload install android ios --version 10.0.401
+
+      - name: Pack macOS-only NuGet packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p nupkg
+          for proj in $PACKABLE_PROJECTS_MACOS; do
+            echo "::group::pack $proj"
+            dotnet pack "$proj" --configuration Release --output nupkg \
+              -p:EnableAndroidTarget=true -p:EnableIOSTarget=true
+            echo "::endgroup::"
+          done
+          ls -lh nupkg
+
+      - name: Upload macOS-only packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg-macos
+          path: |
+            nupkg/*.nupkg
+            nupkg/*.snupkg
+          if-no-files-found: error
+
   publish:
-    needs: pack-windows
+    needs: [pack-windows, pack-macos]
     runs-on: ubuntu-latest
     permissions:
       id-token: write   # required for NuGet/login's OIDC token exchange
@@ -139,6 +192,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: nupkg-windows
+          path: nupkg
+
+      - name: Download macOS-only packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nupkg-macos
           path: nupkg
 
       - name: List all packages to push
