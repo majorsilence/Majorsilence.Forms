@@ -65,7 +65,10 @@ namespace Majorsilence.Forms
         /// </summary>
         public override void Copy ()
         {
-            if (!document.IsTextSelected)
+            // TXT-08: a password box never gives up its text. Upstream's Copy is WM_COPY against an
+            // ES_PASSWORD edit control, which ignores it (MaskedTextBox.WmCopy says so in as many words:
+            // "cannot copy password to clipboard").
+            if (!document.IsTextSelected || PasswordProtect)
                 return;
 
             var text = document.SelectedText;
@@ -99,7 +102,8 @@ namespace Majorsilence.Forms
         /// </summary>
         public override void Cut ()
         {
-            if (!document.IsTextSelected)
+            // TXT-08: and a cut that cannot copy does not delete either, as WM_CUT in password mode.
+            if (!document.IsTextSelected || PasswordProtect)
                 return;
 
             var text = document.SelectedText;
@@ -107,6 +111,10 @@ namespace Majorsilence.Forms
 
             document.DeleteSelection ();
         }
+
+        // Upstream's TextBox.PasswordProtect: PasswordChar != '\0', which UseSystemPasswordChar also
+        // satisfies, because the getter answers the character actually in use.
+        internal bool PasswordProtect => document.PasswordCharacter.HasValue;
 
         /// <inheritdoc/>
         protected override Padding DefaultPadding => new Padding (1, 0, 0, 0);
@@ -204,6 +212,12 @@ namespace Majorsilence.Forms
                     case Keys.Up:
                         need_refresh = document.MoveCursor (ArrowDirection.Up, e.Shift, e.Control, false);
                         return true;
+                    case Keys.PageUp:
+                        need_refresh = MovePage (up: true, e.Shift);
+                        return true;
+                    case Keys.PageDown:
+                        need_refresh = MovePage (up: false, e.Shift);
+                        return true;
                     case Keys.Down:
                         need_refresh = document.MoveCursor (ArrowDirection.Down, e.Shift, e.Control, false);
                         return true;
@@ -244,7 +258,17 @@ namespace Majorsilence.Forms
                         return e.Control && ShortcutsEnabled;
                     case Keys.A:
                         if (e.Control && ShortcutsEnabled)
-                            document.SelectAll ();
+                            SelectAll ();
+
+                        return e.Control && ShortcutsEnabled;
+                    // TXT-13: the edit control's own Ctrl+Z (WM_UNDO) -- the undo buffer was only
+                    // reachable from a menu. Upstream lists CtrlZ among the shortcuts ShortcutsEnabled
+                    // eats, and a read-only edit control refuses the undo.
+                    case Keys.Z:
+                        if (e.Control && !e.Alt && ShortcutsEnabled && !ReadOnly) {
+                            Undo ();
+                            need_refresh = true;
+                        }
 
                         return e.Control && ShortcutsEnabled;
 
@@ -255,6 +279,25 @@ namespace Majorsilence.Forms
             }
 
             return false;
+        }
+
+        // TXT-24: PageUp/PageDown move the caret a viewport's height in a multiline box, the native edit
+        // control's paging (TextBoxBase.IsInputKey claims both keys so they arrive here). A single-line
+        // box has nothing to page through.
+        private bool MovePage (bool up, bool select)
+        {
+            if (!Multiline || document.Text.Length == 0)
+                return false;
+
+            var block = document.GetTextBlock ();
+            var caret = block.GetCaretInfo (new CaretPosition (document.CursorIndex));
+            var page = Math.Max (PaddedClientRectangle.Height, CurrentFontSize);
+            var y = caret.CaretRectangle.MidY + (up ? -page : page);
+            var index = y < 0 ? 0
+                      : y > block.MeasuredHeight ? document.Text.Length
+                      : block.HitTest (caret.CaretXCoord, y).ClosestCodePointIndex;
+
+            return document.MoveCaretTo (index, select);
         }
 
         /// <summary>
@@ -363,12 +406,61 @@ namespace Majorsilence.Forms
             if (e.Button != MouseButtons.Left)
                 return;
 
-            SetCursorToCharIndex (GetCharIndexFromPosition (e.Location));
+            var index = GetCharIndexFromPosition (e.Location);
+
+            // TXT-24: the second press of a double-click selects the word under the pointer, which is
+            // what the native edit control does on WM_LBUTTONDBLCLK. The release that follows must not
+            // collapse it, so no drag starts.
+            if (e.Clicks == 2 && document.Text.Length > 0) {
+                is_highlighting = false;
+
+                var (start, end) = WordAt (index);
+                document.SetSelection (start, end);
+                ScrollToCaret ();
+
+                return;
+            }
+
+            // TXT-24: Shift+click extends the selection from its anchor (or from the caret) instead of
+            // starting a new one. The modifiers carried by THIS press, as ListView reads them (LST-27).
+            var extend = (e.Modifiers & Keys.Shift) == Keys.Shift;
+            var anchor = !extend ? index
+                       : document.IsTextSelected ? document.SelectionStart
+                       : document.CursorIndex;
 
             is_highlighting = true;
-            selection_anchor = document.CursorIndex;
+            selection_anchor = anchor;
 
-            Invalidate ();
+            document.SetSelection (anchor, index);
+            ScrollToCaret ();
+        }
+
+        // The word -- or the run of spaces or punctuation -- that the character at index belongs to.
+        // Same character classes as Ctrl+Backspace (upstream's ClientUtils.GetWordBoundaryStart).
+        private (int Start, int End) WordAt (int index)
+        {
+            var text = document.Text;
+
+            index = MathCompat.Clamp (index, 0, text.Length);
+
+            // Past the last character, the word is the one the caret is touching.
+            var probe = index == text.Length ? index - 1 : index;
+            var is_word = TextBoxDocument.IsWordCharacter (text[probe]);
+            var is_space = char.IsWhiteSpace (text[probe]);
+
+            bool Same (char c) => TextBoxDocument.IsWordCharacter (c) == is_word
+                                  && (is_word || char.IsWhiteSpace (c) == is_space);
+
+            var start = probe;
+            var end = probe + 1;
+
+            while (start > 0 && Same (text[start - 1]))
+                start--;
+
+            while (end < text.Length && Same (text[end]))
+                end++;
+
+            return (start, end);
         }
 
         /// <inheritdoc/>
@@ -377,17 +469,8 @@ namespace Majorsilence.Forms
             base.OnMouseMove (e);
 
             if (is_highlighting) {
-                SetCursorToCharIndex (GetCharIndexFromPosition (e.Location));
-
-                if (document.CursorIndex == selection_anchor) {
-                    document.SelectionStart = -1;
-                    document.SelectionEnd = -1;
-                } else {
-                    document.SelectionStart = selection_anchor;
-                    document.SelectionEnd = document.CursorIndex;
-                }
-
-                Invalidate ();
+                document.SetSelection (selection_anchor, GetCharIndexFromPosition (e.Location));
+                ScrollToCaret ();
             }
         }
 
@@ -396,22 +479,15 @@ namespace Majorsilence.Forms
         {
             base.OnMouseUp (e);
 
-            if (e.Button != MouseButtons.Left)
+            // A release with no press of ours behind it -- the second half of a double-click, or a drag
+            // that started somewhere else -- leaves the selection alone.
+            if (e.Button != MouseButtons.Left || !is_highlighting)
                 return;
-
-            SetCursorToCharIndex (GetCharIndexFromPosition (e.Location));
 
             is_highlighting = false;
 
-            if (document.CursorIndex == selection_anchor) {
-                document.SelectionStart = -1;
-                document.SelectionEnd = -1;
-            } else {
-                document.SelectionStart = selection_anchor;
-                document.SelectionEnd = document.CursorIndex;
-            }
-
-            Invalidate ();
+            document.SetSelection (selection_anchor, GetCharIndexFromPosition (e.Location));
+            ScrollToCaret ();
         }
 
         /// <inheritdoc/>
@@ -452,15 +528,37 @@ namespace Majorsilence.Forms
         /// </summary>
         public char? PasswordCharacter {
             get => document.PasswordCharacter;
-            set => document.PasswordCharacter = value;
+            set => PasswordChar = value ?? '\0';
         }
 
         /// <summary>
         /// Gets or sets the password character (WinForms compatibility alias for PasswordCharacter).
         /// </summary>
+        /// <remarks>Reads the character in use, so it answers the system character while
+        /// <see cref="UseSystemPasswordChar"/> is set, as upstream's <c>EM_GETPASSWORDCHAR</c> does; the
+        /// value assigned is kept underneath and comes back when that is turned off (TXT-34).</remarks>
         public char PasswordChar {
             get => document.PasswordCharacter ?? '\0';
-            set => document.PasswordCharacter = value == '\0' ? null : value;
+            set {
+                password_char = value;
+                ApplyPasswordChar ();
+            }
+        }
+
+        private char password_char;
+        private bool use_system_password_char;
+
+        // The character the system draws for UseSystemPasswordChar: the black circle the common
+        // controls v6 edit control uses.
+        internal const char SystemPasswordChar = '\u25CF';
+
+        // Upstream keeps the two as independent flags with UseSystemPasswordChar winning while it is
+        // set (TextBox.cs, PasswordChar / UseSystemPasswordChar).
+        private void ApplyPasswordChar ()
+        {
+            var effective = use_system_password_char ? SystemPasswordChar : password_char;
+
+            document.PasswordCharacter = effective == '\0' ? null : effective;
         }
 
         // TXT-26: `public new ScrollBars ScrollBars { get; set; }` used to live here -- a stored value
@@ -573,14 +671,10 @@ namespace Majorsilence.Forms
 
                 return Math.Min (document.SelectionStart, document.SelectionEnd);
             }
-            set {
-                // Moving the caret drops the selection, as in WinForms — the `SelectionStart = x;
-                // SelectionLength = n;` pair rebuilds it from the new caret via the setter below.
-                document.SelectionStart = -1;
-                document.SelectionEnd = -1;
-                document.SetCursorToCharIndex (MathCompat.Clamp (value, 0, TextLength));
-                Invalidate ();
-            }
+            // TXT-21: upstream's setter is Select (value, SelectionLength) -- the length is kept, so code
+            // that sets the length first, or slides an existing highlight along, keeps its selection.
+            // It used to collapse it, on the strength of a comment saying WinForms did.
+            set => Select (value, SelectionLength);
         }
 
         /// <summary>
@@ -593,21 +687,9 @@ namespace Majorsilence.Forms
 
                 return Math.Abs (document.SelectionEnd - document.SelectionStart);
             }
-            set {
-                // Anchor on SelectionStart's WinForms meaning (the caret when nothing is selected), so
-                // selecting from a caret position works; a non-positive length clears the selection.
-                var start = SelectionStart;
-
-                if (value <= 0) {
-                    document.SelectionStart = -1;
-                    document.SelectionEnd = -1;
-                } else {
-                    document.SelectionStart = start;
-                    document.SelectionEnd = MathCompat.Clamp (start + value, 0, TextLength);
-                }
-
-                Invalidate ();
-            }
+            // Anchor on SelectionStart's WinForms meaning (the caret when nothing is selected), so
+            // selecting from a caret position works; a non-positive length clears the selection.
+            set => Select (SelectionStart, value);
         }
 
         /// <summary>
@@ -615,15 +697,61 @@ namespace Majorsilence.Forms
         /// (or inserts at the caret if nothing is selected), matching
         /// System.Windows.Forms.TextBoxBase.SelectedText.
         /// </summary>
+        /// <remarks>
+        /// Upstream's <c>SetSelectedTextInternal (text, clearUndo: true)</c> (TextBoxBase.cs): the limit
+        /// is lifted for the replacement, because <c>EM_REPLACESEL</c> is not user input -- so neither
+        /// <see cref="TextBoxBase.ReadOnly"/> nor <see cref="MaxLength"/> applies -- and then the modify
+        /// flag and the undo buffer are cleared "for consistency with Text". It used to go through the
+        /// typing path, so a read-only display box updated this way never changed, long text was cut at
+        /// <see cref="MaxLength"/>, and the change counted as a user edit (TXT-20).
+        /// </remarks>
         public override string SelectedText {
             get => document.SelectedText;
-            set => document.InsertText (value ?? string.Empty);
+            set {
+                ReplaceSelection (value, clearUndo: true);
+                ScrollToCaret ();
+            }
+        }
+
+        // SetSelectedTextInternal. clearUndo is SelectedText's flavour; Paste (string) keeps the undo
+        // step and the modify flag, as upstream's does.
+        internal void ReplaceSelection (string? value, bool clearUndo)
+        {
+            if (!clearUndo) {
+                document.ReplaceRange (SelectionStart, SelectionLength, value ?? string.Empty, ignoreLimits: true);
+                return;
+            }
+
+            setting_text = true;
+
+            try {
+                document.ReplaceRange (SelectionStart, SelectionLength, value ?? string.Empty, ignoreLimits: true, captureUndo: false);
+            } finally {
+                setting_text = false;
+            }
+
+            Modified = false;
+            ClearUndo ();
         }
 
         /// <summary>
         /// Selects all text in the TextBox.
         /// </summary>
-        public override void SelectAll () => document.SelectAll ();
+        public override void SelectAll ()
+        {
+            selection_set = true;
+            document.SelectAll ();
+        }
+
+        // TXT-21's atomic Select: upstream's EM_SETSEL sets both ends at once, so SelectionChanged is
+        // raised once and SelectionStart cannot collapse a selection half-way through.
+        private protected override void SelectInternal (int start, int length)
+        {
+            // Upstream's TextBox.SelectInternal: a selection the program made is not overridden by the
+            // select-all on first focus (TXT-28).
+            selection_set = true;
+            document.Select (start, length);
+        }
 
         /// <summary>Clears all text from the TextBox.</summary>
         public override void Clear () => Text = string.Empty;
@@ -713,10 +841,23 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets a custom list of strings used for auto-complete. Stub in Majorsilence.Forms.</summary>
         public AutoCompleteStringCollection AutoCompleteCustomSource { get; set; } = new AutoCompleteStringCollection ();
 
-        /// <summary>Gets or sets whether the system's default password character is used. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether the system's default password character is used.</summary>
+        /// <remarks>
+        /// An independent flag, as upstream's is: while it is set the system character is shown
+        /// whatever <see cref="PasswordChar"/> holds, and turning it off brings that character back.
+        /// It used to be derived from the password character, so <c>UseSystemPasswordChar = false</c>
+        /// -- which the designer emits after <c>PasswordChar = '*'</c> -- unmasked the field, and
+        /// <c>PasswordChar = '*'</c> alone made this read true (TXT-34).
+        /// </remarks>
         public bool UseSystemPasswordChar {
-            get => PasswordCharacter.HasValue;
-            set { if (value && PasswordCharacter is null) PasswordCharacter = '*'; else if (!value) PasswordCharacter = null; }
+            get => use_system_password_char;
+            set {
+                if (use_system_password_char == value)
+                    return;
+
+                use_system_password_char = value;
+                ApplyPasswordChar ();
+            }
         }
 
         // Select (int, int) is inherited from TextBoxBase, which is where WinForms declares it.
@@ -814,6 +955,9 @@ namespace Majorsilence.Forms
                     Modified = false;
                     ScrollToCaret ();
                 }
+
+                // Upstream clears this even when the text is unchanged (TextBox.Text's setter).
+                selection_set = false;
             }
         }
 
@@ -822,6 +966,30 @@ namespace Majorsilence.Forms
         // for both.
         private bool setting_text;
 
+        // TXT-28: upstream's _selectionSet. Cleared by assigning Text, set by any programmatic
+        // selection and by the first focus; while it is clear, the first keyboard focus selects all.
+        private bool selection_set;
+
+        /// <inheritdoc/>
+        /// <remarks>Selects all text on the first focus after <see cref="Text"/> was assigned, unless
+        /// the program chose a selection or a mouse button is down -- upstream's
+        /// <c>TextBox.OnGotFocus</c>. Tabbing through a data-entry form highlights each value for
+        /// overtype, as it does in WinForms (TXT-28).</remarks>
+        protected override void OnGotFocus (EventArgs e)
+        {
+            base.OnGotFocus (e);
+
+            if (!selection_set) {
+                // One shot: if this focus does not select, the box still acts as though it had.
+                selection_set = true;
+
+                if (SelectionLength == 0 && MouseButtons == MouseButtons.None)
+                    SelectAll ();
+            }
+
+            // The placeholder hides while focused (TXT-27).
+            Invalidate ();
+        }
         // Raised by TextBoxDocument whenever the text content actually changes (typing, paste, delete, or a
         // programmatic Text set). Bridges to Control.OnTextChanged so the WinForms TextChanged event fires --
         // the overridden Text setter above writes straight to the document and never runs the base setter.
@@ -831,6 +999,116 @@ namespace Majorsilence.Forms
                 Modified = true;
 
             OnTextChanged (EventArgs.Empty);
+        }
+
+        // TXT-29: the selection the owner last reported, so a caret or selection change is announced once
+        // per change rather than once per internal step. Starts at the caret's initial (0, 0).
+        private int last_selection_start;
+        private int last_selection_length;
+
+        // Called by the document whenever the caret or the selection may have moved.
+        internal void OnDocumentSelectionMayHaveChanged ()
+        {
+            var start = SelectionStart;
+            var length = SelectionLength;
+
+            if (start == last_selection_start && length == last_selection_length)
+                return;
+
+            last_selection_start = start;
+            last_selection_length = length;
+
+            OnDocumentSelectionChanged ();
+        }
+
+        // RichTextBox raises SelectionChanged from here: upstream's EN_SELCHANGE. A plain TextBox has no
+        // such event.
+        internal virtual void OnDocumentSelectionChanged () { }
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Counts the lines as laid out, so a wrapped paragraph is several lines -- what
+        /// <c>EM_LINEFROMCHAR</c> answers upstream. A line-number gutter or an "Ln, Col" status bar
+        /// built on it used to disagree with the screen for any wrapped text, because the base counts
+        /// newlines (TXT-31).
+        /// </remarks>
+        /// <remarks>A single-line box keeps the base's newline count: it lays out on one line, and code
+        /// that put newlines into one still expects them counted.</remarks>
+        public override int GetLineFromCharIndex (int index)
+        {
+            if (!Multiline)
+                return base.GetLineFromCharIndex (index);
+
+            if (document.Text.Length == 0)
+                return 0;
+
+            var lines = document.GetTextBlock ().Lines;
+
+            index = MathCompat.Clamp (index, 0, document.Text.Length);
+
+            for (var i = 0; i < lines.Count; i++)
+                if (index < lines[i].Start + lines[i].Length)
+                    return i;
+
+            return lines.Count - 1;
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>Visual lines, as <see cref="GetLineFromCharIndex"/>; -1 past the last one, which is
+        /// <c>EM_LINEINDEX</c>'s answer.</remarks>
+        public override int GetFirstCharIndexFromLine (int lineNumber)
+        {
+            if (!Multiline)
+                return base.GetFirstCharIndexFromLine (lineNumber);
+
+            if (lineNumber < 0)
+                return -1;
+
+            if (document.Text.Length == 0)
+                return lineNumber == 0 ? 0 : -1;
+
+            var lines = document.GetTextBlock ().Lines;
+
+            return lineNumber < lines.Count ? lines[lineNumber].Start : -1;
+        }
+
+        // TXT-25: upstream's TextBoxBase.BackColor -- with no colour of its own, a read-only box answers
+        // SystemColors.Control rather than Window, so it reads as not editable. The theme's control
+        // background plays SystemColors.Control here. Only an instance colour counts as "its own", which
+        // is ShouldSerializeBackColor's meaning.
+        private bool PaintsReadOnlyBackground => ReadOnly && Style.BackgroundColor is null;
+
+        /// <inheritdoc/>
+        /// <remarks>A read-only box with no colour of its own answers the theme's control background
+        /// (upstream's <c>SystemColors.Control</c>) instead of the editable one (TXT-25).</remarks>
+        public override Color BackColor {
+            get => PaintsReadOnlyBackground ? Theme.BackgroundColor.ToDrawingColor () : base.BackColor;
+            set => base.BackColor = value;
+        }
+
+        /// <inheritdoc/>
+        protected override void OnPaintBackground (PaintEventArgs e)
+        {
+            // Only the colour differs; anything else Control's background pass does (an image, a
+            // transparent box, the disabled state's own colour) stays with it.
+            if (!PaintsReadOnlyBackground || !Enabled || BackgroundImage is not null) {
+                base.OnPaintBackground (e);
+                return;
+            }
+
+            using var device = e.DeviceSpace ();
+
+            e.Canvas.DrawBackground (ScaledBounds, CurrentStyle, Theme.BackgroundColor);
+            e.Canvas.DrawBorder (ScaledBounds, CurrentStyle);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnReadOnlyChanged (EventArgs e)
+        {
+            base.OnReadOnlyChanged (e);
+
+            // The background follows ReadOnly (TXT-25), so the box repaints in the other colour.
+            Invalidate ();
         }
 
         // Where the text starts, taking scrolling into account. Virtual so a derived box can reserve a

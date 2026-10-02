@@ -46,6 +46,9 @@ namespace Majorsilence.Forms
         private System.ComponentModel.MaskedTextProvider? provider;
 
         /// <summary>Gets or sets the type used to validate the committed text.</summary>
+        /// <remarks>Its public <c>Parse</c> methods are what the text is converted with (TXT-33), which is
+        /// why the trimmer is told to keep them.</remarks>
+        [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers (System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicMethods)]
         public System.Type? ValidatingType { get; set; }
 
         /// <summary>Gets or sets the input mask string.</summary>
@@ -144,7 +147,8 @@ namespace Majorsilence.Forms
 
             var position = caret ?? provider.LastAssignedPosition + 1;
 
-            SelectionStart = Math.Max (0, Math.Min (position, base.Text.Length));
+            // A caret, not a selection start: SelectionStart keeps the selection's length (TXT-21).
+            Select (Math.Max (0, Math.Min (position, base.Text.Length)), 0);
         }
 
         /// <summary>Gets or sets the character used to prompt for required input.</summary>
@@ -202,6 +206,10 @@ namespace Majorsilence.Forms
         /// <remarks>The clipboard text is shaped by <see cref="CutCopyMaskFormat"/> (W6 mechanisms).</remarks>
         public override void Copy ()
         {
+            // TXT-08: upstream's WmCopy -- "cannot copy password to clipboard".
+            if (PasswordProtect)
+                return;
+
             if (ClipboardSelection () is { Length: > 0 } text)
                 Clipboard.SetText (text);
         }
@@ -210,6 +218,16 @@ namespace Majorsilence.Forms
         /// <remarks>See <see cref="Copy"/>; the characters removed are the selected ones either way.</remarks>
         public override void Cut ()
         {
+            // With no mask upstream hands WM_CUT straight to the edit control, which is TextBox's Cut.
+            if (provider is null) {
+                base.Cut ();
+                return;
+            }
+
+            // TXT-08: WM_CUT only clears what WmCopy managed to copy, so a password box keeps its text.
+            if (PasswordProtect || ReadOnly)
+                return;
+
             if (ClipboardSelection () is not { Length: > 0 } text)
                 return;
 
@@ -402,35 +420,74 @@ namespace Majorsilence.Forms
         /// cancel the focus change (TXT-19).</remarks>
         protected override void OnValidating (System.ComponentModel.CancelEventArgs e)
         {
+            // Upstream's order: the type validation first, then the Validating event, so a Validating
+            // handler sees whether the value parsed (MaskedTextBox.OnValidating).
+            PerformTypeValidation (e);
+
             base.OnValidating (e);
+        }
 
-            if (e.Cancel || ValidatingType is null)
-                return;
+        // Upstream's PerformTypeValidation (MaskedTextBox.cs), shared by OnValidating and ValidateText:
+        // an incomplete mask is reported without parsing, and otherwise the text without its prompts is
+        // parsed the way Formatter.ParseObject parses a string (TXT-33).
+        internal object? PerformTypeValidation (System.ComponentModel.CancelEventArgs? e)
+        {
+            if (ValidatingType is not { } type)
+                return null;
 
-            var args = PerformTypeValidation ();
+            object? value = null;
+            string? message = null;
+
+            if (provider is not null && !provider.MaskCompleted) {
+                message = "Mask input is not complete.";
+            } else {
+                // The prompts are left out, so "12_" never reaches a parser; literals follow TextMaskFormat.
+                var text = provider is null ? base.Text
+                         : provider.ToString (false, text_mask_format is MaskFormat.IncludeLiterals or MaskFormat.IncludePromptAndLiterals);
+
+                try {
+                    value = ParseValue (text, type, FormatProvider);
+                } catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException)) {
+                    var cause = ex is System.Reflection.TargetInvocationException { InnerException: { } inner } ? inner : ex;
+                    message = $"{cause.GetType ()}: {cause.Message}";
+                }
+            }
+
+            var args = new TypeValidationEventArgs (type, message is null, value, message ?? "Type validation succeeded.");
 
             OnTypeValidationCompleted (args);
 
-            if (args.Cancel)
-                e.Cancel = true;
+            // Upstream assigns rather than ORs, so a handler that clears Cancel lets the focus go.
+            if (e is not null)
+                e.Cancel = args.Cancel;
+
+            return value;
         }
 
-        private TypeValidationEventArgs PerformTypeValidation ()
+        // Formatter.ParseObject's order for a string source: the type's own Parse -- (string, NumberStyles,
+        // IFormatProvider), then (string, IFormatProvider), then (string) -- and IConvertible after that.
+        // Convert.ChangeType alone, which this used to be, cannot produce a Guid, a TimeSpan or any type
+        // that is not IConvertible. Upstream also tries the type's TypeConverter between the two; that
+        // needs every member of the type kept by the trimmer, so it is not done here.
+        private static object? ParseValue (string text,
+            [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers (System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicMethods)] Type type,
+            IFormatProvider? formatProvider)
         {
-            var text = provider is null ? base.Text : provider.ToString (false, true);
+            const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static;
 
-            if (provider is not null && !provider.MaskCompleted)
-                return new TypeValidationEventArgs (ValidatingType, false, null,
-                    "The mask has not been completely filled in.");
+            if (type.GetMethod ("Parse", flags, null, [typeof (string), typeof (System.Globalization.NumberStyles), typeof (IFormatProvider)], null) is { } with_styles)
+                return with_styles.Invoke (null, [text, System.Globalization.NumberStyles.Any, formatProvider]);
 
-            try {
-                var value = Convert.ChangeType (text, ValidatingType!,
-                    Culture ?? System.Globalization.CultureInfo.CurrentCulture);
+            if (type.GetMethod ("Parse", flags, null, [typeof (string), typeof (IFormatProvider)], null) is { } with_provider)
+                return with_provider.Invoke (null, [text, formatProvider]);
 
-                return new TypeValidationEventArgs (ValidatingType, true, value, string.Empty);
-            } catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException or ArgumentException) {
-                return new TypeValidationEventArgs (ValidatingType, false, null, ex.Message);
-            }
+            if (type.GetMethod ("Parse", flags, null, [typeof (string)], null) is { } plain)
+                return plain.Invoke (null, [text]);
+
+            if (type == typeof (string))
+                return text;
+
+            return Convert.ChangeType (text, type, formatProvider ?? System.Globalization.CultureInfo.CurrentCulture);
         }
 
         // The provider's hints and this layer's enum carry the same numbers where they overlap; anything

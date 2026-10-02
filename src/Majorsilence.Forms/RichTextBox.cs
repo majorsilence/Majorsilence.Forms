@@ -40,8 +40,23 @@ namespace Majorsilence.Forms
             set => Text = StripRtf (value ?? string.Empty);
         }
 
-        /// <summary>Gets or sets whether automatic URL detection is enabled. Stub in Majorsilence.Forms.</summary>
-        public bool DetectUrls { get; set; } = true;
+        /// <summary>Gets or sets whether automatic URL detection is enabled.</summary>
+        /// <remarks>A detected link is painted in the link colour and underlined, and a click on it
+        /// raises <see cref="LinkClicked"/> (TXT-30).</remarks>
+        public bool DetectUrls {
+            get => detect_urls;
+            set {
+                if (detect_urls == value)
+                    return;
+
+                detect_urls = value;
+                EnsurePainted ();
+                document.InvalidateTextBlock ();
+                Invalidate ();
+            }
+        }
+
+        private bool detect_urls = true;
 
         /// <summary>Gets or sets whether the control is in read-only mode.</summary>
         public new bool ReadOnly {
@@ -477,12 +492,12 @@ namespace Majorsilence.Forms
         /// <summary>Pastes the clipboard's contents in the given format.</summary>
         public void Paste (DataFormats.Format clipFormat) => base.Paste ();
 
-#pragma warning disable CS0067
-        /// <summary>Raised when the control's contents are resized. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Raised when the laid-out size of the contents changes.</summary>
+        /// <remarks>Raised from the paint pass, the first moment the new size is known (see
+        /// <c>CheckContentsResized</c>).</remarks>
         public event EventHandler<ContentsResizedEventArgs>? ContentsResized;
-#pragma warning restore CS0067
 
-        /// <summary>Raised when the user clicks a link in the RichTextBox. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Raised when the user clicks a link detected by <see cref="DetectUrls"/>.</summary>
         public event LinkClickedEventHandler? LinkClicked;
 
         /// <summary>Raises the LinkClicked event.</summary>
@@ -490,16 +505,28 @@ namespace Majorsilence.Forms
 
         /// <summary>Raised when the selection changes.</summary>
         /// <remarks>
-        /// A real event now, for the same reason as <see cref="LinkClicked"/>'s neighbors: empty
-        /// accessors let a handler attach and then silently drop it. Not yet raised by the caret/mouse
-        /// selection path -- <see cref="OnSelectionChanged"/> is public enough to call, which is what
-        /// lets a ported override of the real WinForms hook keep compiling instead of failing with
-        /// CS0115.
+        /// Raised once per change of the caret or the selection -- typing, arrows, the mouse,
+        /// <c>Select</c>, a <c>Text</c> assignment that moves the caret -- which is upstream's
+        /// <c>EN_SELCHANGE</c>. It was declared and never raised, so a formatting toolbar that tracks
+        /// the bold/italic state under the caret never updated (TXT-29).
         /// </remarks>
         public event EventHandler? SelectionChanged;
 
         /// <summary>Raises the <see cref="SelectionChanged"/> event.</summary>
         protected virtual void OnSelectionChanged (EventArgs e) => SelectionChanged?.Invoke (this, e);
+
+        internal override void OnDocumentSelectionChanged () => OnSelectionChanged (EventArgs.Empty);
+
+        /// <inheritdoc/>
+        protected override void OnTextChanged (EventArgs e)
+        {
+            // New text may hold the first link, and the paint hook is only attached once something
+            // needs it (TXT-30).
+            if (detect_urls)
+                EnsurePainted ();
+
+            base.OnTextChanged (e);
+        }
 
     }
 

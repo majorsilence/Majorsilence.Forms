@@ -220,35 +220,67 @@ namespace Majorsilence.Forms
         // The Colorizer hook is only attached once something is actually formatted: with it set, every
         // paint builds its own TextBlock instead of using TextMeasurer's shared cache, and an ordinary
         // RichTextBox with no formatting should not pay for that.
+        // A detected link (TXT-30) needs the hook as well, so it is attached for either.
         private void EnsurePainted ()
         {
-            if (runs.Count > 0 && Colorizer is null)
+            if (Colorizer is null && (runs.Count > 0 || DetectedUrls.Count > 0))
                 Colorizer = ComputeSpans;
         }
 
         private IEnumerable<TextSpanStyle> ComputeSpans (string text)
         {
             var fallback = GetEffectiveForegroundColor ();
+            var links = DetectedUrls;
+
+            // Runs and links overlap freely, and the spans handed back must not, so the text is cut at
+            // every edge of either and each piece takes the run under it plus the link's look.
+            var cuts = new SortedSet<int> { 0, text.Length };
 
             foreach (var run in runs) {
-                if (run.Start >= text.Length)
-                    continue;
-
-                var length = Math.Min (run.Length, text.Length - run.Start);
-
-                if (length <= 0)
-                    continue;
-
-                yield return new TextSpanStyle (
-                    run.Start,
-                    length,
-                    run.Format.ForeColor is { } fore ? fore.ToSKColor () : fallback,
-                    run.Format.Bold ?? false,
-                    run.Format.Underline ?? false,
-                    run.Format.Italic ?? false,
-                    run.Format.BackColor is { } back ? back.ToSKColor () : default (SKColor),
-                    run.Format.CharOffset ?? 0);
+                cuts.Add (Math.Min (run.Start, text.Length));
+                cuts.Add (Math.Min (run.End, text.Length));
             }
+
+            foreach (var (start, length) in links) {
+                cuts.Add (Math.Min (start, text.Length));
+                cuts.Add (Math.Min (start + length, text.Length));
+            }
+
+            var previous = -1;
+
+            foreach (var cut in cuts) {
+                if (previous >= 0 && cut > previous) {
+                    var run = FindRun (previous);
+                    var linked = IsInLink (links, previous);
+
+                    if (run is not null || linked) {
+                        var format = run?.Format ?? default;
+
+                        // Upstream paints an autodetected link (CFE_LINK) in the link colour, underlined;
+                        // LinkLabel's default link colour is the theme accent, and so is this.
+                        yield return new TextSpanStyle (
+                            previous,
+                            cut - previous,
+                            linked ? Theme.AccentColor : format.ForeColor is { } fore ? fore.ToSKColor () : fallback,
+                            format.Bold ?? false,
+                            linked || (format.Underline ?? false),
+                            format.Italic ?? false,
+                            format.BackColor is { } back ? back.ToSKColor () : default (SKColor),
+                            format.CharOffset ?? 0);
+                    }
+                }
+
+                previous = cut;
+            }
+        }
+
+        private static bool IsInLink (IReadOnlyList<(int Start, int Length)> links, int index)
+        {
+            foreach (var (start, length) in links)
+                if (index >= start && index < start + length)
+                    return true;
+
+            return false;
         }
 
         // ---------------------------------------------------------------------------------------

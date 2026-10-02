@@ -38,6 +38,10 @@ namespace Majorsilence.Forms
         // ancestor it inherits from -- rebuilds the layout instead of reusing the stale one.
         private SKTypeface? cached_text_block_font;
 
+        // Whether cached_text_block holds the placeholder: it comes and goes with focus (TXT-27), which
+        // changes nothing else the cache is keyed on.
+        private bool cached_text_block_placeholder;
+
         private SKTypeface font => font_override ?? textbox.GetEffectiveFont ();
         private TextAlignment alignment = TextAlignment.Left;
         private SKColor placeholder_font_color = Theme.ForegroundDisabledColor;
@@ -73,42 +77,109 @@ namespace Majorsilence.Forms
             if (!IsTextSelected || read_only)
                 return false;
 
-            var start = Math.Min (selection_start, selection_end);
-            var end = Math.Max (selection_start, selection_end);
+            BeginSelectionBatch ();
 
-            SetCursorToCharIndex (start);
+            try {
+                var start = Math.Min (selection_start, selection_end);
+                var end = Math.Max (selection_start, selection_end);
 
-            RemoveText (start, end - start);
+                SetCursorToCharIndex (start);
 
-            Deselect ();
+                RemoveText (start, end - start);
+
+                Deselect ();
+            } finally {
+                EndSelectionBatch ();
+            }
 
             return true;
         }
 
         public bool DeleteText (bool forward, bool wholeWord)
         {
-            // TODO: wholeWord not implemented
             if (read_only)
                 return false;
 
-            if (DeleteSelection ())
-                return true;
+            BeginSelectionBatch ();
 
-            if (forward && !AtEnd) {
-                RemoveText (cursor_index, 1);
-                return true;
+            try {
+                if (DeleteSelection ())
+                    return true;
+
+                if (forward && !AtEnd) {
+                    // TXT-23: Ctrl+Delete takes the rest of the word and the gap after it, the rich edit
+                    // control's behaviour (the plain edit control leaves Ctrl+Delete to the caller).
+                    var length = wholeWord ? GetWordBoundaryEnd (text, cursor_index) - cursor_index : 1;
+
+                    RemoveText (cursor_index, Math.Max (length, 1));
+                    return true;
+                }
+
+                if (!forward && !AtBeginning) {
+                    // TXT-23: Ctrl+Backspace deletes back to the start of the word, as upstream's
+                    // TextBoxBase.ProcessCmdKey does with ClientUtils.GetWordBoundaryStart.
+                    var start = wholeWord ? GetWordBoundaryStart (text, cursor_index) : cursor_index - 1;
+                    var length = cursor_index - start;
+
+                    SetCursorToCharIndex (start);
+
+                    RemoveText (cursor_index, length);
+
+                    return true;
+                }
+
+                return false;
+            } finally {
+                EndSelectionBatch ();
             }
-
-            if (!forward && !AtBeginning) {
-                SetCursorToCharIndex (cursor_index - 1);
-
-                RemoveText (cursor_index, 1);
-
-                return true;
-            }
-
-            return false;
         }
+
+        // A copy of upstream's ClientUtils.GetWordBoundaryStart (System.Windows.Forms.Primitives,
+        // Internals/ClientUtils.cs): walks back over trailing non-word characters, then the word itself.
+        // "foo bar" with the caret at the end answers 4; "foo " answers 0.
+        internal static int GetWordBoundaryStart (string text, int endIndex)
+        {
+            var seen_word = false;
+            var last_was_word = (bool?)null;
+            var index = endIndex - 1;
+
+            for (; index >= 0; index--) {
+                var character = text[index];
+
+                if (char.IsSurrogate (character))
+                    break;
+
+                var is_word = IsWordCharacter (character);
+
+                if ((is_word && last_was_word == false && seen_word) ||
+                    (!is_word && last_was_word == true && index != 0))
+                    break;
+
+                seen_word |= is_word;
+                last_was_word = is_word;
+            }
+
+            return index + 1;
+        }
+
+        // The forward counterpart: the rest of the word at the caret, then the non-word run after it.
+        internal static int GetWordBoundaryEnd (string text, int startIndex)
+        {
+            var index = startIndex;
+
+            while (index < text.Length && IsWordCharacter (text[index]))
+                index++;
+
+            while (index < text.Length && !IsWordCharacter (text[index]) && !char.IsSurrogate (text[index]))
+                index++;
+
+            return index;
+        }
+
+        // ClientUtils' definition of a word character.
+        internal static bool IsWordCharacter (char character)
+            => char.IsLetterOrDigit (character)
+            || System.Globalization.CharUnicodeInfo.GetUnicodeCategory (character) == System.Globalization.UnicodeCategory.NonSpacingMark;
 
         public bool Deselect ()
         {
@@ -117,6 +188,78 @@ namespace Majorsilence.Forms
 
             selection_start = -1;
             selection_end = -1;
+            NotifySelection ();
+
+            return true;
+        }
+
+        // TXT-29: the owner is told when the selection MAY have moved, and compares for itself -- the
+        // caret and the two selection ends change in several steps per edit, so the mutators below
+        // batch their steps and report once at the end, the way one EN_SELCHANGE follows one edit.
+        private int selection_batch;
+
+        private void BeginSelectionBatch () => selection_batch++;
+
+        private void EndSelectionBatch ()
+        {
+            if (--selection_batch == 0)
+                NotifySelection ();
+        }
+
+        private void NotifySelection ()
+        {
+            if (selection_batch == 0)
+                textbox.OnDocumentSelectionMayHaveChanged ();
+        }
+
+        /// <summary>Selects <paramref name="length"/> characters from <paramref name="start"/> in one
+        /// step, leaving the caret at the end of the selection (EM_SETSEL).</summary>
+        public void Select (int start, int length)
+        {
+            start = MathCompat.Clamp (start, 0, text.Length);
+            var end = MathCompat.Clamp (start + Math.Max (length, 0), start, text.Length);
+
+            SetSelection (start, end);
+        }
+
+        /// <summary>Sets the anchor and the moving end of the selection together, with the caret on the
+        /// moving end; equal ends mean no selection.</summary>
+        public void SetSelection (int anchor, int end)
+        {
+            BeginSelectionBatch ();
+
+            try {
+                anchor = MathCompat.Clamp (anchor, 0, text.Length);
+                end = MathCompat.Clamp (end, 0, text.Length);
+
+                SetCursorToCharIndex (end);
+
+                if (anchor == end) {
+                    selection_start = -1;
+                    selection_end = -1;
+                } else {
+                    selection_start = anchor;
+                    selection_end = end;
+                }
+
+                Invalidate ();
+            } finally {
+                EndSelectionBatch ();
+            }
+        }
+
+        /// <summary>Moves the caret to <paramref name="index"/>, extending the selection from its
+        /// anchor (or from the caret) when <paramref name="select"/> is set.</summary>
+        public bool MoveCaretTo (int index, bool select)
+        {
+            index = MathCompat.Clamp (index, 0, text.Length);
+
+            if (index == cursor_index && (select || !IsTextSelected))
+                return false;
+
+            var anchor = IsTextSelected ? selection_start : cursor_index;
+
+            SetSelection (select ? anchor : index, index);
 
             return true;
         }
@@ -162,20 +305,31 @@ namespace Majorsilence.Forms
             if (undo_text is null)
                 return false;
 
-            (text, undo_text) = (undo_text, text);
-            cached_text_block = null;
+            BeginSelectionBatch ();
 
-            // The next edit starts a new group, and the caret may be past the restored end of text.
-            last_edit = EditKind.None;
-            SetCursorToCharIndex (Math.Min (cursor_index, text.Length));
-            Invalidate ();
+            try {
+                (text, undo_text) = (undo_text, text);
+                cached_text_block = null;
+
+                // The next edit starts a new group, and the caret may be past the restored end of text.
+                last_edit = EditKind.None;
+                SetCursorToCharIndex (Math.Min (cursor_index, text.Length));
+                Invalidate ();
+            } finally {
+                EndSelectionBatch ();
+            }
 
             return true;
         }
 
-        public string DisplayText => text.Length == 0 ? placeholder :
+        // TXT-27: the placeholder is hidden while the box has focus, as upstream's
+        // TextBox.ShouldRenderPlaceHolderText requires !Focused -- a hint under the caret reads as text
+        // to delete.
+        public string DisplayText => text.Length == 0 ? (ShowsPlaceholder ? placeholder : string.Empty) :
                                      password_char.HasValue ? new string (password_char.Value, text.Length) :
                                      text;
+
+        private bool ShowsPlaceholder => !textbox.Focused;
 
         public bool Enabled {
             get => enabled;
@@ -212,7 +366,9 @@ namespace Majorsilence.Forms
         {
             var font_size = textbox.CurrentFontSize;
             var typeface = font;
-            if (cached_text_block != null && cached_text_block_font_size == font_size && ReferenceEquals (cached_text_block_font, typeface))
+            var shows_placeholder = text.Length == 0 && ShowsPlaceholder;
+            if (cached_text_block != null && cached_text_block_font_size == font_size && ReferenceEquals (cached_text_block_font, typeface)
+                && cached_text_block_placeholder == shows_placeholder)
                 return cached_text_block;
 
             // A single line normally lays out in an unbounded width, so long text scrolls sideways
@@ -241,6 +397,7 @@ namespace Majorsilence.Forms
 
             cached_text_block_font_size = font_size;
             cached_text_block_font = typeface;
+            cached_text_block_placeholder = shows_placeholder;
             return cached_text_block = block;
         }
 
@@ -344,23 +501,29 @@ namespace Majorsilence.Forms
             if (captureUndo)
                 CaptureUndo (EditKind.Insert);
 
-            // One undo step for the whole replacement, as Win32 reverses a replace-selection in one.
-            suppress_undo_capture = true;
+            BeginSelectionBatch ();
 
             try {
-                text = text.Remove (start, length).Insert (start, value);
+                // One undo step for the whole replacement, as Win32 reverses a replace-selection in one.
+                suppress_undo_capture = true;
+
+                try {
+                    text = text.Remove (start, length).Insert (start, value);
+                } finally {
+                    suppress_undo_capture = false;
+                }
+
+                cached_text_block = null;
+
+                // The caret ends AFTER the new text and the selection collapses -- EM_REPLACESEL again.
+                Deselect ();
+                SetCursorToCharIndex (start + value.Length);
+
+                // Notifies exactly once, and only because the content changed; see Invalidate.
+                Invalidate ();
             } finally {
-                suppress_undo_capture = false;
+                EndSelectionBatch ();
             }
-
-            cached_text_block = null;
-
-            // The caret ends AFTER the new text and the selection collapses -- EM_REPLACESEL again.
-            Deselect ();
-            SetCursorToCharIndex (start + value.Length);
-
-            // Notifies exactly once, and only because the content changed; see Invalidate.
-            Invalidate ();
 
             return true;
         }
@@ -370,6 +533,17 @@ namespace Majorsilence.Forms
             if (read_only)
                 return false;
 
+            BeginSelectionBatch ();
+
+            try {
+                return InsertTextCore (str);
+            } finally {
+                EndSelectionBatch ();
+            }
+        }
+
+        private bool InsertTextCore (string str)
+        {
             // One undo step for the whole operation: replacing a selection is a delete plus an insert
             // and Win32 reverses it in a single Undo, so the RemoveText inside DeleteSelection must not
             // open a step of its own.
@@ -437,6 +611,7 @@ namespace Majorsilence.Forms
             }
 
             textbox.Invalidate ();
+            NotifySelection ();
         }
 
         public bool IsMultiline {
@@ -464,6 +639,17 @@ namespace Majorsilence.Forms
         private int? MaxLines => multiline ? (int?)null : 1;
 
         public bool MoveCursor (ArrowDirection direction, bool select, bool wholeWord, bool end)
+        {
+            BeginSelectionBatch ();
+
+            try {
+                return MoveCursorCore (direction, select, wholeWord, end);
+            } finally {
+                EndSelectionBatch ();
+            }
+        }
+
+        private bool MoveCursorCore (ArrowDirection direction, bool select, bool wholeWord, bool end)
         {
             if (!select)
                 Deselect ();
@@ -662,6 +848,7 @@ namespace Majorsilence.Forms
                 return false;
 
             cursor_index = index;
+            NotifySelection ();
 
             return true;
         }
@@ -705,24 +892,35 @@ namespace Majorsilence.Forms
                 value = ApplyCasing (value);
 
                 if (text != value) {
-                    // WM_SETTEXT resets the Win32 edit control's undo buffer, so a programmatic
-                    // assignment discards the step rather than becoming one.
-                    ClearUndo ();
+                    BeginSelectionBatch ();
 
-                    text = value;
-                    cached_text_block = null;
-
-                    // WM_SETTEXT also empties the selection. Keeping it left a selection that could
-                    // reach past the end of the new text, and the next character typed deleted
-                    // through it -- ArgumentOutOfRangeException out of a keystroke (found by the
-                    // SendKeys tests, W6 mechanisms: select all, assign "", type).
-                    Deselect ();
-
-                    // If the Text property is changed, we need to reset the cursor to the top
-                    SetCursorToCharIndex (0);
-                    Invalidate ();
+                    try {
+                        SetTextCore (value);
+                    } finally {
+                        EndSelectionBatch ();
+                    }
                 }
             }
+        }
+
+        private void SetTextCore (string value)
+        {
+            // WM_SETTEXT resets the Win32 edit control's undo buffer, so a programmatic
+            // assignment discards the step rather than becoming one.
+            ClearUndo ();
+
+            text = value;
+            cached_text_block = null;
+
+            // WM_SETTEXT also empties the selection. Keeping it left a selection that could
+            // reach past the end of the new text, and the next character typed deleted
+            // through it -- ArgumentOutOfRangeException out of a keystroke (found by the
+            // SendKeys tests, W6 mechanisms: select all, assign "", type).
+            Deselect ();
+
+            // If the Text property is changed, we need to reset the cursor to the top
+            SetCursorToCharIndex (0);
+            Invalidate ();
         }
 
         public int Width {

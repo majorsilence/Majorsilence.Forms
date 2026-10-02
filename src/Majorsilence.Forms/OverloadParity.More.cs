@@ -44,7 +44,11 @@ namespace Majorsilence.Forms
     public partial class TextBoxBase
     {
         /// <summary>Selects a range of text.</summary>
-        public void Select (int start, int length)
+        public void Select (int start, int length) => SelectInternal (start, length);
+
+        // Upstream's SelectInternal: the one place a selection is set, which TextBox overrides to set
+        // both ends in a single step. This default is for a subclass with no text engine of its own.
+        private protected virtual void SelectInternal (int start, int length)
         {
             SelectionStart = start;
             SelectionLength = length;

@@ -3,6 +3,31 @@
 ## Summary
 The area is a single real engine (`TextBoxDocument`, a RichTextKit-backed plain-text buffer with caret, anchor/end selection, single-level undo and a cached `TextBlock`) with `TextBox` as its only consumer; `TextBoxBase` re-derives everything from `Text`+selection, and `RichTextBox`/`MaskedTextBox` are `TextBox` subclasses that add stored-only properties. The core editing loop (typing, Backspace/Delete, arrows, Home/End, Shift-select, Ctrl+C/X/V/A, programmatic `Text`/`Select`/`SelectedText`, `TextChanged`, `Modified`, `Undo`) is genuinely implemented and mostly right. The dominant failure patterns are (1) the input pipeline ignores the app's own `KeyPress.Handled`/`KeyDown.SuppressKeyPress`, so every "digits-only" text box in a migrated LOB app stops filtering; (2) high-traffic verbs are routed through the `Text` setter (`AppendText`, `SelectedText` on `RichTextBox`), which resets caret/scroll/undo/`Modified` to the "fresh assignment" state; (3) ~15 behaviour-changing properties are stored and never read (`WordWrap`, `CharacterCasing`, `AcceptsReturn`, `AcceptsTab`, `ShortcutsEnabled`, `ScrollBars`, `HideSelection`, every `RichTextBox.Selection*`, the whole `MaskedTextBox.Mask` family); (4) two arithmetic paths throw on ordinary input (`MaxLength` shorter than existing text, caret moved into placeholder text). `RichTextBox.Rtf`/`Find`/`LoadFile` and `MaskedTextBox` return answers that look valid but are not (stale RTF, case-sensitive Find that never selects, `MaskCompleted == true` always). Count: **P0 × 4, P1 × 17, P2 × 14**, plus a P3 list. Existing tests cover the getters/setters well and in three places pin the divergent behaviour as expected (`MaskCompletedAndMaskFull_AlwaysTrue`, `Text_SetUnaffectedByMask`, `MaxLength_DefaultsToZero`).
 
+## Status (2026-10-02, #350 — editing gestures, selection semantics, password clipboard)
+
+**Closed:** TXT-08, TXT-13 (both P1), TXT-20, TXT-21, TXT-23, TXT-24, TXT-25, TXT-27, TXT-28, TXT-29,
+TXT-30, TXT-31, TXT-33, TXT-34; TXT-22 and TXT-26 marked as already fixed by W5.11. 28 tests (27 methods) in
+`TextBoxEditingParityTests.cs`; 24 neutralization rounds, every one red; 4 tests are labelled in-test as
+guards. Two P3 lines fall out of TXT-20/TXT-21 (`Paste (string)` limits, the caret after
+`SelectionLength = 0`).
+
+**Corrections to the notes.** TXT-20's existing tests were the old behaviour pinned as correct:
+`TextBoxUndoTests` drove its edits through `SelectedText`, which upstream defines to clear the undo
+buffer, and `AppendTextRoutingTests` asserted a read-only box refuses `SelectedText` and that the
+replace stays undoable -- both the opposite of `SetSelectedTextInternal (text, clearUndo: true)`. They
+now edit through `Paste (string)` (upstream's documented undo-keeping alternative) or assert upstream's
+direction. TXT-29's `ContentsResized` and TXT-30's click were already done by W6 mechanisms; what was
+left was `SelectionChanged` and the link's appearance. TXT-24's Shift+click reads `e.Modifiers`, not
+the static `ModifierKeys` the note suggests, for LST-27's reason.
+
+**Behaviour changes an app will notice:** tabbing into a box selects its text (TXT-28); `SelectedText`
+works on a read-only box and leaves `Modified` false and nothing to undo (TXT-20); `SelectionStart = n`
+keeps the selection length (TXT-21); the system password character is `'\u25CF'`, not `'*'` (TXT-34).
+
+**Still open from this item:** `TypeConverter`-based parsing in `ValidateText` (see TXT-33), and the
+paragraph model (the second TXT-31, unchanged). TXT-32 and TXT-35 were not in #350's list (the earlier
+status sections cover them).
+
 ## Status (2026-09-03, W5.14 — the RichTextBox document model)
 
 **Closed:** TXT-04 (P0), TXT-14, TXT-15, TXT-16, TXT-17. 27 tests in `RichTextBoxDocumentTests.cs`,
@@ -153,7 +178,8 @@ P0).
 - **Test:** `Select (1, 2)` then call the protected `OnDeselected` via a subclass → `SelectionLength == 2`, `SelectedText` unchanged.
 - **Tests today:** none.
 
-### TXT-08 — `Copy`/`Cut` leak the plaintext of a password box — Cat A — P1 — Medium
+### TXT-08 — `Copy`/`Cut` leak the plaintext of a password box — Cat A — P1 — Medium — **CLOSED (2026-10-02)**
+- **Fix (applied):** `TextBox.Copy`/`Cut` return when the box is password-protected (`PasswordChar != '\0'`, which `UseSystemPasswordChar` also satisfies), and a cut that cannot copy does not delete. `MaskedTextBox.Copy`/`Cut` do the same, mirroring upstream's `MaskedTextBox.WmCopy` ("cannot copy password to clipboard"); with no mask its `Cut` is now `TextBox.Cut`. Tests: `TextBoxEditingParityTests` (4).
 - **Ours:** `TextBox.Copy`/`Cut` push `document.SelectedText` (the real text) to the clipboard regardless of `PasswordChar` (`TextBox.cs:63-73, 95-104`); Ctrl+C is bound to them (`:213-222`).
 - **Upstream:** `Copy ()`/`Cut ()` are `WM_COPY`/`WM_CUT` (`TextBoxBase.cs:1291, 1316`) against an edit control created with `ES_PASSWORD` (`TextBox.cs:313`), and the Win32 edit control ignores copy/cut when in password mode.
 - **Impact:** Users (or a script) can Ctrl+C a masked password field and paste it in clear; also `Ctrl+X` removes it. Security regression relative to the original app.
@@ -193,7 +219,8 @@ P0).
 - **Test:** `new TextBox { CharacterCasing = Upper }`, `OnKeyPress ('a')` → `Text == "A"`; `Text = "abc"` → `"ABC"`.
 - **Tests today:** none.
 
-### TXT-13 — Ctrl+Z / Ctrl+Y not bound — `Undo` unreachable from the keyboard — Cat B — P1 — High
+### TXT-13 — Ctrl+Z / Ctrl+Y not bound — `Undo` unreachable from the keyboard — Cat B — P1 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** Ctrl+Z calls `Undo` from `HandleKeyDown`, gated on `ShortcutsEnabled` (upstream's shortcut list includes CtrlZ) and refused on a read-only box, as the edit control refuses `EM_UNDO`. `RichTextBox` also takes Ctrl+Y for its `Redo`, which W6 made real (the second half of the single-level toggle). Tests: `TextBoxEditingParityTests` (3, one a guard).
 - **Ours:** `HandleKeyDown` handles C/X/V/A only (`TextBox.cs:213-232`); `Undo ()` exists and works (`:673-683`, `TextBoxDocument.cs:144-158`).
 - **Upstream:** the Win32 edit control processes Ctrl+Z (`WM_UNDO`) natively; RichEdit also Ctrl+Y (redo).
 - **Impact:** Users cannot undo typing anywhere; the undo implementation added in the matrix (line 77) is only reachable via an explicit menu.
@@ -249,7 +276,8 @@ P0).
 - **Test:** `ValidatingType = typeof (int)`, `Text = "x"`, subscribe, call `OnValidating` via subclass → event raised with `IsValidInput == false`; setting `e.Cancel = true` makes `CancelEventArgs.Cancel` true.
 - **Tests today:** `MidSizeControlParityTests.MaskedTextBox_ValidateText_converts_or_reports_null`.
 
-### TXT-20 — `TextBox.SelectedText` setter: honours `ReadOnly`/`MaxLength`, sets `Modified`, keeps undo — Cat A — P2 — High
+### TXT-20 — `TextBox.SelectedText` setter: honours `ReadOnly`/`MaxLength`, sets `Modified`, keeps undo — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** the setter is upstream's `SetSelectedTextInternal (text, clearUndo: true)`: `ReplaceRange` with `ignoreLimits` (so `ReadOnly` and `MaxLength` do not apply), then `Modified = false` and `ClearUndo ()`. `Paste (string)` is the `clearUndo: false` flavour -- limits ignored, undo step and `Modified` kept -- which also closes the P3 line about it. Three existing tests used `SelectedText` as an editing proxy and pinned the old behaviour: `TextBoxUndoTests` now edits through `Paste (string)`, and `AppendTextRoutingTests.The_selection_setter_still_refuses_a_read_only_box` / `SelectedText_behaves_the_same_through_either_reference` were inverted to upstream's direction.
 - **Ours:** `set => document.InsertText (value)` (`TextBox.cs:565-568`): returns false silently when `ReadOnly` (`TextBoxDocument.cs:269`), truncates to `MaxLength` (`:287`), raises `OnDocumentTextChanged` with `setting_text == false` so `Modified` becomes true (`TextBox.cs:721-727`), and captures an undo step.
 - **Upstream:** `SetSelectedTextInternal (text, clearUndo: true)`: lifts the limit (`EM_LIMITTEXT 0`), replaces via `EM_REPLACESEL` (works on read-only controls), then `EM_SETMODIFY 0` and `ClearUndo ()` (`TextBoxBase.cs:976-1020`).
 - **Impact:** Read-only "display" boxes updated by `SelectedText` never change; `Modified` dirty-checks fire after programmatic inserts; text longer than `MaxLength` is silently cut.
@@ -257,7 +285,8 @@ P0).
 - **Test:** `new TextBox { ReadOnly = true, Text = "ab" }; SelectionStart = 1; SelectedText = "X";` → `Text == "aXb"`, `Modified == false`.
 - **Tests today:** `TextBoxBaseTests.SelectedText_reads_and_replaces_the_selection` (writable box).
 
-### TXT-21 — `TextBox.SelectionStart` setter collapses the selection — Cat A — P2 — High
+### TXT-21 — `TextBox.SelectionStart` setter collapses the selection — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `SelectionStart`'s setter is `Select (value, SelectionLength)`; `TextBoxBase.Select` now goes through a `private protected virtual SelectInternal`, which `TextBox` overrides with a one-step `TextBoxDocument.Select` (both ends at once, caret at the end, as `EM_SETSEL`). `SelectionLength = 0` therefore leaves the caret at `SelectionStart`, which closes that half of the P3 `DeselectAll` line. `MaskedTextBox` positioned its caret with `SelectionStart =` and now uses `Select (pos, 0)`. Tests: `TextBoxEditingParityTests` (1).
 - **Ours:** setter clears the anchor and moves the caret (`TextBox.cs:516-531`), with a comment claiming WinForms does the same.
 - **Upstream:** `Select (value, SelectionLength)` — the length is preserved (`TextBoxBase.cs:1064-1068`).
 - **Impact:** Code that sets `SelectionLength` first and `SelectionStart` second (or adjusts `SelectionStart` to move an existing highlight) ends with no selection. Negative values throw upstream; ours clamps (minor).
@@ -265,7 +294,8 @@ P0).
 - **Test:** `Text = "abcdef"; SelectionLength = 2; SelectionStart = 3;` → `SelectedText == "de"`.
 - **Tests today:** `TextBoxTests.SelectionStart_then_SelectionLength_selects_from_that_point` (only the working order).
 
-### TXT-22 — `TextBoxBase.ShortcutsEnabled` stored-only — Cat C — P2 — High
+### TXT-22 — `TextBoxBase.ShortcutsEnabled` stored-only — Cat C — P2 — High — **CLOSED (2026-10-02)**
+- **Already fixed** by W5.11 (2026-09-03): `HandleKeyDown` gates Ctrl+C/X/V/A on `ShortcutsEnabled` (`TextBox.cs`), tested in `TextBoxStoredBehaviourTests`. The heading was not marked at the time. Ctrl+Z (TXT-13) follows the same gate.
 - **Ours:** auto-property (`TextBoxBase.cs:132`); Ctrl+C/X/V/A always act (`TextBox.cs:213-232`).
 - **Upstream:** `ProcessCmdKey` eats the whole shortcut list when false (`TextBoxBase.cs:178-188`) and suppresses the default context menu.
 - **Impact:** Kiosk/exam-style apps that disable clipboard shortcuts on a field get them anyway.
@@ -273,7 +303,8 @@ P0).
 - **Test:** `ShortcutsEnabled = false`, `Text = "abc"`, `OnKeyDown (Keys.Control | Keys.A)` → `SelectionLength == 0`.
 - **Tests today:** none.
 
-### TXT-23 — Ctrl+Backspace / Ctrl+Delete delete one character, not a word — Cat B — P2 — High
+### TXT-23 — Ctrl+Backspace / Ctrl+Delete delete one character, not a word — Cat B — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `TextBoxDocument.DeleteText` honours `wholeWord`. Backwards is a copy of upstream's `ClientUtils.GetWordBoundaryStart` (the `ProcessCmdKey` Ctrl+Backspace path); forwards deletes the rest of the word and the gap after it, rich edit's Ctrl+Delete (the plain edit control has no Ctrl+Delete of its own, so this is a judgement). Tests: `TextBoxEditingParityTests` (2).
 - **Ours:** `DeleteText (forward, wholeWord)` has `// TODO: wholeWord not implemented` and ignores the flag (`TextBoxDocument.cs:72-95`).
 - **Upstream:** `ProcessCmdKey` implements Ctrl+Backspace word deletion using `GetWordBoundaryStart` (`TextBoxBase.cs:205-224`); RichEdit handles Ctrl+Delete natively.
 - **Impact:** A muscle-memory editing key does the wrong thing; not a crash.
@@ -281,7 +312,8 @@ P0).
 - **Test:** `Text = "foo bar"`, caret at 7, `OnKeyDown (Keys.Control | Keys.Back)` → `Text == "foo "`.
 - **Tests today:** none.
 
-### TXT-24 — No double-click word select, Shift+click extend, PageUp/PageDown — Cat B — P2 — High
+### TXT-24 — No double-click word select, Shift+click extend, PageUp/PageDown — Cat B — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** the second press of a double-click (`e.Clicks == 2` on mouse-down, i.e. `WM_LBUTTONDBLCLK`) selects the word, or run of spaces/punctuation, under the pointer, using the same character classes as Ctrl+Backspace; Shift+click extends from the anchor using the press's own `e.Modifiers` (the static `ModifierKeys` is reset by every `MouseEventArgs`, LST-27); PageUp/PageDown move the caret a viewport's height in a multiline box, Shift selecting. A mouse-up with no press behind it no longer rebuilds the selection. Mouse selection goes through one `TextBoxDocument.SetSelection` call instead of two setters. Tests: `TextBoxEditingParityTests` (3).
 - **Ours:** `TextBox` overrides `OnMouseDown/Move/Up` only (`TextBox.cs:315-371`); `OnMouseDown` always resets `selection_anchor` (no Shift check); `HandleKeyDown` has no `PageUp`/`PageDown`/`Insert` cases.
 - **Upstream:** native edit behaviour: double-click selects the word, Shift+click extends from the anchor, PageUp/PageDown scroll a page (`IsInputKey` claims them, `TextBoxBase.cs:1355-1359`).
 - **Impact:** Everyday editing gestures do nothing; the multiline box cannot be paged with the keyboard.
@@ -289,7 +321,8 @@ P0).
 - **Test:** `Text = "foo bar"`, `OnMouseDoubleClick` at the position of index 5 → `SelectedText == "bar"`.
 - **Tests today:** none.
 
-### TXT-25 — `ReadOnly` does not change appearance — Cat C — P2 — High
+### TXT-25 — `ReadOnly` does not change appearance — Cat C — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `TextBox.BackColor` answers `Theme.BackgroundColor` (this layer's `SystemColors.Control`) while `ReadOnly` and no instance colour is set (upstream's `ShouldSerializeBackColor` test), and `OnPaintBackground` paints it; an explicit `BackColor`, a background image and the disabled state keep the base path. Tests: `TextBoxEditingParityTests` (2, one a guard).
 - **Ours:** `ReadOnly` flips a document flag and invalidates (`TextBox.cs:457-466`, `TextBoxDocument.cs:462-470`); the renderer/`Style.BackgroundColor` never look at it.
 - **Upstream:** `BackColor` reports `SystemColors.Control` instead of `Window` when read-only and no explicit `BackColor` was set (`TextBoxBase.cs:278-298`).
 - **Impact:** Read-only fields look editable; users click and type into them and think the app is broken.
@@ -297,7 +330,8 @@ P0).
 - **Test:** `new TextBox { ReadOnly = true }.BackColor == SystemColors.Control`, and equals `Window` after `ReadOnly = false`.
 - **Tests today:** `TextBoxTests.ReadOnly_*` (state only).
 
-### TXT-26 — `TextBox.ScrollBars` stored-only (`new`), vertical bar auto-shows — Cat C — P2 — High
+### TXT-26 — `TextBox.ScrollBars` stored-only (`new`), vertical bar auto-shows — Cat C — P2 — High — **CLOSED (2026-10-02)**
+- **Already fixed** by W5.11 (2026-09-03): the `new ScrollBars` shadow was deleted and `UpdateScrollBars` reads the base property -- see that status section above and `TextBoxStoredBehaviourTests`. The heading was not marked at the time.
 - **Ours:** `public new ScrollBars ScrollBars { get; set; }` (`TextBox.cs:418`) default `None`; `UpdateScrollBars` enables the vertical bar whenever text overflows (`:752-772`) and never a horizontal one. `RichTextBox.ScrollBars` likewise stored (`RichTextBox.cs:44`).
 - **Upstream:** `None` shows no bars (content still scrolls with the caret); `Vertical`/`Both` show them (disabled when not needed); `Horizontal` only meaningful with `WordWrap = false`.
 - **Impact:** Boxes designed as `ScrollBars.None` grow a scrollbar; `Both`/`Horizontal` never get a horizontal bar (see TXT-11).
@@ -305,7 +339,8 @@ P0).
 - **Test:** Multiline `ScrollBars = None` with overflowing text → `VerticalScrollBar.Enabled == false`; `Vertical` → true.
 - **Tests today:** none.
 
-### TXT-27 — `PlaceholderText` stays visible while focused — Cat A — P2 — High
+### TXT-27 — `PlaceholderText` stays visible while focused — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `TextBoxDocument.DisplayText` drops the placeholder while the box is `Focused` (upstream's `ShouldRenderPlaceHolderText`), the cached layout is keyed on whether it shows the placeholder, and the renderer draws `DisplayText` rather than choosing between `Text` and `Placeholder` itself. `OnGotFocus` repaints. Tests: `TextBoxEditingParityTests` (1).
 - **Ours:** `DisplayText` returns the placeholder whenever `text` is empty (`TextBoxDocument.cs:160`) and the renderer paints it plus the caret (`TextBoxRenderer.cs:22-46`).
 - **Upstream:** `ShouldRenderPlaceHolderText` requires `!Focused` (`TextBox.cs:958-962`).
 - **Impact:** Cosmetic, but a focused empty box shows grey hint text with a caret sitting on top of it — users often think there is text to delete.
@@ -313,7 +348,8 @@ P0).
 - **Test:** Headless render with `Selected` true and empty text → no glyph pixels in the text area.
 - **Tests today:** none.
 
-### TXT-28 — `TextBox` does not select-all on first keyboard focus — Cat B — P2 — High
+### TXT-28 — `TextBox` does not select-all on first keyboard focus — Cat B — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** upstream's `_selectionSet`: cleared by every `Text` assignment, set by `SelectInternal`/`SelectAll`, and the first `OnGotFocus` after it was cleared selects all when nothing is selected and no mouse button is down (`Control.MouseButtons`, which the window sets before it dispatches the press). No existing test depended on the old behaviour. Tests: `TextBoxEditingParityTests` (2).
 - **Ours:** no `OnGotFocus`/`OnSelected` override in `TextBox`.
 - **Upstream:** first `OnGotFocus` after a `Text` set selects all when no selection exists and no mouse button is down (`TextBox.cs:563-583`, `_selectionSet`).
 - **Impact:** Tabbing through a data-entry form no longer highlights each field's value for overtype; users must Ctrl+A or delete manually. Very noticeable in heads-down entry apps.
@@ -321,7 +357,8 @@ P0).
 - **Test:** `Text = "abc"`, call `Select ()`/`OnGotFocus` via subclass → `SelectionLength == 3`.
 - **Tests today:** none.
 
-### TXT-29 — `RichTextBox.SelectionChanged` never raised; `ContentsResized` is `add { } remove { }` — Cat D — P2 — High
+### TXT-29 — `RichTextBox.SelectionChanged` never raised; `ContentsResized` is `add { } remove { }` — Cat D — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `TextBoxDocument` tells its `TextBox` whenever the caret or selection may have moved; the multi-step mutators (insert, replace, delete, caret moves, undo, `Text`) batch their steps and report once, and `TextBox` compares against the last `(SelectionStart, SelectionLength)` it reported, so one change is one notification. `RichTextBox` raises `SelectionChanged` from it (upstream's `EN_SELCHANGE`). `ContentsResized` was already raised by W6 mechanisms (`CheckContentsResized`, from the paint pass); its stale `CS0067` pragma and "Stub" doc are gone. Tests: `TextBoxEditingParityTests` (1).
 - **Ours:** `SelectionChanged` declared and only raised by `OnSelectionChanged`, which nothing calls (`RichTextBox.cs:227-230`); `ContentsResized` drops handlers (`:211`). The document has the natural trigger points (`SelectionStart/End` setters, `SetCursorToCharIndex`, `GetTextBlock` rebuild).
 - **Upstream:** `EN_SELCHANGE` → `OnSelectionChanged`; `EN_REQUESTRESIZE` → `OnContentsResized` with the new rectangle.
 - **Impact:** Editor toolbars that update Bold/Italic state on `SelectionChanged` never update; the common auto-grow pattern (`rtb.Height = e.NewRectangle.Height` in `ContentsResized`) does nothing.
@@ -329,7 +366,8 @@ P0).
 - **Test:** subscribe, `Select (0, 1)` → raised once; `Text = "a\nb\nc"` on a `RichTextBox` → `ContentsResized` raised with `NewRectangle.Height > 0`.
 - **Tests today:** none.
 
-### TXT-30 — `RichTextBox.DetectUrls` / `LinkClicked` never fire — Cat D — P2 — Medium
+### TXT-30 — `RichTextBox.DetectUrls` / `LinkClicked` never fire — Cat D — P2 — Medium — **CLOSED (2026-10-02)**
+- **Fix (applied), the remaining half:** W6 mechanisms already detected links and raised `LinkClicked` on a click (on the press, as upstream's `EN_LINK` handler does for `WM_LBUTTONDOWN`). Links now LOOK like links: the colorizer hook is attached when there is a detected URL as well as when there are formatting runs, and `ComputeSpans` cuts the text at every run and link edge, painting a link in the theme accent (`LinkLabel`'s default link colour), underlined. `DetectUrls` is a real property that repaints. Tests: `TextBoxEditingParityTests` (1).
 - **Ours:** `DetectUrls` stored (`RichTextBox.cs:35`); `LinkClicked` only raised by an uncalled `OnLinkClicked` (`:214-217`).
 - **Upstream:** `EN_LINK` notification → `OnLinkClicked (linktext, start, length)` (`RichTextBox.cs:3144, 3243`); URLs are auto-underlined/blue when `DetectUrls`.
 - **Impact:** Read-only "about"/help/log panes whose links open a browser via `LinkClicked` show plain text; clicking does nothing.
@@ -337,7 +375,8 @@ P0).
 - **Test:** `Text = "see https://x.y"`, `OnMouseUp` at `GetPositionFromCharIndex (6)` → `LinkClicked` raised with `LinkText == "https://x.y"`.
 - **Tests today:** `RichTextBoxTests.DetectUrls_Set_GetReturnsExpected`.
 
-### TXT-31 — `TextBoxBase.GetLineFromCharIndex` / `GetFirstCharIndexFromLine` count logical lines, not wrapped lines — Cat A — P2 — High
+### TXT-31 — `TextBoxBase.GetLineFromCharIndex` / `GetFirstCharIndexFromLine` count logical lines, not wrapped lines — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `TextBox` overrides `GetLineFromCharIndex`/`GetFirstCharIndexFromLine` to read the laid-out `TextBlock.Lines` in a multiline box, so a wrapped paragraph is several lines, as `EM_LINEFROMCHAR`/`EM_LINEINDEX` count. A single-line box keeps the base's newline count -- it lays out as one line, and `TextBoxBaseTests`/`ToolStripHostParityTests` pin newline counting on single-line boxes holding `\n` (upstream would answer 0 there; recorded rather than changed). Tests: `TextBoxEditingParityTests` (2, one a guard).
 - **Ours:** count `\n` in `Text` (`TextBoxBase.cs:255-286`); the remark admits it.
 - **Upstream:** `EM_LINEFROMCHAR`/`EM_LINEINDEX` are *visual* lines — with `WordWrap` a long paragraph is several lines (`TextBoxBase.cs:1597, 1616-1621`).
 - **Impact:** Line-number gutters and "Ln x, Col y" status bars disagree with what is on screen for wrapped text; `GetFirstCharIndexOfCurrentLine` returns the paragraph start rather than the visual line start (Home already uses the visual line, so the two disagree).
@@ -353,7 +392,8 @@ P0).
 - **Test:** `ZoomFactor = 2` → `PreferredHeight`/`GetTextBlock ().MeasuredHeight` roughly doubles.
 - **Tests today:** none.
 
-### TXT-33 — `MaskedTextBox.ValidateText` uses `Convert.ChangeType`, no `MaskCompleted` gate — Cat A — P2 — Medium
+### TXT-33 — `MaskedTextBox.ValidateText` uses `Convert.ChangeType`, no `MaskCompleted` gate — Cat A — P2 — Medium — **CLOSED (2026-10-02)**
+- **Fix (applied):** `ValidateText` is upstream's `PerformTypeValidation (null)`, shared with `OnValidating`: an incomplete mask reports "Mask input is not complete." without parsing; otherwise the provider's text without prompts (literals per `TextMaskFormat`) is parsed as `Formatter.ParseObject` parses a string -- `Parse (string, NumberStyles, IFormatProvider)`, `Parse (string, IFormatProvider)`, `Parse (string)`, then `Convert.ChangeType` -- and `TypeValidationCompleted` is raised from both. `OnValidating` now runs the type validation before the `Validating` event and assigns `Cancel`, upstream's order. **Not done:** upstream tries the type's `TypeConverter` between the `Parse` methods and `IConvertible`; that needs `DynamicallyAccessedMembers.All` on a public property, so it is left out. `ValidatingType` carries `PublicMethods` for the trimmer. Tests: `TextBoxEditingParityTests` (2).
 - **Ours:** `Convert.ChangeType (Text, ValidatingType, FormatProvider ?? CurrentCulture)`; returns null on failure (`MidSizeControlParity.Two.cs:294-306`).
 - **Upstream:** returns null with an "incomplete mask" message when `!MaskCompleted`; otherwise parses `provider.ToString (false, IncludeLiterals)` (prompts removed) through the type's `Parse`/`TypeConverter` (`MaskedTextBox.cs:2300-2357`).
 - **Impact:** Types without `IConvertible` (e.g. `Guid`, `TimeSpan`, custom structs with `Parse`) always report null; once TXT-03 lands, prompt characters would be fed into the parser.
@@ -361,7 +401,8 @@ P0).
 - **Test:** `ValidatingType = typeof (Guid)`, `Text = Guid.Empty.ToString ()` → non-null.
 - **Tests today:** `MidSizeControlParityTests.MaskedTextBox_ValidateText_converts_or_reports_null`.
 
-### TXT-34 — `TextBox.UseSystemPasswordChar = false` erases an explicit `PasswordChar` — Cat A — P2 — High
+### TXT-34 — `TextBox.UseSystemPasswordChar = false` erases an explicit `PasswordChar` — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `PasswordChar` and `UseSystemPasswordChar` are independent fields; the document shows `UseSystemPasswordChar ? '\u25CF' : PasswordChar`, `PasswordChar`'s getter answers the character in use (as `EM_GETPASSWORDCHAR` does), and turning the system flag off restores the explicit character. The system character was `'*'`; it is now the common-controls v6 circle. Tests: `TextBoxEditingParityTests` (1).
 - **Ours:** setter `else if (!value) PasswordCharacter = null;` (`TextBox.cs:610-613`); getter is `PasswordCharacter.HasValue`, so `PasswordChar = '*'` alone makes `UseSystemPasswordChar` read true.
 - **Upstream:** two independent flags; `UseSystemPasswordChar` wins while true, and turning it off restores `_passwordChar` (`TextBox.cs:329-359, 466-487`).
 - **Impact:** Designer emits `UseSystemPasswordChar = false` after `PasswordChar = '*'` in some orderings → field unmasked.
@@ -418,8 +459,8 @@ Two were wired.
 ## Low-priority / Win32-only (P3) — one line each
 - `TextBox.MaxLength` default reads 0 (unlimited) vs upstream 32767, and negative values map to unlimited instead of throwing — pinned by `TextBoxTests.MaxLength_DefaultsToZero`; harmless unless an app reads it back.
 - Enter inserts `"\n"` where the Win32 edit control inserts `"\r\n"`, and `Lines` set joins with `"\n"` (upstream `Environment.NewLine`) — platform-consistent on macOS/Linux; only `Text.Contains ("\r\n")` style code notices.
-- `TextBoxBase.DeselectAll` / `TextBox.SelectionLength = 0` leave the caret where it was (upstream collapses to `SelectionStart`); `SelectAll` leaves the caret at its old index (upstream puts it at the end) — invisible until the next arrow key.
-- `TextBox.Paste (string)` honours `ReadOnly`/`MaxLength`; upstream's `SetSelectedTextInternal (text, false)` ignores both — same root as TXT-20.
+- ~~`TextBoxBase.DeselectAll` / `TextBox.SelectionLength = 0` leave the caret where it was~~ — fixed 2026-10-02 with TXT-21 (both go through the one-step `Select`, caret at `SelectionStart`). `SelectAll` still leaves the caret at its old index (upstream puts it at the end) — invisible until the next arrow key.
+- ~~`TextBox.Paste (string)` honours `ReadOnly`/`MaxLength`~~ — fixed 2026-10-02 with TXT-20: it is `SetSelectedTextInternal (text, clearUndo: false)`, ignoring both and keeping the undo step.
 - `PasswordChar` is applied to multiline boxes; Win32 ignores `ES_PASSWORD` with `ES_MULTILINE`.
 - Caret does not blink (`TextBoxRenderer.cs:43-46` draws it solid) — cosmetic, needs a timer.
 - `MaskedTextBox.Multiline` is settable (upstream forces false); `AcceptsTab`, `Lines`, `WordWrap` are not hidden — surface-shape only.
