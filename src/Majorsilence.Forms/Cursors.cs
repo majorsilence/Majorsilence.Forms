@@ -113,11 +113,11 @@ namespace Majorsilence.Forms
         /// <summary>The northwest-southeast resize cursor.</summary>
         public static Cursor SizeNWSE => size_nwse ??= new Cursor (Backends.CursorType.BottomRightCorner);
 
-        /// <summary>The horizontal split cursor (alias for SizeWestEast).</summary>
-        public static Cursor HSplit => SizeWestEast;
+        /// <summary>The cursor over a horizontal splitter bar, which drags up and down (alias for SizeNorthSouth).</summary>
+        public static Cursor HSplit => SizeNorthSouth;
 
-        /// <summary>The vertical split cursor (alias for SizeNorthSouth).</summary>
-        public static Cursor VSplit => SizeNorthSouth;
+        /// <summary>The cursor over a vertical splitter bar, which drags left and right (alias for SizeWestEast).</summary>
+        public static Cursor VSplit => SizeWestEast;
 
         /// <summary>The no-move 2D cursor (alias for SizeAll).</summary>
         public static Cursor NoMove2D => SizeAll;

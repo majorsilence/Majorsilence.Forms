@@ -861,7 +861,9 @@ namespace Majorsilence.Forms
 
         internal virtual bool HandleMouseMove (int x, int y)
         {
+            // WM_SETCURSOR: the move puts the control's own cursor back, ending a Cursor.Current override.
             Backend.SetCursor (current_cursor?.CursorType ?? Backends.CursorType.Arrow);
+            Majorsilence.Forms.Cursor.Track (current_cursor);
             return false;
         }
 
@@ -2198,6 +2200,28 @@ namespace Majorsilence.Forms
         public double DesktopScaling => Backend.Scaling;
 
         internal void SetCursor (Cursor cursor) => current_cursor = cursor;
+
+        // The control the pointer last entered, so a change to its cursor while the pointer is over it
+        // (UseWaitCursor, say) can be shown without waiting for a mouse move.
+        internal Control? HoveredControl { get; set; }
+
+        // Shows a cursor on this window now, without changing what any control is set to (Cursor.Current).
+        internal void ShowCursor (Cursor cursor) => Backend?.SetCursor (cursor.CursorType);
+
+        // Re-reads the hovered control's cursor and shows it: called when a control's cursor changes while
+        // the pointer may be over it.
+        internal void RefreshHoverCursor ()
+        {
+            if (HoveredControl is not { } hovered || hovered.FindForm () != this)
+                return;
+
+            current_cursor = hovered.Cursor;
+
+            if (override_cursor is null)
+                Backend?.SetCursor (current_cursor.CursorType);
+
+            Majorsilence.Forms.Cursor.Track (current_cursor);
+        }
 
         internal virtual void SetWindowStartupLocation (WindowBase? owner = null) { }
 

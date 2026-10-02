@@ -71,12 +71,19 @@ namespace Majorsilence.Forms.Tests
 
         public MvvmTwoWayTests () => HeadlessRenderer.Use ();
 
+        // Every binding that is not about marshalling is given a dispatcher that says "this is the UI
+        // thread". The default one asks the shared Headless backend, whose UI thread is whichever thread
+        // built the first window anywhere in the run (see MvvmHelpersTests' UiDispatcher test), so these
+        // failed whenever xunit scheduled this class on another thread -- adding an unrelated test class
+        // to the collection was enough to make three of them fail every run.
+        private readonly FakeDispatcher ui = new ();
+
         [Fact]
         public void BindText_PushesTheValueNow_AndFollowsTheViewModel ()
         {
             var model = new Model { Name = "Pip" };
             var box = new TextBox ();
-            using var binding = box.BindText (model, nameof (Model.Name), m => m.Name, (m, v) => m.Name = v);
+            using var binding = box.BindText (model, nameof (Model.Name), m => m.Name, (m, v) => m.Name = v, ui);
 
             Assert.Equal ("Pip", box.Text);
 
@@ -89,7 +96,7 @@ namespace Majorsilence.Forms.Tests
         {
             var model = new Model ();
             var box = new TextBox ();
-            using var binding = box.BindText (model, nameof (Model.Name), m => m.Name, (m, v) => m.Name = v);
+            using var binding = box.BindText (model, nameof (Model.Name), m => m.Name, (m, v) => m.Name = v, ui);
 
             box.Text = "Bo";
 
@@ -105,7 +112,7 @@ namespace Majorsilence.Forms.Tests
             var model = new Model { Shout = true };
             var box = new TextBox ();
             var changes = 0;
-            using var binding = box.BindText (model, nameof (Model.Name), m => m.Name, (m, v) => m.Name = v);
+            using var binding = box.BindText (model, nameof (Model.Name), m => m.Name, (m, v) => m.Name = v, ui);
             box.TextChanged += (_, _) => changes++;
 
             box.Text = "ab";
@@ -133,7 +140,7 @@ namespace Majorsilence.Forms.Tests
         {
             var model = new Model { Name = "same" };
             var box = new CountingTextBox ();
-            using var binding = box.BindText (model, nameof (Model.Name), m => m.Name, (m, v) => m.Name = v);
+            using var binding = box.BindText (model, nameof (Model.Name), m => m.Name, (m, v) => m.Name = v, ui);
             var writesAfterBinding = box.Writes;
 
             // The same value announced again (a "changed" event with nothing new in it) must not touch the control, or the caret moves.
@@ -148,7 +155,7 @@ namespace Majorsilence.Forms.Tests
         {
             var model = new Model { Name = "a" };
             var box = new TextBox ();
-            var binding = box.BindText (model, nameof (Model.Name), m => m.Name, (m, v) => m.Name = v);
+            var binding = box.BindText (model, nameof (Model.Name), m => m.Name, (m, v) => m.Name = v, ui);
             binding.Dispose ();
             binding.Dispose ();
 
@@ -185,9 +192,9 @@ namespace Majorsilence.Forms.Tests
             combo.Items.Add ("b");
             var number = new NumericUpDown { Minimum = 1, Maximum = 240 };
             using var scope = new BindingScope ();
-            scope.Add (check.BindChecked (model, nameof (Model.On), m => m.On, (m, v) => m.On = v));
-            scope.Add (combo.BindSelectedIndex (model, nameof (Model.Index), m => m.Index, (m, v) => m.Index = v));
-            scope.Add (number.BindValue (model, nameof (Model.Count), m => m.Count, (m, v) => m.Count = v));
+            scope.Add (check.BindChecked (model, nameof (Model.On), m => m.On, (m, v) => m.On = v, ui));
+            scope.Add (combo.BindSelectedIndex (model, nameof (Model.Index), m => m.Index, (m, v) => m.Index = v, ui));
+            scope.Add (number.BindValue (model, nameof (Model.Count), m => m.Count, (m, v) => m.Count = v, ui));
 
             check.Checked = true;
             Assert.True (model.On);

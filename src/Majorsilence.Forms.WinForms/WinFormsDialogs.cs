@@ -16,6 +16,7 @@ namespace Majorsilence.Forms.WinForms
             using var dialog = new WF.OpenFileDialog {
                 Multiselect = request.AllowMultiple,
                 Filter = BuildFilter (request.Filters),
+                FilterIndex = request.FilterIndex,   // the filter the dialog opens on (SVC-24)
             };
             if (!string.IsNullOrEmpty (request.Title))
                 dialog.Title = request.Title;
@@ -31,6 +32,7 @@ namespace Majorsilence.Forms.WinForms
         {
             using var dialog = new WF.SaveFileDialog {
                 Filter = BuildFilter (request.Filters),
+                FilterIndex = request.FilterIndex,   // the filter the dialog opens on (SVC-24)
             };
             if (!string.IsNullOrEmpty (request.Title))
                 dialog.Title = request.Title;

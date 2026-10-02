@@ -85,7 +85,11 @@ namespace Majorsilence.Forms.Headless
         public string Title { set { } }
         public bool Topmost { get; set; }
         public void SetSystemDecorations (bool useSystemDecorations) { }
-        public void SetCursor (CursorType cursor) { }
+        // The cursor the window last asked for: what a real window would be showing. Recorded so a test
+        // can see the cursor plumbing (Cursor.Current, UseWaitCursor, a control's Cursor) reach the window.
+        public CursorType Cursor { get; private set; } = CursorType.Arrow;
+
+        public void SetCursor (CursorType cursor) => Cursor = cursor;
 
         // Records the framework's most recent on-screen-keyboard request. Headless has no keyboard to
         // show; this exists so a test can assert SoftKeyboardObserver drove the seam correctly.
@@ -150,8 +154,11 @@ namespace Majorsilence.Forms.Headless
         public void Invalidate () => InvalidateCount++;
 
         // ── Pickers (unavailable headless) ──
-        public Task<string[]> ShowOpenFileDialog (OpenFileRequest request) => Task.FromResult (Array.Empty<string> ());
-        public Task<string?> ShowSaveFileDialog (SaveFileRequest request) => Task.FromResult<string?> (null);
+        public Task<string[]> ShowOpenFileDialog (OpenFileRequest request)
+            => Task.FromResult (HeadlessRenderer.OpenFileResponse?.Invoke (request) ?? Array.Empty<string> ());
+
+        public Task<string?> ShowSaveFileDialog (SaveFileRequest request)
+            => Task.FromResult (HeadlessRenderer.SaveFileResponse?.Invoke (request));
         public Task<string?> ShowOpenFolderDialog (FolderDialogRequest request) => Task.FromResult<string?> (null);
 
         /// <summary>Renders the current frame into a fresh offscreen surface and returns the snapshot.</summary>

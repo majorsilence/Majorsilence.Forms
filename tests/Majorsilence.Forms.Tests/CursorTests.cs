@@ -76,8 +76,10 @@ namespace Majorsilence.Forms.Tests
             Assert.Same (Cursors.Arrow, Cursors.Default);
             Assert.Same (Cursors.SizeNorthSouth, Cursors.SizeNS);
             Assert.Same (Cursors.SizeWestEast, Cursors.SizeWE);
-            Assert.Same (Cursors.SizeWestEast, Cursors.HSplit);
-            Assert.Same (Cursors.SizeNorthSouth, Cursors.VSplit);
+            // Upstream's Splitter shows HSplit over a Top/Bottom (horizontal) bar and VSplit over a Left/Right
+            // one (Splitter.cs:100-101), so HSplit is the up-and-down cursor (SVC-14).
+            Assert.Same (Cursors.SizeNorthSouth, Cursors.HSplit);
+            Assert.Same (Cursors.SizeWestEast, Cursors.VSplit);
             Assert.Same (Cursors.SizeAll, Cursors.NoMove2D);
             Assert.Same (Cursors.Wait, Cursors.WaitCursor);
         }
