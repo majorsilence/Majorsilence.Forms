@@ -398,6 +398,25 @@ namespace Majorsilence.Forms.Theming.WinForms
                     entries.Add (new WinFormsThemeSupportEntry (mapping.Selector, null, true, "box-shadow", WinFormsThemeSupportLevel.Unsupported, NoBoxShadow));
             }
 
+            // Per-corner radii and dashed borders (#286): the Region-based border-radius is one value for
+            // every corner and System.Windows.Forms draws solid borders, so both are Unsupported.
+            const string NoCornerRadius = "The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius.";
+            const string NoBorderStyle = "System.Windows.Forms draws solid borders; there is no dashed-border path wired up.";
+
+            foreach (var mapping in mappings) {
+                if (mapping.WinFormsTypes is null)
+                    continue;
+
+                foreach (var property in new[] { "border-style", "border-top-left-radius", "border-top-right-radius", "border-bottom-right-radius", "border-bottom-left-radius" }) {
+                    var note = property == "border-style" ? NoBorderStyle : NoCornerRadius;
+
+                    entries.Add (new WinFormsThemeSupportEntry (mapping.Selector, null, false, property, WinFormsThemeSupportLevel.Unsupported, note));
+
+                    if (ThemeCssReference.FindSelector (mapping.Selector)?.SupportsHover == true)
+                        entries.Add (new WinFormsThemeSupportEntry (mapping.Selector, null, true, property, WinFormsThemeSupportLevel.Unsupported, note));
+                }
+            }
+
             Mappings = mappings;
             Entries = entries;
 

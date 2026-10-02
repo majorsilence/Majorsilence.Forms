@@ -174,6 +174,25 @@ Button:disabled {
 }
 ```
 
+- `border-radius` takes one to four lengths, CSS-style (top-left, top-right, bottom-right, bottom-left;
+  missing values are filled in as in CSS), and each corner has a longhand
+  (`border-top-left-radius`, ...). A later `border-radius` resets corners set earlier; a later corner
+  longhand wins over an earlier `border-radius`. `border-style` is `solid` (the default) or `dashed`
+  (dash and gap are each three border-widths long); `dotted`, `double` and the rest are errors. Both are
+  control-rule properties only -- a part such as `ScrollBar::thumb` still takes a single `border-radius`:
+
+```css
+Button {
+  border: 2px dashed #2b1b4d;
+  border-radius: 12px 12px 0 0;   /* rounded top, square bottom */
+}
+
+Panel {
+  border-style: dashed;
+  border-top-left-radius: 0;
+}
+```
+
 ### 4. Parts -- `Type::part`
 
 ```css
@@ -235,7 +254,7 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `@import url(base.css);` | No file inclusion. | Register the base theme, then `@theme "X" extends Base;`. |
 | `@media (prefers-color-scheme: dark) { }` | No media queries. | Register two themes and pick one in code. |
 | `Button { margin: 4px; }` | Layout is not themable; only colours, borders and fonts are. | Set `Padding`/`Margin` in code. |
-| `Button { border: 1px dashed red; }` | Borders are always solid. | `border: 1px solid red;` |
+| `Button { border: 1px dotted red; }` | Borders are solid or dashed. | `border: 1px dashed red;` |
 | `Button { background: red; }` | Only the longhand is recognised (`background` would imply images/gradients). | `background-color: red;` |
 | `Button { color: linear-gradient(red, blue); }` | Gradients and images are not colours. | A flat colour. |
 | `:root { color: red; }` | `:root` takes tokens only. | `Form { color: red; }` or `--foreground-color`. |
@@ -422,10 +441,12 @@ A rule for the selector these follow styles their background and border; the con
 |---|---|---|
 | `background-color` | color | The control's background. |
 | `color` | color | The control's text (foreground) colour. |
-| `border` | [width] [solid \| none] [color] | Shorthand for border-width, border-style and border-color, in any order. Only solid borders are drawn; 'none' is width 0. |
+| `border` | [width] [solid \| dashed \| none] [color] | Shorthand for border-width, border-style and border-color, in any order. Borders are solid or dashed; 'none' is width 0. |
+| `border-style` | solid \| dashed | How the border line is drawn: a continuous line or dashes (each dash and gap three times the border width). dotted, double, groove, ridge, inset and outset are rejected. |
 | `border-width` | length | The width of all four border sides, in pixels. |
 | `border-color` | color | The colour of all four border sides. |
-| `border-radius` | length | The corner radius, in pixels, applied to all four corners. When it is greater than 0 all four sides are drawn with the same width and colour. |
+| `border-radius` | length{1,4} | The corner radius, in pixels. One value applies to all four corners; two to top-left/bottom-right and top-right/bottom-left; three to top-left, top-right/bottom-left and bottom-right; four to top-left, top-right, bottom-right, bottom-left. When any corner is greater than 0 all four sides are drawn with the same width and colour. Elliptical radii ('/') are not supported. |
+| `border-top-left-radius` | length | The radius of one corner. Also border-top-right-radius, border-bottom-right-radius, border-bottom-left-radius. Wins over an earlier border-radius; a later border-radius resets it. |
 | `border-top-width` | length | The width of one side. Also border-right-width, border-bottom-width, border-left-width. |
 | `border-top-color` | color | The colour of one side. Also border-right-color, border-bottom-color, border-left-color. |
 | `font-family` | family list | The typeface. The first family the machine has is used, and a font registered with PrivateFontCollection counts as one it has; generic names (sans-serif, serif, monospace) are passed to the OS font matcher. |

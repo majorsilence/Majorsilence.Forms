@@ -29,7 +29,13 @@ namespace Majorsilence.Forms
         /// A hard, offset, no-blur shadow (#285): an offset pair plus a color. Only appears on the
         /// <c>box-shadow</c> control-rule declaration, never on a <c>:root</c> token.
         /// </summary>
-        BoxShadow
+        BoxShadow,
+
+        /// <summary>
+        /// A CSS keyword from a short fixed list (#286): <c>solid</c> or <c>dashed</c>. Only appears on
+        /// the <c>border-style</c> control-rule declaration.
+        /// </summary>
+        Keyword
     }
 
     /// <summary>
@@ -402,10 +408,12 @@ namespace Majorsilence.Forms
         public static IReadOnlyList<ThemeCssProperty> Properties { get; } = new[] {
             new ThemeCssProperty ("background-color", "color", "The control's background."),
             new ThemeCssProperty ("color", "color", "The control's text (foreground) colour."),
-            new ThemeCssProperty ("border", "[width] [solid | none] [color]", "Shorthand for border-width, border-style and border-color, in any order. Only solid borders are drawn; 'none' is width 0."),
+            new ThemeCssProperty ("border", "[width] [solid | dashed | none] [color]", "Shorthand for border-width, border-style and border-color, in any order. Borders are solid or dashed; 'none' is width 0."),
+            new ThemeCssProperty ("border-style", "solid | dashed", "How the border line is drawn: a continuous line or dashes (each dash and gap three times the border width). dotted, double, groove, ridge, inset and outset are rejected."),
             new ThemeCssProperty ("border-width", "length", "The width of all four border sides, in pixels."),
             new ThemeCssProperty ("border-color", "color", "The colour of all four border sides."),
-            new ThemeCssProperty ("border-radius", "length", "The corner radius, in pixels, applied to all four corners. When it is greater than 0 all four sides are drawn with the same width and colour."),
+            new ThemeCssProperty ("border-radius", "length{1,4}", "The corner radius, in pixels. One value applies to all four corners; two to top-left/bottom-right and top-right/bottom-left; three to top-left, top-right/bottom-left and bottom-right; four to top-left, top-right, bottom-right, bottom-left. When any corner is greater than 0 all four sides are drawn with the same width and colour. Elliptical radii ('/') are not supported."),
+            new ThemeCssProperty ("border-top-left-radius", "length", "The radius of one corner. Also border-top-right-radius, border-bottom-right-radius, border-bottom-left-radius. Wins over an earlier border-radius; a later border-radius resets it."),
             new ThemeCssProperty ("border-top-width", "length", "The width of one side. Also border-right-width, border-bottom-width, border-left-width."),
             new ThemeCssProperty ("border-top-color", "color", "The colour of one side. Also border-right-color, border-bottom-color, border-left-color."),
             new ThemeCssProperty ("font-family", "family list", "The typeface. The first family the machine has is used, and a font registered with PrivateFontCollection counts as one it has; generic names (sans-serif, serif, monospace) are passed to the OS font matcher."),
@@ -424,7 +432,8 @@ namespace Majorsilence.Forms
         /// </summary>
         public static IReadOnlyList<string> PropertyNames { get; } = new[] {
             "background-color", "color",
-            "border", "border-width", "border-color", "border-radius",
+            "border", "border-width", "border-color", "border-style", "border-radius",
+            "border-top-left-radius", "border-top-right-radius", "border-bottom-right-radius", "border-bottom-left-radius",
             "border-top-width", "border-right-width", "border-bottom-width", "border-left-width",
             "border-top-color", "border-right-color", "border-bottom-color", "border-left-color",
             "font-family", "font-size", "font-weight", "font-style",

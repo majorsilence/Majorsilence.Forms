@@ -510,28 +510,76 @@ Unsupported rows are reported as diagnostics when a stylesheet uses them — nev
 | `Form` | `border-width`, `border-color`, `border-radius`, `border-top-width`, `border-right-width`, `border-bottom-width`, `border-left-width`, `border-top-color`, `border-right-color`, `border-bottom-color`, `border-left-color` | The window frame is drawn by the OS (or Avalonia's own chrome, which has no border seam). |
 | `Button` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
 | `Button:hover` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `Button` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `Button:hover` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `Button` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
+| `Button:hover` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `CheckBox` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `CheckBox` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `CheckBox` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `ComboBox` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `ComboBox` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `ComboBox` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `DataGridView` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `DataGridView` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `DataGridView` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `Form` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `Form` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `Form` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `Label` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `Label` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `Label` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `LinkLabel` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
 | `LinkLabel:hover` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `LinkLabel` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `LinkLabel:hover` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `LinkLabel` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
+| `LinkLabel:hover` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `ListBox` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `ListBox` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `ListBox` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `Menu` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `Menu` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `Menu` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `MenuDropDown` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `MenuDropDown` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `MenuDropDown` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `MonthCalendar` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `MonthCalendar` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `MonthCalendar` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `NumericUpDown` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `NumericUpDown` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `NumericUpDown` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `RadioButton` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `RadioButton` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `RadioButton` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `ScrollBar` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `ScrollBar` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `ScrollBar` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `SplitContainer` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `SplitContainer` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `SplitContainer` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `Splitter` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `Splitter` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `Splitter` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `TabControl` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TabControl` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `TabControl` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `TabStrip` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TabStrip` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `TabStrip` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `TextBox` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TextBox` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `TextBox` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `TrackBar` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
 | `TrackBar:hover` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TrackBar` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `TrackBar:hover` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `TrackBar` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
+| `TrackBar:hover` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `TreeView` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TreeView` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
+| `TreeView` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 <!-- END GENERATED: avalonia-support -->
 
 ## Out of scope

@@ -572,7 +572,7 @@ namespace Majorsilence.Forms.Tests
         [InlineData ("/* open comment", "Unterminated comment")]
         [InlineData ("Button { color: #12345; }", "is not a valid hex color")]
         [InlineData ("Button { color: #ggg; }", "is not a valid hex color")]
-        [InlineData ("Button { border: 1px dashed red; }", "'dashed' border style is not supported")]
+        [InlineData ("Button { border: 1px dotted red; }", "'dotted' border style is not supported")]
         [InlineData ("Button { color: reddish; }", "'reddish' is not a CSS color name")]
         [InlineData ("Button { color: linear-gradient(red, blue); }", "'linear-gradient()' is not a supported color function")]
         [InlineData ("Button { margin: 4px; }", "Unknown property 'margin'")]

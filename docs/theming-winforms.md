@@ -428,6 +428,68 @@ Unsupported rows are reported as diagnostics when a stylesheet uses them — nev
 | `MonthCalendar` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
 | `ScrollBar` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
 | `PropertyGrid` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `Form` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `Form` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `Button` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `Button:hover` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `Button` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `Button:hover` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `Label` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `Label` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `LinkLabel` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `LinkLabel:hover` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `LinkLabel` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `LinkLabel:hover` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `TextBox` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `TextBox` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `NumericUpDown` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `NumericUpDown` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `ComboBox` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `ComboBox` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `CheckBox` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `CheckBox` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `RadioButton` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `RadioButton` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `Panel` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `Panel` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `GroupBox` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `GroupBox` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `SplitContainer` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `SplitContainer` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `Splitter` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `Splitter` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `PictureBox` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `PictureBox` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `ListBox` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `ListBox` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `ListView` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `ListView` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `TreeView` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `TreeView` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `DataGridView` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `DataGridView` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `Menu` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `Menu` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `MenuDropDown` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `MenuDropDown` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `ToolBar` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `ToolBar` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `StatusBar` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `StatusBar` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `TabControl` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `TabControl` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `TabStrip` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `TabStrip` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `TrackBar` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `TrackBar:hover` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `TrackBar` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `TrackBar:hover` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `MonthCalendar` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `MonthCalendar` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `ScrollBar` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `ScrollBar` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `PropertyGrid` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
+| `PropertyGrid` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
 <!-- END GENERATED: winforms-support -->
 
 ## Out of scope

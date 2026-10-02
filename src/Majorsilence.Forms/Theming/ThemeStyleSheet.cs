@@ -1036,8 +1036,32 @@ namespace Majorsilence.Forms
                             break;
 
                         case "border-radius":
-                            if (ThemeCssValues.TryParseLength (value, out var radius, out error))
-                                Add (() => ThemeCssValue.Length (radius ()), s => s.Border.Radius = radius ());
+                            if (value.Count > 1) {
+                                CompileRadiusShorthand (value, declaration, compiled);
+                            } else if (ThemeCssValues.TryParseLength (value, out var radius, out error)) {
+                                // The one-value form is "all four corners": it also drops any corner set
+                                // earlier in the cascade, as CSS's shorthand does (#286).
+                                Add (() => ThemeCssValue.Length (radius ()), s => {
+                                    s.Border.Radius = radius ();
+                                    s.Border.TopLeftRadius = s.Border.TopRightRadius = s.Border.BottomRightRadius = s.Border.BottomLeftRadius = null;
+                                });
+                            } else
+                                Error (declaration.Line, declaration.Column, $"'{name}': {error}");
+                            break;
+
+                        case "border-top-left-radius":
+                        case "border-top-right-radius":
+                        case "border-bottom-right-radius":
+                        case "border-bottom-left-radius":
+                            if (ThemeCssValues.TryParseLength (value, out var cornerRadius, out error))
+                                Add (() => ThemeCssValue.Length (cornerRadius ()), BorderCornerSetter (name, cornerRadius));
+                            else
+                                Error (declaration.Line, declaration.Column, $"'{name}': {error}");
+                            break;
+
+                        case "border-style":
+                            if (TryParseBorderLineStyle (value, out var lineStyle, out error))
+                                Add (() => ThemeCssValue.KeywordOf (lineStyle == ControlBorderLineStyle.Dashed ? "dashed" : "solid"), s => s.Border.LineStyle = lineStyle);
                             else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
@@ -1109,8 +1133,84 @@ namespace Majorsilence.Forms
             };
 
             private static readonly HashSet<string> unsupported_border_styles = new (StringComparer.OrdinalIgnoreCase) {
-                "dashed", "dotted", "double", "groove", "ridge", "inset", "outset"
+                "dotted", "double", "groove", "ridge", "inset", "outset"
             };
+
+            private static Action<ControlStyle> BorderCornerSetter (string property, Func<int> radius) => property switch {
+                "border-top-left-radius" => s => s.Border.TopLeftRadius = radius (),
+                "border-top-right-radius" => s => s.Border.TopRightRadius = radius (),
+                "border-bottom-right-radius" => s => s.Border.BottomRightRadius = radius (),
+                _ => s => s.Border.BottomLeftRadius = radius (),
+            };
+
+            // 'solid' or 'dashed'; 'none' and 'hidden' are width 0 and belong to the 'border' shorthand.
+            private static bool TryParseBorderLineStyle (List<CssComponent> value, out ControlBorderLineStyle style, out string? error)
+            {
+                style = ControlBorderLineStyle.Solid;
+                error = null;
+
+                if (value.Count == 1 && value[0] is CssIdent ident) {
+                    if (ident.Name.Equals ("solid", StringComparison.OrdinalIgnoreCase))
+                        return true;
+
+                    if (ident.Name.Equals ("dashed", StringComparison.OrdinalIgnoreCase)) {
+                        style = ControlBorderLineStyle.Dashed;
+                        return true;
+                    }
+
+                    error = unsupported_border_styles.Contains (ident.Name)
+                        ? $"the '{ident.Name}' border style is not supported; borders are 'solid' or 'dashed'. Write e.g. 'border-style: dashed;'."
+                        : $"'{ident.Name}' is not a border style. Use 'solid' or 'dashed'; for no border write 'border-width: 0;' or 'border: none;'.";
+                    return false;
+                }
+
+                error = $"'{string.Join (" ", value.Select (c => c.Raw))}' is not a border style. Use 'solid' or 'dashed'.";
+                return false;
+            }
+
+            // border-radius with two to four values: top-left, top-right, bottom-right, bottom-left, the
+            // missing ones filled in the CSS way (#286). A host sees the four longhands the shorthand
+            // stands for, like it does for 'border'.
+            private void CompileRadiusShorthand (List<CssComponent> value, RawDeclaration declaration, CompiledDeclarations compiled)
+            {
+                if (value.Count > 4) {
+                    Error (declaration.Line, declaration.Column, "'border-radius': at most four values (top-left, top-right, bottom-right, bottom-left) are accepted; elliptical radii written with '/' are not supported.");
+                    return;
+                }
+
+                var lengths = new List<Func<int>> ();
+                var references = new List<ThemeCssToken?> ();
+
+                foreach (var component in value) {
+                    if (!ThemeCssValues.TryParseLength (new List<CssComponent> { component }, out var length, out var lengthError)) {
+                        Error (component, $"'border-radius': {lengthError}");
+                        return;
+                    }
+
+                    lengths.Add (length);
+                    references.Add ((component as CssTokenRef)?.Token);
+                }
+
+                // 2 values: a = TL+BR, b = TR+BL.  3: a = TL, b = TR+BL, c = BR.  4: as written.
+                int[] pick = lengths.Count switch {
+                    2 => new[] { 0, 1, 0, 1 },
+                    3 => new[] { 0, 1, 2, 1 },
+                    _ => new[] { 0, 1, 2, 3 },
+                };
+                var names = new[] { "border-top-left-radius", "border-top-right-radius", "border-bottom-right-radius", "border-bottom-left-radius" };
+
+                for (var i = 0; i < 4; i++) {
+                    var length = lengths[pick[i]];
+                    var corner = names[i];
+
+                    compiled.Items.Add (new CompiledDeclaration (new ThemeCssDeclaration (corner, () => ThemeCssValue.Length (length ()), references[pick[i]], declaration.Line, declaration.Column)) {
+                        // The first corner also drops the one-value radius set earlier, as the shorthand resets it.
+                        Action = i == 0
+                            ? s => { s.Border.Radius = null; BorderCornerSetter (corner, length) (s); }
+                            : BorderCornerSetter (corner, length)
+                    });
+                }
+            }
 
             private void CompileBorderShorthand (List<CssComponent> value, RawDeclaration declaration, CompiledDeclarations compiled)
             {
@@ -1118,6 +1218,7 @@ namespace Majorsilence.Forms
                 Func<SKColor>? color = null;
                 ThemeCssToken? widthReference = null;
                 ThemeCssToken? colorReference = null;
+                ControlBorderLineStyle? lineStyle = null;
 
                 foreach (var component in value) {
                     if (component is CssNumber) {
@@ -1138,11 +1239,18 @@ namespace Majorsilence.Forms
                             continue;
                         }
 
-                        if (ident.Name.Equals ("solid", StringComparison.OrdinalIgnoreCase))
+                        if (ident.Name.Equals ("solid", StringComparison.OrdinalIgnoreCase)) {
+                            lineStyle = ControlBorderLineStyle.Solid;
                             continue;
+                        }
+
+                        if (ident.Name.Equals ("dashed", StringComparison.OrdinalIgnoreCase)) {
+                            lineStyle = ControlBorderLineStyle.Dashed;
+                            continue;
+                        }
 
                         if (unsupported_border_styles.Contains (ident.Name)) {
-                            Error (component, $"'border': the '{ident.Name}' border style is not supported; borders are always solid. Write e.g. 'border: 1px solid #808080;'.");
+                            Error (component, $"'border': the '{ident.Name}' border style is not supported; borders are 'solid' or 'dashed'. Write e.g. 'border: 1px dashed #808080;'.");
                             return;
                         }
                     }
@@ -1161,7 +1269,7 @@ namespace Majorsilence.Forms
                     }
 
                     if (color is not null) {
-                        Error (component, $"'border': unexpected '{component.Raw}' after the color. The form is 'border: [width] [solid|none] [color]'.");
+                        Error (component, $"'border': unexpected '{component.Raw}' after the color. The form is 'border: [width] [solid|dashed|none] [color]'.");
                         return;
                     }
 
@@ -1173,8 +1281,8 @@ namespace Majorsilence.Forms
                     colorReference = (component as CssTokenRef)?.Token;
                 }
 
-                if (width is null && color is null) {
-                    Error (declaration.Line, declaration.Column, "'border' needs a width and/or a color, e.g. 'border: 1px solid #808080;' or 'border: none;'.");
+                if (width is null && color is null && lineStyle != ControlBorderLineStyle.Dashed) {
+                    Error (declaration.Line, declaration.Column, "'border' needs a width, a style and/or a color, e.g. 'border: 1px solid #808080;' or 'border: none;'.");
                     return;
                 }
 
@@ -1182,9 +1290,19 @@ namespace Majorsilence.Forms
                 if (width is not null) {
                     var w = width;
                     compiled.Items.Add (new CompiledDeclaration (new ThemeCssDeclaration ("border-width", () => ThemeCssValue.Length (w ()), widthReference, declaration.Line, declaration.Column)) {
-                        Action = s => s.Border.Width = w ()
+                        Action = lineStyle == ControlBorderLineStyle.Solid
+                            ? s => { s.Border.Width = w (); s.Border.LineStyle = ControlBorderLineStyle.Solid; }
+                            : s => s.Border.Width = w ()
                     });
                 }
+
+                // Only 'dashed' is a model declaration: a host that cannot draw it must be told, but every
+                // existing 'border: 1px solid ...' would otherwise report an unsupported property. An
+                // explicit 'solid' still resets an earlier dashed style, folded into the width action.
+                if (lineStyle == ControlBorderLineStyle.Dashed)
+                    compiled.Items.Add (new CompiledDeclaration (new ThemeCssDeclaration ("border-style", () => ThemeCssValue.KeywordOf ("dashed"), null, declaration.Line, declaration.Column)) {
+                        Action = s => s.Border.LineStyle = ControlBorderLineStyle.Dashed
+                    });
 
                 if (color is not null) {
                     var c = color;
