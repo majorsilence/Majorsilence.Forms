@@ -17,7 +17,9 @@ namespace Majorsilence.Forms.Printing
             Guard.ThrowIfNull (graphics);
 
             SkiaGraphics = graphics;
-            Graphics = new Graphics (graphics.Canvas);
+            // Fonts are sized for the page's unit (hundredths of an inch when printing), so a 10 pt font
+            // prints at 10 pt (SVC-28).
+            Graphics = new Graphics (graphics.Canvas) { UnitsPerInch = graphics.DpiY };
             MarginBounds = Round (marginBounds);
             PageBounds = Round (pageBounds);
             PageSettings = pageSettings;

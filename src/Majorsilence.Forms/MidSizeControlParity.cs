@@ -566,8 +566,11 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets whether the dialog shows the wait cursor.</summary>
         /// <remarks>`new` for the same reason as the shadowed events below: WinForms redeclares this on
-        /// the dialog, and it is a plain stored value here rather than the window's real wait cursor.</remarks>
-        public new bool UseWaitCursor { get; set; }
+        /// the dialog (to hide it from the designer) and forwards to the base, as this does.</remarks>
+        public new bool UseWaitCursor {
+            get => base.UseWaitCursor;
+            set => base.UseWaitCursor = value;
+        }
 
         /// <summary>Gets the data bindings for the dialog.</summary>
         /// <remarks>`new` deliberately: these bind the hosted <see cref="PrintPreviewControl"/>, which is

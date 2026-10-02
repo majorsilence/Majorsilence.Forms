@@ -257,7 +257,7 @@ public class SweepEventTests
         document.QueryPageSettings += (_, e) => { queries++; Assert.NotNull (e.PageSettings); };
         document.PrintPage += (_, e) => { pages++; e.HasMorePages = pages < 2; };
 
-        document.Print ();
+        document.Print ();   // the assembly's launcher stub keeps it off any real printer (NoRealPrinting)
 
         Assert.Equal (2, pages);
         Assert.Equal (2, queries);
@@ -272,7 +272,7 @@ public class SweepEventTests
         document.PrintPage += (_, _) => pages++;
         document.EndPrint += (_, _) => ended++;
 
-        document.Print ();
+        document.Print ();   // the assembly's launcher stub keeps it off any real printer (NoRealPrinting)
 
         Assert.Equal (0, pages);
         Assert.Equal (1, ended);

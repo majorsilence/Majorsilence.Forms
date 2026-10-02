@@ -74,8 +74,9 @@ namespace Majorsilence.Forms
 
                 use_wait_cursor = value;
 
-                // Form is a WindowBase here rather than a Control, so there is no per-form cursor to
-                // push this down to; the flag is what an application reads back.
+                // As upstream: every open form (and through it every control) takes the value (SVC-13).
+                foreach (var form in OpenForms.Cast<Form> ().ToList ())
+                    form.UseWaitCursor = value;
             }
         }
 

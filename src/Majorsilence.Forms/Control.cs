@@ -1507,7 +1507,10 @@ namespace Majorsilence.Forms
         /// </summary>
         protected virtual void OnMouseEnter (EventArgs e)
         {
-            FindForm ()?.SetCursor (Cursor);
+            if (FindForm () is { } window) {
+                window.HoveredControl = this;
+                window.SetCursor (Cursor);
+            }
 
             if (behaviors.HasFlag (ControlBehaviors.Hoverable)) {
                 IsHovering = true;

@@ -112,7 +112,7 @@ namespace Majorsilence.Forms.Drawing
         {
             if (string.IsNullOrEmpty (text) || font is null) return SizeF.Empty;
             var face = TypefaceCache.Resolve (font);
-            return MeasureString (text, face, (int)Math.Round (font.PixelSize));
+            return MeasureString (text, face, (int)Math.Round (FontUnits (font)));
         }
 
         /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to a size.</summary>
@@ -120,7 +120,7 @@ namespace Majorsilence.Forms.Drawing
         {
             if (string.IsNullOrEmpty (text) || font is null) return SizeF.Empty;
             var face = TypefaceCache.Resolve (font);
-            return MeasureString (text, face, (int)layoutArea.Width, (int)Math.Round (font.PixelSize));
+            return MeasureString (text, face, (int)layoutArea.Width, (int)Math.Round (FontUnits (font)));
         }
 
         /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font and StringFormat.</summary>
@@ -152,7 +152,7 @@ namespace Majorsilence.Forms.Drawing
             }
 
             var face = TypefaceCache.Resolve (font);
-            return MeasureString (text, face, width, (int)Math.Round (font.PixelSize));
+            return MeasureString (text, face, width, (int)Math.Round (FontUnits (font)));
         }
 
         /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to SizeF.</summary>
@@ -210,7 +210,8 @@ namespace Majorsilence.Forms.Drawing
                 return result;
             }
 
-            var skFont = font.GetSKFont ();
+            var skFont = SkFontFor (font, out var ownedFont);
+            using var owned_font = ownedFont;
             var metrics = skFont.Metrics;
             var lineHeight = metrics.Descent - metrics.Ascent;
             var lines = LayoutLines (text, skFont, layoutRect.Width);
@@ -401,6 +402,32 @@ namespace Majorsilence.Forms.Drawing
         }
 
         private float page_scale = 1f;
+
+        /// <summary>
+        /// How many canvas units make an inch, for sizing fonts: 96 on screen, 100 on a printed page, whose
+        /// unit is a hundredth of an inch as upstream's printer Graphics is (SVC-28). A font is in points, so
+        /// it has to come out the same physical size whatever the unit -- a 10 pt font is 13.33 units at 96
+        /// and 13.89 at 100.
+        /// </summary>
+        internal float UnitsPerInch { get; set; } = 96f;
+
+        private float FontUnits (Majorsilence.Forms.Drawing.Font font)
+            => UnitsPerInch == 96f ? font.PixelSize : font.PixelSize * UnitsPerInch / 96f;
+
+        // The font's cached Skia font when the canvas is in 96ths of an inch; otherwise a resized copy the
+        // caller disposes.
+        private SKFont SkFontFor (Majorsilence.Forms.Drawing.Font font, out SKFont? owned)
+        {
+            var cached = font.GetSKFont ();
+
+            if (UnitsPerInch == 96f) {
+                owned = null;
+                return cached;
+            }
+
+            owned = new SKFont (cached.Typeface, FontUnits (font)) { Edging = cached.Edging, Subpixel = cached.Subpixel, Hinting = cached.Hinting };
+            return owned;
+        }
 
         /// <summary>How many device pixels one unit of <see cref="PageUnit"/> covers, times <see cref="PageScale"/>.</summary>
         internal float PageTransformScale => page_scale * (page_unit switch {
@@ -2193,7 +2220,7 @@ namespace Majorsilence.Forms.Drawing
                 // it honest.
                 const int Unbounded = 1 << 20;
 
-                _canvas.DrawText (text, font.GetSKTypeface (), (int)System.Math.Round (font.PixelSize),
+                _canvas.DrawText (text, font.GetSKTypeface (), (int)System.Math.Round (FontUnits (font)),
                     new Rectangle ((int)x, (int)y, Unbounded, Unbounded),
                     solid.Color.ToSKColor (), ContentAlignment.TopLeft);
 
@@ -2203,7 +2230,8 @@ namespace Majorsilence.Forms.Drawing
             // Gradient and texture brushes have no single colour to hand RichTextKit, so they keep the
             // direct path -- and with it the no-fallback limitation, which is worth knowing but affects
             // almost nothing: text painted with a gradient brush is rare, and Latin text is unaffected.
-            var skFont = font.GetSKFont ();
+            var skFont = SkFontFor (font, out var ownedFont);
+            using var owned_font = ownedFont;
             using var paint = brush.CreatePaint ();
 
             // (x, y) is the TOP-LEFT of the text, as in GDI+, but Skia draws from the baseline -- so the
@@ -2240,7 +2268,7 @@ namespace Majorsilence.Forms.Drawing
             // the contract here. Solid brushes only, matching the point overload: a gradient or texture
             // brush has no single colour to hand RichTextKit and keeps the direct path below.
             if (brush is Majorsilence.Forms.Drawing.SolidBrush solid) {
-                _canvas.DrawText (text, font.GetSKTypeface (), (int)System.Math.Round (font.PixelSize),
+                _canvas.DrawText (text, font.GetSKTypeface (), (int)System.Math.Round (FontUnits (font)),
                     Rectangle.Round (bounds), solid.Color.ToSKColor (), ContentAlignment.TopLeft);
 
                 return;
@@ -2359,7 +2387,8 @@ namespace Majorsilence.Forms.Drawing
                 return;
 
             // Just below the baseline, which DrawString places one ascent below the text's top edge.
-            var y = origin.Y - font.GetSKFont ().Metrics.Ascent + 1f;
+            var y = origin.Y - SkFontFor (font, out var ownedFont).Metrics.Ascent + 1f;
+            ownedFont?.Dispose ();
 
             using var paint = brush.CreatePaint ();
             paint.Style = SKPaintStyle.Fill;
@@ -2410,7 +2439,7 @@ namespace Majorsilence.Forms.Drawing
             if (_canvas is null || string.IsNullOrEmpty (text))
                 return;
 
-            _canvas.DrawText (text, font.GetSKTypeface (), (int)System.Math.Round (font.PixelSize),
+            _canvas.DrawText (text, font.GetSKTypeface (), (int)System.Math.Round (FontUnits (font)),
                 bounds, color.ToSKColor (), alignment, maxLines: maxLines, ellipsis: ellipsis);
         }
 

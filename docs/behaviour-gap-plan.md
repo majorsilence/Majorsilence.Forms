@@ -4304,6 +4304,31 @@ neutralization rounds, all red. Two first stayed green: a plain-versus-subclass 
 mistake both share, so chrome-reaches-the-far-edges and caption-stays-centred checks were added. One
 first did not compile and was redone as a runtime condition.
 
+**The services P1s (#348): cursors, file dialogs, the clipboard and printing. — 2026-10-01.**
+Nine findings (SVC-12, 13, 14, 17, 22, 23, 24, 28, 29), all confirmed in the code before fixing. The
+reconciliation had marked three of them unverified.
+
+- **Cursors.** `Cursor.Current` shows on every open window until the next mouse move, upstream's
+  `SetCursor`-then-`WM_SETCURSOR`. `UseWaitCursor` (control and application) is real and propagates.
+  `HSplit`/`VSplit` were swapped, which also fixes `ListView`'s divider cursor.
+- **File dialogs.** `FileName` is verbatim and never null. After the pick, `AddExtension`/`DefaultExt`,
+  then `FilterIndex` inferred from the chosen file, then `FileOk`, whose veto re-shows the dialog.
+  `FilterIndex` also reaches the pickers: Avalonia's `SuggestedFileType` (in all three hosts) and the
+  native WinForms dialog. The WinForms change is Windows-only and checked by CI only.
+- **`DataObject`** gained upstream's mapped-format groups.
+- **Printing.** `PrintPage` units are hundredths of an inch. Fonts would have printed 4% small at 100 units
+  per inch, so `Graphics` gained an internal units-per-inch for every font path (DrawString, MeasureString
+  and the gradient-brush and range paths). `Print ()` submits the PDF (`lp`, or the shell's print verb),
+  honours `PrintToFile`, and throws `InvalidPrinterException` when it cannot. That made two existing tests,
+  and the Telerik scheduler's preview path, reach a real printer: the scheduler preview now renders
+  without printing, and the test assembly installs a launcher stub that is scoped per test through
+  `AsyncLocal`, so one test's own launcher cannot leak into a parallel one.
+
+Tests: `CursorAndFileDialogTests` (16) and the updated `FileDialogTests`, `CursorTests` and
+`PrintDocumentTests`. There were 21 neutralization rounds, all red. One first stayed green: the test sent
+`FilterIndex = 1`, which equals the request's default, so it now opens on filter 3. A headless seam was
+added for it: `HeadlessRenderer.OpenFileResponse`/`SaveFileResponse` and the window's recorded `Cursor`.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

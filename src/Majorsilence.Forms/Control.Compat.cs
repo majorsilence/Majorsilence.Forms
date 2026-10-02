@@ -315,7 +315,25 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets whether a wait cursor is shown for this control and its children.</summary>
-        public bool UseWaitCursor { get; set; }
+        /// <remarks>
+        /// As upstream (<c>Control.UseWaitCursor</c>): it sets the state <see cref="Cursor"/> reads, and every
+        /// child takes the same value, so a whole form or panel goes busy at once. The cursor changes at
+        /// once if the pointer is over the control (SVC-13: it was stored and read by nothing).
+        /// </remarks>
+        public bool UseWaitCursor {
+            get => GetState (States.UseWaitCursor);
+            set {
+                if (GetState (States.UseWaitCursor) == value)
+                    return;
+
+                SetState (States.UseWaitCursor, value);
+
+                foreach (Control child in Controls)
+                    child.UseWaitCursor = value;
+
+                FindForm ()?.RefreshHoverCursor ();
+            }
+        }
 
         /// <summary>Gets whether the control has been created (this library's equivalent of the handle).</summary>
         /// <remarks>

@@ -108,7 +108,10 @@ behaviour (existing tests are set/get round-trips).
 - **Test:** Headless: two rapid presses/releases at the same point → Click count 1, DoubleClick count 1.
 - **Tests today:** none.
 
-### SVC-12 — `Cursor.Current` — Cat C — P1 — High
+### SVC-12 — `Cursor.Current` — Cat C — P1 — High — **CLOSED (2026-10-01)**
+- **Fix (applied):** setting it shows the cursor on every open window now, and the next mouse move puts
+  back the hovered control's cursor, as `WM_SETCURSOR` does; the getter reports the cursor shown last, and
+  null after `Current = null`.
 - **Ours:** `public static Cursor? Current { get; set; }` auto-property (`src/Majorsilence.Forms/Cursor.cs:78`); nothing reads it (`WindowBase.Cursor`/`OverrideCursor`/`HandleMouseMove` only consult `current_cursor`/`override_cursor`, `src/Majorsilence.Forms/WindowBase.cs:364-388`, `:563-567`).
 - **Upstream:** Setter calls `SetCursor(handle)` immediately (`Input/Cursor.cs:143-150`); this is *the* WinForms busy-cursor idiom (`Cursor.Current = Cursors.WaitCursor; ...; Cursor.Current = Cursors.Default;`).
 - **Impact:** Long operations show no wait cursor anywhere in a migrated app.
@@ -116,7 +119,10 @@ behaviour (existing tests are set/get round-trips).
 - **Test:** Headless window whose fake backend records `SetCursor`; set `Cursor.Current = Cursors.Wait` → backend saw `Wait`.
 - **Tests today:** CursorTests `Cursor_Current_Set_GetReturnsExpected` (round-trip only).
 
-### SVC-13 — `Control.UseWaitCursor` / `Application.UseWaitCursor` — Cat A — P1 — High
+### SVC-13 — `Control.UseWaitCursor` / `Application.UseWaitCursor` — Cat A — P1 — High — **CLOSED (2026-10-01)**
+- **Fix (applied):** `Control.UseWaitCursor` is the state flag `Cursor` reads, every child takes the same
+  value, and the cursor under the pointer changes at once; `Application.UseWaitCursor` sets every open
+  form; `PrintPreviewDialog`'s redeclaration forwards to the base instead of shadowing it.
 - **Ours:** `Control.UseWaitCursor` is an auto-property (`src/Majorsilence.Forms/Control.Compat.cs:304`) while `Control.Cursor`'s getter tests `GetState(States.UseWaitCursor)` (`src/Majorsilence.Forms/Control.cs:421`) — a flag no setter ever sets. `Application.UseWaitCursor` stores a bool and does nothing (`src/Majorsilence.Forms/AppMenuBindingParity.cs:57-68`). `WindowBase.UseWaitCursor` forwards to the adapter's dead auto-property.
 - **Upstream:** Setter sets `States.UseWaitCursor` and propagates to children; `Cursor` getter returns `Cursors.WaitCursor` when set (`Control.cs:3438-3455`).
 - **Impact:** The "recommended" busy indicator does nothing; combined with SVC-12 there is no way to show a wait cursor.
@@ -124,7 +130,10 @@ behaviour (existing tests are set/get round-trips).
 - **Test:** `control.UseWaitCursor = true; Assert.Same(Cursors.Wait, control.Cursor)`.
 - **Tests today:** none.
 
-### SVC-14 — `Cursors.HSplit` / `Cursors.VSplit` swapped — Cat A — P2 — High
+### SVC-14 — `Cursors.HSplit` / `Cursors.VSplit` swapped — Cat A — P2 — High — **CLOSED (2026-10-01)**
+- **Fix (applied):** swapped back to upstream's meaning (`Splitter.cs`: `HSplit` over a Top/Bottom bar),
+  which also corrects `ListView`'s column-divider cursor; `CursorTests` pinned the wrong mapping and was
+  corrected.
 - **Ours:** `HSplit => SizeWestEast`, `VSplit => SizeNorthSouth` (`src/Majorsilence.Forms/Cursors.cs:117-120`).
 - **Upstream:** `HSplit` is `hsplit.cur` — the cursor for a *horizontal* splitter bar, which moves vertically (up/down arrows); `Splitter` uses `HSplit` for `Dock Top/Bottom` and `VSplit` for `Left/Right` (`Input/Cursors.cs:55-56`, `Controls/Splitter/Splitter.cs:100-101`).
 - **Impact:** Ported splitter/resizer code that sets `Cursor = Cursors.HSplit` shows left-right arrows over a bar that drags up-down (and vice versa).
@@ -148,7 +157,11 @@ behaviour (existing tests are set/get round-trips).
 - **Test:** Headless: `Clipboard.SetData("X", new[]{1,2})` then `Clipboard.ContainsData("X")` true and `GetData("X")` returns the array; `Clipboard.Clear()` → false.
 - **Tests today:** ClipboardTests (text round-trips; `GetData_UnknownFormat_ReturnsNull` pins the current text-only behaviour).
 
-### SVC-17 — `DataObject` format auto-conversion (`GetData(Type)`, `Text`↔`UnicodeText`↔`System.String`, `Bitmap`↔`Dib`, `FileDrop`↔`FileName`) — Cat A — P1 — High
+### SVC-17 — `DataObject` format auto-conversion (`GetData(Type)`, `Text`↔`UnicodeText`↔`System.String`, `Bitmap`↔`Dib`, `FileDrop`↔`FileName`) — Cat A — P1 — High — **CLOSED (2026-10-01)**
+- **Fix (applied):** upstream's mapped-format groups (Text / UnicodeText / System.String; FileDrop /
+  FileNameW / FileName; Bitmap; EnhancedMetafile): `GetData`, `GetDataPresent` and `GetFormats` convert
+  by default, `GetData (Type)` goes through the type's name, and `autoConvert: false` is the exact name.
+  RTF and HTML stay their own formats.
 - **Ours:** A flat dictionary keyed by exact format name; `autoConvert` is ignored (`src/Majorsilence.Forms/Clipboard.cs:186-206`). `new DataObject("hello").GetData(typeof(string))` → looks up `"System.String"` → `null`; `SetData(object)` stores under `GetType().FullName` so `GetData(DataFormats.Text)` → `null`; `GetDataPresent(DataFormats.UnicodeText)` after `SetText` → `false`.
 - **Upstream:** `DataStore.GetData(format, autoConvert)` consults `DataFormatNames.AddMappedFormats` so Text/UnicodeText/System.String (and Bitmap/Dib, FileDrop/FileName/FileNameW) are interchangeable; `GetData(string)` defaults `autoConvert: true` (`OLE/DataObject.cs:113-131`, `src/System.Private.Windows.Core/src/System/Private/Windows/Ole/DataStore.cs:44-50`, `DataFormatNames.cs:78`).
 - **Impact:** The two most common consumer idioms — `e.Data.GetDataPresent(typeof(string))` / `(string)e.Data.GetData(typeof(string))` and `GetDataPresent(DataFormats.Text)` — return false/null for text stored the other way; `new DataObject(DataFormats.UnicodeText, s).GetText()` is empty.
@@ -188,7 +201,9 @@ behaviour (existing tests are set/get round-trips).
 - **Test:** Headless render of a 600-char message: label's preferred height <= label bounds height.
 - **Tests today:** none.
 
-### SVC-22 — `FileDialog.FileName` — Cat A — P1 — High
+### SVC-22 — `FileDialog.FileName` — Cat A — P1 — High — **CLOSED (2026-10-01)**
+- **Fix (applied):** stored verbatim, `""` when unset; the six tests that pinned null and the full path
+  now assert upstream's behaviour.
 - **Ours:** Setter does `Path.GetFullPath(value)` (`src/Majorsilence.Forms/FileDialog.cs:129`) — `dlg.FileName = ""` throws `ArgumentException` ("The path is empty"), and any relative name is resolved against the process CWD; getter returns `null` when nothing is selected (`:124`) and the property is typed `string?`.
 - **Upstream:** Getter returns `string.Empty` when unset; setter stores the value verbatim (`Dialogs/CommonDialogs/FileDialog.cs:163-167`).
 - **Impact:** `saveFileDialog.FileName = "";` (designer/reset idiom) crashes; `dlg.FileName.Length`, `.EndsWith(...)`, `Path.GetExtension(dlg.FileName)` NRE after a cancelled dialog.
@@ -196,7 +211,10 @@ behaviour (existing tests are set/get round-trips).
 - **Test:** `new SaveFileDialog { FileName = "" }` does not throw and `FileName == ""`; `new OpenFileDialog().FileName == ""`.
 - **Tests today:** FileDialogTests `FileDialog_FileName_Set_GetReturnsFullPath` pins the divergent full-path behaviour.
 
-### SVC-23 — `FileDialog.FileOk` never raised; `AddExtension`/`DefaultExt` not applied to results — Cat D — P1 — High
+### SVC-23 — `FileDialog.FileOk` never raised; `AddExtension`/`DefaultExt` not applied to results — Cat D — P1 — High — **CLOSED (2026-10-01)**
+- **Fix (applied):** after the pick, `AddExtension` appends the selected filter's first concrete extension,
+  then `DefaultExt` (an open dialog only when that file exists, as upstream), and `FileOk` runs; a handler
+  that sets `Cancel` re-shows the dialog.
 - **Ours:** `FileOk`/`OnFileOk` are declared (`src/Majorsilence.Forms/TailParity.cs:517-520`) but `OpenFileDialog.ShowDialogAsync`/`SaveFileDialog.ShowDialogAsync` set `filenames` and return without raising it (`OpenFileDialog.cs:38-55`, `SaveFileDialog.cs:22-42`). `DefaultExt` is only forwarded to the backend for Save; `AddExtension` is never consulted, so an extension-less name returned by the picker (Open on macOS/Linux, or a backend ignoring `DefaultExtension`) stays extension-less.
 - **Upstream:** After the shell returns, `ProcessFileNames` appends `DefaultExt`/the selected filter's extension when `AddExtension` and no extension, then `OnFileOk(CancelEventArgs)` runs and `Cancel = true` keeps the dialog open (`FileDialog.cs:396-436`, `:603`, `:620-632`).
 - **Impact:** Validation hooks (`FileOk: if (!File.Exists(...)) e.Cancel = true`) and post-processing that apps attach to `FileOk` never run; saved files may lack the expected extension.
@@ -204,7 +222,10 @@ behaviour (existing tests are set/get round-trips).
 - **Test:** Headless backend stub returning `"/tmp/a"` with `DefaultExt = "txt"` → `FileName` ends with `.txt` and a `FileOk` handler ran.
 - **Tests today:** FileDialogTests (property round-trips), FileDialogModalPumpTests.
 
-### SVC-24 — `FileDialog.FilterIndex` never sent to or read back from the picker — Cat C — P1 — High
+### SVC-24 — `FileDialog.FilterIndex` never sent to or read back from the picker — Cat C — P1 — High — **CLOSED (2026-10-01)**
+- **Fix (applied):** `FilterIndex` is sent with the request (Avalonia `SuggestedFileType`, the native
+  WinForms dialog's own `FilterIndex`), and afterwards inferred from the chosen file's extension -- the
+  pickers report only the file -- keeping the filter it opened on when that one matches.
 - **Ours:** Auto-property defaulting to 1 (`src/Majorsilence.Forms/FileDialog.cs:56`); `OpenFileRequest`/`SaveFileRequest` have no filter-index field (`src/Majorsilence.Forms/Backends/FileDialogRequests.cs`), so the initial selection is not applied and the user's choice is not reported.
 - **Upstream:** `nFilterIndex` is passed in and read back from the OPENFILENAME/IFileDialog (`FileDialog.cs:269`, `:768`).
 - **Impact:** Export dialogs that decide the format from `FilterIndex` ("1 = PNG, 2 = JPEG, 3 = BMP") always export format 1 regardless of what the user chose.
@@ -236,7 +257,11 @@ behaviour (existing tests are set/get round-trips).
 - **Test:** `doc.PrintController = new PreviewPrintController(); doc.Print();` with a 3-page handler → `GetPreviewPageInfo().Length == 3`.
 - **Tests today:** PrintingSurfaceTests `PreviewPrintController_captures_a_page_per_OnStartPage` (calls `OnStartPage` by hand, so it passes while `Print()` never does).
 
-### SVC-28 — `PrintPageEventArgs.Graphics/PageBounds/MarginBounds` are in pixels at `PageSettings.Dpi` (96), not hundredths of an inch — Cat A — P1 — High
+### SVC-28 — `PrintPageEventArgs.Graphics/PageBounds/MarginBounds` are in pixels at `PageSettings.Dpi` (96), not hundredths of an inch — Cat A — P1 — High — **CLOSED (2026-10-01)**
+- **Fix (applied):** `PageBounds`/`MarginBounds` are in hundredths of an inch and the canvas is scaled
+  72/100 for the PDF (the preview captures one pixel per unit). `Graphics` gained an internal units-per-
+  inch for fonts -- 100 on a printed page -- so a 10 pt font is still 10 pt;
+  `CreateMeasurementGraphics` measures in the same unit.
 - **Ours:** `width_px = hundredths / 100 * dpi`, bounds built from those (`src/Majorsilence.Forms/Printing/PrintDocument.cs:97-113`, `:129`); Letter reports `PageBounds = 816x1056`, `MarginBounds = (96,96,624,864)`, and the canvas is scaled so 1 unit = 1/96 inch. `PageSettings.Bounds` (`PageSettings.cs:80-81`) is still in hundredths, so `e.PageBounds != e.PageSettings.Bounds`.
 - **Upstream:** `CreatePrintPageEvent` builds both rectangles directly from `PageSettings.Bounds` and `Margins` in hundredths of an inch (Letter = 850x1100, margins (100,100,650,900)) (`PrintController.cs:198-209`), and the printer `Graphics` has `PageUnit = Display` = 1/100 inch (`DefaultPrintController.cs:30`; preview metafile sized from `PrinterUnit.Display`, `PreviewPrintController.cs:12-14`).
 - **Impact:** Every migrated `PrintPage` handler is written in hundredths of an inch: `DrawString(..., 100, 100)` for a 1-inch offset, column x-positions like 150/400/650, `e.MarginBounds.Right - 200`. Here each unit is 1/96 inch, so all geometry is stretched by 4.17% and absolute layouts overflow the page by ~35 units on Letter; fonts (points) are correct, so text/layout proportions are visibly off. Handlers that read `e.PageBounds` are internally consistent but disagree with `e.PageSettings.Bounds`/`PrintableArea`.
@@ -244,7 +269,12 @@ behaviour (existing tests are set/get round-trips).
 - **Test:** `PrintToPdf` with Letter/default margins: handler sees `e.PageBounds == new Rectangle(0,0,850,1100)` and `e.MarginBounds == new Rectangle(100,100,650,900)`.
 - **Tests today:** PrintDocumentTests `MarginBounds_AreInsidePageBounds` (relative check only); PrintPageEventArgsParityTests (type only).
 
-### SVC-29 — `PrintDocument.Print()` produces a temp PDF and nothing else — Cat B — P1 — High
+### SVC-29 — `PrintDocument.Print()` produces a temp PDF and nothing else — Cat B — P1 — High — **CLOSED (2026-10-01)**
+- **Fix (applied):** `Print ()` renders the PDF and submits it -- `lp [-d PrinterName]` on macOS/Linux,
+  the `print`/`printto` shell verb on Windows -- or, with `PrintToFile`, writes `PrintFileName`; a job that
+  cannot be submitted throws `InvalidPrinterException`. `RadScheduler.Print (showDialog: true)` (and so
+  `PrintPreview`) renders and opens the PDF without printing it. The test assembly installs a launcher
+  that never reaches a real printer.
 - **Ours:** `Print()` writes `%TEMP%/<DocumentName>.pdf` and returns the path (`src/Majorsilence.Forms/Printing/PrintDocument.cs:69-74`); nothing opens it or submits it to a printer. Only `PrintPreviewDialog.ShowDialog()` launches a viewer (`PrintDialog.cs:49-57`). `PrinterSettings.InstalledPrinters` is empty, `PrinterName` is `""`, `IsValid` is true (`PrinterSettings.cs:70-100`).
 - **Upstream:** `Print()` spools to `PrinterSettings.PrinterName` (default printer) via the print controller (`PrintDocument.cs:169`); `PrinterSettings.PrinterName` defaults to the OS default printer (`PrinterSettings.cs:303-311`).
 - **Impact:** The user clicks Print (usually after a `PrintDialog` that returned OK immediately, SVC-31) and nothing observable happens — no output, no error. Matrix line 324-327 calls the PDF pipeline the intended substitute, but it never surfaces the PDF from `Print()`.
