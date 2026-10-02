@@ -22,9 +22,14 @@ namespace Majorsilence.Forms
         private string _documentText = string.Empty;
 
         /// <summary>Initializes a new instance of the <see cref="WebBrowser"/> class.</summary>
-        public WebBrowser ()
+        public WebBrowser () : this (WebViewSupport.TryCreate ())
         {
-            _host = Controls.AddImplicitControl (new WebViewHost { Dock = DockStyle.Fill });
+        }
+
+        // Test seam: a browser over a given engine handle (see WebViewHost's matching constructor).
+        internal WebBrowser (IWebViewHandle? engine)
+        {
+            _host = Controls.AddImplicitControl (new WebViewHost (engine) { Dock = DockStyle.Fill });
 
             if (_host.IsFunctional && _host.WebViewHandle is IWebViewHandle handle) {
                 handle.NavigationCompleted += OnNavigationCompleted;
@@ -56,14 +61,30 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets the title of the current document. Stub — not tracked by the webview seam.</summary>
-        public string DocumentTitle => string.Empty;
+        private string _documentTitle = string.Empty;
 
-        /// <summary>Gets or sets whether the browser can navigate backward. Stub in Majorsilence.Forms.</summary>
-        public bool CanGoBack => false;
+        /// <summary>Gets the title of the current document.</summary>
+        /// <remarks>Read from the page's <c>document.title</c> through the engine's script bridge once
+        /// each navigation completes, raising <see cref="DocumentTitleChanged"/> when it differs
+        /// (SMP-57). The read is asynchronous, so the title arrives just after
+        /// <see cref="DocumentCompleted"/>; empty with no functional webview.</remarks>
+        public string DocumentTitle => _documentTitle;
 
-        /// <summary>Gets or sets whether the browser can navigate forward. Stub in Majorsilence.Forms.</summary>
-        public bool CanGoForward => false;
+        // SMP-57: the history is the sequence of completed navigations, kept here because the engine
+        // seam reports completions but no back/forward stack. Completions are what the engine also
+        // reports for a link the user clicks inside the page, so those are recorded too.
+        private readonly List<Uri> _history = [];
+        private int _historyIndex = -1;
+        private int? _pendingTravel;
+
+        /// <summary>Gets whether there is a previous page in the navigation history.</summary>
+        /// <remarks>Tracked from the navigations this control has seen complete; see
+        /// <see cref="GoBack"/>. Always false with no functional webview.</remarks>
+        public bool CanGoBack => _historyIndex > 0;
+
+        /// <summary>Gets whether there is a next page in the navigation history.</summary>
+        /// <remarks>See <see cref="CanGoBack"/>.</remarks>
+        public bool CanGoForward => _historyIndex >= 0 && _historyIndex < _history.Count - 1;
 
         /// <summary>
         /// Gets the ready state of the browser. <see cref="WebBrowserReadyState.Complete"/> once the last
@@ -85,9 +106,23 @@ namespace Majorsilence.Forms
         public bool WebBrowserShortcutsEnabled { get; set; } = true;
 
         /// <summary>Navigates to the specified URL.</summary>
+        /// <remarks>Raises <see cref="Navigating"/> first, as upstream does, and does nothing further
+        /// when a handler cancels it -- the standard "open this link in the OS browser instead"
+        /// pattern. Only navigations started from code raise it: the engine seam does not report a
+        /// link the user clicks inside the page before it is followed.</remarks>
         public void Navigate (string urlString)
         {
-            _url = new Uri (urlString, UriKind.RelativeOrAbsolute);
+            var url = new Uri (urlString, UriKind.RelativeOrAbsolute);
+
+            var navigating = new WebBrowserNavigatingEventArgs (url, string.Empty);
+            OnNavigating (navigating);
+
+            if (navigating.Cancel) {
+                _pendingTravel = null;
+                return;
+            }
+
+            _url = url;
             ReadyState = WebBrowserReadyState.Loading;
 
             if (_host.IsFunctional && _host.WebViewHandle is IWebViewHandle handle && _url.IsAbsoluteUri)
@@ -97,11 +132,45 @@ namespace Majorsilence.Forms
         /// <summary>Navigates to the specified URL.</summary>
         public void Navigate (Uri url) => Navigate (url.ToString ());
 
-        /// <summary>Navigates backward in the history. Stub in Majorsilence.Forms.</summary>
-        public void GoBack () { }
+        /// <summary>Navigates to the previous page in the history, if there is one.</summary>
+        public void GoBack ()
+        {
+            if (CanGoBack)
+                Travel (_historyIndex - 1);
+        }
 
-        /// <summary>Navigates forward in the history. Stub in Majorsilence.Forms.</summary>
-        public void GoForward () { }
+        /// <summary>Navigates to the next page in the history, if there is one.</summary>
+        public void GoForward ()
+        {
+            if (CanGoForward)
+                Travel (_historyIndex + 1);
+        }
+
+        // A move through the history is an ordinary navigation (upstream's engine raises Navigating for
+        // it too) whose completion moves the index instead of appending.
+        private void Travel (int index)
+        {
+            _pendingTravel = index;
+            Navigate (_history[index]);
+        }
+
+        /// <summary>Raises the <see cref="Navigating"/> event.</summary>
+        protected virtual void OnNavigating (WebBrowserNavigatingEventArgs e) => Navigating?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="Navigated"/> event.</summary>
+        protected virtual void OnNavigated (WebBrowserNavigatedEventArgs e) => Navigated?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="DocumentCompleted"/> event.</summary>
+        protected virtual void OnDocumentCompleted (WebBrowserDocumentCompletedEventArgs e) => DocumentCompleted?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="CanGoBackChanged"/> event.</summary>
+        protected virtual void OnCanGoBackChanged (EventArgs e) => CanGoBackChanged?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="CanGoForwardChanged"/> event.</summary>
+        protected virtual void OnCanGoForwardChanged (EventArgs e) => CanGoForwardChanged?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="DocumentTitleChanged"/> event.</summary>
+        protected virtual void OnDocumentTitleChanged (EventArgs e) => DocumentTitleChanged?.Invoke (this, e);
 
         /// <summary>Navigates to the home page. Stub in Majorsilence.Forms.</summary>
         public void GoHome () { }
@@ -147,30 +216,106 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the page posts a message back to the host (e.g. via <c>window.invokeCSharpAction</c>).</summary>
         public event EventHandler<WebViewMessageEventArgs>? WebMessageReceived;
 
-#pragma warning disable CS0067
-        /// <summary>Raised when a navigation has completed. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Raised when a navigation has completed, before <see cref="DocumentCompleted"/>.</summary>
         public event EventHandler<WebBrowserNavigatedEventArgs>? Navigated;
 
-        /// <summary>Raised before a navigation starts. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Raised before a navigation started from code; set <c>Cancel</c> to stop it.</summary>
         public event EventHandler<WebBrowserNavigatingEventArgs>? Navigating;
 
-        /// <summary>Raised when the CanGoBack or CanGoForward property changes. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Raised when the <see cref="CanGoBack"/> property changes.</summary>
         public event EventHandler? CanGoBackChanged;
 
-        /// <summary>Raised when the CanGoForward property changes. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Raised when the <see cref="CanGoForward"/> property changes.</summary>
         public event EventHandler? CanGoForwardChanged;
 
-        /// <summary>Raised when the DocumentTitle property changes. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Raised when the <see cref="DocumentTitle"/> property changes.</summary>
         public event EventHandler? DocumentTitleChanged;
 
-        /// <summary>Raised when the StatusText property changes. Stub in Majorsilence.Forms.</summary>
+#pragma warning disable CS0067
+        /// <summary>Raised when the StatusText property changes. Never raised: the engine seam reports
+        /// no status text, so <c>StatusText</c> is always empty.</summary>
         public event EventHandler? StatusTextChanged;
 #pragma warning restore CS0067
 
+        // Upstream's order on a completed navigation: Navigated, then DocumentCompleted.
         private void OnNavigationCompleted (object? sender, WebViewNavigationCompletedEventArgs e)
         {
+            var url = e.Url ?? _url;
+
+            if (e.Url is not null)
+                _url = e.Url;
+
+            if (e.IsSuccess && url is not null)
+                RecordHistory (url);
+
+            _pendingTravel = null;
+
             ReadyState = WebBrowserReadyState.Complete;
-            DocumentCompleted?.Invoke (this, new WebBrowserDocumentCompletedEventArgs (e.Url ?? _url));
+            OnNavigated (new WebBrowserNavigatedEventArgs (url));
+            OnDocumentCompleted (new WebBrowserDocumentCompletedEventArgs (url));
+            RefreshDocumentTitle ();
+        }
+
+        private void RecordHistory (Uri url)
+        {
+            var could_go_back = CanGoBack;
+            var could_go_forward = CanGoForward;
+
+            if (_pendingTravel is { } travel && travel >= 0 && travel < _history.Count) {
+                _historyIndex = travel;
+            } else if (_historyIndex < 0 || _history[_historyIndex] != url) {
+                // A new page drops the forward history, as every browser's does. A completion for the
+                // page already current (a reload) is not a new entry.
+                _history.RemoveRange (_historyIndex + 1, _history.Count - _historyIndex - 1);
+                _history.Add (url);
+                _historyIndex = _history.Count - 1;
+            }
+
+            if (could_go_back != CanGoBack)
+                OnCanGoBackChanged (EventArgs.Empty);
+
+            if (could_go_forward != CanGoForward)
+                OnCanGoForwardChanged (EventArgs.Empty);
+        }
+
+        private async void RefreshDocumentTitle ()
+        {
+            if (!_host.IsFunctional || _host.WebViewHandle is not IWebViewHandle handle)
+                return;
+
+            string title;
+
+            try {
+                title = DecodeScriptString (await handle.ExecuteScriptAsync ("document.title"));
+            } catch {
+                // A page that will not run script, or an engine torn down mid-read, leaves the title
+                // as it was rather than faulting an async void.
+                return;
+            }
+
+            if (title == _documentTitle)
+                return;
+
+            _documentTitle = title;
+            OnDocumentTitleChanged (EventArgs.Empty);
+        }
+
+        // Engines differ: WebView2 hands back the result JSON-encoded ("\"Title\""), WKWebView and
+        // WebKitGTK the bare string. A JSON string literal is decoded; anything else is taken as is.
+        internal static string DecodeScriptString (string? result)
+        {
+            if (result is null || result == "null")
+                return string.Empty;
+
+            if (result.Length >= 2 && result[0] == '"' && result[result.Length - 1] == '"') {
+                try {
+                    using var json = System.Text.Json.JsonDocument.Parse (result);
+                    return json.RootElement.GetString () ?? string.Empty;
+                } catch (System.Text.Json.JsonException) {
+                }
+            }
+
+            return result;
         }
 
         private void OnWebMessageReceived (object? sender, WebViewMessageEventArgs e) =>

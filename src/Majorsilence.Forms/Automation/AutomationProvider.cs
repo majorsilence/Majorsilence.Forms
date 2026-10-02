@@ -199,8 +199,13 @@ namespace Majorsilence.Forms.Automation
             // it: "&File" is named "File", matching what UI Automation and MSAA report on Windows. It
             // also makes By.Name usable -- a caller searching for the text on screen has no reason to
             // know where the designer put the ampersand.
-            if (!string.IsNullOrEmpty (c.Text))
-                return Mnemonics.Strip (c.Text);
+            // A ListBox's Text is its selected item's text (as upstream's is), which the native list's
+            // window text -- what its accessible name comes from -- is not. Naming the list by its
+            // selection would rename it on every click and collide with the item's own name.
+            var text = c is ListBox list ? list.WindowText : c.Text;
+
+            if (!string.IsNullOrEmpty (text))
+                return Mnemonics.Strip (text);
 
             return c.Name ?? string.Empty;
         }

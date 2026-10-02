@@ -425,8 +425,14 @@ namespace Majorsilence.Forms
         public bool IsSelected => TreeView?.SelectedItem == this;
 
         /// <summary>Gets the full path of node names from root to this node.</summary>
+        /// <remarks>Throws <see cref="InvalidOperationException"/> for a node that is in no tree, as
+        /// upstream does: there is no <see cref="TreeView.PathSeparator"/> to join with, and the bare
+        /// text it returned instead looked like a valid one-level path (<c>LST-38</c>).</remarks>
         public string FullPath {
             get {
+                if (TreeView is null)
+                    throw new InvalidOperationException ("The node is not part of a TreeView, so it has no full path.");
+
                 if (Parent is null)
                     return Text;
 

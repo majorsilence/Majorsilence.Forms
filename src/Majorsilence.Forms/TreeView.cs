@@ -552,10 +552,54 @@ namespace Majorsilence.Forms
         /// <summary>Gets the root tree nodes (WinForms compatibility alias for Items).</summary>
         public TreeViewItemCollection Nodes => Items;
 
-        /// <summary>Gets or sets the first visible node in the tree. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the first fully visible node in the tree.</summary>
+        /// <remarks>
+        /// The node at the scroll position, as upstream's <c>TVGN_FIRSTVISIBLE</c> answers, and settable,
+        /// which scrolls the tree so the node is at the top -- or as near it as the end of the tree
+        /// allows. It returned the first root node whatever the scroll, and the setter was empty, so
+        /// saving and restoring a tree's scroll position through it did nothing (<c>LST-42</c>). A node
+        /// of another tree, or null, is ignored.
+        /// </remarks>
         public TreeNode? TopNode {
-            get => Items.FirstOrDefault ();
-            set { }
+            get => GetVisibleItems (skipOffscreen: true).FirstOrDefault ();
+            set {
+                if (value is null || !ReferenceEquals (value.TreeView, this))
+                    return;
+
+                for (var parent = value.Parent; parent is not null && parent != root_item; parent = parent.Parent)
+                    parent.Expand ();
+
+                var index = GetVisibleItems ().ToList ().IndexOf (value);
+
+                if (index < 0)
+                    return;
+
+                // The bar's range has to reflect the expansion above before the clamp means anything.
+                UpdateVerticalScrollBar ();
+
+                if (!vscrollbar.Visible)
+                    return;
+
+                var target = MathCompat.Clamp (index, vscrollbar.Minimum, vscrollbar.EffectiveMaximum);
+                _scrollOffsetPx = 0;
+                vscrollbar.Value = target;
+                top_index = target;
+                Invalidate ();
+            }
+        }
+
+        // Whether the node has a row at least partly inside the client area at the current scroll,
+        // which is what upstream's TreeNode.IsVisible asks of TVM_GETITEMRECT.
+        internal bool IsNodeOnScreen (TreeNode node)
+        {
+            var index = GetVisibleItems ().ToList ().IndexOf (node);
+
+            if (index < top_index)
+                return false;
+
+            var row_top = (index - top_index) * ScaledItemHeight - (int) System.Math.Round (_scrollOffsetPx);
+
+            return row_top < DeviceClientRectangle.Height;
         }
 
         /// <summary>Gets or sets the object used to sort tree nodes. Stub in Majorsilence.Forms.</summary>

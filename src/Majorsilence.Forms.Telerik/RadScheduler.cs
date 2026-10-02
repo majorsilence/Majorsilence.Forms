@@ -222,18 +222,28 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>
         /// Prints the agenda for the date range implied by <see cref="PrintStyle"/> (defaulting to
         /// <see cref="ActiveView"/>'s current range when no print style is set) through
-        /// <paramref name="document"/>'s PDF pipeline. When <paramref name="showDialog"/> is true, the
-        /// document is opened in the system's default viewer after rendering (there is no native print
-        /// spooler in Majorsilence.Forms — see <c>PrintPreviewDialog</c>'s equivalent behavior).
+        /// <paramref name="document"/>'s PDF pipeline. With <paramref name="showDialog"/> false it is sent to
+        /// the printer (<see cref="Majorsilence.Forms.Printing.PrintDocument.Print"/>); with it true the PDF
+        /// is opened in the system's default viewer instead, to look at and print from.
         /// </summary>
         public void Print (bool showDialog, RadPrintDocument document)
         {
             Guard.ThrowIfNull (document);
 
             document.AssociatedObject = this;
-            var path = document.Print ();
 
-            if (showDialog && WebViewSupport.AllowSystemViewerFallback)
+            if (!showDialog) {
+                // Prints: PrintDocument.Print sends the PDF to the printer (SVC-29).
+                document.Print ();
+                return;
+            }
+
+            // The "dialog" here is the rendered PDF opened for the user to look at (and print from): it must
+            // not also go to the printer, which Print () now does. PrintPreview comes through this path.
+            var path = System.IO.Path.Combine (System.IO.Path.GetTempPath (), (string.IsNullOrEmpty (document.DocumentName) ? "document" : document.DocumentName) + ".pdf");
+            document.PrintToPdf (path);
+
+            if (WebViewSupport.AllowSystemViewerFallback)
                 System.Diagnostics.Process.Start (new System.Diagnostics.ProcessStartInfo (path) { UseShellExecute = true });
         }
 

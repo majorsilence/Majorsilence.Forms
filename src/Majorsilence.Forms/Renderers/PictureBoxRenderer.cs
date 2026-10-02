@@ -22,7 +22,10 @@ namespace Majorsilence.Forms.Renderers
                     // guides should be was the bare background of the window carrying them.
                     case PictureBoxSizeMode.AutoSize:
                     case PictureBoxSizeMode.Normal:
-                        e.Canvas.DrawBitmap (control.SKImage, new Rectangle (0, 0, control.SKImage.Width, control.SKImage.Height), !control.Enabled);
+                        // Anchored at the padded client origin, inside border and padding (upstream
+                        // PictureBox.ImageRectangleFromSizeMode starts from the deflated client
+                        // rectangle for every mode). Drawn at 0,0 the image overlapped both (SMP-25).
+                        e.Canvas.DrawBitmap (control.SKImage, new Rectangle (client.X, client.Y, control.SKImage.Width, control.SKImage.Height), !control.Enabled);
                         break;
                     case PictureBoxSizeMode.StretchImage:
                         e.Canvas.DrawBitmap (control.SKImage, client, !control.Enabled);

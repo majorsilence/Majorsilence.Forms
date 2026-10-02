@@ -475,11 +475,14 @@ namespace Majorsilence.Forms
             var top = TopLevel.GetTopLevel (this);
             if (top is null) return Array.Empty<string> ();
 
+            var types = MapFilters (request.Filters);
             var result = await top.StorageProvider.OpenFilePickerAsync (new Avalonia.Platform.Storage.FilePickerOpenOptions {
                 AllowMultiple = request.AllowMultiple,
                 SuggestedStartLocation = await ResolveStartFolder (request.InitialDirectory),
                 Title = request.Title,
-                FileTypeFilter = MapFilters (request.Filters)
+                FileTypeFilter = types,
+                // The filter FilterIndex names is the one the picker opens on (SVC-24).
+                SuggestedFileType = request.FilterIndex >= 1 && request.FilterIndex <= types.Length ? types[request.FilterIndex - 1] : null
             });
             return result.Select (f => f.GetFullPath ()).WhereNotNull ().ToArray ();
         }
@@ -489,12 +492,15 @@ namespace Majorsilence.Forms
             var top = TopLevel.GetTopLevel (this);
             if (top is null) return null;
 
+            var types = MapFilters (request.Filters);
             var result = await top.StorageProvider.SaveFilePickerAsync (new Avalonia.Platform.Storage.FilePickerSaveOptions {
                 DefaultExtension = request.DefaultExtension,
                 SuggestedStartLocation = await ResolveStartFolder (request.InitialDirectory),
                 SuggestedFileName = request.SuggestedFileName,
                 Title = request.Title,
-                FileTypeChoices = MapFilters (request.Filters)
+                FileTypeChoices = types,
+                // The filter FilterIndex names is the one the picker opens on (SVC-24).
+                SuggestedFileType = request.FilterIndex >= 1 && request.FilterIndex <= types.Length ? types[request.FilterIndex - 1] : null
             });
             return result?.GetFullPath ();
         }

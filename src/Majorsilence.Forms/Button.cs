@@ -83,9 +83,6 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        protected override Cursor DefaultCursor => Cursors.Hand;
-
-        /// <inheritdoc/>
         protected override Size DefaultSize => new Size (100, 30);
 
         /// <summary>
@@ -268,8 +265,17 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Generates a Click event for the Button.
         /// </summary>
+        /// <remarks>
+        /// Does nothing when the button cannot be selected (disabled, hidden, or on a hidden parent),
+        /// as upstream <c>Button.PerformClick</c> guards with <c>CanSelect</c>
+        /// (<c>Controls/Buttons/Button.cs</c>). Code that disables a button as a re-entrancy guard
+        /// relies on that.
+        /// </remarks>
         public void PerformClick ()
         {
+            if (!CanPerformClick)
+                return;
+
             OnClick (new MouseEventArgs (MouseButtons.Left, 1, 0, 0, Point.Empty));
         }
 

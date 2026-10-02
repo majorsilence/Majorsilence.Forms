@@ -21,7 +21,7 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets the filename with no path information (just file name and extension).</summary>
-        public string SafeFileName => FileName is not null ? Path.GetFileName (FileName) : string.Empty;
+        public string SafeFileName => Path.GetFileName (FileName);
 
         /// <summary>Gets all selected file names with no path information.</summary>
         public string[] SafeFileNames => FileNames.Select (Path.GetFileName).OfType<string> ().ToArray ();
@@ -36,21 +36,26 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override async Task<DialogResult> ShowDialogAsync (Form owner)
         {
-            var request = new OpenFileRequest {
-                AllowMultiple = AllowMultiple,
-                InitialDirectory = GetInitialDirectory (),
-                Title = Title,
-                Filters = filters
-            };
+            while (true) {
+                var request = new OpenFileRequest {
+                    AllowMultiple = AllowMultiple,
+                    InitialDirectory = GetInitialDirectory (),
+                    Title = Title,
+                    FilterIndex = FilterIndex,
+                    Filters = filters
+                };
 
-            var files = await owner.Backend.ShowOpenFileDialog (request);
+                var files = await owner.Backend.ShowOpenFileDialog (request);
 
-            filenames.Clear ();
+                if (files.Length == 0) {
+                    filenames.Clear ();
+                    return DialogResult.Cancel;
+                }
 
-            if (files.Length > 0)
-                filenames.AddRange (files);
-
-            return filenames.Count > 0 ? DialogResult.OK : DialogResult.Cancel;
+                // A FileOk handler that cancels keeps the dialog open: show it again (SVC-23).
+                if (AcceptResult (files, mustExist: true))
+                    return DialogResult.OK;
+            }
         }
     }
 }

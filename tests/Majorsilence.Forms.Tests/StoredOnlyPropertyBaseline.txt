@@ -16,9 +16,9 @@
 # say so beside the entry rather than removing it.
 #
 # Absence from this file does NOT mean the property works: a property read only by code
-# that is itself inert counts as consumed here. ComboBox.IntegralHeight and
-# ComboBox.DropDownHeight are both absent and neither does anything -- their only readers
-# are ToolStripComboBox's pass-through wrappers, which forward and nothing more. The three
+# that is itself inert counts as consumed here. ComboBox.IntegralHeight is absent and does
+# nothing -- its only reader is ToolStripComboBox's pass-through wrapper, which forwards and
+# nothing more (ComboBox.DropDownHeight was the second example until LST-33). The three
 # examples this note used to give (ListView.View, TextBox.WordWrap, TextBox.AcceptsReturn)
 # have since been fixed by W5.6, W5.11 and Phase 1, which is the other half of the point:
 # an entry's absence here says nothing either way. See StoredOnlyPropertyBaselineTests for
@@ -36,10 +36,12 @@ Majorsilence.Forms.ApplicationContext.Tag    -- user-data slot; upstream reads i
 Majorsilence.Forms.Backends.FolderDialogRequest.InitialDirectory    -- framework-written (outbound state)
 Majorsilence.Forms.Backends.FolderDialogRequest.Title    -- framework-written (outbound state)
 Majorsilence.Forms.Backends.OpenFileRequest.AllowMultiple    -- framework-written (outbound state)
+Majorsilence.Forms.Backends.OpenFileRequest.FilterIndex    -- framework-written (outbound state)
 Majorsilence.Forms.Backends.OpenFileRequest.Filters    -- framework-written (outbound state)
 Majorsilence.Forms.Backends.OpenFileRequest.InitialDirectory    -- framework-written (outbound state)
 Majorsilence.Forms.Backends.OpenFileRequest.Title    -- framework-written (outbound state)
 Majorsilence.Forms.Backends.SaveFileRequest.DefaultExtension    -- framework-written (outbound state)
+Majorsilence.Forms.Backends.SaveFileRequest.FilterIndex    -- framework-written (outbound state)
 Majorsilence.Forms.Backends.SaveFileRequest.Filters    -- framework-written (outbound state)
 Majorsilence.Forms.Backends.SaveFileRequest.InitialDirectory    -- framework-written (outbound state)
 Majorsilence.Forms.Backends.SaveFileRequest.SuggestedFileName    -- framework-written (outbound state)
@@ -82,7 +84,6 @@ Majorsilence.Forms.CreateParams.X    -- Win32 handle/window-class detail; no equ
 Majorsilence.Forms.CreateParams.Y    -- Win32 handle/window-class detail; no equivalent here
 Majorsilence.Forms.CurrencyManager.List    -- framework-written (outbound state)
 Majorsilence.Forms.Cursor.Clip    -- cursor clipping and hot-spots belong to the OS cursor
-Majorsilence.Forms.Cursor.Current    -- needs a process-wide cursor override on the active window (WindowBase.OverrideCursor is per window)
 Majorsilence.Forms.Cursor.HotSpot    -- cursor clipping and hot-spots belong to the OS cursor
 Majorsilence.Forms.Cursor.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.DataGrid.AllowSorting    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
@@ -175,9 +176,7 @@ Majorsilence.Forms.Drawing.Graphics.RenderingOrigin    -- GDI+ quality knob; Ski
 Majorsilence.Forms.Drawing.Graphics.TextContrast    -- GDI+ quality knob; Skia's pipeline has one quality setting and no equivalent
 Majorsilence.Forms.Drawing.Graphics.TextRenderingHint    -- GDI+ quality knob; Skia's pipeline has one quality setting and no equivalent
 Majorsilence.Forms.Drawing.SkiaGraphics.DpiX    -- framework-written (outbound state)
-Majorsilence.Forms.Drawing.SkiaGraphics.DpiY    -- framework-written (outbound state)
 Majorsilence.Forms.ErrorProvider.Tag    -- user-data slot; upstream reads it nowhere either
-Majorsilence.Forms.FileDialog.AddExtension    -- framework-written (outbound state)
 Majorsilence.Forms.FileDialog.AddToRecent    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.FileDialog.AutoUpgradeEnabled    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.FileDialog.CheckFileExists    -- framework-written (outbound state)
@@ -185,7 +184,6 @@ Majorsilence.Forms.FileDialog.CheckPathExists    -- framework-written (outbound 
 Majorsilence.Forms.FileDialog.ClientGuid    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.FileDialog.CreatePrompt    -- framework-written (outbound state)
 Majorsilence.Forms.FileDialog.DereferenceLinks    -- framework-written (outbound state)
-Majorsilence.Forms.FileDialog.FilterIndex    -- framework-written (outbound state)
 Majorsilence.Forms.FileDialog.OkRequiresInteraction    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.FileDialog.OverwritePrompt    -- framework-written (outbound state)
 Majorsilence.Forms.FileDialog.ReadOnlyChecked    -- framework-written (outbound state)
@@ -252,9 +250,6 @@ Majorsilence.Forms.Media.SoundPlayer.LoadTimeout    -- loads are synchronous
 Majorsilence.Forms.Media.SoundPlayer.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.Message.HWnd    -- framework-written (outbound state)
 Majorsilence.Forms.Message.Result    -- Win32 handle/window-class detail; no equivalent here
-Majorsilence.Forms.MonthCalendar.AnnuallyBoldedDates    -- framework-written (outbound state)
-Majorsilence.Forms.MonthCalendar.BoldedDates    -- framework-written (outbound state)
-Majorsilence.Forms.MonthCalendar.MonthlyBoldedDates    -- framework-written (outbound state)
 Majorsilence.Forms.NavigationPaneItem.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.NotifyIcon.ContextMenuStrip    -- needs a tray backend capability
 Majorsilence.Forms.NotifyIcon.Tag    -- user-data slot; upstream reads it nowhere either

@@ -69,12 +69,29 @@ namespace Majorsilence.Forms.Printing
         protected virtual void Dispose (bool disposing) { }
 
         /// <summary>
-        /// Renders the document to a PDF file. Returns the path that was written.
+        /// Prints the document: renders it to PDF and sends that to <see cref="PrinterSettings"/>'s printer
+        /// (the system default when <see cref="PrinterSettings.PrinterName"/> is empty), or, with
+        /// <see cref="PrinterSettings.PrintToFile"/> and a <see cref="PrinterSettings.PrintFileName"/>, writes
+        /// it to that file instead. Returns the path of the PDF.
         /// </summary>
+        /// <remarks>
+        /// SVC-29: it wrote the PDF to the temp folder and nothing else, so nothing was ever printed. The
+        /// operating system's printing takes it from here: <c>lp</c> on macOS and Linux, the shell's print verb
+        /// on Windows.
+        /// </remarks>
+        /// <exception cref="InvalidPrinterException">The job could not be handed to a printer.</exception>
         public string Print ()
         {
+            var settings = PrinterSettings;
+
+            if (settings.PrintToFile && !string.IsNullOrEmpty (settings.PrintFileName)) {
+                PrintToPdf (settings.PrintFileName);
+                return settings.PrintFileName;
+            }
+
             var path = Path.Combine (Path.GetTempPath (), MakeSafeFileName (DocumentName) + ".pdf");
             PrintToPdf (path);
+            NativePrinting.Submit (path, settings);
             return path;
         }
 
@@ -95,34 +112,19 @@ namespace Majorsilence.Forms.Printing
             Guard.ThrowIfNull (stream);
 
             var settings = DefaultPageSettings;
-            var dpi = settings.Dpi <= 0 ? 96f : settings.Dpi;
 
             // Page size in PDF points (1/72").
             var width_points = settings.EffectiveWidthHundredths / 100f * 72f;
             var height_points = settings.EffectiveHeightHundredths / 100f * 72f;
 
-            // Page size in pixels at the requested DPI (the caller's drawing units).
-            var width_px = settings.EffectiveWidthHundredths / 100f * dpi;
-            var height_px = settings.EffectiveHeightHundredths / 100f * dpi;
+            var (page_bounds, margin_bounds) = PageGeometry (settings);
 
-            var margin_left = settings.Margins.Left / 100f * dpi;
-            var margin_top = settings.Margins.Top / 100f * dpi;
-            var margin_right = settings.Margins.Right / 100f * dpi;
-            var margin_bottom = settings.Margins.Bottom / 100f * dpi;
-
-            var page_bounds = new RectangleF (0, 0, width_px, height_px);
-            var margin_bounds = new RectangleF (
-                margin_left,
-                margin_top,
-                width_px - margin_left - margin_right,
-                height_px - margin_top - margin_bottom);
-
-            // Scale so the caller can draw in pixel units while the PDF is sized in points.
-            var scale = 72f / dpi;
+            // The handler draws in hundredths of an inch; the PDF is sized in points.
+            var scale = 72f / UnitsPerInch;
 
             using var document = SKDocument.CreatePdf (stream);
 
-            WalkPages (PrintAction.PrintToFile, settings, dpi, page_bounds, margin_bounds, () => {
+            WalkPages (PrintAction.PrintToFile, settings, UnitsPerInch, page_bounds, margin_bounds, () => {
                 var page_canvas = document.BeginPage (width_points, height_points);
                 page_canvas.Scale (scale);
                 return (page_canvas, () => document.EndPage ());
@@ -139,18 +141,26 @@ namespace Majorsilence.Forms.Printing
         internal void RunThroughController (PrintAction action)
         {
             var settings = DefaultPageSettings;
-            var dpi = settings.Dpi <= 0 ? 96f : settings.Dpi;
-            var width_px = settings.EffectiveWidthHundredths / 100f * dpi;
-            var height_px = settings.EffectiveHeightHundredths / 100f * dpi;
-            var margin_left = settings.Margins.Left / 100f * dpi;
-            var margin_top = settings.Margins.Top / 100f * dpi;
+            var (page_bounds, margin_bounds) = PageGeometry (settings);
 
-            WalkPages (action, settings, dpi,
-                new RectangleF (0, 0, width_px, height_px),
-                new RectangleF (margin_left, margin_top,
-                    width_px - margin_left - settings.Margins.Right / 100f * dpi,
-                    height_px - margin_top - settings.Margins.Bottom / 100f * dpi),
-                beginPage: null);
+            WalkPages (action, settings, UnitsPerInch, page_bounds, margin_bounds, beginPage: null);
+        }
+
+        // A PrintPage handler's unit is a hundredth of an inch, as upstream's printer Graphics is (PageUnit
+        // Display), and PageBounds / MarginBounds are in it: Letter is 850 x 1100 with default margins at
+        // (100, 100, 650, 900). They were pixels at PageSettings.Dpi (96), so every migrated handler --
+        // written in hundredths, `DrawString (..., 100, 100)` for an inch in -- drew 4% too large and its
+        // `MarginBounds.Right - 200` columns came out in the wrong places (SVC-28).
+        private const float UnitsPerInch = 100f;
+
+        private static (RectangleF Page, RectangleF Margins) PageGeometry (PageSettings settings)
+        {
+            var width = (float) settings.EffectiveWidthHundredths;
+            var height = (float) settings.EffectiveHeightHundredths;
+            var m = settings.Margins;
+
+            return (new RectangleF (0, 0, width, height),
+                    new RectangleF (m.Left, m.Top, width - m.Left - m.Right, height - m.Top - m.Bottom));
         }
 
         // The page walk both print paths share. `beginPage` supplies the PDF page canvas when there is

@@ -110,15 +110,10 @@ namespace Majorsilence.Forms
 
         /// <summary>Repaints the control so pending bolded-date changes take effect.</summary>
         /// <remarks>WinForms batches Add/Remove calls and only sends them to the native control here,
-        /// so applications call it after a run of edits. The lists are live here, so this publishes
-        /// them to the array properties and repaints.</remarks>
-        public void UpdateBoldedDates ()
-        {
-            AnnuallyBoldedDates = [.. annually_bolded];
-            MonthlyBoldedDates = [.. monthly_bolded];
-            BoldedDates = [.. bolded];
-            Invalidate ();
-        }
+        /// so applications call it after a run of edits. The lists are live here and are what the
+        /// array properties read, so all this has left to do is repaint. It used to copy the lists
+        /// over the array properties, erasing an array the application had assigned (SMP-44).</remarks>
+        public void UpdateBoldedDates () => Invalidate ();
 
         /// <summary>Returns whether the given date is drawn bold, by any of the three rules.</summary>
         public bool IsBoldedDate (DateTime date)
@@ -178,7 +173,7 @@ namespace Majorsilence.Forms
             if (geometry.NextButton.Contains (device))
                 return new HitTestInfo (point, HitArea.NextMonthButton, DateTime.MinValue);
             if (geometry.Title.Contains (device))
-                return new HitTestInfo (point, HitArea.TitleMonth, DateTime.MinValue);
+                return new HitTestInfo (point, TitleAreaAt (device.X, geometry), DateTime.MinValue);
 
             if (geometry.TodayBand.Contains (device))
                 return new HitTestInfo (point, HitArea.TodayLink, TodayDate);
@@ -214,6 +209,46 @@ namespace Majorsilence.Forms
             // Inside the control but on none of the bands: the few pixels integer division leaves at
             // the right and bottom edges of the grid.
             return new HitTestInfo (point, HitArea.CalendarBackground, DateTime.MinValue);
+        }
+
+        // The title caption: the renderer draws exactly this string, centred in exactly this area, so
+        // the month and year runs HitTest finds are where the user sees them.
+        internal string TitleCaption => DisplayMonth.ToString ("MMMM yyyy", System.Globalization.CultureInfo.CurrentCulture);
+
+        internal static Rectangle TitleTextArea (MonthCalendarGeometry geometry)
+            => new Rectangle (geometry.PrevButton.Right, geometry.Title.Top,
+                              Math.Max (0, geometry.NextButton.Left - geometry.PrevButton.Right),
+                              geometry.Title.Height);
+
+        // SMP-43's remainder: the native control answers MCHT_TITLEMONTH over the month name,
+        // MCHT_TITLEYEAR over the year and MCHT_TITLEBK over the rest of the band. Every title point
+        // used to be TitleMonth. The runs are measured with the font and size the renderer draws with,
+        // in device pixels like the geometry.
+        private HitArea TitleAreaAt (int deviceX, MonthCalendarGeometry geometry)
+        {
+            var area = TitleTextArea (geometry);
+            var font = GetEffectiveFont ();
+            var size = LogicalToDeviceUnits (GetEffectiveFontSize ());
+            var caption = TitleCaption;
+            var year = DisplayMonth.ToString ("yyyy", System.Globalization.CultureInfo.CurrentCulture);
+            var month = DisplayMonth.ToString ("MMMM", System.Globalization.CultureInfo.CurrentCulture);
+
+            var caption_width = TextMeasurer.MeasureText (caption, font, size).Width;
+            var left = area.Left + (area.Width - caption_width) / 2f;
+            var right = left + caption_width;
+
+            // The year is measured back from the caption's right edge rather than forward over
+            // "month + space", because a measurer may trim the trailing space.
+            var month_right = left + TextMeasurer.MeasureText (month, font, size).Width;
+            var year_left = right - TextMeasurer.MeasureText (year, font, size).Width;
+
+            if (deviceX >= left && deviceX < month_right)
+                return HitArea.TitleMonth;
+
+            if (deviceX >= year_left && deviceX < right)
+                return HitArea.TitleYear;
+
+            return HitArea.TitleBackground;
         }
 
         // WinForms' Day enum starts at Monday = 0 while DayOfWeek starts at Sunday = 0, so the two
@@ -388,7 +423,11 @@ namespace Majorsilence.Forms
 
             var old = item.Value;
 
-            property.ResetValue (target);
+            // Every selected object, as a committed edit does (SMP-59).
+            foreach (var each in SelectedObjects ?? [])
+                if (CounterpartOf (each, property) is { } counterpart && counterpart.CanResetValue (each))
+                    counterpart.ResetValue (each);
+
             item.Value = property.GetValue (target);
 
             OnPropertyValueChanged (new PropertyValueChangedEventArgs (item, old!));
@@ -566,8 +605,11 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets whether the dialog shows the wait cursor.</summary>
         /// <remarks>`new` for the same reason as the shadowed events below: WinForms redeclares this on
-        /// the dialog, and it is a plain stored value here rather than the window's real wait cursor.</remarks>
-        public new bool UseWaitCursor { get; set; }
+        /// the dialog (to hide it from the designer) and forwards to the base, as this does.</remarks>
+        public new bool UseWaitCursor {
+            get => base.UseWaitCursor;
+            set => base.UseWaitCursor = value;
+        }
 
         /// <summary>Gets the data bindings for the dialog.</summary>
         /// <remarks>`new` deliberately: these bind the hosted <see cref="PrintPreviewControl"/>, which is

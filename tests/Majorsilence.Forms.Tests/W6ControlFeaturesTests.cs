@@ -20,7 +20,7 @@ public class W6ControlFeaturesTests
 
     private sealed class KeyedListBox : ListBox
     {
-        internal void Key (Keys key) => OnKeyUp (new KeyEventArgs (key));
+        internal void Key (Keys key) => OnKeyDown (new KeyEventArgs (key));
     }
 
     private static KeyedListBox List (out Form form, int items, int width = 200, int height = 60)

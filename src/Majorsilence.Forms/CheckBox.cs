@@ -150,9 +150,6 @@ namespace Majorsilence.Forms
         public event EventHandler? CheckStateChanged;
 
         /// <inheritdoc/>
-        protected override Cursor DefaultCursor => Cursors.Hand;
-
-        /// <inheritdoc/>
         protected override Size DefaultSize => new Size (104, 24);
 
         /// <summary>

@@ -1,3 +1,4 @@
+using System.Linq;
 ﻿using Majorsilence.Forms.Backends;
 
 namespace Majorsilence.Forms
@@ -74,8 +75,35 @@ namespace Majorsilence.Forms
         /// </summary>
         public static Cursor Default => Cursors.Arrow;
 
-        /// <summary>Gets or sets the current mouse cursor. Stub in Majorsilence.Forms.</summary>
-        public static Cursor? Current { get; set; }
+        /// <summary>Gets or sets the cursor being shown.</summary>
+        /// <remarks>
+        /// As upstream (<c>Cursor.Current</c> calls <c>SetCursor</c>): setting it shows the cursor on every
+        /// open window now, which is the WinForms busy-cursor idiom --
+        /// <c>Cursor.Current = Cursors.WaitCursor; ...long work...; Cursor.Current = Cursors.Default;</c> --
+        /// and the next mouse move puts back the cursor of the control under the pointer, as
+        /// <c>WM_SETCURSOR</c> does. The getter answers the cursor shown last (SVC-12: it was stored only).
+        /// </remarks>
+        public static Cursor? Current {
+            // Null after `Current = null`, which upstream turns into no cursor at all.
+            get => current_set ? current : Cursors.Default;
+            set {
+                current = value;
+                current_set = true;
+
+                foreach (var form in Application.OpenForms.Cast<Form> ().ToList ())
+                    form.ShowCursor (value ?? Cursors.Default);
+            }
+        }
+
+        private static Cursor? current;
+        private static bool current_set;
+
+        // The window put a control's cursor back on a mouse move: that is what is shown now.
+        internal static void Track (Cursor? shown)
+        {
+            current = shown ?? Cursors.Default;
+            current_set = true;
+        }
 
         /// <summary>Hides the cursor. Stub in Majorsilence.Forms.</summary>
         public static void Hide () { }

@@ -81,6 +81,16 @@ namespace Majorsilence.Forms.Headless
         public static bool CompleteNextAudioTrack () => Backend.CompleteNextAudioTrack ();
 
         /// <summary>
+        /// What an open-file picker on the headless backend returns: the files "chosen" for the request it
+        /// is handed, or none (a cancel) when null -- the default. Lets a test drive the real
+        /// <c>OpenFileDialog</c> code path: the extension, FilterIndex and FileOk handling after the pick.
+        /// </summary>
+        public static System.Func<Majorsilence.Forms.Backends.OpenFileRequest, string[]>? OpenFileResponse { get; set; }
+
+        /// <summary>What a save-file picker on the headless backend returns; null (the default) cancels.</summary>
+        public static System.Func<Majorsilence.Forms.Backends.SaveFileRequest, string?>? SaveFileResponse { get; set; }
+
+        /// <summary>
         /// Installs the headless backend as the active platform. Call once before creating any window.
         /// </summary>
         public static void Use ()

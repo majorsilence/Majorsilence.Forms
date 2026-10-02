@@ -28,6 +28,8 @@ namespace Majorsilence.Forms.Backends
         public string? InitialDirectory { get; init; }
         /// <summary>Whether multiple files may be selected.</summary>
         public bool AllowMultiple { get; init; }
+        /// <summary>The 1-based index of the filter to start on, as <c>FileDialog.FilterIndex</c>.</summary>
+        public int FilterIndex { get; init; } = 1;
         /// <summary>The file-type filters.</summary>
         public IReadOnlyList<FileDialogFilter> Filters { get; init; } = System.Array.Empty<FileDialogFilter> ();
     }
@@ -43,6 +45,8 @@ namespace Majorsilence.Forms.Backends
         public string? SuggestedFileName { get; init; }
         /// <summary>The default extension to append (without leading dot).</summary>
         public string? DefaultExtension { get; init; }
+        /// <summary>The 1-based index of the filter to start on, as <c>FileDialog.FilterIndex</c>.</summary>
+        public int FilterIndex { get; init; } = 1;
         /// <summary>The file-type filters.</summary>
         public IReadOnlyList<FileDialogFilter> Filters { get; init; } = System.Array.Empty<FileDialogFilter> ();
     }

@@ -50,6 +50,10 @@ namespace Majorsilence.Forms
         private LinkCollection? link_collection;
         private bool layout_invalidated = true;
 
+        // LinkLabelRenderer draws the text raw -- the link ranges are offsets into the raw string -- so
+        // a '&' is a visible glyph here and the label has to measure it.
+        internal override bool DrawsMnemonic => false;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="LinkLabel"/> class.
         /// </summary>
@@ -313,6 +317,7 @@ namespace Majorsilence.Forms
 
             hovered_link = null;
             pressed_link = null;
+            OverrideCursor = null;
 
             Invalidate ();
         }
@@ -387,6 +392,8 @@ namespace Majorsilence.Forms
                 invalidate = true;
             }
 
+            OverrideCursor = null;
+
             if (invalidate)
                 Invalidate ();
         }
@@ -409,6 +416,10 @@ namespace Majorsilence.Forms
 
                 if (hovered_link is not null && hovered_link.Enabled)
                     hovered_link.State |= LinkState.Hover;
+
+                // Upstream LinkLabel.OnMouseMove shows the hand only over an enabled link, through
+                // OverrideCursor so the configured Cursor (and CursorChanged watchers) are untouched.
+                OverrideCursor = hovered_link is not null && hovered_link.Enabled ? Cursors.Hand : null;
 
                 Invalidate ();
             }
@@ -578,9 +589,11 @@ namespace Majorsilence.Forms
         // framework (a task dialog's text) and cannot be subclassed by the caller.
         internal void DriveLinkClick (Link link) => ActivateLink (link, MouseButtons.Left);
 
+        // Does not mark the link visited: upstream raises LinkClicked from the mouse and keyboard paths
+        // without touching Visited (Controls/Labels/LinkLabel.cs), because that flag is the
+        // application's state -- the canonical handler sets LinkVisited itself.
         private void ActivateLink (Link link, MouseButtons button)
         {
-            link.Visited = true;
             FocusLink = link;
 
             OnLinkClicked (new LinkLabelLinkClickedEventArgs (link, button));

@@ -22,22 +22,27 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override async Task<DialogResult> ShowDialogAsync (Form owner)
         {
-            var request = new SaveFileRequest {
-                DefaultExtension = DefaultExtension ?? DefaultExt,
-                InitialDirectory = GetInitialDirectory (),
-                SuggestedFileName = FileName,
-                Title = Title,
-                Filters = filters
-            };
+            while (true) {
+                var request = new SaveFileRequest {
+                    DefaultExtension = DefaultExtension ?? DefaultExt,
+                    InitialDirectory = GetInitialDirectory (),
+                    SuggestedFileName = string.IsNullOrEmpty (FileName) ? null : FileName,
+                    Title = Title,
+                    FilterIndex = FilterIndex,
+                    Filters = filters
+                };
 
-            var file = await owner.Backend.ShowSaveFileDialog (request);
+                var file = await owner.Backend.ShowSaveFileDialog (request);
 
-            filenames.Clear ();
+                if (file is null) {
+                    filenames.Clear ();
+                    return DialogResult.Cancel;
+                }
 
-            if (file is not null)
-                filenames.Add (file);
-
-            return filenames.Count > 0 ? DialogResult.OK : DialogResult.Cancel;
+                // A FileOk handler that cancels keeps the dialog open: show it again (SVC-23).
+                if (AcceptResult (new[] { file }, mustExist: false))
+                    return DialogResult.OK;
+            }
         }
     }
 }
