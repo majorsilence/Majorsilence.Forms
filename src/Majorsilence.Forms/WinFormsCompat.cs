@@ -2942,8 +2942,8 @@ namespace Majorsilence.Forms
             if (next == _selectedIndex)
                 return;
 
+            // SelectedIndex raises SelectedItemChanged itself now (SMP-38), so this must not again.
             SelectedIndex = next;
-            OnSelectedItemChanged (EventArgs.Empty);
         }
 
         /// <summary>Raises the <see cref="SelectedItemChanged"/> event.</summary>
@@ -2960,22 +2960,85 @@ namespace Majorsilence.Forms
         /// The items are objects rather than strings, as upstream: the control shows each item's
         /// <c>ToString()</c>, so anything can go in.
         /// </remarks>
-        public DomainUpDownItemCollection Items { get; } = new DomainUpDownItemCollection ();
+        public DomainUpDownItemCollection Items => items ??= new DomainUpDownItemCollection (this);
+
+        private DomainUpDownItemCollection? items;
 
         /// <summary>Gets or sets the index of the currently selected item.</summary>
+        /// <exception cref="ArgumentOutOfRangeException">The value is less than -1 or not less than
+        /// the number of items.</exception>
+        /// <remarks>
+        /// Range-checked and raising <see cref="SelectedItemChanged"/>, as upstream's setter does
+        /// (Controls/UpDown/DomainUpDown.cs). It stored any int as -1 silently and raised nothing, so
+        /// <c>SelectedIndex = 99</c> on three items cleared the selection without telling anyone
+        /// (SMP-38).
+        /// </remarks>
         public int SelectedIndex {
             get => _selectedIndex;
             set {
-                _selectedIndex = value < 0 || value >= Items.Count ? -1 : value;
-                SetFrameworkText (_selectedIndex >= 0 ? Items[_selectedIndex]?.ToString () ?? string.Empty : string.Empty);
-                Invalidate ();
+                if (value < -1 || value >= Items.Count)
+                    throw new ArgumentOutOfRangeException (nameof (value), value, $"'{value}' is not a valid value for 'SelectedIndex'.");
+
+                if (value != _selectedIndex)
+                    SelectIndex (value);
             }
         }
+
+        // Upstream DomainUpDown.SelectIndex: the one place the selection moves, for the setter, the
+        // buttons, sorting and removal alike.
+        internal void SelectIndex (int index)
+        {
+            var changed = index != _selectedIndex;
+
+            _selectedIndex = index;
+            SetFrameworkText (index >= 0 ? Items[index]?.ToString () ?? string.Empty : string.Empty);
+            Invalidate ();
+
+            // Upstream raises it from OnChanged when the framework's text write lands.
+            if (changed)
+                OnSelectedItemChanged (EventArgs.Empty);
+        }
+
+        // Upstream DomainUpDown.SortDomainItems: sorted by ToString under the current culture, and the
+        // selection follows its item to the new position rather than staying on an index.
+        internal void SortItems ()
+        {
+            if (in_sort)
+                return;
+
+            in_sort = true;
+
+            try {
+                var selected = SelectedItem;
+
+                Items.SortCore ();
+
+                if (selected is not null) {
+                    var index = Items.IndexOf (selected);
+
+                    if (index >= 0 && index != _selectedIndex) {
+                        // The same item at a new index: no SelectedItemChanged, nothing changed for it.
+                        _selectedIndex = index;
+                        Invalidate ();
+                    }
+                }
+            } finally {
+                in_sort = false;
+            }
+        }
+
+        private bool in_sort;
 
         /// <summary>Gets or sets the selected item.</summary>
         public object? SelectedItem {
             get => _selectedIndex >= 0 && _selectedIndex < Items.Count ? Items[_selectedIndex] : null;
             set {
+                // Upstream treats null as selecting no item; an unmatched value leaves the selection.
+                if (value is null) {
+                    SelectedIndex = -1;
+                    return;
+                }
+
                 for (var i = 0; i < Items.Count; i++) {
                     // Compared by value, not by reference: the items are objects now, so the ArrayList
                     // indexer hands back object and `==` would have become a reference comparison that

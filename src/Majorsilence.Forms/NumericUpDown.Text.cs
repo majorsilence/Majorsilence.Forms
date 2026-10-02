@@ -266,11 +266,10 @@ namespace Majorsilence.Forms
             var typed = edit_text;
             edit_text = null;
 
-            // Not clamped here: Value's own setter already does it, and a second clamp is a redundancy
-            // no test can tell from a working one -- removing one enforcement point was W5.19's lesson
-            // and W5.2b's before it.
+            // Constrained here, as upstream's ParseEditText does (Value = Constrain (parsed)): Value's
+            // setter throws out of range (SMP-34), and a user typing 500 into a 0..100 box gets 100.
             if (TryParseTyped (typed, out var parsed))
-                Value = parsed;
+                Value = Constrain (parsed);
 
             // An unparseable string is discarded and the control returns to showing its value, which is
             // what upstream's ValidateEditText does.

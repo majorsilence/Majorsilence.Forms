@@ -101,7 +101,10 @@ namespace Majorsilence.Forms
                     ? new Size (proposedSize.Width, int.MaxValue)
                     : TextMeasurer.MaxSize;
 
-                var measured = TextMeasurer.MeasureText (text, GetEffectiveFont (), GetEffectiveFontSize (), constraint);
+                // The '&' of a mnemonic is not drawn, so it must not be measured either (upstream
+                // measures with the NoPrefix-less flags, which strip it): "&Name" wants the width of
+                // "Name", not one glyph more (SMP-17).
+                var measured = TextMeasurer.MeasureText (DrawsMnemonic ? Mnemonics.Strip (text) : text!, GetEffectiveFont (), GetEffectiveFontSize (), constraint);
 
                 width = (int) Math.Ceiling (measured.Width) + TextBearingInset * 2;
                 height = (int) Math.Ceiling (measured.Height);

@@ -20,7 +20,13 @@ namespace Majorsilence.Forms.Renderers
         protected override void Render (ProgressBar control, PaintEventArgs e)
         {
             var client_area = control.PaddedClientRectangle;
-            var fill = control.Enabled ? Theme.AccentColor2 : Theme.ForegroundDisabledColor;
+            // SMP-27: ForeColor is the bar colour (upstream ProgressBar.ForeColor, sent as PBM_SETBARCOLOR),
+            // which is how apps colour-code progress. Only a colour set on the bar's own style chain
+            // counts: ForeColor is ambient here, and inheriting a parent's black text colour would turn
+            // every bar black. BackColor needs nothing -- the trough is the control's background.
+            var fill = control.Enabled
+                ? control.CurrentStyle.TryGetForegroundColor () ?? Theme.AccentColor2
+                : Theme.ForegroundDisabledColor;
 
             // SMP-26: Marquee is indeterminate -- it says "working", not "this far through", so it is
             // driven by the animation phase and not by Value. Drawn from Value like everything else, a

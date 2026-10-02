@@ -426,11 +426,25 @@ namespace Majorsilence.Forms
 
         /// <summary>Starts a batch of designer-set properties; layout waits for <see cref="EndInit"/>.</summary>
         /// <remarks>Real as of W6 mechanisms: it used to do nothing, so a control the designer
-        /// initialises laid itself out once per property assigned instead of once at the end.</remarks>
-        public void BeginInit () => SuspendLayout ();
+        /// initialises laid itself out once per property assigned instead of once at the end. Until
+        /// <see cref="EndInit"/>, <see cref="Value"/> is also neither range-checked nor shown, as
+        /// upstream's <c>BeginInit</c> arranges (SMP-35).</remarks>
+        public void BeginInit ()
+        {
+            initializing = true;
+            SuspendLayout ();
+        }
 
-        /// <summary>Ends the batch <see cref="BeginInit"/> started and lays the control out once.</summary>
-        public void EndInit () => ResumeLayout (performLayout: true);
+        /// <summary>Ends the batch <see cref="BeginInit"/> started: constrains <see cref="Value"/> to
+        /// the range, shows it, and lays the control out once.</summary>
+        public void EndInit ()
+        {
+            // Upstream NumericUpDown.EndInit: Value = Constrain (_currentValue); UpdateEditText ().
+            initializing = false;
+            Value = Constrain (current_value);
+            SetFrameworkText (FormatValue (current_value));
+            ResumeLayout (performLayout: true);
+        }
     }
 
     /// <summary>How fast a <see cref="NumericUpDown"/> changes once its button has been held.</summary>

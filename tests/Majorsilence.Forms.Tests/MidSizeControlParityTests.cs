@@ -144,7 +144,10 @@ namespace Majorsilence.Forms.Tests
 
             Assert.Equal (MonthCalendar.HitArea.PrevMonthButton, calendar.HitTest (1, 1).HitArea);
             Assert.Equal (MonthCalendar.HitArea.NextMonthButton, calendar.HitTest (199, 1).HitArea);
-            Assert.Equal (MonthCalendar.HitArea.TitleMonth, calendar.HitTest (100, 1).HitArea);
+            // The middle of the band is the caption -- month, year, or the space between them,
+            // depending on the month's name; SimpleControlGapTests pins which part is which (SMP-43).
+            Assert.Contains (calendar.HitTest (100, 1).HitArea,
+                new[] { MonthCalendar.HitArea.TitleMonth, MonthCalendar.HitArea.TitleYear, MonthCalendar.HitArea.TitleBackground });
         }
 
         [Fact]

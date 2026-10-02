@@ -162,6 +162,32 @@ namespace Majorsilence.Forms
         public bool UseMnemonic { get; set; } = true;
 
         /// <summary>
+        /// Upstream's <c>CanSelect</c>, as <c>PerformClick</c> guards with it (SMP-08): selectable,
+        /// and neither this control nor any ancestor disabled or hidden.
+        /// </summary>
+        /// <remarks>
+        /// Not <see cref="Control.CanSelect"/>, because that asks <see cref="Control.Visible"/>, which
+        /// here reports a control with no parent as hidden. Upstream reports it visible, so a button
+        /// built in code and clicked before it is parented -- a command binding, a test -- clicks
+        /// there and must click here. "Hidden" therefore means an explicit <c>Visible = false</c> on
+        /// the control or an ancestor, which is the control's own flag
+        /// (<c>IArrangedElement.ParticipatesInLayout</c> reads exactly that).
+        /// </remarks>
+        private protected bool CanPerformClick {
+            get {
+                if (!GetControlBehavior (ControlBehaviors.Selectable))
+                    return false;
+
+                for (Control? c = this; c is not null; c = c.Parent) {
+                    if (!c.Enabled || !((Layout.IArrangedElement) c).ParticipatesInLayout)
+                        return false;
+                }
+
+                return true;
+            }
+        }
+
+        /// <summary>
         /// Clicks the button when <paramref name="charCode"/> is its access key.
         /// </summary>
         /// <remarks>

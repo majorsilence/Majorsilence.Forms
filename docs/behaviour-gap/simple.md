@@ -157,7 +157,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `form.AcceptButton = btn;` assert `btn.IsDefault`; headless-render and assert the border differs from a non-default button.
 - **Tests today:** none.
 
-### SMP-08 — `Button.PerformClick()` ignores `CanSelect`/`Enabled` — Cat A — P2 — High
+### SMP-08 — `Button.PerformClick()` ignores `CanSelect`/`Enabled` — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `Button.PerformClick` and `RadioButton.PerformClick` return early unless `ButtonBase.CanPerformClick`, upstream's `CanSelect` guard (`Controls/Buttons/Button.cs`, `RadioButton.cs`). Not `Control.CanSelect` itself: that asks `Control.Visible`, which here reports a *parentless* control as hidden where upstream reports it visible, so a detached button (command bindings, many tests) would never have clicked. `CanPerformClick` treats "hidden" as an explicit `Visible = false` on the control or an ancestor. Consequence: a hidden caption button no longer clicks from code -- `W6MechanismTests.HelpButton_...` now asserts that under system decorations. Tests in `SimpleControlGapTests`.
 - **Ours:** `PerformClick()` unconditionally calls `OnClick(...)` (`src/Majorsilence.Forms/Button.cs:244-247`); same for `RadioButton.PerformClick` (`RadioButton.cs:308`).
 - **Upstream:** `Button.PerformClick()` is guarded by `if (CanSelect)` — a disabled or invisible button does nothing (`Controls/Buttons/Button.cs`, `PerformClick`).
 - **Impact:** `btn.Enabled = false; btn.PerformClick();` still runs the handler. Code that disables a button as a re-entrancy guard and then routes keyboard/accelerator clicks through `PerformClick` will double-execute.
@@ -189,7 +190,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Assign a command whose `Execute` sets a flag; `PerformClick()`; assert the flag.
 - **Tests today:** none.
 
-### SMP-12 — Button/CheckBox/RadioButton `DefaultCursor` is `Hand` — Cat E — P2 — High
+### SMP-12 — Button/CheckBox/RadioButton `DefaultCursor` is `Hand` — Cat E — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** the three `DefaultCursor => Cursors.Hand` overrides are gone; the controls inherit `Control.DefaultCursor` (the arrow), as upstream's do.
 - **Ours:** `protected override Cursor DefaultCursor => Cursors.Hand;` on all three (`src/Majorsilence.Forms/Button.cs:81`, `CheckBox.cs:148`, `RadioButton.cs:~123`).
 - **Upstream:** none of `Button`/`CheckBox`/`RadioButton` override `DefaultCursor`; they inherit `Control.DefaultCursor` = `Cursors.Default` (arrow). Hand is a web idiom, not a WinForms one.
 - **Impact:** Every button in a migrated app shows a pointing hand. Cosmetic but pervasive and instantly noticed; also means an app that deliberately sets `Cursor = Cursors.Hand` on one button can't be distinguished.
@@ -222,6 +224,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Tests today:** none.
 
 ### SMP-16 — `Label.FlatStyle` / `Label.UseCompatibleTextRendering` / `LiveSetting` stored only — Cat C — P2 — High
+- **Status (2026-10-02):** `FlatStyle` is already consumed (`Label.ApplyBorder`, with the border); `UseCompatibleTextRendering` is a one-pipeline no-op. **Still open:** `LiveSetting`, which needs a UIA LiveRegionChanged raised from the automation peer on `TextChanged` -- automation work, not this area's.
 - **Ours:** `Label.FlatStyle` auto-property (`src/Majorsilence.Forms/Label.cs:380`); `UseCompatibleTextRendering` and `LiveSetting` auto-properties in `src/Majorsilence.Forms/TailParity.Two.cs:165-168`.
 - **Upstream:** `FlatStyle` combines with `BorderStyle` to select `Popup`/`System` border rendering (`Controls/Labels/Label.cs:285-300`); `LiveSetting` drives the UIA LiveRegion announcement.
 - **Impact:** Cosmetic once SMP-15 is fixed (FlatStyle only matters when a border exists); `LiveSetting` means screen readers never announce label changes.
@@ -229,7 +232,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Assert `FlatStyle = Popup` + `BorderStyle = FixedSingle` renders a different border than `Flat`.
 - **Tests today:** none.
 
-### SMP-17 — `Label.PreferredWidth`/`PreferredHeight` ignore border and mnemonic stripping — Cat A — P2 — Medium
+### SMP-17 — `Label.PreferredWidth`/`PreferredHeight` ignore border and mnemonic stripping — Cat A — P2 — Medium — **CLOSED (2026-10-02)**
+- **Fix (applied):** `PreferredWidth`/`PreferredHeight` are upstream's `PreferredSize.Width/Height`, so they carry the border (`Label.GetPreferredSizeCore` already added it, SMP-15) and measure what is drawn: `GetPreferredSizeCore` now strips the mnemonic `&` when `UseMnemonic` is on. `LinkLabel` opts out (`DrawsMnemonic => false`) because its renderer draws the raw string. An empty label still answers one line of the font plus border and padding, as upstream's "0" extent does.
 - **Ours:** `PreferredHeight`/`PreferredWidth` = measured text + `Padding.Vertical`/`Horizontal` only (`src/Majorsilence.Forms/TailParity.Two.cs:166-172`), measuring `Text` raw (so a `&` counts as a glyph even when `UseMnemonic` is on).
 - **Upstream:** `Label.PreferredHeight`/`PreferredWidth` add `GetBordersAndPadding()` and measure with the mnemonic-stripped, `WordBreak` flags (`Controls/Labels/Label.cs:285-300` and the `PreferredHeight` property).
 - **Impact:** Layout code that positions the next control at `label.Top + label.PreferredHeight` is short by 2-4px per bordered label; a `&`-bearing caption over-measures by one character.
@@ -237,7 +241,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `new Label { Text = "&Name", UseMnemonic = true }.PreferredWidth` should equal that of `Text = "Name"`.
 - **Tests today:** none.
 
-### SMP-18 — `LinkLabel` never shows the hand cursor over a link — Cat B — P2 — High
+### SMP-18 — `LinkLabel` never shows the hand cursor over a link — Cat B — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `OnMouseMove` sets `OverrideCursor = Cursors.Hand` over an enabled link and `null` elsewhere; `OnMouseLeave` and `OnEnabledChanged` clear it (upstream `LinkLabel.cs`). `OverrideCursor` leaves the configured `Cursor` and `CursorChanged` watchers alone.
 - **Ours:** `LinkLabel.OnMouseMove` only flips `LinkState.Hover` and invalidates (`src/Majorsilence.Forms/LinkLabel.cs:359-380`); the word `Cursor` does not appear anywhere in `src/Majorsilence.Forms/LinkLabel.cs`.
 - **Upstream:** `OverrideCursor = Cursors.Hand` when the pointer is inside a link, cleared to `null` when it leaves (`src/System.Windows.Forms/System/Windows/Forms/Controls/Labels/LinkLabel.cs:928-933`, `:828`, `:1199`).
 - **Impact:** Links look clickable but the pointer never changes, so users don't discover them — especially in a `LinkArea` covering only part of the label's text.
@@ -245,7 +250,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Simulate a mouse move over the link range and assert the resolved cursor is `Cursors.Hand`.
 - **Tests today:** none.
 
-### SMP-19 — `LinkLabel` auto-marks links `Visited` on activation — Cat A — P2 — High
+### SMP-19 — `LinkLabel` auto-marks links `Visited` on activation — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `ActivateLink` no longer sets `Visited`; marking a link visited is the application's job, as upstream.
 - **Ours:** `ActivateLink` sets `link.Visited = true` before raising `LinkClicked` (`src/Majorsilence.Forms/LinkLabel.cs:541-548`).
 - **Upstream:** neither `OnMouseUp` nor the keyboard path sets `Visited`; `LinkLabel.cs:802`, `:889`, `:1400` just raise `OnLinkClicked`. Marking a link visited is the *application's* job (`linkLabel1.LinkVisited = true;` inside the handler is the canonical MSDN sample).
 - **Impact:** Every clicked link immediately turns purple whether or not the app wanted that; apps that use `LinkVisited` as state ("has this row been opened?") get it set for them, so the flag no longer means what the app thinks.
@@ -285,7 +291,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** With an image set, change `SizeMode` and assert the control's invalidated region is non-empty / the next render differs.
 - **Tests today:** none.
 
-### SMP-24 — `PictureBox.BorderStyle` stored only — Cat C — P2 — High
+### SMP-24 — `PictureBox.BorderStyle` stored only — Cat C — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `PictureBoxBorderStyle` is backed and validated; it maps onto `Style.Border.Width` (1 / 2 / cleared) as `Panel.BorderStyle` does, which both draws the frame and deflates the client area, and re-sizes an auto-sized box.
 - **Ours:** `BorderStyle` forwards to `PictureBoxBorderStyle`, an auto-property doc-commented "Stub in Majorsilence.Forms" (`src/Majorsilence.Forms/PictureBox.cs:161-168`). `PictureBoxRenderer` never reads it.
 - **Upstream:** the border is painted (and shrinks `ImageRectangle`) via `PictureBox.OnPaint`/`ClientRectangle` accounting.
 - **Impact:** `BorderStyle = FixedSingle` (the near-universal designer setting for an image placeholder) draws no frame, and the image is drawn 1-2px larger than it should be.
@@ -293,7 +300,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Render a bordered PictureBox and assert the outer ring is the border colour.
 - **Tests today:** none.
 
-### SMP-25 — `PictureBox` `Normal`/`AutoSize` ignore `Padding` — Cat A — P2 — High
+### SMP-25 — `PictureBox` `Normal`/`AutoSize` ignore `Padding` — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** the `Normal`/`AutoSize` arm draws at the padded client origin, and `AutoSize` sizes the box to image + padding + border (upstream `GetPreferredSizeCore`), re-sizing on `PaddingChanged`.
 - **Ours:** the `Normal`/`AutoSize` arm draws at `new Rectangle(0, 0, w, h)` (`src/Majorsilence.Forms/Renderers/PictureBoxRenderer.cs:25`), while every other arm uses `control.PaddedClientRectangle`.
 - **Upstream:** `ImageRectangle` for `Normal` is anchored at the *client* rectangle's origin, i.e. inside padding and border.
 - **Impact:** A PictureBox with `Padding` set (or, once SMP-24 lands, a border) draws its image overlapping the padding/border on the top-left. Inconsistent with the other four modes, so a `SizeMode` change visibly shifts the image.
@@ -309,7 +317,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** With `Style = Marquee`, render twice with the animation clock advanced and assert the filled region moved.
 - **Tests today:** none.
 
-### SMP-27 — `ProgressBar.ForeColor` / `BackColor` ignored by the renderer — Cat C — P2 — High
+### SMP-27 — `ProgressBar.ForeColor` / `BackColor` ignored by the renderer — Cat C — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** the fill is the bar's own `ForeColor` -- a colour set anywhere on the bar's style chain (`CurrentStyle.TryGetForegroundColor`), else the theme accent. Not `control.ForeColor`: it is ambient here, so a bar on a black-text panel would have turned black. `BackColor` needed nothing; the trough is the control background.
 - **Ours:** the fill colour is hard-coded to `Theme.AccentColor2` / `Theme.ForegroundDisabledColor` (`src/Majorsilence.Forms/Renderers/ProgressBarRenderer.cs:20`).
 - **Upstream:** `ProgressBar.ForeColor` is the bar colour and `BackColor` the trough (the classic green/red/yellow status bars are done exactly this way).
 - **Impact:** Apps that colour-code progress (red for over-budget, etc.) all render the same accent colour.
@@ -317,7 +326,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Set `ForeColor = Color.Red`, render at 50%, assert the filled pixels are red.
 - **Tests today:** none.
 
-### SMP-28 — `ProgressBar.Style` shadows `Control.Style`, orphaning `ProgressBar.DefaultStyle` — Cat E — P2 — High
+### SMP-28 — `ProgressBar.Style` shadows `Control.Style`, orphaning `ProgressBar.DefaultStyle` — Cat E — P2 — High — **CLOSED (2026-10-02) — already fixed**
+- **Already fixed** by the `TypeDefaultStyle` hook (#100, 2026-09-30): `ProgressBar` overrides `TypeDefaultStyle => DefaultStyle`, so the instance `ControlStyle` seeds from the 1px-border style. Pinned by a guard test in `SimpleControlGapTests`.
 - **Ours:** `public new ProgressBarStyle Style` (`src/Majorsilence.Forms/ProgressBar.cs:102`) hides `Control.Style`, so `ProgressBar` cannot do what every other control does — `public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);` (cf. `src/Majorsilence.Forms/Button.cs:250`, `src/Majorsilence.Forms/TrackBar.cs:101`). The `public new static ControlStyle DefaultStyle = ... style.Border.Width = 1` at `ProgressBar.cs:29-30` is therefore dead code: the instance keeps `Control.DefaultStyle`'s borderless style.
 - **Upstream:** N/A structurally, but the visual consequence is that a ProgressBar in WinForms always has a trough border.
 - **Impact:** ProgressBars render without their 1px trough border, so the empty part of the bar is indistinguishable from the form background. Also any framework code that reads `Control.Style` on a `ProgressBar`-typed variable silently gets the wrong member.
@@ -333,7 +343,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Subscribe to `Scroll`, set `trackBar.Value = 5` in code, assert the handler did not run while `ValueChanged` did.
 - **Tests today:** none.
 
-### SMP-30 — `TrackBar.Value` silently snaps to a tick and always range-checks — Cat A — P2 — High
+### SMP-30 — `TrackBar.Value` silently snaps to a tick and always range-checks — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `Value` stores what it is given (no snapping); `SnapToTicks` -- a Majorsilence extension, upstream has no such property -- now applies to the gesture paths only, and no longer re-snaps on `SnapToTicks`/`TickFrequency` assignment. `BeginInit`/`EndInit` set upstream's `_initializing`: no range check and no constraining by `Minimum`/`Maximum` until `EndInit`, which constrains once. The explicit `ISupportInitialize` methods were separate empty bodies beside the public pair; they now forward to it.
 - **Ours:** `SetValueCore` applies `SnapValueToTick(value)` on *every* path including the public setter (`src/Majorsilence.Forms/TrackBar.cs:611-615`), and the setter throws whenever the value is out of range even during `BeginInit` — `ISupportInitialize.BeginInit/EndInit` are empty (`TrackBar.cs:47-48`).
 - **Upstream:** `Value`'s setter stores the value verbatim (no snapping) and skips the range check while `_initializing` (`Controls/TrackBar/TrackBar.cs:612-624`). Snapping is a native behaviour of user dragging only.
 - **Impact:** `tb.SnapToTicks = true; tb.TickFrequency = 5; tb.Value = 3;` leaves `tb.Value == 5` — a round-trip through a settings file quietly changes the user's stored value. And a designer/ISupportInitialize block that sets `Value` before `Maximum` throws `ArgumentOutOfRangeException` at form construction where WinForms tolerates it.
@@ -365,7 +376,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `nud.ThousandsSeparator = true; nud.Value = 1234;` render and assert the drawn text contains a group separator; `nud.Font = new Font(..., 20)` changes the measured text height.
 - **Tests today:** none.
 
-### SMP-34 — `NumericUpDown.Value` clamps where upstream throws — Cat A — P2 — High
+### SMP-34 — `NumericUpDown.Value` clamps where upstream throws — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `Value` throws `ArgumentOutOfRangeException` outside the range unless initializing (upstream). `UpButton`/`DownButton` and a typed value constrain first (upstream `ParseEditText`). `Minimum`/`Maximum` now move `Value` through its setter, so a narrowed range raises `ValueChanged` and redraws the text instead of changing the value silently. `Majorsilence.Forms.Mvvm`'s `BindValue` clamps a view-model value into range, which its doc promised. Two `NumericUpDownTests` that pinned the clamp were inverted.
 - **Ours:** `Value`'s setter silently clamps to `[minimum, maximum]` (`src/Majorsilence.Forms/NumericUpDown.cs:83-94`).
 - **Upstream:** the setter throws `ArgumentOutOfRangeException` when the value is outside the range and the control is not initializing (`Controls/UpDown/NumericUpDown.cs`, `Value` setter).
 - **Impact:** A load routine that assigns a stale value outside the configured range gets a silently different number instead of an exception, so the record is saved back with the clamped value. The clamp is arguably friendlier, but it diverges and the difference is data-visible.
@@ -373,7 +385,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `nud.Maximum = 10; Assert.Throws<ArgumentOutOfRangeException>(() => nud.Value = 20);`
 - **Tests today:** none.
 
-### SMP-35 — `NumericUpDown.BeginInit/EndInit` and `Accelerations` are inert — Cat B/C — P2 — High
+### SMP-35 — `NumericUpDown.BeginInit/EndInit` and `Accelerations` are inert — Cat B/C — P2 — High — **PARTLY CLOSED (2026-10-02)**
+- **Fix (applied), BeginInit/EndInit half:** `_initializing` as upstream -- `Value` neither range-checked nor shown until `EndInit`, which constrains and shows it. The explicit `ISupportInitialize` pair forwards to the public one. **Still open:** `Accelerations` and button-hold repeat; there is no repeat timer at all, which is a small input feature of its own.
 - **Ours:** both `ISupportInitialize.BeginInit/EndInit` (`src/Majorsilence.Forms/NumericUpDown.cs:42-43`) and the public `BeginInit/EndInit` (`src/Majorsilence.Forms/RemainingParity.cs:286-290`) are `{ }` — four empty methods, and there is no `_initializing` flag. `Accelerations` returns a live collection (`RemainingParity.cs:282`) that nothing reads, and there is no button-hold repeat timer anywhere.
 - **Upstream:** `BeginInit`/`EndInit` suppress range validation while designer code assigns properties in an arbitrary order and then re-validate in `EndInit`; `Accelerations` change the step size while the button is held (`Controls/UpDown/NumericUpDown.cs`, `UpButton` consults `Accelerations`).
 - **Impact:** Designer-generated `BeginInit(); ... Value = 500; Maximum = 1000; ... EndInit();` clamps `Value` to the default `Maximum` of 100 and then never restores it (with SMP-34's fix it would throw). Holding an arrow button never accelerates and, in fact, never repeats at all.
@@ -397,7 +410,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `dud.Items.Add("Alpha"); dud.SelectedIndex = 0;` render and assert the drawn text is `Alpha`, then `dud.UpButton()` and assert `SelectedIndex` moved.
 - **Tests today:** none.
 
-### SMP-38 — `DomainUpDown.SelectedIndex` accepts out-of-range, never raises `SelectedItemChanged`; `Sorted`/`Wrap` inert — Cat A/C/D — P2 — High
+### SMP-38 — `DomainUpDown.SelectedIndex` accepts out-of-range, never raises `SelectedItemChanged`; `Sorted`/`Wrap` inert — Cat A/C/D — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `SelectedIndex` throws outside `[-1, Count)` and raises `SelectedItemChanged` once per change through one `SelectIndex` path (the buttons used to raise it themselves; they now go through the setter). `SelectedItem = null` selects nothing, an unmatched value leaves the selection, as upstream. `DomainUpDownItemCollection` re-sorts on add/insert/replace while `Sorted` (ToString, current culture -- upstream's `DomainUpDownItemCompare`), the selection follows its item, and `RemoveAt`/`Remove` keep it on the same item. `Wrap` was already consumed by `MoveSelection`; this entry was stale on that point.
 - **Ours:** the setter stores any int and just recomputes `Text` (`src/Majorsilence.Forms/WinFormsCompat.cs:2490-2496`); `SelectedItemChanged` sits under `#pragma warning disable CS0067` with a "not yet raised (stub)" comment (`WinFormsCompat.cs:2513-2516`); `Sorted` and `Wrap` are auto-properties in `src/Majorsilence.Forms/TailParity.Two.cs:300-304` that nothing reads. `SelectedItem`'s setter silently does nothing when no item matches (no reset to -1).
 - **Upstream:** `SelectedIndex` throws `ArgumentOutOfRangeException` outside `[-1, Items.Count)`, calls `UpdateEditText`, and raises `OnSelectedItemChanged`; `Sorted` re-sorts `Items` on assignment and on every `Add`; `Wrap` makes `UpButton` past the last item roll to the first.
 - **Impact:** `SelectedIndex = 99` on a 3-item control leaves the control in a state where `SelectedItem` is `null` and no exception told the app; nothing that listens for the selection ever fires; `Sorted = true` leaves the items in insertion order.
@@ -437,7 +451,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Headless render and assert 7 day-header cells and the day numbers of the current month are drawn; simulate a click on a day cell and assert `SelectionStart` moved and `DateSelected` fired.
 - **Tests today:** `MonthCalendarBehaviourTests.cs` (44 tests, W5.20c). The "Fix" above implies `FirstDayOfWeek` was unconsumed; it was already read by `GetDisplayRange` -- see `SMP-46`, which has it right.
 
-### SMP-43 — `MonthCalendar.HitTest` returns `SelectionStart` for every point in the body — Cat A — P1 — High — **PARTLY DONE (2026-09-04, W5.20c)**
+### SMP-43 — `MonthCalendar.HitTest` returns `SelectionStart` for every point in the body — Cat A — P1 — High — **CLOSED (2026-10-02)**
+- **Fix (applied), the title remainder:** `HitTest` splits the title band into `TitleMonth` (the month name's run), `TitleYear` (the year's) and `TitleBackground` (the rest), measured with the font and size the renderer draws with; the caption string and its area are shared with `MonthCalendarRenderer` (`TitleCaption`, `TitleTextArea`). `MidSizeControlParityTests` pinned the band's centre as `TitleMonth`, which depends on the month's name; it now accepts any title part.
 - **Ours:** after the title-band and today-link checks, `HitTest` returns `new HitTestInfo (point, HitArea.Date, SelectionStart)` for *any* remaining point (`src/Majorsilence.Forms/MidSizeControlParity.cs:154-175`). It never maps the point to a day cell. `HitArea.WeekNumbers`, `DayOfWeek`, `TitleYear`, `PrevMonthDate`, `NextMonthDate`, `TitleBackground` and `CalendarBackground` are declared but never returned. The file header at `MidSizeControlParity.cs:16-18` claims "HitTest and GetDisplayRange are computed from the same geometry the renderer lays the control out with, so they agree with what the user sees" — the renderer lays out nothing but a centred string.
 - **Upstream:** `MonthCalendar.HitTest(Point)` sends `MCM_HITTEST` and returns the actual date under the cursor plus the precise `HitArea` (`Controls/MonthCalendar/MonthCalendar.cs`, `HitTest`).
 - **Impact:** The standard "what date did the user hover/right-click?" pattern — a context menu on a calendar day, a tooltip per day — always reports the currently selected date, so the menu acts on the wrong day. Silently wrong rather than obviously broken.
@@ -445,7 +460,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** With a rendered grid, `HitTest` a point in the first day cell and assert `Time` is the first displayed date, not `SelectionStart`.
 - **Tests today:** `MonthCalendarBehaviourTests.cs` covers `Date`, `PrevMonthDate`, `NextMonthDate`, `DayOfWeek` and `WeekNumbers`. `TitleYear` and `TitleBackground` are still never returned -- `TitleMonth` covers the whole middle of the title band -- because splitting them needs the title text measured and hit-tested run by run, and `MidSizeControlParityTests` pins `HitTest (100, 1)` on a 200px calendar as `TitleMonth`.
 
-### SMP-44 — `MonthCalendar` bolded dates have two disagreeing backing stores — Cat A — P2 — High
+### SMP-44 — `MonthCalendar` bolded dates have two disagreeing backing stores — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** the three array properties project from and replace the lists `Add*`/`Remove*`/`IsBoldedDate` use (upstream's setters replace the list the paint code reads); `UpdateBoldedDates` only repaints. Three entries left `StoredOnlyPropertyBaseline.txt`.
 - **Ours:** `BoldedDates`/`AnnuallyBoldedDates`/`MonthlyBoldedDates` are plain auto-properties on `MonthCalendar` (`src/Majorsilence.Forms/MonthCalendar.cs:159-166`), while `AddBoldedDate`/`RemoveBoldedDate`/`IsBoldedDate` operate on private `List<DateTime>` fields in the other partial (`src/Majorsilence.Forms/MidSizeControlParity.cs:24-26, 87-122`). `UpdateBoldedDates()` copies list → property one way only (`MidSizeControlParity.cs:112-118`).
 - **Upstream:** `BoldedDates`'s setter replaces the internal array that the paint code and the bolding logic both read (`Controls/MonthCalendar/MonthCalendar.cs`, `BoldedDates`).
 - **Impact:** `cal.BoldedDates = new[]{ d };` then `cal.IsBoldedDate(d)` returns `false`, and a subsequent `UpdateBoldedDates()` **erases** the assignment by overwriting the property from the (empty) list. Assigning the property and using the Add/Remove API in the same app silently loses data.
@@ -453,7 +469,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `cal.BoldedDates = new[]{ d }; Assert.True(cal.IsBoldedDate(d)); cal.UpdateBoldedDates(); Assert.Contains(d, cal.BoldedDates);`
 - **Tests today:** none.
 
-### SMP-45 — `MonthCalendar` range validation uses the raw min/max, not the effective ones — Cat A — P2 — High
+### SMP-45 — `MonthCalendar` range validation uses the raw min/max, not the effective ones — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied) -- and a correction:** upstream is not consistent here. Its `SelectionEnd` validates against the effective `MinDate`/`MaxDate`, but its `SelectionStart`, `SetDate`, `SetSelectionRange` and `TodayDate` validate against the *raw* fields (`Controls/MonthCalendar/MonthCalendar.cs`), so `SelectionStart = 1200-01-01` is accepted upstream too. Only `SelectionEnd` changed; the other four are pinned as upstream's (`MonthCalendarTests.TodayDate_SetWithinDefaultRange_...` already did).
 - **Ours:** `SelectionStart`/`SelectionEnd`/`SetDate`/`SetSelectionRange`/`TodayDate` all validate against the raw `_minDate`/`_maxDate` fields, which default to `DateTime.MinValue`/`MaxValue` (`src/Majorsilence.Forms/MonthCalendar.cs:41-42, 63-64, 145-146, 189-201`), while the public `MinDate`/`MaxDate` getters clamp to 1753..9998 via `EffectiveMinDate`/`EffectiveMaxDate` (`MonthCalendar.cs:30-32, 85-101`).
 - **Upstream:** the same setters validate against the effective `MinDate`/`MaxDate` and throw `ArgumentOutOfRangeException` outside 1753-01-01..9998-12-31.
 - **Impact:** `cal.SelectionStart = new DateTime(1200, 1, 1);` is accepted here and throws in WinForms; a port that relied on the exception to reject bad input now stores an undisplayable date, and `MinDate` still reports 1753 so the invariant `MinDate <= SelectionStart` is violated.
@@ -462,6 +479,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Tests today:** none.
 
 ### SMP-46 — `MonthCalendar` display/appearance properties stored only — Cat C — P2 — High — **PARTLY DONE (2026-09-04, W5.20c)**
+- **Still open (2026-10-02):** `CalendarDimensions` > 1x1 -- drawing several months is a layout change across the geometry, the renderer, hit-testing and selection, not a property hook-up.
 - **Ours:** `CalendarDimensions`, `FirstDayOfWeek`, `ShowWeekNumbers`, `ShowToday`, `ShowTodayCircle`, `TitleForeColor`, `TitleBackColor`, `TrailingForeColor` are auto-properties, six of them doc-commented "Stub in Majorsilence.Forms" (`src/Majorsilence.Forms/MonthCalendar.cs:113-176`). `SetCalendarDimensions` stores and invalidates (`src/Majorsilence.Forms/MidSizeControlParity.cs:62-77`) but nothing draws multiple months.
 - **Upstream:** all of these change the rendered calendar.
 - **Impact:** Follows directly from SMP-42 — listed separately because each is an independent designer-set property that a fixer will need to wire. `FirstDayOfWeek` in particular *is* consumed by `GetDisplayRange`, so the padded range is computed for a layout that is never drawn.
@@ -493,7 +511,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `sb.SmallChange = 1;` send one `MouseEventArgs` with `Delta = -120` and assert `Value` increased by 1.
 - **Tests today:** none.
 
-### SMP-50 — `ScrollBar.Scroll` has the wrong delegate type — Cat E — P2 — High
+### SMP-50 — `ScrollBar.Scroll` has the wrong delegate type — Cat E — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** declared `ScrollEventHandler`. `ScrollableControl.Scroll` has the same defect and is outside this area; it is left for that owner.
 - **Ours:** `public new event EventHandler<ScrollEventArgs>? Scroll;` (`src/Majorsilence.Forms/ScrollBar.cs:93`).
 - **Upstream:** `public event ScrollEventHandler? Scroll` (`src/System.Windows.Forms/System/Windows/Forms/Scrolling/ScrollBar.cs:450`).
 - **Impact:** Designer-generated and hand-written code that writes `this.vScrollBar1.Scroll += new System.Windows.Forms.ScrollEventHandler(this.vScrollBar1_Scroll);` — the exact form `InitializeComponent` emits — does not compile against this layer. Method-group syntax happens to work, which is why the divergence survives a name-level audit.
@@ -510,6 +529,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Tests today:** none.
 
 ### SMP-52 — `ErrorProvider.ContainerControl` is typed `Component` and there is no `ErrorProvider(ContainerControl)` ctor — Cat E — P2 — High
+- **Still open (2026-10-02):** typing it `ContainerControl` needs `Form` to be a `ContainerControl`, which it is not here (`Form` and `Control` sit on separate branches) -- a hierarchy decision, not a member fix.
 - **Ours:** `public Component? ContainerControl { get; set; }` with a comment explaining that `Form` and `Control` sit on separate branches here (`src/Majorsilence.Forms/ErrorProvider.cs:75-81`); the only ctors are `()` and `(IContainer)` (`ErrorProvider.cs:30-38`).
 - **Upstream:** `public ContainerControl? ContainerControl { get; set; }` plus `public ErrorProvider(ContainerControl parentControl)`, and the setter re-hosts the error windows and hooks the container's binding context.
 - **Impact:** `new ErrorProvider(this)` from a `Form` — a common hand-written form — does not bind to any container overload here (`Form` is not an `IContainer`), and code assigning `ep.ContainerControl` gets no behaviour because nothing reads it. Once SMP-51 is fixed the container is where the adorners must live, so this needs settling first.
@@ -525,7 +545,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `il.Images.Add(bmp); il.Images.SetKeyName(0, "a"); Assert.Equal(0, il.Images.IndexOfKey("a"));`
 - **Tests today:** `tests/Majorsilence.Forms.Tests/ImageListTests.cs` (24 facts) — none cover `SetKeyName`.
 
-### SMP-54 — `ImageList.ImageSize` throws once images are present — Cat A — P1 — High
+### SMP-54 — `ImageList.ImageSize` throws once images are present — Cat A — P1 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `ImageSize` validates as upstream (`ArgumentException` for `Size.Empty`, `ArgumentOutOfRangeException` outside 1..256) and, once images are present, resizes them in place, keys and order kept. Deviation: upstream re-renders from the originals; only the stored copies exist here. `ImageListTests.ImageSize_SetAfterImageAdded_ThrowsInvalidOperationException` pinned the old throw and was inverted.
 - **Ours:** `SetImageSize` throws `InvalidOperationException ("Cannot set ImageSize after Images are already added.")` when `_images.Count > 0` (`src/Majorsilence.Forms/ImageCollection.cs:157-166`), reached from `ImageList.ImageSize`'s setter (`src/Majorsilence.Forms/ImageList.cs:41-44`).
 - **Upstream:** the setter validates the size is 1..256 in each dimension and otherwise just stores it and recreates the native handle — existing images are re-rendered at the new size, no exception (`src/System.Windows.Forms/System/Windows/Forms/Controls/ImageList/ImageList.cs:144-173`).
 - **Impact:** Any code that resizes an existing image list — DPI-scaling a toolbar's icons at runtime, or designer code that assigns `ImageStream` before `ImageSize` (the streamer already populates `Images`, see `ImageList.cs:67-80`) — throws at form construction where WinForms works. Also note the type divergence: the exception is `InvalidOperationException`, not one of the upstream `ArgumentException`s, so existing catch blocks don't match either.
@@ -534,6 +555,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Tests today:** `tests/Majorsilence.Forms.Tests/ImageListTests.cs`.
 
 ### SMP-55 — `ImageList.ImageCollection` is an `IDictionary<string, SKBitmap>`, not an `IList` of `Image` — Cat E — P2 — High
+- **Still open (2026-10-02):** reshaping `ImageCollection` from `IDictionary<string, SKBitmap>` to an `IList` of `Image` breaks every existing caller's indexer and enumeration type -- a public API redesign that needs its own migration plan.
 - **Ours:** `public class ImageCollection : IDictionary<string, SKBitmap>` (`src/Majorsilence.Forms/ImageCollection.cs:13`); the indexers return `SKBitmap` (`ImageCollection.cs:171-198`), `Keys` returns `ICollection<string>` (`ImageCollection.cs:131`), and enumeration yields `KeyValuePair<string, SKBitmap>` (`ImageCollection.cs:113`).
 - **Upstream:** `ImageList.ImageCollection : IList` yielding `Image`; `Keys` is a `StringCollection`.
 - **Impact:** `pictureBox1.Image = imageList1.Images[0];` and `foreach (Image img in imageList1.Images)` — both extremely common — do not compile or need a cast that migrated source doesn't have. `Images.Add(image)` happens to work, which again hides the divergence from a name-level audit.
@@ -541,7 +563,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `Assert.IsAssignableFrom<System.Collections.IList>(new ImageList().Images);`
 - **Tests today:** `tests/Majorsilence.Forms.Tests/ImageListTests.cs`.
 
-### SMP-56 — `ImageList.ColorDepth` / `TransparentColor` stored only, `Draw` silently no-ops out of range — Cat C/A — P2 — High
+### SMP-56 — `ImageList.ColorDepth` / `TransparentColor` stored only, `Draw` silently no-ops out of range — Cat C/A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `Draw` throws `ArgumentOutOfRangeException` for a bad index, as upstream. `TransparentColor` was already applied on add (W6 mechanisms); this entry was stale on that point. `ColorDepth` stays stored-only deliberately -- every image is a 32-bit Skia bitmap and reducing depth would only lose colour -- and its doc now says so.
 - **Ours:** both auto-properties, doc-commented "Stored but not enforced" / "Stub in Majorsilence.Forms" (`src/Majorsilence.Forms/ImageList.cs:46-50`). The three `Draw` overloads guard with `if (index >= 0 && index < Images.Count)` and otherwise do nothing (`ImageList.cs:82-97`).
 - **Upstream:** `TransparentColor` makes that colour transparent when images are added (the standard way a magenta-keyed toolbar bitmap strip is made see-through); `Draw` throws `ArgumentOutOfRangeException` for a bad index.
 - **Impact:** Legacy bitmap strips keyed on magenta/`Color.Fuchsia` draw with the key colour visible as solid blocks behind every icon. `Draw` with a stale index paints nothing instead of surfacing the bug.
@@ -549,7 +572,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `il.TransparentColor = Color.Magenta;` add a bitmap with magenta pixels and assert those pixels have alpha 0.
 - **Tests today:** `tests/Majorsilence.Forms.Tests/ImageListTests.cs`.
 
-### SMP-57 — `WebBrowser` navigation history, title, scripting and most events are inert — Cat B/D — P1 — High
+### SMP-57 — `WebBrowser` navigation history, title, scripting and most events are inert — Cat B/D — P1 — High — **PARTLY CLOSED (2026-10-02)**
+- **Fix (applied), the control half:** `Navigate` raises a cancellable `Navigating` first; a completed navigation raises `Navigated` then `DocumentCompleted` (upstream order); a history built from completed navigations backs `CanGoBack`/`CanGoForward` (with their `Changed` events) and `GoBack`/`GoForward`; `DocumentTitle` is read through the script bridge after each completion and raises `DocumentTitleChanged`. Tested through a fake `IWebViewHandle` (new internal constructors on `WebBrowser`/`WebViewHost`). **Still open, and why:** `Navigating` for a link clicked inside the page, `Stop`, `Print`/`ShowPrintDialog`, `GoHome`, `StatusText`, `ScriptErrorsSuppressed` and the other engine switches all need `IWebViewHandle` extended and implemented in every backend (Avalonia, Uno, GTK 4, WPF, WinForms) -- outside this area. `InvokeScript` stays `null` for the sync-over-async reason its doc gives.
 - **Ours:** `CanGoBack => false`, `CanGoForward => false`, `DocumentTitle => string.Empty` (`src/Majorsilence.Forms/WebBrowser.cs:60-66`); `GoBack`, `GoForward`, `GoHome`, `Stop`, `Print`, `ShowPrintDialog` are all `{ }` (`WebBrowser.cs:101-116`); both `InvokeScript` overloads `=> null` (`WebBrowser.cs:127-130`); and `Navigated`, `Navigating`, `CanGoBackChanged`, `CanGoForwardChanged`, `DocumentTitleChanged`, `StatusTextChanged` are declared `add { } remove { }` so subscriptions are discarded (`WebBrowser.cs:151-166`). `ReadyState` is a settable-but-never-updated `Complete`. Only `DocumentCompleted` and the non-WinForms `WebMessageReceived` are real events. `ScriptErrorsSuppressed`, `ScrollBarsEnabled`, `IsWebBrowserContextMenuEnabled`, `WebBrowserShortcutsEnabled` are stored-only.
 - **Upstream:** all of these are live against the hosted browser (`src/System.Windows.Forms/System/Windows/Forms/Controls/WebBrowser/WebBrowser.cs`).
 - **Impact:** A migrated help/report viewer gets a page that loads but has no Back/Forward (the buttons are wired to no-op methods and `CanGoBack` keeps them permanently disabled), no title for the window caption, and no `Navigating` hook — so the common "intercept the link and open it in the OS browser / cancel it" pattern cannot fire at all. `InvokeScript` returning `null` means JS bridges silently produce nothing.
@@ -565,7 +589,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Select a row, set its text, commit, and assert the target object's property changed and `PropertyValueChanged` fired.
 - **Tests today:** none found.
 
-### SMP-59 — `PropertyGrid.SelectedObjects` silently keeps only the first object — Cat A — P1 — High
+### SMP-59 — `PropertyGrid.SelectedObjects` silently keeps only the first object — Cat A — P1 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `SelectedObjects` holds the whole array (copy out, empty not null, null element throws); `SelectedObject` is its first. With several, the grid lists only the properties every object has (same name and type, not `[MergableProperty (false)]` -- upstream's merger), shows a value only where all agree (blank otherwise), and a commit or `ResetSelectedProperty` writes every object through its own descriptor.
 - **Ours:** `get => _selected_object == null ? null : new[] { _selected_object };  set => SelectedObject = value?.Length > 0 ? value[0] : null;` (`src/Majorsilence.Forms/PropertyGrid.cs:47-50`).
 - **Upstream:** `SelectedObjects` holds the whole array and the grid shows the *intersection* of the objects' properties, editing all of them at once (`Controls/PropertyGrid/PropertyGrid.cs`, `SelectedObjects`).
 - **Impact:** Multi-select editing — "select five shapes, change FillColor once" — silently edits only the first object, and reading `SelectedObjects` back gives an array of length 1 where the app set 5. Round-tripping the property loses data with no error.
@@ -573,7 +598,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `pg.SelectedObjects = new[]{a,b}; Assert.Equal(2, pg.SelectedObjects.Length);`
 - **Tests today:** none found.
 
-### SMP-60 — `PropertyGrid.ToolbarVisible` / `HelpVisible` / `BrowsableAttributes` and ~20 colour properties stored only — Cat C — P2 — High
+### SMP-60 — `PropertyGrid.ToolbarVisible` / `HelpVisible` / `BrowsableAttributes` and ~20 colour properties stored only — Cat C — P2 — High — **CLOSED (2026-10-02) — already fixed**
+- **Already fixed** by W6 mechanisms: the toolbar is a real `ToolStrip` toggled by `ToolbarVisible`, the help and commands panes are laid out and painted, `BrowsableAttributes` filters (`MatchesBrowsableAttributes`), and the colour properties are read by the painter. The three that remain stored-only (`CanShowVisualStyleGlyphs`, `CommandsForeColor`, `UseCompatibleTextRendering`) are recorded with reasons in `StoredOnlyPropertyBaseline.txt`.
 - **Ours:** `ToolbarVisible`, `HelpVisible`, `CommandsVisibleIfAvailable`, `PropertySort` (partly), `HelpBackColor`, `HelpForeColor` (`src/Majorsilence.Forms/PropertyGrid.cs:66-102`) plus `BrowsableAttributes`, `CategoryForeColor`, `CategorySplitterColor`, `DisabledItemForeColor`, `HelpBorderColor`, `ViewBorderColor`, `SelectedItemWithFocus*`, `Commands*`, `LargeButtons`, `CanShowVisualStyleGlyphs` (`src/Majorsilence.Forms/MidSizeControlParity.cs:243-300`) — all auto-properties. `OnPaint` reads only `ViewBackColor`, `ViewForeColor` and `LineColor` (`PropertyGrid.cs:184-187`); the property enumeration filters on `p.IsBrowsable` and never consults `BrowsableAttributes` (`PropertyGrid.cs:113-122`).
 - **Upstream:** the toolbar (sort/categorize/property-pages buttons) and the help description pane are real child areas whose visibility these toggle; `BrowsableAttributes` filters which properties are listed.
 - **Impact:** The grid always shows just the two-column list — no sort toolbar, no description pane at the bottom — regardless of what the designer set, and `BrowsableAttributes = new AttributeCollection(new MyFilterAttribute())` (the documented way to show only a subset) lists everything.

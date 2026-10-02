@@ -176,15 +176,38 @@ public class ImageCollection : IDictionary<string, SKBitmap>
         return Remove (item.Key);
     }
 
+    // SMP-54: this threw InvalidOperationException once an image was present, so DPI-scaling a
+    // toolbar's icons at runtime, or designer code assigning ImageStream before ImageSize, failed
+    // where upstream simply recreates its handle with every image re-rendered at the new size
+    // (Controls/ImageList/ImageList.cs, ImageSize). The stored bitmaps are resized in place, keys
+    // and order kept. Deviation: upstream re-renders from the originals; only the stored copies
+    // exist here, so shrinking and growing again loses detail.
     internal void SetImageSize (SKSize imageSize)
     {
         if (imageSize == ImageSize)
             return;
 
-        if (_images.Count > 0)
-            throw new InvalidOperationException ("Cannot set ImageSize after Images are already added.");
-
         ImageSize = imageSize;
+
+        if (_images.Count == 0)
+            return;
+
+        var resized = new OrderedDictionary ();
+        var size = imageSize.ToSizeI ();
+
+        foreach (System.Collections.DictionaryEntry entry in _images) {
+            var bitmap = ConvertToBitmap (entry.Value);
+
+            if (bitmap.Width == size.Width && bitmap.Height == size.Height) {
+                resized.Add (entry.Key, bitmap);
+                continue;
+            }
+
+            resized.Add (entry.Key, bitmap.Resize (size, new SKSamplingOptions (SKCubicResampler.Mitchell)));
+            bitmap.Dispose ();
+        }
+
+        _images = resized;
     }
 
     /// <summary>

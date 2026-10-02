@@ -133,9 +133,6 @@ namespace Majorsilence.Forms
         public event EventHandler? CheckedChanged;
 
         /// <inheritdoc/>
-        protected override Cursor DefaultCursor => Cursors.Hand;
-
-        /// <inheritdoc/>
         protected override Size DefaultSize => new Size (104, 24);
 
         /// <inheritdoc/>
@@ -356,7 +353,16 @@ namespace Majorsilence.Forms
         public override FlatButtonAppearance FlatAppearance { get; } = new FlatButtonAppearance ();
 
         /// <summary>Simulates a click on the radio button. Checks the button if AutoCheck is true.</summary>
-        public void PerformClick () => OnClick (new MouseEventArgs (MouseButtons.Left, 1, 0, 0, System.Drawing.Point.Empty));
+        /// <remarks>Does nothing when the button cannot be selected, as upstream
+        /// <c>RadioButton.PerformClick</c> guards with <c>CanSelect</c>
+        /// (<c>Controls/Buttons/RadioButton.cs</c>).</remarks>
+        public void PerformClick ()
+        {
+            if (!CanPerformClick)
+                return;
+
+            OnClick (new MouseEventArgs (MouseButtons.Left, 1, 0, 0, System.Drawing.Point.Empty));
+        }
 
         /// <inheritdoc/>
         public override string ToString () => $"{base.ToString ()}, Checked: {Checked}";

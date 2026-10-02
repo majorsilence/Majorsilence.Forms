@@ -54,14 +54,17 @@ namespace Majorsilence.Forms.Mvvm
 
         /// <summary>
         /// Keeps <paramref name="box"/>'s <see cref="NumericUpDown.Value"/> and a decimal property of <paramref name="source"/> equal. See
-        /// <see cref="BindText{TSource}"/>. The box clamps a value outside its minimum and maximum itself.
+        /// <see cref="BindText{TSource}"/>. A view-model value outside the box's minimum and maximum is
+        /// clamped into range on the way in.
         /// </summary>
         public static IDisposable BindValue<TSource> (
             this NumericUpDown box, TSource source, string propertyName, Func<TSource, decimal> read, Action<TSource, decimal> write, IUiDispatcher? dispatcher = null)
             where TSource : INotifyPropertyChanged
         {
             ArgumentNullException.ThrowIfNull (box);
-            return Bind (source, propertyName, read, write, () => box.Value, value => box.Value = value,
+            // Clamped here because NumericUpDown.Value throws out of range, as upstream's does (SMP-34);
+            // a view model is not obliged to know the box's range.
+            return Bind (source, propertyName, read, write, () => box.Value, value => box.Value = Math.Min (Math.Max (value, box.Minimum), box.Maximum),
                 handler => box.ValueChanged += handler, handler => box.ValueChanged -= handler, dispatcher);
         }
 

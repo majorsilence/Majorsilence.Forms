@@ -24,9 +24,15 @@ namespace Majorsilence.Forms
         /// handle immediately (via <see cref="WebViewSupport.TryCreate"/>). <see cref="IsFunctional"/>
         /// reflects whether that creation succeeded.
         /// </summary>
-        public WebViewHost ()
+        public WebViewHost () : this (WebViewSupport.TryCreate ())
         {
-            _handle = WebViewSupport.TryCreate ();
+        }
+
+        // Test seam: a host around a given handle (a fake engine), since the Headless backend
+        // implements no IWebViewFactory and so never yields a functional host.
+        internal WebViewHost (IWebViewHandle? handle)
+        {
+            _handle = handle;
             if (_handle is not null)
                 NativeControl = _handle.NativeControl;
         }
