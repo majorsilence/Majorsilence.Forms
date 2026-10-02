@@ -176,22 +176,24 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (derived.CanUndo, basic.CanUndo);
             Assert.Equal (derived.Modified, basic.Modified);
 
-            // And the replace is undoable through either reference, where the shadow cleared undo.
-            Assert.True (derived.CanUndo);
-            Assert.True (derived.Modified);
+            // And both behave as upstream's SetSelectedTextInternal (text, clearUndo: true): the undo
+            // buffer and the modify flag are cleared "for consistency with Text" (TXT-20). This used to
+            // assert the opposite, which was the old typing-path behaviour rather than upstream's.
+            Assert.False (derived.CanUndo);
+            Assert.False (derived.Modified);
         }
 
         [Fact]
         public void Replacing_a_selection_is_a_single_undo_step ()
         {
-            // GUARD, not proof: TextBox.SelectedText already went through the document, so this passed
-            // before. It pins the invariant ReplaceRange has to preserve -- a replace is a delete plus
-            // an insert, and Win32 reverses it in a single Undo.
+            // GUARD, not proof: it pins the invariant ReplaceRange has to preserve -- a replace is a
+            // delete plus an insert, and Win32 reverses it in a single Undo. Through Paste (string),
+            // because SelectedText clears the undo buffer, as upstream's does (TXT-20).
             using var box = Log (lines: 3);
             var before = box.Text;
             box.Select (0, 4);
 
-            box.SelectedText = "REPLACED";
+            box.Paste ("REPLACED");
             Assert.NotEqual (before, box.Text);
 
             box.Undo ();
@@ -200,11 +202,11 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void The_selection_setter_still_refuses_a_read_only_box ()
+        public void The_selection_setter_replaces_text_in_a_read_only_box ()
         {
-            // GUARD, not proof: nothing here changed for this path. It pins that ReplaceRange's
-            // ignoreLimits escape hatch was given to AppendText only -- a user-driven replace on a
-            // read-only box must still do nothing.
+            // Inverted for TXT-20. SelectedText is not user input: upstream's EM_REPLACESEL works on a
+            // read-only edit control, which is how a read-only display box is updated in place. This
+            // used to pin the refusal.
             using var box = Log (lines: 2);
             var before = box.Text;
             box.ReadOnly = true;
@@ -212,7 +214,7 @@ namespace Majorsilence.Forms.Tests
 
             box.SelectedText = "REPLACED";
 
-            Assert.Equal (before, box.Text);
+            Assert.Equal ("REPLACED" + before[4..], box.Text);
         }
 
         [Fact]

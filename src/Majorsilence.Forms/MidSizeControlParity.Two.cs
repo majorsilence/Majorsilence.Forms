@@ -405,19 +405,11 @@ namespace Majorsilence.Forms
         public bool SkipLiterals { get; set; } = true;
 
         /// <summary>Returns the text converted to <c>ValidatingType</c>, or null when it does not convert.</summary>
-        public object? ValidateText ()
-        {
-            if (ValidatingType is null)
-                return null;
-
-            try {
-                return Convert.ChangeType (Text, ValidatingType, FormatProvider ?? System.Globalization.CultureInfo.CurrentCulture);
-            } catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException) {
-                // WinForms reports a value that does not convert as null rather than throwing, because
-                // the caller's next move is to show a validation message either way.
-                return null;
-            }
-        }
+        /// <remarks>Upstream's <c>ValidateText</c> is <c>PerformTypeValidation (null)</c>: the same
+        /// incomplete-mask gate and parse as validation on leaving the field, and it raises
+        /// <see cref="TypeValidationCompleted"/> too. A value that does not convert is reported as null
+        /// rather than thrown, because the caller's next move is a validation message either way.</remarks>
+        public object? ValidateText () => PerformTypeValidation (null);
 
         // IsOverwriteMode describes state this layer does not change after construction.
 #pragma warning disable CS0067

@@ -115,6 +115,16 @@ namespace Majorsilence.Forms
                 }
             }
 
+            // TXT-13: rich edit's Ctrl+Y redo, beside the Ctrl+Z every text box takes. Upstream's rich
+            // edit lists both; here a redo is the second half of the single-level toggle (see Redo).
+            if (e.Control && !e.Alt && !e.Shift && e.KeyCode == Keys.Y && ShortcutsEnabled) {
+                if (!ReadOnly)
+                    Redo ();
+
+                e.Handled = true;
+                return;
+            }
+
             base.OnKeyDown (e);
         }
 

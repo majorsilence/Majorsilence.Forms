@@ -90,8 +90,15 @@ namespace Majorsilence.Forms
     {
         /// <summary>Replaces the selection with the given text.</summary>
         /// <remarks>WinForms' <c>Paste (string)</c> pastes a caller-supplied string rather than the
-        /// clipboard's, which is why it is not simply <see cref="TextBoxBase.Paste()"/>.</remarks>
-        public void Paste (string text) => SelectedText = text ?? string.Empty;
+        /// clipboard's, which is why it is not simply <see cref="TextBoxBase.Paste()"/>. Like upstream's
+        /// <c>SetSelectedTextInternal (text, clearUndo: false)</c> it ignores <see cref="TextBoxBase.ReadOnly"/>
+        /// and <see cref="MaxLength"/> but, unlike <see cref="SelectedText"/>, keeps the undo step and
+        /// counts as an edit.</remarks>
+        public void Paste (string text)
+        {
+            ReplaceSelection (text, clearUndo: false);
+            ScrollToCaret ();
+        }
     }
 
     public partial class DataGridViewRowCollection

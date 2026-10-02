@@ -19,7 +19,9 @@ namespace Majorsilence.Forms.Renderers
         /// <inheritdoc/>
         protected override void Render (TextBox control, PaintEventArgs e)
         {
-            var text = control.Text.Length > 0 ? control.Text : control.Placeholder;
+            // What the document lays out: the placeholder only while unfocused (TXT-27), so a focused
+            // empty box draws its caret and nothing under it.
+            var text = control.document.DisplayText;
 
             // Bail early if we don't need to draw anything
             if (text.Length == 0 && !control.Selected)

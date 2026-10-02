@@ -7,9 +7,10 @@ namespace Majorsilence.Forms.Tests;
 // toggles, a run of same-kind edits coalescing into one step, and WM_SETTEXT (a programmatic
 // Text assignment) resetting the buffer entirely.
 //
-// Edits are driven through SelectedText because TextBox overrides it to go via TextBoxDocument.
-// InsertText -- the same path typing, paste and cut take -- so these exercise the real edit pipeline
-// rather than a programmatic Text assignment.
+// Edits are driven through Paste (string), which replaces the selection through the document and keeps
+// the undo step -- upstream's documented alternative to SelectedText, which clears the buffer (TXT-20).
+// These used to go through SelectedText, which only worked because that setter did not do what
+// upstream's does.
 public class TextBoxUndoTests
 {
     [Fact]
@@ -25,7 +26,7 @@ public class TextBoxUndoTests
     {
         using var box = new TextBox { Text = "hello" };
         box.SelectionStart = 5;
-        box.SelectedText = " world";
+        box.Paste (" world");
 
         Assert.Equal ("hello world", box.Text);
         Assert.True (box.CanUndo);
@@ -41,7 +42,7 @@ public class TextBoxUndoTests
         // Replacing a selection is a delete plus an insert internally; Win32 undoes it in one go.
         using var box = new TextBox { Text = "hello" };
         box.SelectAll ();
-        box.SelectedText = "goodbye";
+        box.Paste ("goodbye");
 
         Assert.Equal ("goodbye", box.Text);
 
@@ -54,9 +55,9 @@ public class TextBoxUndoTests
     public void Undo_CoalescesARunOfTyping ()
     {
         using var box = new TextBox { Text = "" };
-        box.SelectedText = "a";
-        box.SelectedText = "b";
-        box.SelectedText = "c";
+        box.Paste ("a");
+        box.Paste ("b");
+        box.Paste ("c");
 
         Assert.Equal ("abc", box.Text);
 
@@ -71,7 +72,7 @@ public class TextBoxUndoTests
     {
         using var box = new TextBox { Text = "hello" };
         box.SelectAll ();
-        box.SelectedText = "goodbye";
+        box.Paste ("goodbye");
 
         box.Undo ();
         Assert.Equal ("hello", box.Text);
@@ -86,7 +87,7 @@ public class TextBoxUndoTests
     {
         using var box = new TextBox { Text = "hello" };
         box.SelectAll ();
-        box.SelectedText = "edited";
+        box.Paste ("edited");
         Assert.True (box.CanUndo);
 
         box.Text = "assigned";
@@ -101,7 +102,7 @@ public class TextBoxUndoTests
     {
         using var box = new TextBox { Text = "hello" };
         box.SelectAll ();
-        box.SelectedText = "edited";
+        box.Paste ("edited");
 
         box.ClearUndo ();
 
