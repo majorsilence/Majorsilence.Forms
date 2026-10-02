@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Linq;
 
@@ -446,17 +446,53 @@ namespace Majorsilence.Forms
         // IsCurrentCellDirty and needs its own state.
 
         /// <summary>Gets or sets the first cell visible in the control.</summary>
+        /// <remarks>
+        /// The getter answered row 0, column 0 whatever the scroll position, and the setter moved the
+        /// CURRENT cell instead of scrolling (DGV-34). As upstream (<c>DataGridView.cs</c>,
+        /// FirstDisplayedCell): the first displayed row and column, and assigning scrolls that cell to
+        /// the top-left of the scrolling region without touching the current cell.
+        /// </remarks>
         public DataGridViewCell? FirstDisplayedCell {
             get {
-                if (Rows.Count == 0 || Columns.Count == 0)
+                var row = -1;
+
+                for (var i = Math.Max (0, FirstDisplayedScrollingRowIndex); i < Rows.Count; i++) {
+                    if (RowDeviceHeight (i) > 0) {
+                        row = i;
+                        break;
+                    }
+                }
+
+                // A frozen column is displayed before any scrolling one; otherwise the first scrolling
+                // column the offset has not scrolled away.
+                var column = DisplayOrder.Where (i => Columns[i].Visible && Columns[i].Frozen).DefaultIfEmpty (-1).First ();
+
+                if (column < 0)
+                    column = FirstDisplayedScrollingColumnIndex;
+
+                if (row < 0 || column < 0 || column >= Rows[row].Cells.Count)
                     return null;
 
-                var row = Rows[0];
-                return row.Cells.Count > 0 ? row.Cells[0] : null;
+                return Rows[row].Cells[column];
             }
             set {
-                if (value?.OwningRow is { } row)
-                    CurrentCell = value;
+                if (value is null)
+                    return;
+
+                if (value.DataGridView != this)
+                    throw new ArgumentException ("The cell does not belong to this DataGridView.", nameof (value));
+
+                if (value.RowIndex < 0 || value.ColumnIndex < 0)
+                    throw new InvalidOperationException ("The first displayed cell cannot be a header cell.");
+
+                if (value.Frozen)
+                    return;
+
+                if (value.OwningRow?.Frozen != true)
+                    FirstDisplayedScrollingRowIndex = value.RowIndex;
+
+                if (!Columns[value.ColumnIndex].Frozen)
+                    FirstDisplayedScrollingColumnIndex = value.ColumnIndex;
             }
         }
 

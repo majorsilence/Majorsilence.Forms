@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.ComponentModel;
 
 namespace Majorsilence.Forms
 {
@@ -56,10 +57,17 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Adds a new row with the specified cell values.
+        /// Adds a new row with the specified cell values and returns its index.
         /// </summary>
-        public DataGridViewRow Add (params string[] values)
+        /// <remarks>
+        /// Returns the index, as upstream's <c>int Add (params object[] values)</c> does
+        /// (<c>DataGridViewRowCollection.cs</c>). It returned the row, so <c>int r = grid.Rows.Add ("a", 1);</c>
+        /// -- the most common line in migrated grid code -- did not compile (DGV-04). There is no
+        /// <c>string[]</c> overload upstream either: a string array converts to <c>object[]</c> and lands here.
+        /// </remarks>
+        public int Add (params object[] values)
         {
+            Guard.ThrowIfNull (values);
             ThrowIfBound ();
             var row = (DataGridViewRow)owner.RowTemplate.Clone ();
             row.Cells.Clear ();
@@ -68,23 +76,7 @@ namespace Majorsilence.Forms
                 row.Cells.Add (value);
 
             base.Add (row);
-            return row;
-        }
-
-        /// <summary>
-        /// Adds a new row with the specified object cell values.
-        /// </summary>
-        public DataGridViewRow Add (params object[] values)
-        {
-            ThrowIfBound ();
-            var row = (DataGridViewRow)owner.RowTemplate.Clone ();
-            row.Cells.Clear ();
-
-            foreach (var value in values)
-                row.Cells.Add (value);
-
-            base.Add (row);
-            return row;
+            return Count - 1;
         }
 
         /// <summary>
@@ -166,6 +158,9 @@ namespace Majorsilence.Forms
 
             if (clearedCount > 0)
                 owner.RaiseRowsRemoved (0, clearedCount);
+
+            // Upstream's Clear announces a Refresh, not one Remove per row (DataGridViewRowCollection.cs).
+            OnCollectionChanged (new CollectionChangeEventArgs (CollectionChangeAction.Refresh, null));
         }
 
         /// <inheritdoc/>
@@ -175,15 +170,21 @@ namespace Majorsilence.Forms
             base.InsertItem (index, item);
             owner.OnRowsChanged ();
             owner.RaiseRowsAdded (index, 1);
+
+            // Declared and raised by nothing (DGV-40). Upstream raises Add with the row from every add
+            // and insert, after the grid has taken the row in.
+            OnCollectionChanged (new CollectionChangeEventArgs (CollectionChangeAction.Add, item));
         }
 
         /// <inheritdoc/>
         protected override void RemoveItem (int index)
         {
-            this[index].SetOwner (null);
+            var removed = this[index];
+            removed.SetOwner (null);
             base.RemoveItem (index);
             owner.OnRowsChanged ();
             owner.RaiseRowsRemoved (index, 1);
+            OnCollectionChanged (new CollectionChangeEventArgs (CollectionChangeAction.Remove, removed));
         }
 
         /// <summary>
@@ -214,6 +215,10 @@ namespace Majorsilence.Forms
 
             if (rows.Count > 0)
                 owner.RaiseRowsAdded (0, rows.Count);
+
+            // A whole-list swap is upstream's Refresh -- the bind path's ReplaceAll is a Clear and an
+            // AddRange, both of which announce Refresh there.
+            OnCollectionChanged (new CollectionChangeEventArgs (CollectionChangeAction.Refresh, null));
         }
 
         /// <inheritdoc/>

@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Collections.ObjectModel;
 using System.Linq;
 
@@ -120,14 +120,18 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Adds a column with the specified internal name and header text (WinForms-compatible overload).
+        /// Adds a column with the specified internal name and header text, and returns its index.
         /// </summary>
-        public DataGridViewColumn Add (string name, string headerText)
+        /// <remarks>
+        /// Returns the index, as upstream's <c>int Add (string? columnName, string? headerText)</c> does
+        /// (<c>DataGridViewColumnCollection.cs</c>): it returned the column, so
+        /// <c>int c = grid.Columns.Add ("Id", "ID");</c> did not compile (DGV-04).
+        /// </remarks>
+        public int Add (string name, string headerText)
         {
             var column = owner.CreateColumnInstance (headerText);
             column.Name = name;
-            Add (column);
-            return column;
+            return Add (column);
         }
 
         /// <summary>

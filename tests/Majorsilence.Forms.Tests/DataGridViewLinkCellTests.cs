@@ -204,9 +204,12 @@ namespace Majorsilence.Forms.Tests
             return grid.DeviceToLogicalUnits (new Point (r.Left + r.Width / 2, r.Top + r.Height / 2));
         }
 
+        // On the link TEXT: a click on the cell's empty space is not a click on the link (DGV-28).
         private static void ClickCell (LinkGrid grid, DataGridViewCell cell)
         {
-            var at = CellCentre (grid, cell);
+            var origin = grid.DeviceToLogicalUnits (grid.GetCellBounds (cell.RowIndex, cell.ColumnIndex)).Location;
+            var link = cell.ContentBounds;
+            var at = new Point (origin.X + link.X + link.Width / 2, origin.Y + link.Y + link.Height / 2);
 
             grid.PressAt (at);
             grid.ReleaseAt (at);

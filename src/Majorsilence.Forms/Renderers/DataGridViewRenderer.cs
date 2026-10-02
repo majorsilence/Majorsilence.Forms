@@ -111,7 +111,8 @@ namespace Majorsilence.Forms.Renderers
             var font = control.ColumnHeadersDefaultCellStyle.Font ?? DataGridView.DefaultColumnHeaderStyle.GetFont ();
             var font_size = control.ColumnHeadersDefaultCellStyle.FontSize ?? DataGridView.DefaultColumnHeaderStyle.GetFontSize ();
 
-            e.Canvas.DrawText (column.HeaderText, font, control.LogicalToDeviceUnits (font_size), text_bounds, fg, column.HeaderAlignment, maxLines: 1);
+            // The header CELL's value, which HeaderText is a view of (DGV-24) -- in any type, as upstream paints it.
+            e.Canvas.DrawText (column.HeaderDisplayText, font, control.LogicalToDeviceUnits (font_size), text_bounds, fg, column.HeaderAlignment, maxLines: 1);
 
             // Draw sort indicator
             if (column.SortOrder != SortOrder.None)
@@ -127,8 +128,8 @@ namespace Majorsilence.Forms.Renderers
                 bounds,
                 -1,                                   // -1 is WinForms' row index for a column header
                 DataGridViewElementStates.Visible,
-                column.HeaderText,
-                column.HeaderText,
+                column.HeaderCell.Value,
+                column.HeaderDisplayText,
                 errorText: null,
                 column.HeaderCell.InheritedStyle,
                 new DataGridViewAdvancedBorderStyle (),
@@ -401,7 +402,8 @@ namespace Majorsilence.Forms.Renderers
         // The cell's own ControlStyle with its InheritedStyle's set values laid over it: colours, font,
         // alignment, wrap mode, padding and the selection colours. A new object each paint, so nothing
         // on the cell is mutated.
-        private static ControlStyle? WithInherited (DataGridViewCell? cell)
+        // Internal so the grid's content-bounds geometry measures with the font and alignment painting uses.
+        internal static ControlStyle? WithInherited (DataGridViewCell? cell)
         {
             if (cell is null)
                 return null;
@@ -502,6 +504,10 @@ namespace Majorsilence.Forms.Renderers
             return merged;
         }
 
+        // Logical width of the strip a row header keeps for its glyph when it also shows text: upstream's
+        // icon plus a margin either side (DataGridViewRowHeaderCell: ICON_WIDTH 12, ICON_MARGINWIDTH 3).
+        private const int RowHeaderGlyphStripWidth = 18;
+
         /// <summary>
         /// Renders a row header cell.
         /// </summary>
@@ -513,15 +519,34 @@ namespace Majorsilence.Forms.Renderers
             // Draw right border
             e.Canvas.DrawLine (bounds.Right - 1, bounds.Top, bounds.Right - 1, bounds.Bottom, DataGridView.DefaultRowHeaderStyle.Border.Right.GetColor ());
 
+            // The header cell's value -- the row-number idiom, row.HeaderCell.Value = (i + 1).ToString ().
+            // Never painted before (DGV-24). Upstream puts the row's glyph in a strip at the left and the
+            // text after it (DataGridViewRowHeaderCell.PaintPrivate), so with text present the glyphs
+            // below move into that strip; without text they stay centred as they always were.
+            var header_text = row.HeaderCell.Value?.ToString ();
+            var has_text = !string.IsNullOrEmpty (header_text);
+            var glyph_strip = has_text
+                ? new Rectangle (bounds.Left, bounds.Top, Math.Min (bounds.Width, e.LogicalToDeviceUnits (RowHeaderGlyphStripWidth)), bounds.Height)
+                : bounds;
+
+            if (has_text) {
+                var text_bounds = Rectangle.FromLTRB (glyph_strip.Right, bounds.Top, Math.Max (glyph_strip.Right, bounds.Right - e.LogicalToDeviceUnits (2)), bounds.Bottom);
+                var fg = control.RowHeadersDefaultCellStyle.ForegroundColor ?? DataGridView.DefaultRowHeaderStyle.GetForegroundColor ();
+                var font = control.RowHeadersDefaultCellStyle.Font ?? control.DefaultCellStyle.Font ?? Theme.UIFont;
+                var font_size = control.RowHeadersDefaultCellStyle.FontSize ?? control.DefaultCellStyle.FontSize ?? Theme.ItemFontSize;
+
+                e.Canvas.DrawText (header_text!, font, control.LogicalToDeviceUnits (font_size), text_bounds, fg, ContentAlignment.MiddleLeft, maxLines: 1);
+            }
+
             // ShowEditingIcon (W6 mechanisms): the row being edited carries the pencil upstream draws
             // in place of the current-row arrow.
             if (control.ShowEditingIcon && control.IsCurrentCellInEditMode && control.CurrentCellAddress.Y == rowIndex) {
-                RenderEditingPencil (bounds, e);
+                RenderEditingPencil (glyph_strip, e);
             }
             // Draw selection indicator triangle for the selected row
             else if (control.SelectedRowIndex == rowIndex) {
                 var tri_size = 6;
-                var tri_x = bounds.Left + (bounds.Width - tri_size) / 2;
+                var tri_x = glyph_strip.Left + (glyph_strip.Width - tri_size) / 2;
                 var tri_y = bounds.Top + (bounds.Height - tri_size) / 2;
 
                 using var path = new SKPath ();

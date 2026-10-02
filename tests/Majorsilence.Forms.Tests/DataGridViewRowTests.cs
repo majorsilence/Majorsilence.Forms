@@ -313,7 +313,8 @@ namespace Majorsilence.Forms.Tests
         {
             using var control = new DataGridView ();
 
-            var row = control.Rows.Add ("a", "b", "c");
+            var index = control.Rows.Add ("a", "b", "c");
+            var row = control.Rows[index];
 
             Assert.Same (control, row.DataGridView);
             Assert.Equal (0, row.Index);

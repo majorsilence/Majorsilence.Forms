@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 ﻿using System.Drawing;
 
 namespace Majorsilence.Forms
@@ -286,16 +286,46 @@ namespace Majorsilence.Forms
                 // this assignment, and only the grid can raise its own event. A detached cell (one not
                 // yet added to a row, as a designer or a test builds) just stores.
                 owner?.DataGridView?.NotifyCellValueSet (this, old_value);
+
+                // A header cell belongs to no row, so nothing above reaches the grid -- and what it
+                // holds is the caption the grid paints (DGV-24).
+                if (owner is null)
+                    (owning_column?.DataGridView ?? header_row?.DataGridView)?.Invalidate ();
             }
         }
 
         /// <summary>Gets the formatted (display) value of this cell.</summary>
-        public object? FormattedValue
-            // The lookup first: a combo-box cell's formatted value is the DISPLAY member of the item its
-            // value matches, which is what CellPainting handlers and PreferredSize read (DGV-26).
-            => FormattedTextOverride
-               ?? DataGridView.LookUpDisplayText (OwningColumn, Value)
-               ?? Value?.ToString ();
+        /// <remarks>
+        /// Through the same formatting pass the painter uses -- <see cref="DataGridView.CellFormatting"/>,
+        /// the style's <c>Format</c> and <c>NullValue</c>, the combo-box lookup -- as upstream's
+        /// <c>FormattedValue</c> goes through <c>GetFormattedValue</c>, the one path paint, the clipboard and
+        /// this property share. It skipped all of that, so a <c>"C2"</c> column copied raw decimals and a
+        /// handler reading <c>FormattedValue</c> saw something other than what was drawn (DGV-36).
+        /// </remarks>
+        public object? FormattedValue {
+            get {
+                // Guarded because a CellFormatting handler that reads this cell's FormattedValue would
+                // otherwise recurse for ever (upstream has that trap; there is no reason to keep it).
+                if (!formatting && owner is { } row && row.DataGridView is { } grid && RowIndex >= 0 && ColumnIndex >= 0) {
+                    formatting = true;
+
+                    try {
+                        if (grid.ApplyCellFormatting (row, RowIndex, ColumnIndex, out _) is { } formatted)
+                            return formatted;
+                    } finally {
+                        formatting = false;
+                    }
+                }
+
+                // The lookup first: a combo-box cell's formatted value is the DISPLAY member of the item
+                // its value matches, which is what CellPainting handlers and PreferredSize read (DGV-26).
+                return FormattedTextOverride
+                       ?? DataGridView.LookUpDisplayText (OwningColumn, Value)
+                       ?? Value?.ToString ();
+            }
+        }
+
+        private bool formatting;
 
         /// <summary>
         /// An optional display-text override set by a formatting pass (e.g. RadGridView's CellFormatting
@@ -343,6 +373,10 @@ namespace Majorsilence.Forms
         // Set for cells that belong to a column directly rather than through a row -- i.e. header cells,
         // which have no ColumnIndex to look themselves up by.
         internal DataGridViewColumn? owning_column;
+
+        // Set for a row's header cell, which is in no row's Cells either. Only used to repaint: the
+        // row-number idiom assigns row.HeaderCell.Value and expects to see it (DGV-24).
+        internal DataGridViewRow? header_row;
 
         /// <summary>Gets the column that contains this cell.</summary>
         public DataGridViewColumn? OwningColumn {

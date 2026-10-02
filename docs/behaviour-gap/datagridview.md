@@ -70,8 +70,9 @@ column displays the matching item's `DisplayMember`, and editing one hosts a
 `DataGridViewComboBoxEditingControl` that commits its `SelectedValue`. An unmatched value falls back to
 the value itself rather than raising `DataError` — a recorded deviation.
 
-**Still open in this file:** no P0s. `DGV-04`, `DGV-05`, `DGV-12`, `DGV-23`, `DGV-24`,
-`DGV-27`, `DGV-28`, `DGV-34`–`DGV-40`.
+**Still open in this file:** no P0s. As of 2026-10-02 (#342) `DGV-04`, `DGV-12`, `DGV-24`, `DGV-28`,
+`DGV-34`, `DGV-35`, `DGV-36`, `DGV-38`, `DGV-39`, `DGV-40` and `DGV-42` are closed -- see each finding;
+of #342's list only `DGV-23` (`AllowUserToOrderColumns`; `DisplayIndex` itself is real) is still open.
 
 ## Findings
 
@@ -99,7 +100,8 @@ the value itself rather than raising `DataError` — a recorded deviation.
 - **Test:** `Assert.Equal(0, grid.Rows.Add()); Assert.Equal(2, grid.Rows.Add(2));`
 - **Tests today:** `DataGridViewTests.Rows_AddCount_AddsEmptyRows` asserts only `Count`.
 
-### DGV-04 — `Rows.Add(params object[])`, `Rows.Add(params string[])`, `Columns.Add(string,string)`, `DataBindingComplete` — Cat E — P1 — High
+### DGV-04 — `Rows.Add(params object[])`, `Rows.Add(params string[])`, `Columns.Add(string,string)`, `DataBindingComplete` — Cat E — P1 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `Rows.Add (params object[])` and `Columns.Add (string, string)` return the new index, as upstream; the non-WinForms `Rows.Add (params string[])` is gone (a `string[]` converts to `object[]` and lands on the upstream overload). `DataBindingComplete` is a `DataGridViewBindingCompleteEventHandler` with a real `protected virtual OnDataBindingComplete`, raised after `DataSourceChanged`/`DataMemberChanged` with `Reset` and after every bound-list change with that change's type (`DataGridView.DataConnection.cs`, `currencyManager_ListChanged`), and not while unbound. Three callers changed: two tests, the PointOfSale sample's `GridColumns.AddBound`, and `RadGridView`'s column collection (Telerik's overload still returns the column).
 - **Ours:** `Rows.Add(params object[])` and a non-WinForms `Add(params string[])` return `DataGridViewRow` (`DataGridViewRowCollection.cs:33-56`); `Columns.Add(string name, string headerText)` returns `DataGridViewColumn` (`DataGridViewColumnCollection.cs:107-113`); `DataBindingComplete` is `EventHandler<EventArgs>` and the `OnDataBindingComplete(DataGridViewBindingCompleteEventArgs)` hook is never called (`DataGridView.cs:239-241`, `KryptonPortParity.cs:199`).
 - **Upstream:** `int Add(params object[] values)` (`…/DataGridViewRowCollection.cs:272`); `int Add(string? columnName, string? headerText)`; `DataGridViewBindingCompleteEventHandler DataBindingComplete`.
 - **Impact:** Compile-time, not silent, but ubiquitous: `int r = dgv.Rows.Add("a", 1);`, `int c = dgv.Columns.Add("Id", "ID");` and designer-generated `void grid_DataBindingComplete(object s, DataGridViewBindingCompleteEventArgs e)` all fail to compile. (Listed because the name-level scanner reports 0 gaps here.)
@@ -163,7 +165,8 @@ the value itself rather than raising `DataError` — a recorded deviation.
 - **Test:** `SelectedRowIndex = 1` → `CurrentCellChanged` 1, `CellLeave(0,0)` then `CellEnter(0,1)`.
 - **Tests today:** none.
 
-### DGV-12 — `CurrentCell` setter semantics — Cat A — P2 — High
+### DGV-12 — `CurrentCell` setter semantics — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** one `MoveCurrentCell` and one `ReplaceSelectionWithCurrentCell` instead of the two index setters, so one `SelectionChanged`, one `CurrentCellChanged` and `RowValidating` once; the cell is scrolled into view first; `null` runs `ClearSelection` and moves to (-1, -1); a cell of another grid throws `ArgumentException`. A refused move (a validating handler cancels) leaves the cell where it was rather than throwing `InvalidOperationException` as upstream does -- the fail-soft rule, recorded.
 - **Ours:** `null` is ignored; assigning sets `SelectedColumnIndex` then `SelectedRowIndex`, so `SelectionChanged` fires twice and `RowValidating` runs between the two halves (`DataGridView.cs:1532-1540`). Does not scroll the cell into view.
 - **Upstream:** `null` clears selection and current cell; one `SetCurrentCellAddressCore` + a single flushed `SelectionChanged` (`…/DataGridView.cs:1718-1729`, `…/DataGridView.Methods.cs:6787-6791`).
 - **Impact:** `grid.CurrentCell = null` (the documented way to "deselect everything" before rebinding) does nothing; double `SelectionChanged` doubles detail refreshes.
@@ -252,6 +255,7 @@ the value itself rather than raising `DataError` — a recorded deviation.
 - **Tests today:** none.
 
 ### DGV-23 — `DataGridViewColumn.DisplayIndex` setter is a no-op; `AllowUserToOrderColumns` stored-only — Cat B — P2 — High
+- **Half already fixed:** `DisplayIndex` is real (W6 mechanisms, ninth chunk, 2026-09-25). **Still open:** `AllowUserToOrderColumns` -- there is no header drag. A drag has to be told from a click, and the header click sorts on the PRESS here (`OnMouseDown`), where upstream sorts on the release; the header click has to move to mouse-up first, or every reorder drag would sort the column on the way.
 - **Ours:** `DisplayIndex { get => Index; set { /* ordering not implemented */ } }` (`DataGridViewColumn.cs:223-226`); `ColumnDisplayIndexChanged` is `add { } remove { }` (`DataGridView.cs:422`).
 - **Upstream:** `DisplayIndex` reorders display without changing `Index`; header drag reorders when `AllowUserToOrderColumns`.
 - **Impact:** `Columns["Total"].DisplayIndex = 0` (moving a bound column) silently does nothing; designer-serialized `DisplayIndex` values are dropped.
@@ -259,7 +263,8 @@ the value itself rather than raising `DataError` — a recorded deviation.
 - **Test:** 3 columns, `Columns[2].DisplayIndex = 0` → `GetCellDisplayRectangle(2,0,false).X == 0`.
 - **Tests today:** none.
 
-### DGV-24 — `HeaderText` is not `HeaderCell.Value` — Cat A — P2 — High
+### DGV-24 — `HeaderText` is not `HeaderCell.Value` — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `HeaderText` reads and writes `HeaderCell.Value` (a non-string value reads back as `""`, as upstream); the header painter draws the header cell's value in any type, and a header cell's `Value` setter repaints the grid. A row's `HeaderCell.Value` is painted in its header, with the current-row glyph moved into upstream's 18-pixel strip on the left when there is text (`DataGridViewRowHeaderCell.PaintPrivate`). `Column.Clone` carries the header value across.
 - **Ours:** `HeaderText` is a private field (`DataGridViewColumn.cs:10`, `:149-157`); the renderer draws `column.HeaderText` (`Renderer:114`); `HeaderCell.Value` is independent.
 - **Upstream:** `HeaderText` reads/writes `HeaderCell.Value` (`…/DataGridViewColumn.cs:394`).
 - **Impact:** `col.HeaderCell.Value = "Qty"` shows the old text; `row.HeaderCell.Value = rowNumber` (row-number idiom) is never painted either — `RenderRowHeader` draws only the current-row triangle (`Renderer:404-427`).
@@ -291,7 +296,8 @@ the value itself rather than raising `DataError` — a recorded deviation.
 - **Test:** render / `CellPainting.FormattedValue == "Delete"`.
 - **Tests today:** none.
 
-### DGV-28 — Link column painted as plain text; `CellContentClick` raised for any click in any cell — Cat A — P2 — High
+### DGV-28 — Link column painted as plain text; `CellContentClick` raised for any click in any cell — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** the painting half was already fixed (`DGV-42`/`DGV-43`). `CellContentClick` and `CellContentDoubleClick` now need the press and the release on the cell's CONTENT, as upstream's `OnMouseUpInternal`/`OnCommonCellContentClick` decide it. `GetContentBounds`/`ContentBounds` became upstream's: cell-relative and logical, the measured text for a text or link cell (empty when the cell is), the glyph for a check box, the inner cell for buttons, combo boxes and images. The check-box toggle and the link's visited mark follow the same gate, as upstream's check box switches from its content click and its link from `LinkBoundsContainPoint`. Order kept: `CellClick`, `CellMouseClick`, then `CellContentClick` (upstream raises the content click from inside `CellMouseUp`, after the two click events). **Behaviour change:** a click beside a short text no longer raises `CellContentClick`; two existing tests now click the text.
 - **Ours:** no `DataGridViewLinkColumn` branch in `RenderCell` (falls to `DrawText`, `Renderer:486-488`); `LinkColor/VisitedLinkColor/LinkBehavior` stored-only (`DataGridViewCompat.cs:297-331`); `OnMouseDown` raises `CellContentClick` for every `col >= 0` (`DataGridView.cs:2287-2291`), after `CellMouseClick` (upstream order is `CellClick → CellContentClick → CellMouseClick`).
 - **Upstream:** link cells paint underlined in `LinkColor`; `CellContentClick` fires only when the hit is inside the content bounds (`…/DataGridView.Methods.cs:11622`).
 - **Impact:** Links are not distinguishable from text; handlers assuming content-only clicks fire on padding. Mostly cosmetic.
@@ -339,7 +345,8 @@ the value itself rather than raising `DataError` — a recorded deviation.
 - **Test:** bind 3 items → `RowsAdded(0,3)` once; `Rows.Add()` while bound → throws.
 - **Tests today:** `DataGridViewCollectionEventTests` (unbound only).
 
-### DGV-34 — Scrolling API: `ScrollIntoView`, `FirstDisplayedCell`, `FirstDisplayedScrollingColumnIndex`, `HorizontalScrollingOffset`, `ScrollBars`, `Scroll` event, `DisplayedRowCount(includePartialRow)` — Cat B/C — P2 — High
+### DGV-34 — Scrolling API: `ScrollIntoView`, `FirstDisplayedCell`, `FirstDisplayedScrollingColumnIndex`, `HorizontalScrollingOffset`, `ScrollBars`, `Scroll` event, `DisplayedRowCount(includePartialRow)` — Cat B/C — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `ScrollIntoView (col, row)` scrolls the row to the nearest edge (walking actual row heights) and the column fully into the scrolling band. `FirstDisplayedCell` answers the first displayed row and column and assigning it scrolls without moving the current cell (it set `CurrentCell`). `DisplayedRowCount` counts from the first displayed row and counts a partial row when asked; the internal callers (PageUp/PageDown) ask for full rows. `DataGridView.Scroll` is declared on the grid, as upstream, and raised after every scroll with old and new positions and the scroll bar's gesture type when there is one. `FirstDisplayedScrollingColumnIndex` walks the display order. `HorizontalScrollingOffset`/`ScrollBars` were already wired (W6.2). **Two bugs found on the way:** the horizontal range took the vertical bar off twice and the row headers not at all, so with row headers showing the last column could never be scrolled fully into view; and the range is in device pixels and was never recomputed when the scale changed, so at 2x it covered half the columns -- it is now rechecked before paint and before `ScrollIntoView`.
 - **Ours:** `ScrollIntoView => Invalidate()` (`DataGridView.cs:2996`); `FirstDisplayedCell` getter returns `Rows[0].Cells[0]` regardless of scroll (`DataGridViewParity.cs:443-450`); `FirstDisplayedScrollingColumnIndex`, `HorizontalScrollingOffset` (not tied to `horizontal_scroll_offset`), `ScrollBars` are auto-properties (3112-3118); `Scroll` is `add { } remove { }` on `Control` (`Control.Events.cs:568`) and `OnScroll` is never called (`KryptonPortParity.cs:199`); `DisplayedRowCount` ignores its parameter and counts from row 0 rather than `top_index` (3149-3167).
 - **Upstream:** `DisplayedRowCount` distinguishes partial rows (`…/DataGridView.Methods.cs:5563-5567`); `Scroll` raised on every scroll (`…/DataGridView.cs:4868`); `ScrollBars.None` hides both bars.
 - **Impact:** "scroll to the newly added row" via `ScrollIntoView`/`FirstDisplayedCell = …` does nothing (only `FirstDisplayedScrollingRowIndex` works); two grids kept in sync via `Scroll` never sync; `ScrollBars = None` still shows bars.
@@ -347,7 +354,8 @@ the value itself rather than raising `DataError` — a recorded deviation.
 - **Test:** 100 rows, `ScrollIntoView(0, 50)` → `FirstDisplayedScrollingRowIndex > 0` and `Scroll` raised.
 - **Tests today:** `DataGridViewScrollBarChildrenTests` (children only).
 
-### DGV-35 — `HitTest` reports only cells; `DataGridViewHitTestType` is nested in `DataGridView` — Cat A/E — P2 — High
+### DGV-35 — `HitTest` reports only cells; `DataGridViewHitTestType` is nested in `DataGridView` — Cat A/E — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `DataGridViewHitTestType` is at namespace scope with upstream's values; `HitTest` reports `ColumnHeader` (row -1), `RowHeader` (column -1), `TopLeftHeader`, `Cell`, and both scroll bars, with `ColumnX`/`RowY` the element's logical left/top. No nested alias was kept: upstream has none, and the only in-repo user (`Compat/DataGrid.cs`) binds to the top-level type unchanged.
 - **Ours:** scans cells only and returns `Nowhere` for headers (`DataGridView.cs:1269-1280`); the enum is `DataGridView.DataGridViewHitTestType` (1283-1299) with no top-level type (grep: only DataGridView.cs references).
 - **Upstream:** top-level `System.Windows.Forms.DataGridViewHitTestType` with `ColumnHeader/RowHeader/TopLeftHeader/…`; `HitTest` reports headers and scrollbars (`…/DataGridView.HitTestInfo.cs`).
 - **Impact:** Context-menu code `var hit = grid.HitTest(e.X, e.Y); if (hit.Type == DataGridViewHitTestType.ColumnHeader)` does not compile outside a `DataGridView` subclass and, once fixed, never sees a header hit.
@@ -355,7 +363,8 @@ the value itself rather than raising `DataError` — a recorded deviation.
 - **Test:** `HitTest(x, 5)` over a header → `Type == ColumnHeader`, `ColumnIndex` correct.
 - **Tests today:** none.
 
-### DGV-36 — `DataGridViewCell.FormattedValue` / `GetClipboardContent` bypass formatting; commit ignores `NullValue`/`DataSourceNullValue` — Cat A — P2 — High
+### DGV-36 — `DataGridViewCell.FormattedValue` / `GetClipboardContent` bypass formatting; commit ignores `NullValue`/`DataSourceNullValue` — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** the commit half was already fixed (`ParseForCommit` maps empty text to `DataSourceNullValue`, W5.1). `FormattedValue` now goes through `ApplyCellFormatting` -- the subclass hook, `CellFormatting`, `Format`, `NullValue`, the lookup -- so the clipboard and handlers see what is painted. A reentrancy guard stops a `CellFormatting` handler that reads the same cell's `FormattedValue` from recursing (upstream would overflow the stack).
 - **Ours:** `FormattedValue => FormattedTextOverride ?? value?.ToString()` (`DataGridViewCell.cs:187`) — no `Format`, `NullValue`, or `CellFormatting`; `GetClipboardContent` copies it (`DataGridView.cs:2881`); `ApplyCellFormatting` (2696) is renderer-only; `EndEdit` stores `""` for cleared cells (965).
 - **Upstream:** `GetFormattedValue` is the single formatting path used by paint, clipboard and `FormattedValue`; `ParseFormattedValue` maps empty/`NullValue` text to `DataSourceNullValue` (`DBNull`).
 - **Impact:** Copy/paste of a `"C2"`-formatted column yields raw decimals; `cell.FormattedValue` in handlers differs from what is drawn; clearing a bound int cell tries to store `""` → conversion failure → silent revert (DGV-10).
@@ -371,7 +380,8 @@ the value itself rather than raising `DataError` — a recorded deviation.
 - **Test:** `cell.ErrorText = "x"`; render; probe `ErrorIconBounds` centre for non-background colour.
 - **Tests today:** `DataGridViewCellTests.ErrorText_Set_GetReturnsExpected` (store only).
 
-### DGV-38 — `VirtualMode`, `CellValueNeeded`, `CellValuePushed`, `NewRowNeeded`, `RowDirtyStateNeeded`, `CancelRowEdit` — Cat B/D — P2 — High
+### DGV-38 — `VirtualMode`, `CellValueNeeded`, `CellValuePushed`, `NewRowNeeded`, `RowDirtyStateNeeded`, `CancelRowEdit` — Cat B/D — P2 — High — **CLOSED (2026-10-02)**
+- **Already fixed** (W6 mechanisms, fifth chunk, 2026-09-23) for `VirtualMode`, `CellValueNeeded`, `CellValuePushed`, `NewRowNeeded` and `CancelRowEdit`. **Fix (applied)** for the last one: `RowDirtyStateNeeded` is upstream's `QuestionEventHandler`, raised by `IsCurrentRowDirty` in virtual mode with the grid's own answer as the default (`DataGridView.cs`, `IsCurrentRowDirty`). It was an `EventHandler` nothing raised.
 - **Ours:** `VirtualMode` auto-property (`DataGridView.cs:3121`); the events are `add { } remove { }` or never invoked (434-437, 407, 247-249, `DataGridViewParity.cs:167`).
 - **Upstream:** `GetValue`/`SetValue` route through `OnCellValueNeeded`/`OnCellValuePushed` when `VirtualMode` (`…/DataGridViewCell.cs:3927`).
 - **Impact:** Virtual-mode grids (large result sets) show empty cells. Documented in the compat matrix; listed because the trigger points (`Cell.Value` get/set, `EndEdit`) exist.
@@ -379,7 +389,8 @@ the value itself rather than raising `DataError` — a recorded deviation.
 - **Test:** `VirtualMode = true; RowCount = 3; ColumnCount = 1;` handler returns "v" → `grid[0,0].Value == "v"`.
 - **Tests today:** none.
 
-### DGV-39 — `EditingControlShowing` args / `EditingControl` (see DGV-06) and `CellStyle` — Cat A — P2 — High
+### DGV-39 — `EditingControlShowing` args / `EditingControl` (see DGV-06) and `CellStyle` — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Already fixed** by W5.1 (2026-09-11, the editing lifecycle): `EditingControlShowing` carries the cell's `InheritedStyle`, and `EditingControl` is the live editor. Covered by `DataGridViewEditingLifecycleTests`.
 - **Ours:** `new DataGridViewEditingControlShowingEventArgs(editor, new DataGridViewCellStyle())` — an empty style, not the cell's inherited style (`DataGridView.cs:176`).
 - **Upstream:** passes the cell's resolved `DataGridViewCellStyle` (`…/DataGridView.Methods.cs:2684-2691`).
 - **Impact:** Handlers that read `e.CellStyle.BackColor`/`Font` to style the editor get empties.
@@ -387,7 +398,8 @@ the value itself rather than raising `DataError` — a recorded deviation.
 - **Test:** `DefaultCellStyle.BackColor = Red`; `BeginEdit` → `e.CellStyle.BackColor == Red`.
 - **Tests today:** `DataGridViewBeginEditReentrancyTests` (reentrancy only).
 
-### DGV-40 — `Rows.CollectionChanged` / `Columns.CollectionChanged` never raised — Cat D — P2 — High
+### DGV-40 — `Rows.CollectionChanged` / `Columns.CollectionChanged` never raised — Cat D — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `Columns.CollectionChanged` was already raised (W6 mechanisms, second chunk). `Rows.CollectionChanged` now is: `Add` with the row from every add and insert (bound rows included), `Remove` with the row, `Refresh` for `Clear` and for the bind's whole-list swap, as upstream. `AddRange` raises one `Add` per row where upstream raises one `Refresh`.
 - **Ours:** declared (`DataGridViewParity.Cell.cs:325`, `DataGridViewFamilyParity.cs:268` under `CS0067`); `OnCollectionChanged` has no callers; only `DataGridViewCellCollection.AddRange` raises its own (`RemainingMemberParity.cs:657`).
 - **Upstream:** raised from `Insert/Remove/Clear` on both collections.
 - **Impact:** Code that hooks `grid.Columns.CollectionChanged` to persist layout never fires; low traffic.
@@ -418,7 +430,8 @@ Five entries closed, five recorded.
 - **Decision:** it is in this layer's surface and named exactly like three siblings that now work, so it behaves the way an application reading that name would expect rather than silently doing nothing. Default `false` (keep the highlight), as the less surprising of the two for a member upstream does not define. Recorded as a decision rather than left to look like parity.
 - **Fix (applied):** both `IsRowPaintedSelected` and `IsCellPaintedSelected` consult it — one of them missing it would hide the row band and leave the cell highlight behind.
 
-### DGV-42 — `DataGridViewLinkCell` was painted as a text cell — Cat A — P2 — High — **PARTLY CLOSED (2026-09-16)**
+### DGV-42 — `DataGridViewLinkCell` was painted as a text cell — Cat A — P2 — High — **PARTLY CLOSED (2026-09-16)** — **CLOSED (2026-10-02)**
+- **Already fixed:** the four open members closed with `DGV-43` (2026-09-21: `ActiveLinkColor`, `LinkBehavior`, `TrackVisitedState`) and W6 mechanisms (`UseColumnTextForLinkValue`, read by the renderer).
 - **Ours (before):** the renderer had no link-cell branch at all, so the whole visible difference between a link cell and a text cell was missing. Seven members sat on the baseline as one consequence.
 - **Fix (applied):** the per-cell style builder gives a `DataGridViewLinkCell` its `LinkColor`, or `VisitedLinkColor` when `LinkVisited`. Applied last, and only when neither the cell's own style nor its inherited style set a foreground — an application that has coloured a cell means it, and upstream's link colours are a default for the type rather than an override.
 - **Still open (4):** `ActiveLinkColor` needs a pressed state, `LinkBehavior` needs underline support in the text path, `TrackVisitedState` needs the cell click to set `LinkVisited`, and `UseColumnTextForLinkValue` needs the column's text to reach the cell. Those are a link-interaction feature rather than a sweep, and are recorded as such.

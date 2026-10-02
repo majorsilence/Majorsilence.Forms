@@ -32,10 +32,10 @@ namespace Majorsilence.Forms
                     return MoveCurrentRowBy (-1);
 
                 case Keys.PageDown:
-                    return MoveCurrentRowTo (Math.Min (selected_row_index + DisplayedRowCount (true), Rows.Count - 1));
+                    return MoveCurrentRowTo (Math.Min (selected_row_index + DisplayedRowCount (false), Rows.Count - 1));
 
                 case Keys.PageUp:
-                    return MoveCurrentRowTo (Math.Max (selected_row_index - DisplayedRowCount (true), 0));
+                    return MoveCurrentRowTo (Math.Max (selected_row_index - DisplayedRowCount (false), 0));
 
                 // Home/End move along the ROW -- first and last column -- and Ctrl+Home/End move to the
                 // first and last cell of the grid. They used to jump to the first/last row, which is

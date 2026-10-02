@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 //
@@ -130,7 +130,7 @@ namespace Majorsilence.Forms.Tests
         {
             using var control = new DataGridView ();
 
-            var row = control.Rows.Add ("a", "b");
+            var row = control.Rows[control.Rows.Add ("a", "b")];
 
             Assert.Same (control, row.DataGridView);
             Assert.Same (row, Assert.Single (control.Rows));
@@ -413,8 +413,8 @@ namespace Majorsilence.Forms.Tests
         {
             using var control = new DataGridView ();
             control.Columns.Add ("col", "Header");
-            var row0 = control.Rows.Add ("a");
-            var row1 = control.Rows.Add ("b");
+            var row0 = control.Rows[control.Rows.Add ("a")];
+            var row1 = control.Rows[control.Rows.Add ("b")];
 
             control.SelectedRowIndex = 1;
 
@@ -429,8 +429,8 @@ namespace Majorsilence.Forms.Tests
         {
             using var control = new DataGridView ();
             control.Columns.Add ("col", "Header");
-            var row0 = control.Rows.Add ("a");
-            var row1 = control.Rows.Add ("b");
+            var row0 = control.Rows[control.Rows.Add ("a")];
+            var row1 = control.Rows[control.Rows.Add ("b")];
 
             control.SelectedRowIndex = 0;
             control.SelectedRowIndex = 1;
@@ -476,7 +476,7 @@ namespace Majorsilence.Forms.Tests
             using var control = new DataGridView ();
             control.Columns.Add ("col", "Header");
             control.Rows.Add ("a");
-            var row1 = control.Rows.Add ("b");
+            var row1 = control.Rows[control.Rows.Add ("b")];
 
             control.SelectedRowIndex = 1;
             control.SelectedColumnIndex = 0;      // CurrentCell needs a current column, not just a row

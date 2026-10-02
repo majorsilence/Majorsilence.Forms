@@ -61,6 +61,15 @@ namespace Majorsilence.Forms.Tests
                 return DeviceToLogicalUnits (new Point (b.Left + b.Width / 2, b.Top + b.Height / 2));
             }
 
+            // The middle of what the cell DRAWS -- its text -- which is where a content click has to land
+            // since CellContentClick stopped firing for clicks on a cell's empty space (DGV-28).
+            internal Point ContentCentre (int rowIndex, int columnIndex)
+            {
+                var origin = DeviceToLogicalUnits (GetCellBounds (rowIndex, columnIndex)).Location;
+                var content = Rows[rowIndex].Cells[columnIndex].GetContentBounds (rowIndex);
+                return new Point (origin.X + content.X + content.Width / 2, origin.Y + content.Y + content.Height / 2);
+            }
+
             internal Point RowHeaderCentre (int rowIndex)
             {
                 var b = GetCellBounds (rowIndex, 0);
@@ -160,13 +169,13 @@ namespace Majorsilence.Forms.Tests
                 grid.CellContentClick += (_, _) => content_clicks++;
                 grid.CellMouseClick += (_, _) => mouse_clicks++;
 
-                grid.Down (grid.CellCentre (1, 0));
+                grid.Down (grid.ContentCentre (1, 0));
 
                 Assert.Equal (0, clicks);
                 Assert.Equal (0, content_clicks);
                 Assert.Equal (0, mouse_clicks);
 
-                grid.Up (grid.CellCentre (1, 0));
+                grid.Up (grid.ContentCentre (1, 0));
 
                 Assert.Equal (1, clicks);
                 Assert.Equal (1, content_clicks);
@@ -257,7 +266,7 @@ namespace Majorsilence.Forms.Tests
                 grid.ColumnHeaderMouseDoubleClick += (_, _) => column_header++;
                 grid.RowHeaderMouseDoubleClick += (_, _) => row_header++;
 
-                grid.DoubleClickAt (grid.CellCentre (1, 1));
+                grid.DoubleClickAt (grid.ContentCentre (1, 1));
                 grid.DoubleClickAt (grid.ColumnHeaderCentre (0));
                 grid.DoubleClickAt (grid.RowHeaderCentre (2));
 
