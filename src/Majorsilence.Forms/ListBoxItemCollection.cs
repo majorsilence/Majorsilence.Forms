@@ -74,8 +74,18 @@ namespace Majorsilence.Forms
             // the Shift+arrow extension paths (which call this per keystroke) could accumulate
             // duplicates. Found by a test asserting that re-selecting announces nothing: the duplicate
             // made the selection set look changed when it was not.
-            if (index != -1 && !SelectedIndexes.Contains (index))
-                SelectedIndexes.Add (index);
+            //
+            // Kept in ascending order, as the native list reports its selection (LB_GETSELITEMS walks
+            // the items top to bottom): SelectedIndex is the LOWEST selected index and SelectedIndices
+            // and SelectedItems ascend. Appending kept click order instead, so after Ctrl-clicking
+            // bottom-to-top SelectedIndex named the row clicked first and "move selected up" loops
+            // walked the rows in the wrong order (LST-30).
+            if (index != -1) {
+                var at = SelectedIndexes.BinarySearch (index);
+
+                if (at < 0)
+                    SelectedIndexes.Insert (~at, index);
+            }
 
             owner.Invalidate ();
         }

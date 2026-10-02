@@ -26,7 +26,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public ComboBox ()
         {
-            popup_listbox = new PopupList { Dock = DockStyle.Fill, SelectItemOnMouseUp = true, ShowHover = true };
+            popup_listbox = new PopupList (this) { Dock = DockStyle.Fill, SelectItemOnMouseUp = true, ShowHover = true };
             popup_listbox.SelectedIndexChanged += ListBox_SelectedIndexChanged;
 
             // Owner draw (W6 mechanisms): the drop-down list is a ListBox, so its DrawItem and
@@ -79,8 +79,12 @@ namespace Majorsilence.Forms
                 // Enter/Escape belong to the drop-down. TextBox's own key handling would consume all
                 // of them for caret movement and report them handled, so they never reach the combo --
                 // which acts on them in its OnKeyUp, where its list navigation already lives.
-                if (IsListKey (e))
+                // The list navigates on key DOWN (LST-35), so with real focus in here the key is
+                // handed to the combo rather than dropped.
+                if (IsListKey (e)) {
+                    owner.NavigateList (e);
                     return;
+                }
 
                 base.OnKeyDown (e);
             }
@@ -92,6 +96,15 @@ namespace Majorsilence.Forms
 
                 if (!e.Handled)
                     owner.RaiseKeyUp (e);
+            }
+
+            /// <inheritdoc/>
+            /// <remarks>The wheel over the text area belongs to the combo, which turns it into a
+            /// selection change; a single-line edit has nothing of its own to scroll.</remarks>
+            protected override void OnMouseWheel (MouseEventArgs e)
+            {
+                base.OnMouseWheel (e);
+                owner.WheelSelect (e);
             }
 
             // Alt+arrow toggles the drop-down; the rest navigate or commit it.
@@ -137,14 +150,19 @@ namespace Majorsilence.Forms
         // type name WinForms code uses for a combo's items -- rather than the list box's own.
         private sealed class PopupList : ListBox
         {
+            private readonly ComboBox owner;
+
+            internal PopupList (ComboBox owner) => this.owner = owner;
+
+            // The drop-down paints, searches and sorts through this; the display member, the Format
+            // event and the format settings all belong to the combo, so the combo answers (LST-27).
+            public override string GetItemText (object? item) => owner.GetItemText (item);
+
             // ComboBox.ObjectCollection spelled in full deliberately. Unqualified, `ObjectCollection`
             // binds to the one inherited from ListBox -- a base class is searched before the enclosing
             // class -- so this silently built the wrong type and the cast in ComboBox.Items threw.
             protected override ListBox.ObjectCollection CreateItemCollection () => new ComboBox.ObjectCollection (this);
         }
-
-        /// <inheritdoc/>
-        protected override Cursor DefaultCursor => Cursors.Hand;
 
         /// <inheritdoc/>
         protected override Padding DefaultPadding => new Padding (4, 0, 3, 0);
@@ -288,12 +306,29 @@ namespace Majorsilence.Forms
         protected virtual void OnDropDown (EventArgs e) => DropDown?.Invoke (this, e);
 
         /// <summary>Gets or sets the data source for the ComboBox.</summary>
+        /// <remarks>See <see cref="ListBox.DataSource"/>: raises <see cref="ListControl.DataSourceChanged"/>,
+        /// and a null source empties the list and clears <see cref="DisplayMember"/>, as upstream's
+        /// <c>ComboBox.OnDataSourceChanged</c> does (<c>LST-28</c>).</remarks>
         public override object? DataSource {
             get => _dataSource;
             set {
+                if (ReferenceEquals (_dataSource, value))
+                    return;
+
                 _dataSource = value;
                 source_tracker.Attach (value);
-                RefreshDataSource ();
+
+                if (value is null) {
+                    SelectedIndex = -1;
+                    Items.Clear ();
+                } else {
+                    RefreshDataSource ();
+                }
+
+                OnDataSourceChanged (EventArgs.Empty);
+
+                if (value is null)
+                    DisplayMember = string.Empty;
             }
         }
 
@@ -302,18 +337,37 @@ namespace Majorsilence.Forms
         private readonly DataSourceBinding.ListSourceTracker source_tracker;
 
         /// <summary>Gets or sets the property to display from the data source.</summary>
+        /// <remarks>Raises <see cref="ListControl.DisplayMemberChanged"/> on a real change (<c>LST-28</c>).</remarks>
         public override string DisplayMember {
             get => _displayMember;
             set {
-                _displayMember = value ?? string.Empty;
+                value ??= string.Empty;
+
+                if (_displayMember == value)
+                    return;
+
+                _displayMember = value;
                 RefreshDataSource ();
+                OnDisplayMemberChanged (EventArgs.Empty);
+                Invalidate ();
             }
         }
 
         /// <summary>Gets or sets the property used as the value from the data source.</summary>
+        /// <remarks>Raises <see cref="ListControl.ValueMemberChanged"/> and then
+        /// <see cref="ListControl.SelectedValueChanged"/>, as upstream's setter does (<c>LST-28</c>).</remarks>
         public override string ValueMember {
             get => _valueMember;
-            set => _valueMember = value ?? string.Empty;
+            set {
+                value ??= string.Empty;
+
+                if (_valueMember == value)
+                    return;
+
+                _valueMember = value;
+                OnValueMemberChanged (EventArgs.Empty);
+                OnSelectedValueChanged (EventArgs.Empty);
+            }
         }
 
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection.")]
@@ -332,10 +386,6 @@ namespace Majorsilence.Forms
             // SelectedItem a String and broke every cast in a SelectedIndexChanged handler.
             foreach (var item in list)
                 Items.Add (item);
-
-            // Items live on the popup list, which renders them through its own GetItemText -- it needs
-            // the same DisplayMember or it would fall back to ToString on the bound object.
-            popup_listbox.DisplayMember = _displayMember;
 
             // WinForms selects the first row when a non-empty source is bound; without this, code that
             // binds a source and immediately reads/sets the selection sees an unselected control.
@@ -377,7 +427,9 @@ namespace Majorsilence.Forms
         {
             var itemHeight = popup_listbox.ItemHeight;
             var rows = Math.Max (1, Math.Min (Items.Count, MaxDropDownItems));
-            var height = rows * itemHeight + 2;   // + the 1px popup border top and bottom
+            var height = DropDownHeight != DefaultDropDownHeight
+                ? DropDownHeight
+                : rows * itemHeight + 2;   // + the 1px popup border top and bottom
 
             int width;
             if (DropDownWidth > 0) {
@@ -428,8 +480,16 @@ namespace Majorsilence.Forms
             // bound source was never moved off it (LST-06).
             // The drop-down is only open when the user is actively picking (mouse/keyboard); a
             // programmatic SelectedIndex/SelectedItem/Text change runs with it closed. Captured before
-            // closing so SelectionChangeCommitted fires only for user commits (WinForms).
-            var userDriven = index > -1 && DroppedDown;
+            // closing so SelectionChangeCommitted fires only for user commits (WinForms). Arrow keys
+            // and the wheel on a CLOSED combo commit too -- Windows sends CBN_SELENDOK for them as it
+            // does for a pick from the list -- and they used to be missed (LST-32).
+            var userDriven = index > -1 && (DroppedDown || user_selecting);
+
+            // Commit FIRST: upstream's notification order is CBN_SELENDOK, then (for a mouse pick)
+            // CBN_CLOSEUP, then CBN_SELCHANGE, which is the text update and SelectedIndexChanged
+            // (ComboBox/ComboBox.cs, WmReflectCommand and the table above it). It used to come last.
+            if (userDriven)
+                OnSelectionChangeCommitted (e);
 
             if (index > -1 && !suppress_popup_close)
                 DroppedDown = false;
@@ -445,9 +505,61 @@ namespace Majorsilence.Forms
             SetTextCore (index >= 0 ? GetItemText (SelectedItem) : string.Empty);
 
             OnSelectedIndexChanged (e);
+        }
 
-            if (userDriven)
-                OnSelectionChangeCommitted (e);
+        // Set while a keystroke or wheel notch on the combo itself is moving the selection, so the
+        // change counts as the user's (see ListBox_SelectedIndexChanged).
+        private bool user_selecting;
+
+        // Hands a navigation key to the list, which acts on key DOWN (LST-35). Alt+Up/Down is the
+        // drop-down toggle, handled on key up, so it is not navigation.
+        internal void NavigateList (KeyEventArgs e)
+        {
+            if (e.Alt || e.Handled)
+                return;
+
+            // If you mouse click an item we automatically close the dropdown,
+            // we don't want that behavior when using the keyboard.
+            suppress_popup_close = true;
+            user_selecting = true;
+
+            try {
+                popup_listbox.RaiseKeyDown (e);
+            } finally {
+                suppress_popup_close = false;
+                user_selecting = false;
+            }
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>A notch moves the selection one item, clamped at the ends, while the combo has the
+        /// focus and its list is closed -- what the native control does with <c>WM_MOUSEWHEEL</c>. It
+        /// had no wheel handling at all (<c>LST-40</c>). With the list open the wheel belongs to the list.</remarks>
+        protected override void OnMouseWheel (MouseEventArgs e)
+        {
+            base.OnMouseWheel (e);
+            WheelSelect (e);
+        }
+
+        internal void WheelSelect (MouseEventArgs e)
+        {
+            if (!Enabled || DroppedDown || e.Delta == 0 || Items.Count == 0 || !(Focused || edit.Focused))
+                return;
+
+            // Wheel up (positive delta) is towards the top of the list.
+            var target = SelectedIndex + (e.Delta > 0 ? -1 : 1);
+            target = Math.Max (0, Math.Min (Items.Count - 1, target));
+
+            if (target == SelectedIndex)
+                return;
+
+            user_selecting = true;
+
+            try {
+                SelectedIndex = target;
+            } finally {
+                user_selecting = false;
+            }
         }
 
         /// <inheritdoc/>
@@ -504,8 +616,16 @@ namespace Majorsilence.Forms
             // Editing keys only. Up/Down/Enter/Escape stay with the LIST -- they are acted on in
             // OnKeyUp below -- which is why this cannot simply forward everything.
             if (IsEditable && !edit.Selected && !e.Handled
-                && e.KeyCode.In (Keys.Back, Keys.Delete, Keys.Left, Keys.Right, Keys.Home, Keys.End))
+                && e.KeyCode.In (Keys.Back, Keys.Delete, Keys.Left, Keys.Right, Keys.Home, Keys.End)) {
                 edit.RaiseKeyDown (e);
+                return;
+            }
+
+            // An editable combo's letters, Space and caret keys are the edit region's; only the list
+            // keys navigate. A drop-down list has no text, so every key -- type-ahead letters
+            // included -- is the list's, as in the native control.
+            if (!IsEditable || e.KeyCode.In (Keys.Up, Keys.Down, Keys.PageUp, Keys.PageDown))
+                NavigateList (e);
         }
 
         /// <inheritdoc/>
@@ -535,15 +655,6 @@ namespace Majorsilence.Forms
                 return;
             }
 
-            // If you mouse click an item we automatically close the dropdown,
-            // we don't want that behavior when using the keyboard.
-            suppress_popup_close = true;
-            popup_listbox.RaiseKeyUp (e);
-            suppress_popup_close = false;
-
-            if (e.Handled)
-                return;
-
             base.OnKeyUp (e);
         }
 
@@ -558,14 +669,17 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the SelectedIndexChanged event.
         /// </summary>
+        /// <remarks>
+        /// SelectedItemChanged, SelectedValueChanged, then SelectedIndexChanged: upstream's
+        /// <c>SelectedIndex</c> setter raises the item event before <c>OnSelectedIndexChanged</c>, whose
+        /// base call raises the value event before its own handlers run (<c>ComboBox/ComboBox.cs</c>,
+        /// <c>ListControl/ListControl.cs</c>). This raised the index event first (<c>LST-31</c>).
+        /// </remarks>
         protected virtual void OnSelectedIndexChanged (EventArgs e)
         {
-            SelectedIndexChanged?.Invoke (this, e);
-            // SelectedItem and SelectedValue are both derived from SelectedIndex, so they change
-            // whenever the index does -- matching WinForms' own OnSelectedIndexChanged, which raises
-            // both from the same place.
             OnSelectedItemChanged (e);
             OnSelectedValueChanged (e);
+            SelectedIndexChanged?.Invoke (this, e);
         }
 
         /// <summary>Raised when the selected item changes.</summary>
@@ -692,11 +806,56 @@ namespace Majorsilence.Forms
         /// <summary>Selects a range of text in the editable portion of the ComboBox.</summary>
         public void Select (int start, int length) { SelectionStart = start; SelectionLength = length; }
 
-        /// <summary>Gets or sets the height in pixels of the drop-down portion. Stub in Majorsilence.Forms.</summary>
-        public int DropDownHeight { get; set; } = 106;
+        // Upstream's DefaultDropDownHeight. While DropDownHeight is at it, MaxDropDownItems sizes the
+        // list; any other value is the height (ComboBox/ComboBox.cs, UpdateDropDownHeight).
+        private const int DefaultDropDownHeight = 106;
+        private int drop_down_height = DefaultDropDownHeight;
 
-        /// <summary>Gets or sets the height of each item in the combo box. Stub in Majorsilence.Forms.</summary>
-        public int ItemHeight { get; set; } = 15;
+        /// <summary>Gets or sets the height in pixels of the drop-down portion.</summary>
+        /// <remarks>
+        /// Read by the drop-down as of <c>LST-33</c>: at the default of 106 the list is
+        /// <see cref="MaxDropDownItems"/> rows tall (fewer when there are fewer items); any other value
+        /// is the list's height, as upstream's <c>UpdateDropDownHeight</c> decides. Setting it clears
+        /// <see cref="IntegralHeight"/>, and zero or less throws, both as upstream.
+        /// </remarks>
+        public int DropDownHeight {
+            get => drop_down_height;
+            set {
+                if (value <= 0)
+                    throw new ArgumentOutOfRangeException (nameof (value), value, "DropDownHeight must be greater than zero.");
+
+                if (drop_down_height == value)
+                    return;
+
+                drop_down_height = value;
+                IntegralHeight = false;
+            }
+        }
+
+        // Only an owner-drawn list has an item height of its own; a normal one is as tall as its font.
+        private int item_height;
+
+        /// <summary>Gets or sets the height of an item in the combo box, in logical pixels.</summary>
+        /// <remarks>
+        /// The height the drop-down list really uses (<c>LST-33</c>). This was a stored 15 that
+        /// <see cref="GetItemHeight"/> reported while the list drew its rows at a font-derived height of
+        /// its own. As upstream: with <see cref="DrawMode.Normal"/> the answer is the font's row height
+        /// and a set value is kept for later; in an owner-draw mode the set value is the row height.
+        /// </remarks>
+        public int ItemHeight {
+            get => DrawMode != DrawMode.Normal && item_height > 0 ? item_height : popup_listbox.ItemHeight;
+            set {
+                if (value <= 0)
+                    throw new ArgumentOutOfRangeException (nameof (value), value, "ItemHeight must be greater than zero.");
+
+                item_height = value;
+
+                if (DrawMode != DrawMode.Normal)
+                    popup_listbox.ItemHeight = value;
+
+                Invalidate ();
+            }
+        }
 
         /// <summary>Gets or sets the auto-complete mode.</summary>
         /// <remarks><see cref="AutoCompleteMode.Append"/> and the append half of
@@ -805,6 +964,9 @@ namespace Majorsilence.Forms
                         return;
                     }
                 }
+
+                // A miss clears the selection; see ListBox.SelectedValue (LST-29).
+                SelectedIndex = -1;
             }
         }
 
@@ -813,14 +975,6 @@ namespace Majorsilence.Forms
 
         /// <summary>Resumes drawing the control after BeginUpdate.</summary>
         public new void EndUpdate () { ResumeLayout (false); Invalidate (); }
-
-        /// <summary>Returns the display text for the given item, using DisplayMember if set.</summary>
-        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "DataSource item types require runtime reflection — same as WinForms.")]
-        public override string GetItemText (object? item)
-        {
-            // Property descriptors first so DataRowView columns resolve; see DataSourceBinding.
-            return ApplyFormat (item, DataSourceBinding.DisplayText (item, DisplayMember));
-        }
 
         /// <summary>Finds the first item that exactly matches the given string (case-insensitive).</summary>
         public int FindStringExact (string s, int startIndex = -1)
@@ -911,6 +1065,10 @@ namespace Majorsilence.Forms
                     return;
 
                 popup_listbox.DrawMode = value;
+
+                // The list's row height follows the mode: an owner-drawn list uses the ItemHeight set
+                // on the combo, a normal one measures its font again (-1 is the list's "unmeasured").
+                popup_listbox.ItemHeight = value != DrawMode.Normal && item_height > 0 ? item_height : -1;
                 Invalidate ();
             }
         }

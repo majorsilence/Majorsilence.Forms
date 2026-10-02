@@ -270,9 +270,18 @@ namespace Majorsilence.Forms
         public int Count => _inner.Count;
 
         /// <summary>Gets or sets the item at the specified index.</summary>
+        /// <remarks>Setting replaces the item and keeps its check state, as upstream's
+        /// <c>ObjectCollection</c> indexer does: the entry's state travels with the slot, not the
+        /// object. The setter was <c>set { }</c>, so renaming an entry in place silently did nothing
+        /// (<c>LST-39</c>).</remarks>
         public object? this[int index] {
             get => _inner[index] is CheckedListBoxItem cli ? cli.Value : _inner[index];
-            set { }
+            set {
+                Guard.ThrowIfNull (value);
+
+                var state = _inner[index] is CheckedListBoxItem cli ? cli.CheckState : CheckState.Unchecked;
+                _inner[index] = new CheckedListBoxItem (value) { CheckState = state };
+            }
         }
 
         /// <summary>Removes all items.</summary>
