@@ -16,9 +16,9 @@
 # say so beside the entry rather than removing it.
 #
 # Absence from this file does NOT mean the property works: a property read only by code
-# that is itself inert counts as consumed here. ComboBox.IntegralHeight and
-# ComboBox.DropDownHeight are both absent and neither does anything -- their only readers
-# are ToolStripComboBox's pass-through wrappers, which forward and nothing more. The three
+# that is itself inert counts as consumed here. ComboBox.IntegralHeight is absent and does
+# nothing -- its only reader is ToolStripComboBox's pass-through wrapper, which forwards and
+# nothing more (ComboBox.DropDownHeight was the second example until LST-33). The three
 # examples this note used to give (ListView.View, TextBox.WordWrap, TextBox.AcceptsReturn)
 # have since been fixed by W5.6, W5.11 and Phase 1, which is the other half of the point:
 # an entry's absence here says nothing either way. See StoredOnlyPropertyBaselineTests for

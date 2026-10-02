@@ -112,14 +112,21 @@ namespace Majorsilence.Forms
         /// <remarks>Real as of W6 mechanisms: true between <see cref="BeginEdit"/> and the end of the edit.</remarks>
         public bool IsEditing => TreeView is { } tree && ReferenceEquals (tree.EditingNode, this);
 
-        /// <summary>Gets whether every ancestor of this node is expanded.</summary>
+        /// <summary>Gets whether the node is at least partly visible in its tree: every ancestor is
+        /// expanded and its row is inside the client area at the current scroll position.</summary>
+        /// <remarks>Upstream asks the native tree for the node's on-screen rectangle
+        /// (<c>TreeView/TreeNode.cs</c>). This answered from the ancestors alone, so a node scrolled out
+        /// of view reported visible, and so did a node in no tree at all (<c>LST-42</c>).</remarks>
         public bool IsVisible {
             get {
+                if (TreeView is not { } tree || tree.IsDisposed)
+                    return false;
+
                 for (var parent = Parent; parent is not null; parent = parent.Parent)
                     if (!parent.IsExpanded)
                         return false;
 
-                return true;
+                return tree.IsNodeOnScreen (this);
             }
         }
 

@@ -83,9 +83,6 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        protected override Cursor DefaultCursor => Cursors.Hand;
-
-        /// <inheritdoc/>
         protected override Size DefaultSize => new Size (120, 96);
 
         /// <inheritdoc/>
@@ -131,7 +128,9 @@ namespace Majorsilence.Forms
             var current = startIndex;
 
             while (true) {
-                var item = Items[current]?.ToString ();
+                // GetItemText, as upstream's FindStringInternal compares: the items are often bound
+                // objects, and their ToString is not what the user reads or types (LST-14).
+                var item = GetItemText (Items[current]);
 
                 if (string.Compare (s, 0, item, 0, s.Length, true, CultureInfo.CurrentCulture) == 0)
                     return current;
@@ -314,12 +313,35 @@ namespace Majorsilence.Forms
         public ObjectCollection Items { get; }
 
         /// <summary>Gets or sets the data source for the ListBox.</summary>
+        /// <remarks>
+        /// Raises <see cref="ListControl.DataSourceChanged"/>, and a null source empties the list, as
+        /// upstream's <c>ListBox.OnDataSourceChanged</c> does. Both were missing: the override kept its
+        /// own field and never reached the base, and a null source left the old rows showing, so
+        /// <c>DataSource = null</c> to reset a filter did nothing visible (<c>LST-28</c>). Clearing the
+        /// source also clears <see cref="DisplayMember"/>, which is upstream's documented behaviour.
+        /// </remarks>
         public override object? DataSource {
             get => _dataSource;
             set {
+                if (ReferenceEquals (_dataSource, value))
+                    return;
+
                 _dataSource = value;
                 source_tracker.Attach (value);
-                RefreshDataSource ();
+
+                if (value is null) {
+                    if (SelectionMode != SelectionMode.None)
+                        SelectedIndex = -1;
+
+                    Items.Clear ();
+                } else {
+                    RefreshDataSource ();
+                }
+
+                OnDataSourceChanged (EventArgs.Empty);
+
+                if (value is null)
+                    DisplayMember = string.Empty;
             }
         }
 
@@ -329,29 +351,38 @@ namespace Majorsilence.Forms
         private readonly DataSourceBinding.ListSourceTracker source_tracker;
 
         /// <summary>Gets or sets the property to display from the data source.</summary>
+        /// <remarks>Raises <see cref="ListControl.DisplayMemberChanged"/> on a real change (<c>LST-28</c>).</remarks>
         public override string DisplayMember {
             get => _displayMember;
             set {
-                _displayMember = value ?? string.Empty;
+                value ??= string.Empty;
+
+                if (_displayMember == value)
+                    return;
+
+                _displayMember = value;
                 RefreshDataSource ();
+                OnDisplayMemberChanged (EventArgs.Empty);
+                Invalidate ();
             }
         }
 
         /// <summary>Gets or sets the property used as the value from the data source.</summary>
+        /// <remarks>Raises <see cref="ListControl.ValueMemberChanged"/> and then
+        /// <see cref="ListControl.SelectedValueChanged"/> on a real change, in upstream's order -- a new
+        /// value member is a new <see cref="SelectedValue"/> for the same row (<c>LST-28</c>).</remarks>
         public override string ValueMember {
             get => _valueMember;
-            set => _valueMember = value ?? string.Empty;
-        }
+            set {
+                value ??= string.Empty;
 
-        /// <summary>
-        /// Returns the display text for the specified item, honoring <see cref="DisplayMember"/>.
-        /// Mirrors WinForms ListControl.GetItemText.
-        /// </summary>
-        [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection.")]
-        public override string GetItemText (object? item)
-        {
-            // Property descriptors first so DataRowView columns resolve; see DataSourceBinding.
-            return ApplyFormat (item, DataSourceBinding.DisplayText (item, _displayMember));
+                if (_valueMember == value)
+                    return;
+
+                _valueMember = value;
+                OnValueMemberChanged (EventArgs.Empty);
+                OnSelectedValueChanged (EventArgs.Empty);
+            }
         }
 
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection.")]
@@ -385,7 +416,19 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        protected override void OnKeyUp (KeyEventArgs e) => ChangeSelection (() => KeyUpCore (e));
+        /// <remarks>
+        /// Navigation runs on key DOWN, as the native list box acts on <c>WM_KEYDOWN</c>. It ran on key
+        /// up, so holding an arrow key -- which auto-repeats key downs and sends one key up at the end --
+        /// moved the selection once, on release (<c>LST-35</c>). The <see cref="Control.KeyDown"/>
+        /// handlers run first and can claim the key with <see cref="KeyEventArgs.Handled"/>.
+        /// </remarks>
+        protected override void OnKeyDown (KeyEventArgs e)
+        {
+            base.OnKeyDown (e);
+
+            if (!e.Handled)
+                ChangeSelection (() => KeyDownCore (e));
+        }
 
         // How far an arrow key moves the focus: a column in a MultiColumn list for Left/Right, else one.
         private int NavigationStep (KeyEventArgs e)
@@ -393,7 +436,7 @@ namespace Majorsilence.Forms
 
         // Wrapped by ChangeSelection so every branch below -- Space toggles, Shift+arrow extension, the
         // add/remove pairs -- announces its change, without each one having to remember to (LST-04).
-        private void KeyUpCore (KeyEventArgs e)
+        private void KeyDownCore (KeyEventArgs e)
         {
             // In "None" mode, the focus goes up and down
             // In "MultiSimple" mode, the focus goes up and down, and space selects or deselects
@@ -535,13 +578,11 @@ namespace Majorsilence.Forms
                     }
                 }
             }
-
-            base.OnKeyUp (e);
         }
 
         private void OnMouseButtonLogic (MouseEventArgs e) => ChangeSelection (() => MouseButtonLogicCore (e));
 
-        // See KeyUpCore: Ctrl-click and MultiSimple toggles went through the collection's internal
+        // See KeyDownCore: Ctrl-click and MultiSimple toggles went through the collection's internal
         // setters and reported nothing (LST-04).
         private void MouseButtonLogicCore (MouseEventArgs e)
         {
@@ -568,7 +609,26 @@ namespace Majorsilence.Forms
                     break;
 
                 case SelectionMode.MultiExtended:
-                    // TODO: Shift
+                    // Shift-click selects the run from the anchor -- the last row clicked without Shift
+                    // -- to this one, replacing the selection, or adding to it with Ctrl as well; the
+                    // anchor stays put so a second Shift-click re-ranges from the same row. That is the
+                    // native LBS_EXTENDEDSEL behaviour. It was a TODO, so a Shift-click acted as a plain
+                    // click and range selection by mouse was impossible (LST-35).
+                    if (e.Shift) {
+                        var anchor = selection_anchor >= 0 && selection_anchor < Items.Count ? selection_anchor : Math.Max (0, Items.FocusedIndex);
+
+                        if (!e.Control)
+                            Items.SelectedIndexes.Clear ();
+
+                        for (var i = Math.Min (anchor, index); i <= Math.Max (anchor, index); i++)
+                            Items.AddSelectedIndex (i, false);
+
+                        Items.FocusedIndex = index;
+                        selection_anchor = anchor;
+                        break;
+                    }
+
+                    selection_anchor = index;
 
                     // When Control is held we treat this like MultiSimple
                     if (e.Control) {
@@ -584,6 +644,9 @@ namespace Majorsilence.Forms
 
             EnsureItemVisible (index);
         }
+
+        // The fixed end of a Shift-click range in MultiExtended; -1 until a row has been clicked.
+        private int selection_anchor = -1;
 
         /// <inheritdoc/>
         protected override void OnMouseDown (MouseEventArgs e)
@@ -814,12 +877,16 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the SelectedIndexChanged event.
         /// </summary>
+        /// <remarks>
+        /// <see cref="ListControl.SelectedValueChanged"/> first, then <see cref="SelectedIndexChanged"/>:
+        /// upstream's <c>ListBox.OnSelectedIndexChanged</c> calls the base (which raises the value
+        /// event) before invoking its own handlers. This raised them the other way round, so a value
+        /// handler that set state an index handler read saw it a step late (<c>LST-31</c>).
+        /// </remarks>
         protected virtual void OnSelectedIndexChanged (EventArgs e)
         {
-            SelectedIndexChanged?.Invoke (this, e);
-            // WinForms ListControl raises SelectedValueChanged whenever the selection changes;
-            // SelectedValue is derived from SelectedIndex, so it changes at the same moment.
             OnSelectedValueChanged (e);
+            SelectedIndexChanged?.Invoke (this, e);
         }
 
         /// <summary>Raises the SelectedValueChanged event.</summary>
@@ -901,6 +968,43 @@ namespace Majorsilence.Forms
                     SelectedIndex = index;
             }
         }
+
+        /// <summary>Gets the selected item's display text, or sets the text and selects the item showing it.</summary>
+        /// <remarks>
+        /// Mirrors upstream's <c>ListBox.Text</c> (<c>ListBoxes/ListBox.cs</c>). It was the inherited
+        /// <see cref="Control.Text"/>, so <c>label.Text = listBox.Text</c> showed nothing and
+        /// <c>listBox.Text = "Apple"</c> selected nothing (<c>LST-41</c>). The setter's match is
+        /// case-insensitive under the current culture, as upstream's is; a text that matches no item is
+        /// kept without changing the selection.
+        /// </remarks>
+        public override string Text {
+            get {
+                if (SelectionMode != SelectionMode.None && SelectedItem is { } selected)
+                    return GetItemText (selected);
+
+                return base.Text;
+            }
+            set {
+                base.Text = value;
+
+                if (SelectionMode == SelectionMode.None || value is null)
+                    return;
+
+                if (SelectedItem is { } selected && value.Equals (GetItemText (selected)))
+                    return;
+
+                for (var i = 0; i < Items.Count; i++) {
+                    if (string.Compare (value, GetItemText (Items[i]), true, CultureInfo.CurrentCulture) == 0) {
+                        SelectedIndex = i;
+                        return;
+                    }
+                }
+            }
+        }
+
+        // The control's own text, as Control.Text stores it -- the native window text, as opposed to
+        // the selection-derived Text above. Automation names the list by this.
+        internal string WindowText => base.Text;
 
         /// <summary>
         /// Gets all currently selected items.
@@ -1004,6 +1108,12 @@ namespace Majorsilence.Forms
                         return;
                     }
                 }
+
+                // A bound list with no row holding this value clears the selection, as upstream's
+                // SelectedIndex = DataManager.Find (...) does with its -1. Leaving the previous row
+                // selected made SelectedValue = missingId look as though it had picked something (LST-29).
+                if (SelectionMode != SelectionMode.None)
+                    SelectedIndex = -1;
             }
         }
 
@@ -1268,11 +1378,22 @@ namespace Majorsilence.Forms
             get => top_index;
             set {
                 var clamped = Math.Max (0, Math.Min (value, Items.Count - 1));
-                top_index = multi_column ? clamped / RowsPerColumn * RowsPerColumn : clamped;
                 _scrollOffsetPx = 0;
 
-                if (multi_column)
+                if (multi_column) {
+                    top_index = clamped / RowsPerColumn * RowsPerColumn;
                     hscrollbar.Value = Math.Max (hscrollbar.Minimum, Math.Min (top_index / RowsPerColumn, hscrollbar.EffectiveMaximum));
+                } else if (vscrollbar.Visible) {
+                    // Through the scrollbar, as LB_SETTOPINDEX moves the native one. Writing top_index
+                    // alone scrolled the items but left the thumb where it was, so the next wheel
+                    // notch or thumb drag snapped the list back to the old position (LST-34).
+                    // VerticalScrollBar_ValueChanged writes top_index from the clamped value.
+                    vscrollbar.Value = Math.Max (vscrollbar.Minimum, Math.Min (clamped, vscrollbar.EffectiveMaximum));
+                } else {
+                    // Everything fits: there is nothing to scroll, which is what the native list
+                    // answers too.
+                    top_index = 0;
+                }
 
                 Invalidate ();
             }
@@ -1379,7 +1500,7 @@ namespace Majorsilence.Forms
             var current = startIndex;
 
             while (true) {
-                var text = Items[current]?.ToString () ?? string.Empty;
+                var text = GetItemText (Items[current]);
 
                 if (string.Equals (text, s, StringComparison.CurrentCultureIgnoreCase))
                     return current;

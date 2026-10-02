@@ -274,7 +274,7 @@ namespace Majorsilence.Forms
                 if (string.Equals (displayMember, value, StringComparison.Ordinal))
                     return;
                 displayMember = value ?? string.Empty;
-                DisplayMemberChanged?.Invoke (this, EventArgs.Empty);
+                OnDisplayMemberChanged (EventArgs.Empty);
             }
         }
 
@@ -285,7 +285,7 @@ namespace Majorsilence.Forms
                 if (string.Equals (valueMember, value, StringComparison.Ordinal))
                     return;
                 valueMember = value ?? string.Empty;
-                ValueMemberChanged?.Invoke (this, EventArgs.Empty);
+                OnValueMemberChanged (EventArgs.Empty);
             }
         }
 
@@ -354,36 +354,63 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Returns the text to display for an item, honoring <see cref="DisplayMember"/> when the item
-        /// exposes that property.
+        /// Returns the text to display for an item: its <see cref="DisplayMember"/> value, offered to
+        /// <see cref="Format"/> and then formatted with <see cref="FormatString"/> and
+        /// <see cref="FormatInfo"/> when <see cref="FormattingEnabled"/> is set.
         /// </summary>
-        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075",
-            Justification = "DisplayMember names a property on a caller-supplied item type; the caller " +
-                            "is responsible for keeping it, exactly as WinForms data binding requires.")]
+        /// <remarks>
+        /// One implementation for every list control, in the shape of upstream's
+        /// <c>ListControl.GetItemText</c> (<c>ListControl/ListControl.cs</c>). <c>ListBox</c> and
+        /// <c>ComboBox</c> each had their own copy that raised <see cref="Format"/> with the display
+        /// text rather than the member's value and never applied <see cref="FormatString"/>, so a list
+        /// of prices with <c>FormatString = "C2"</c> showed raw numbers (<c>LST-27</c>).
+        /// </remarks>
         public virtual string GetItemText (object? item)
         {
+            // A CheckedListBox stores each item in a wrapper that carries its check state; the text,
+            // the display member and the Format event's ListItem are all about the caller's own object.
+            if (item is CheckedListBoxItem wrapper)
+                item = wrapper.Value;
+
+            if (!FormattingEnabled)
+                return DataSourceBinding.DisplayText (item, DisplayMember);
+
             if (item is null)
                 return string.Empty;
-            if (string.IsNullOrEmpty (DisplayMember))
-                return item.ToString () ?? string.Empty;
 
-            var property = item.GetType ().GetProperty (DisplayMember);
-            return ApplyFormat (item, property?.GetValue (item)?.ToString () ?? item.ToString () ?? string.Empty);
-        }
+            var filtered = string.IsNullOrEmpty (DisplayMember)
+                ? item
+                : DataSourceBinding.MemberValue (item, DisplayMember) ?? item;
 
-        /// <summary>
-        /// Offers an item's display text to <see cref="Format"/> when <see cref="FormattingEnabled"/> is
-        /// set, as upstream does on every item it displays; the handler's <c>Value</c> wins.
-        /// </summary>
-        internal string ApplyFormat (object? item, string text)
-        {
-            if (!FormattingEnabled || item is null)
-                return text;
-
-            var e = new ListControlConvertEventArgs (text, typeof (string), item);
+            // Upstream: the handler's answer wins only when it replaced the value with a string.
+            var e = new ListControlConvertEventArgs (filtered, typeof (string), item);
             OnFormat (e);
-            return e.Value?.ToString () ?? string.Empty;
+
+            if (!ReferenceEquals (e.Value, item) && e.Value is string handled)
+                return handled;
+
+            return FormatValue (filtered);
         }
+
+        // Formatter.FormatObject's string branch: an IFormattable value takes FormatString with
+        // FormatInfo; anything else converts under FormatInfo's culture. Null and DBNull have no
+        // formatted-null value on a list control, so they show as empty.
+        private string FormatValue (object? value)
+        {
+            if (value is null || value is DBNull)
+                return string.Empty;
+
+            if (value is IFormattable formattable && FormatString.Length > 0)
+                return formattable.ToString (FormatString, FormatInfo) ?? string.Empty;
+
+            return Convert.ToString (value, FormatInfo as System.Globalization.CultureInfo ?? System.Globalization.CultureInfo.CurrentCulture) ?? string.Empty;
+        }
+
+        /// <summary>Raises the <see cref="DisplayMemberChanged"/> event.</summary>
+        protected virtual void OnDisplayMemberChanged (EventArgs e) => DisplayMemberChanged?.Invoke (this, e);
+
+        /// <summary>Raises the <see cref="ValueMemberChanged"/> event.</summary>
+        protected virtual void OnValueMemberChanged (EventArgs e) => ValueMemberChanged?.Invoke (this, e);
 
         /// <summary>Raises the <see cref="DataSourceChanged"/> event.</summary>
         protected virtual void OnDataSourceChanged (EventArgs e) => DataSourceChanged?.Invoke (this, e);

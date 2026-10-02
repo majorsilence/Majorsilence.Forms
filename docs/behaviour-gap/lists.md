@@ -145,6 +145,7 @@ view — `EnsureVisible` semantics are weaker than what upstream's `TopItem` pro
 - **Tests today:** `ComboBoxTests.cs:387-397` asserts *no* raise when -1 is set on an already-empty combo (correct) — nothing for the transition case.
 
 ### LST-07 — `ComboBox` editable region (`DropDownStyle` DropDown/Simple, `SelectionStart/Length/SelectedText`, `Select`, `SelectAll`, `MaxLength`, `AutoComplete*`) — Cat B — P1 — High
+- **Still open (2026-10-02, #347):** only the remainder the W5.10 status above names -- `Suggest`'s filtered drop-down and `Simple`'s always-visible list. Both need a presentation list separate from `Items` (a combo's items *are* the popup list's items), which is a change to how the control stores items, not a fix; left for its own item.
 - **Ours:** No `OnKeyPress`/text input anywhere in `ComboBox.cs`; `SelectAll` is an empty stub (`src/Majorsilence.Forms/ComboBox.SelectAll.cs:6`); `SelectionStart`/`SelectionLength` are stored ints (`ComboBox.cs:425-428`), `SelectedText` set is `{ }` (`:433`), `Select` stores (`:443`), `MaxLength`/`AutoCompleteMode`/`AutoCompleteSource`/`AutoCompleteCustomSource` stored (`:437,452-458`). `DropDownStyle` only raises its own changed event and invalidates (`:92-102`); the renderer paints the selected item's text only (`Renderers/ComboBoxRenderer.cs:26-28`). `Simple` (always-visible list) is not laid out.
 - **Upstream:** `DropDown` (the default) and `Simple` host a child edit control; typing raises `TextUpdate`/`TextChanged`, Enter commits via `FindStringIgnoreCase` (`ComboBox/ComboBox.cs:1047-1082, 2456-2480, 951-990`).
 - **Impact:** Any combo used for free-text entry with suggestions (search boxes, "Other..." fields, units) cannot be typed into; `DropDownStyle = DropDownList` vs `DropDown` look and behave identically.
@@ -200,7 +201,8 @@ view — `EnsureVisible` semantics are weaker than what upstream's `TopItem` pro
 - **Test:** `DrawMode = OwnerDrawFixed`, subscribe `DrawItem`, headless render; assert handler called once per visible item with the row rectangle.
 - **Tests today:** none.
 
-### LST-14 — `ListBox.FindString` / `FindStringExact` ignore `DisplayMember` — Cat A — P1 — High
+### LST-14 — `ListBox.FindString` / `FindStringExact` ignore `DisplayMember` — Cat A — P1 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `FindString`/`FindStringExact` compare `GetItemText (Items[i])`, as upstream's `FindStringInternal` does, so the two controls agree and type-ahead matches bound objects by their display text. Tests: `ListBehaviourGapTests.FindStringExact_matches_the_DisplayMember_text`, `FindString_prefix_matches_the_DisplayMember_text`.
 - **Ours:** Both compare against `Items[current]?.ToString ()` (`ListBox.cs:96`, `:726`). `ComboBox.FindString*` correctly use `GetItemText` (`ComboBox.cs:509-519, 556-567`), so the two controls disagree.
 - **Upstream:** `FindStringInternal` compares `GetItemText (items[index])` (`ListControl/ListControl.cs:499-503`).
 - **Impact:** Type-ahead (`OnKeyUp` letter search, `ListBox.cs:381-390`) and `FindStringExact` on a bound list of `Customer` objects never match, because they compare against `Customer.ToString ()`.
@@ -304,7 +306,8 @@ view — `EnsureVisible` semantics are weaker than what upstream's `TopItem` pro
 - **Test:** `Nodes[0].ForeColor = Color.Red`; headless render; assert red text pixels in `GetTextBounds`. `ItemHeight = 40` → `Nodes[1].Bounds.Top - Nodes[0].Bounds.Top == LogicalToDeviceUnits (40)`.
 - **Tests today:** none.
 
-### LST-27 — `ListControl.Format` event / `FormattingEnabled` / `FormatString` / `FormatInfo` — Cat B — P1 — High
+### LST-27 — `ListControl.Format` event / `FormattingEnabled` / `FormatString` / `FormatInfo` — Cat B — P1 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `ListControl.GetItemText` is now the one implementation, in upstream's shape: with `FormattingEnabled` it offers the `DisplayMember` **value** (not its text) to `Format` with the item as `ListItem`, takes the handler's answer when it replaced the value with a string, and otherwise formats with `FormatString`/`FormatInfo` (`Formatter.FormatObject`'s string branch: `IFormattable.ToString (format, info)`, else conversion under `FormatInfo`'s culture). The `ListBox`/`ComboBox` copies are gone, and the combo's drop-down list delegates its `GetItemText` to the combo, so the rows the user picks from are formatted too. A `CheckedListBox` wrapper is unwrapped first. The `*Changed` events were already raised (W6.1). Tests: `FormatString_formats_the_display_member_value`, `FormatInfo_alone_sets_the_culture`, `Format_is_offered_the_member_value_not_its_text`, `A_combo_drop_down_shows_the_combos_formatted_text`.
 - **Ours:** `Format`, `FormattingEnabledChanged`, `FormatInfoChanged`, `FormatStringChanged` declared; the last three under `#pragma warning disable CS0067` (`src/Majorsilence.Forms/WinFormsBaseControls.cs:72-85`). `OnFormat` exists (`:157`) but no caller anywhere in `src/` (grep). `ListBox.GetItemText`/`ComboBox.GetItemText` call `DataSourceBinding.DisplayText` directly (`ListBox.cs:229-233`, `ComboBox.cs:502-506`) ignoring `FormattingEnabled`/`FormatString`/`FormatInfo`, which are stored (`WinFormsBaseControls.cs:127-133`, `ListBox.cs:671`, `ComboBox.cs:144`).
 - **Upstream:** `GetItemText` raises `OnFormat` when `FormattingEnabled` and otherwise runs `Formatter.FormatObject` with `FormatString`/`FormatInfo` (`ListControl/ListControl.cs:515-560`).
 - **Impact:** `FormattingEnabled = true; FormatString = "C2"` (designer-emitted for numeric/date lists) displays raw `ToString ()`; `Format += (s, e) => e.Value = ...` (the standard "show FirstName + LastName" trick) is never called.
@@ -312,7 +315,8 @@ view — `EnsureVisible` semantics are weaker than what upstream's `TopItem` pro
 - **Test:** `FormattingEnabled = true; Format += (s, e) => e.Value = "X"`; `GetItemText (1) == "X"`. `FormatString = "0.0"`; item `1.25` → `"1.3"` (per `Formatter`/`ToString ("0.0")`).
 - **Tests today:** none.
 
-### LST-28 — `ListBox`/`ComboBox` `DataSource` / `DisplayMember` / `ValueMember` overrides skip the `*Changed` events; `DataSource = null` keeps items — Cat D — P2 — High
+### LST-28 — `ListBox`/`ComboBox` `DataSource` / `DisplayMember` / `ValueMember` overrides skip the `*Changed` events; `DataSource = null` keeps items — Cat D — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** the overrides compare, store, refresh and raise: `DataSourceChanged`, `DisplayMemberChanged`, and `ValueMemberChanged` followed by `SelectedValueChanged` (upstream's setter order). `DataSource = null` clears the selection and the items before announcing, as upstream's `OnDataSourceChanged` does, and then resets `DisplayMember` to empty -- upstream's documented behaviour. Assigning the same source again is now a no-op, as upstream. `ListControl` gained the upstream `OnDisplayMemberChanged`/`OnValueMemberChanged` hooks. Tests: `ListBox_DataSource_null_clears_the_items_and_announces_it`, `ComboBox_DataSource_null_clears_the_items_and_announces_it`, `Member_changes_raise_their_events`.
 - **Ours:** The overrides write private fields and refresh, never calling `base` or `OnDataSourceChanged`/`DisplayMemberChanged`/`ValueMemberChanged` (`ListBox.cs:195-222`, `ComboBox.cs:147-173`); the base-class events (`WinFormsBaseControls.cs:64-70`) therefore never fire for these controls. `RefreshDataSource` returns early on a null source, leaving the old items (`ListBox.cs:236-241`, `ComboBox.cs:176-181`).
 - **Upstream:** `OnDataSourceChanged` with null clears items and selection (`ListBoxes/ListBox.cs:1914-1926`); setters raise their events (`ListControl/ListControl.cs:48-110, 299`).
 - **Impact:** `DataSource = null` to reset a filter leaves stale rows; code that hooks `DataSourceChanged` to re-select never runs.
@@ -320,7 +324,8 @@ view — `EnsureVisible` semantics are weaker than what upstream's `TopItem` pro
 - **Test:** Bind 3 items, `DataSource = null` → `Items.Count == 0`, `DataSourceChanged` raised once.
 - **Tests today:** `ListControlDataSourceTrackingTests.cs`, `DataTableBindingTests.cs` (positive paths only).
 
-### LST-29 — `ListControl.SelectedValue` semantics — Cat A — P2 — High
+### LST-29 — `ListControl.SelectedValue` semantics — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** on a bound list, a value no row holds sets `SelectedIndex = -1` on both controls. The no-`DataSource` fallback (get returns `SelectedItem`, set selects the item) and whole-item comparison for an empty `ValueMember` are kept as deliberate leniencies and recorded in `COMPATIBILITY_MATRIX.md`. Test: `SelectedValue_that_no_row_holds_clears_the_selection`.
 - **Ours:** With no `DataSource`, get returns `SelectedItem` and set assigns `SelectedItem` (`ListBox.cs:607-641`, `ComboBox.cs:464-492`); a value not found leaves the selection unchanged; empty `ValueMember` compares whole items.
 - **Upstream:** Without a data manager get returns null and set is a no-op; empty `ValueMember` throws `InvalidOperationException`; not-found sets `SelectedIndex = -1` (`ListControl/ListControl.cs:354-385`).
 - **Impact:** `SelectedValue = missingId` leaves the previous customer selected instead of clearing; code relying on `SelectedValue == null` to mean "unbound" gets the item.
@@ -328,7 +333,8 @@ view — `EnsureVisible` semantics are weaker than what upstream's `TopItem` pro
 - **Test:** Bind ids 1..3, `SelectedValue = 2` then `SelectedValue = 99` → `SelectedIndex == -1`.
 - **Tests today:** `ListControlDataSourceTrackingTests.cs` (found path).
 
-### LST-30 — `ListBox.SelectedIndex` / `SelectedIndices` order in multi-select — Cat A — P2 — High
+### LST-30 — `ListBox.SelectedIndex` / `SelectedIndices` order in multi-select — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `ListBoxItemCollection.AddSelectedIndex` inserts in sorted position (`BinarySearch`); the insert/remove index adjustments preserve order, so `SelectedIndex` is the lowest index and `SelectedIndices`/`SelectedItems` ascend. Test: `A_multi_selection_reports_in_item_order`.
 - **Ours:** `SelectedIndex` is `SelectedIndexes[0]`, the *first chronologically* selected index, and `SelectedIndices`/`SelectedItems` are in click order (`ListBoxItemCollection.cs:181-182, 191, 213`; `ListBox.cs:704`).
 - **Upstream:** `SelectedIndex` is the lowest selected index and `SelectedIndices` ascend (`ListBoxes/ListBox.cs:824-845`, LB_GETSELITEMS).
 - **Impact:** "Move selected up" and range logic that assumes ascending order misbehave after Ctrl-clicking bottom-to-top.
@@ -336,7 +342,8 @@ view — `EnsureVisible` semantics are weaker than what upstream's `TopItem` pro
 - **Test:** MultiSimple; `SetSelected (2, true); SetSelected (0, true)`; `SelectedIndex == 0`, `SelectedIndices` is [0, 2].
 - **Tests today:** none on order.
 
-### LST-31 — Event order `SelectedValueChanged` vs `SelectedIndexChanged` (and `SelectedItemChanged`) — Cat A — P2 — High
+### LST-31 — Event order `SelectedValueChanged` vs `SelectedIndexChanged` (and `SelectedItemChanged`) — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `ListBox` raises `SelectedValueChanged` then `SelectedIndexChanged`; `ComboBox` raises `SelectedItemChanged`, `SelectedValueChanged`, `SelectedIndexChanged`. Tests: `ListBox_raises_SelectedValueChanged_before_SelectedIndexChanged`, `ComboBox_raises_item_then_value_then_index`.
 - **Ours:** `ListBox.OnSelectedIndexChanged` raises `SelectedIndexChanged` then `SelectedValueChanged` (`ListBox.cs:494-500`); `ComboBox` raises `SelectedIndexChanged`, `SelectedItemChanged`, `SelectedValueChanged` (`ComboBox.cs:334-342`).
 - **Upstream:** `ListControl.OnSelectedIndexChanged` raises `SelectedValueChanged` first (`ListControl/ListControl.cs:639-641`), then the derived class raises `SelectedIndexChanged` (`ListBoxes/ListBox.cs:1865-1905`); `ComboBox` raises `SelectedItemChanged` *before* `OnSelectedIndexChanged` (`ComboBox/ComboBox.cs:898-900`). So upstream: Item → Value → Index.
 - **Impact:** Handlers that set state in one and read it in the other see it in reverse.
@@ -344,7 +351,8 @@ view — `EnsureVisible` semantics are weaker than what upstream's `TopItem` pro
 - **Test:** Record raise order into a list; assert `["Item","Value","Index"]`.
 - **Tests today:** none.
 
-### LST-32 — `ComboBox.SelectionChangeCommitted` for keyboard changes with the list closed — Cat A — P2 — High
+### LST-32 — `ComboBox.SelectionChangeCommitted` for keyboard changes with the list closed — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** list navigation on a combo goes through `NavigateList`, which marks the change user-driven, so arrow keys (and the wheel, LST-40) on a closed combo commit. **Also corrected:** the commit now comes *before* the text update and `SelectedIndexChanged` -- upstream's notification order is `CBN_SELENDOK`, (`CBN_CLOSEUP`), `CBN_SELCHANGE` -- where it used to come last. Arrow keys inside an *open* list still commit on every move, as before; upstream commits only when the list closes on a selection, and modelling that is left for a later pass. Tests: `A_keyboard_change_on_a_closed_combo_is_committed_before_it_is_announced` (both editable styles), `A_programmatic_change_is_not_committed` (guard).
 - **Ours:** `userDriven = DroppedDown` (`ComboBox.cs:250-260`), so Up/Down on a focused, closed combo (`OnKeyUp → popup_listbox.RaiseKeyUp`, `:313-315`) raises `SelectedIndexChanged` but never `SelectionChangeCommitted`.
 - **Upstream:** CBN_SELENDOK is sent for keyboard selection too → `OnSelectionChangeCommitted` (`ComboBox/ComboBox.cs:3561-3563`, comment block `:3476-3519`).
 - **Impact:** Apps that (correctly) use `SelectionChangeCommitted` to distinguish user changes from programmatic ones miss keyboard-driven changes.
@@ -352,7 +360,8 @@ view — `EnsureVisible` semantics are weaker than what upstream's `TopItem` pro
 - **Test:** Focus, `OnKeyUp (Keys.Down)` with list closed → `SelectionChangeCommitted` raised once.
 - **Tests today:** none.
 
-### LST-33 — `ComboBox.DropDownHeight` / `MaxDropDownItems` / `DropDownWidth` / `ItemHeight` not consumed — Cat C — P2 — High
+### LST-33 — `ComboBox.DropDownHeight` / `MaxDropDownItems` / `DropDownWidth` / `ItemHeight` not consumed — Cat C — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `ComputePopupSize` already sized the popup on every open from `MaxDropDownItems` and `DropDownWidth` (fixed by earlier work, which this entry predates); what remained was `DropDownHeight` and `ItemHeight`. `DropDownHeight` other than upstream's default 106 is now the list's height (upstream `UpdateDropDownHeight`); setting it clears `IntegralHeight` and rejects zero or less, as upstream. `ItemHeight` is the drop-down's real row height under `DrawMode.Normal`, and in an owner-draw mode the set value is pushed to the list. Tests: `An_explicit_DropDownHeight_sizes_the_drop_down`, `ItemHeight_is_the_drop_downs_row_height`.
 - **Ours:** Popup is created once with `Size = new Size (Width, 102)` and reused (`ComboBox.cs:215-221`); `DropDownWidth` (`:375`), `MaxDropDownItems` (`:378`), `DropDownHeight` (`:446`) are stored; `ComboBox.ItemHeight` is a separate stored 15 (`:449`) that `GetItemHeight` returns (`:129-133`) while the popup list uses its own font-derived `ItemHeight`.
 - **Upstream:** `DropDownHeight`/`MaxDropDownItems` size the list, `DropDownWidth` its width (`ComboBox/ComboBox.cs:434-470, 650-668`); `ItemHeight` is the real row height (`:580`).
 - **Impact:** `MaxDropDownItems = 20` still shows ~5 rows; a combo resized after first open keeps the old popup width; `GetItemHeight` lies.
@@ -360,7 +369,8 @@ view — `EnsureVisible` semantics are weaker than what upstream's `TopItem` pro
 - **Test:** 20 items, `MaxDropDownItems = 10`, open; assert `popup.Height ≈ 10 * ItemHeight`.
 - **Tests today:** none.
 
-### LST-34 — `ListBox.TopIndex` bypasses the scrollbar; `ScrollAlwaysVisible` vs `ScrollbarAlwaysVisible` — Cat A — P2 — High
+### LST-34 — `ListBox.TopIndex` bypasses the scrollbar; `ScrollAlwaysVisible` vs `ScrollbarAlwaysVisible` — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** the `ScrollAlwaysVisible` half was already fixed (`LST-51`, W6.2). `TopIndex` on a single-column list now sets the scrollbar's value, whose handler writes `top_index`, so the next wheel notch or thumb drag continues from there; a list that fits shows from the top, as the native list does. Test: `TopIndex_survives_the_next_wheel_notch`.
 - **Ours:** `TopIndex` set writes `top_index` directly (`ListBox.cs:677-683`) without moving `vscrollbar.Value`, so the next wheel/thumb event snaps back; `FirstVisibleIndex` does it correctly (`:114-125`). `ScrollAlwaysVisible` is a stored auto-property (`:662`) while the working knob is the library-named `ScrollbarAlwaysVisible` (`:513-521`).
 - **Upstream:** `TopIndex` is LB_SETTOPINDEX (`ListBoxes/ListBox.cs:1113-1127`); `ScrollAlwaysVisible` is the only property (`:784`).
 - **Impact:** `TopIndex = n` visually scrolls but the thumb is wrong and the first scroll jumps; `ScrollAlwaysVisible = true` shows nothing.
@@ -368,7 +378,8 @@ view — `EnsureVisible` semantics are weaker than what upstream's `TopItem` pro
 - **Test:** 50 items; `TopIndex = 20`; assert `vscrollbar.Value == 20` (via `FirstVisibleIndex`) after a `RaiseMouseWheel (0)`.
 - **Tests today:** none.
 
-### LST-35 — `ListBox` keyboard on `KeyUp`; Shift-click range missing in `MultiExtended` — Cat A/B — P2 — High
+### LST-35 — `ListBox` keyboard on `KeyUp`; Shift-click range missing in `MultiExtended` — Cat A/B — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** navigation moved to `OnKeyDown`, after the `KeyDown` handlers (which can claim the key). `ComboBox` forwards list keys to its list on key down too (from itself and from the edit region); in an editable combo only Up/Down/PageUp/PageDown navigate, so typing letters no longer also drives type-ahead. Shift-click in `MultiExtended` selects the range from an anchor (the last row clicked without Shift) and keeps the anchor; Ctrl+Shift adds the range. Tests: `Down_arrow_moves_the_selection_on_key_down`, `A_KeyDown_handler_can_claim_the_key`, `Shift_click_selects_the_range_from_the_anchor`. `W6ControlFeaturesTests`' key helper now sends key downs.
 - **Ours:** All navigation is in `OnKeyUp` (`ListBox.cs:254-394`), so holding an arrow key does not auto-repeat and the visible selection lags the key. Shift-click is a `// TODO` (`:421`).
 - **Upstream:** WM_KEYDOWN drives the native list; Shift-click selects a range.
 - **Impact:** Scrolling through long lists by holding Down does nothing until release; range selection by mouse impossible.
@@ -376,7 +387,8 @@ view — `EnsureVisible` semantics are weaker than what upstream's `TopItem` pro
 - **Test:** Simulate `OnKeyDown (Keys.Down)` → `SelectedIndex` advances.
 - **Tests today:** none for keys.
 
-### LST-36 — `ListView.FindItemWithText (string)` — Cat A — P2 — High
+### LST-36 — `ListView.FindItemWithText (string)` — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** the one-argument overload is `FindItemWithText (text, true, 0, true)`, as upstream, in virtual mode too (which now asks with sub-items included). Test: `ListView_FindItemWithText_is_a_prefix_search_including_sub_items`. The existing `ListViewTests.FindItemWithText_ReturnsMatch` uses whole words, so it holds under prefix search unchanged.
 - **Ours:** The one-argument overload is an exact `OrdinalIgnoreCase` match on `Text` only (`ListView.cs:258-259`), while the library's own 3/4-arg overloads do the upstream prefix+subitems search (`OverloadParity.cs:90-124`).
 - **Upstream:** `FindItemWithText (text)` = prefix search including subitems from index 0 (`ListView/ListView.cs:3200-3202`).
 - **Impact:** Type-to-find code (`FindItemWithText (typed)`) returns null for partial input.
@@ -384,7 +396,8 @@ view — `EnsureVisible` semantics are weaker than what upstream's `TopItem` pro
 - **Test:** Items "banana","cherry"; `FindItemWithText ("ban")` returns banana. (Current `ListViewTests.cs:571-579` asserts exact-only and would need updating.)
 - **Tests today:** `ListViewTests.cs:571-579` (locks in the wrong behaviour).
 
-### LST-37 — Defaults: `ListView.HideSelection` / `TreeView.HideSelection` false; `ListBox`/`ComboBox` `DefaultCursor` Hand — Cat E — P2 — High
+### LST-37 — Defaults: `ListView.HideSelection` / `TreeView.HideSelection` false; `ListBox`/`ComboBox` `DefaultCursor` Hand — Cat E — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** the `DefaultCursor => Cursors.Hand` overrides on `ListBox` and `ComboBox` are gone. The `HideSelection` half was already settled by W6.2: `TreeView` defaults to true (`LST-47`) and `ListView`'s `false` is correct -- upstream's `ListView.HideSelection` is `[DefaultValue(false)]`, so this entry's "Upstream" line was wrong for it. Test: `ListBox_and_ComboBox_use_the_default_cursor`.
 - **Ours:** `ListView.HideSelection` (`ListView.cs:222`) and `TreeView.HideSelection` (`TreeView.cs:246`) default false and are stored-only; `ListBox.DefaultCursor => Cursors.Hand` (`ListBox.cs:55`), `ComboBox` too (`ComboBox.cs:48`). `ListBox.HideSelection` (`:653`) does not exist upstream at all.
 - **Upstream:** `HideSelection` `[DefaultValue(true)]` on both (`ListView/ListView.cs:1031`, `TreeView/TreeView.cs:481`); cursor is the default arrow.
 - **Impact:** Cosmetic but universal: every list/combo shows a hand cursor; unfocused trees/lists keep a strong highlight.
@@ -392,7 +405,8 @@ view — `EnsureVisible` semantics are weaker than what upstream's `TopItem` pro
 - **Test:** `new TreeView ().HideSelection` is true; render unfocused with a selection → highlight colour is `ControlLight`, not `HighlightLow`.
 - **Tests today:** none.
 
-### LST-38 — `TreeNode.FullPath` ignores `TreeView.PathSeparator`; detached behaviour — Cat A — P2 — High
+### LST-38 — `TreeNode.FullPath` ignores `TreeView.PathSeparator`; detached behaviour — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** the separator half was fixed by `LST-49` (W6.2). A node in no tree now throws `InvalidOperationException` from `FullPath`, as upstream (`TreeNode.cs`), instead of returning its bare text as if it were a one-level path. Test: `FullPath_of_a_node_in_no_tree_throws`.
 - **Ours:** Hard-codes `"\\"` (`TreeViewItem.cs:351-358`); `PathSeparator` is stored (`TreeView.cs:255`); a node in a detached subtree returns just `Text`.
 - **Upstream:** `GetFullPath (path, tv.PathSeparator)`; detached throws `InvalidOperationException` (`TreeView/TreeNode.cs:454-469`).
 - **Impact:** Trees using `/` as separator (file-path trees) produce `a\b` paths that fail later string splits.
@@ -400,7 +414,8 @@ view — `EnsureVisible` semantics are weaker than what upstream's `TopItem` pro
 - **Test:** `PathSeparator = "/"`; child `FullPath == "Parent/Child"`.
 - **Tests today:** `TreeViewTests.cs:304, 556-564` (default separator only).
 
-### LST-39 — `CheckedListBox.Items[i] = value` is a no-op — Cat B — P2 — High
+### LST-39 — `CheckedListBox.Items[i] = value` is a no-op — Cat B — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** the indexer replaces the item in place and keeps the slot's check state, as upstream's item array does. Test: `CheckedListBox_item_replacement_keeps_the_check_state`.
 - **Ours:** `CheckedObjectCollection` indexer setter is `set { }` (`CheckedListBox.cs:175-178`).
 - **Upstream:** `ObjectCollection` indexer replaces the item (`ListBox.ObjectCollection.cs:167-180`).
 - **Impact:** Renaming an entry in place silently does nothing.
@@ -408,7 +423,8 @@ view — `EnsureVisible` semantics are weaker than what upstream's `TopItem` pro
 - **Test:** `Items[0] = "new"`; `Items[0] == "new"`; check state preserved.
 - **Tests today:** none.
 
-### LST-40 — `ComboBox` mouse wheel does not change selection — Cat B — P2 — Medium
+### LST-40 — `ComboBox` mouse wheel does not change selection — Cat B — P2 — Medium — **CLOSED (2026-10-02)**
+- **Fix (applied):** `ComboBox.OnMouseWheel` (and the edit region's, which forwards) moves the selection one item per notch, clamped, while the combo or its edit region has focus and the list is closed, and the change is committed as a user change. Tests: `The_wheel_moves_a_focused_combos_selection`, `The_wheel_leaves_an_unfocused_combo_alone` (guard).
 - **Ours:** No `OnMouseWheel` on `ComboBox` (`ComboBox.cs`); the base scrolls nothing.
 - **Upstream:** The native control changes the selection on wheel when focused (handled by comctl; no managed override — `grep MouseWheel ComboBox.cs` is empty).
 - **Impact:** Users used to wheeling through a focused combo see nothing; low but noticeable.
@@ -416,7 +432,8 @@ view — `EnsureVisible` semantics are weaker than what upstream's `TopItem` pro
 - **Test:** Focus, `OnMouseWheel (delta -120)` → `SelectedIndex` +1.
 - **Tests today:** none.
 
-### LST-41 — `ListBox.Text` not overridden — Cat A — P2 — High
+### LST-41 — `ListBox.Text` not overridden — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `ListBox.Text` mirrors upstream: the getter returns the selected item's `GetItemText`, else `Control.Text`; the setter stores the text and selects the first item whose display text matches case-insensitively. The automation name still comes from the control's own text (`ListBox.WindowText`), as the native list's does -- naming the list by its selection collided with its own item in `AutomationListItemTests`. Test: `ListBox_Text_is_the_selected_items_display_text`.
 - **Ours:** Inherits `Control.Text` (no override in `ListBox.cs`).
 - **Upstream:** Getter returns the selected item's display text; setter selects the matching item (`ListBoxes/ListBox.cs:1055-1090`).
 - **Impact:** `lbl.Text = listBox.Text` shows "" instead of the selection; `listBox.Text = "Apple"` does not select.
@@ -424,7 +441,8 @@ view — `EnsureVisible` semantics are weaker than what upstream's `TopItem` pro
 - **Test:** Select 1; `Text == Items[1].ToString ()`; `Text = Items[2].ToString ()` → `SelectedIndex == 2`.
 - **Tests today:** none.
 
-### LST-42 — `TreeView.TopNode` / `TreeNode.IsVisible` ignore scrolling — Cat A — P2 — High
+### LST-42 — `TreeView.TopNode` / `TreeNode.IsVisible` ignore scrolling — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `TopNode` gets the node at `top_index` and its setter expands the ancestors and scrolls (through the scrollbar) so the node is at the top, or as near as the end of the tree allows; `IsVisible` is false for a node in no tree, and otherwise needs expanded ancestors **and** a row at least partly inside the client area. Tests: `TopNode_scrolls_and_IsVisible_follows_the_scroll`, `A_node_in_no_tree_is_not_visible`.
 - **Ours:** `TopNode` get is `Items.FirstOrDefault ()` and set is `{ }` (`TreeView.cs:327-330`); `IsVisible` is "all ancestors expanded" (`TailParity.cs:69-78`).
 - **Upstream:** `TopNode` is TVGN_FIRSTVISIBLE and settable (`TreeView/TreeView.cs:1297`); `IsVisible` is "has an on-screen rectangle" (`TreeNode.cs:609-625`).
 - **Impact:** Save/restore scroll position via `TopNode` does nothing; `IsVisible` true for off-screen nodes.
@@ -510,6 +528,7 @@ match `ListBox`/`TextBox`, where this layer defaults it to `true` — but upstre
 - **Tests today:** `ListViewStoredOnlyTests.cs` (3 for this finding; 2 neutralization-verified, 1 labelled guard covering the `false` default).
 
 ### LST-46 — `ListView.Groups` is a collection nothing reads — Cat A — P2 — Medium
+- **Still open (2026-10-02, #347):** the decorative half above (`Footer`, `FooterAlignment`, `TaskLink`, `TitleImage*`, `GroupImageList`) and grouping in the tile views. Each is rendering work in `ListViewRenderer`/`LayoutTiles`, sized as its own item.
 - **Ours:** `Groups` exists (`ListView.cs:765`) and `ShowGroups` defaults true (`:512`), but `ListViewRenderer` contains no group code at all and `LayoutTiles`/the row layouts do not group. All 12 `ListViewGroup` members plus `ShowGroups` and `GroupImageList` sit on the stored-only baseline as one consequence.
 - **Upstream:** groups render as a titled band above their items, collapsible via `CollapsedState`.
 - **Impact:** an application that builds groups gets an ungrouped flat list with no error — the items are all present and in insertion order, so it reads as "grouping did nothing" rather than as a failure.
@@ -674,6 +693,7 @@ distinguishes "ours is wrong" from "ours is right and the sibling differs".
   out-of-range index falls back rather than throwing.
 
 ### LST-61 — `TabControl.HotTrack` is unread, and not demonstrable — Cat A — P3 — Low
+- **Still open (2026-10-02, #347):** unchanged -- it waits on a theming decision (a default background for `TabStrip::item:hover`), without which the gate cannot be demonstrated.
 - **Ours:** stored and consumed by nothing. `TabStripRenderer` styles a hovered tab whenever
   `item.Hovered`, which is the `HotTrack = true` behaviour applied whatever the property says; upstream
   defaults it to `false`.

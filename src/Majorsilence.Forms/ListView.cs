@@ -1296,17 +1296,18 @@ namespace Majorsilence.Forms
             return Items.FirstOrDefault (i => i.DeviceBounds.Contains (location));
         }
 
-        /// <summary>Returns the first item whose text matches the specified string.</summary>
-        /// <remarks>In <see cref="VirtualMode"/> the application answers through
-        /// <see cref="SearchForVirtualItem"/> (a prefix text search from index 0, as upstream frames
-        /// it) and the item at the index it names is returned (W6 mechanisms).</remarks>
+        /// <summary>Returns the first item whose text, or one of whose sub-items' text, starts with the specified string.</summary>
+        /// <remarks>
+        /// Upstream's one-argument overload is the four-argument one with sub-items included, from
+        /// index 0, as a prefix search (<c>ListView/ListView.cs</c>). This was an exact match on the
+        /// item's own text, so type-to-find code calling it with partial input found nothing
+        /// (<c>LST-36</c>). In <see cref="VirtualMode"/> the application answers through
+        /// <see cref="SearchForVirtualItem"/>, with the same framing.
+        /// </remarks>
         public ListViewItem? FindItemWithText (string text)
-        {
-            if (VirtualMode)
-                return SearchVirtual (text, includeSubItems: false, startIndex: 0, isPrefixSearch: true);
-
-            return Items.FirstOrDefault (i => string.Equals (i.Text, text, StringComparison.OrdinalIgnoreCase));
-        }
+            => Items.Count == 0 && !VirtualMode
+                ? null
+                : FindItemWithText (text, includeSubItemsInSearch: true, startIndex: 0, isPrefixSearch: true);
 
         // The virtual-mode half of every FindItemWithText overload: the application answers, and the
         // index it names is resolved and returned.
