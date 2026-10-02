@@ -71,12 +71,17 @@ namespace Majorsilence.Forms.Renderers
                 // draws every other check with. Upstream's menu tick has no box around it, which is a
                 // cosmetic difference from what a Win32 menu draws and the same glyph the rest of this
                 // toolkit uses for the same meaning.
+                // An indeterminate ToolStripMenuItem draws as one (TSM-24). RadioCheck is MenuItem's, so
+                // the legacy MenuItem gets its bullet too; this tested for ToolStripMenuItem, which
+                // inherits the property and is not the type that declares it (TSM-32).
+                var state = item is ToolStripMenuItem tri ? tri.CheckState : CheckState.Checked;
+
                 if (StripRendererBridge.Check (control, item, glyph_rect, e)) {
                     // the renderer drew the check itself
-                } else if (item is ToolStripMenuItem { RadioCheck: true })
-                    ControlPaint.DrawRadioButton (e, glyph_rect.Location, CheckState.Checked, !item.Enabled);
+                } else if (item.RadioCheck)
+                    ControlPaint.DrawRadioButton (e, glyph_rect.Location, state, !item.Enabled);
                 else
-                    ControlPaint.DrawCheckBox (e, glyph_rect, CheckState.Checked, !item.Enabled);
+                    ControlPaint.DrawCheckBox (e, glyph_rect, state, !item.Enabled);
             } else if (item.ImageSK != null) {
                 var image_size = e.LogicalToDeviceUnits (16);
                 var image_bounds = DrawingExtensions.CenterSquare (item.DeviceBounds, image_size);

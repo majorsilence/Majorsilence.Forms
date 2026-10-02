@@ -195,7 +195,11 @@ namespace Majorsilence.Forms
                     return;
 
                 try {
-                    Application.ClosePopups ();
+                    // ItemClicked is the reason the menu's Closing sees; AutoClose off keeps the menu
+                    // open on an item click, as upstream's ToolStripDropDown.OnItemClicked closes only
+                    // `if (AutoClose)` (TSM-21).
+                    if (Application.ActiveMenu is not ContextMenu { AutoCloseCore: false })
+                        Application.ClosePopups (reason: ToolStripDropDownCloseReason.ItemClicked);
 
                     clicked_item.OnClick (e);
                     OnItemClicked (e, clicked_item);

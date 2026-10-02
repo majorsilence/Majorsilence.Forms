@@ -142,7 +142,8 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **Test:** render a `ContextMenuStrip` with a checked item to a bitmap headlessly; assert non-background pixels in the gutter rect of that item and none for an unchecked sibling.
 - **Tests today:** none.
 
-### TSM-07 — `ToolStripItem.DisplayStyle` — Cat C — P1 — High
+### TSM-07 — `ToolStripItem.DisplayStyle` — Cat C — P1 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `ToolStripItem.DisplaysText`/`DisplaysImage` test the two flag bits the way upstream's internal layout does (`DisplayStyle & Text`, `DisplayStyle & Image`); `ToolBarRenderer.RenderItem` and `GetPreferredItemSize` draw and measure only the halves shown, and `StatusStripRenderer` hides a status label's caption for `Image`/`None`. The drop-down renderer still draws both (menus rarely set it). Tests: `ToolStripBehaviourGapTests` (4).
 - **Ours:** stored (`WinFormsCompat.cs:1087`); `ToolBarRenderer.RenderItem`/`GetPreferredItemSize` always draw and measure both image and text (`Renderers/ToolBarRenderer.cs:63-66,138-139,175-178`).
 - **Upstream:** `DisplayStyle` setter re-lays out (`ToolStripItem.cs:703-716`); the internal layout omits text for `Image`, image for `Text`, both for `None`.
 - **Impact:** the designer writes `DisplayStyle = ToolStripItemDisplayStyle.Image` on almost every toolbar button with an icon, and `Text` is still `"toolStripButton1"`/the caption. Migrated toolbars show every button's caption beside its icon, tripling their width.
@@ -206,7 +207,8 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **Test:** `ContextMenuStrip` with a disabled item; simulate `OnMouseClick` at its bounds; `Click` count stays 0.
 - **Tests today:** none (`MenuDropDownClickTests.cs` covers enabled items).
 
-### TSM-15 — `ToolStripSplitButton` button-vs-arrow halves, `OnButtonClick`, `DefaultItem` — Cat A — P1 — High
+### TSM-15 — `ToolStripSplitButton` button-vs-arrow halves, `OnButtonClick`, `DefaultItem` — Cat A — P1 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `MenuBase.ClickItemAt` splits a `ToolStripSplitButton` on `DropDownButtonBounds`, as upstream's `OnMouseDown`/`OnMouseUp` do: the arrow half opens the drop-down and raises no `ButtonClick`; the button half is a leaf click that does not select (open) the item, raises `Click` and then `OnButtonClick`. `OnButtonClick` clicks `DefaultItem` first. The `OnClick` override that raised `ButtonClick` for every click is gone, which also stops `PerformButtonClick` raising it twice and `PerformClick` raising it at all. Tests: `ToolStripBehaviourGapTests` (4).
 - **Ours:** `OnClick` calls `base.OnClick` then `ButtonClick?.Invoke` directly (`WinFormsCompat.cs:1576-1582`), bypassing the virtual `OnButtonClick` (`CyotekPortParity.cs:47`); `DefaultItem` is stored (`:1564`). Because the item `HasItems`, `MenuBase.OnMouseClick` also sets `SelectedItem` → `ShowDropDown()` (`MenuBase.cs:136`), so one click both fires `ButtonClick` and opens the menu. `DropDownButtonWidth` is stored.
 - **Upstream:** `OnMouseDown/OnMouseUp` split on `DropDownButtonBounds.Contains(e.Location)`: arrow half opens the drop-down only, button half raises `ButtonClick` via `OnButtonClick`, which first fires `DefaultItem`'s `Click` (`ToolStripSplitButton.cs:388-392`, `:419-460`).
 - **Impact:** a split "Save ▾" button opens its menu on every save click; overrides of `OnButtonClick` never run; `DefaultItem` never fires.
@@ -222,7 +224,8 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **Test:** render a `StatusStrip` label with `ForeColor = Red` headlessly; assert a red pixel inside its text bounds.
 - **Tests today:** none.
 
-### TSM-17 — `ToolTip.Show(text, control[, x, y][, duration])` — Cat A — P1 — High
+### TSM-17 — `ToolTip.Show(text, control[, x, y][, duration])` — Cat A — P1 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** every `Show` overload (`Control` and `IWin32Window`) goes through one `ShowFor`: shown at once, at the point given in the control's client coordinates (no cursor offset) or the control's middle, the control's `SetToolTip` text untouched, hidden after `duration` when one is given; a negative duration throws as upstream. Tests: `ToolStripBehaviourGapTests` (3).
 - **Ours:** every `Show` overload is `=> SetToolTip(control, text)` (`src/Majorsilence.Forms/ToolTip.cs:188-197`, `IWin32Window` variants `:151-171`). Nothing is displayed until the pointer next enters the control; `x, y` and `duration` are dropped, and the caller's persistent tip text is overwritten.
 - **Upstream:** `ShowTooltip` positions and shows the tip immediately (at the point or centred on the control) and auto-hides after `duration` (`ToolTip/ToolTip.cs:1305-1335`).
 - **Impact:** validation hints (`toolTip.Show("Required", textBox, 0, textBox.Height, 2000)`) never appear; the control's hover tip is replaced by the hint text.
@@ -230,7 +233,8 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **Test:** headless form + control; `Show("hi", control, 5, 5)`; assert the popup is `Visible` with label text "hi" and `GetToolTip(control)` unchanged.
 - **Tests today:** `ToolTipTests.cs` (SetToolTip/GetToolTip/RemoveAll only).
 
-### TSM-18 — `ToolStripItem.MouseEnter`/`MouseLeave`/`MouseHover`/`MouseDown`/`MouseUp`/`MouseMove`/`DoubleClick` — Cat D — P1 — High
+### TSM-18 — `ToolStripItem.MouseEnter`/`MouseLeave`/`MouseHover`/`MouseDown`/`MouseUp`/`MouseMove`/`DoubleClick` — Cat D — P1 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `MouseEnter`/`MouseLeave`/`MouseHover`/`MouseMove`/`DoubleClick` were already wired by TSM-46 and the W6 mechanisms work (`MenuBase.RaiseItemEnterLeave`, `OnMouseHover`, `OnDoubleClick`). What remained was `MouseDown`/`MouseUp`: `MenuBase.OnMouseDown`/`OnMouseUp` now hand them to the item under the pointer, item-relative and only while enabled, and `MouseUp` only to the item the press began on (a drop-down excepted), upstream's `MouseDownAndUpMustBeInSameItem`. The raisers no longer set `Pressed`, which the strip owns. Tests: `ToolStripBehaviourGapTests` (2, one a guard).
 - **Ours:** declared under `#pragma warning disable CS0067` with raisers `OnMouseEnter`/`OnMouseLeave`/`OnMouseDown`/`OnMouseUp` (`ToolStripParity.cs:58-80,298-316`), but `MenuBase.SetHover` (`MenuBase.cs:206-231`) and `MenuBase.OnMouseClick` never call them; `Pressed` therefore never becomes true. `ToolStripLabel` additionally re-declares `MouseEnter`/`MouseLeave` as `add { } remove { }` (`WinFormsCompat.cs:1364-1367`), which discards handlers even after the base is fixed.
 - **Upstream:** `ToolStrip.OnMouseMove`/`OnMouseDown`/`OnMouseUp` dispatch `FireEvent(..., MouseEnter/MouseLeave/MouseDown/MouseUp)` to the item under the pointer (`ToolStrip.cs:2442,3329,3362`, `ToolStripItem.cs:2547-2611`).
 - **Impact:** status-bar help text on hover (`item.MouseEnter += ...`), drag-initiation from `MouseDown`, and `DoubleClick` on items never fire.
@@ -239,6 +243,7 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **Tests today:** none.
 
 ### TSM-19 — `NotifyIcon` (all members) — Cat B — P1 — High
+- **Still open (2026-10-02, #351):** the short-term half is done -- `COMPATIBILITY_MATRIX.md` lists `NotifyIcon` as Stub (it now says the events are declared and never raised; they stopped being `add { } remove { }` when the inert-event baseline was emptied). The real fix is a tray seam in every backend (Avalonia `TrayIcon`, GTK, WPF/WinForms `NotifyIcon`, macOS `NSStatusItem`), which is a cross-backend design, not a strip change.
 - **Ours:** `Visible`/`Icon`/`Text`/`ContextMenuStrip` stored; `Click`/`DoubleClick`/`MouseClick`/`MouseDoubleClick`/`MouseMove`/`BalloonTip*` are `add { } remove { }` (`src/Majorsilence.Forms/NotifyIcon.cs:58-84`); `ShowBalloonTip` validates and returns (`:129-139`). No backend exposes any tray seam (`grep -ri tray Backends/` is empty). The class doc says stub, but **COMPATIBILITY_MATRIX.md:258 lists `NotifyIcon` as "Implemented"**.
 - **Upstream:** `Visible` → `UpdateIcon` adds/removes the shell icon (`NotifyIcon.cs:263-276,624`), click messages raise the events (`:445-470`), right-click shows `ContextMenuStrip` (`:604`).
 - **Impact:** "minimise to tray" apps (`Resize` → `Hide(); notifyIcon.Visible = true`) become unreachable — the window is hidden and there is no icon to restore it. Silent because everything compiles and returns.
@@ -246,7 +251,8 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **Test:** with a fake backend registered, `Visible = true` calls `backend.Show` once; simulated click raises `Click`.
 - **Tests today:** `NotifyIconTests.cs` (argument validation only).
 
-### TSM-20 — `ToolStripComboBox.Text` — Cat A — P1 — High
+### TSM-20 — `ToolStripComboBox.Text` — Cat A — P1 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `ToolStripControlHost.Text` overrides `MenuItem.Text` and reads/writes `Control.Text`; `ToolStripTextBox`'s `new Text` is gone. Tests: `ToolStripBehaviourGapTests` (1).
 - **Ours:** `ToolStripComboBox` and `ToolStripControlHost` do not override `Text`, so `Text` is `MenuItem.Text` — the *item's* caption (`WinFormsCompat.cs:1731-1830`, `ToolStripHostParity.cs:473-547`); only `ToolStripTextBox` forwards (`WinFormsCompat.cs:1389-1392`). `TextChanged` on the combo item is forwarded to the combo but `Text` is not.
 - **Upstream:** `ToolStripControlHost.Text` gets/sets `Control.Text` (`ToolStripControlHost.cs`), so every hosted item reports the hosted control's text.
 - **Impact:** `toolStripComboBox1.Text` returns `""` (or whatever caption was set) instead of the typed/selected text; `Text = "x"` sets a caption the renderer hides for hosts and leaves the combo unchanged.
@@ -254,7 +260,8 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **Test:** `var c = new ToolStripComboBox(); c.ComboBox.Text = "abc"; Assert.Equal("abc", c.Text);`
 - **Tests today:** `ToolStripControlHostingTests.cs` (hosting/bounds only).
 
-### TSM-21 — `ContextMenu.Closing` reason/cancel, `ToolStripDropDown.Close(reason)`, `AutoClose` — Cat A — P2 — High
+### TSM-21 — `ContextMenu.Closing` reason/cancel, `ToolStripDropDown.Close(reason)`, `AutoClose` — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `ContextMenu` keeps a close reason that the closing path sets (`SetCloseReason`) and `Deactivate` consumes: `Close (reason)` (and `Close ()` as `CloseCalled`), an item click or Enter (`ItemClicked`), Escape (`Keyboard`), `Application.ClosePopups` from a click elsewhere (`AppClicked`) and focus leaving the app (`AppFocusChange`). `Closing.Cancel` is pre-set from `AutoClose` as upstream's `SetVisibleCore` does and honoured: a cancelled close leaves the menu shown, and `ClosePopups` leaves its popup alone. `AutoClose = false` also stops an item click from closing at all. Owned drop-downs (a menu item's `DropDown`) still close through their item without these events. Tests: `ToolStripBehaviourGapTests` (4).
 - **Ours:** `Close(reason) => Hide()` drops the reason (`TailParity.cs:430`); `Deactivate` always raises `Closing`/`Closed` with `AppFocusChange` (`ContextMenu.cs:122-125`), including after an item click (`MenuDropDown.cs:126` → `ClosePopups`) and after `Close()`; `e.Cancel` is never read; `AutoClose` is stored (`TailParity.cs:406`).
 - **Upstream:** `_closeReason` is set by the path that closes (`ItemClicked`, `CloseCalled`, `Keyboard`, `AppClicked`) and `SetVisibleCore` honours `e.Cancel` and pre-sets it from `!AutoClose` (`ToolStripDropDown.cs:958-979,1134,1640-1660`).
 - **Impact:** the "keep the menu open when a checkable item is clicked" idiom (`e.Cancel = e.CloseReason == ItemClicked`) does nothing and always sees `AppFocusChange`; `AutoClose = false` menus still close.
@@ -274,7 +281,8 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **The recorded objection did not survive the merge.** `ToolStripItem.Height`'s remarks had argued that reading `Bounds` would answer 0 for an item never placed on a strip. That held only while the two were separate stores: the setter writes `Bounds` now, so a size assigned off-strip reads back unchanged. Pinned by its own test, because it is the reason the merge had been avoided.
 - **The two halves were one defect.** With a single store, `new Rectangle (Bounds.Location, Size)` and `Bounds` are the same rectangle, so the `GetItemAt` bug is structurally impossible however the hit-test is written — verified by restoring the old expression and watching nothing fail. The earlier fix treated the symptom; the split store was the cause.
 
-### TSM-23 — `ToolStripSeparator` on `ToolStrip`/`MenuStrip` — Cat A — P2 — High
+### TSM-23 — `ToolStripSeparator` on `ToolStrip`/`MenuStrip` — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `ToolBarRenderer` and `MenuRenderer` draw and measure a `ToolStripSeparator` as the vertical rule of a `MenuSeparatorItem` (and offer it to `ToolStripRenderer.DrawSeparator`); `ToolStripSeparator.CanSelect` is false, and `MenuBase.SetHover` skips an item that cannot be selected. Tests: `ToolStripBehaviourGapTests` (3).
 - **Ours:** `ToolBarRenderer.Render` and `MenuRenderer.Render` special-case only `MenuSeparatorItem` (`Renderers/ToolBarRenderer.cs:13-17`, `MenuRenderer.cs:12-20`); a `ToolStripSeparator` (`WinFormsCompat.cs:1719`) is painted as a 6px-wide blank item that hover-highlights (`MenuBase.SetHover` only skips disabled). `MenuDropDownRenderer` does handle it.
 - **Upstream:** separators are non-selectable (`CanSelect` false) and drawn as a line by `OnRenderSeparator`.
 - **Impact:** toolbar separators vanish (no line) and light up on hover.
@@ -282,7 +290,8 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **Test:** `GetPreferredItemSize` for a separator on a `ToolStrip` equals the `MenuSeparatorItem` size; hover does not set `Hovered`.
 - **Tests today:** none.
 
-### TSM-24 — `ToolStripMenuItem.CheckState` / `CheckStateChanged` — Cat A/D — P2 — High
+### TSM-24 — `ToolStripMenuItem.CheckState` / `CheckStateChanged` — Cat A/D — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `CheckState` is the storage on `ToolStripMenuItem` and `ToolStripButton`, `Checked` derives from it, and a change raises `CheckedChanged` then `CheckStateChanged` (upstream order). `MenuItem.Checked` is kept in step for the renderers, and the drop-down renderer draws an indeterminate glyph. `ToolStripButton.OnCheckStateChanged` added, as upstream has it. Tests: `ToolStripBehaviourGapTests` (3).
 - **Ours:** `CheckState` is derived from the bool (`WinFormsCompat.cs:1686-1689`): `Indeterminate` sets `Checked = false` and reads back `Unchecked`; the `Checked` setter raises only `CheckedChanged` (`:1660-1667`), never `OnCheckStateChanged` (`RemainingMemberParity.cs:447-452`). `ToolStripButton.Checked` does raise both (`:1317-1326`).
 - **Upstream:** `CheckState` is the storage, `Checked` derives from it, both events fire on any change (`ToolStripMenuItem.cs:253-315`).
 - **Impact:** tri-state menu items collapse; `CheckStateChanged` subscribers never run.
@@ -290,7 +299,8 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **Test:** `CheckState = Indeterminate` round-trips and raises `CheckStateChanged`.
 - **Tests today:** none.
 
-### TSM-25 — `ToolStripItem.IsOnDropDown` — Cat A — P2 — High
+### TSM-25 — `ToolStripItem.IsOnDropDown` — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `IsOnDropDown => GetCurrentParent () is MenuDropDown || Parent is not MenuRootItem` -- an item whose parent is another item is on that item's drop-down, open or not. Tests: `ToolStripBehaviourGapTests` (1).
 - **Ours:** `=> GetCurrentParent() is ToolStripDropDown` (`ToolStripParity.cs:150`). Sub-menus are `MenuDropDown` (created in `MenuItem.ShowDropDown`, `MenuItem.cs:297`), not `ToolStripDropDown`, so items under a `ToolStripMenuItem` report `false`; only `ContextMenuStrip` items report `true`.
 - **Upstream:** `IsOnDropDown` is true for any item whose parent is a `ToolStripDropDown` (`ToolStripItem.cs:1226`), which every sub-menu is.
 - **Impact:** renderers/handlers branching on `IsOnDropDown` (menu-vs-toolbar styling) take the toolbar branch for menu items.
@@ -298,7 +308,8 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **Test:** item added to `fileMenuItem.DropDownItems`, parented on a `MenuStrip`, reports `IsOnDropDown == true`.
 - **Tests today:** none.
 
-### TSM-26 — `ToolStripItem.PerformClick` — Cat A — P2 — High
+### TSM-26 — `ToolStripItem.PerformClick` — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `MenuItem.PerformClick` returns without clicking a `ToolStripItem` that is not `Enabled && Available`. The legacy `MenuItem` keeps the .NET Framework rule (unconditional). Tests: `ToolStripBehaviourGapTests` (2, one a guard).
 - **Ours:** `MenuItem.PerformClick() => OnClick(...)` unconditionally (`AppMenuBindingParity.cs:203`).
 - **Upstream:** `if (Enabled && Available) FireEvent(Click)` (`ToolStripItem.cs:3017-3023`).
 - **Impact:** code that calls `PerformClick` on a possibly-disabled item (keyboard shortcuts, accessibility `DoDefaultAction`) runs the handler anyway. Will matter more once TSM-02 routes shortcuts through it.
@@ -322,7 +333,8 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **Test:** `Assert.NotNull(new ToolStrip().OverflowButton)`.
 - **Tests today:** none.
 
-### TSM-29 — `ToolStrip.TabStop` default — Cat E — P2 — Medium
+### TSM-29 — `ToolStrip.TabStop` default — Cat E — P2 — Medium — **CLOSED (2026-10-02)**
+- **Fix (applied):** both `ToolBar` constructors set `TabStop = false`, covering every strip type. Tests: `ToolStripBehaviourGapTests` (1).
 - **Ours:** no `TabStop` assignment in `MenuBase`/`ToolBar`/`ToolStrip`/`Menu` (grep empty), so the `Control` default (true) applies.
 - **Upstream:** `TabStop = false` in the `ToolStrip` constructor (`ToolStrip.cs:127`).
 - **Impact:** Tab cycles focus into menu bars/toolbars/status strips between the real input controls.
@@ -346,7 +358,8 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **Test:** on a strip with a spy `Invalidate` counter, set `item.Image`; counter increments.
 - **Tests today:** `ToolStripItemImageListTests.cs` (ImageIndex path only).
 
-### TSM-32 — Legacy `Form.Menu`, `MenuItem.Shortcut`/`RadioCheck`/`Checked`, `ContextMenu.Popup` — Cat B/C — P2 — High
+### TSM-32 — Legacy `Form.Menu`, `MenuItem.Shortcut`/`RadioCheck`/`Checked`, `ContextMenu.Popup` — Cat B/C — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `Form.Menu` adds the `MainMenu` to the form docked top and removes the previous one. The drop-down renderer reads `MenuItem.RadioCheck` for any item (it tested for `ToolStripMenuItem`), so a legacy radio item draws a bullet. `Shortcut` and `Popup` were closed by TSM-02 and TSM-30. Not done: `DefaultItem` bold and `OwnerDraw` are unchanged. Tests: `ToolStripBehaviourGapTests` (2).
 - **Ours:** `Form.Menu` is `{ get; set; }` (`ControlAndFormParity.cs:535`) — a `MainMenu` assigned there is never added to the form; `MenuItem.Checked`/`RadioCheck`/`DefaultItem`/`OwnerDraw` stored (`MenuItem.cs:340-349`) with no glyph in `MenuDropDownRenderer`; `Shortcut` see TSM-02; `Popup` see TSM-30.
 - **Upstream:** .NET's `MainMenu`/`MenuItem`/`ContextMenu` are `[Obsolete]` and throw `PlatformNotSupportedException` (`Controls/Unsupported/MainMenu/MainMenu.cs:23`, `Unsupported/ContextMenu/MenuItem.cs:34`); the .NET Framework semantics are: `Form.Menu` docks the bar, `Checked`/`RadioCheck` draw glyphs, `Shortcut` fires `Click`.
 - **Impact:** only .NET-Framework-era apps; they compile here (an improvement on upstream .NET) but the menu bar never appears if assigned via `Form.Menu`.
@@ -362,7 +375,8 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **Test:** headless render with two panels; assert text of each appears within its computed rectangle.
 - **Tests today:** none.
 
-### TSM-34 — `ToolTip.InitialDelay`/`AutoPopDelay`/`ReshowDelay`/`AutomaticDelay` — Cat C — P2 — High
+### TSM-34 — `ToolTip.InitialDelay`/`AutoPopDelay`/`ReshowDelay`/`AutomaticDelay` — Cat C — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** a `SetToolTip` hover tip waits `InitialDelay` on a timer (cancelled on leave and mouse-down), uses `ReshowDelay` instead when the pointer arrives from a control whose tip was showing within the initial delay, and hides after `AutoPopDelay`; item tips (`ShowItemTip`) also auto-pop. A zero delay acts at once. Item tips still appear without the initial delay: that path is driven from `Control`'s mouse-move code. Tests: `ToolStripBehaviourGapTests` (3).
 - **Ours:** stored with validation (`ToolTip.cs:30-79`); `Control_MouseEnter` shows immediately and nothing ever auto-hides (`ToolTip.cs:203-213`).
 - **Upstream:** the tooltip window honours the three delays (`TTM_SETDELAYTIME` via `SetToolInfo`, `ToolTip/ToolTip.cs:815`).
 - **Impact:** tips flash on every pointer crossing and stay until leave; `AutoPopDelay = 30000` for long help text has no effect.
@@ -370,7 +384,8 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **Test:** headless: after `MouseEnter` the popup is not visible until the timer fires (drive with the test `Timer` seam).
 - **Tests today:** `ToolTipTests.cs` (delay setters only).
 
-### TSM-35 — `ToolStripDropDownItem.ShowDropDown` event accuracy — Cat A — P2 — Medium
+### TSM-35 — `ToolStripDropDownItem.ShowDropDown` event accuracy — Cat A — P2 — Medium — **CLOSED (2026-10-02)**
+- **Fix (applied):** `ToolStripDropDownItem.ShowDropDown` raises `DropDownOpened` only when the drop-down is actually open afterwards. The order Opening (drop-down) before DropDownOpening (item) is unchanged; upstream raises the item's first. Tests: `ToolStripBehaviourGapTests` (1).
 - **Ours:** raises `DropDownOpening` then `MenuItem.ShowDropDown`, then `DropDownOpened` unconditionally (`WinFormsBaseControls.cs:262-272`); `MenuItem.ShowDropDown` is a no-op when `!HasItems || OwnerControl is null` (`MenuItem.cs:296`), so `DropDownOpened` fires with nothing open; `Opening` is consulted only if `HasDropDown` (the drop-down object was touched).
 - **Upstream:** `ShowDropDownInternal` raises `OnDropDownShow`, returns early for an empty auto-generated drop-down, and `Opened` comes from the drop-down's own `Opened` (`ToolStripDropDownItem.cs:695-725`).
 - **Impact:** `DropDownOpened` handlers run for leaf items and for items whose lazy `DropDownOpening` populated nothing; a lazily-populated menu on a `MenuStrip` whose `DropDownOpening` adds items **does** work (order is correct).
@@ -379,6 +394,7 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **Tests today:** none.
 
 ### TSM-36 — `ToolStripPanel.Join(strip, row)` row index — Cat A — P2 — High
+- **Still open (2026-10-02, #351), with a correction.** `Rows[i].Bounds` are live now (the W6 row layout sets them), so `PointToRow` works. But this finding's test (`Join(a,1); Join(b,0)` → `b.Top < a.Top`) is not what upstream does: `ToolStripPanel.Join (strip, row)` turns the row into a drop point (`row >= Rows.Count` → below the last row; otherwise that row's `DragBounds`), so `b` joins `a`'s row and the two sit side by side. Honouring the row means rows that hold several strips laid out along the row, which the one-strip-per-row layout in `ToolStripPanelRowLayout.cs` does not have; that is the redesign this needs.
 - **Ours:** `Join` records the strip in `rows[row]` (`TailParity.cs:373-386`), but `OnLayout` arranges from `Controls` ordered menu-first (`ToolStripPanelRowLayout.cs:26-49,110-150`), never reading `rows`; `Rows[i].Bounds` are never set.
 - **Upstream:** the row given to `Join` is where the strip lands; `Rows[i].Bounds` are live.
 - **Impact:** `Join(toolStrip2, 0)` to put a strip above another is ignored; `PointToRow` always null.
@@ -394,7 +410,8 @@ it is given against `item.Bounds` with no conversion, while `Bounds` are device 
 - **Test:** `GetPreferredItemSize` height tracks `ImageScalingSize.Height`.
 - **Tests today:** none.
 
-### TSM-38 — `ToolStripControlHost` Enabled propagation; `ToolStripItem.Tag` shadow; `Renderer` setter cast — Cat A — P2 — High
+### TSM-38 — `ToolStripControlHost` Enabled propagation; `ToolStripItem.Tag` shadow; `Renderer` setter cast — Cat A — P2 — High — **CLOSED (2026-10-02)**
+- **Fix (applied):** `ToolStripControlHost.OnEnabledChanged` sets `Control.Enabled`; `ToolStrip.Renderer`, `ToolStrip.GetItemAt` and `ToolStripAccessibleObject.HitTest` enumerate `Items.OfType<ToolStripItem> ()`. The `Tag` shadow had already gone with TSM-01 (`WinFormsCompat.cs`, the note where `new Tag` used to be). Tests: `ToolStripBehaviourGapTests` (2).
 - **Ours:** `SetBounds` syncs `Control.Bounds`/`Visible` only (`ToolStripHostParity.cs:488-503`); `Enabled = false` on the host leaves the hosted control enabled. `ToolStripItem.Tag` is `new` (`WinFormsCompat.cs:1096`), so `((MenuItem)item).Tag` (e.g. `CloneMenu`, `AppMenuBindingParity.cs:233`) differs from `item.Tag`. `ToolStrip.Renderer` setter does `foreach (ToolStripItem item in Items)` (`WinFormsCompat.cs:2312`) — `InvalidCastException` if the strip holds a `MenuSeparatorItem` or plain `MenuItem` (both legal per `ToolStripItemCollection` docs, `:2003-2010`); `ToolStripAccessibleObject.HitTest` has the same cast (`NestedTypeParity.cs:548`).
 - **Upstream:** `ToolStripControlHost.OnEnabledChanged` sets `Control.Enabled`; one `Tag`; `Items` is homogeneous.
 - **Fix:** forward `Enabled` to `Control` in the host; delete the `Tag` shadow; use `Items.OfType<ToolStripItem>()`.

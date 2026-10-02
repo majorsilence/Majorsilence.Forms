@@ -203,7 +203,23 @@ namespace Majorsilence.Forms
         public virtual Rectangle ContentRectangle => new (0, 0, Size.Width, Size.Height);
 
         /// <summary>Gets whether this item sits on a drop-down rather than directly on a strip.</summary>
-        public bool IsOnDropDown => GetCurrentParent () is ToolStripDropDown;
+        /// <remarks>
+        /// Upstream answers <c>ParentInternal is ToolStripDropDown</c> (<c>ToolStripItem.cs</c>,
+        /// <c>IsOnDropDown</c>), and every submenu there is one. Here a submenu is a
+        /// <see cref="MenuDropDown"/> built by <see cref="MenuItem.ShowDropDown"/>, and an item under
+        /// <c>fileMenuItem.DropDownItems</c> reports the BAR as its owner, so the type test alone said
+        /// false for every menu item below a menu bar (TSM-25). An item whose parent is another item
+        /// rather than a strip's synthetic root is on that item's drop-down, open or not.
+        /// </remarks>
+        public bool IsOnDropDown => GetCurrentParent () is MenuDropDown || Parent is { } parent && parent is not MenuRootItem;
+
+        // DisplayStyle is a pair of flags upstream (Text = 1, Image = 2), and its internal layout
+        // tests each half the same way (ToolStripItem.ToolStripItemInternalLayout.cs: `DisplayStyle &
+        // Text`; ToolStripItem.PreferredImageSize: `DisplayStyle & Image`). The renderers ask these
+        // rather than reading Text and ImageSK directly (TSM-07).
+        internal bool DisplaysText => (DisplayStyle & ToolStripItemDisplayStyle.Text) == ToolStripItemDisplayStyle.Text;
+
+        internal bool DisplaysImage => (DisplayStyle & ToolStripItemDisplayStyle.Image) == ToolStripItemDisplayStyle.Image;
 
         /// <summary>Gets whether this item is currently in its strip's overflow.</summary>
         public bool IsOnOverflow => Placement == ToolStripItemPlacement.Overflow;
@@ -429,19 +445,23 @@ namespace Majorsilence.Forms
                 OnDoubleClick (e);
         }
 
+        // Called from MenuBase.OnMouseDown/OnMouseUp with the strip's logical point, made item-relative
+        // like RaiseMouseMove: upstream's ToolStrip translates to ToolStripItemCoords before FireEvent.
+        internal void RaiseMouseDown (MouseEventArgs e)
+            => OnMouseDown (new MouseEventArgs (e.Button, e.Clicks, e.X - Bounds.Left, e.Y - Bounds.Top, e.Delta));
+
+        internal void RaiseMouseUp (MouseEventArgs e)
+            => OnMouseUp (new MouseEventArgs (e.Button, e.Clicks, e.X - Bounds.Left, e.Y - Bounds.Top, e.Delta));
+
         /// <summary>Raises the <see cref="MouseDown"/> event.</summary>
-        protected virtual void OnMouseDown (MouseEventArgs e)
-        {
-            Pressed = true;
-            MouseDown?.Invoke (this, e);
-        }
+        /// <remarks><see cref="Pressed"/> is the strip's to set: it follows the left button from the
+        /// press to the release, wherever that lands. This raiser set it for every button and nothing
+        /// called it, so it was never wrong in practice; now that the strip calls it, a right-press
+        /// would have left the item drawn pressed.</remarks>
+        protected virtual void OnMouseDown (MouseEventArgs e) => MouseDown?.Invoke (this, e);
 
         /// <summary>Raises the <see cref="MouseUp"/> event.</summary>
-        protected virtual void OnMouseUp (MouseEventArgs e)
-        {
-            Pressed = false;
-            MouseUp?.Invoke (this, e);
-        }
+        protected virtual void OnMouseUp (MouseEventArgs e) => MouseUp?.Invoke (this, e);
 
         /// <summary>Raises the <see cref="MouseEnter"/> event.</summary>
         protected virtual void OnMouseEnter (EventArgs e) => MouseEnter?.Invoke (this, e);
@@ -901,7 +921,8 @@ namespace Majorsilence.Forms
         /// </remarks>
         public ToolStripItem? GetItemAt (Point point)
         {
-            foreach (ToolStripItem item in Items) {
+            // See ToolStrip.Renderer: the collection may hold non-ToolStripItem entries (TSM-38).
+            foreach (var item in Items.OfType<ToolStripItem> ()) {
                 if (!item.Available)
                     continue;
                 if (item.Bounds.Contains (point))

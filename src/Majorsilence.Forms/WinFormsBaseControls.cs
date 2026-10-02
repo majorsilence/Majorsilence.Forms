@@ -552,7 +552,14 @@ namespace Majorsilence.Forms
 
             OnDropDownShow (EventArgs.Empty);
             base.ShowDropDown ();
-            OnDropDownOpened (EventArgs.Empty);
+
+            // Opened only when something opened. MenuItem.ShowDropDown does nothing for an item with no
+            // sub-items or no strip, and DropDownOpened fired anyway -- for every leaf, and for a lazy
+            // menu whose DropDownOpening added nothing. Upstream raises it from the drop-down's own
+            // Opened, which an empty auto-generated drop-down never reaches
+            // (ToolStripDropDownItem.cs, ShowDropDownInternal) (TSM-35).
+            if (IsDropDownOpened)
+                OnDropDownOpened (EventArgs.Empty);
         }
 
         /// <summary>Hides this item's drop-down.</summary>

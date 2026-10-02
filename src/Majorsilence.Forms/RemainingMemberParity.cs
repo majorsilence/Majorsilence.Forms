@@ -805,12 +805,6 @@ namespace Majorsilence.Forms
         /// <summary>Raised when <see cref="Checked"/> changes.</summary>
         public event EventHandler? CheckedChanged;
 
-        /// <summary>Gets or sets the button's check state.</summary>
-        public CheckState CheckState {
-            get => Checked ? CheckState.Checked : CheckState.Unchecked;
-            set => Checked = value == CheckState.Checked;
-        }
-
         /// <summary>Raises the <see cref="CheckedChanged"/> event.</summary>
         protected virtual void OnCheckedChanged (EventArgs e) => CheckedChanged?.Invoke (this, e);
     }

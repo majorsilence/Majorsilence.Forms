@@ -49,6 +49,19 @@ namespace Majorsilence.Forms
             Control.Visible = Visible;
         }
 
+        /// <inheritdoc/>
+        /// <remarks>
+        /// The hosted control follows the item. Upstream's host has no Enabled of its own -- it reads
+        /// and writes <c>Control.Enabled</c> (<c>ToolStripControlHost.cs</c>, <c>Enabled</c>) -- so
+        /// <c>toolStripComboBox1.Enabled = false</c> greys the combo. Here only the item's flag
+        /// changed and the combo stayed editable (TSM-38).
+        /// </remarks>
+        protected override void OnEnabledChanged (EventArgs e)
+        {
+            base.OnEnabledChanged (e);
+            Control.Enabled = EnabledSelf;
+        }
+
         // The size the hosted control asked for: the last explicit Size, else the size it had when it
         // was handed to this host (its own default), so a later layout pass does not mistake the box
         // the previous pass gave it for a size of its own.

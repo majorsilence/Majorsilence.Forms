@@ -35,7 +35,8 @@ namespace Majorsilence.Forms.Renderers
                     }
 
                     e.Canvas.DrawRectangle (item_bounds.X, item_bounds.Y, item_bounds.Width, item_bounds.Height, Theme.BorderLowColor);
-                } else if (!string.IsNullOrEmpty (item.Text)) {
+                } else if (!string.IsNullOrEmpty (item.Text) && item is not ToolStripItem { DisplaysText: false }) {
+                    // DisplayStyle Image or None hides the caption here as on any strip (TSM-07).
                     var text_bounds = new Rectangle (item_bounds.X + 4, item_bounds.Y, item_bounds.Width, item_bounds.Height);
                     e.Canvas.DrawText (item.Text, Theme.UIFont, font_size, text_bounds, Theme.ForegroundColor, ContentAlignment.MiddleLeft, maxLines: 1);
                 }

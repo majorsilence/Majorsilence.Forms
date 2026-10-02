@@ -221,10 +221,17 @@ namespace Majorsilence.Forms
         {
             var clicked_item = GetItemAtLocation (e.Location);
 
+            // A split button is two targets in one box (upstream ToolStripSplitButton.OnMouseDown/
+            // OnMouseUp split on DropDownButtonBounds): only its arrow half opens the drop-down, and its
+            // button half is a leaf click that raises ButtonClick. Treated as one target it both fired
+            // ButtonClick and opened its menu on every press of "Save" (TSM-15).
+            var split = clicked_item as ToolStripSplitButton;
+            var button_half = split is not null && !split.DropDownButtonBounds.Contains (e.X - split.Bounds.X, e.Y - split.Bounds.Y);
+
             // Clicking the currently dropped down item releases the menu. Only an item WITH a drop-down:
             // a leaf button that happens to be the selected item is being clicked again, not released --
             // the second click on the same toolbar button used to be swallowed here (W6 mechanisms).
-            if (IsActivated && IsReleaseOnClick && clicked_item == SelectedItem && clicked_item is { HasItems: true }) {
+            if (IsActivated && IsReleaseOnClick && clicked_item == SelectedItem && clicked_item is { HasItems: true } && !button_half) {
                 Deactivate ();
                 return;
             }
@@ -234,14 +241,26 @@ namespace Majorsilence.Forms
                 if (clicked_item.Enabled) {
                     // A leaf item's click can reach here twice for one physical release (see
                     // TryBeginLeafClick); an item that opens a submenu is idempotent and not gated.
-                    var leaf = !clicked_item.HasItems;
+                    var leaf = !clicked_item.HasItems || button_half;
 
                     if (leaf && !TryBeginLeafClick (clicked_item))
                         return;
 
                     try {
-                        SelectedItem = clicked_item;
+                        // Selecting an item with a drop-down opens it, which the button half must not.
+                        if (button_half) {
+                            if (clicked_item.IsDropDownOpened)
+                                SelectedItem = null;
+                        } else
+                            SelectedItem = clicked_item;
+
                         clicked_item.OnClick (e);
+
+                        // Click first, then ButtonClick: upstream's HandleMouseUp raises Click through
+                        // HandleClick and then calls OnMouseUp, which is where the split button raises it.
+                        if (button_half)
+                            split!.RaiseButtonClickFromStrip ();
+
                         OnItemClicked (e, clicked_item);
                         Activate ();
                     } finally {
@@ -402,11 +421,22 @@ namespace Majorsilence.Forms
         {
             base.OnMouseDown (e);
 
+            var hit = GetItemAtLocation (e.Location) as ToolStripItem;
+
             // The pressed item (W6 mechanisms): held until the release, whichever item that lands on.
             if (e.Button == MouseButtons.Left) {
-                pressed_item = GetItemAtLocation (e.Location) as ToolStripItem;
+                pressed_item = hit;
                 pressed_item?.SetPressed (true);
             }
+
+            // The item-level MouseDown, for any button, as upstream's ToolStrip.OnMouseDown hands it to
+            // the item under the pointer (FireEvent MouseDown, which an item drops while disabled).
+            // Declared and raised by nothing here, so drag-initiation from an item's MouseDown never
+            // started (TSM-18).
+            mouse_down_item = hit;
+
+            if (hit is { Enabled: true })
+                hit.RaiseMouseDown (e);
 
             reorder_candidate = this is ToolStrip { AllowItemReorder: true } && e.Button == MouseButtons.Left
                 && (e.Modifiers & Keys.Alt) == Keys.Alt
@@ -421,9 +451,23 @@ namespace Majorsilence.Forms
             base.OnMouseUp (e);
             reorder_candidate = null;
             ReleasePressedItem ();
+
+            // The item-level MouseUp goes to the item under the pointer -- on a strip only when the
+            // press began on it, in a drop-down whichever item the release lands on, as upstream's
+            // ToolStripItem.HandleMouseUp decides with MouseDownAndUpMustBeInSameItem (TSM-18).
+            var hit = GetItemAtLocation (e.Location) as ToolStripItem;
+            var pressed_here = ReferenceEquals (hit, mouse_down_item);
+
+            mouse_down_item = null;
+
+            if (hit is { Enabled: true } && (pressed_here || this is MenuDropDown))
+                hit.RaiseMouseUp (e);
         }
 
         private ToolStripItem? pressed_item;
+
+        // The item the last mouse-down landed on, whatever the button (upstream's LastMouseDownedItem).
+        private ToolStripItem? mouse_down_item;
 
         private void ReleasePressedItem ()
         {
@@ -531,6 +575,7 @@ namespace Majorsilence.Forms
                         return true;
                     }
 
+                    (this as ContextMenu)?.SetCloseReason (ToolStripDropDownCloseReason.Keyboard);
                     Deactivate ();
                     return true;
 
@@ -615,7 +660,8 @@ namespace Majorsilence.Forms
                         return true;
                     }
 
-                    Application.ClosePopups ();
+                    // Enter on an item is an item click to the menu's Closing, as upstream (TSM-21).
+                    Application.ClosePopups (reason: ToolStripDropDownCloseReason.ItemClicked);
 
                     // PerformClick, so a keyboard activation is the same operation as a mouse one --
                     // including CheckOnClick toggling and the ItemClicked relay.
@@ -726,7 +772,8 @@ namespace Majorsilence.Forms
                 }
             }
 
-            if (item.Hovered || !item.Enabled)
+            // CanSelect folds in a ToolStripSeparator, which is enabled and still not a target (TSM-23).
+            if (item.Hovered || !item.Enabled || item is ToolStripItem { CanSelect: false })
                 return;
 
             item.Hovered = true;

@@ -158,6 +158,11 @@ namespace Majorsilence.Forms
         public ToolBar ()
         {
             Dock = DockStyle.Top;
+
+            // Strips are not tab stops (upstream ToolStrip's constructor: `TabStop = false`), so Tab
+            // walks the form's input controls instead of stopping on every menu bar, toolbar and
+            // status strip on the way (TSM-29). Reached from the menu by keyboard, not by Tab.
+            TabStop = false;
         }
 
         /// <summary>
@@ -168,6 +173,7 @@ namespace Majorsilence.Forms
         protected ToolBar (MenuItem root) : base (root)
         {
             Dock = DockStyle.Top;
+            TabStop = false;   // see ToolBar ()
         }
 
         /// <inheritdoc/>
