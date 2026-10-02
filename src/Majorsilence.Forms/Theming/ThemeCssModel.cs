@@ -45,6 +45,9 @@ namespace Majorsilence.Forms
         /// </summary>
         public int Pixels { get; private set; }
 
+        /// <summary>For <see cref="ThemeCssValueKind.Keyword"/>: the keyword (<c>solid</c> or <c>dashed</c>), lower case.</summary>
+        public string Keyword => FontStyle;
+
         /// <summary>For <see cref="ThemeCssValueKind.BoxShadow"/>: the vertical offset in pixels.</summary>
         public int OffsetY { get; private set; }
 
@@ -67,6 +70,8 @@ namespace Majorsilence.Forms
 
         internal static ThemeCssValue Style (string style) => new (ThemeCssValueKind.FontStyle) { FontStyle = style };
 
+        internal static ThemeCssValue KeywordOf (string keyword) => new (ThemeCssValueKind.Keyword) { FontStyle = keyword };
+
         internal static ThemeCssValue Shadow (ControlBoxShadow shadow) => new (ThemeCssValueKind.BoxShadow) {
             Pixels = shadow.OffsetX, OffsetY = shadow.OffsetY, Argb = (uint) shadow.Color
         };
@@ -83,6 +88,8 @@ namespace Majorsilence.Forms
                     return string.Join (", ", FontFamilies.Select (f => f.Contains (' ') || f.Contains (',') ? "\"" + f + "\"" : f));
                 case ThemeCssValueKind.FontWeight:
                     return FontWeight == 400 ? "normal" : FontWeight == 700 ? "bold" : FontWeight.ToString (CultureInfo.InvariantCulture);
+                case ThemeCssValueKind.Keyword:
+                    return FontStyle;
                 case ThemeCssValueKind.BoxShadow:
                     return $"{Pixels}px {OffsetY}px {FormatColor ()}";
                 default:

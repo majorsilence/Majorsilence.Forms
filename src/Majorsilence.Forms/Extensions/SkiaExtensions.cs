@@ -36,7 +36,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public static void DrawBackground (this SKCanvas canvas, Rectangle bounds, ControlStyle style, SKColor backgroundColor)
         {
-            var radius = style.Border.GetRadius ();
+            var radii = CornerRadii.Of (style.Border);
 
             if (style.GetBoxShadow () is { } shadow) {
                 var (fx, fy, fw, fh) = ShadowFace (bounds.Width, bounds.Height, shadow);
@@ -50,9 +50,9 @@ namespace Majorsilence.Forms
                 // expected to have reserved for it.
                 canvas.Clear (SKColors.Transparent);
 
-                if (radius > 0) {
-                    canvas.FillRoundedRectangle (fx + shadow.OffsetX, fy + shadow.OffsetY, fw, fh, shadow.Color, radius, radius, 0);
-                    canvas.FillRoundedRectangle (fx, fy, fw - style.Border.GetWidth (), fh - style.Border.GetWidth (), backgroundColor, radius, radius, style.Border.GetWidth ());
+                if (radii.Any) {
+                    FillRoundedRectangle (canvas, fx + shadow.OffsetX, fy + shadow.OffsetY, fw, fh, shadow.Color, radii, 0);
+                    FillRoundedRectangle (canvas, fx, fy, fw - style.Border.GetWidth (), fh - style.Border.GetWidth (), backgroundColor, radii, style.Border.GetWidth ());
                 } else {
                     canvas.FillRectangle (fx + shadow.OffsetX, fy + shadow.OffsetY, fw, fh, shadow.Color);
                     canvas.FillRectangle (fx, fy, fw, fh, backgroundColor);
@@ -61,9 +61,9 @@ namespace Majorsilence.Forms
                 return;
             }
 
-            if (radius > 0) {
+            if (radii.Any) {
                 canvas.Clear (SKColors.Transparent);
-                canvas.FillRoundedRectangle (0, 0, bounds.Width - style.Border.GetWidth (), bounds.Height - style.Border.GetWidth (), backgroundColor, radius, radius, style.Border.GetWidth ());
+                FillRoundedRectangle (canvas, 0, 0, bounds.Width - style.Border.GetWidth (), bounds.Height - style.Border.GetWidth (), backgroundColor, radii, style.Border.GetWidth ());
                 return;
             }
 
@@ -111,41 +111,117 @@ namespace Majorsilence.Forms
         public static void DrawBorder (this SKCanvas canvas, Rectangle bounds, ControlStyle style)
         {
             // If using border radius, currently all border sides are drawn, and all are the same color
-            var radius = style.Border.GetRadius ();
+            var radii = CornerRadii.Of (style.Border);
+            var dashed = style.Border.GetLineStyle () == ControlBorderLineStyle.Dashed;
 
             // box-shadow (#285) shrinks the control's own face away from the full bounds (see
             // ShadowFace/DrawBackground); the border has to be drawn around that same smaller rect, or
             // it would ring the shadow as well as the face. Without a shadow this is (0, 0, bounds).
             var (fx, fy, fw, fh) = style.GetBoxShadow () is { } shadow ? ShadowFace (bounds.Width, bounds.Height, shadow) : (0, 0, bounds.Width, bounds.Height);
 
-            if (radius > 0) {
-                canvas.DrawRoundedRectangle (fx, fy, fw - style.Border.GetWidth (), fh - style.Border.GetWidth (), style.Border.GetColor (), radius, radius, style.Border.GetWidth ());
+            if (radii.Any) {
+                DrawRoundedRectangle (canvas, fx, fy, fw - style.Border.GetWidth (), fh - style.Border.GetWidth (), style.Border.GetColor (), radii, style.Border.GetWidth (), dashed);
                 return;
             }
 
             // Left Border
             if (style.Border.Left.GetWidth () > 0) {
                 var left_offset = fx + style.Border.Left.GetWidth () / 2f;
-                canvas.DrawLine (left_offset, fy, left_offset, fy + fh, style.Border.Left.GetColor (), style.Border.Left.GetWidth ());
+                DrawBorderLine (canvas, left_offset, fy, left_offset, fy + fh, style.Border.Left.GetColor (), style.Border.Left.GetWidth (), dashed);
             }
 
             // Right Border
             if (style.Border.Right.GetWidth () > 0) {
                 var right_offset = fx + fw - style.Border.Right.GetWidth () / 2f;
-                canvas.DrawLine (right_offset, fy, right_offset, fy + fh, style.Border.Right.GetColor (), style.Border.Right.GetWidth ());
+                DrawBorderLine (canvas, right_offset, fy, right_offset, fy + fh, style.Border.Right.GetColor (), style.Border.Right.GetWidth (), dashed);
             }
 
             // Top Border
             if (style.Border.Top.GetWidth () > 0) {
                 var top_offset = fy + style.Border.Top.GetWidth () / 2f;
-                canvas.DrawLine (fx, top_offset, fx + fw, top_offset, style.Border.Top.GetColor (), style.Border.Top.GetWidth ());
+                DrawBorderLine (canvas, fx, top_offset, fx + fw, top_offset, style.Border.Top.GetColor (), style.Border.Top.GetWidth (), dashed);
             }
 
             // Bottom Border
             if (style.Border.Bottom.GetWidth () > 0) {
                 var bottom_offset = fy + fh - style.Border.Bottom.GetWidth () / 2f;
-                canvas.DrawLine (fx, bottom_offset, fx + fw, bottom_offset, style.Border.Bottom.GetColor (), style.Border.Bottom.GetWidth ());
+                DrawBorderLine (canvas, fx, bottom_offset, fx + fw, bottom_offset, style.Border.Bottom.GetColor (), style.Border.Bottom.GetWidth (), dashed);
             }
+        }
+
+        // Per-corner radii (#286). When all four are equal the old uniform helpers draw, so a theme that
+        // never uses the new properties renders byte-for-byte as before.
+        private readonly record struct CornerRadii (int TopLeft, int TopRight, int BottomRight, int BottomLeft)
+        {
+            public bool Any => TopLeft > 0 || TopRight > 0 || BottomRight > 0 || BottomLeft > 0;
+
+            public bool Uniform => TopLeft == TopRight && TopRight == BottomRight && BottomRight == BottomLeft;
+
+            public static CornerRadii Of (ControlBorderStyle border)
+                => new (border.GetTopLeftRadius (), border.GetTopRightRadius (), border.GetBottomRightRadius (), border.GetBottomLeftRadius ());
+        }
+
+        // A dash and a gap each three border-widths long: the CSS 'dashed' look closely enough, and
+        // proportional so a thick dashed border is not a row of hairlines.
+        private static SKPathEffect DashEffect (float width)
+        {
+            var dash = Math.Max (3f, width * 3f);
+
+            return SKPathEffect.CreateDash (new[] { dash, dash }, 0);
+        }
+
+        private static void DrawBorderLine (SKCanvas canvas, float x1, float y1, float x2, float y2, SKColor color, int thickness, bool dashed)
+        {
+            if (!dashed) {
+                canvas.DrawLine (x1, y1, x2, y2, color, thickness);
+                return;
+            }
+
+            using var effect = DashEffect (thickness);
+            using var paint = new SKPaint { Color = color, StrokeWidth = thickness, PathEffect = effect };
+
+            canvas.DrawLine (x1, y1, x2, y2, paint);
+        }
+
+        private static SKRoundRect RoundRectOf (float x, float y, float width, float height, CornerRadii r)
+        {
+            var rect = new SKRoundRect ();
+
+            rect.SetRectRadii (new SKRect (x, y, x + width, y + height), new[] {
+                new SKPoint (r.TopLeft, r.TopLeft), new SKPoint (r.TopRight, r.TopRight),
+                new SKPoint (r.BottomRight, r.BottomRight), new SKPoint (r.BottomLeft, r.BottomLeft)
+            });
+
+            return rect;
+        }
+
+        private static void DrawRoundedRectangle (SKCanvas canvas, int x, int y, int width, int height, SKColor color, CornerRadii radii, float strokeWidth, bool dashed)
+        {
+            if (radii.Uniform && !dashed) {
+                canvas.DrawRoundedRectangle (x, y, width, height, color, radii.TopLeft, radii.TopLeft, strokeWidth);
+                return;
+            }
+
+            // Same half-stroke inset as DrawRoundedRectangle, for the same reason.
+            var half = strokeWidth * 0.5f;
+            using var effect = dashed ? DashEffect (strokeWidth) : null;
+            using var paint = new SKPaint { Color = color, IsStroke = true, IsAntialias = true, StrokeWidth = strokeWidth, PathEffect = effect };
+            using var rect = RoundRectOf (x + half, y + half, Math.Max (0, width - strokeWidth), Math.Max (0, height - strokeWidth), radii);
+
+            canvas.DrawRoundRect (rect, paint);
+        }
+
+        private static void FillRoundedRectangle (SKCanvas canvas, int x, int y, int width, int height, SKColor color, CornerRadii radii, float strokeWidth)
+        {
+            if (radii.Uniform) {
+                canvas.FillRoundedRectangle (x, y, width, height, color, radii.TopLeft, radii.TopLeft, strokeWidth);
+                return;
+            }
+
+            using var paint = new SKPaint { Color = color, IsStroke = false, IsAntialias = true };
+            using var rect = RoundRectOf (x + .5f, y + .5f, width, height, radii);
+
+            canvas.DrawRoundRect (rect, paint);
         }
 
         /// <summary>

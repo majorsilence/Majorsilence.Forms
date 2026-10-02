@@ -105,6 +105,11 @@ namespace Majorsilence.Forms.Theming.Avalonia
     {
         private static readonly string[] font_properties = { "font-family", "font-size", "font-weight", "font-style" };
 
+        // Added in #286, after every row was complete for the properties that existed then.
+        private static readonly string[] issue_286_properties = {
+            "border-style", "border-top-left-radius", "border-top-right-radius", "border-bottom-right-radius", "border-bottom-left-radius"
+        };
+
         private static readonly string[] side_widths = { "border-top-width", "border-right-width", "border-bottom-width", "border-left-width" };
 
         private static readonly string[] side_colors = { "border-top-color", "border-right-color", "border-bottom-color", "border-left-color" };
@@ -205,6 +210,12 @@ namespace Majorsilence.Forms.Theming.Avalonia
             // (Avalonia's own BoxShadow property is a different shape -- blur and spread included --
             // and is not wired to this CSS property). It is added explicitly instead, in the trailing
             // sweep below, always Unsupported.
+            // The #286 properties (per-corner radius, dashed borders) are like box-shadow: not in
+            // all_properties, added explicitly below, always Unsupported. Avalonia's CornerRadius is
+            // per-corner and could carry the radii, but nothing is wired to it yet.
+            const string NoCornerRadiusTarget = "No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius.";
+            const string NoBorderStyleTarget = "Avalonia borders are solid; there is no dashed-border seam.";
+
             const string NoBoxShadowTarget = "No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow.";
 
             // ---- Buttons -----------------------------------------------------------------------------
@@ -436,6 +447,14 @@ namespace Majorsilence.Forms.Theming.Avalonia
                 Add (selector.Name, null, false, "box-shadow", AvaloniaThemeSupportLevel.Unsupported, NoBoxShadowTarget, Array.Empty<AvaloniaTarget> ());
                 if (selector.SupportsHover)
                     Add (selector.Name, null, true, "box-shadow", AvaloniaThemeSupportLevel.Unsupported, NoBoxShadowTarget, Array.Empty<AvaloniaTarget> ());
+
+                foreach (var property in issue_286_properties) {
+                    var note = property == "border-style" ? NoBorderStyleTarget : NoCornerRadiusTarget;
+
+                    Add (selector.Name, null, false, property, AvaloniaThemeSupportLevel.Unsupported, note, Array.Empty<AvaloniaTarget> ());
+                    if (selector.SupportsHover)
+                        Add (selector.Name, null, true, property, AvaloniaThemeSupportLevel.Unsupported, note, Array.Empty<AvaloniaTarget> ());
+                }
 
                 foreach (var part in selector.Parts) {
                     Fill (selector.Name, part.Name, false, "No Avalonia seam for this property on this part.");

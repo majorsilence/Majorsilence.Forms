@@ -51,6 +51,11 @@ namespace Majorsilence.Forms
             Color = null;
             Width = null;
             Radius = null;
+            TopLeftRadius = null;
+            TopRightRadius = null;
+            BottomRightRadius = null;
+            BottomLeftRadius = null;
+            LineStyle = null;
         }
 
         /// <summary>
@@ -62,6 +67,29 @@ namespace Majorsilence.Forms
         /// Gets the computed radius for all border corners.
         /// </summary>
         public int GetRadius () => Radius ?? _parent?.GetRadius () ?? 0;
+
+        /// <summary>
+        /// Gets the computed radius of the top-left corner: its own value, else <see cref="Radius"/>,
+        /// else the parent border's (#286).
+        /// </summary>
+        public int GetTopLeftRadius () => TopLeftRadius ?? Radius ?? _parent?.GetTopLeftRadius () ?? 0;
+
+        /// <summary>Gets the computed radius of the top-right corner (see <see cref="GetTopLeftRadius"/>).</summary>
+        public int GetTopRightRadius () => TopRightRadius ?? Radius ?? _parent?.GetTopRightRadius () ?? 0;
+
+        /// <summary>Gets the computed radius of the bottom-right corner (see <see cref="GetTopLeftRadius"/>).</summary>
+        public int GetBottomRightRadius () => BottomRightRadius ?? Radius ?? _parent?.GetBottomRightRadius () ?? 0;
+
+        /// <summary>Gets the computed radius of the bottom-left corner (see <see cref="GetTopLeftRadius"/>).</summary>
+        public int GetBottomLeftRadius () => BottomLeftRadius ?? Radius ?? _parent?.GetBottomLeftRadius () ?? 0;
+
+        /// <summary>Gets whether any corner resolves to a radius greater than zero.</summary>
+        public bool HasRadius => GetTopLeftRadius () > 0 || GetTopRightRadius () > 0 || GetBottomRightRadius () > 0 || GetBottomLeftRadius () > 0;
+
+        /// <summary>
+        /// Gets the computed line style of the border (#286): solid unless a style set it, or a parent did.
+        /// </summary>
+        public ControlBorderLineStyle GetLineStyle () => LineStyle ?? _parent?.GetLineStyle () ?? ControlBorderLineStyle.Solid;
 
         /// <summary>
         /// Gets the computed width for all border.
@@ -77,6 +105,21 @@ namespace Majorsilence.Forms
         /// Gets or sets the radius for all border corners.
         /// </summary>
         public int? Radius { get; set; }
+
+        /// <summary>Gets or sets the radius of the top-left corner only; wins over <see cref="Radius"/> (#286).</summary>
+        public int? TopLeftRadius { get; set; }
+
+        /// <summary>Gets or sets the radius of the top-right corner only; wins over <see cref="Radius"/> (#286).</summary>
+        public int? TopRightRadius { get; set; }
+
+        /// <summary>Gets or sets the radius of the bottom-right corner only; wins over <see cref="Radius"/> (#286).</summary>
+        public int? BottomRightRadius { get; set; }
+
+        /// <summary>Gets or sets the radius of the bottom-left corner only; wins over <see cref="Radius"/> (#286).</summary>
+        public int? BottomLeftRadius { get; set; }
+
+        /// <summary>Gets or sets whether the border is drawn solid or dashed; null inherits (#286).</summary>
+        public ControlBorderLineStyle? LineStyle { get; set; }
 
         /// <summary>
         /// Gets the styles for the right border.
@@ -101,6 +144,16 @@ namespace Majorsilence.Forms
                 Bottom.Width = value;
             }
         }
+    }
+
+    /// <summary>How a border's line is drawn (the CSS <c>border-style</c> subset a theme accepts, #286).</summary>
+    public enum ControlBorderLineStyle
+    {
+        /// <summary>A continuous line.</summary>
+        Solid,
+
+        /// <summary>A dashed line, dash and gap each three times the border width.</summary>
+        Dashed
     }
 
     /// <summary>

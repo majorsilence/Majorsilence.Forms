@@ -806,7 +806,7 @@ namespace Majorsilence.Forms
         // just the exposed strip.
         private bool TryFastScrollBlit (int shiftPx)
         {
-            if (shiftPx == 0 || (NeedsPaint && !_skipNextRepaint) || BackgroundImage is not null || CurrentStyle.Border.GetRadius () > 0)
+            if (shiftPx == 0 || (NeedsPaint && !_skipNextRepaint) || BackgroundImage is not null || CurrentStyle.Border.HasRadius)
                 return false;
 
             if (BackBufferPixels is not { } buffer || buffer.Width != ScaledSize.Width || buffer.Height != ScaledSize.Height)
