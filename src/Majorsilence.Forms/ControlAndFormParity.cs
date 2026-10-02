@@ -554,7 +554,32 @@ namespace Majorsilence.Forms
         public bool IsRestrictedWindow => false;
 
         /// <summary>Gets or sets the main menu displayed on the form.</summary>
-        public MainMenu? Menu { get; set; }
+        /// <remarks>
+        /// Assigning it puts the bar on the form, docked to the top, and takes the previous one off --
+        /// the .NET Framework contract (on .NET the legacy menus throw <c>PlatformNotSupportedException</c>,
+        /// <c>Controls/Unsupported/MainMenu/MainMenu.cs</c>). It was a plain auto-property, so a
+        /// <c>MainMenu</c> assigned here was never shown (TSM-32). The Framework draws the bar in the
+        /// non-client area; here it sits at the top of the client area, as a <see cref="MenuStrip"/> does.
+        /// </remarks>
+        public MainMenu? Menu {
+            get => main_menu;
+            set {
+                if (ReferenceEquals (main_menu, value))
+                    return;
+
+                if (main_menu is { } previous)
+                    Controls.Remove (previous);
+
+                main_menu = value;
+
+                if (value is not null) {
+                    value.Dock = DockStyle.Top;
+                    Controls.Add (value);
+                }
+            }
+        }
+
+        private MainMenu? main_menu;
 
         /// <summary>Gets the menu formed by merging this form's menu with its MDI children's.</summary>
         /// <remarks>MDI menu merging is not implemented, so this reports the form's own menu rather

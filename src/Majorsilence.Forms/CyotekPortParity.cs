@@ -43,8 +43,17 @@ namespace Majorsilence.Forms
         /// the arrow opens the drop-down. This is the button half, which is why it is separate from
         /// <c>Click</c> -- a derived split button overrides it to apply the currently-selected value
         /// without opening anything.
+        /// <para>
+        /// <see cref="DefaultItem"/> is clicked first, as upstream does (<c>ToolStripSplitButton.cs</c>,
+        /// <c>OnButtonClick</c>: <c>DefaultItem?.FireEvent (Click)</c> before the event). It was stored and
+        /// never clicked, so a split button whose default was "Save" did nothing on the button half (TSM-15).
+        /// </para>
         /// </remarks>
-        protected virtual void OnButtonClick (EventArgs e) => ButtonClick?.Invoke (this, e);
+        protected virtual void OnButtonClick (EventArgs e)
+        {
+            DefaultItem?.PerformClick ();
+            ButtonClick?.Invoke (this, e);
+        }
     }
 
     public partial class ToolStripItem : IDisposable

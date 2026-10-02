@@ -636,7 +636,13 @@ namespace Majorsilence.Forms
     public partial class ToolStripDropDown
     {
         /// <summary>Gets or sets whether the drop-down closes when the user clicks away.</summary>
+        /// <remarks>Read as upstream reads it (TSM-21): off, clicking an item does not close the
+        /// drop-down, and every close other than <see cref="Close()"/> arrives at <c>Closing</c>
+        /// already cancelled.</remarks>
         public bool AutoClose { get; set; } = true;
+
+        /// <inheritdoc/>
+        internal override bool AutoCloseCore => AutoClose;
 
         /// <summary>Gets or sets whether the drop-down supports transparency.</summary>
         public bool AllowTransparency { get; set; }
@@ -660,7 +666,18 @@ namespace Majorsilence.Forms
         public void Close () => Close (ToolStripDropDownCloseReason.CloseCalled);
 
         /// <inheritdoc cref="Close()"/>
-        public void Close (ToolStripDropDownCloseReason reason) => Hide ();
+        /// <remarks>The reason reaches <c>Closing</c> and <c>Closed</c>, as upstream's
+        /// <c>Close (reason)</c> passes it through <c>SetCloseReason</c>. This used to be <c>Hide ()</c>,
+        /// which for a shown context menu hid the popup without raising either event (TSM-21). An owned
+        /// drop-down is a view onto its item's submenu and still closes through the item.</remarks>
+        public void Close (ToolStripDropDownCloseReason reason)
+        {
+            if (OwnerItem is null && IsShownMenu) {
+                SetCloseReason (reason);
+                Deactivate ();
+            } else
+                Hide ();
+        }
     }
 
     // ToolStrip used to declare its own AutoScroll/AutoScrollMargin/AutoScrollMinSize/AutoScrollPosition/

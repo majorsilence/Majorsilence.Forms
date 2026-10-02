@@ -30,7 +30,13 @@ namespace Majorsilence.Forms.Renderers
 
                 if (item is MenuSeparatorItem msi)
                     RenderMenuSeparatorItem (control, msi, e);
-                else
+                else if (item is ToolStripSeparator tss) {
+                    // A ToolStripSeparator went through RenderItem as a blank 6px button: no line,
+                    // and it lit up under the pointer (TSM-23). Offered to the strip's renderer as the
+                    // drop-down renderer already does, then drawn as the bar's vertical rule.
+                    StripRendererBridge.Separator (control, tss, vertical: true, e);
+                    RenderMenuSeparatorItem (control, tss, e);
+                } else
                     RenderItem (control, item, e);
             }
 
@@ -149,7 +155,10 @@ namespace Majorsilence.Forms.Renderers
                 Math.Max (0, item.DeviceBounds.Width - (pad * 2) - arrow_gutter),
                 item.DeviceBounds.Height);
 
-            var image = item.ImageSK;
+            // DisplayStyle (TSM-07): the designer writes Image on nearly every icon button while its
+            // Text keeps the caption, so drawing both tripled the width of a migrated toolbar.
+            var image = strip_item is { DisplaysImage: false } ? null : item.ImageSK;
+            var text = strip_item is { DisplaysText: false } ? string.Empty : item.Text;
             var image_size = Size.Empty;
 
             // ImageTransparentColor (W6 mechanisms): the keyed colour is drawn transparent.
@@ -183,8 +192,8 @@ namespace Majorsilence.Forms.Renderers
             var direction = control is ToolStrip directed ? directed.TextDirectionFor (item) : ToolStripTextDirection.Horizontal;
             var vertical_text = direction is ToolStripTextDirection.Vertical90 or ToolStripTextDirection.Vertical270;
 
-            if (!string.IsNullOrEmpty (item.Text)) {
-                var measured = TextMeasurer.MeasureText (item.Text, Theme.UIFont, font_size);
+            if (!string.IsNullOrEmpty (text)) {
+                var measured = TextMeasurer.MeasureText (text, Theme.UIFont, font_size);
                 text_size = vertical_text
                     ? new Size ((int) Math.Ceiling (measured.Height), (int) Math.Ceiling (measured.Width))
                     : new Size ((int) Math.Ceiling (measured.Width), (int) Math.Ceiling (measured.Height));
@@ -265,8 +274,8 @@ namespace Majorsilence.Forms.Renderers
             }
 
             // The renderer may recolour, move or take over the text. Null back means it took over.
-            var text_parts = string.IsNullOrEmpty (item.Text) ? null
-                : StripRendererBridge.TextDirected (control, item, item.Text, text_rect, font_color, direction, e);
+            var text_parts = string.IsNullOrEmpty (text) ? null
+                : StripRendererBridge.TextDirected (control, item, text, text_rect, font_color, direction, e);
 
             if (text_parts is { } tp) {
                 text_rect = tp.rect;
@@ -364,6 +373,15 @@ namespace Majorsilence.Forms.Renderers
         /// Renders a MenuSeparatorItem.
         /// </summary>
         protected virtual void RenderMenuSeparatorItem (ToolBar control, MenuSeparatorItem item, PaintEventArgs e)
+            => DrawSeparatorRule (control, item, e);
+
+        /// <summary>
+        /// Renders a ToolStripSeparator as the same vertical rule a MenuSeparatorItem draws.
+        /// </summary>
+        protected virtual void RenderMenuSeparatorItem (ToolBar control, ToolStripSeparator item, PaintEventArgs e)
+            => DrawSeparatorRule (control, item, e);
+
+        private static void DrawSeparatorRule (ToolBar control, MenuItem item, PaintEventArgs e)
         {
             // Background
             e.Canvas.FillRectangle (item.DeviceBounds, control.GetEffectiveBackgroundColor ());
@@ -383,12 +401,19 @@ namespace Majorsilence.Forms.Renderers
             if (item is MenuSeparatorItem msi)
                 return GetPreferredSeparatorItemSize (control, msi, proposedSize);
 
+            if (item is ToolStripSeparator tss)
+                return GetPreferredSeparatorItemSize (control, tss, proposedSize);
+
             // The overflow button is a fixed chevron box (W6 mechanisms).
             if (item is ToolStripOverflowButton)
                 return new Size (control.LogicalToDeviceUnits (16), Math.Max (control.LogicalToDeviceUnits (16), item.DeviceBounds.Height));
 
+            var strip_item = item as ToolStripItem;
+
+            // Measured exactly as RenderItem draws: only the halves DisplayStyle shows (TSM-07).
             var font_size = control.LogicalToDeviceUnits (Theme.FontSize);
-            var measured = TextMeasurer.MeasureText (item.Text, Theme.UIFont, font_size);
+            var text = strip_item is { DisplaysText: false } ? string.Empty : item.Text;
+            var measured = TextMeasurer.MeasureText (text, Theme.UIFont, font_size);
             var text_width = (int) Math.Round (measured.Width);
             var text_height = (int) Math.Ceiling (measured.Height);
 
@@ -396,10 +421,9 @@ namespace Majorsilence.Forms.Renderers
             if (control is ToolStrip directed && directed.TextDirectionFor (item) is ToolStripTextDirection.Vertical90 or ToolStripTextDirection.Vertical270)
                 (text_width, text_height) = (text_height, text_width);
 
-            var strip_item = item as ToolStripItem;
             var image_size = Size.Empty;
 
-            if (item.ImageSK is not null) {
+            if (item.ImageSK is not null && strip_item is not { DisplaysImage: false }) {
                 // Match RenderItem exactly: an unscaled image occupies its natural size, and a scaled
                 // one the strip's ImageScalingSize. This read a hard-coded 20 while RenderItem was
                 // changed to honour the property (TSM-44), so measure and paint disagreed about how
@@ -449,6 +473,15 @@ namespace Majorsilence.Forms.Renderers
         /// Gets the preferred size of a MenuSeparatorItem.
         /// </summary>
         protected virtual Size GetPreferredSeparatorItemSize (ToolBar control, MenuSeparatorItem item, Size proposedSize)
+            => SeparatorSize (control, item);
+
+        /// <summary>
+        /// Gets the preferred size of a ToolStripSeparator: the rule plus its padding, as a MenuSeparatorItem.
+        /// </summary>
+        protected virtual Size GetPreferredSeparatorItemSize (ToolBar control, ToolStripSeparator item, Size proposedSize)
+            => SeparatorSize (control, item);
+
+        private static Size SeparatorSize (ToolBar control, MenuItem item)
         {
             var padding = control.LogicalToDeviceUnits (item.Padding.Horizontal);
             var thickness = control.LogicalToDeviceUnits (1);

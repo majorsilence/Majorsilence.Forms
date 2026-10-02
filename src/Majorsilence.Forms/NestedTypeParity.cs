@@ -547,7 +547,8 @@ namespace Majorsilence.Forms
                 if (Owner is not ToolStrip strip)
                     return null;
 
-                foreach (ToolStripItem item in strip.Items) {
+                // See ToolStrip.Renderer: the collection may hold non-ToolStripItem entries (TSM-38).
+                foreach (var item in strip.Items.OfType<ToolStripItem> ()) {
                     if (item.Bounds.Contains (x, y))
                         return item.AccessibilityObject;
                 }

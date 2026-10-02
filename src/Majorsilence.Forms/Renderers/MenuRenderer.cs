@@ -16,7 +16,12 @@ namespace Majorsilence.Forms.Renderers
 
                 if (item is MenuSeparatorItem msi)
                     RenderMenuSeparatorItem (control, msi, e);
-                else
+                else if (item is ToolStripSeparator tss) {
+                    // See ToolBarRenderer.Render: a ToolStripSeparator on a MenuStrip was a blank
+                    // item that highlighted on hover (TSM-23).
+                    StripRendererBridge.Separator (control, tss, vertical: true, e);
+                    RenderMenuSeparatorItem (control, tss, e);
+                } else
                     RenderItem (control, item, e);
             }
         }
@@ -42,6 +47,15 @@ namespace Majorsilence.Forms.Renderers
         /// Renders a MenuSeparatorItem.
         /// </summary>
         protected virtual void RenderMenuSeparatorItem (Menu control, MenuSeparatorItem item, PaintEventArgs e)
+            => DrawSeparatorRule (control, item, e);
+
+        /// <summary>
+        /// Renders a ToolStripSeparator as the same vertical rule a MenuSeparatorItem draws.
+        /// </summary>
+        protected virtual void RenderMenuSeparatorItem (Menu control, ToolStripSeparator item, PaintEventArgs e)
+            => DrawSeparatorRule (control, item, e);
+
+        private static void DrawSeparatorRule (Menu control, MenuItem item, PaintEventArgs e)
         {
             // Background
             e.Canvas.FillRectangle (item.DeviceBounds, control.GetEffectiveBackgroundColor ());
@@ -61,6 +75,9 @@ namespace Majorsilence.Forms.Renderers
             if (item is MenuSeparatorItem msi)
                 return GetPreferredSeparatorItemSize (control, msi, proposedSize);
 
+            if (item is ToolStripSeparator tss)
+                return GetPreferredSeparatorItemSize (control, tss, proposedSize);
+
             var padding = control.LogicalToDeviceUnits (item.Padding.Horizontal);
             var font_size = control.LogicalToDeviceUnits (Theme.FontSize);
             var text_size = (int)Math.Round (TextMeasurer.MeasureText (Mnemonics.Strip (item.Text), Theme.UIFont, font_size).Width);
@@ -72,6 +89,15 @@ namespace Majorsilence.Forms.Renderers
         /// Gets the preferred size of a MenuSeparatorItem.
         /// </summary>
         protected virtual Size GetPreferredSeparatorItemSize (Menu control, MenuSeparatorItem item, Size proposedSize)
+            => SeparatorSize (control, item);
+
+        /// <summary>
+        /// Gets the preferred size of a ToolStripSeparator: the rule plus its padding, as a MenuSeparatorItem.
+        /// </summary>
+        protected virtual Size GetPreferredSeparatorItemSize (Menu control, ToolStripSeparator item, Size proposedSize)
+            => SeparatorSize (control, item);
+
+        private static Size SeparatorSize (Menu control, MenuItem item)
         {
             var padding = control.LogicalToDeviceUnits (item.Padding.Horizontal);
             var thickness = control.LogicalToDeviceUnits (1);

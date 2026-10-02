@@ -53,19 +53,29 @@ namespace Majorsilence.Forms
 
             Backends.Platform.Backend.Post (() => {
                 if (ActivePopupWindow?.IsActive != true)
-                    ClosePopups ();
+                    ClosePopups (reason: ToolStripDropDownCloseReason.AppFocusChange);
             });
         }
 
         /// <summary>
         /// Hides any open popups.
         /// </summary>
-        internal static void ClosePopups (bool closeMenus = true, bool closePopups = true)
+        /// <remarks>
+        /// <paramref name="reason"/> is what a context menu's <c>Closing</c>/<c>Closed</c> report. The
+        /// default is a click elsewhere in the application, the commonest caller (Control.RaiseMouseDown);
+        /// focus leaving the app and an item click name theirs (TSM-21). A context menu whose
+        /// <c>Closing</c> was cancelled is still on screen, and its popup is the active one, so it is
+        /// left alone.
+        /// </remarks>
+        internal static void ClosePopups (bool closeMenus = true, bool closePopups = true,
+            ToolStripDropDownCloseReason reason = ToolStripDropDownCloseReason.AppClicked)
         {
-            if (closeMenus)
+            if (closeMenus) {
+                (ActiveMenu as ContextMenu)?.SetCloseReason (reason);
                 ActiveMenu?.Deactivate ();
+            }
 
-            if (closePopups)
+            if (closePopups && ActiveMenu is not ContextMenu { IsShownMenu: true })
                 ActivePopupWindow?.Hide ();
         }
 

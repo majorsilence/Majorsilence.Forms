@@ -147,13 +147,29 @@ namespace Majorsilence.Forms
         {
             var was_shown = shown;
 
-            shown = false;
+            // The path that is closing the menu named its reason first, as upstream's does through
+            // SetCloseReason; it is consumed here and reset to upstream's default, AppFocusChange
+            // (ToolStripDropDown.cs, ResetCloseReason). Every close reported AppFocusChange before, so
+            // the `e.Cancel = e.CloseReason == ItemClicked` idiom never matched (TSM-21).
+            var reason = close_reason;
+            close_reason = ToolStripDropDownCloseReason.AppFocusChange;
 
             // Fires Closing before the menu hides and Closed after -- matching WinForms ordering. This is
-            // the single guaranteed teardown path (focus loss / outside click / ClosePopups).
-            OnClosing (new ToolStripDropDownClosingEventArgs (ToolStripDropDownCloseReason.AppFocusChange));
+            // the single guaranteed teardown path (focus loss / outside click / ClosePopups). Cancel is
+            // pre-set from AutoClose exactly as upstream's SetVisibleCore does, and honoured: a cancelled
+            // close leaves the menu on screen. It was never read.
+            var closing = new ToolStripDropDownClosingEventArgs (reason) {
+                Cancel = !force_close && reason != ToolStripDropDownCloseReason.CloseCalled && !AutoCloseCore,
+            };
+
+            OnClosing (closing);
+
+            if (closing.Cancel && was_shown && !force_close)
+                return;
+
+            shown = false;
             base.Deactivate ();
-            OnClosed (new ToolStripDropDownClosedEventArgs (ToolStripDropDownCloseReason.AppFocusChange));
+            OnClosed (new ToolStripDropDownClosedEventArgs (reason));
 
             // After Closed, which is the modern pair; Collapse is the legacy name for the same moment.
             if (was_shown)
@@ -161,5 +177,33 @@ namespace Majorsilence.Forms
         }
 
         private bool shown;
+
+        private bool force_close;
+
+        /// <summary>
+        /// Closes the menu even if <c>Closing</c> is cancelled, which is still raised so a handler can tidy up.
+        /// For the one caller that has no business being vetoed: the form the menu hangs off is gone.
+        /// </summary>
+        internal void CloseUnconditionally ()
+        {
+            force_close = true;
+
+            try {
+                Deactivate ();
+            } finally {
+                force_close = false;
+            }
+        }
+
+        private ToolStripDropDownCloseReason close_reason = ToolStripDropDownCloseReason.AppFocusChange;
+
+        /// <summary>Records why the next <see cref="Deactivate"/> is closing this menu (upstream's SetCloseReason).</summary>
+        internal void SetCloseReason (ToolStripDropDownCloseReason reason) => close_reason = reason;
+
+        /// <summary>Whether the menu is on screen: shown and not yet closed (a cancelled close keeps it).</summary>
+        internal bool IsShownMenu => shown;
+
+        /// <summary>Whether the menu closes by itself; <see cref="ToolStripDropDown.AutoClose"/> answers for the WinForms types.</summary>
+        internal virtual bool AutoCloseCore => true;
     }
 }

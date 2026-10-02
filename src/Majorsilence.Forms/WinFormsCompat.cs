@@ -1441,16 +1441,41 @@ namespace Majorsilence.Forms
         /// this used to keep a private field of its own, so a toggle button never looked pressed
         /// (finding <c>TSM-06</c>).</remarks>
         public override bool Checked {
-            get => base.Checked;
+            get => CheckState != CheckState.Unchecked;
             set {
-                if (base.Checked == value)
+                if (Checked == value)
                     return;
 
-                base.Checked = value;
-                OnCheckedChanged (EventArgs.Empty);
-                CheckStateChanged?.Invoke (this, EventArgs.Empty);
+                CheckState = value ? CheckState.Checked : CheckState.Unchecked;
             }
         }
+
+        /// <summary>Gets or sets the button's check state.</summary>
+        /// <remarks>
+        /// The storage, with <see cref="Checked"/> derived from it, as upstream
+        /// (<c>ToolStripButton.cs</c>, <c>CheckState</c>): a change raises <c>CheckedChanged</c> then
+        /// <c>CheckStateChanged</c>. It was derived from the bool, so <c>Indeterminate</c> read back
+        /// <c>Unchecked</c> (TSM-24). <see cref="MenuItem.Checked"/> is kept in step because the
+        /// renderers read it.
+        /// </remarks>
+        public CheckState CheckState {
+            get => check_state;
+            set {
+                if (check_state == value)
+                    return;
+
+                check_state = value;
+                base.Checked = value != CheckState.Unchecked;
+                OwnerControl?.Invalidate ();
+                OnCheckedChanged (EventArgs.Empty);
+                OnCheckStateChanged (EventArgs.Empty);
+            }
+        }
+
+        private CheckState check_state;
+
+        /// <summary>Raises the <see cref="CheckStateChanged"/> event.</summary>
+        protected virtual void OnCheckStateChanged (EventArgs e) => CheckStateChanged?.Invoke (this, e);
 
         /// <summary>Raised when Checked changes.</summary>
         public event EventHandler? CheckStateChanged;
@@ -1533,16 +1558,10 @@ namespace Majorsilence.Forms
         /// <summary>Gets the hosted TextBox.</summary>
         public TextBox TextBox => (TextBox)Control;
 
-        /// <summary>Gets or sets the text contained in the text box.</summary>
-        /// <remarks>
-        /// Reads and writes the hosted TextBox. This used to be a private string on the item that the
-        /// hosted control never saw, so Text and TextBox.Text were two unrelated values and the
-        /// editing verbs -- Cut, Paste, SelectAll -- operated on the one Text did not report.
-        /// </remarks>
-        public new string Text {
-            get => TextBox.Text;
-            set => TextBox.Text = value ?? string.Empty;
-        }
+        // Text is ToolStripControlHost's: it reads and writes the hosted control, which is this
+        // TextBox. It used to be a private string on the item that the hosted control never saw, so
+        // Text and TextBox.Text were two unrelated values and the editing verbs -- Cut, Paste,
+        // SelectAll -- operated on the one Text did not report.
 
         /// <summary>Raised when the text changes.</summary>
         public new event EventHandler? TextChanged {
@@ -1604,6 +1623,24 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets the hosted control.</summary>
         public Control Control { get; }
+
+        /// <summary>Gets or sets the hosted control's text.</summary>
+        /// <remarks>
+        /// The hosted control's, as upstream (<c>ToolStripControlHost.Text</c> gets and sets
+        /// <c>Control.Text</c>). Only <see cref="ToolStripTextBox"/> forwarded it, so
+        /// <c>toolStripComboBox1.Text</c> read the item's own caption -- empty, or a designer name the
+        /// renderer never draws for a host -- and assigning it left the combo unchanged (TSM-20). The
+        /// null test covers the base constructors, which run before <see cref="Control"/> is assigned.
+        /// </remarks>
+        public override string Text {
+            get => Control is null ? base.Text : Control.Text;
+            set {
+                if (Control is null)
+                    base.Text = value;
+                else
+                    Control.Text = value ?? string.Empty;
+            }
+        }
 
         /// <summary>Gets or sets the size of the hosted control.</summary>
         /// <remarks>
@@ -1747,14 +1784,11 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the button portion of the item is double-clicked. Stub in Majorsilence.Forms.</summary>
         public event EventHandler? ButtonDoubleClick;
 
-        /// <inheritdoc/>
-        protected internal override void OnClick (MouseEventArgs e)
-        {
-            base.OnClick (e);
-            // The compat split button has no separate drop-down arrow hit region, so a click is treated
-            // as a button-portion click (the common case app handlers care about).
-            ButtonClick?.Invoke (this, EventArgs.Empty);
-        }
+        // There used to be an OnClick override here raising ButtonClick for every click: the arrow half
+        // too, PerformClick too, and PerformButtonClick twice (it calls PerformClick and then
+        // OnButtonClick). The strip now raises the button half itself, after Click, from the click
+        // that actually landed on it (TSM-15).
+        internal void RaiseButtonClickFromStrip () => OnButtonClick (EventArgs.Empty);
 
         /// <inheritdoc/>
         /// <remarks>A double-click on the button part (not the drop-down arrow) is ButtonDoubleClick, as
@@ -1843,13 +1877,12 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the item appears with a check mark. Raises CheckedChanged on change.</summary>
         /// <inheritdoc cref="ToolStripButton.Checked" path="/remarks"/>
         public override bool Checked {
-            get => base.Checked;
+            get => CheckState != CheckState.Unchecked;
             set {
-                if (base.Checked == value)
+                if (Checked == value)
                     return;
 
-                base.Checked = value;
-                CheckedChanged?.Invoke (this, EventArgs.Empty);
+                CheckState = value ? CheckState.Checked : CheckState.Unchecked;
             }
         }
 
@@ -1906,11 +1939,29 @@ namespace Majorsilence.Forms
         /// <summary>Gets whether this item has any drop-down items.</summary>
         public override bool HasDropDownItems => Items.Count > 0;
 
-        /// <summary>Gets or sets the check state of the item. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the check state of the item.</summary>
+        /// <remarks>
+        /// The storage, with <see cref="Checked"/> derived from it, as upstream
+        /// (<c>ToolStripMenuItem.cs</c>, <c>CheckState</c>): any change raises <c>CheckedChanged</c> and
+        /// then <c>CheckStateChanged</c>. It was derived from the bool, so a tri-state item collapsed --
+        /// <c>Indeterminate</c> read back <c>Unchecked</c> -- and <c>CheckStateChanged</c> was never
+        /// raised (TSM-24). <see cref="MenuItem.Checked"/> is kept in step because the renderers read it.
+        /// </remarks>
         public CheckState CheckState {
-            get => Checked ? CheckState.Checked : CheckState.Unchecked;
-            set => Checked = value == CheckState.Checked;
+            get => check_state;
+            set {
+                if (check_state == value)
+                    return;
+
+                check_state = value;
+                base.Checked = value != CheckState.Unchecked;
+                OwnerControl?.Invalidate ();
+                CheckedChanged?.Invoke (this, EventArgs.Empty);
+                OnCheckStateChanged (EventArgs.Empty);
+            }
         }
+
+        private CheckState check_state;
 
         /// <summary>Raised when the Checked property changes.</summary>
         public event EventHandler? CheckedChanged;
@@ -1956,6 +2007,11 @@ namespace Majorsilence.Forms
         {
             Padding = new Padding (3);
         }
+
+        /// <inheritdoc/>
+        /// <remarks>Never selectable outside a designer, as upstream (<c>ToolStripSeparator.CanSelect
+        /// =&gt; DesignMode</c>): the strip does not hover-highlight it (TSM-23).</remarks>
+        public override bool CanSelect => false;
     }
 
     /// <summary>
@@ -2605,7 +2661,10 @@ namespace Majorsilence.Forms
                 // Items already in the strip when the renderer arrives have to be initialized too --
                 // designer code fills Items before assigning Renderer as often as the other way round.
                 value.Initialize (this);
-                foreach (ToolStripItem item in Items)
+
+                // OfType, not a typed foreach: Items legally holds a MenuSeparatorItem or a plain MenuItem
+                // (it is a Collection<MenuItem>), and the cast threw InvalidCastException (TSM-38).
+                foreach (var item in Items.OfType<ToolStripItem> ())
                     value.InitializeItem (item);
             }
         }

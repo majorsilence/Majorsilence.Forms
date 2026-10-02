@@ -242,7 +242,20 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Raises this item's Click event as though the user had chosen it.</summary>
-        public void PerformClick () => OnClick (new MouseEventArgs (MouseButtons.Left, 1, 0, 0, System.Drawing.Point.Empty));
+        /// <remarks>
+        /// A strip item clicks only while it is <c>Enabled</c> and <c>Available</c>, as upstream's does
+        /// (<c>ToolStripItem.cs</c>, <c>PerformClick</c>: <c>if (Enabled &amp;&amp; Available)</c>), so a
+        /// caller that clicks a possibly-disabled item -- an accessibility default action, a split
+        /// button's <c>DefaultItem</c> -- no longer runs its handler anyway (TSM-26). The legacy
+        /// <see cref="MenuItem"/> keeps the .NET Framework rule, which raised Click unconditionally.
+        /// </remarks>
+        public void PerformClick ()
+        {
+            if (this is ToolStripItem && !(Enabled && Available))
+                return;
+
+            OnClick (new MouseEventArgs (MouseButtons.Left, 1, 0, 0, System.Drawing.Point.Empty));
+        }
 
         /// <summary>Raises the <see cref="Select"/> event as though the item had been highlighted.</summary>
         public virtual void PerformSelect () => Select?.Invoke (this, EventArgs.Empty);
