@@ -284,22 +284,64 @@ namespace Majorsilence.Forms
         /// <summary>Initializes a DataObject with data in the specified format.</summary>
         public DataObject (string format, object? data) => SetData (format, data);
 
+        // ── Mapped formats (SVC-17) ──────────────────────────────────────────────────────────────
+        //
+        // Upstream's DataFormatNames.AddMappedFormats: these names are one piece of data, so text stored as
+        // "Text" answers to UnicodeText and to typeof (string), a file list to FileName, and so on. The
+        // plain GetData / GetDataPresent / GetFormats overloads convert by default, as upstream's do. It
+        // was an exact-name dictionary, so the two commonest drop-handler idioms --
+        // `e.Data.GetDataPresent (typeof (string))` and `GetDataPresent (DataFormats.UnicodeText)` -- said
+        // no to text stored the other way.
+        private static readonly string[][] format_groups = {
+            new[] { "Text", "UnicodeText", "System.String" },
+            new[] { "FileDrop", "FileNameW", "FileName" },
+            new[] { "Bitmap", "System.Drawing.Bitmap" },
+            new[] { "EnhancedMetafile", "System.Drawing.Imaging.Metafile" },
+        };
+
+        // The format itself, then the names it maps to. Case-insensitively, as OLE matches them.
+        private static IEnumerable<string> WithMappedFormats (string format)
+        {
+            yield return format;
+
+            foreach (var group in format_groups)
+                if (group.Contains (format, StringComparer.OrdinalIgnoreCase))
+                    foreach (var name in group)
+                        if (!string.Equals (name, format, StringComparison.OrdinalIgnoreCase))
+                            yield return name;
+        }
+
+        private bool TryFind (string format, bool autoConvert, out object? value)
+        {
+            foreach (var name in autoConvert ? WithMappedFormats (format) : new[] { format })
+                if (_data.TryGetValue (name, out value))
+                    return true;
+
+            value = null;
+            return false;
+        }
+
+        private static string NameOf (Type format) => format.FullName ?? format.Name;
+
         /// <inheritdoc/>
-        public object? GetData (string format) => _data.TryGetValue (format, out var v) ? v : null;
+        public object? GetData (string format) => GetData (format, autoConvert: true);
         /// <inheritdoc/>
-        public object? GetData (Type format) => _data.TryGetValue (format.FullName ?? format.Name, out var v) ? v : null;
+        public object? GetData (Type format) => GetData (NameOf (format), autoConvert: true);
         /// <inheritdoc/>
-        public object? GetData (string format, bool autoConvert) => GetData (format);
+        public object? GetData (string format, bool autoConvert) => TryFind (format, autoConvert, out var value) ? value : null;
         /// <inheritdoc/>
-        public bool GetDataPresent (string format) => _data.ContainsKey (format);
+        public bool GetDataPresent (string format) => GetDataPresent (format, autoConvert: true);
         /// <inheritdoc/>
-        public bool GetDataPresent (Type format) => _data.ContainsKey (format.FullName ?? format.Name);
+        public bool GetDataPresent (Type format) => GetDataPresent (NameOf (format), autoConvert: true);
         /// <inheritdoc/>
-        public bool GetDataPresent (string format, bool autoConvert) => GetDataPresent (format);
+        public bool GetDataPresent (string format, bool autoConvert) => TryFind (format, autoConvert, out _);
         /// <inheritdoc/>
-        public string[] GetFormats () => _data.Keys.ToArray ();
+        public string[] GetFormats () => GetFormats (autoConvert: true);
         /// <inheritdoc/>
-        public string[] GetFormats (bool autoConvert) => GetFormats ();
+        public string[] GetFormats (bool autoConvert)
+            => autoConvert
+                ? _data.Keys.SelectMany (WithMappedFormats).Distinct (StringComparer.Ordinal).ToArray ()
+                : _data.Keys.ToArray ();
         /// <inheritdoc/>
         public void SetData (object data) => _data[data.GetType ().FullName ?? data.GetType ().Name] = data;
         /// <inheritdoc/>

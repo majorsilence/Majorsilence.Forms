@@ -51,13 +51,14 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets or sets the index of the currently selected filter (1-based). Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the index of the selected filter (1-based).</summary>
+        /// <remarks>The filter the dialog opens on, and afterwards the one the chosen file matches (SVC-24).</remarks>
         public int FilterIndex { get; set; } = 1;
 
         /// <summary>Gets or sets the default extension added to file names without an extension.</summary>
         public string DefaultExt { get; set; } = string.Empty;
 
-        /// <summary>Gets or sets whether to add the extension automatically. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether a file name with no extension gets the selected filter's (or <see cref="DefaultExt"/>).</summary>
         public bool AddExtension { get; set; } = true;
 
         /// <summary>Gets or sets whether shortcuts should be dereferenced. Stub in Majorsilence.Forms.</summary>
@@ -118,16 +119,108 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Gets or sets the selected files. If there are multiple files selected, the first one is returned.
+        /// Gets or sets the selected file: the first one when several are selected, and
+        /// <see cref="string.Empty"/> when there is none.
         /// </summary>
-        public string? FileName {
-            get => filenames.Count > 0 ? Path.GetFullPath (filenames[0]) : null;
+        /// <remarks>
+        /// As upstream: stored verbatim and empty when unset (SVC-22). It was run through
+        /// <c>Path.GetFullPath</c>, so the designer's <c>FileName = ""</c> threw, a relative name was resolved
+        /// against the process's working directory, and a cancelled dialog's <c>FileName.Length</c> threw a
+        /// <see cref="NullReferenceException"/>. The pickers return full paths themselves.
+        /// </remarks>
+        [System.Diagnostics.CodeAnalysis.AllowNull]
+        public string FileName {
+            get => filenames.Count > 0 ? filenames[0] : string.Empty;
             set {
                 filenames.Clear ();
 
-                if (value != null)
-                    filenames.Add (Path.GetFullPath (value));
+                if (!string.IsNullOrEmpty (value))
+                    filenames.Add (value);
             }
+        }
+
+        // ── After the picker returns (SVC-23, SVC-24) ──────────────────────────────────────────────
+        //
+        // Upstream's ProcessFileNames and the FileOk hook: give an extensionless name the extension the
+        // chosen filter (or DefaultExt) implies, report which filter that was in FilterIndex, then let a
+        // FileOk handler veto the result -- a veto keeps the dialog open, so it is shown again.
+
+        // Takes what the picker returned. False when a FileOk handler cancelled.
+        private protected bool AcceptResult (IReadOnlyList<string> picked, bool mustExist)
+        {
+            filenames.Clear ();
+
+            foreach (var file in picked)
+                filenames.Add (WithExtension (file, mustExist));
+
+            InferFilterIndex ();
+
+            var e = new System.ComponentModel.CancelEventArgs ();
+            OnFileOk (e);
+            return !e.Cancel;
+        }
+
+        private string WithExtension (string file, bool mustExist)
+        {
+            if (!AddExtension || Path.HasExtension (file))
+                return file;
+
+            foreach (var extension in CandidateExtensions ()) {
+                var candidate = file + "." + extension;
+
+                // An open dialog takes the extension only for a file that is really there, as upstream:
+                // the user may have picked a file that has no extension on purpose.
+                if (!mustExist || File.Exists (candidate) && !File.Exists (file))
+                    return candidate;
+            }
+
+            return file;
+        }
+
+        // The selected filter's concrete extensions, then DefaultExt.
+        private IEnumerable<string> CandidateExtensions ()
+        {
+            if (FilterIndex >= 1 && FilterIndex <= filters.Count)
+                foreach (var pattern in filters[FilterIndex - 1].Patterns)
+                    if (ConcreteExtension (pattern) is { } extension)
+                        yield return extension;
+
+            if (!string.IsNullOrEmpty (DefaultExt))
+                yield return DefaultExt.TrimStart ('.');
+        }
+
+        // "*.png" -> "png"; "*.*", "*" and anything else with a wildcard in the extension -> null.
+        private static string? ConcreteExtension (string pattern)
+        {
+            var dot = pattern.LastIndexOf ('.');
+            if (dot < 0 || dot == pattern.Length - 1)
+                return null;
+
+            var extension = pattern.Substring (dot + 1);
+            return extension.Contains ('*') || extension.Contains ('?') ? null : extension;
+        }
+
+        // The pickers report only the file, not the filter it was picked under, so the filter is read back
+        // from the file's extension: export code that branches on FilterIndex ("1 = PNG, 2 = JPEG") then
+        // sees the format the user chose. The filter it started on is kept when it matches.
+        private void InferFilterIndex ()
+        {
+            if (filenames.Count == 0 || Path.GetExtension (filenames[0]) is not { Length: > 1 } dotted)
+                return;
+
+            var extension = dotted.Substring (1);
+
+            bool Matches (int index) => filters[index].Patterns.Any (p =>
+                string.Equals (ConcreteExtension (p), extension, StringComparison.OrdinalIgnoreCase));
+
+            if (FilterIndex >= 1 && FilterIndex <= filters.Count && Matches (FilterIndex - 1))
+                return;
+
+            for (var i = 0; i < filters.Count; i++)
+                if (Matches (i)) {
+                    FilterIndex = i + 1;
+                    return;
+                }
         }
 
         // Mutable backing store for the selected files; dialog implementations write here.

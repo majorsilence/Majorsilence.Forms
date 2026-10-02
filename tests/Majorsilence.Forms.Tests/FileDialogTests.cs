@@ -29,7 +29,7 @@ namespace Majorsilence.Forms.Tests
             Assert.True (dialog.CheckPathExists);
             Assert.True (dialog.DereferenceLinks);
             Assert.Equal (string.Empty, dialog.DefaultExt);
-            Assert.Null (dialog.FileName);
+            Assert.Equal (string.Empty, dialog.FileName);   // upstream: empty, never null (SVC-22)
             Assert.Empty (dialog.FileNames);
             Assert.Equal (1, dialog.FilterIndex);
             Assert.Equal (string.Empty, dialog.Filter);
@@ -58,7 +58,7 @@ namespace Majorsilence.Forms.Tests
             Assert.True (dialog.DereferenceLinks);
             Assert.Equal (string.Empty, dialog.DefaultExt);
             Assert.Null (dialog.DefaultExtension);
-            Assert.Null (dialog.FileName);
+            Assert.Equal (string.Empty, dialog.FileName);   // upstream: empty, never null (SVC-22)
             Assert.Empty (dialog.FileNames);
             Assert.Equal (1, dialog.FilterIndex);
             Assert.Equal (string.Empty, dialog.Filter);
@@ -289,21 +289,23 @@ namespace Majorsilence.Forms.Tests
             Assert.NotEmpty (dialog.FileNames);
 
             dialog.FileName = null;
-            Assert.Null (dialog.FileName);
+            Assert.Equal (string.Empty, dialog.FileName);
             Assert.Empty (dialog.FileNames);
         }
 
         [Fact]
-        public void FileDialog_FileName_Set_GetReturnsFullPath ()
+        public void FileDialog_FileName_is_stored_verbatim ()
         {
-            // Majorsilence.Forms resolves FileName through Path.GetFullPath, so the getter returns
-            // a rooted path that ends with the supplied name.
+            // SVC-22: upstream stores the value as given. It used to be run through Path.GetFullPath, which
+            // resolved a relative name against the process's working directory and threw on "".
             var dialog = new OpenFileDialog { FileName = "file.txt" };
 
-            Assert.NotNull (dialog.FileName);
-            Assert.True (Path.IsPathRooted (dialog.FileName));
-            Assert.Equal ("file.txt", Path.GetFileName (dialog.FileName));
+            Assert.Equal ("file.txt", dialog.FileName);
             Assert.Single (dialog.FileNames);
+
+            dialog.FileName = "";
+            Assert.Equal (string.Empty, dialog.FileName);
+            Assert.Empty (dialog.FileNames);
         }
 
         [Fact]
@@ -445,7 +447,7 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (string.Empty, dialog.Filter);
             Assert.Empty (dialog.filters);
             Assert.Equal (1, dialog.FilterIndex);
-            Assert.Null (dialog.FileName);
+            Assert.Equal (string.Empty, dialog.FileName);
             Assert.Empty (dialog.FileNames);
             Assert.Null (dialog.InitialDirectory);
             Assert.Equal (string.Empty, dialog.Title);
@@ -473,7 +475,7 @@ namespace Majorsilence.Forms.Tests
             Assert.Null (dialog.DefaultExtension);
             Assert.Equal (string.Empty, dialog.DefaultExt);
             Assert.Equal (1, dialog.FilterIndex);
-            Assert.Null (dialog.FileName);
+            Assert.Equal (string.Empty, dialog.FileName);
             Assert.Empty (dialog.FileNames);
             Assert.Equal (string.Empty, dialog.Title);
         }

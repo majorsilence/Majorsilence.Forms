@@ -84,11 +84,10 @@ public class PrintDocumentTests
         using var stream = new MemoryStream ();
         doc.PrintToPdf (stream);
 
-        // US Letter at 96 DPI = 816 x 1056 px, 1" margins = 96 px inset.
-        Assert.Equal (816f, page.Width, 3);
-        Assert.Equal (1056f, page.Height, 3);
-        Assert.Equal (96f, margin.Left, 3);
-        Assert.Equal (96f, margin.Top, 3);
+        // Hundredths of an inch, as upstream's PrintPageEventArgs (SVC-28): US Letter is 850 x 1100 and
+        // the default 1" margins put MarginBounds at (100, 100, 650, 900). It was 96-DPI pixels.
+        Assert.Equal (new RectangleF (0, 0, 850, 1100), page);
+        Assert.Equal (new RectangleF (100, 100, 650, 900), margin);
         Assert.True (margin.Width < page.Width);
         Assert.True (margin.Height < page.Height);
     }

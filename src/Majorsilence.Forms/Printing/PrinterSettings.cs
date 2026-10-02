@@ -136,15 +136,17 @@ namespace Majorsilence.Forms.Printing
 
         /// <summary>
         /// Creates a <see cref="Majorsilence.Forms.Drawing.Graphics"/> for measuring against this printer's
-        /// page, backed by an offscreen surface at the default page settings' DPI.
+        /// page, in hundredths of an inch -- the unit a <c>PrintPage</c> handler draws in.
         /// </summary>
         public Majorsilence.Forms.Drawing.Graphics CreateMeasurementGraphics ()
         {
+            // In the unit a PrintPage handler draws in, hundredths of an inch, so text measured here lays
+            // out the same when it is printed (SVC-28).
             var bounds = DefaultPageSettings.Bounds;
-            var scale = DefaultPageSettings.Dpi / 100f;   // Bounds are hundredths of an inch.
-            var width = Math.Max (1, (int)(bounds.Width * scale));
-            var height = Math.Max (1, (int)(bounds.Height * scale));
-            return Majorsilence.Forms.Drawing.Graphics.FromImage (new Majorsilence.Forms.Drawing.Bitmap (width, height));
+            var graphics = Majorsilence.Forms.Drawing.Graphics.FromImage (
+                new Majorsilence.Forms.Drawing.Bitmap (Math.Max (1, bounds.Width), Math.Max (1, bounds.Height)));
+            graphics.UnitsPerInch = 100f;
+            return graphics;
         }
 
         /// <inheritdoc cref="CreateMeasurementGraphics()"/>
