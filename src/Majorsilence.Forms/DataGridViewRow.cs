@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 ﻿using System.Drawing;
 
 namespace Majorsilence.Forms
@@ -34,13 +34,19 @@ namespace Majorsilence.Forms
         /// </summary>
         /// <remarks>Settable, as upstream's is; a replacement notifies the grid (W6.1, DGV-45).</remarks>
         public DataGridViewRowHeaderCell HeaderCell {
-            get => header_cell;
+            get {
+                // Linked on read, as the column's is: the field initializer cannot reference `this`.
+                header_cell.header_row = this;
+                return header_cell;
+            }
             set {
                 if (ReferenceEquals (header_cell, value))
                     return;
 
                 header_cell = value ?? new DataGridViewRowHeaderCell ();
+                header_cell.header_row = this;
                 DataGridView?.NotifyRowHeaderCellChanged (this);
+                DataGridView?.Invalidate ();
             }
         }
 

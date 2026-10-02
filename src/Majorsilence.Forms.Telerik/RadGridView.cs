@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.ComponentModel;
 using System.Drawing;
 using System.Globalization;
@@ -3111,7 +3111,9 @@ namespace Majorsilence.Forms.Telerik
         public GridViewDataColumn Add (string headerText) => (GridViewDataColumn)_columns.Add (headerText);
 
         /// <summary>Adds a column with the specified internal name and header text.</summary>
-        public GridViewDataColumn Add (string name, string headerText) => (GridViewDataColumn)_columns.Add (name, headerText);
+        public GridViewDataColumn Add (string name, string headerText)
+            // Telerik's overload returns the column; the core one returns its index, as WinForms' does.
+            => (GridViewDataColumn)_columns[_columns.Add (name, headerText)];
 
         /// <summary>Adds a range of columns.</summary>
         public void AddRange (params DataGridViewColumn[] columns) => _columns.AddRange (columns);

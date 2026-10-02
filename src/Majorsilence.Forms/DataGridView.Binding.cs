@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -232,6 +232,10 @@ namespace Majorsilence.Forms
             }
 
             Invalidate ();
+
+            // Every list change ends in one, carrying the change type: upstream's DataConnection raises
+            // it after processing each ListChanged (DataGridView.DataConnection.cs, currencyManager_ListChanged).
+            RaiseDataBindingComplete (e.ListChangedType);
         }
 
         // A deleted row can take the current cell with it. Upstream moves the current cell to the row

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Drawing;
 using Majorsilence.Forms.Drawing;
@@ -194,11 +194,7 @@ namespace Majorsilence.Forms
 
     public partial class DataGridView
     {
-        /// <summary>Called when the grid is scrolled.</summary>
-        protected virtual void OnScroll (ScrollEventArgs e) { }
 
-        /// <summary>Called when a data-binding operation has finished.</summary>
-        protected virtual void OnDataBindingComplete (DataGridViewBindingCompleteEventArgs e) { }
 
 
 

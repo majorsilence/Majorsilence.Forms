@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -29,7 +29,7 @@ namespace Majorsilence.Forms
         public AccessibleObject AccessibilityObject
             => accessibility_object ??= new DataGridViewCellAccessibleObject (this);
 
-        /// <summary>Gets the area of the cell its content is drawn in, inside the borders.</summary>
+        /// <summary>Gets the area the cell's content occupies, relative to the cell's top-left corner.</summary>
         public Rectangle ContentBounds => GetContentBounds (RowIndex);
 
         /// <summary>Gets the area the error glyph is drawn in.</summary>
@@ -89,15 +89,15 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Returns the area the cell's content is drawn in for the given row.</summary>
+        /// <summary>Returns the area the cell's content occupies in the given row, relative to the cell's top-left corner.</summary>
+        /// <remarks>
+        /// Cell-relative and logical, as upstream's is (a cell's <c>GetContentBounds</c> is compared against
+        /// cell-relative mouse coordinates). It returned the whole painted cell less a margin, in absolute
+        /// device pixels -- not the content and not in the space a caller compares it against (DGV-28).
+        /// For a text or link cell it is the text as drawn, and empty when there is none.
+        /// </remarks>
         public Rectangle GetContentBounds (int rowIndex)
-        {
-            if (DataGridView is null || rowIndex < 0)
-                return Rectangle.Empty;
-
-            var bounds = Bounds;
-            return Rectangle.Inflate (bounds, -2, -1);
-        }
+            => DataGridView is { } grid && ColumnIndex >= 0 ? grid.CellContentBounds (rowIndex, ColumnIndex) : Rectangle.Empty;
 
         /// <summary>Returns the cell's value as it is being edited, or its formatted value when it is not.</summary>
         public object? GetEditedFormattedValue (int rowIndex, DataGridViewDataErrorContexts context)

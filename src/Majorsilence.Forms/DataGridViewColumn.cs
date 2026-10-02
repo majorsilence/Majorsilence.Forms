@@ -8,7 +8,6 @@ namespace Majorsilence.Forms
     /// </summary>
     public partial class DataGridViewColumn : IDisposable
     {
-        private string header_text = string.Empty;
         private int width = 100;
         private DataGridView? owner;
         private DataGridViewCellStyle default_cell_style = new DataGridViewCellStyle ();
@@ -25,7 +24,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public DataGridViewColumn (string headerText)
         {
-            header_text = headerText;
+            header_cell.Value = headerText;
         }
 
         /// <summary>
@@ -226,17 +225,27 @@ namespace Majorsilence.Forms
         private DataGridViewColumnHeaderCell header_cell = new DataGridViewColumnHeaderCell ();
 
         /// <summary>
-        /// Gets or sets the header text for this column.
+        /// Gets or sets the header text for this column -- the value of its <see cref="HeaderCell"/>.
         /// </summary>
+        /// <remarks>
+        /// One value, as upstream (<c>DataGridViewColumn.cs</c>, HeaderText reads and writes
+        /// <c>HeaderCell.Value</c>). It was a separate field, so <c>col.HeaderCell.Value = "Qty"</c> kept
+        /// showing the old caption and read back differently through the two names (DGV-24). As upstream,
+        /// a non-string header value reads back as the empty string here and is still painted.
+        /// </remarks>
         public string HeaderText {
-            get => header_text;
+            get => HeaderCell.Value as string ?? string.Empty;
             set {
-                if (header_text != value) {
-                    header_text = value;
-                    owner?.Invalidate ();
-                }
+                if (HeaderText == value)
+                    return;
+
+                // The header cell's own setter repaints the grid, as an assignment to HeaderCell.Value does.
+                HeaderCell.Value = value;
             }
         }
+
+        // What the header paints: the header cell's value in any type, where HeaderText only answers strings.
+        internal string HeaderDisplayText => HeaderCell.Value?.ToString () ?? string.Empty;
 
         /// <summary>
         /// Gets the index of this column in the DataGridView.
@@ -564,7 +573,7 @@ namespace Majorsilence.Forms
         {
             Guard.ThrowIfNull (target);
 
-            target.header_text = header_text;
+            target.header_cell.Value = header_cell.Value;
             target.width = width;
             target.Name = Name;
             target.DataPropertyName = DataPropertyName;

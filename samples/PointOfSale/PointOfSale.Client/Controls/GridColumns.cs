@@ -12,7 +12,7 @@ public static class GridColumns
 {
     public static DataGridViewColumn AddBound(DataGridView grid, string propertyName, string headerText, int width)
     {
-        var column = grid.Columns.Add(propertyName, headerText);
+        var column = grid.Columns[grid.Columns.Add(propertyName, headerText)];
         column.DataPropertyName = propertyName;
         column.Width = width;
         return column;

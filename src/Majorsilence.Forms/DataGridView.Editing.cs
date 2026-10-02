@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 
@@ -52,7 +52,17 @@ namespace Majorsilence.Forms
         /// Gets whether any cell in the current row has been committed since the row became current,
         /// or the cell being edited is dirty.
         /// </summary>
-        public bool IsCurrentRowDirty => current_row_dirty || current_cell_dirty;
+        public bool IsCurrentRowDirty {
+            get {
+                if (!VirtualMode)
+                    return current_row_dirty || current_cell_dirty;
+
+                // Virtual mode: the grid's own answer is only the default, the application decides.
+                var question = new QuestionEventArgs (current_row_dirty || current_cell_dirty);
+                OnRowDirtyStateNeeded (question);
+                return question.Response;
+            }
+        }
 
         /// <summary>
         /// Tells the grid that the editing control's contents have changed. Mirrors WinForms: a custom

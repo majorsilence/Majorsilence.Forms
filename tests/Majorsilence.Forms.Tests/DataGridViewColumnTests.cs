@@ -86,11 +86,13 @@ namespace Majorsilence.Forms.Tests
         {
             var column = new DataGridViewColumn { HeaderText = value! };
 
-            Assert.Equal (value, column.HeaderText);
+            // HeaderText is a view of HeaderCell.Value and answers "" for anything but a string, null
+            // included -- upstream's getter (DGV-24).
+            Assert.Equal (value ?? string.Empty, column.HeaderText);
 
             // Set same.
             column.HeaderText = value!;
-            Assert.Equal (value, column.HeaderText);
+            Assert.Equal (value ?? string.Empty, column.HeaderText);
         }
 
         [Theory]
@@ -383,8 +385,11 @@ namespace Majorsilence.Forms.Tests
         {
             using var control = new DataGridView ();
 
-            var column = control.Columns.Add ("colName", "Header");
+            // WinForms returns the new column's index from this overload (DGV-04).
+            var index = control.Columns.Add ("colName", "Header");
+            var column = control.Columns[index];
 
+            Assert.Equal (0, index);
             Assert.Equal ("colName", column.Name);
             Assert.Equal ("Header", column.HeaderText);
         }

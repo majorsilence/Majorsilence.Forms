@@ -63,10 +63,15 @@ namespace Majorsilence.Forms
                 Dock = DockStyle.Right
             };
 
+            // The bar announces a user scroll before it moves; the grid announces its own scroll after
+            // the view has moved, carrying that gesture's type (see RaiseGridScroll).
+            vscrollbar.Scroll += (o, e) => pending_scroll_type = e.Type;
             vscrollbar.ValueChanged += (o, e) => {
+                var old_top = top_index;
                 top_index = Math.Max (vscrollbar.Value, 0);
                 UpdateEditTextBoxPosition ();
                 Invalidate ();
+                RaiseGridScroll (old_top, top_index, ScrollOrientation.VerticalScroll);
             };
 
             hscrollbar = new HScrollBar {
@@ -78,10 +83,13 @@ namespace Majorsilence.Forms
                 Dock = DockStyle.Bottom
             };
 
+            hscrollbar.Scroll += (o, e) => pending_scroll_type = e.Type;
             hscrollbar.ValueChanged += (o, e) => {
+                var old_offset = horizontal_scroll_offset;
                 horizontal_scroll_offset = Math.Max (hscrollbar.Value, 0);
                 UpdateEditTextBoxPosition ();
                 Invalidate ();
+                RaiseGridScroll (old_offset, horizontal_scroll_offset, ScrollOrientation.HorizontalScroll);
             };
 
             // ORDINARY children, not implicit chrome. WinForms' DataGridView adds its scrollbars to
@@ -293,17 +301,38 @@ namespace Majorsilence.Forms
         /// <summary>Raised when a data error occurs (e.g., binding failure).</summary>
         public event EventHandler<DataGridViewDataErrorEventArgs>? DataError { add => _dataError += value; remove => _dataError -= value; }
 
-        private EventHandler<EventArgs>? _dataBindingComplete;
-        /// <summary>Raised when data binding is complete.</summary>
-        public event EventHandler<EventArgs>? DataBindingComplete { add => _dataBindingComplete += value; remove => _dataBindingComplete -= value; }
+        /// <summary>Raised when a data-binding operation has finished: after a bind, and after every
+        /// change the bound list reports, with that change's <see cref="System.ComponentModel.ListChangedType"/>.</summary>
+        /// <remarks>Typed as upstream's <see cref="DataGridViewBindingCompleteEventHandler"/>: it was an
+        /// <c>EventHandler&lt;EventArgs&gt;</c>, so the designer-generated
+        /// <c>grid_DataBindingComplete (object, DataGridViewBindingCompleteEventArgs)</c> did not compile (DGV-04).</remarks>
+        public event DataGridViewBindingCompleteEventHandler? DataBindingComplete;
+
+        /// <summary>Raises the <see cref="DataBindingComplete"/> event.</summary>
+        protected virtual void OnDataBindingComplete (DataGridViewBindingCompleteEventArgs e) => DataBindingComplete?.Invoke (this, e);
+
+        // Upstream raises it only while a data connection exists, so an unbound grid -- DataSource set
+        // back to null, or a DataMember set with nothing to follow -- reports no binding.
+        private void RaiseDataBindingComplete (System.ComponentModel.ListChangedType listChangedType)
+        {
+            if (data_source is null)
+                return;
+
+            OnDataBindingComplete (new DataGridViewBindingCompleteEventArgs (listChangedType));
+        }
 
         private EventHandler? _currentCellChanged;
         /// <summary>Raised when the current cell changes.</summary>
         public event EventHandler? CurrentCellChanged { add => _currentCellChanged += value; remove => _currentCellChanged -= value; }
 
-        private EventHandler? _rowDirtyStateNeeded;
-        /// <summary>Raised when a row enters the dirty state.</summary>
-        public event EventHandler? RowDirtyStateNeeded { add => _rowDirtyStateNeeded += value; remove => _rowDirtyStateNeeded -= value; }
+        /// <summary>Raised in <see cref="VirtualMode"/> when <see cref="IsCurrentRowDirty"/> is read, so the
+        /// application -- which holds the data -- can answer whether the current row has uncommitted changes.</summary>
+        /// <remarks>Typed as upstream's <see cref="QuestionEventHandler"/>, and raised from the getter as upstream
+        /// does (<c>DataGridView.cs</c>, IsCurrentRowDirty). It was an <c>EventHandler</c> nothing raised (DGV-38).</remarks>
+        public event QuestionEventHandler? RowDirtyStateNeeded;
+
+        /// <summary>Raises the <see cref="RowDirtyStateNeeded"/> event.</summary>
+        protected virtual void OnRowDirtyStateNeeded (QuestionEventArgs e) => RowDirtyStateNeeded?.Invoke (this, e);
 
         /// <summary>Raised when a cell is double-clicked.</summary>
         public event DataGridViewCellEventHandler? CellDoubleClick;
@@ -715,6 +744,10 @@ namespace Majorsilence.Forms
                 data_source_object = value;
                 RebindDataSource ();
                 OnDataSourceChanged (EventArgs.Empty);
+
+                // After DataSourceChanged, and only when something is bound, as upstream's
+                // OnDataSourceChanged does (DataGridView.Methods.cs).
+                RaiseDataBindingComplete (System.ComponentModel.ListChangedType.Reset);
             }
         }
 
@@ -792,6 +825,7 @@ namespace Majorsilence.Forms
                     RebindDataSource ();
 
                 OnDataMemberChanged (EventArgs.Empty);
+                RaiseDataBindingComplete (System.ComponentModel.ListChangedType.Reset);
                 Invalidate ();
             }
         }
@@ -1566,40 +1600,76 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Returns information about the grid element at the given client coordinates (WinForms compatibility).
-        /// Best-effort: scans visible cells via <see cref="GetCellDisplayRectangle"/> and reports the
-        /// containing cell, or <see cref="HitTestInfo.Nowhere"/> when the point hits no cell.
+        /// Returns information about the grid element at the given client (logical) coordinates: a cell,
+        /// a column or row header, the top-left header, or one of the scroll bars.
         /// </summary>
+        /// <remarks>
+        /// It scanned cells only and answered <see cref="HitTestInfo.Nowhere"/> for everything else, so the
+        /// context-menu idiom <c>if (grid.HitTest (e.X, e.Y).Type == DataGridViewHitTestType.ColumnHeader)</c>
+        /// never saw a header (DGV-35). The parts and the -1 conventions are upstream's
+        /// (<c>DataGridView.HitTestInfo.cs</c>): a column header has row -1, a row header column -1, the
+        /// top-left header both. <see cref="HitTestInfo.ColumnX"/> and <see cref="HitTestInfo.RowY"/> are the
+        /// hit element's left and top edges, in the same logical units as the point.
+        /// </remarks>
         public HitTestInfo HitTest (int x, int y)
         {
-            for (var col = 0; col < Columns.Count; col++) {
-                for (var row = 0; row < RowCountWithNewRow; row++) {
-                    var rect = GetCellDisplayRectangle (col, row, false);
-                    if (rect.Width > 0 && rect.Height > 0 && rect.Contains (x, y))
-                        return new HitTestInfo (col, row, rect.X, rect.Y, DataGridViewHitTestType.Cell);
-                }
+            var logical = new Point (x, y);
+
+            // The scroll bars are child controls; their Bounds are logical, like the point.
+            if (vscrollbar.Visible && vscrollbar.Bounds.Contains (logical))
+                return new HitTestInfo (-1, -1, -1, -1, DataGridViewHitTestType.VerticalScrollBar);
+
+            if (hscrollbar.Visible && hscrollbar.Bounds.Contains (logical))
+                return new HitTestInfo (-1, -1, -1, -1, DataGridViewHitTestType.HorizontalScrollBar);
+
+            var device = LogicalToDeviceUnits (logical);
+            var client = GetContentArea ();
+
+            if (!client.Contains (device))
+                return HitTestInfo.Nowhere;
+
+            var row_header_right = client.Left + (row_headers_visible ? ScaledRowHeadersWidth : 0);
+            var in_row_header_band = row_headers_visible && device.X < row_header_right;
+
+            if (ColumnHeadersVisible && device.Y < client.Top + ScaledHeaderHeight) {
+                var header_top = DeviceToLogicalUnits (client.Top);
+
+                if (in_row_header_band)
+                    return new HitTestInfo (-1, -1, DeviceToLogicalUnits (client.Left), header_top, DataGridViewHitTestType.TopLeftHeader);
+
+                var header_column = GetColumnAtLocation (device);
+
+                return header_column < 0
+                    ? HitTestInfo.Nowhere
+                    : new HitTestInfo (header_column, -1, DeviceToLogicalUnits (GetColumnDeviceLeft (header_column)), header_top, DataGridViewHitTestType.ColumnHeader);
             }
 
-            return HitTestInfo.Nowhere;
+            var row = GetRowAtLocation (device);
+
+            if (row < 0)
+                return HitTestInfo.Nowhere;
+
+            var row_top = DeviceToLogicalUnits (RowDeviceTop (row));
+
+            if (in_row_header_band)
+                return new HitTestInfo (-1, row, DeviceToLogicalUnits (client.Left), row_top, DataGridViewHitTestType.RowHeader);
+
+            var column = GetColumnAtLocation (device);
+
+            return column < 0
+                ? HitTestInfo.Nowhere
+                : new HitTestInfo (column, row, DeviceToLogicalUnits (GetColumnDeviceLeft (column)), row_top, DataGridViewHitTestType.Cell);
         }
 
-        /// <summary>Specifies the part of the <see cref="DataGridView"/> identified by a hit test.</summary>
-        public enum DataGridViewHitTestType
+        // The device top of a displayed row, walked the way GetRowAtLocation walks them.
+        private int RowDeviceTop (int rowIndex)
         {
-            /// <summary>The point is not part of the grid.</summary>
-            None,
-            /// <summary>The point is over a cell.</summary>
-            Cell,
-            /// <summary>The point is over a column header.</summary>
-            ColumnHeader,
-            /// <summary>The point is over a row header.</summary>
-            RowHeader,
-            /// <summary>The point is over the top-left header.</summary>
-            TopLeftHeader,
-            /// <summary>The point is over the horizontal scroll bar.</summary>
-            HorizontalScrollBar,
-            /// <summary>The point is over the vertical scroll bar.</summary>
-            VerticalScrollBar
+            var y = GetContentArea ().Top + RowsTopOffset;
+
+            for (var i = top_index; i < rowIndex; i++)
+                y += RowDeviceHeight (i);
+
+            return y;
         }
 
         /// <summary>Contains information about a part of the <see cref="DataGridView"/> at a given location.</summary>
@@ -1877,13 +1947,36 @@ namespace Majorsilence.Forms
                 return Rows[selected_row_index].Cells[selected_column_index];
             }
             set {
-                // WinForms compatibility: setting CurrentCell moves the selection to that cell.
-                if (value is null)
+                // Upstream's setter (DataGridView.cs, CurrentCell): null clears the selection and the
+                // current cell; a cell is scrolled into view, the selection collapses onto it, and the
+                // address moves ONCE. It used to move the column and then the row through the two index
+                // setters -- two SelectionChanged, RowValidating run between the halves, a third
+                // CurrentCellChanged on top -- and ignored null, so the documented
+                // `grid.CurrentCell = null` before a rebind did nothing (DGV-12).
+                //
+                // Upstream throws InvalidOperationException when a validating handler refuses the move;
+                // this layer keeps its fail-soft rule and leaves the current cell where it was.
+                if (value is null) {
+                    if (selected_row_index < 0 && selected_column_index < 0)
+                        return;
+
+                    ClearSelection ();
+                    MoveCurrentCell (-1, -1);
+                    return;
+                }
+
+                if (value.DataGridView != this)
+                    throw new ArgumentException ("The cell does not belong to this DataGridView.", nameof (value));
+
+                if (value.RowIndex == selected_row_index && value.ColumnIndex == selected_column_index)
                     return;
 
-                SelectedColumnIndex = value.ColumnIndex;
-                SelectedRowIndex = value.RowIndex;
-                OnCurrentCellChanged (EventArgs.Empty);
+                ScrollIntoView (value.ColumnIndex, value.RowIndex);
+
+                if (!MoveCurrentCell (value.RowIndex, value.ColumnIndex))
+                    return;
+
+                ReplaceSelectionWithCurrentCell ();
             }
         }
 
@@ -2275,7 +2368,6 @@ namespace Majorsilence.Forms
 
             Rows.ReplaceAll (rows);
             SetInitialCurrentCell ();
-            _dataBindingComplete?.Invoke (this, EventArgs.Empty);
         }
 
         // WinForms/Telerik make the first cell current as soon as a data source with rows is bound, so
@@ -2934,6 +3026,7 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void OnPaint (PaintEventArgs e)
         {
+            EnsureScrollBarsAtCurrentScale ();
             RenderManager.Render (this, e);
 
             base.OnPaint (e);
@@ -3577,8 +3670,98 @@ namespace Majorsilence.Forms
 
         private BorderStyle border_style = BorderStyle.Fixed3D;
 
+        /// <summary>Raised after the grid scrolls, by the user or by code, in either direction.</summary>
+        /// <remarks>
+        /// Declared here because upstream declares it on <c>DataGridView</c>; the base <c>Control.Scroll</c>
+        /// is not an upstream member and nothing raises it. Nothing raised this one either, and
+        /// <c>OnScroll</c> was an empty seam, so two grids kept in step through it never moved (DGV-34).
+        /// </remarks>
+        public new event ScrollEventHandler? Scroll;
+
+        /// <summary>Raises the <see cref="Scroll"/> event.</summary>
+        protected virtual void OnScroll (ScrollEventArgs e) => Scroll?.Invoke (this, e);
+
+        // The gesture the scroll bar last announced, consumed by the next scroll it causes. A scroll
+        // the grid makes itself (ScrollIntoView, FirstDisplayedScrollingRowIndex) has none, and is typed
+        // from its size instead -- as upstream types its own programmatic scrolls.
+        private ScrollEventType? pending_scroll_type;
+
+        // Upstream raises Scroll after the view has moved, with the old and new positions: first
+        // displayed row for a vertical scroll, the pixel offset for a horizontal one
+        // (DataGridView.Methods.cs, OnScroll (ScrollEventType, int, int, ScrollOrientation)).
+        private void RaiseGridScroll (int oldValue, int newValue, ScrollOrientation orientation)
+        {
+            var gesture = pending_scroll_type;
+            pending_scroll_type = null;
+
+            if (oldValue == newValue)
+                return;
+
+            var small = orientation == ScrollOrientation.VerticalScroll ? 1 : hscrollbar.SmallChange;
+            var type = gesture ?? (Math.Abs (newValue - oldValue) <= small
+                ? (newValue > oldValue ? ScrollEventType.SmallIncrement : ScrollEventType.SmallDecrement)
+                : (newValue > oldValue ? ScrollEventType.LargeIncrement : ScrollEventType.LargeDecrement));
+
+            OnScroll (new ScrollEventArgs (type, oldValue, newValue, orientation));
+        }
+
         /// <summary>Scrolls the DataGridView so that the specified cell is visible.</summary>
-        public void ScrollIntoView (int columnIndex, int rowIndex) => Invalidate ();
+        /// <remarks>
+        /// It only repainted, so "scroll to the row just added" through this or through
+        /// <see cref="CurrentCell"/> left the row off screen (DGV-34). A row index of -1 scrolls only
+        /// horizontally and a column index of -1 only vertically; frozen and right-pinned columns
+        /// never scroll.
+        /// </remarks>
+        public void ScrollIntoView (int columnIndex, int rowIndex)
+        {
+            EnsureScrollBarsAtCurrentScale ();
+
+            if (rowIndex >= 0 && rowIndex < RowCountWithNewRow)
+                EnsureRowVisible (rowIndex);
+
+            if (columnIndex >= 0 && columnIndex < Columns.Count)
+                EnsureColumnVisible (columnIndex);
+        }
+
+        // The horizontal half of ScrollIntoView: the smallest scroll that brings the column's whole
+        // width into the scrolling band, or its left edge when it is wider than the band.
+        private void EnsureColumnVisible (int columnIndex)
+        {
+            var column = Columns[columnIndex];
+
+            if (!column.Visible || column.Frozen || column.PinnedRight || !hscrollbar.Visible)
+                return;
+
+            var left = 0;
+
+            foreach (var i in DisplayOrder) {
+                if (i == columnIndex)
+                    break;
+
+                var other = Columns[i];
+
+                if (other.Visible && !other.Frozen && !other.PinnedRight)
+                    left += LogicalToDeviceUnits (other.Width);
+            }
+
+            var width = LogicalToDeviceUnits (column.Width);
+            var band = ScrollingBandWidth ();
+
+            if (left < horizontal_scroll_offset)
+                HorizontalScrollingOffset = left;
+            else if (left + width > horizontal_scroll_offset + band)
+                HorizontalScrollingOffset = Math.Min (left, left + width - band);
+        }
+
+        // The device width of the region the scrolling columns move through -- what UpdateScrollBars
+        // calls scrollable_available.
+        private int ScrollingBandWidth ()
+        {
+            var client = GetContentArea ();
+            var band = client.Width - (row_headers_visible ? ScaledRowHeadersWidth : 0)
+                       - FrozenColumnsWidth - RightPinnedColumnsWidth;
+            return Math.Max (0, band);
+        }
 
         /// <summary>Scrolls the DataGridView to ensure the specified cell is visible.</summary>
         public void EnsureVisible (int rowIndex, int columnIndex) => ScrollIntoView (columnIndex, rowIndex);
@@ -3685,8 +3868,24 @@ namespace Majorsilence.Forms
 
         private bool WantsHorizontalScrollBar => ScrollBars is ScrollBars.Horizontal or ScrollBars.Both;
 
+        // The horizontal bar's range is in DEVICE pixels, so it is stale once the grid's scale changes --
+        // a grid filled before its form is shown on a 2x display had a range half the content's width,
+        // and the last columns could not be scrolled to (found by ScrollIntoView, DGV-34). Nothing
+        // announces a scale change here (Control.DpiChangedAfterParent is not raised), so the scale the
+        // bars were computed at is remembered and checked before they are relied on.
+        private const int ScaleProbe = 1000;
+        private int scroll_bars_scale;
+
+        private void EnsureScrollBarsAtCurrentScale ()
+        {
+            if (scroll_bars_scale != LogicalToDeviceUnits (ScaleProbe))
+                UpdateScrollBars ();
+        }
+
         private void UpdateScrollBars ()
         {
+            scroll_bars_scale = LogicalToDeviceUnits (ScaleProbe);
+
             // Fill columns take whatever width is left, so they are sized before anything measures the
             // column total (DGV-18).
             ApplyFillColumnWidths ();
@@ -3730,13 +3929,15 @@ namespace Majorsilence.Forms
                 top_index = 0;
             }
 
-            // Horizontal scrollbar
-            var available_width = client.Width - (vscrollbar.Visible ? (int)Math.Ceiling (vscrollbar.Width * ScaleFactor.Width) : 0);
-
-            // Pinned columns (left + right) are always visible, so only the scrollable columns drive the H-scrollbar.
+            // Horizontal scrollbar. Pinned columns (left + right) are always visible, so only the
+            // scrollable columns drive it, across the band they scroll through. That band was the
+            // client width less the vertical bar -- which GetContentArea had already taken off, so it
+            // came off twice -- and NOT less the row headers, so with row headers showing the bar
+            // stopped short and the last column could never be scrolled fully into view (found by
+            // ScrollIntoView, DGV-34). Re-read after the vertical bar's visibility is settled above.
             var pinned_width = FrozenColumnsWidth + RightPinnedColumnsWidth;
             var scrollable_total = TotalColumnsWidth - pinned_width;
-            var scrollable_available = available_width - pinned_width;
+            var scrollable_available = ScrollingBandWidth ();
 
             if (scrollable_total > scrollable_available && scrollable_available > 0 && WantsHorizontalScrollBar) {
                 hscrollbar.Visible = true;
@@ -3803,14 +4004,17 @@ namespace Majorsilence.Forms
                 if (horizontal_scroll_offset == clamped)
                     return;
 
-                horizontal_scroll_offset = clamped;
-
                 // Through the scrollbar when it is showing, so the thumb and the offset cannot
-                // disagree; its ValueChanged writes the field back and repaints.
-                if (hscrollbar.Visible)
+                // disagree; its ValueChanged writes the field, repaints and raises Scroll -- which is
+                // why the field is not written first here: the event needs the old offset.
+                if (hscrollbar.Visible) {
                     hscrollbar.Value = Math.Min (clamped, hscrollbar.EffectiveMaximum);
-                else
+                } else {
+                    var old_offset = horizontal_scroll_offset;
+                    horizontal_scroll_offset = clamped;
                     Invalidate ();
+                    RaiseGridScroll (old_offset, clamped, ScrollOrientation.HorizontalScroll);
+                }
             }
         }
 
@@ -3820,10 +4024,12 @@ namespace Majorsilence.Forms
                 // The first scrollable column whose right edge is past the scroll offset -- what the
                 // user sees at the left of the scrolling region. Stored and read by nothing before, so
                 // it answered whatever had last been assigned, or 0 on a grid nobody had assigned it on.
+                // In DISPLAY order, as the band is drawn: a column moved by DisplayIndex scrolls where
+                // it is shown, not where it is stored.
                 var x = 0;
 
-                for (var i = 0; i < Columns.Count; i++) {
-                    if (!Columns[i].Visible || Columns[i].Frozen)
+                foreach (var i in DisplayOrder) {
+                    if (!Columns[i].Visible || Columns[i].Frozen || Columns[i].PinnedRight)
                         continue;
 
                     x += LogicalToDeviceUnits (Columns[i].Width);
@@ -3836,10 +4042,16 @@ namespace Majorsilence.Forms
             }
             set {
                 // Scrolls so that column sits at the left edge, which is what assigning it means.
+                if (value < 0 || value >= Columns.Count)
+                    return;
+
                 var x = 0;
 
-                for (var i = 0; i < Columns.Count && i < value; i++) {
-                    if (!Columns[i].Visible || Columns[i].Frozen)
+                foreach (var i in DisplayOrder) {
+                    if (i == value)
+                        break;
+
+                    if (!Columns[i].Visible || Columns[i].Frozen || Columns[i].PinnedRight)
                         continue;
 
                     x += LogicalToDeviceUnits (Columns[i].Width);
@@ -3900,21 +4112,21 @@ namespace Majorsilence.Forms
         public Panel? EditingPanel => null;
 
         /// <summary>
-        /// Gets the number of full rows that can be displayed at a time.
+        /// Returns the number of rows displayed, starting at <see cref="FirstDisplayedScrollingRowIndex"/>.
         /// </summary>
+        /// <param name="includePartialRow">Whether a row cut off at the bottom edge counts.</param>
         /// <remarks>
-        /// A method rather than a property, matching WinForms. <paramref name="includePartialRow"/> is
-        /// accepted for source compatibility but does not change the result: the count here is always
-        /// of fully visible rows.
+        /// It counted from row 0 whatever the scroll position and ignored its parameter, so a grid
+        /// scrolled to taller rows reported the count of the rows at the top (DGV-34). Upstream counts the
+        /// displayed rows from the first displayed one (<c>DataGridView.Methods.cs</c>, DisplayedRowCount).
         /// </remarks>
-        public int DisplayedRowCount (bool includePartialRow = false)
+        public int DisplayedRowCount (bool includePartialRow)
         {
-            var content = GetContentArea ();
-            var available = content.Height - RowsTopOffset;
+            var available = GetContentArea ().Height - RowsTopOffset;
             var count = 0;
             var h = 0;
 
-            for (var i = 0; i < RowCountWithNewRow; i++) {
+            for (var i = Math.Max (0, top_index); i < RowCountWithNewRow; i++) {
                 var rh = RowDeviceHeight (i);
 
                 // A hidden row is not displayed and does not consume space, so it neither counts nor
@@ -3922,8 +4134,12 @@ namespace Majorsilence.Forms
                 if (rh == 0)
                     continue;
 
-                if (h + rh > available)
+                if (h + rh > available) {
+                    if (includePartialRow && h < available)
+                        count++;
+
                     break;
+                }
 
                 count++;
                 h += rh;
@@ -3937,13 +4153,35 @@ namespace Majorsilence.Forms
         /// </summary>
         private void EnsureRowVisible (int index)
         {
-            if (DisplayedRowCount (true) >= RowCountWithNewRow)
+            if (index < 0 || index >= RowCountWithNewRow || RowDeviceHeight (index) == 0)
                 return;
 
-            if (index < top_index)
+            if (index < top_index) {
                 FirstDisplayedScrollingRowIndex = index;
-            else if (index >= top_index + DisplayedRowCount (true))
-                FirstDisplayedScrollingRowIndex = index - DisplayedRowCount (true) + 1;
+                return;
+            }
+
+            // Fully visible already: the rows from the top down to and including this one fit.
+            var available = GetContentArea ().Height - RowsTopOffset;
+            var used = 0;
+
+            for (var i = top_index; i <= index; i++)
+                used += RowDeviceHeight (i);
+
+            if (used <= available)
+                return;
+
+            // The highest top row that still shows this one whole -- walking up from the row itself,
+            // so rows of different heights land it on the bottom edge rather than a fixed count away.
+            var top = index;
+            used = RowDeviceHeight (index);
+
+            while (top > 0 && used + RowDeviceHeight (top - 1) <= available) {
+                top--;
+                used += RowDeviceHeight (top);
+            }
+
+            FirstDisplayedScrollingRowIndex = top;
         }
 
         // Moves the selection to the next cell, wrapping to the next row.

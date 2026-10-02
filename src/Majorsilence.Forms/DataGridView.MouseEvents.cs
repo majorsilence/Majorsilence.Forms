@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 
 namespace Majorsilence.Forms
@@ -215,18 +215,105 @@ namespace Majorsilence.Forms
             if (mouse_down_target is not { } pressed || pressed.RowIndex != target.RowIndex || pressed.ColumnIndex != target.ColumnIndex)
                 return;
 
-            // The check-box toggle commits here, so the value CellClick handlers read is the new one.
-            ToggleCheckBoxCell (target.RowIndex, target.ColumnIndex);
+            // A CONTENT click is a press and a release both on the cell's content -- the text, the
+            // glyph, the button -- as upstream decides it (DataGridViewCell.OnMouseUpInternal and
+            // DataGridView.OnCommonCellContentClick). It was raised for any click anywhere in any cell,
+            // so a handler written for "the link was clicked" ran for clicks on the padding (DGV-28).
+            var content = CellContentBounds (target.RowIndex, target.ColumnIndex);
+            var on_content = content.Contains (pressed.CellRelative) && content.Contains (target.CellRelative);
 
-            // TrackVisitedState: clicking a link marks it visited, which is the only thing that ever
-            // sets LinkVisited in an ordinary application -- without it the visited colour was
-            // reachable only by assigning LinkVisited by hand, so the whole visited/unvisited
-            // distinction was inert in practice even after the colours were wired (DGV-43).
-            MarkLinkVisited (target.RowIndex, target.ColumnIndex);
+            if (on_content) {
+                // The check-box toggle commits here, so the value CellClick handlers read is the new
+                // one. On the glyph only: upstream's check box switches from its content click.
+                ToggleCheckBoxCell (target.RowIndex, target.ColumnIndex);
+
+                // TrackVisitedState: clicking a link marks it visited, which is the only thing that ever
+                // sets LinkVisited in an ordinary application -- without it the visited colour was
+                // reachable only by assigning LinkVisited by hand, so the whole visited/unvisited
+                // distinction was inert in practice even after the colours were wired (DGV-43). On the
+                // link text only, as upstream's LinkBoundsContainPoint decides.
+                MarkLinkVisited (target.RowIndex, target.ColumnIndex);
+            }
 
             OnCellClick (cell_args);
             OnCellMouseClick (args);
-            OnCellContentClick (cell_args);
+
+            if (on_content)
+                OnCellContentClick (cell_args);
+        }
+
+        /// <summary>
+        /// The area of a cell its content occupies, in LOGICAL units relative to the cell's top-left --
+        /// what upstream's <c>GetContentBounds</c> answers. Text and link cells: the text as drawn, which
+        /// is nothing for an empty cell. Check boxes: the glyph. Buttons, combo boxes and images: the
+        /// cell inside its border.
+        /// </summary>
+        internal Rectangle CellContentBounds (int rowIndex, int columnIndex)
+        {
+            if (rowIndex < 0 || rowIndex >= RowCountWithNewRow || columnIndex < 0 || columnIndex >= Columns.Count)
+                return Rectangle.Empty;
+
+            var device = GetCellBounds (rowIndex, columnIndex);
+
+            if (device.IsEmpty)
+                return Rectangle.Empty;
+
+            var size = DeviceToLogicalUnits (device).Size;
+            var cell_area = new Rectangle (Point.Empty, size);
+            var column = Columns[columnIndex];
+            var cell = columnIndex < Rows[rowIndex].Cells.Count ? Rows[rowIndex].Cells[columnIndex] : null;
+
+            // The renderer's own geometry, in logical units: the glyph is the cell's shorter side less
+            // six, centred (RenderCheckBoxCell).
+            if (column is DataGridViewCheckBoxColumn || column.DisplaysAsCheckBox) {
+                var side = Math.Max (0, Math.Min (size.Width, size.Height) - 6);
+                return new Rectangle ((size.Width - side) / 2, (size.Height - side) / 2, side, side);
+            }
+
+            var value_text = cell?.FormattedValue?.ToString () ?? string.Empty;
+
+            if (column is DataGridViewImageColumn or DataGridViewButtonColumn or DataGridViewComboBoxColumn
+                || column.DisplaysAsImage || column.ButtonCaptionFor (value_text) is not null)
+                return Rectangle.Inflate (cell_area, -2, -1);
+
+            // A link column's Text stands in for the value when asked, exactly as it is painted.
+            if (column is DataGridViewLinkColumn link_col
+                && (link_col.UseColumnTextForLinkValue || cell is DataGridViewLinkCell { UseColumnTextForLinkValue: true }))
+                value_text = link_col.Text ?? string.Empty;
+
+            if (value_text.Length == 0)
+                return Rectangle.Empty;
+
+            // The text box the renderer draws into: four pixels in from each side, then the padding.
+            var style = Renderers.DataGridViewRenderer.WithInherited (cell);
+            var text_area = Rectangle.Inflate (cell_area, -4, 0);
+
+            if (style is { } padded && padded.Padding != Padding.Empty)
+                text_area = new Rectangle (text_area.X + padded.Padding.Left, text_area.Y + padded.Padding.Top,
+                    Math.Max (0, text_area.Width - padded.Padding.Horizontal), Math.Max (0, text_area.Height - padded.Padding.Vertical));
+
+            var font = style?.Font ?? DefaultCellStyle.Font ?? Theme.UIFont;
+            var font_size = style?.FontSize ?? DefaultCellStyle.FontSize ?? Theme.ItemFontSize;
+            var measured = TextMeasurer.MeasureText (value_text, font, font_size);
+            var text_size = new Size ((int)Math.Ceiling (measured.Width), (int)Math.Ceiling (measured.Height));
+
+            var alignment = style is { } aligned && aligned.Alignment != DataGridViewContentAlignment.NotSet
+                ? (ContentAlignment)(int)aligned.Alignment
+                : column.DefaultCellStyleAlignment;
+
+            var x = alignment switch {
+                ContentAlignment.TopCenter or ContentAlignment.MiddleCenter or ContentAlignment.BottomCenter => text_area.X + (text_area.Width - text_size.Width) / 2,
+                ContentAlignment.TopRight or ContentAlignment.MiddleRight or ContentAlignment.BottomRight => text_area.Right - text_size.Width,
+                _ => text_area.X,
+            };
+
+            var y = alignment switch {
+                ContentAlignment.TopLeft or ContentAlignment.TopCenter or ContentAlignment.TopRight => text_area.Y,
+                ContentAlignment.BottomLeft or ContentAlignment.BottomCenter or ContentAlignment.BottomRight => text_area.Bottom - text_size.Height,
+                _ => text_area.Y + (text_area.Height - text_size.Height) / 2,
+            };
+
+            return Rectangle.Intersect (new Rectangle (x, y, text_size.Width, text_size.Height), text_area);
         }
 
         private MouseTarget? mouse_down_target;
@@ -283,7 +370,10 @@ namespace Majorsilence.Forms
                 return;
 
             OnCellMouseDoubleClick (MouseArgs (target, e));
-            OnCellContentDoubleClick (new DataGridViewCellEventArgs (target.ColumnIndex, target.RowIndex));
+
+            // On the content only, as the single click is (DGV-28).
+            if (CellContentBounds (target.RowIndex, target.ColumnIndex).Contains (target.CellRelative))
+                OnCellContentDoubleClick (new DataGridViewCellEventArgs (target.ColumnIndex, target.RowIndex));
         }
 
         // ---------------- DGV-25: the check box commits what it shows
