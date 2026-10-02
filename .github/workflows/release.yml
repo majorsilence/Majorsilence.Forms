@@ -77,6 +77,12 @@ env:
     src/Majorsilence.Forms.WindowsFormsInterop/Majorsilence.Forms.WindowsFormsInterop.csproj
     src/Majorsilence.Forms.WindowsUIAutomation/Majorsilence.Forms.WindowsUIAutomation.csproj
     src/Majorsilence.Forms.Theming.WinForms/Majorsilence.Forms.Theming.WinForms.csproj
+  # Packages that need a macOS runner because they carry a net10.0-ios row (Apple's toolchain is a hard
+  # requirement). Majorsilence.Forms.Essentials ships android + ios + desktop in ONE package, so it is
+  # packed here with both workloads, and deliberately not in PACKABLE_PROJECTS above (two packs of
+  # the same id would collide on nuget.org). Keep in sync with the other two workflows.
+  PACKABLE_PROJECTS_MACOS: >-
+    src/Majorsilence.Forms.Essentials/Majorsilence.Forms.Essentials.csproj
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -180,6 +186,75 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: symbol-packages
+          path: nupkg/*.snupkg
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Pack the packages that carry a net10.0-ios row. iOS only compiles on macOS, so these cannot
+  # be packed by the Linux `pack` job. Not continue-on-error: a release must fail loudly rather
+  # than quietly ship Majorsilence.Forms.Essentials without its iOS (or Android) asset.
+  # ---------------------------------------------------------------------------
+  pack-macos:
+    needs: version
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so SourceLink embeds correct commit info
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      # Pinned to workload set 10.0.401 (iOS 26.5.10318), same as the ios job in dotnet.yml: set 10.0.401.1
+      # brought .NET for iOS 27.0, which refuses to build without Xcode 27, and the macos runner image
+      # still ships Xcode 26.6. Drop the pin when that job's does. android and ios go in together so
+      # the one Essentials package carries both rows.
+      - name: Install android and ios workloads
+        run: dotnet workload install android ios --version 10.0.401
+
+      - name: Build version arg
+        id: args
+        shell: bash
+        run: |
+          if [ -n "${{ needs.version.outputs.version }}" ]; then
+            echo "version_arg=-p:Version=${{ needs.version.outputs.version }} -p:PackageVersion=${{ needs.version.outputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version_arg=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pack macOS-only NuGet packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          for proj in $PACKABLE_PROJECTS_MACOS; do
+            echo "::group::pack $proj"
+            dotnet pack "$proj" \
+              --configuration Release \
+              --output "${{ github.workspace }}/nupkg" \
+              ${{ steps.args.outputs.version_arg }} \
+              -p:EnableAndroidTarget=true -p:EnableIOSTarget=true
+            echo "::endgroup::"
+          done
+
+      - name: List packages
+        shell: bash
+        run: ls -lh "${{ github.workspace }}/nupkg"
+
+      - name: Upload NuGet packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages-macos
+          path: nupkg/*.nupkg
+          if-no-files-found: error
+
+      - name: Upload symbol packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: symbol-packages-macos
           path: nupkg/*.snupkg
           if-no-files-found: ignore
 
@@ -473,7 +548,7 @@ jobs:
   # draft GitHub Release. Nothing here touches nuget.org -- see publish-nuget.yml.
   # ---------------------------------------------------------------------------
   release:
-    needs: [version, pack, pack-windows, sample-wasm, sample-android, sample-ios, sample-themestudio, sample-themestudio-winforms]
+    needs: [version, pack, pack-windows, pack-macos, sample-wasm, sample-android, sample-ios, sample-themestudio, sample-themestudio-winforms]
     runs-on: ubuntu-latest
     if: needs.version.outputs.is_release == 'true'
     steps:
