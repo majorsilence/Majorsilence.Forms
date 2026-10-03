@@ -18,7 +18,7 @@ public class MobileAudioTests : IDisposable
     public MobileAudioTests ()
     {
         HeadlessRenderer.Use ();
-        HeadlessRenderer.ClearAudioRequests ();
+        AudioTestSupport.WaitForQuiet ();
     }
 
     public void Dispose ()
