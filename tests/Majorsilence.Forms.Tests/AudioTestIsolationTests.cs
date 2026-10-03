@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Diagnostics;
 using System.Reflection;
 using System.Threading;
 using Majorsilence.Forms.Backends;
@@ -33,32 +34,34 @@ public class AudioTestIsolationTests
     }
 
     [Fact]
-    public void A_late_write_from_an_earlier_test_is_waited_out_not_counted ()
+    public void WaitForQuiet_returns_only_after_a_quiet_window ()
     {
         // The other half of #379. SoundPlayer.PlayLooping respawns on a background task and Stop () only asks it to end, so a test that
         // started a loop can still be writing to the backend's request queue when the next test has already cleared it. The audio tests
-        // clear the queue by waiting for a quiet moment rather than once.
+        // clear the queue by waiting for a quiet moment rather than once. The contract, checked against the writer's own clock so that a
+        // slow or stalled runner cannot make it flaky: when WaitForQuiet returns, nothing has been written for at least the quiet window.
         HeadlessRenderer.Use ();
         var backend = (IAudioBackend) Platform.Backend;
         var writing = true;
+        var lastWrite = Stopwatch.GetTimestamp ();
         var writer = new Thread (() => {
             while (Volatile.Read (ref writing)) {
                 backend.PlayFile ("late-write.wav", loop: true);
-                Thread.Sleep (5);     // a loop respawning with a real pass between starts, not a hot spin
+                Interlocked.Exchange (ref lastWrite, Stopwatch.GetTimestamp ());
+                Thread.Sleep (2);     // a loop respawning with a real pass between starts, not a hot spin
             }
         });
         writer.Start ();
 
         try {
-            // The "next test" begins while that loop is still going, and the loop is told to stop a moment later, as Stop () would.
+            Thread.Sleep (20);        // the loop is well under way
             var stopper = new Thread (() => { Thread.Sleep (150); Volatile.Write (ref writing, false); });
             stopper.Start ();
 
-            Thread.Sleep (20);      // the loop is well under way
             AudioTestSupport.WaitForQuiet ();
-            Thread.Sleep (50);      // the test body runs, then asserts
 
-            Assert.Empty (HeadlessRenderer.AudioRequests);
+            var silent = Stopwatch.GetElapsedTime (Interlocked.Read (ref lastWrite));
+            Assert.True (silent >= TimeSpan.FromMilliseconds (25), $"only {silent.TotalMilliseconds:0} ms since the last write when WaitForQuiet returned");
             stopper.Join ();
         } finally {
             Volatile.Write (ref writing, false);
