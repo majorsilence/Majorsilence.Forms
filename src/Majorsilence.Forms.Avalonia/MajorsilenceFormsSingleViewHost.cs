@@ -70,9 +70,12 @@ namespace Majorsilence.Forms
         // The Majorsilence scene is recorded to an immutable SKPicture on the UI thread (RecordFrame)
         // and played back on Avalonia's render thread (SceneView -> SceneDrawOp, GPU-accelerated) --
         // rather than software-rasterised into a WriteableBitmap on the UI thread, which starved
-        // Android's input channel and made it cancel touch gestures mid-swipe. Retired pictures are left
-        // to the GC / SKPicture finalizer rather than Dispose()d, since a render-thread playback of a
-        // just-replaced picture could still be in flight; each is a small op list, not a full framebuffer.
+        // Android's input channel and made it cancel touch gestures mid-swipe. A picture is shared by the
+        // SceneView that holds the current one and by every draw op built from it, and is disposed when the
+        // last of them lets go (SharedPicture), so a render-thread playback of a just-replaced picture is
+        // never cut short and nothing waits on the finalizer. Left to it, a control that repainted every
+        // frame piled up native memory the .NET GC never saw (#371): each recorded frame holds copies of
+        // the controls' back buffers, not just a small op list.
         private readonly SceneView _sceneView;
         private bool _dirty = true;
         private bool _renderPending;
@@ -413,7 +416,7 @@ namespace Majorsilence.Forms
                 _lastPhys = new PixelSize (physW, physH);
                 _sceneView.Width = Bounds.Width;
                 _sceneView.Height = Bounds.Height;
-                _sceneView.Present (picture, scaling);   // the previous picture is now garbage (see field comment)
+                _sceneView.Present (picture, scaling);   // the previous picture is released once nothing is still drawing it
             }
 
             if (_invalidatePending)
@@ -425,15 +428,17 @@ namespace Majorsilence.Forms
         // render thread; the native-control overlays are Canvas children above it, unchanged.
         private sealed class SceneView : AvControl
         {
-            private SKPicture? _picture;
+            private SharedPicture? _picture;
             private double _pictureScale = 1;
 
             public SceneView () => IsHitTestVisible = false;
 
             public void Present (SKPicture picture, double pictureScale)
             {
-                _picture = picture;
+                var previous = _picture;
+                _picture = new SharedPicture (picture);
                 _pictureScale = pictureScale;
+                previous?.Release ();   // draw ops still playing it keep it alive until they are done
                 InvalidateVisual ();
             }
 
@@ -442,19 +447,21 @@ namespace Majorsilence.Forms
                 base.Render (context);
                 var picture = _picture;
                 if (picture is not null && Bounds is { Width: > 0, Height: > 0 })
-                    context.Custom (new SceneDrawOp (new Rect (Bounds.Size), picture, _pictureScale));
+                    context.Custom (new SceneDrawOp (new Rect (Bounds.Size), picture.Retain (), _pictureScale));
             }
         }
 
         // Plays a recorded scene picture into Avalonia's render-thread Skia canvas. The picture is in
         // physical pixels; the leased canvas already carries the layout + DPI transform (logical units),
-        // so it is scaled down by 1/pictureScale before playback.
+        // so it is scaled down by 1/pictureScale before playback. Holds a reference on the picture for as
+        // long as Avalonia keeps the op, and gives it up in Dispose.
         private sealed class SceneDrawOp : ICustomDrawOperation
         {
-            private readonly SKPicture _picture;
+            private readonly SharedPicture _picture;
             private readonly float _inverseScale;
+            private int _disposed;
 
-            public SceneDrawOp (Rect bounds, SKPicture picture, double pictureScale)
+            public SceneDrawOp (Rect bounds, SharedPicture picture, double pictureScale)
             {
                 Bounds = bounds;
                 _picture = picture;
@@ -469,7 +476,11 @@ namespace Majorsilence.Forms
             // A fresh op every frame; never equal, so Avalonia always re-renders.
             public bool Equals (ICustomDrawOperation? other) => false;
 
-            public void Dispose () { /* the host owns the picture's lifetime */ }
+            public void Dispose ()
+            {
+                if (Interlocked.Exchange (ref _disposed, 1) == 0)
+                    _picture.Release ();
+            }
 
             public void Render (ImmediateDrawingContext context)
             {
@@ -481,7 +492,7 @@ namespace Majorsilence.Forms
                     var canvas = lease.SkCanvas;
                     canvas.Save ();
                     canvas.Scale (_inverseScale, _inverseScale);
-                    canvas.DrawPicture (_picture);
+                    canvas.DrawPicture (_picture.Picture);
                     canvas.Restore ();
                 }
             }
