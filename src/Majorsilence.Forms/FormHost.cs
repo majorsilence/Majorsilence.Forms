@@ -105,6 +105,9 @@ namespace Majorsilence.Forms
             ChildForm.HandlePointerReleased (e.Button, e.X, e.Y, e.Modifiers);
         }
 
+        /// <inheritdoc/>
+        internal override bool HandlesMouseWheel => true;
+
         protected override void OnMouseWheel (MouseEventArgs e)
         {
             base.OnMouseWheel (e);
