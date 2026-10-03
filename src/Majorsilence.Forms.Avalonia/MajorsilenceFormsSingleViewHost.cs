@@ -968,7 +968,9 @@ namespace Majorsilence.Forms
                 TextInputKind.Number   => TextInputContentType.Number,
                 TextInputKind.Url      => TextInputContentType.Url,
                 TextInputKind.Phone    => TextInputContentType.Number,
-                TextInputKind.Pin      => TextInputContentType.Pin,
+                // Digits, not TextInputContentType.Pin: on Android 16 the Pin content type left the letter keyboard up for a masked box, and
+                // Digits (marked sensitive above) gives the number pad.
+                TextInputKind.Pin      => TextInputContentType.Digits,
                 _                      => TextInputContentType.Normal,
             });
 
