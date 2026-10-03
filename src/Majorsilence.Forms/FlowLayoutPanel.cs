@@ -28,6 +28,9 @@ public class FlowLayoutPanel : Panel, IExtenderProvider
     /// <inheritdoc/>
     public override LayoutEngine LayoutEngine => FlowLayout.Instance;
 
+    /// <inheritdoc/>
+    internal override IEnumerable<Control> LayoutChildren => Controls.GetAllControls (false);
+
     /// <summary>
     /// Gets or sets a value indicating which direction the control's children should be positioned.
     /// </summary>

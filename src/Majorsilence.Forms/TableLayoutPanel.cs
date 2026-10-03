@@ -33,6 +33,9 @@ public partial class TableLayoutPanel : Panel, IExtenderProvider
     /// <inheritdoc/>
     public override LayoutEngine LayoutEngine => TableLayout.Instance;
 
+    /// <inheritdoc/>
+    internal override IEnumerable<Control> LayoutChildren => Controls.GetAllControls (false);
+
     /// <summary>
     /// Gets the layout settings associated with this TableLayoutPanel.
     /// </summary>
