@@ -153,7 +153,15 @@ public partial class Control
         return CommonProperties.GetSpecifiedBounds (this).Size;
     }
 
-    IEnumerable<Control> IArrangedElement.Children => Controls.GetAllControls (true);
+    IEnumerable<Control> IArrangedElement.Children => LayoutChildren;
+
+    /// <summary>
+    /// The controls this container's layout engine arranges: the explicit children plus the implicit chrome (a scroll bar, a title
+    /// bar) that dock layout places at an edge. A container whose engine positions every child itself -- flow and table layout --
+    /// overrides this to leave the implicit chrome out, because that chrome is positioned by its owner and would otherwise be
+    /// laid out as one more cell: a flow panel put its vertical scroll bar after its last control, off screen.
+    /// </summary>
+    internal virtual IEnumerable<Control> LayoutChildren => Controls.GetAllControls (true);
 
     IArrangedElement? IArrangedElement.Container {
         get {

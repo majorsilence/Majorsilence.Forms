@@ -331,6 +331,20 @@ namespace Majorsilence.Forms
             AdjustFormScrollbars (AutoScroll);
 
             base.OnLayout (e);
+
+            // A container whose layout engine positions its own children (FlowLayoutPanel, TableLayoutPanel) only knows where they are
+            // now: the extent measured above came from their positions before that layout ran, so it was too small and the scroll bar
+            // never appeared. Measure again, and lay out again if the extent moved -- a scroll bar appearing narrows the area the
+            // children flow into, which can change their heights again, so allow a few rounds, not an open-ended loop.
+            for (var pass = 0; pass < 3; pass++) {
+                var measured = canvas_size;
+                CalculateCanvasSize ();
+                if (canvas_size == measured)
+                    break;
+
+                AdjustFormScrollbars (AutoScroll);
+                base.OnLayout (e);
+            }
         }
 
         /// <inheritdoc/>
