@@ -132,6 +132,38 @@ public class MobileAudioTests : IDisposable
         }
     }
 
+    // The respawn loop runs on its own task, so a pass could be mid-start when Stop() cancelled it and launch just after Stop returned: a
+    // sound nothing was left to stop, and (here) an audio request landing in whichever test ran next, which is how
+    // SoundPlayer_Play_FallsBackToNativeAudioWhenTheBackendCannot came to see two requests on macOS. Stop must mean no further pass starts.
+    [Fact]
+    public void SoundPlayer_Stop_PreventsAnyFurtherLoopPassFromStarting ()
+    {
+        var launched = 0;
+        NativeAudio.LauncherOverride = _ => { System.Threading.Interlocked.Increment (ref launched); return new InstantlyDoneSound (); };
+
+        var wav = WriteTempWav ();
+        try {
+            for (var i = 0; i < 300; i++) {
+                using var player = new SoundPlayer (wav);
+                var before = System.Threading.Volatile.Read (ref launched);
+                player.PlayLooping ();
+
+                // Let the loop get going, so Stop lands while a pass is being started rather than before the task has run.
+                var deadline = DateTime.UtcNow.AddSeconds (5);
+                while (System.Threading.Volatile.Read (ref launched) < before + 3 && DateTime.UtcNow < deadline)
+                    System.Threading.Thread.SpinWait (50);
+
+                player.Stop ();
+
+                var atStop = System.Threading.Volatile.Read (ref launched);
+                System.Threading.Thread.Sleep (1);   // time for a pass that slipped past Stop to show itself
+                Assert.Equal (atStop, System.Threading.Volatile.Read (ref launched));
+            }
+        } finally {
+            File.Delete (wav);
+        }
+    }
+
     [Fact]
     public void SystemSound_Play_PrefersTheBackendWhenItAnswers ()
     {

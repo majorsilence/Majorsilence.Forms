@@ -249,6 +249,7 @@ namespace Majorsilence.Forms.Media
         private string? temp_file;
         private IPlayingSound? playing;
         private System.Threading.CancellationTokenSource? loop;
+        private readonly object loop_gate = new ();
 
         /// <summary>Initializes an empty player.</summary>
         public SoundPlayer () { }
@@ -412,15 +413,26 @@ namespace Majorsilence.Forms.Media
             }
 
             var cts = new System.Threading.CancellationTokenSource ();
-            loop = cts;
+            lock (loop_gate)
+                loop = cts;
 
             System.Threading.Tasks.Task.Run (() => {
                 while (!cts.IsCancellationRequested) {
-                    var pass = StartOnce ();
-                    if (pass is null)
-                        return;    // nothing can play; do not spin
+                    IPlayingSound? pass;
+                    lock (loop_gate) {
+                        // Stop takes this lock to cancel, so once Stop returns no further pass can start, and a pass
+                        // that did start is already in `playing` for Stop to dispose. Without it, a pass racing Stop
+                        // could launch afterwards and play on with nothing left to stop it.
+                        if (cts.IsCancellationRequested)
+                            return;
 
-                    playing = pass;
+                        pass = StartOnce ();
+                        if (pass is null)
+                            return;    // nothing can play; do not spin
+
+                        playing = pass;
+                    }
+
                     pass.Wait ();
                 }
             }, cts.Token);
@@ -429,10 +441,15 @@ namespace Majorsilence.Forms.Media
         /// <summary>Stops playback, ending a loop if one is running.</summary>
         public void Stop ()
         {
-            loop?.Cancel ();
-            loop = null;
-            playing?.Dispose ();
-            playing = null;
+            IPlayingSound? stopped;
+            lock (loop_gate) {
+                loop?.Cancel ();
+                loop = null;
+                stopped = playing;
+                playing = null;
+            }
+
+            stopped?.Dispose ();
         }
 
         private IPlayingSound? StartOnce ()
