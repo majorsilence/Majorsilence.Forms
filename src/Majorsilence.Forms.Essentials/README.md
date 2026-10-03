@@ -1,7 +1,7 @@
 # Majorsilence.Forms.Essentials
 
-Platform capabilities that carry per-platform dependencies the Majorsilence.Forms core deliberately avoids: secure storage
-and text to speech today.
+Platform capabilities that carry per-platform dependencies the Majorsilence.Forms core deliberately avoids: secure storage,
+text to speech, opening links in another app, and reading files shipped inside the app.
 
 ```csharp
 using Majorsilence.Forms.Essentials;
@@ -33,3 +33,37 @@ if (Speech.IsSupported)
 - Neither is routed through the `Backends.Platform` seam every UI-facing capability (`Haptics`, `LocalNotifications`,
   `Application.KeepScreenAwake`) uses: which OS credential store or speech engine exists has nothing to do with which UI
   backend (Avalonia, WinForms, Uno) is active.
+
+## Launcher
+
+Hands a URI to another app from one call on Android, iOS and desktop. `Process.Start` does not work on mobile or in the browser.
+
+```csharp
+using Majorsilence.Forms.Essentials;
+
+if (!await Launcher.OpenAsync ("https://example.com/post"))
+    ShowMessage ("No app can open that link.");
+```
+
+- Only `http`, `https`, `mailto`, `tel` and `sms` URIs are forwarded (`Launcher.CanOpen`). `file:`, `javascript:` and custom schemes
+  return false, because the URI is often content from a document or a feed.
+- Returns false, never throws, when the URI is refused, the platform cannot launch it, or no app handles it.
+- Android starts an `ACTION_VIEW` intent, iOS calls `UIApplication.OpenUrl`, and desktop uses the shell (`open`, `xdg-open`, or
+  `UseShellExecute`). The browser (WebAssembly) reports `IsSupported` false.
+
+## FileSystem
+
+Reads files shipped inside the app the same way everywhere: Android assets, the iOS app bundle, or beside the executable on desktop.
+
+```csharp
+await using var stream = await FileSystem.OpenAppPackageFileAsync ("data/seed.json");
+
+// Code that needs a real path (SQLite, say) gets a copy in the app's data folder:
+var path = await FileSystem.CopyAppPackageFileAsync ("blog.sqlite");
+```
+
+- Names are relative, with `/` or `\` separators. An absolute path or a `..` segment throws `ArgumentException`.
+- `AppPackageFileExistsAsync` checks for a file without throwing; `AppDataDirectory` is a writable folder that survives updates.
+- Mark the file as an `AndroidAsset`, a `BundleResource` (iOS) or a `Content` item with `CopyToOutputDirectory` (desktop).
+- The Android stream is buffered in memory (asset streams are not seekable). On the browser, desktop-style lookup is best effort.
+- The iOS backends are not compiled or run by this repository's CI on Linux; treat them as unverified until built on a Mac.
