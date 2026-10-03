@@ -307,7 +307,7 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `HostedSurface` | no | no | no | no |  | A Majorsilence.Forms surface embedded in an Avalonia or Uno host. Transparent by default so the host shows through; a background-color rule makes it opaque. |
 | `Label` | no | no | no | no | `RadLabel` | Static text. |
 | `LinkLabel` | yes | yes | yes | yes | `RadLinkLabel` | Hyperlink text; color is the link colour. Supports :hover, :active, :disabled and :focus. |
-| `ListBox` | no | no | no | no | `CheckedListBox`, `RadListControl` | Single-column lists (also the ComboBox drop-down list). The selected item is the ::selection part. |
+| `ListBox` | no | no | no | no | `CheckedListBox`, `RadListControl`, `RichListBox` | Single-column lists (also the ComboBox drop-down list). The selected item is the ::selection part. |
 | `ListView` | no | no | no | no |  | Icon / detail lists. The selected item is the ::selection part. |
 | `MdiClient` | no | no | no | no |  | The workspace of an MDI parent form, behind its child windows: background-color is the workspace colour. |
 | `Menu` | no | no | no | no | `MainMenu`, `MenuStrip`, `MenuStripClickThrough`, `RadMenu` | The menu bar. Items are the ::item part; they paint on the strip's background unless ::item sets one. |
@@ -315,7 +315,7 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `MonthCalendar` | no | no | no | no | `RadCalendar` | The calendar grid; the selected day uses --accent-color. |
 | `NavigationPane` | no | no | no | no |  | The Outlook-style side navigation bar. |
 | `NumericUpDown` | no | no | no | no |  | Numeric spinners. |
-| `Panel` | no | no | no | no | `ContainerControl`, `DataGrid`, `DocumentContainer`, `DocumentTabStrip`, `DomainUpDown`, `FlowLayoutPanel`, `LayoutControlGroup`, `LayoutControlItem`, `NavigationHost`, `RadCollapsiblePanel`, `RadDock`, `RadLayoutControl`, `RadPageViewPage`, `RadPanel`, `RadScrollablePanel`, `RadScrollablePanelContainer`, `SplitPanel`, `SplitterPanel`, `TabPage`, `TableLayoutPanel`, `ToolStripContainer`, `ToolStripContentPanel`, `ToolStripPanel`, `ToolTabStrip`, `UserControl` | Plain containers, including layout panels and tab pages. |
+| `Panel` | no | no | no | no | `Card`, `ContainerControl`, `DataGrid`, `DocumentContainer`, `DocumentTabStrip`, `DomainUpDown`, `FlowLayoutPanel`, `LayoutControlGroup`, `LayoutControlItem`, `NavigationHost`, `RadCollapsiblePanel`, `RadDock`, `RadLayoutControl`, `RadPageViewPage`, `RadPanel`, `RadScrollablePanel`, `RadScrollablePanelContainer`, `SplitPanel`, `SplitterPanel`, `TabPage`, `TableLayoutPanel`, `ToolStripContainer`, `ToolStripContentPanel`, `ToolStripPanel`, `ToolTabStrip`, `UserControl` | Plain containers, including layout panels and tab pages. |
 | `PictureBox` | no | no | no | no |  | Image boxes. |
 | `PopupWindow` | no | no | no | no |  | Floating popup windows -- a combo box's list, a tool tip, a menu host: background-color is the popup behind its content. |
 | `PrintPreviewControl` | no | no | no | no |  | Print previews: background-color is the surround the pages sit on; the pages themselves are paper and stay white. |
