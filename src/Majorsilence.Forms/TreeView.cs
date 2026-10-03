@@ -1199,6 +1199,9 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
+        internal override bool HandlesMouseWheel => true;
+
+        /// <inheritdoc/>
         protected override void OnMouseWheel (MouseEventArgs e)
         {
             base.OnMouseWheel (e);

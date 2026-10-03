@@ -178,6 +178,42 @@ namespace Majorsilence.Forms
             AutoScrollPosition = new Point (x, y);
         }
 
+        private int wheel_delta;
+
+        /// <summary>
+        /// Scrolls the content on the mouse wheel when there is a vertical scroll range. Each notch scrolls
+        /// <see cref="SystemInformation.MouseWheelScrollLines"/> lines, and a partial notch from a precision wheel or a trackpad is
+        /// carried over rather than lost.
+        /// </summary>
+        protected override void OnMouseWheel (MouseEventArgs e)
+        {
+            base.OnMouseWheel (e);
+            ScrollByWheel (e);
+        }
+
+        internal override bool HandlesMouseWheel => auto_scroll && vscrollbar.Visible;
+
+        internal override bool ScrollOnBubbledWheel (MouseEventArgs e) => ScrollByWheel (e);
+
+        // Returns whether the wheel was used: false when there is nothing to scroll, so an outer scrollable gets its turn.
+        private bool ScrollByWheel (MouseEventArgs e)
+        {
+            if (!auto_scroll || !vscrollbar.Visible || e.Delta == 0)
+                return false;
+
+            wheel_delta += e.Delta;
+            var notches = wheel_delta / SystemInformation.MouseWheelScrollDelta;
+            if (notches == 0)
+                return true;    // a partial notch is held until it adds up, but it is still ours
+
+            wheel_delta -= notches * SystemInformation.MouseWheelScrollDelta;
+
+            var step = SystemInformation.MouseWheelScrollLines * Math.Max (16, Font.Height);
+            var y = Math.Max (0, -AutoScrollPosition.Y - notches * step);
+            AutoScrollPosition = new Point (-AutoScrollPosition.X, y);
+            return true;
+        }
+
         // Calculates and sets the current canvas size.
         private void CalculateCanvasSize ()
         {

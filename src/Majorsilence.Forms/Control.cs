@@ -2515,15 +2515,41 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Finds the correct control and calls its OnMouseWheel method.
         /// </summary>
-        internal void RaiseMouseWheel (MouseEventArgs e)
+        /// <remarks>
+        /// Returns whether something consumed the wheel. A control that does nothing with it (a label, a picture, a button) leaves it
+        /// unconsumed, and it then bubbles up to the nearest scrollable container that can scroll, as it does in WinForms; a control that
+        /// handles the wheel itself (a list, a grid, a text box, a track bar) declares so in <see cref="HandlesMouseWheel"/> and keeps it.
+        /// </remarks>
+        internal bool RaiseMouseWheel (MouseEventArgs e)
         {
             var child = Controls.FindVisibleChildAt (e.Location);
 
-            if (child != null)
-                child.RaiseMouseWheel (TranslateMouseEvents (e, child));
-            else if (Enabled)
-                OnMouseWheel (e);
+            if (child != null) {
+                if (child.RaiseMouseWheel (TranslateMouseEvents (e, child)))
+                    return true;
+
+                return Enabled && ScrollOnBubbledWheel (e);
+            }
+
+            if (!Enabled)
+                return false;
+
+            OnMouseWheel (e);
+            return HandlesMouseWheel;
         }
+
+        /// <summary>
+        /// Whether this control does something with the mouse wheel when it is the control under the pointer. Defaults to false, so
+        /// the wheel passes through to a scrollable container behind it; a control that scrolls or adjusts itself on the wheel overrides
+        /// this to true, so it is not also scrolled past by an outer panel.
+        /// </summary>
+        internal virtual bool HandlesMouseWheel => false;
+
+        /// <summary>
+        /// Offers a wheel event that a child did not consume to this container. Returns whether it was used. A scrollable container
+        /// scrolls when it has somewhere to scroll; anything else passes it on up.
+        /// </summary>
+        internal virtual bool ScrollOnBubbledWheel (MouseEventArgs e) => false;
 
         /// <summary>
         /// Finds the correct control and calls its OnLongPress method.

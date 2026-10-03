@@ -99,6 +99,9 @@ namespace Majorsilence.Forms
             }
 
             /// <inheritdoc/>
+            internal override bool HandlesMouseWheel => true;
+
+            /// <inheritdoc/>
             /// <remarks>The wheel over the text area belongs to the combo, which turns it into a
             /// selection change; a single-line edit has nothing of its own to scroll.</remarks>
             protected override void OnMouseWheel (MouseEventArgs e)
@@ -530,6 +533,9 @@ namespace Majorsilence.Forms
                 user_selecting = false;
             }
         }
+
+        /// <inheritdoc/>
+        internal override bool HandlesMouseWheel => true;
 
         /// <inheritdoc/>
         /// <remarks>A notch moves the selection one item, clamped at the ends, while the combo has the
