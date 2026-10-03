@@ -294,6 +294,8 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override ControlStyle StyleFocus { get; } = new ControlStyle (DefaultStyleFocus);
 
+        internal override bool UsesFocusStyle => true;
+
         /// <inheritdoc/>
         /// <remarks>
         /// Folds <see cref="FlatStyle"/> and <see cref="FlatAppearance"/> into the style chain before it

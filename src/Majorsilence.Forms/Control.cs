@@ -498,12 +498,21 @@ namespace Majorsilence.Forms
                 if (IsPressed)
                     return StyleActive;
 
-                if (Focused)
+                // Only a type that has its own :focus style. Everyone else's StyleFocus is a copy of Control's default, which knows nothing of
+                // the type's own look or of a theme rule for it, so a focused TextBox, ListBox or CheckBox lost its border and fill (#366).
+                if (Focused && UsesFocusStyle)
                     return StyleFocus;
 
                 return Style;
             }
         }
+
+        /// <summary>
+        /// Whether this control type has a <see cref="StyleFocus"/> of its own (a <c>Type:focus</c> rule in a theme) that
+        /// <see cref="CurrentStyle"/> should use while the control is <see cref="Focused"/>. False for a type that does not, which then looks
+        /// the same focused as not.
+        /// </summary>
+        internal virtual bool UsesFocusStyle => false;
 
         /// <summary>
         /// Gets or sets the mouse cursor to be shown when the mouse is over the control.

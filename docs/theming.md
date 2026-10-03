@@ -330,7 +330,7 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `StatusStrip` | no | no | no | no |  | Status strips (the ToolStrip-based status bar): background-color is the strip, border-top its seam with the form above. |
 | `TabControl` | no | no | no | no | `RadPageView` | Tab controls: the frame around the pages (the tab headers are a TabStrip, the pages are Panels). |
 | `TabStrip` | no | no | no | no |  | The row of tab headers. Tabs are the ::item part (with :hover) and the current one the ::selected part. |
-| `TextBox` | no | no | no | no | `DataGridViewTextBoxEditingControl`, `MaskedTextBox`, `RadTextBox`, `RadTextBoxControl`, `RadTimePicker`, `RichTextBox`, `TimePicker` | Text inputs. Selected text uses --text-selection-background-color. |
+| `TextBox` | no | no | no | yes | `DataGridViewTextBoxEditingControl`, `MaskedTextBox`, `RadTextBox`, `RadTextBoxControl`, `RadTimePicker`, `RichTextBox`, `TimePicker` | Text inputs. Selected text uses --text-selection-background-color. Supports :focus, for a focus ring. |
 | `ToolBar` | no | no | no | no | `BindingNavigator`, `ToolStrip`, `ToolStripClickThrough` | Tool bars. Items are the ::item part; :hover also covers a checked (toggled) item. |
 | `TrackBar` | yes | yes | yes | yes |  | Sliders. Supports :hover, :active, :disabled and :focus. |
 | `TreeView` | no | no | no | no | `RadTreeView` | Tree views. The selected node is the ::selection part. |

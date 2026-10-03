@@ -373,7 +373,8 @@ namespace Majorsilence.Forms
                         () => TabStrip.DefaultItemStyle, () => TabStrip.DefaultItemHoverStyle, "background-color", "color"),
                     new ThemeCssPart ("selected", "The selected tab: optional background, caption colour, and the accent underline (border-bottom-color, border-bottom-width; default --accent-color-2, 3px).",
                         () => TabStrip.DefaultSelectedItemStyle, null, "background-color", "color", "border-bottom-color", "border-bottom-width")),
-            new ThemeCssSelector ("TextBox", "Text inputs. Selected text uses --text-selection-background-color.", () => TextBox.DefaultStyle),
+            new ThemeCssSelector ("TextBox", "Text inputs. Selected text uses --text-selection-background-color. Supports :focus, for a focus ring.", () => TextBox.DefaultStyle,
+                getFocusStyle: () => TextBox.DefaultStyleFocus),
             new ThemeCssSelector ("ToolBar", "Tool bars. Items are the ::item part; :hover also covers a checked (toggled) item.", () => ToolBar.DefaultStyle)
                 .WithParts (
                     new ThemeCssPart ("item", "A tool bar item: text colour and optional background; :hover is the hovered, open or checked item.",

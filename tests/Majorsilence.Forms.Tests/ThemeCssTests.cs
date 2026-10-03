@@ -545,7 +545,6 @@ namespace Majorsilence.Forms.Tests
         [InlineData ("TextBox:hover { color: red; }", "'TextBox:hover' is not supported")]
         [InlineData ("TextBox:disabled { color: red; }", "'TextBox:disabled' is not supported")]
         [InlineData ("TextBox:active { color: red; }", "'TextBox:active' is not supported")]
-        [InlineData ("TextBox:focus { color: red; }", "'TextBox:focus' is not supported")]
         [InlineData ("Button:oops { color: red; }", "the pseudo-classes are ':hover', ':active', ':disabled' and ':focus'")]
         [InlineData ("Button:pressed { color: red; }", "Use ':active'")]
         [InlineData ("DataGridView::header:active { color: red; }", "a part only supports ':hover'")]
