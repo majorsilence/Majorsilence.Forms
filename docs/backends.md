@@ -747,7 +747,8 @@ assembly can discover "the current Activity" generically — the type that does 
 `Avalonia.Android.Platform.AndroidActivatableLifetime`, is `internal` in a different assembly. A host app's
 own `MainActivity` (already required to subclass `AvaloniaMainActivity` and carry an AppCompat theme, #288)
 forwards its own `BackRequested` here instead, one line, the same shape `Application.RunAndroid` already
-requires: see `samples/Gallery.Android/MainActivity.cs`. `RaiseBackRequested` prefers
+requires. `dotnet new majorsilenceforms --IncludeAndroid` generates a `MainActivity` that already does this (pinned by
+`AndroidTemplateThemeTests`), and `samples/Gallery.Android/MainActivity.cs` shows it alongside the other activity hooks. `RaiseBackRequested` prefers
 `Application.ActivePopupWindow` (matching `Application.ScheduleClosePopupsOnDeactivate`'s own check for
 "which window is really active right now") so an open sheet gets the back-press before the main screen.
 

@@ -59,4 +59,17 @@ public class AndroidTemplateThemeTests
         var parent = (string?)style!.Attribute ("parent") ?? "";
         Assert.True (parent.StartsWith ("Theme.AppCompat", StringComparison.Ordinal), $"style {name} has parent \"{parent}\", which is not Theme.AppCompat or a descendant");
     }
+
+    // AvaloniaPlatformBackend.RaiseBackRequested is not automatic: the framework cannot discover the current Activity, so the app's own
+    // MainActivity has to forward AvaloniaMainActivity.BackRequested. Without it a Form.BackRequested handler (closing a sheet, stepping back a
+    // screen) never runs on Android and the back button always leaves the app. Like the theme, nothing compile-checks this, so pin it.
+    [Fact]
+    public void TheActivity_ForwardsTheBackButtonToTheFramework ()
+    {
+        var source = File.ReadAllText (Path.Combine (TemplateAndroidDirectory (), "MainActivity.cs"));
+
+        Assert.Matches (@"BackRequested\s*\+=", source);
+        Assert.Contains ("AvaloniaPlatformBackend.RaiseBackRequested", source);
+        Assert.Matches (@"e\.Handled\s*=\s*AvaloniaPlatformBackend\.RaiseBackRequested", source);
+    }
 }
