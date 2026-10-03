@@ -193,6 +193,13 @@ namespace Majorsilence.Forms.Headless
                 _uiThreadId = Environment.CurrentManagedThreadId;
         }
 
+        /// <summary>
+        /// Makes the calling thread the UI thread. <see cref="Initialize"/> only names the first thread that ever asked, which in a test run is
+        /// some earlier test's thread; later tests run elsewhere, so their own work counted as off-thread and a thread-pool thread could
+        /// even match the stale id and run "marshalled" work inline.
+        /// </summary>
+        internal void ClaimUiThread () => _uiThreadId = Environment.CurrentManagedThreadId;
+
         /// <inheritdoc/>
         public void RunMainLoop (CancellationToken token)
         {
