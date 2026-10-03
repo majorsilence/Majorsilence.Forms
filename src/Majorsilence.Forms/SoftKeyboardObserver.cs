@@ -41,10 +41,14 @@ namespace Majorsilence.Forms
             }
         }
 
+        // Multiline outranks everything (the return key is a newline). A masked box is Password, or Pin when it also asked for a number pad.
+        // Otherwise the control's own request is what is asked for.
         private static TextInputKind KindOf (TextBoxBase box) => box switch {
             { Multiline: true } => TextInputKind.Multiline,
-            TextBox { PasswordChar: not '\0' } => TextInputKind.Password,
-            _ => TextInputKind.Normal
+            TextBox { PasswordChar: not '\0' } => box.InputKind is TextInputKind.Number or TextInputKind.Phone or TextInputKind.Pin
+                ? TextInputKind.Pin
+                : TextInputKind.Password,
+            _ => box.InputKind,
         };
 
         public void Dispose ()

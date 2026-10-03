@@ -378,7 +378,10 @@ Activity's Looper, the OS run loop) drives the UI from then on, and `RunCore` mu
   through a new default-no-op seam member, `IWindowBackend.SetTextInputActive(bool, TextInputKind)`,
   from a `SoftKeyboardObserver` watching the focus choke-point; the single-view host answers Avalonia's
   `TextInputMethodClientRequested` while a box is focused. Committed text still arrives on the normal
-  `OnTextInput` → `WindowBase.HandleTextInput` path.
+  `OnTextInput` → `WindowBase.HandleTextInput` path. A box asks for a different layout with
+  `TextBoxBase.InputKind` (`Number`, `Email`, `Url`, `Phone`; read at focus, so set it first): a masked
+  box that asks for `Number` or `Phone` gets the `Pin` keypad (numbers, no suggestions), any other masked
+  box a password keyboard, and a multiline box always the multiline one. Desktop backends ignore it.
 - **Safe-area insets.** The host reads `TopLevel.InsetsManager.SafeAreaPadding` (and follows
   `SafeAreaChanged` on rotation / keyboard) and pushes it in via `WindowBase.HandleSafeAreaChanged`.
   `Form` deflates its client layout by it — `Form.SafeAreaPadding` — so every docked and anchored
