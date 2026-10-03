@@ -113,6 +113,8 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         public override ControlStyle StyleFocus { get; } = new ControlStyle (DefaultStyleFocus);
 
+        internal override bool UsesFocusStyle => true;
+
         /// <summary>
         /// Gets or sets the color used to display active links.
         /// </summary>

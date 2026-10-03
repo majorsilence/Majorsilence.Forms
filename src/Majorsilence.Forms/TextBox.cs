@@ -129,6 +129,17 @@ namespace Majorsilence.Forms
                 style.BackgroundColor = Theme.ControlLowColor;
             });
 
+        /// <summary>
+        /// The default focus (<c>:focus</c>) ControlStyle for all instances of TextBox (#366). No built-in theme gives it a look of its own -- it
+        /// paints exactly like <see cref="DefaultStyle"/> until a CSS rule sets one, so a theme can draw a focus ring.
+        /// </summary>
+        public new static readonly ControlStyle DefaultStyleFocus = new ControlStyle (DefaultStyle);
+
+        /// <inheritdoc/>
+        public override ControlStyle StyleFocus { get; } = new ControlStyle (DefaultStyleFocus);
+
+        internal override bool UsesFocusStyle => true;
+
         // Scrolls the TextBox by the specified amounts.
         private void DoScroll (int x, int y)
         {
