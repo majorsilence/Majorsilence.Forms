@@ -15,8 +15,8 @@
 
   <PropertyGroup>
     <PackageId>Majorsilence.Forms.Essentials</PackageId>
-    <Description>Platform capabilities that carry per-platform dependencies the Majorsilence.Forms core deliberately avoids: secure storage (Android Keystore, iOS Keychain, Windows Credential Manager, macOS Keychain Services, Linux Secret Service) and text to speech (Android TextToSpeech, iOS AVSpeechSynthesizer, and say/espeak/SAPI on desktop).</Description>
-    <PackageTags>majorsilence-forms;winforms;secure-storage;keychain;credential-manager;secret-service;text-to-speech;speech;cross-platform</PackageTags>
+    <Description>Platform capabilities that carry per-platform dependencies the Majorsilence.Forms core deliberately avoids: secure storage (Android Keystore, iOS Keychain, Windows Credential Manager, macOS Keychain Services, Linux Secret Service) and text to speech (Android TextToSpeech, iOS AVSpeechSynthesizer, and say/espeak/SAPI on desktop), opening a URI in another app, and reading files shipped inside the app.</Description>
+    <PackageTags>majorsilence-forms;winforms;secure-storage;keychain;credential-manager;secret-service;text-to-speech;speech;launcher;open-url;app-package;assets;cross-platform</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
