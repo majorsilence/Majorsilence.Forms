@@ -588,6 +588,10 @@ public partial class Control
                 LayoutTransaction.DoLayout (Owner, item, PropertyNames.Parent);
                 Owner.OnControlRemoved (new ControlEventArgs (item));
 
+                // The owner paints into a cached back buffer that only an invalidation rebuilds, so without this the child's pixels stayed
+                // on screen until something else happened to invalidate the owner (#370). WinForms repaints the parent when a child leaves.
+                Owner.Invalidate ();
+
                 // ContainerControl needs to see it needs to find a new ActiveControl. TODO
                 //if (Owner.GetContainerControl () is ContainerControl cc)
                 //    cc.AfterControlRemoved (value, Owner);
