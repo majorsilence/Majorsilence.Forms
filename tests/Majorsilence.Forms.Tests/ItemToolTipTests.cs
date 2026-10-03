@@ -194,6 +194,38 @@ namespace Majorsilence.Forms.Tests
             }
         }
 
+        [Fact]
+        public void A_shown_tip_does_not_take_activation_from_the_window ()
+        {
+            // #367: the tip popup activated, so hovering a tab raised a window under the pointer and
+            // took activation from the form; the next click on the tab was then lost. A tip is
+            // never interacted with, so it must show without activating and without replacing the
+            // active menu / drop-down popup.
+            HeadlessRenderer.Use ();
+
+            using var form = new Form { Width = 400, Height = 300 };
+            var tabs = new TabControl { Width = 300, Height = 200, ShowToolTips = true };
+            tabs.TabPages.Add (new TabPage { Text = "One", ToolTipText = "the first page" });
+            form.Controls.Add (tabs);
+            form.Show ();
+            PaintSurface.Render (tabs).Dispose ();
+
+            var before = Application.ActivePopupWindow;
+
+            try {
+                var tip = new ToolTip ();
+                tip.ShowItemTip (tabs.TabStrip, "the first page", new Point (20, 10));
+
+                Assert.Same (before, Application.ActivePopupWindow);
+
+                var popup = new PopupWindow (form, activates: false);
+                Assert.False (popup.ShowsActivated);
+                Assert.True (new PopupWindow (form).ShowsActivated);
+            } finally {
+                form.Close ();
+            }
+        }
+
         // ---------------- the default
 
         [Fact]

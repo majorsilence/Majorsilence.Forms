@@ -139,6 +139,38 @@ public class ComponentResourceManagerTests
         // a different CLR type than Majorsilence.Forms.DockStyle -- ApplyResources must still bridge
         // it across by underlying value (see TryConvert), not reject it as a type mismatch.
         Assert.Equal(Majorsilence.Forms.DockStyle.Fill, target.Dock);
+        // Regression (#367): TabAlignment was not among the shimmed enums, so the entry failed to
+        // deserialize and the property silently kept its default (tabs on top instead of bottom).
+        Assert.Equal(Majorsilence.Forms.TabAlignment.Bottom, target.TabAlignment);
+    }
+
+    // The shim enums are bridged to the real ones by underlying integer, so every member must carry
+    // the same value as the Majorsilence.Forms enum of the same name.
+    [Theory]
+    [InlineData("TabAlignment")]
+    [InlineData("TabAppearance")]
+    [InlineData("TabSizeMode")]
+    [InlineData("ScrollBars")]
+    [InlineData("FormStartPosition")]
+    [InlineData("FlatStyle")]
+    [InlineData("PictureBoxSizeMode")]
+    [InlineData("Orientation")]
+    [InlineData("DockStyle")]
+    [InlineData("AnchorStyles")]
+    public void Resx_enum_shims_match_the_Majorsilence_Forms_enums (string name)
+    {
+        var shim = new ComponentResourceManager(typeof(Fixtures.CompiledResourceFixture)).GetObject("button1.Dock")!.GetType().Assembly.GetType("System.Windows.Forms." + name);
+        var real = typeof(Majorsilence.Forms.Control).Assembly.GetType("Majorsilence.Forms." + name);
+        Assert.NotNull(shim);
+        Assert.NotNull(real);
+
+        foreach (var member in Enum.GetNames(shim!))
+        {
+            Assert.True(Enum.IsDefined(real!, member), $"{name}.{member} is missing from Majorsilence.Forms.{name}");
+            Assert.Equal(
+                Convert.ToInt64(Enum.Parse(real!, member)),
+                Convert.ToInt64(Enum.Parse(shim!, member)));
+        }
     }
 
     private sealed class FakeControl
@@ -147,6 +179,7 @@ public class ComponentResourceManagerTests
         public int TabIndex { get; set; }
         public bool Visible { get; set; } = true;
         public Majorsilence.Forms.DockStyle Dock { get; set; } = Majorsilence.Forms.DockStyle.None;
+        public Majorsilence.Forms.TabAlignment TabAlignment { get; set; } = Majorsilence.Forms.TabAlignment.Top;
     }
 
     // On Windows, System.Drawing.Common is live, so DeserializingResourceReader materializes REAL

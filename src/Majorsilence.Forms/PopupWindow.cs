@@ -7,6 +7,13 @@ namespace Majorsilence.Forms
     {
         private readonly WindowBase parent_form;
 
+        // False for a tool tip: it is never interacted with, so it must not take activation from the
+        // window it describes. An activating tip popped up under the pointer on hover and the next
+        // click on the control beneath was spent on the tip / on re-activating the parent (#367).
+        private readonly bool activates = true;
+
+        internal override bool ShowsActivated => activates;
+
         /// <summary>
         /// Initializes a new instance of the PopupWindow class.
         /// </summary>
@@ -56,7 +63,8 @@ namespace Majorsilence.Forms
             Backend.Location = new System.Drawing.Point (x, y);
             Backend.Size = Size;
 
-            Application.ActivePopupWindow = this;
+            if (activates)
+                Application.ActivePopupWindow = this;
 
             // Showing the popup deactivates the parent window; that deactivation must NOT dismiss the
             // popup we are opening. WindowBase.Show sets IsActive = true proactively before returning,
@@ -76,6 +84,14 @@ namespace Majorsilence.Forms
             var pos = control.GetPositionInForm ();
 
             Show (parent_form.PointToScreen (new System.Drawing.Point (pos.X + x, pos.Y + y)));
+        }
+
+        // A popup that shows without activating: a tool tip. Not registered as ActivePopupWindow either,
+        // which would otherwise replace an open menu or drop-down with a tip and have it close that
+        // popup on the next click.
+        internal PopupWindow (WindowBase parentForm, bool activates) : this (parentForm)
+        {
+            this.activates = activates;
         }
 
         /// <summary>Gets or sets the unscaled size of the window.</summary>

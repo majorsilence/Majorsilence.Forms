@@ -479,7 +479,7 @@ namespace Majorsilence.Forms
                     return;
 
                 if (popup is null || popup_label is null) {
-                    popup = new PopupWindow (window);
+                    popup = new PopupWindow (window, activates: false);
                     popup_label = popup.Controls.Add (new TipLabel { Dock = DockStyle.Fill, Owner = this });
                     popup_label.Style.Border.Width = 1;
                 }
