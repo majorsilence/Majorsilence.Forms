@@ -89,6 +89,61 @@ public class SoftKeyboardAndSafeAreaTests
         Assert.Equal (TextInputKind.Password, Host (form).LastTextInputKind);
     }
 
+    [Theory]
+    [InlineData (TextInputKind.Number)]
+    [InlineData (TextInputKind.Email)]
+    [InlineData (TextInputKind.Url)]
+    [InlineData (TextInputKind.Phone)]
+    public void An_InputKind_on_a_TextBox_is_what_the_backend_is_asked_for (TextInputKind kind)
+    {
+        // A four-digit PIN field, an e-mail box and so on could not ask for their keyboard at all: every TextBox brought up the full letter
+        // layout (#368).
+        using var form = ShowForm ();
+        var box = new TextBox { InputKind = kind, Size = new Size (120, 24), Location = new Point (10, 10) };
+        form.Controls.Add (box);
+
+        box.Select ();
+
+        Assert.Equal (kind, Host (form).LastTextInputKind);
+    }
+
+    [Fact]
+    public void A_TextBox_asks_for_the_Normal_keyboard_unless_told_otherwise ()
+    {
+        using var box = new TextBox ();
+
+        Assert.Equal (TextInputKind.Normal, box.InputKind);
+    }
+
+    [Fact]
+    public void A_masked_numeric_TextBox_asks_for_the_Pin_keyboard ()
+    {
+        // A PIN is both: a number pad, and no suggestions or previews. Neither Number nor Password alone says it.
+        using var form = ShowForm ();
+        var box = new TextBox { PasswordChar = '*', InputKind = TextInputKind.Number, Size = new Size (120, 24), Location = new Point (10, 10) };
+        form.Controls.Add (box);
+
+        box.Select ();
+
+        Assert.Equal (TextInputKind.Pin, Host (form).LastTextInputKind);
+    }
+
+    [Fact]
+    public void Masking_outranks_a_text_hint_and_Multiline_outranks_both ()
+    {
+        using var form = ShowForm ();
+        var masked = new TextBox { PasswordChar = '*', InputKind = TextInputKind.Email, Size = new Size (120, 24), Location = new Point (10, 10) };
+        var multi = new TextBox { Multiline = true, InputKind = TextInputKind.Number, Size = new Size (120, 60), Location = new Point (10, 50) };
+        form.Controls.Add (masked);
+        form.Controls.Add (multi);
+
+        masked.Select ();
+        Assert.Equal (TextInputKind.Password, Host (form).LastTextInputKind);
+
+        multi.Select ();
+        Assert.Equal (TextInputKind.Multiline, Host (form).LastTextInputKind);
+    }
+
     [Fact]
     public void Focusing_a_non_text_control_never_activates_text_input ()
     {

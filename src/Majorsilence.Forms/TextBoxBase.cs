@@ -353,6 +353,14 @@ namespace Majorsilence.Forms
         /// <summary>Raised when <see cref="AcceptsTab"/> changes.</summary>
         public event EventHandler? AcceptsTabChanged;
 
+        /// <summary>
+        /// Gets or sets the kind of on-screen keyboard to ask for when this box takes focus: a number pad, an e-mail layout and so on
+        /// (#368). Read when the box is focused, so set it before focusing. Ignored where there is no on-screen keyboard (desktop), and
+        /// by a multiline box (its return key must insert a newline); a masked box that asks for a number or phone pad is shown a PIN
+        /// pad, and any other masked box a password keyboard whatever this says.
+        /// </summary>
+        public Backends.TextInputKind InputKind { get; set; } = Backends.TextInputKind.Normal;
+
         /// <summary>Raised when <see cref="BorderStyle"/> changes.</summary>
         public event EventHandler? BorderStyleChanged;
 

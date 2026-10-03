@@ -6,10 +6,10 @@ namespace Majorsilence.Forms.Backends
     /// ignore it — the hardware keyboard has no layout to choose.
     /// </summary>
     /// <remarks>
-    /// Deliberately small: WinForms has no notion of input "type" beyond password masking, so only
-    /// <see cref="Normal"/>, <see cref="Multiline"/> and <see cref="Password"/> are derived today. The
-    /// remaining values exist so a control that <em>does</em> know its content (a future
-    /// <c>MaskedTextBox</c> mask, say) can pass a better hint without another seam change.
+    /// WinForms has no notion of input "type" beyond password masking, so <see cref="Normal"/>, <see cref="Multiline"/> and
+    /// <see cref="Password"/> are derived from the control. The rest are what a control asks for with
+    /// <see cref="TextBoxBase.InputKind"/> (#368); a masked box that asks for <see cref="Number"/> or <see cref="Phone"/> reports
+    /// <see cref="Pin"/>.
     /// </remarks>
     public enum TextInputKind
     {
@@ -26,6 +26,11 @@ namespace Majorsilence.Forms.Backends
         /// <summary>A URL — the keyboard surfaces <c>/</c> and <c>.com</c>.</summary>
         Url,
         /// <summary>A telephone number — a phone dial pad.</summary>
-        Phone
+        Phone,
+        /// <summary>
+        /// A PIN — a numeric keypad that is also masked: no autocorrect, no suggestions, no keystroke previews. Neither <see cref="Number"/>
+        /// nor <see cref="Password"/> alone says both, so a masked box that asks for a number keyboard reports this.
+        /// </summary>
+        Pin
     }
 }

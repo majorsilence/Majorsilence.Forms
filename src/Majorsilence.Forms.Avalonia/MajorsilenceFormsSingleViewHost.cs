@@ -961,13 +961,14 @@ namespace Majorsilence.Forms
 
             // Describe the wanted keyboard to the platform.
             TextInputOptions.SetMultiline (this, kind == TextInputKind.Multiline);
-            TextInputOptions.SetIsSensitive (this, kind == TextInputKind.Password);
+            TextInputOptions.SetIsSensitive (this, kind is TextInputKind.Password or TextInputKind.Pin);
             TextInputOptions.SetContentType (this, kind switch {
                 TextInputKind.Password => TextInputContentType.Password,
                 TextInputKind.Email    => TextInputContentType.Email,
                 TextInputKind.Number   => TextInputContentType.Number,
                 TextInputKind.Url      => TextInputContentType.Url,
                 TextInputKind.Phone    => TextInputContentType.Number,
+                TextInputKind.Pin      => TextInputContentType.Pin,
                 _                      => TextInputContentType.Normal,
             });
 
