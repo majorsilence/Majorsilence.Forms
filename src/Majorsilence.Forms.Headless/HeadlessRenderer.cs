@@ -100,6 +100,9 @@ namespace Majorsilence.Forms.Headless
             // method exists to handle — a process with no backend referenced at all.
             if (Platform.ConfiguredBackend is not HeadlessPlatformBackend)
                 Platform.Backend = new HeadlessPlatformBackend ();
+
+            // Every test calls this first, on its own thread: that thread is the UI thread for the test (see ClaimUiThread).
+            ((HeadlessPlatformBackend)Platform.ConfiguredBackend!).ClaimUiThread ();
         }
 
         /// <summary>
