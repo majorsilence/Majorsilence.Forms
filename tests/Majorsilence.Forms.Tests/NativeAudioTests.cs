@@ -15,6 +15,10 @@ namespace Majorsilence.Forms.Tests;
 /// top (Stop kills, PlaySync waits, looping respawns, streams materialise once). The launcher seam
 /// replaces process creation, so the suite asserts all of it without making a sound.
 /// </summary>
+// In the Headless collection because SoundPlayer asks the active backend first, and the Headless backend records every request in a process-wide
+// queue that MobileAudioTests asserts is empty or exactly so; run in a collection of its own, this class played in parallel with that one and its
+// requests (and a looping player's background respawns) landed in the other test's assertions (#379).
+[Collection ("Headless")]
 public class NativeAudioTests : IDisposable
 {
     private sealed class FakeSound : IPlayingSound
