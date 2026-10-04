@@ -326,6 +326,20 @@ namespace Majorsilence.Forms
             PerformScroll (ScrollEventType.EndScroll, current_value);
         }
 
+        /// <summary>
+        /// True on a touch host (Android, iOS, browser): the bar is drawn as the platform's own thin rounded
+        /// indicator -- no arrow buttons, no track -- while keeping a wide strip for a finger to drag.
+        /// </summary>
+        internal bool TouchStyle => FindForm () is { IsSingleViewHost: true };
+
+        /// <inheritdoc/>
+        protected override void OnPaintBackground (PaintEventArgs e)
+        {
+            // The strip is a transparent overlay on a touch host: the page behind it shows through.
+            if (!TouchStyle)
+                base.OnPaintBackground (e);
+        }
+
         /// <inheritdoc/>
         protected override void OnPaint (PaintEventArgs e)
         {

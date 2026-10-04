@@ -207,4 +207,41 @@ public class SoftKeyboardAndSafeAreaTests
 
         Assert.True (-panel.AutoScrollPosition.Y > 0, "the panel should have scrolled down to reveal the button");
     }
+
+    // ── Keyboard shrinks the client area ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public void An_open_keyboard_shrinks_a_docked_child_and_closing_it_restores_the_layout ()
+    {
+        using var form = ShowForm (400, 600);
+        var panel = new Panel { Dock = DockStyle.Fill };
+        form.Controls.Add (panel);
+        form.PerformLayout ();
+        var full = panel.Bounds;
+
+        form.HandleInputPaneChanged (new Rectangle (0, 600 - 250, 400, 250));
+        Assert.Equal (full.Height - 250, panel.Bounds.Height);
+
+        form.HandleInputPaneChanged (Rectangle.Empty);
+        Assert.Equal (full, panel.Bounds);
+    }
+
+    [Fact]
+    public void A_field_at_the_end_of_a_scrolling_panel_can_be_lifted_clear_of_the_keyboard ()
+    {
+        using var form = ShowForm (300, 600);
+        var panel = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+        form.Controls.Add (panel);
+        var last = new TextBox { Size = new Size (200, 24), Location = new Point (10, 780) };
+        panel.Controls.Add (last);
+        form.PerformLayout ();
+        last.Select ();
+
+        form.HandleInputPaneChanged (new Rectangle (0, 300, 300, 300));
+
+        // The viewport now ends where the keyboard begins, and the field sits inside it.
+        var top = last.Top + panel.AutoScrollPosition.Y;
+        Assert.True (top + last.Height <= panel.ClientSize.Height, "the field should be above the keyboard");
+        Assert.True (top >= 0);
+    }
 }

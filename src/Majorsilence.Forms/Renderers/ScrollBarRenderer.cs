@@ -19,6 +19,11 @@ namespace Majorsilence.Forms.Renderers
         /// <inheritdoc/>
         protected override void Render (ScrollBar control, PaintEventArgs e)
         {
+            if (control.TouchStyle) {
+                RenderTouchIndicator (control, e);
+                return;
+            }
+
             var top_arrow_area = GetDecrementArrowBounds (control);
             top_arrow_area.Width -= 1;
             top_arrow_area.Height -= 1;
@@ -62,11 +67,36 @@ namespace Majorsilence.Forms.Renderers
             }
         }
 
+        // The mobile look: only a slim, fully rounded, translucent thumb, hugging the trailing edge of the strip.
+        // The strip itself stays wide (GetThumbDragBounds) so it is easy to grab.
+        private static void RenderTouchIndicator (ScrollBar control, PaintEventArgs e)
+        {
+            if (!control.Enabled)
+                return;
+
+            var bounds = ((ScrollBarRenderer) RenderManager.GetRenderer<ScrollBarRenderer> ()!).GetThumbDragBounds (control);
+            if (bounds.Width <= 0 || bounds.Height <= 0)
+                return;
+
+            var vertical = control is VerticalScrollBar;
+            var thickness = Math.Min (control.LogicalToDeviceUnits (4), vertical ? bounds.Width : bounds.Height);
+            var inset = control.LogicalToDeviceUnits (2);
+            var thumb = vertical
+                ? new Rectangle (bounds.Right - thickness - inset, bounds.Y, thickness, bounds.Height)
+                : new Rectangle (bounds.X, bounds.Bottom - thickness - inset, bounds.Width, thickness);
+            var radius = thickness / 2;
+
+            e.Canvas.FillRoundedRectangle (thumb.X, thumb.Y, thumb.Width, thumb.Height, new SkiaSharp.SKColor (110, 110, 118, 150), radius, radius);
+        }
+
         /// <summary>
         /// Gets the size of an arrow button.
         /// </summary>
         public virtual int GetArrowButtonSize (ScrollBar control)
         {
+            if (control.TouchStyle)
+                return 0;
+
             var unit_15 = control.LogicalToDeviceUnits (15);
 
             if (control is VerticalScrollBar)
