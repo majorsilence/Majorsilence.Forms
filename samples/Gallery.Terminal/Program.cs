@@ -4,7 +4,8 @@ using Majorsilence.Forms.Terminal;
 
 namespace Gallery.Terminal;
 
-// Hosts a small Majorsilence.Forms form in the terminal. Mouse and keyboard work; Ctrl+C exits.
+// Hosts the full ControlGallery in the terminal (MF_TERMINAL_DEMO=1 hosts a small form instead).
+// Mouse and keyboard work; Ctrl+C exits.
 // Run in a truecolor terminal: `dotnet run --project samples/Gallery.Terminal`.
 // The output mode is found by asking the terminal (Kitty graphics, Sixel, else half-blocks); MF_TERMINAL_GRAPHICS=halfblock|kitty|sixel forces one.
 // MF_TERMINAL_SCALE=0.5 lays the form out on a canvas twice as large as the pixel grid: needed in half-block mode, where the grid is tiny.
@@ -17,7 +18,8 @@ public static class Program
             options.Scaling = scale;
 
         TerminalApplication.Use (options);
-        Application.Run (new DemoForm ());
+        Form form = Environment.GetEnvironmentVariable ("MF_TERMINAL_DEMO") == "1" ? new DemoForm () : new ControlGallery.MainForm ();
+        Application.Run (form);
     }
 }
 

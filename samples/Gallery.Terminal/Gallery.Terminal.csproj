@@ -10,6 +10,13 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
     <ProjectReference Include="..\..\src\Majorsilence.Forms.Terminal\Majorsilence.Forms.Terminal.csproj" />
+    <!-- Reuse the full ControlGallery MainForm, as Gallery.Gtk4 does. ControlGallery is a backend-agnostic library. -->
+    <ProjectReference Include="..\ControlGallery\ControlGallery.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The gallery loads PNGs from an "Images" folder relative to the working dir. -->
+    <Content Include="..\ControlGallery\Images\**\*.png" Link="Images\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
