@@ -389,6 +389,47 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void SixelWithAGuessedCellSizeRepaintsTheWholeImageFromTheTopLeft ()
+        {
+            // A region is placed by cell position, which is only right if the cell size is the terminal's.
+            // xterm (which never answers the size query) drew duplicated text when it was not.
+            var sixel = new TerminalSixelEncoder (8, 16, cellsKnown: false);
+            Encode (sixel, Bitmap (80, 64, (_, _) => (10, 10, 10)), 80, 64);
+
+            var after = Bitmap (80, 64, (x, y) => x == 35 && y == 40 ? ((byte) 255, (byte) 0, (byte) 0) : ((byte) 10, (byte) 10, (byte) 10));
+            var img = DecodeSixel (Encode (sixel, after, 80, 64));
+
+            Assert.Equal ((1, 1), (img.Row, img.Col));
+            Assert.Equal ((80, 64), (img.Width, img.Height));
+            AssertClose (img.Pixels[40, 35], (255, 0, 0));
+        }
+
+        [Fact]
+        public void SixelWithAGuessedCellSizeStillSkipsAnUnchangedFrame ()
+        {
+            var sixel = new TerminalSixelEncoder (8, 16, cellsKnown: false);
+            var bmp = Bitmap (80, 64, (_, _) => (10, 10, 10));
+            Encode (sixel, bmp, 80, 64);
+
+            Assert.Equal (string.Empty, Encode (sixel, bmp, 80, 64));
+        }
+
+        [Theory]
+        [InlineData (100, 30, 800, 600, 8, 20)]    // xterm: pixel fields filled in
+        [InlineData (120, 40, 1080, 720, 9, 18)]
+        [InlineData (100, 30, 850, 610, 8, 20)]    // a border leaves a remainder: whole pixels per cell
+        public void CellSizeIsThePixelSizeOverTheGrid (int cols, int rows, int xpx, int ypx, int w, int h)
+            => Assert.Equal ((w, h), TerminalWindowSize.CellFromWinSize (cols, rows, xpx, ypx));
+
+        [Theory]
+        [InlineData (100, 30, 0, 0)]       // a terminal that does not know its pixel size reports zeros
+        [InlineData (100, 30, 800, 0)]
+        [InlineData (0, 30, 800, 600)]
+        [InlineData (100, 30, 50, 600)]    // fewer pixels than columns: not a real size
+        public void ZeroOrImplausiblePixelSizesGiveNoCellSize (int cols, int rows, int xpx, int ypx)
+            => Assert.Null (TerminalWindowSize.CellFromWinSize (cols, rows, xpx, ypx));
+
+        [Fact]
         public void SixelResizeRepaintsEverything ()
         {
             var sixel = new TerminalSixelEncoder (8, 16);

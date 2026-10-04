@@ -55,6 +55,7 @@ namespace Majorsilence.Forms.Terminal
             // the terminal and starts from a common guess.
             _cellPx = _graphics == TerminalGraphicsMode.HalfBlock ? (1, 2) : (8, 16);
             _cells = TerminalSession.GetSize ();
+            LearnCellFromPty ();
         }
 
         /// <inheritdoc/>
@@ -82,7 +83,7 @@ namespace Majorsilence.Forms.Terminal
 
         private ITerminalFramePresenter Presenter => _presenter ??= _graphics switch {
             TerminalGraphicsMode.Kitty => new TerminalKittyEncoder (_cells.Cols, _cells.Rows),
-            TerminalGraphicsMode.Sixel => new TerminalSixelEncoder (_cellPx.W, _cellPx.H),
+            TerminalGraphicsMode.Sixel => new TerminalSixelEncoder (_cellPx.W, _cellPx.H, cellsKnown: _terminalCell.HasValue),
             _ => new TerminalFrameEncoder (_colorMode),
         };
 
@@ -175,6 +176,19 @@ namespace Majorsilence.Forms.Terminal
                 _signal.WaitOne (waitMs);
         }
 
+        // The pty carries the terminal's pixel size on Linux, so the cell size is known at once and from
+        // terminals that refuse the ESC[16t query (xterm). The query's reply, when it comes, takes over.
+        private void LearnCellFromPty ()
+        {
+            if (TerminalWindowSize.TryGetCellPixels () is not { } cell)
+                return;
+
+            TerminalTrace.Write ($"cell from pty: {cell.W}x{cell.H}");
+            _terminalCell = cell;
+            if (_graphics != TerminalGraphicsMode.HalfBlock)
+                _cellPx = cell;
+        }
+
         private bool ProbeFinished ()
         {
             if (_probe is { Complete: false } && Environment.TickCount64 < _probeDeadline)
@@ -192,6 +206,7 @@ namespace Majorsilence.Forms.Terminal
         // Applies the terminal's answers. A terminal that never answered keeps the environment's guess.
         internal void ApplyProbe (TerminalProbe probe)
         {
+            TerminalTrace.Write ($"probe: complete={probe.Complete} kittyGraphics={probe.KittyGraphics} sixel={probe.Sixel} kittyKeyboard={probe.KittyKeyboard} pinned={_modeFixed} guess={_graphics}");
             if (!_modeFixed && (probe.Complete || probe.KittyGraphics) && probe.Decide () != _graphics)
                 SwitchMode (probe.Decide ());
 
@@ -200,6 +215,7 @@ namespace Majorsilence.Forms.Terminal
                 _session?.EnableKittyKeyboard ();
             }
 
+            TerminalTrace.Write ($"mode: {_graphics} cell={_cellPx.W}x{_cellPx.H} kittyKeyboard={KittyKeyboard}");
             Invalidate ();
         }
 
@@ -223,6 +239,7 @@ namespace Majorsilence.Forms.Terminal
                 return;
 
             _cells = size;
+            LearnCellFromPty ();   // a resize can change the pixel size (a font change does too)
             ResetScreen ();
         }
 
@@ -314,6 +331,8 @@ namespace Majorsilence.Forms.Terminal
 
         internal void Dispatch (TerminalInput e)
         {
+            if (TerminalTrace.Enabled)
+                TerminalTrace.Write ($"input: {e}");
             switch (e.Kind) {
                 case TerminalInputKind.Key:
                     DispatchKey (e);

@@ -184,7 +184,9 @@ namespace Majorsilence.Forms.Tests
         [InlineData ("truecolor", "xterm", TerminalColorMode.TrueColor)]
         [InlineData ("24bit", "xterm", TerminalColorMode.TrueColor)]
         [InlineData (null, "xterm-256color", TerminalColorMode.Ansi256)]
-        [InlineData (null, "xterm", TerminalColorMode.Ansi16)]
+        [InlineData (null, "xterm", TerminalColorMode.Ansi256)]   // real xterm sets plain TERM=xterm and has 256 colours
+        [InlineData (null, "linux", TerminalColorMode.Ansi16)]
+        [InlineData (null, "screen", TerminalColorMode.Ansi16)]
         [InlineData (null, null, TerminalColorMode.Ansi16)]
         public void ColourModeIsDetectedFromTheEnvironment (string? colorTerm, string? term, TerminalColorMode expected)
         {

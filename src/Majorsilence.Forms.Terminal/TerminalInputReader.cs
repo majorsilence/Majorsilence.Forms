@@ -55,6 +55,7 @@ namespace Majorsilence.Forms.Terminal
                     if (n <= 0)
                         break;   // stdin closed
 
+                    TerminalTrace.Bytes (buffer.AsSpan (0, n));
                     events.Clear ();
                     bool pending;
                     lock (_parser) {

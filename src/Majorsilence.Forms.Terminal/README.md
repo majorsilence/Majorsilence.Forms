@@ -37,6 +37,22 @@ protocol it arrives as a key, which the host catches. Pastes arrive as one brack
 Unix, the app still renders but takes no input. Windows input and output use console VT modes
 (not yet exercised on a Windows machine).
 
+**Tested in real terminals** (Linux, under XWayland, 2026-10): the form was rendered and captured, and the probe's raw
+replies logged, in:
+
+| Terminal | Probe answered | Mode chosen | Notes |
+|---|---|---|---|
+| xterm 407 `-ti vt340` | DA1 with Sixel; no Kitty; **no `16t` reply** (window ops are off by default) | Sixel | cell size comes from the pty (`TIOCGWINSZ`); with a guessed size, regions were misplaced (fixed) |
+| xterm 407 (default) | DA1 without Sixel | half-block, 256 colours | `TERM=xterm` is treated as 256-colour (real xterm sets it) |
+| WezTerm 20240203 | `16t`, Kitty graphics OK, DA1 with Sixel; keyboard protocol only with `enable_kitty_keyboard = true` | Kitty (tiles re-sent in place correctly); Sixel when pinned | pixel mouse coordinates arrive exact; Ctrl+C-as-key exits; shell and keyboard mode restored cleanly afterwards |
+
+Not verified in a real terminal: kitty, Ghostty, foot, iTerm2, Windows Terminal, macOS Terminal; keystrokes the
+terminal *generates* under the Kitty keyboard protocol (the harness sends the same byte sequences through
+`wezterm cli send-text`, which exercises the parser and dispatch but not the terminal's own encoder); and tmux.
+
+**Diagnosing a terminal.** Set `MF_TERMINAL_TRACE=/path/to/file` to log the raw bytes the terminal sends, what the
+probe concluded, the mode and cell size chosen, and every decoded input event. It is off by default.
+
 **Not implemented yet:** asking the terminal what it supports (DA1/Kitty query) instead of reading the environment, dirty-rectangle updates for Kitty, the Kitty keyboard protocol (key releases, exact
 modifiers), and a terminal-sized layout story. Native file pickers, `NativeControlHost` and web views
 have no terminal equivalent.

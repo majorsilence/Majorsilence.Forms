@@ -15,6 +15,7 @@ namespace Majorsilence.Forms.Terminal
     /// </summary>
     internal sealed class TerminalSixelEncoder : ITerminalFramePresenter
     {
+        private readonly bool _cellsKnown;
         private const int MaxColors = 256;
         private const int KeyBits = 6;                      // bits per channel when counting colours
         private const int KeySpace = 1 << (KeyBits * 3);
@@ -31,8 +32,17 @@ namespace Majorsilence.Forms.Terminal
         // bucket's only colour and the palette entry is exact rather than the bucket's centre.
         private readonly int[] _exact = new int[KeySpace];
 
-        public TerminalSixelEncoder (int cellWidth, int cellHeight)
+        /// <param name="cellWidth">Cell width in pixels.</param>
+        /// <param name="cellHeight">Cell height in pixels.</param>
+        /// <param name="cellsKnown">
+        /// Whether the cell size is the terminal's, not a guess. A region is placed at a cell position, which is
+        /// only where its pixels belong if the cell size is right; with a guess every frame repaints the whole
+        /// image from the top-left cell, which is correct whatever the real cell size is (but not free: an
+        /// unchanged frame is still skipped).
+        /// </param>
+        public TerminalSixelEncoder (int cellWidth, int cellHeight, bool cellsKnown = true)
         {
+            _cellsKnown = cellsKnown;
             _cellW = Math.Max (1, cellWidth);
             _cellH = Math.Max (1, cellHeight);
             Array.Fill (_index, (short) -1);
@@ -50,10 +60,21 @@ namespace Majorsilence.Forms.Terminal
             var cols = (width + _cellW - 1) / _cellW;
             var rows = (height + _cellH - 1) / _cellH;
 
-            var full = _previousWidth != width || _previousHeight != height;
+            var resized = _previousWidth != width || _previousHeight != height;
             int minCol = 0, maxCol = cols - 1, minRow = 0, maxRow = rows - 1;
-            if (!full && !DirtyCells (bgra, width, height, stride, cols, rows, out minCol, out maxCol, out minRow, out maxRow))
+
+            // Nothing changed: send nothing, whether or not the cell size is trusted.
+            if (!resized && !DirtyCells (bgra, width, height, stride, cols, rows, out minCol, out maxCol, out minRow, out maxRow))
                 return;
+
+            // A cell-aligned region is only placed correctly if the cell size is the terminal's; with a guess
+            // the whole image goes out from the top-left cell instead.
+            if (resized || !_cellsKnown) {
+                minCol = 0;
+                maxCol = cols - 1;
+                minRow = 0;
+                maxRow = rows - 1;
+            }
 
             // Remember this frame (tightly packed) for the next diff.
             if (_previous.Length != width * height * 4)

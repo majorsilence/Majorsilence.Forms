@@ -13,7 +13,10 @@ namespace Majorsilence.Forms.Terminal
                 return TerminalColorMode.TrueColor;
 
             var term = getEnv ("TERM") ?? string.Empty;
-            if (term.Contains ("256color", StringComparison.OrdinalIgnoreCase))
+            // Plain "xterm" is what real xterm sets (and what many ssh sessions pass on), and every xterm built
+            // this century has 256 colours, though terminfo's "xterm" entry says 8. Found by running in real
+            // xterm, where trusting terminfo left a blue title bar cyan.
+            if (term.Contains ("256color", StringComparison.OrdinalIgnoreCase) || term == "xterm")
                 return TerminalColorMode.Ansi256;
 
             // Windows Terminal and the modern conhost set neither variable but are truecolor.
