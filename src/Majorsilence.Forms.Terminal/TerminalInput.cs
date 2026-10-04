@@ -23,6 +23,10 @@ namespace Majorsilence.Forms.Terminal
         KeyboardFlags,
         /// <summary>The terminal answered a Kitty graphics command; <see cref="TerminalInput.Col"/> is the image id and <see cref="TerminalInput.Text"/> is <c>OK</c> or the error.</summary>
         GraphicsReply,
+        /// <summary>The terminal answered a Sixel geometry query (XTSMGRAPHICS): <see cref="TerminalInput.Col"/> and <see cref="TerminalInput.Row"/> are the largest image width and height in pixels it will draw.</summary>
+        SixelLimit,
+        /// <summary>The terminal answered an XTVERSION query (<c>ESC[&gt;0q</c>); <see cref="TerminalInput.Text"/> is its name and version, e.g. <c>XTerm(407)</c>.</summary>
+        TerminalVersion,
     }
 
     /// <summary>What a key event is. Only the Kitty keyboard protocol reports repeats and releases; a legacy terminal reports presses alone.</summary>

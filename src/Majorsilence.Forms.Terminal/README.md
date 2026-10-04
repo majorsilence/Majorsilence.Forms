@@ -47,13 +47,20 @@ replies logged, in:
 
 | Terminal | Probe answered | Mode chosen | Notes |
 |---|---|---|---|
-| xterm 407 `-ti vt340` | DA1 with Sixel; no Kitty; **no `16t` reply** (window ops are off by default) | Sixel | cell size comes from the pty (`TIOCGWINSZ`); with a guessed size, regions were misplaced (fixed) |
+| xterm 407 `-ti vt340` | DA1 with Sixel; no Kitty; XTVERSION `XTerm(407)`; **no `16t` reply** (window ops are off by default) and **no XTSMGRAPHICS reply** | Sixel | cell size comes from the pty (`TIOCGWINSZ`); with a guessed size, regions were misplaced (fixed). xterm silently cuts Sixel images off at 1000x1000 px (`maxGraphicsSize`), so the form is sized to that (see below); the full ControlGallery was run this way |
 | xterm 407 (default) | DA1 without Sixel | half-block, 256 colours | `TERM=xterm` is treated as 256-colour (real xterm sets it) |
 | WezTerm 20240203 | `16t`, Kitty graphics OK, DA1 with Sixel; keyboard protocol only with `enable_kitty_keyboard = true` | Kitty (tiles re-sent in place correctly); Sixel when pinned | pixel mouse coordinates arrive exact; Ctrl+C-as-key exits; shell and keyboard mode restored cleanly afterwards |
 
 Not verified in a real terminal: kitty, Ghostty, foot, iTerm2, Windows Terminal, macOS Terminal; keystrokes the
 terminal *generates* under the Kitty keyboard protocol (the harness sends the same byte sequences through
 `wezterm cli send-text`, which exercises the parser and dispatch but not the terminal's own encoder); and tmux.
+
+**Sixel size limits.** xterm draws no Sixel image larger than its `maxGraphicsSize` resource (1000x1000 by default) and
+cuts the rest off, which would leave the right part of a form invisible. The host asks the terminal for its limit
+(XTSMGRAPHICS, `ESC[?2;1S`); xterm 407 does not answer, but does identify itself (XTVERSION), so an xterm without a
+reported limit is assumed to have the default and the form is made only as big as will show, in whole cells. If you
+raised the resource, tell the host: `MF_TERMINAL_SIXEL_MAX=WxH` (e.g. `4096x4096`) or
+`TerminalOptions.MaxSixelSize`; either beats anything learned.
 
 **Diagnosing a terminal.** Set `MF_TERMINAL_TRACE=/path/to/file` to log the raw bytes the terminal sends, what the
 probe concluded, the mode and cell size chosen, and every decoded input event. It is off by default.

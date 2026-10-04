@@ -68,5 +68,17 @@ namespace Majorsilence.Forms.Terminal
 
             return TerminalGraphicsMode.HalfBlock;
         }
+
+        /// <summary>The largest Sixel image <c>MF_TERMINAL_SIXEL_MAX</c> (<c>WxH</c> in pixels) says the terminal draws, or null when unset or malformed.</summary>
+        public static (int W, int H)? ExplicitSixelLimit (Func<string, string?> getEnv)
+        {
+            var parts = getEnv ("MF_TERMINAL_SIXEL_MAX")?.Trim ().Split ('x', 'X');
+            return parts is { Length: 2 } && int.TryParse (parts[0], out var w) && int.TryParse (parts[1], out var h) && w > 0 && h > 0
+                ? (w, h)
+                : null;
+        }
+
+        /// <summary>xterm's default <c>maxGraphicsSize</c>, which it applies silently by cutting the image off.</summary>
+        internal static readonly (int W, int H) XTermDefaultSixelLimit = (1000, 1000);
     }
 }

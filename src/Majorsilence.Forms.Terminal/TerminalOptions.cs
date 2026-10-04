@@ -28,6 +28,14 @@ namespace Majorsilence.Forms.Terminal
         /// </summary>
         public double Scaling { get; set; } = 1.0;
 
+        /// <summary>
+        /// Gets or sets the largest Sixel image, in pixels, the terminal will draw, or <c>null</c> (the default) to
+        /// use what the terminal says. xterm cuts images off at 1000x1000 unless its <c>maxGraphicsSize</c>
+        /// resource is raised, and does not report the limit, so an xterm that identifies itself is assumed to have
+        /// the default; set this (or <c>MF_TERMINAL_SIXEL_MAX=WxH</c>) to say otherwise.
+        /// </summary>
+        public System.Drawing.Size? MaxSixelSize { get; set; }
+
         /// <summary>Gets or sets whether to switch to the alternate screen, so the shell's scrollback is restored on exit. Default true.</summary>
         public bool UseAlternateScreen { get; set; } = true;
     }

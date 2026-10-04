@@ -25,6 +25,8 @@ namespace Majorsilence.Forms.Terminal
         private const int ProbeTimeoutMs = 400;
         private ITerminalFramePresenter? _presenter;
         private (int W, int H) _cellPx;
+        private (int W, int H)? _explicitSixelLimit;   // from the app or MF_TERMINAL_SIXEL_MAX: beats anything learned
+        private (int W, int H)? _sixelLimit;         // the largest Sixel image the terminal draws, if it said
         private (int W, int H)? _terminalCell;     // what the terminal said a cell is, in pixels, in any mode
         private readonly ArrayBufferWriter<byte> _buffer = new ();
 
@@ -42,7 +44,7 @@ namespace Majorsilence.Forms.Terminal
         private string _clipboard = string.Empty;
         private (int Cols, int Rows) _cells = (80, 24);
 
-        internal TerminalPlatformBackend (TerminalOptions options, Func<string, string?>? getEnv = null)
+        internal TerminalPlatformBackend (TerminalOptions options, Func<string, string?>? getEnv = null, (int Cols, int Rows)? cells = null)
         {
             getEnv ??= Environment.GetEnvironmentVariable;
             _options = options;
@@ -54,7 +56,8 @@ namespace Majorsilence.Forms.Terminal
             // Half-blocks are 1x2 pixels per cell by construction; a graphics mode learns the real size from
             // the terminal and starts from a common guess.
             _cellPx = _graphics == TerminalGraphicsMode.HalfBlock ? (1, 2) : (8, 16);
-            _cells = TerminalSession.GetSize ();
+            _explicitSixelLimit = options.MaxSixelSize is { } size ? (size.Width, size.Height) : TerminalCapabilities.ExplicitSixelLimit (getEnv);
+            _cells = cells ?? TerminalSession.GetSize ();
             LearnCellFromPty ();
         }
 
@@ -73,8 +76,17 @@ namespace Majorsilence.Forms.Terminal
         internal System.Drawing.Size PixelSize {
             get {
                 // Sixel leaves the last row unused: an image reaching the bottom edge makes the terminal scroll.
+                var cols = _cells.Cols;
                 var rows = _graphics == TerminalGraphicsMode.Sixel ? Math.Max (1, _cells.Rows - 1) : _cells.Rows;
-                return new (_cells.Cols * _cellPx.W, rows * _cellPx.H);
+
+                // xterm will not draw a Sixel image past its configured maximum (1000x1000 by default): the
+                // rest is cut off, so the form is made only as big as the terminal will show, in whole cells.
+                if (_graphics == TerminalGraphicsMode.Sixel && _sixelLimit is { } limit) {
+                    cols = Math.Max (1, Math.Min (cols, limit.W / _cellPx.W));
+                    rows = Math.Max (1, Math.Min (rows, limit.H / _cellPx.H));
+                }
+
+                return new (cols * _cellPx.W, rows * _cellPx.H);
             }
         }
 
@@ -206,9 +218,22 @@ namespace Majorsilence.Forms.Terminal
         // Applies the terminal's answers. A terminal that never answered keeps the environment's guess.
         internal void ApplyProbe (TerminalProbe probe)
         {
-            TerminalTrace.Write ($"probe: complete={probe.Complete} kittyGraphics={probe.KittyGraphics} sixel={probe.Sixel} kittyKeyboard={probe.KittyKeyboard} pinned={_modeFixed} guess={_graphics}");
+            TerminalTrace.Write ($"probe: version={probe.Version} complete={probe.Complete} kittyGraphics={probe.KittyGraphics} sixel={probe.Sixel} kittyKeyboard={probe.KittyKeyboard} pinned={_modeFixed} guess={_graphics}");
             if (!_modeFixed && (probe.Complete || probe.KittyGraphics) && probe.Decide () != _graphics)
                 SwitchMode (probe.Decide ());
+
+            // What the terminal said, else xterm's default if it is an xterm (it silently cuts images off at
+            // 1000x1000 and does not answer the geometry query), else no limit; an explicit setting beats both.
+            var limit = _explicitSixelLimit
+                ?? probe.SixelLimit
+                ?? (probe.Version?.StartsWith ("XTerm(", StringComparison.Ordinal) == true ? TerminalCapabilities.XTermDefaultSixelLimit : null);
+
+            if (limit != _sixelLimit) {
+                _sixelLimit = limit;
+                TerminalTrace.Write ($"sixel limit: {_sixelLimit?.W}x{_sixelLimit?.H}");
+                if (_graphics == TerminalGraphicsMode.Sixel)
+                    ResetScreen ();   // the drawable area just changed
+            }
 
             if (probe.KittyKeyboard) {
                 KittyKeyboard = true;
@@ -338,6 +363,8 @@ namespace Majorsilence.Forms.Terminal
                     DispatchKey (e);
                     break;
                 case TerminalInputKind.GraphicsReply:
+                case TerminalInputKind.SixelLimit:
+                case TerminalInputKind.TerminalVersion:
                 case TerminalInputKind.KeyboardFlags:
                 case TerminalInputKind.DeviceAttributes:
                     _probe?.Observe (e);   // a reply after the probe ended is of no further use

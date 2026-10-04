@@ -86,6 +86,59 @@ namespace Majorsilence.Forms.Tests
                 events.ConvertAll (e => e.Kind));
         }
 
+        [Fact]
+        public void SixelGeometryReplyCarriesTheLargestImageSize ()
+        {
+            var e = One ("\u001b[?2;0;1000;1000S");   // what xterm says with its default 1000x1000 limit
+
+            Assert.Equal (TerminalInputKind.SixelLimit, e.Kind);
+            Assert.Equal ((1000, 1000), (e.Col, e.Row));
+        }
+
+        [Theory]
+        [InlineData ("\u001b[?2;3;0;0S")]       // status 3: the terminal refused
+        [InlineData ("\u001b[?1;0;256S")]       // a different item (colour registers), not geometry
+        [InlineData ("\u001b[?2;0;0;0S")]       // zero is not a limit
+        [InlineData ("\u001b[?2;0S")]           // truncated
+        public void OtherGraphicsAttributeRepliesAreIgnored (string reply)
+            => Assert.Empty (Parse (reply));
+
+        [Theory]
+        [InlineData ("\u001bP>|XTerm(407)\u001b\\", "XTerm(407)")]
+        [InlineData ("\u001bP>|WezTerm 20240203-110809-5046fc22\u001b\\", "WezTerm 20240203-110809-5046fc22")]
+        [InlineData ("\u001bP>|foot(1.18.1)\u0007", "foot(1.18.1)")]   // BEL-terminated
+        public void VersionReplyCarriesTheTerminalsNameAndVersion (string reply, string name)
+        {
+            var e = One (reply);
+
+            Assert.Equal (TerminalInputKind.TerminalVersion, e.Kind);
+            Assert.Equal (name, e.Text);
+        }
+
+        [Fact]
+        public void VersionReplySplitAcrossReadsWaitsForItsTerminator ()
+        {
+            var parser = new TerminalInputParser ();
+            var events = new List<TerminalInput> ();
+            parser.Feed (Encoding.ASCII.GetBytes ("\u001bP>|XTerm("), events);
+            Assert.Empty (events);
+
+            parser.Feed (Encoding.ASCII.GetBytes ("407)\u001b\\"), events);
+            Assert.Equal ("XTerm(407)", Assert.Single (events).Text);
+        }
+
+        [Fact]
+        public void AltShiftPIsStillAKeyAndNotTheStartOfAVersionReply ()
+        {
+            // ESC P is also what Alt+Shift+P sends; only ESC P > | is a reply.
+            var alone = One ("\u001bP");
+            Assert.Equal (Keys.P | Keys.Shift | Keys.Alt, alone.Key);
+
+            var followed = Parse ("\u001bPx");
+            Assert.Equal (Keys.P | Keys.Shift | Keys.Alt, followed[0].Key);
+            Assert.Equal (Keys.X, followed[1].Key);
+        }
+
         // ── Kitty key events ──────────────────────────────────────────────────
 
         [Fact]
@@ -284,6 +337,26 @@ namespace Majorsilence.Forms.Tests
             => Assert.True (Probe (Keyboard (0), Attributes ("62")).KittyKeyboard);
 
         [Fact]
+        public void QueryAsksForTheSixelGeometryBeforeTheSentinel ()
+        {
+            var q = TerminalProbe.Query;
+
+            Assert.Contains ("\u001b[?2;1S", q);
+            Assert.True (q.IndexOf ("\u001b[?2;1S", StringComparison.Ordinal) < q.LastIndexOf ("\u001b[c", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void ProbeRecordsTheSixelLimitOnlyWhenTheTerminalSaidOne ()
+        {
+            Assert.Null (Probe (Attributes ("62;4")).SixelLimit);
+            Assert.Equal ((1000, 800), Probe (new TerminalInput (TerminalInputKind.SixelLimit, Col: 1000, Row: 800), Attributes ("62;4")).SixelLimit);
+        }
+
+        [Fact]
+        public void ProbeRecordsTheTerminalVersion ()
+            => Assert.Equal ("XTerm(407)", Probe (new TerminalInput (TerminalInputKind.TerminalVersion, Text: "XTerm(407)"), Attributes ("62;4")).Version);
+
+        [Fact]
         public void ProbeIgnoresEventsThatAreNotRepliesAndSaysSo ()
         {
             var probe = new TerminalProbe ();
@@ -338,6 +411,134 @@ namespace Majorsilence.Forms.Tests
             backend.ApplyProbe (Probe (Attributes ("62;4")));
 
             Assert.Equal ((9, 18), backend.CellPixels);
+        }
+
+        private static TerminalPlatformBackend SixelBackend (int cols, int rows)
+            => new (new TerminalOptions { GraphicsMode = TerminalGraphicsMode.Sixel }, Env (), cells: (cols, rows));
+
+        [Fact]
+        public void SixelAreaIsTheWholeTerminalWhenTheTerminalSetsNoLimit ()
+        {
+            using var backend = SixelBackend (150, 45);
+            backend.Dispatch (new TerminalInput (TerminalInputKind.CellSize, Col: 8, Row: 17));
+
+            Assert.Equal (new System.Drawing.Size (150 * 8, 44 * 17), backend.PixelSize);   // the last row is left unused
+        }
+
+        [Fact]
+        public void SixelAreaIsCutToWhatTheTerminalWillDrawInWholeCells ()
+        {
+            // xterm draws at most 1000x1000 by default and clips the rest: a 150x45 terminal of 8x17 cells
+            // would otherwise get a 1200 px wide form of which only 1000 px show.
+            using var backend = SixelBackend (150, 45);
+            backend.Dispatch (new TerminalInput (TerminalInputKind.CellSize, Col: 8, Row: 17));
+            var probe = Probe (new TerminalInput (TerminalInputKind.SixelLimit, Col: 1000, Row: 1000), Attributes ("62;4"));
+
+            backend.ApplyProbe (probe);
+
+            Assert.Equal (new System.Drawing.Size (125 * 8, 44 * 17), backend.PixelSize);   // 1000 / 8 = 125 columns; 44 rows * 17 = 748 fits
+        }
+
+        private static TerminalProbe XTermProbe (params TerminalInput[] more)
+        {
+            var probe = new TerminalProbe ();
+            probe.Observe (new TerminalInput (TerminalInputKind.TerminalVersion, Text: "XTerm(407)"));
+            foreach (var m in more)
+                probe.Observe (m);
+            probe.Observe (Attributes ("63;4"));
+            return probe;
+        }
+
+        [Fact]
+        public void AnXTermThatDoesNotSayItsLimitIsAssumedToHaveItsDocumentedDefault ()
+        {
+            // Real xterm 407 never answers the geometry query yet cuts Sixel images off at 1000x1000.
+            using var backend = SixelBackend (150, 45);
+            backend.Dispatch (new TerminalInput (TerminalInputKind.CellSize, Col: 8, Row: 17));
+
+            backend.ApplyProbe (XTermProbe ());
+
+            Assert.Equal (new System.Drawing.Size (125 * 8, 44 * 17), backend.PixelSize);
+        }
+
+        [Fact]
+        public void AnotherTerminalWithoutALimitIsNotCut ()
+        {
+            using var backend = SixelBackend (150, 45);
+            backend.Dispatch (new TerminalInput (TerminalInputKind.CellSize, Col: 8, Row: 17));
+            var probe = new TerminalProbe ();
+            probe.Observe (new TerminalInput (TerminalInputKind.TerminalVersion, Text: "foot(1.18.1)"));
+            probe.Observe (Attributes ("62;4"));
+
+            backend.ApplyProbe (probe);
+
+            Assert.Equal (new System.Drawing.Size (150 * 8, 44 * 17), backend.PixelSize);
+        }
+
+        [Fact]
+        public void WhatAnXTermSaysBeatsTheAssumedDefault ()
+        {
+            using var backend = SixelBackend (150, 45);
+            backend.Dispatch (new TerminalInput (TerminalInputKind.CellSize, Col: 8, Row: 17));
+
+            backend.ApplyProbe (XTermProbe (new TerminalInput (TerminalInputKind.SixelLimit, Col: 4096, Row: 4096)));
+
+            Assert.Equal (new System.Drawing.Size (150 * 8, 44 * 17), backend.PixelSize);   // 4096 allows the whole terminal
+        }
+
+        [Fact]
+        public void AnExplicitLimitBeatsEverythingForAnXTermWithARaisedResource ()
+        {
+            // The user raised xterm's maxGraphicsSize; xterm still reports nothing, so they say so.
+            using var byOption = new TerminalPlatformBackend (
+                new TerminalOptions { GraphicsMode = TerminalGraphicsMode.Sixel, MaxSixelSize = new System.Drawing.Size (2000, 2000) }, Env (), cells: (150, 45));
+            byOption.Dispatch (new TerminalInput (TerminalInputKind.CellSize, Col: 8, Row: 17));
+            byOption.ApplyProbe (XTermProbe ());
+            Assert.Equal (new System.Drawing.Size (150 * 8, 44 * 17), byOption.PixelSize);
+
+            using var byVariable = new TerminalPlatformBackend (
+                new TerminalOptions { GraphicsMode = TerminalGraphicsMode.Sixel }, Env (("MF_TERMINAL_SIXEL_MAX", "600x400")), cells: (150, 45));
+            byVariable.Dispatch (new TerminalInput (TerminalInputKind.CellSize, Col: 8, Row: 17));
+            byVariable.ApplyProbe (XTermProbe ());
+            Assert.Equal (new System.Drawing.Size (75 * 8, 23 * 17), byVariable.PixelSize);   // 600/8 columns, 400/17 rows
+        }
+
+        [Theory]
+        [InlineData ("1000x1000", 1000, 1000)]
+        [InlineData ("2048X1024", 2048, 1024)]
+        [InlineData (" 800x600 ", 800, 600)]
+        public void SixelLimitVariableParsesWidthByHeight (string value, int w, int h)
+            => Assert.Equal ((w, h), TerminalCapabilities.ExplicitSixelLimit (Env (("MF_TERMINAL_SIXEL_MAX", value))));
+
+        [Theory]
+        [InlineData (null)]
+        [InlineData ("")]
+        [InlineData ("1000")]
+        [InlineData ("0x600")]
+        [InlineData ("axb")]
+        public void MalformedSixelLimitVariableIsIgnored (string? value)
+            => Assert.Null (TerminalCapabilities.ExplicitSixelLimit (Env (("MF_TERMINAL_SIXEL_MAX", value ?? string.Empty))));
+
+        [Fact]
+        public void ATallTerminalIsAlsoCutToTheHeightLimit ()
+        {
+            using var backend = SixelBackend (100, 100);
+            backend.Dispatch (new TerminalInput (TerminalInputKind.CellSize, Col: 8, Row: 17));
+
+            backend.ApplyProbe (Probe (new TerminalInput (TerminalInputKind.SixelLimit, Col: 1000, Row: 1000), Attributes ("62;4")));
+
+            Assert.Equal (new System.Drawing.Size (100 * 8, 58 * 17), backend.PixelSize);   // 1000 / 17 = 58 rows
+        }
+
+        [Fact]
+        public void TheSixelLimitDoesNotShrinkOtherModes ()
+        {
+            using var backend = new TerminalPlatformBackend (new TerminalOptions { GraphicsMode = TerminalGraphicsMode.Kitty }, Env (), cells: (150, 45));
+            backend.Dispatch (new TerminalInput (TerminalInputKind.CellSize, Col: 8, Row: 17));
+
+            backend.ApplyProbe (Probe (new TerminalInput (TerminalInputKind.SixelLimit, Col: 1000, Row: 1000), Attributes ("62;4")));
+
+            Assert.Equal (new System.Drawing.Size (150 * 8, 45 * 17), backend.PixelSize);
         }
 
         [Fact]
