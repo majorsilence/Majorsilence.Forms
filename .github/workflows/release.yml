@@ -58,6 +58,7 @@ env:
     src/Majorsilence.Forms.Avalonia/Majorsilence.Forms.Avalonia.csproj
     src/Majorsilence.Forms.Theming.Avalonia/Majorsilence.Forms.Theming.Avalonia.csproj
     src/Majorsilence.Forms.Headless/Majorsilence.Forms.Headless.csproj
+    src/Majorsilence.Forms.Terminal/Majorsilence.Forms.Terminal.csproj
     src/Majorsilence.Forms.Mvvm/Majorsilence.Forms.Mvvm.csproj
     src/Majorsilence.Forms.Uno/Majorsilence.Forms.Uno.csproj
     src/Majorsilence.Forms.Gtk4/Majorsilence.Forms.Gtk4.csproj
