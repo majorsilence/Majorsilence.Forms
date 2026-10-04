@@ -27,15 +27,20 @@ internal sealed class DemoForm : Form
     {
         Text = "Majorsilence.Forms in a terminal";
 
-        var title = new Label { Text = "Hello from the terminal host", Location = new Point (8, 36), AutoSize = false, Width = 220 };
-        var name = new TextBox { Text = "Type here", Location = new Point (8, 56), Width = 220 };
-        var check = new CheckBox { Text = "A checkbox", Checked = true, Location = new Point (8, 82), AutoSize = true };
-        var ok = new Button { Text = "OK", Location = new Point (8, 106), Width = 80 };
-        var bar = new ProgressBar { Location = new Point (8, 136), Width = 220, Value = 65 };
+        var title = new Label { Text = "Hello from the terminal host", Location = new Point (8, 8), AutoSize = false, Width = 220 };
+        var name = new TextBox { Text = "Type here", Location = new Point (8, 28), Width = 220 };
+        var check = new CheckBox { Text = "A checkbox", Checked = true, Location = new Point (8, 54), AutoSize = true };
+        var ok = new Button { Text = "OK", Location = new Point (8, 78), Width = 80 };
+        var bar = new ProgressBar { Location = new Point (8, 108), Width = 220, Value = 65 };
+
+        // The terminal is the window, so the form has no title bar or close button (as on a phone): the app
+        // provides its own way out. Ctrl+C always exits too.
+        var exit = new Button { Text = "Exit", Location = new Point (100, 78), Width = 80 };
+        exit.Click += (_, _) => Close ();
 
         var clicks = 0;
         ok.Click += (_, _) => title.Text = $"Clicked {++clicks} time(s)";
 
-        Controls.AddRange (new Control[] { title, name, check, ok, bar });
+        Controls.AddRange (new Control[] { title, name, check, ok, exit, bar });
     }
 }

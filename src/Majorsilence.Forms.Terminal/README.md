@@ -9,6 +9,11 @@ of three ways:
 | **Sixel** | the terminal's real pixels, 256 colours | foot, mlterm, iTerm2, Contour (detected); xterm with `-ti vt340`, WezTerm (by override) |
 | **Half-block** | 1 pixel per column, 2 per row, 24-bit/256/16 colours | everything else, and always inside tmux/screen |
 
+**One screen, no title bar.** The terminal is the window, so the host is a single-view host, like a phone
+(`IWindowBackend.IsSingleView`): a `Form` fills the whole screen and draws no title bar or minimise/maximise/close
+buttons, and its `Text` goes to the terminal's own title (OSC 2). The app provides its own way out (call `Close ()`);
+Ctrl+C always exits too. Popups (menus, dropdowns) are composited over it; a dialog replaces the screen while shown.
+
 **Which mode.** At startup the app asks the terminal what it supports instead of guessing: one write carrying a
 Kitty graphics query, a Kitty keyboard query and a primary-device-attributes request (which also lists Sixel).
 Terminals answer in order, so the attributes reply, asked last, marks the end of the answers and a missing answer
