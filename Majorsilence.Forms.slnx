@@ -24,6 +24,7 @@
     <Project Path="samples/PointOfSale/PointOfSale.Client/PointOfSale.Client.csproj" />
     <Project Path="samples/PointOfSale/PointOfSale.Contracts/PointOfSale.Contracts.csproj" />
     <Project Path="samples/PointOfSale/PointOfSale.Data/PointOfSale.Data.csproj" />
+    <Project Path="samples/Gallery.Terminal/Gallery.Terminal.csproj" />
     <Project Path="samples/ThemeStudio/ThemeStudio.csproj" />
     <Project Path="samples/ThemeStudio.WinForms/ThemeStudio.WinForms.csproj" />
     <Project Path="samples/WinFormsCompatDemo/WinFormsCompatDemo.csproj" />
@@ -36,6 +37,7 @@
     <Project Path="src/Majorsilence.Forms.DrawingShims/Majorsilence.Forms.DrawingShims.csproj" />
     <Project Path="src/Majorsilence.Forms.Headless/Majorsilence.Forms.Headless.csproj" />
     <Project Path="src/Majorsilence.Forms.Mvvm/Majorsilence.Forms.Mvvm.csproj" />
+    <Project Path="src/Majorsilence.Forms.Terminal/Majorsilence.Forms.Terminal.csproj" />
     <Project Path="src/Majorsilence.Forms.Telerik/Majorsilence.Forms.Telerik.csproj" />
     <Project Path="src/Majorsilence.Forms.Theming.Avalonia/Majorsilence.Forms.Theming.Avalonia.csproj" />
     <Project Path="src/Majorsilence.Forms.Theming.WinForms/Majorsilence.Forms.Theming.WinForms.csproj" />
