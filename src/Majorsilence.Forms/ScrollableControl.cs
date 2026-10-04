@@ -384,7 +384,8 @@ namespace Majorsilence.Forms
             var hscroll_visible = false;
             var vscroll_visible = false;
 
-            var bar_size = 15;
+            // A finger needs a wider strip than a mouse pointer to hit and drag the thumb.
+            var bar_size = FindForm () is { IsSingleViewHost: true } ? 22 : 15;
 
             do {
                 prev_right_edge = right_edge;

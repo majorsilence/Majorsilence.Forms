@@ -820,15 +820,52 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void HandleInputPaneChanged (System.Drawing.Rectangle occludedRectLogical)
         {
+            // Shrink the form's client area by the keyboard, the way Android's adjustResize would. Scrolling
+            // alone is not enough: the scroller's viewport still reaches behind the keyboard, so a field near
+            // the end of the content has nowhere to scroll to and stays covered.
+            var inset = occludedRectLogical.IsEmpty ? 0 : occludedRectLogical.Height;
+            if (inset != KeyboardInset) {
+                KeyboardInset = inset;
+                OnSafeAreaChanged ();
+                SyncAdapterBounds ();
+            }
+
             var focused = (this as Form)?.ActiveControl ?? adapter.SelectedControl;
             if (focused is null)
                 return;
 
-            if (occludedRectLogical.IsEmpty)
-                focused.ScrollControlIntoView (null);
-            else
-                focused.ScrollControlIntoView (focused, occludedRectLogical.Height);
+            // The viewport already excludes the keyboard, so nothing extra is kept clear at the bottom.
+            focused.ScrollControlIntoView (focused, 0);
         }
+
+        /// <summary>True on a touch single-view host (Android, iOS, browser).</summary>
+        internal bool IsSingleViewHost => Backend.IsSingleView;
+
+        /// <summary>
+        /// True when the point (device pixels, window space) lies over a scroll bar. The single-view host
+        /// uses it to let a finger drag the thumb instead of treating the drag as a swipe of the content.
+        /// </summary>
+        internal bool IsScrollBarAt (int xDevice, int yDevice)
+        {
+            Control control = adapter;
+            var local = new System.Drawing.Point (DeviceToLogical (xDevice), DeviceToLogical (yDevice));
+            while (control.Controls.FindVisibleChildAt (local) is { } child) {
+                local = new System.Drawing.Point (local.X - child.Left, local.Y - child.Top);
+                control = child;
+                if (control is ScrollBar)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>Logical height of the on-screen keyboard currently covering the bottom of the window; 0 when it is closed.</summary>
+        internal int KeyboardInset { get; private set; }
+
+        /// <summary>The safe area plus the on-screen keyboard: what a form's client area is deflated by.</summary>
+        internal Padding SafeAreaWithKeyboard =>
+            KeyboardInset <= SafeArea.Bottom
+                ? SafeArea
+                : new Padding (SafeArea.Left, SafeArea.Top, SafeArea.Right, KeyboardInset);
 
         /// <summary>
         /// The caret rectangle of the focused text control in logical window coordinates, or null when

@@ -86,6 +86,8 @@ namespace Majorsilence.Forms
         // ── Soft keyboard + safe area (root host only) ──
         private readonly MajorsilenceFormsTextInputClient _imClient;
         private bool _textInputActive;
+        private bool _textInputActiveAtPress;   // a text box already had the keyboard when this touch began
+        private long _textInputRequestedTs;     // Stopwatch ticks of the last request to raise the keyboard
         private IInsetsManager? _insets;
         private IInputPane? _inputPane;
 
@@ -103,6 +105,7 @@ namespace Majorsilence.Forms
             System.Diagnostics.Stopwatch.GetTimestamp () - _recognizerScrollTs < System.Diagnostics.Stopwatch.Frequency * 3 / 10;
         private AvPoint? _touchAnchor;     // press position; null once released / capture lost
         private AvPoint _touchLast;
+        private bool _touchOnScrollBar;    // the press landed on a scroll bar: it is a thumb drag, not a swipe
         private bool _touchScrolling;      // past the start-distance slop -> we own this gesture
         private const double TouchScrollStartDistance = 8;   // logical px
 
@@ -321,14 +324,17 @@ namespace Majorsilence.Forms
         private void OnInputPaneStateChanged (object? sender, InputPaneStateEventArgs e)
         {
             var r = e.NewState == InputPaneState.Open ? e.EndRect : default;
-            // OccludedRect is in screen DIPs; translate its top edge into this control's local space so
-            // the core can measure how much of the form the keyboard now covers.
-            var localTop = r.Height > 0
-                ? (this.PointToClient (new PixelPoint ((int) r.X, (int) r.Y)).Y)
-                : 0;
-            var occludedHeight = r.Height > 0
-                ? System.Math.Max (0, (int) System.Math.Round (Bounds.Height - localTop))
-                : 0;
+            var occludedHeight = 0;
+            if (r.Height > 0) {
+                // The rect is in DIPs relative to the TopLevel (Avalonia hands the keyboard's bounds back in the
+                // same space as layout, not in screen pixels). Take its top edge into this control's space; if
+                // that cannot be done or looks wrong, the keyboard's own height is the safe answer.
+                var top = TopLevel.GetTopLevel (this);
+                var local = top?.TranslatePoint (new AvPoint (r.X, r.Y), this);
+                occludedHeight = local is { } p && p.Y > 0 && p.Y < Bounds.Height
+                    ? (int) System.Math.Round (Bounds.Height - p.Y)
+                    : (int) System.Math.Round (r.Height);
+            }
             _owner.HandleInputPaneChanged (occludedHeight > 0
                 ? new System.Drawing.Rectangle (0, (int) System.Math.Round (Bounds.Height) - occludedHeight, (int) System.Math.Round (Bounds.Width), occludedHeight)
                 : System.Drawing.Rectangle.Empty);
@@ -532,6 +538,9 @@ namespace Majorsilence.Forms
                 _bridgeTimer.Stop ();
             }
 
+            _textInputActiveAtPress = _textInputActive;
+            _touchOnScrollBar = isTouch && _owner.IsScrollBarAt ((int)(pos.X * Scale), (int)(pos.Y * Scale));
+
             var props = e.GetCurrentPoint (this).Properties;
             _owner.HandlePointerPressed (
                 AvaloniaKeyInterop.PressedButton (props.PointerUpdateKind),
@@ -544,7 +553,7 @@ namespace Majorsilence.Forms
             var coastSent = new System.Drawing.Point (_flingSentX, _flingSentY);
             StopFling ();
 
-            if (!_recognizerLive && isTouch) {
+            if (!_recognizerLive && isTouch && !_touchOnScrollBar) {
                 _touchAnchor = pos;
                 _touchLast = pos;
                 _touchLastMoveTs = now;   // time from the press, so the segment's first move still yields a velocity
@@ -606,9 +615,14 @@ namespace Majorsilence.Forms
                 DeferTouchGestureEnd (pos, ambiguous: false);
             }
 
+            // A tap on a text box that already has focus raises no focus change, so nothing asks for the
+            // keyboard again -- and it is gone if Done or Back dismissed it. Ask once more.
+            var wasTap = !_touchScrolling;
             _touchAnchor = null;
             _touchScrolling = false;   // restored by a bridging press, if one comes
             base.OnPointerReleased (e);
+            if (wasTap)
+                ReraiseKeyboardIfDismissed ();
         }
 
         protected override void OnPointerCaptureLost (PointerCaptureLostEventArgs e)
@@ -720,7 +734,7 @@ namespace Majorsilence.Forms
         // Disabled the moment Avalonia's own ScrollGestureRecognizer proves it works (_recognizerLive).
         private bool SynthesiseTouchScroll (AvPointerEventArgs e, AvPoint pos)
         {
-            if (_recognizerLive || _touchAnchor is null || e.Pointer.Type is not (PointerType.Touch or PointerType.Pen))
+            if (_recognizerLive || _touchOnScrollBar || _touchAnchor is null || e.Pointer.Type is not (PointerType.Touch or PointerType.Pen))
                 return false;
 
             if (!_touchScrolling) {
@@ -966,9 +980,30 @@ namespace Majorsilence.Forms
 
         void IWindowBackend.SetCursor (CursorType cursor) => Cursor = MapCursor (cursor);
 
+        // The platform keeps the client it was given, so asking again with the same one does nothing.
+        // Drop it and hand it back so Android runs its show-keyboard path afresh.
+        private void ReraiseKeyboardIfDismissed ()
+        {
+            if (!_textInputActive || !_textInputActiveAtPress || _inputPane?.State == InputPaneState.Open)
+                return;
+
+            // A request made a moment ago is still animating up; do not fight it.
+            var sinceRequest = (System.Diagnostics.Stopwatch.GetTimestamp () - _textInputRequestedTs) / (double) System.Diagnostics.Stopwatch.Frequency;
+            if (sinceRequest < 0.6)
+                return;
+
+            _textInputRequestedTs = System.Diagnostics.Stopwatch.GetTimestamp ();
+            _textInputActive = false;
+            RaiseEvent (new global::Avalonia.Interactivity.RoutedEventArgs (AvInputMethod.TextInputMethodClientRequeryRequestedEvent));
+            _textInputActive = true;
+            RaiseEvent (new global::Avalonia.Interactivity.RoutedEventArgs (AvInputMethod.TextInputMethodClientRequeryRequestedEvent));
+        }
+
         void IWindowBackend.SetTextInputActive (bool active, TextInputKind kind)
         {
             _textInputActive = active;
+            if (active)
+                _textInputRequestedTs = System.Diagnostics.Stopwatch.GetTimestamp ();
 
             // Describe the wanted keyboard to the platform.
             TextInputOptions.SetMultiline (this, kind == TextInputKind.Multiline);

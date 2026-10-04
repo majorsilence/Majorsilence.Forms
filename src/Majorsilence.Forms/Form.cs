@@ -2059,9 +2059,10 @@ namespace Majorsilence.Forms
             public override System.Drawing.Rectangle DisplayRectangle {
                 get {
                     var rect = base.DisplayRectangle;
-                    return _owner.SafeArea == Padding.Empty
+                    var inset = _owner.SafeAreaWithKeyboard;
+                    return inset == Padding.Empty
                         ? rect
-                        : LayoutUtils.DeflateRect (rect, _owner.SafeArea);
+                        : LayoutUtils.DeflateRect (rect, inset);
                 }
             }
 
