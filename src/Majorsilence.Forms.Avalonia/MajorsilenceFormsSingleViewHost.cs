@@ -980,6 +980,14 @@ namespace Majorsilence.Forms
 
         void IWindowBackend.SetCursor (CursorType cursor) => Cursor = MapCursor (cursor);
 
+        // Avalonia's handler casts the args to this exact type; a bare RoutedEventArgs throws InvalidCastException out
+        // of the event route (it was swallowed in SetTextInputActive, which is why the keyboard came up only
+        // when Avalonia's own focus change happened to ask for it).
+        private void RaiseClientRequery () =>
+            RaiseEvent (new global::Avalonia.Input.TextInput.TextInputMethodClientRequeryRequestedEventArgs {
+                RoutedEvent = AvInputMethod.TextInputMethodClientRequeryRequestedEvent
+            });
+
         // The platform keeps the client it was given, so asking again with the same one does nothing.
         // Drop it and hand it back so Android runs its show-keyboard path afresh.
         private void ReraiseKeyboardIfDismissed ()
@@ -994,9 +1002,9 @@ namespace Majorsilence.Forms
 
             _textInputRequestedTs = System.Diagnostics.Stopwatch.GetTimestamp ();
             _textInputActive = false;
-            RaiseEvent (new global::Avalonia.Interactivity.RoutedEventArgs (AvInputMethod.TextInputMethodClientRequeryRequestedEvent));
+            RaiseClientRequery ();
             _textInputActive = true;
-            RaiseEvent (new global::Avalonia.Interactivity.RoutedEventArgs (AvInputMethod.TextInputMethodClientRequeryRequestedEvent));
+            RaiseClientRequery ();
         }
 
         void IWindowBackend.SetTextInputActive (bool active, TextInputKind kind)
@@ -1030,8 +1038,7 @@ namespace Majorsilence.Forms
 
             // Ask Avalonia's text-input manager to re-query TextInputMethodClientRequested so it picks up
             // (active) or drops (inactive) our client -- which is what raises/dismisses the keyboard.
-            RaiseEvent (new global::Avalonia.Interactivity.RoutedEventArgs (
-                AvInputMethod.TextInputMethodClientRequeryRequestedEvent));
+            RaiseClientRequery ();
         }
 
         void IWindowBackend.SetIcon (byte[]? iconPng) { /* no window icon in the browser */ }

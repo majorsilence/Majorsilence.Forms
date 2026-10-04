@@ -333,11 +333,17 @@ namespace Majorsilence.Forms
         internal bool TouchStyle => FindForm () is { IsSingleViewHost: true };
 
         /// <inheritdoc/>
-        protected override void OnPaint (PaintEventArgs e)
+        protected override void OnPaintBackground (PaintEventArgs e)
         {
             // The strip is a transparent overlay on a touch host: the page behind it shows through.
             if (!TouchStyle)
-                base.OnPaint (e);
+                base.OnPaintBackground (e);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnPaint (PaintEventArgs e)
+        {
+            base.OnPaint (e);
 
             RenderManager.Render (this, e);
         }
