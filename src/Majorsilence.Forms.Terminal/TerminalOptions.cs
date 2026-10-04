@@ -11,10 +11,10 @@ namespace Majorsilence.Forms.Terminal
 
         /// <summary>
         /// Gets or sets how frames reach the terminal, or <c>null</c> (the default) to find out: the terminal is
-        /// asked what it supports (Kitty graphics, then Sixel, else half-blocks), with the environment's guess
+        /// asked what it supports (Kitty graphics, then Sixel, else block elements), with the environment's guess
         /// (<c>TERM</c>, <c>TERM_PROGRAM</c>, half-blocks inside tmux or screen) used until it answers and when
         /// there is no input to read an answer from. A mode set here, or by the <c>MF_TERMINAL_GRAPHICS</c>
-        /// environment variable (<c>halfblock</c>, <c>kitty</c>, <c>sixel</c>), is used as given and never
+        /// environment variable (<c>halfblock</c>, <c>blocks</c>, <c>kitty</c>, <c>sixel</c>), is used as given and never
         /// overridden by the terminal's answer.
         /// </summary>
         public TerminalGraphicsMode? GraphicsMode { get; set; }

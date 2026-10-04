@@ -7,8 +7,9 @@ namespace Gallery.Terminal;
 // Hosts the full ControlGallery in the terminal (MF_TERMINAL_DEMO=1 hosts a small form instead).
 // Mouse and keyboard work; Ctrl+C exits.
 // Run in a truecolor terminal: `dotnet run --project samples/Gallery.Terminal`.
-// The output mode is found by asking the terminal (Kitty graphics, Sixel, else half-blocks); MF_TERMINAL_GRAPHICS=halfblock|kitty|sixel forces one.
-// MF_TERMINAL_SCALE=0.5 lays the form out on a canvas twice as large as the pixel grid: needed in half-block mode, where the grid is tiny.
+// The output mode is found by asking the terminal (Kitty graphics, Sixel, else block elements);
+// MF_TERMINAL_GRAPHICS=halfblock|blocks|kitty|sixel forces one. A 300x80 terminal is a 600x320 screen in Blocks mode.
+// MF_TERMINAL_SCALE=0.5 lays the form out on a canvas twice as large as the pixel grid (useful for classic half-block mode).
 public static class Program
 {
     public static void Main ()

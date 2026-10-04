@@ -468,26 +468,27 @@ namespace Majorsilence.Forms.Tests
         [InlineData ("TERM", "foot", TerminalGraphicsMode.Sixel)]
         [InlineData ("TERM", "mlterm", TerminalGraphicsMode.Sixel)]
         [InlineData ("TERM_PROGRAM", "iTerm.app", TerminalGraphicsMode.Sixel)]
-        [InlineData ("TERM", "xterm-256color", TerminalGraphicsMode.HalfBlock)]
-        [InlineData ("WT_SESSION", "x", TerminalGraphicsMode.HalfBlock)]
+        [InlineData ("TERM", "xterm-256color", TerminalGraphicsMode.Blocks)]
+        [InlineData ("WT_SESSION", "x", TerminalGraphicsMode.Blocks)]
         public void GraphicsModeIsDetectedFromTheEnvironment (string key, string value, TerminalGraphicsMode expected)
             => Assert.Equal (expected, TerminalCapabilities.DetectGraphicsMode (Env ((key, value))));
 
         [Fact]
-        public void NothingKnownMeansHalfBlocks ()
-            => Assert.Equal (TerminalGraphicsMode.HalfBlock, TerminalCapabilities.DetectGraphicsMode (Env ()));
+        public void NothingKnownMeansBlocks ()
+            => Assert.Equal (TerminalGraphicsMode.Blocks, TerminalCapabilities.DetectGraphicsMode (Env ()));
 
         [Fact]
-        public void MultiplexersForceHalfBlocksEvenInAGraphicsTerminal ()
+        public void MultiplexersForceBlocksEvenInAGraphicsTerminal ()
         {
-            Assert.Equal (TerminalGraphicsMode.HalfBlock, TerminalCapabilities.DetectGraphicsMode (Env (("TERM", "xterm-kitty"), ("TMUX", "/tmp/tmux-1/default,1,0"))));
-            Assert.Equal (TerminalGraphicsMode.HalfBlock, TerminalCapabilities.DetectGraphicsMode (Env (("KITTY_WINDOW_ID", "1"), ("STY", "123.pts-0"))));
+            Assert.Equal (TerminalGraphicsMode.Blocks, TerminalCapabilities.DetectGraphicsMode (Env (("TERM", "xterm-kitty"), ("TMUX", "/tmp/tmux-1/default,1,0"))));
+            Assert.Equal (TerminalGraphicsMode.Blocks, TerminalCapabilities.DetectGraphicsMode (Env (("KITTY_WINDOW_ID", "1"), ("STY", "123.pts-0"))));
         }
 
         [Theory]
         [InlineData ("kitty", TerminalGraphicsMode.Kitty)]
         [InlineData ("SIXEL", TerminalGraphicsMode.Sixel)]
         [InlineData ("halfblock", TerminalGraphicsMode.HalfBlock)]
+        [InlineData ("blocks", TerminalGraphicsMode.Blocks)]
         public void TheEnvironmentOverrideBeatsDetectionAndMultiplexers (string value, TerminalGraphicsMode expected)
             => Assert.Equal (expected, TerminalCapabilities.DetectGraphicsMode (Env (("MF_TERMINAL_GRAPHICS", value), ("TMUX", "x"), ("TERM", "foot"))));
 

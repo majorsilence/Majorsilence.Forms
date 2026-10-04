@@ -16,10 +16,10 @@ namespace Majorsilence.Forms.Terminal
         /// <summary>
         /// The bytes to send. <c>a=q</c> asks a Kitty graphics terminal whether it could display a 1x1 RGB
         /// image (it displays nothing); <c>ESC[?u</c> asks for the Kitty keyboard flags; <c>ESC[?2;1S</c> asks how large a Sixel image the terminal
-        /// will draw (xterm stops at 1000x1000 pixels unless configured otherwise); <c>ESC[&gt;0q</c> asks which terminal this is (XTVERSION); <c>ESC[c</c> is the
+        /// will draw (xterm stops at 1000x1000 pixels unless configured otherwise); <c>ESC[&gt;0q</c> asks which terminal this is (XTVERSION); <c>ESC[48:2::1:2:3m</c> then DECRQSS (<c>ESC P $ q m ST</c>) checks it keeps 24-bit colour, and <c>ESC[c</c> is the
         /// sentinel and also lists Sixel support.
         /// </summary>
-        public static string Query => $"\u001b_Gi={GraphicsQueryId},s=1,v=1,a=q,t=d,f=24;AAAA\u001b\\\u001b[?u\u001b[?2;1S\u001b[>0q\u001b[c";
+        public static string Query => $"\u001b_Gi={GraphicsQueryId},s=1,v=1,a=q,t=d,f=24;AAAA\u001b\\\u001b[?u\u001b[?2;1S\u001b[>0q\u001b[48:2::1:2:3m\u001bP$qm\u001b\\\u001b[0m\u001b[c";
 
         /// <summary>Gets whether the device attributes reply has arrived, which ends the probe.</summary>
         public bool Complete { get; private set; }
@@ -36,6 +36,13 @@ namespace Majorsilence.Forms.Terminal
         /// <summary>Gets the terminal's own name and version (XTVERSION), e.g. <c>XTerm(407)</c>, or null when it did not say.</summary>
         public string? Version { get; private set; }
 
+        /// <summary>
+        /// Gets whether the terminal confirmed it keeps 24-bit colour. The probe sets a known truecolor
+        /// background, asks for the current graphic rendition (DECRQSS) and checks the colour came back
+        /// intact, which a terminal that quantises to 256 colours, or that does not understand the form, cannot do.
+        /// </summary>
+        public bool TrueColor { get; private set; }
+
         /// <summary>Gets whether the terminal answered the Kitty keyboard query, i.e. implements the protocol.</summary>
         public bool KittyKeyboard { get; private set; }
 
@@ -49,6 +56,11 @@ namespace Majorsilence.Forms.Terminal
                     return true;
                 case TerminalInputKind.SixelLimit:
                     SixelLimit = (e.Col, e.Row);
+                    return true;
+                case TerminalInputKind.GraphicRendition:
+                    // The reply lists the SGR in force; the colour we set is 1,2,3 whichever separators it uses.
+                    TrueColor = e.Text is { } sgr && (sgr.EndsWith ("1:2:3", StringComparison.Ordinal) || sgr.EndsWith ("1;2;3", StringComparison.Ordinal))
+                        && sgr.Contains ("48", StringComparison.Ordinal);
                     return true;
                 case TerminalInputKind.TerminalVersion:
                     Version = e.Text;
@@ -68,10 +80,10 @@ namespace Majorsilence.Forms.Terminal
             }
         }
 
-        /// <summary>The best way to show frames given the answers: real Kitty graphics, then Sixel, else half-blocks.</summary>
+        /// <summary>The best way to show frames given the answers: real Kitty graphics, then Sixel, else blocks.</summary>
         public TerminalGraphicsMode Decide ()
             => KittyGraphics ? TerminalGraphicsMode.Kitty
              : Sixel ? TerminalGraphicsMode.Sixel
-             : TerminalGraphicsMode.HalfBlock;
+             : TerminalGraphicsMode.Blocks;
     }
 }

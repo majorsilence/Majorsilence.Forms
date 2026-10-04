@@ -139,6 +139,43 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (Keys.X, followed[1].Key);
         }
 
+        [Theory]
+        [InlineData ("\u001bP1$r0;48:2::1:2:3m\u001b\\", "0;48:2::1:2:3")]   // xterm-style, with the colour-space slot
+        [InlineData ("\u001bP1$r0;48;2;1;2;3m\u001b\\", "0;48;2;1;2;3")]
+        [InlineData ("\u001bP1$r0;48;5;17m\u0007", "0;48;5;17")]
+        public void GraphicRenditionReplyCarriesTheSgrInForce (string reply, string sgr)
+        {
+            var e = One (reply);
+
+            Assert.Equal (TerminalInputKind.GraphicRendition, e.Kind);
+            Assert.Equal (sgr, e.Text);
+        }
+
+        [Fact]
+        public void AnInvalidStatusReplyIsSwallowed ()
+            => Assert.Empty (Parse ("\u001bP0$r\u001b\\"));
+
+        [Fact]
+        public void StatusReplySplitAcrossReadsWaitsForItsTerminator ()
+        {
+            var parser = new TerminalInputParser ();
+            var events = new List<TerminalInput> ();
+            parser.Feed (Encoding.ASCII.GetBytes ("\u001bP1$r0;48:2"), events);
+            Assert.Empty (events);
+
+            parser.Feed (Encoding.ASCII.GetBytes ("::1:2:3m\u001b\\"), events);
+            Assert.Equal ("0;48:2::1:2:3", Assert.Single (events).Text);
+        }
+
+        [Fact]
+        public void AltShiftPFollowedByATypedDigitIsNotMistakenForAStatusReply ()
+        {
+            var events = Parse ("\u001bP1x");
+
+            Assert.Equal (Keys.P | Keys.Shift | Keys.Alt, events[0].Key);
+            Assert.Equal (Keys.D1, events[1].Key);
+        }
+
         // ── Kitty key events ──────────────────────────────────────────────────
 
         [Fact]
@@ -311,11 +348,11 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void ProbeDecidesKittyThenSixelThenHalfBlocks ()
+        public void ProbeDecidesKittyThenSixelThenBlocks ()
         {
             Assert.Equal (TerminalGraphicsMode.Kitty, Probe (Graphics ("OK"), Attributes ("62;4")).Decide ());   // Kitty wins over Sixel
             Assert.Equal (TerminalGraphicsMode.Sixel, Probe (Attributes ("62;4;22")).Decide ());
-            Assert.Equal (TerminalGraphicsMode.HalfBlock, Probe (Attributes ("62;22")).Decide ());
+            Assert.Equal (TerminalGraphicsMode.Blocks, Probe (Attributes ("62;22")).Decide ());
         }
 
         [Fact]
@@ -356,6 +393,33 @@ namespace Majorsilence.Forms.Tests
         public void ProbeRecordsTheTerminalVersion ()
             => Assert.Equal ("XTerm(407)", Probe (new TerminalInput (TerminalInputKind.TerminalVersion, Text: "XTerm(407)"), Attributes ("62;4")).Version);
 
+        private static TerminalInput Rendition (string sgr) => new (TerminalInputKind.GraphicRendition, Text: sgr);
+
+        [Theory]
+        [InlineData ("0;48:2::1:2:3", true)]
+        [InlineData ("0;48;2;1;2;3", true)]
+        [InlineData ("0;48:2:1:2:3", true)]
+        [InlineData ("0;48;5;17", false)]   // the terminal quantised our colour to a palette entry
+        [InlineData ("0", false)]           // it did not keep the colour at all
+        [InlineData ("0;38:2::1:2:3", false)]   // a foreground, not the background we set
+        public void TrueColorIsConfirmedOnlyWhenTheColourWeSetComesBackIntact (string sgr, bool expected)
+            => Assert.Equal (expected, Probe (Rendition (sgr), Attributes ("62")).TrueColor);
+
+        [Fact]
+        public void NoRenditionReplyMeansTrueColorIsUnconfirmed ()
+            => Assert.False (Probe (Attributes ("62")).TrueColor);
+
+        [Fact]
+        public void QuerySetsAKnownColourAsksForTheRenditionThenResetsBeforeTheSentinel ()
+        {
+            var q = TerminalProbe.Query;
+            var set = q.IndexOf ("\u001b[48:2::1:2:3m", StringComparison.Ordinal);
+            var ask = q.IndexOf ("\u001bP$qm\u001b\\", StringComparison.Ordinal);
+            var reset = q.IndexOf ("\u001b[0m", StringComparison.Ordinal);
+
+            Assert.True (set >= 0 && set < ask && ask < reset && reset < q.LastIndexOf ("\u001b[c", StringComparison.Ordinal));
+        }
+
         [Fact]
         public void ProbeIgnoresEventsThatAreNotRepliesAndSaysSo ()
         {
@@ -391,7 +455,7 @@ namespace Majorsilence.Forms.Tests
         public void AnUnlistedSixelTerminalIsFoundByAskingIt ()
         {
             var backend = new TerminalPlatformBackend (new TerminalOptions (), Env ());
-            Assert.Equal (TerminalGraphicsMode.HalfBlock, backend.GraphicsMode);
+            Assert.Equal (TerminalGraphicsMode.Blocks, backend.GraphicsMode);
 
             backend.ApplyProbe (Probe (Attributes ("62;4")));
 
@@ -406,7 +470,7 @@ namespace Majorsilence.Forms.Tests
             // frame in pixel mode must already be at the real size (one full frame, not two).
             var backend = new TerminalPlatformBackend (new TerminalOptions (), Env ());
             backend.Dispatch (new TerminalInput (TerminalInputKind.CellSize, Col: 9, Row: 18));
-            Assert.Equal ((1, 2), backend.CellPixels);   // still half-blocks: unchanged until the probe decides
+            Assert.Equal ((2, 4), backend.CellPixels);   // still blocks: unchanged until the probe decides
 
             backend.ApplyProbe (Probe (Attributes ("62;4")));
 
@@ -542,14 +606,63 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void ATerminalThatDeniesGraphicsDropsAnOptimisticGuessToHalfBlocks ()
+        public void ATerminalThatConfirmsTrueColorGetsItEvenIfItsEnvironmentSaysFewerColours ()
+        {
+            // xterm sets plain TERM=xterm and no COLORTERM, yet keeps 24-bit colour.
+            using var backend = new TerminalPlatformBackend (new TerminalOptions (), Env (("TERM", "xterm-256color")));
+            Assert.Equal (TerminalColorMode.Ansi256, backend.ColorMode);
+
+            backend.ApplyProbe (Probe (Rendition ("0;48:2::1:2:3"), Attributes ("62")));
+
+            Assert.Equal (TerminalColorMode.TrueColor, backend.ColorMode);
+        }
+
+        [Fact]
+        public void AColourModeSetByTheAppIsNeverOverriddenByTheTerminal ()
+        {
+            using var backend = new TerminalPlatformBackend (new TerminalOptions { ColorMode = TerminalColorMode.Ansi16 }, Env ());
+
+            backend.ApplyProbe (Probe (Rendition ("0;48:2::1:2:3"), Attributes ("62")));
+
+            Assert.Equal (TerminalColorMode.Ansi16, backend.ColorMode);
+        }
+
+        [Fact]
+        public void AnUnconfirmedTerminalKeepsTheEnvironmentsColourMode ()
+        {
+            using var backend = new TerminalPlatformBackend (new TerminalOptions (), Env (("TERM", "xterm-256color")));
+
+            backend.ApplyProbe (Probe (Attributes ("62")));
+
+            Assert.Equal (TerminalColorMode.Ansi256, backend.ColorMode);
+        }
+
+        [Fact]
+        public void BlocksModeDrawsAtTwoByFourPixelsPerCell ()
+        {
+            using var backend = new TerminalPlatformBackend (new TerminalOptions { GraphicsMode = TerminalGraphicsMode.Blocks }, Env (), cells: (300, 80));
+
+            Assert.Equal ((2, 4), backend.CellPixels);
+            Assert.Equal (new System.Drawing.Size (600, 320), backend.PixelSize);   // twice the width and height of half-blocks' 300x160
+        }
+
+        [Fact]
+        public void HalfBlockModeStillDrawsAtOneByTwo ()
+        {
+            using var backend = new TerminalPlatformBackend (new TerminalOptions { GraphicsMode = TerminalGraphicsMode.HalfBlock }, Env (), cells: (300, 80));
+
+            Assert.Equal (new System.Drawing.Size (300, 160), backend.PixelSize);
+        }
+
+        [Fact]
+        public void ATerminalThatDeniesGraphicsDropsAnOptimisticGuessToBlocks ()
         {
             var backend = new TerminalPlatformBackend (new TerminalOptions (), Env (("TERM", "foot")));
 
             backend.ApplyProbe (Probe (Attributes ("62;22")));
 
-            Assert.Equal (TerminalGraphicsMode.HalfBlock, backend.GraphicsMode);
-            Assert.Equal ((1, 2), backend.CellPixels);
+            Assert.Equal (TerminalGraphicsMode.Blocks, backend.GraphicsMode);
+            Assert.Equal ((2, 4), backend.CellPixels);
         }
 
         [Fact]

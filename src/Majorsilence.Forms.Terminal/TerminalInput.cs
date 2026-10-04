@@ -27,6 +27,8 @@ namespace Majorsilence.Forms.Terminal
         SixelLimit,
         /// <summary>The terminal answered an XTVERSION query (<c>ESC[&gt;0q</c>); <see cref="TerminalInput.Text"/> is its name and version, e.g. <c>XTerm(407)</c>.</summary>
         TerminalVersion,
+        /// <summary>The terminal answered a DECRQSS query for its graphic rendition; <see cref="TerminalInput.Text"/> is the SGR parameters in force (e.g. <c>0;48:2::1:2:3</c>).</summary>
+        GraphicRendition,
     }
 
     /// <summary>What a key event is. Only the Kitty keyboard protocol reports repeats and releases; a legacy terminal reports presses alone.</summary>

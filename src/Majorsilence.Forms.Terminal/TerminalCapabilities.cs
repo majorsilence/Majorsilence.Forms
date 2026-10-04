@@ -30,6 +30,7 @@ namespace Majorsilence.Forms.Terminal
         public static TerminalGraphicsMode? ExplicitGraphicsMode (Func<string, string?> getEnv)
             => getEnv ("MF_TERMINAL_GRAPHICS")?.Trim ().ToLowerInvariant () switch {
                 "halfblock" => TerminalGraphicsMode.HalfBlock,
+                "blocks" => TerminalGraphicsMode.Blocks,
                 "kitty" => TerminalGraphicsMode.Kitty,
                 "sixel" => TerminalGraphicsMode.Sixel,
                 _ => null,
@@ -48,7 +49,7 @@ namespace Majorsilence.Forms.Terminal
 
             // A multiplexer swallows or mangles graphics escapes unless it is configured to pass them through.
             if (getEnv ("TMUX") is not null || getEnv ("STY") is not null)
-                return TerminalGraphicsMode.HalfBlock;
+                return TerminalGraphicsMode.Blocks;
 
             var term = getEnv ("TERM") ?? string.Empty;
             var program = getEnv ("TERM_PROGRAM") ?? string.Empty;
@@ -66,7 +67,7 @@ namespace Majorsilence.Forms.Terminal
                 || program == "iTerm.app")
                 return TerminalGraphicsMode.Sixel;
 
-            return TerminalGraphicsMode.HalfBlock;
+            return TerminalGraphicsMode.Blocks;
         }
 
         /// <summary>The largest Sixel image <c>MF_TERMINAL_SIXEL_MAX</c> (<c>WxH</c> in pixels) says the terminal draws, or null when unset or malformed.</summary>

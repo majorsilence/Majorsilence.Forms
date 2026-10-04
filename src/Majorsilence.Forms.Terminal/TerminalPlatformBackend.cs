@@ -17,7 +17,8 @@ namespace Majorsilence.Forms.Terminal
     public sealed class TerminalPlatformBackend : IPlatformBackend, IDisposable
     {
         private readonly TerminalOptions _options;
-        private readonly TerminalColorMode _colorMode;
+        private TerminalColorMode _colorMode;
+        private readonly bool _colorFixed;         // set by the app: the terminal's truecolor answer does not override it
         private TerminalGraphicsMode _graphics;
         private readonly bool _modeFixed;          // set by the app or MF_TERMINAL_GRAPHICS: the terminal query does not override it
         private TerminalProbe? _probe;             // non-null until the terminal has answered (or time ran out)
@@ -48,6 +49,7 @@ namespace Majorsilence.Forms.Terminal
         {
             getEnv ??= Environment.GetEnvironmentVariable;
             _options = options;
+            _colorFixed = options.ColorMode.HasValue;
             _colorMode = options.ColorMode ?? TerminalCapabilities.DetectColorMode (getEnv);
             // The environment gives a first guess; once input is running the terminal is asked and answers win
             // (unless the app or MF_TERMINAL_GRAPHICS pinned a mode).
@@ -55,7 +57,7 @@ namespace Majorsilence.Forms.Terminal
             _graphics = options.GraphicsMode ?? TerminalCapabilities.DetectGraphicsMode (getEnv);
             // Half-blocks are 1x2 pixels per cell by construction; a graphics mode learns the real size from
             // the terminal and starts from a common guess.
-            _cellPx = _graphics == TerminalGraphicsMode.HalfBlock ? (1, 2) : (8, 16);
+            _cellPx = FixedCell (_graphics) ?? (8, 16);
             _explicitSixelLimit = options.MaxSixelSize is { } size ? (size.Width, size.Height) : TerminalCapabilities.ExplicitSixelLimit (getEnv);
             _cells = cells ?? TerminalSession.GetSize ();
             LearnCellFromPty ();
@@ -90,12 +92,21 @@ namespace Majorsilence.Forms.Terminal
             }
         }
 
+        // The modes drawn with text glyphs have a cell geometry of their own (a half-block cell is 1x2 pixels, a
+        // block-element cell 2x4); the graphics modes use the terminal's real cell size.
+        private static (int W, int H)? FixedCell (TerminalGraphicsMode mode) => mode switch {
+            TerminalGraphicsMode.HalfBlock => (1, 2),
+            TerminalGraphicsMode.Blocks => (TerminalBlockEncoder.SubWidth, TerminalBlockEncoder.SubHeight),
+            _ => null,
+        };
+
         /// <summary>The size of one character cell in device pixels.</summary>
         internal (int W, int H) CellPixels => _cellPx;
 
         private ITerminalFramePresenter Presenter => _presenter ??= _graphics switch {
             TerminalGraphicsMode.Kitty => new TerminalKittyEncoder (_cells.Cols, _cells.Rows),
             TerminalGraphicsMode.Sixel => new TerminalSixelEncoder (_cellPx.W, _cellPx.H, cellsKnown: _terminalCell.HasValue),
+            TerminalGraphicsMode.Blocks => new TerminalBlockEncoder (_colorMode),
             _ => new TerminalFrameEncoder (_colorMode),
         };
 
@@ -197,7 +208,7 @@ namespace Majorsilence.Forms.Terminal
 
             TerminalTrace.Write ($"cell from pty: {cell.W}x{cell.H}");
             _terminalCell = cell;
-            if (_graphics != TerminalGraphicsMode.HalfBlock)
+            if (FixedCell (_graphics) is null)
                 _cellPx = cell;
         }
 
@@ -218,7 +229,7 @@ namespace Majorsilence.Forms.Terminal
         // Applies the terminal's answers. A terminal that never answered keeps the environment's guess.
         internal void ApplyProbe (TerminalProbe probe)
         {
-            TerminalTrace.Write ($"probe: version={probe.Version} complete={probe.Complete} kittyGraphics={probe.KittyGraphics} sixel={probe.Sixel} kittyKeyboard={probe.KittyKeyboard} pinned={_modeFixed} guess={_graphics}");
+            TerminalTrace.Write ($"probe: trueColor={probe.TrueColor} version={probe.Version} complete={probe.Complete} kittyGraphics={probe.KittyGraphics} sixel={probe.Sixel} kittyKeyboard={probe.KittyKeyboard} pinned={_modeFixed} guess={_graphics}");
             if (!_modeFixed && (probe.Complete || probe.KittyGraphics) && probe.Decide () != _graphics)
                 SwitchMode (probe.Decide ());
 
@@ -235,6 +246,13 @@ namespace Majorsilence.Forms.Terminal
                     ResetScreen ();   // the drawable area just changed
             }
 
+            if (probe.TrueColor && !_colorFixed && _colorMode != TerminalColorMode.TrueColor) {
+                TerminalTrace.Write ($"truecolor confirmed by DECRQSS (was {_colorMode})");
+                _colorMode = TerminalColorMode.TrueColor;
+                _presenter = null;   // rebuilt with the richer palette
+                ResetScreen ();
+            }
+
             if (probe.KittyKeyboard) {
                 KittyKeyboard = true;
                 _session?.EnableKittyKeyboard ();
@@ -247,7 +265,7 @@ namespace Majorsilence.Forms.Terminal
         private void SwitchMode (TerminalGraphicsMode mode)
         {
             _graphics = mode;
-            _cellPx = mode == TerminalGraphicsMode.HalfBlock ? (1, 2) : _terminalCell ?? (_cellPx.H > 2 ? _cellPx : (8, 16));
+            _cellPx = FixedCell (mode) ?? _terminalCell ?? (_cellPx.H > 4 ? _cellPx : (8, 16));
 
             var mousePixels = mode == TerminalGraphicsMode.Kitty;
             _session?.SetMousePixels (mousePixels);
@@ -365,13 +383,14 @@ namespace Majorsilence.Forms.Terminal
                 case TerminalInputKind.GraphicsReply:
                 case TerminalInputKind.SixelLimit:
                 case TerminalInputKind.TerminalVersion:
+                case TerminalInputKind.GraphicRendition:
                 case TerminalInputKind.KeyboardFlags:
                 case TerminalInputKind.DeviceAttributes:
                     _probe?.Observe (e);   // a reply after the probe ended is of no further use
                     break;
                 case TerminalInputKind.CellSize:
                     _terminalCell = (e.Col, e.Row);   // remembered even in half-block mode: a probe may switch us to pixels
-                    if (_graphics != TerminalGraphicsMode.HalfBlock && (e.Col, e.Row) != _cellPx) {
+                    if (FixedCell (_graphics) is null && (e.Col, e.Row) != _cellPx) {
                         _cellPx = (e.Col, e.Row);
                         ResetScreen ();
                     }

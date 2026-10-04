@@ -95,6 +95,9 @@ namespace Majorsilence.Forms.Terminal
                     return true;
                 case (byte) '_':
                     return TryParseApc (s, out consumed, output);
+                case (byte) 'P' when s.Length >= 3 && (s[2] == (byte) '0' || s[2] == (byte) '1'):
+                    // DCS 1 $ r <parameters> m ST: the reply to a DECRQSS query (DCS 0 $ r means "not valid").
+                    return TryParseStatusReply (s, out consumed, output);
                 case (byte) 'P' when s.Length >= 3 && s[2] == (byte) '>':
                     // DCS > | name ST: the reply to XTVERSION. A bare ESC P (or ESC P and any other byte) is
                     // Alt+Shift+P, so only the ">" form is taken as a reply.
@@ -243,6 +246,36 @@ namespace Majorsilence.Forms.Terminal
 
             output.Add (new TerminalInput (TerminalInputKind.GraphicsReply, Text: message, Col: id));
             return true;
+        }
+
+        private static bool TryParseStatusReply (ReadOnlySpan<byte> s, out int consumed, List<TerminalInput> output)
+        {
+            consumed = s.Length;
+            if (s.Length < 4)
+                return false;
+            if (s[3] != (byte) '$' || (s.Length >= 5 && s[4] != (byte) 'r')) {
+                // ESC P then a digit that is not a status reply: Alt+Shift+P and a typed digit.
+                consumed = 2;
+                output.Add (new TerminalInput (TerminalInputKind.Key, Keys.P | Keys.Shift | Keys.Alt));
+                return true;
+            }
+            if (s.Length < 5)
+                return false;
+
+            for (var i = 5; i < s.Length; i++) {
+                var bel = s[i] == 0x07;
+                if (bel || (s[i] == Esc && i + 1 < s.Length && s[i + 1] == (byte) '\\')) {
+                    consumed = i + (bel ? 1 : 2);
+                    if (s[2] == (byte) '1') {
+                        // The text between "r" and the final "m" is the SGR parameter list.
+                        var body = Encoding.ASCII.GetString (s.Slice (5, i - 5));
+                        output.Add (new TerminalInput (TerminalInputKind.GraphicRendition, Text: body.EndsWith ('m') ? body[..^1] : body));
+                    }
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool TryParseVersion (ReadOnlySpan<byte> s, out int consumed, List<TerminalInput> output)

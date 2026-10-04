@@ -111,85 +111,11 @@ namespace Majorsilence.Forms.Terminal
             return Quantize (bgra[o + 2], bgra[o + 1], bgra[o]);
         }
 
-        private uint Quantize (byte r, byte g, byte b) => _mode switch {
-            TerminalColorMode.TrueColor => (uint) (r << 16 | g << 8 | b),
-            TerminalColorMode.Ansi256 => (uint) Palette.To256 (r, g, b),
-            _ => (uint) Palette.To16 (r, g, b),
-        };
+        private uint Quantize (byte r, byte g, byte b) => TerminalColors.Quantize (_mode, r, g, b);
 
         private void WriteColor (IBufferWriter<byte> output, uint key, bool background)
-        {
-            switch (_mode) {
-                case TerminalColorMode.TrueColor:
-                    Write (output, $"\u001b[{(background ? 48 : 38)};2;{key >> 16 & 0xFF};{key >> 8 & 0xFF};{key & 0xFF}m");
-                    break;
-                case TerminalColorMode.Ansi256:
-                    Write (output, $"\u001b[{(background ? 48 : 38)};5;{key}m");
-                    break;
-                default:
-                    // 0-7 are 30-37 / 40-47; 8-15 are the bright 90-97 / 100-107.
-                    var code = key < 8 ? (background ? 40 : 30) + key : (background ? 100 : 90) + (key - 8);
-                    Write (output, $"\u001b[{code}m");
-                    break;
-            }
-        }
+            => TerminalColors.WriteColor (output, _mode, key, background);
 
-        private static void Write (IBufferWriter<byte> output, string text)
-        {
-            var max = System.Text.Encoding.ASCII.GetMaxByteCount (text.Length);
-            var span = output.GetSpan (max);
-            output.Advance (System.Text.Encoding.ASCII.GetBytes (text, span));
-        }
-
-        // The xterm palettes. 16 colours use the VGA values; the 256 palette is the 6x6x6 cube plus the
-        // 24-step grey ramp, whichever is closer.
-        private static class Palette
-        {
-            private static readonly (int R, int G, int B)[] Vga = {
-                (0, 0, 0), (170, 0, 0), (0, 170, 0), (170, 85, 0), (0, 0, 170), (170, 0, 170), (0, 170, 170), (170, 170, 170),
-                (85, 85, 85), (255, 85, 85), (85, 255, 85), (255, 255, 85), (85, 85, 255), (255, 85, 255), (85, 255, 255), (255, 255, 255),
-            };
-
-            private static readonly int[] CubeLevels = { 0, 95, 135, 175, 215, 255 };
-
-            public static int To16 (int r, int g, int b)
-            {
-                var best = 0;
-                var bestD = int.MaxValue;
-                for (var i = 0; i < Vga.Length; i++) {
-                    var d = Dist (r, g, b, Vga[i].R, Vga[i].G, Vga[i].B);
-                    if (d < bestD) {
-                        bestD = d;
-                        best = i;
-                    }
-                }
-                return best;
-            }
-
-            public static int To256 (int r, int g, int b)
-            {
-                int ri = Nearest (r), gi = Nearest (g), bi = Nearest (b);
-                var cube = Dist (r, g, b, CubeLevels[ri], CubeLevels[gi], CubeLevels[bi]);
-
-                var avg = (r + g + b) / 3;
-                var grey = Math.Clamp ((avg - 8 + 5) / 10, 0, 23);
-                var greyV = 8 + grey * 10;
-                return Dist (r, g, b, greyV, greyV, greyV) < cube
-                    ? 232 + grey
-                    : 16 + 36 * ri + 6 * gi + bi;
-            }
-
-            private static int Nearest (int v)
-            {
-                var best = 0;
-                for (var i = 1; i < CubeLevels.Length; i++)
-                    if (Math.Abs (CubeLevels[i] - v) < Math.Abs (CubeLevels[best] - v))
-                        best = i;
-                return best;
-            }
-
-            private static int Dist (int r1, int g1, int b1, int r2, int g2, int b2)
-                => (r1 - r2) * (r1 - r2) + (g1 - g2) * (g1 - g2) + (b1 - b2) * (b1 - b2);
-        }
+        private static void Write (IBufferWriter<byte> output, string text) => TerminalColors.Write (output, text);
     }
 }
