@@ -34,10 +34,21 @@ namespace Majorsilence.Forms.Tests
             Assert.True (backend.CreateWindow (null!, isPopup: true).IsSingleView);
         }
 
+        // macOS draws the caption natively (the form's own title bar is hidden there, whatever the backend) unless
+        // MF_FORCE_CUSTOM_CHROME=1 -- the same condition Form's constructor and FormChromeTests use. CI runs the suite in
+        // both shapes, so the custom-chrome one is where these tests mean something.
+        private static bool CustomChrome
+            => !OperatingSystem.IsMacOS () || Environment.GetEnvironmentVariable ("MF_FORCE_CUSTOM_CHROME") == "1";
+
         [Fact]
         public void AFormOnAWindowedBackendHasATitleBar ()
         {
-            // The control: without this the test below could pass because nothing ever shows a title bar.
+            // The control: without this the test below could pass because nothing ever shows a title bar. With
+            // the native macOS caption nothing is observable here, so it is skipped there (the forced
+            // custom-chrome run still covers it).
+            if (!CustomChrome)
+                return;
+
             using var form = new Form ();
             form.Show ();
 
