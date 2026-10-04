@@ -49,6 +49,11 @@ namespace Majorsilence.Forms.Terminal
         }
 
         public Size ClientSize => Size;
+
+        // The terminal is the window: nothing to caption, move, minimise or close, and the form fills the
+        // whole screen, like a phone. The core reads this to drop the form's own title bar (and whatever else
+        // it comes to key off a single-view host).
+        public bool IsSingleView => true;
         public double Scaling => _backend.Scaling;
 
         private Size LogicalFullScreen ()

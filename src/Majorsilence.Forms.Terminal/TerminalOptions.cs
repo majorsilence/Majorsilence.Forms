@@ -11,10 +11,10 @@ namespace Majorsilence.Forms.Terminal
 
         /// <summary>
         /// Gets or sets how frames reach the terminal, or <c>null</c> (the default) to find out: the terminal is
-        /// asked what it supports (Kitty graphics, then Sixel, else half-blocks), with the environment's guess
+        /// asked what it supports (Kitty graphics, then Sixel, else block elements), with the environment's guess
         /// (<c>TERM</c>, <c>TERM_PROGRAM</c>, half-blocks inside tmux or screen) used until it answers and when
         /// there is no input to read an answer from. A mode set here, or by the <c>MF_TERMINAL_GRAPHICS</c>
-        /// environment variable (<c>halfblock</c>, <c>kitty</c>, <c>sixel</c>), is used as given and never
+        /// environment variable (<c>halfblock</c>, <c>blocks</c>, <c>kitty</c>, <c>sixel</c>), is used as given and never
         /// overridden by the terminal's answer.
         /// </summary>
         public TerminalGraphicsMode? GraphicsMode { get; set; }
@@ -27,6 +27,14 @@ namespace Majorsilence.Forms.Terminal
         /// text stays legible only if the terminal is large. Default 1.
         /// </summary>
         public double Scaling { get; set; } = 1.0;
+
+        /// <summary>
+        /// Gets or sets the largest Sixel image, in pixels, the terminal will draw, or <c>null</c> (the default) to
+        /// use what the terminal says. xterm cuts images off at 1000x1000 unless its <c>maxGraphicsSize</c>
+        /// resource is raised, and does not report the limit, so an xterm that identifies itself is assumed to have
+        /// the default; set this (or <c>MF_TERMINAL_SIXEL_MAX=WxH</c>) to say otherwise.
+        /// </summary>
+        public System.Drawing.Size? MaxSixelSize { get; set; }
 
         /// <summary>Gets or sets whether to switch to the alternate screen, so the shell's scrollback is restored on exit. Default true.</summary>
         public bool UseAlternateScreen { get; set; } = true;

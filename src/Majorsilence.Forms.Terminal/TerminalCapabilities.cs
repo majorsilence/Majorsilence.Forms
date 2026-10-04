@@ -30,6 +30,7 @@ namespace Majorsilence.Forms.Terminal
         public static TerminalGraphicsMode? ExplicitGraphicsMode (Func<string, string?> getEnv)
             => getEnv ("MF_TERMINAL_GRAPHICS")?.Trim ().ToLowerInvariant () switch {
                 "halfblock" => TerminalGraphicsMode.HalfBlock,
+                "blocks" => TerminalGraphicsMode.Blocks,
                 "kitty" => TerminalGraphicsMode.Kitty,
                 "sixel" => TerminalGraphicsMode.Sixel,
                 _ => null,
@@ -48,7 +49,7 @@ namespace Majorsilence.Forms.Terminal
 
             // A multiplexer swallows or mangles graphics escapes unless it is configured to pass them through.
             if (getEnv ("TMUX") is not null || getEnv ("STY") is not null)
-                return TerminalGraphicsMode.HalfBlock;
+                return TerminalGraphicsMode.Blocks;
 
             var term = getEnv ("TERM") ?? string.Empty;
             var program = getEnv ("TERM_PROGRAM") ?? string.Empty;
@@ -66,7 +67,19 @@ namespace Majorsilence.Forms.Terminal
                 || program == "iTerm.app")
                 return TerminalGraphicsMode.Sixel;
 
-            return TerminalGraphicsMode.HalfBlock;
+            return TerminalGraphicsMode.Blocks;
         }
+
+        /// <summary>The largest Sixel image <c>MF_TERMINAL_SIXEL_MAX</c> (<c>WxH</c> in pixels) says the terminal draws, or null when unset or malformed.</summary>
+        public static (int W, int H)? ExplicitSixelLimit (Func<string, string?> getEnv)
+        {
+            var parts = getEnv ("MF_TERMINAL_SIXEL_MAX")?.Trim ().Split ('x', 'X');
+            return parts is { Length: 2 } && int.TryParse (parts[0], out var w) && int.TryParse (parts[1], out var h) && w > 0 && h > 0
+                ? (w, h)
+                : null;
+        }
+
+        /// <summary>xterm's default <c>maxGraphicsSize</c>, which it applies silently by cutting the image off.</summary>
+        internal static readonly (int W, int H) XTermDefaultSixelLimit = (1000, 1000);
     }
 }

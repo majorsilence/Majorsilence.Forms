@@ -95,6 +95,13 @@ namespace Majorsilence.Forms.Terminal
                     return true;
                 case (byte) '_':
                     return TryParseApc (s, out consumed, output);
+                case (byte) 'P' when s.Length >= 3 && (s[2] == (byte) '0' || s[2] == (byte) '1'):
+                    // DCS 1 $ r <parameters> m ST: the reply to a DECRQSS query (DCS 0 $ r means "not valid").
+                    return TryParseStatusReply (s, out consumed, output);
+                case (byte) 'P' when s.Length >= 3 && s[2] == (byte) '>':
+                    // DCS > | name ST: the reply to XTVERSION. A bare ESC P (or ESC P and any other byte) is
+                    // Alt+Shift+P, so only the ">" form is taken as a reply.
+                    return TryParseVersion (s, out consumed, output);
                 case Esc:
                     // ESC ESC: the first is the Escape key; the next starts its own sequence.
                     output.Add (new TerminalInput (TerminalInputKind.Key, Keys.Escape));
@@ -149,6 +156,12 @@ namespace Majorsilence.Forms.Terminal
                     output.Add (new TerminalInput (TerminalInputKind.DeviceAttributes, Text: parameters[1..]));
                 else if (final == 'u' && int.TryParse (parameters.AsSpan (1), out var flags))
                     output.Add (new TerminalInput (TerminalInputKind.KeyboardFlags, Col: flags));
+                else if (final == 'S') {
+                    // XTSMGRAPHICS reply: ?<item>;<status>;<value...>S. Item 2 is the Sixel geometry, status 0 success.
+                    var reply = ParseNumbers (parameters[1..]);
+                    if (reply.Count >= 4 && reply[0] == 2 && reply[1] == 0 && reply[2] > 0 && reply[3] > 0)
+                        output.Add (new TerminalInput (TerminalInputKind.SixelLimit, Col: reply[2], Row: reply[3]));
+                }
                 return true;
             }
 
@@ -233,6 +246,60 @@ namespace Majorsilence.Forms.Terminal
 
             output.Add (new TerminalInput (TerminalInputKind.GraphicsReply, Text: message, Col: id));
             return true;
+        }
+
+        private static bool TryParseStatusReply (ReadOnlySpan<byte> s, out int consumed, List<TerminalInput> output)
+        {
+            consumed = s.Length;
+            if (s.Length < 4)
+                return false;
+            if (s[3] != (byte) '$' || (s.Length >= 5 && s[4] != (byte) 'r')) {
+                // ESC P then a digit that is not a status reply: Alt+Shift+P and a typed digit.
+                consumed = 2;
+                output.Add (new TerminalInput (TerminalInputKind.Key, Keys.P | Keys.Shift | Keys.Alt));
+                return true;
+            }
+            if (s.Length < 5)
+                return false;
+
+            for (var i = 5; i < s.Length; i++) {
+                var bel = s[i] == 0x07;
+                if (bel || (s[i] == Esc && i + 1 < s.Length && s[i + 1] == (byte) '\\')) {
+                    consumed = i + (bel ? 1 : 2);
+                    if (s[2] == (byte) '1') {
+                        // The text between "r" and the final "m" is the SGR parameter list.
+                        var body = Encoding.ASCII.GetString (s.Slice (5, i - 5));
+                        output.Add (new TerminalInput (TerminalInputKind.GraphicRendition, Text: body.EndsWith ('m') ? body[..^1] : body));
+                    }
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryParseVersion (ReadOnlySpan<byte> s, out int consumed, List<TerminalInput> output)
+        {
+            consumed = s.Length;
+            if (s.Length < 4)
+                return false;
+            if (s[3] != (byte) '|') {
+                // ESC P > then something else: not a version reply, so it is Alt+Shift+P (the '>' is left to be typed).
+                consumed = 2;
+                output.Add (new TerminalInput (TerminalInputKind.Key, Keys.P | Keys.Shift | Keys.Alt));
+                return true;
+            }
+
+            for (var i = 4; i < s.Length; i++) {
+                var bel = s[i] == 0x07;
+                if (bel || (s[i] == Esc && i + 1 < s.Length && s[i + 1] == (byte) '\\')) {
+                    consumed = i + (bel ? 1 : 2);
+                    output.Add (new TerminalInput (TerminalInputKind.TerminalVersion, Text: Encoding.ASCII.GetString (s.Slice (4, i - 4))));
+                    return true;
+                }
+            }
+
+            return false;   // keep buffering until the terminator arrives
         }
 
         private static void ParseKittyKey (List<int[]> groups, List<TerminalInput> output)
