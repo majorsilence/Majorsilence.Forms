@@ -1,3 +1,4 @@
+using System;
 using System.Drawing;
 using Majorsilence.Forms.Headless;
 using Xunit;
@@ -41,15 +42,53 @@ namespace Majorsilence.Forms.Tests
                 var x = form.ClientSize.Width / 456f;
                 var y = form.ClientSize.Height / 374f;
 
-                // 11pt against 8.25pt is about 4:3, plus the 8% upstream adds; the exact figure depends
-                // on the face the machine resolves, so the range is generous.
-                Assert.InRange (x, 1.2f, 1.6f);
-                Assert.InRange (y, 1.2f, 1.6f);
+                // The factors are not a fixed number: they come from the face the machine resolves. Each axis
+                // is the form font's average character size over the recorded one, as whole pixels, plus the
+                // 8% upstream adds to a ratio clearly above 1. Linux CI's face rounds an average character to
+                // 8px against 7px elsewhere, which moves the width factor from 1.48 to 1.68 (a fixed range
+                // failed there), so the expectation is worked out from the font and not assumed.
+
+                // Height: the font's line height over the recorded 13.
+                var expectedY = (form.Font ?? Control.DefaultFont).Height / 13f + 0.08f;
+                Assert.InRange (y, expectedY - 0.02f, expectedY + 0.02f);
+
+                // Width: a whole number of pixels over the recorded 5, plus the 8%. Which whole number is the
+                // face's business; that it is one, and that the dialog clearly grew, is the behaviour.
+                var pixels = (x - 0.08f) * 5f;
+                Assert.InRange (Math.Abs (pixels - MathF.Round (pixels)), 0f, 0.05f);
+                Assert.InRange (x, 1.2f, 2.0f);
 
                 // The children move and grow with it.
                 Assert.InRange (button.Left / 100f, x - 0.02f, x + 0.02f);
                 Assert.InRange (button.Width / 75f, x - 0.03f, x + 0.03f);
             }
+        }
+
+        [Fact]
+        public void A_larger_font_scales_the_dialog_more ()
+        {
+            // The ratio is to the form font's own size, so for any face a bigger font gives a bigger dialog.
+            // This holds whatever the machine's metrics are, unlike a fixed expected factor.
+            HeadlessRenderer.Use ();
+
+            Size Scaled (float points)
+            {
+                var form = new Form {
+                    FormBorderStyle = FormBorderStyle.None,
+                    ClientSize = new Size (456, 374),
+                    Font = new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, points),
+                };
+                form.AutoScaleBaseSize = new Size (5, 13);
+                form.Show ();
+                using (form)
+                    return form.ClientSize;
+            }
+
+            var small = Scaled (9f);
+            var large = Scaled (14f);
+
+            Assert.True (large.Width > small.Width, $"{large.Width} should exceed {small.Width}");
+            Assert.True (large.Height > small.Height, $"{large.Height} should exceed {small.Height}");
         }
 
         [Fact]
