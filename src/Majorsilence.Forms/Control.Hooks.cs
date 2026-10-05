@@ -370,6 +370,12 @@ public partial class Control
 
     #region Scaling
 
+    // Upstream sets ControlStyles.FixedWidth/FixedHeight on these types as their state changes (a
+    // combo box unless it is Simple, a single-line text box, an AutoSize strip); answering from the
+    // current state here gives scaling the same answer without tracking every change.
+    internal virtual bool IsFixedWidthForScaling => false;
+    internal virtual bool IsFixedHeightForScaling => false;
+
     /// <summary>
     /// Scales this control -- its bounds, and everything else measured in the same pixels -- by the
     /// given factor. Only the bounds components named by <paramref name="specified"/> are scaled.
@@ -400,11 +406,32 @@ public partial class Control
         MinimumSize = Size.Empty;
         MaximumSize = Size.Empty;
 
+        // A control whose size along an axis comes from its content keeps it, as upstream's
+        // GetScaledBounds does for ControlStyles.FixedWidth/FixedHeight: a combo box or single-line
+        // text box is as tall as its font makes it. Scaled anyway, a legacy dialog's combo boxes came
+        // out a third taller than under WinForms. Applied here rather than in GetScaledBounds because
+        // that method also maps bounds to device pixels, where every dimension must scale.
+        if (GetStyle (ControlStyles.FixedWidth) || IsFixedWidthForScaling)
+            specified &= ~BoundsSpecified.Width;
+        if (GetStyle (ControlStyles.FixedHeight) || IsFixedHeightForScaling)
+            specified &= ~BoundsSpecified.Height;
+
         var scaled = GetScaledBounds (Bounds, factor, specified);
 
         // Padding and Margin live in the same pixel space as Bounds, so they move with them.
         Padding = ScalePadding (Padding, factor);
         Margin = ScalePadding (Margin, factor);
+
+        // Anchored children hold their distances to each edge in recorded anchor info. Scaling the
+        // bounds without scaling that leaves them snapping back to 96-DPI distances -- which is why
+        // DefaultLayout.ScaleAnchorInfo exists upstream, and why it had no caller here.
+        //
+        // Before SetBounds, not after: SetBounds re-records the anchor info of an element that needs
+        // anchor layout (any AutoSize control) from the bounds it is given, which are already scaled.
+        // Scaling the recorded info afterwards scaled those distances a second time, so every AutoSize
+        // check box and radio button in a legacy dialog's group box landed at about 1.64x its position
+        // under a 1.28x scale. Upstream sidesteps it by setting the bounds through SetBoundsCore.
+        Majorsilence.Forms.Layout.DefaultLayout.ScaleAnchorInfo (this, factor);
 
         SetBounds (scaled.X, scaled.Y, scaled.Width, scaled.Height, BoundsSpecified.All);
 
@@ -413,11 +440,6 @@ public partial class Control
 
         if (!max.IsEmpty)
             MaximumSize = ScaleSize (max, factor);
-
-        // Anchored children hold their distances to each edge in recorded anchor info. Scaling the
-        // bounds without scaling that leaves them snapping back to 96-DPI distances -- which is why
-        // DefaultLayout.ScaleAnchorInfo exists upstream, and why it had no caller here.
-        Majorsilence.Forms.Layout.DefaultLayout.ScaleAnchorInfo (this, factor);
     }
 
     private static Padding ScalePadding (Padding padding, SizeF factor)

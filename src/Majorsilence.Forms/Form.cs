@@ -1335,6 +1335,14 @@ namespace Majorsilence.Forms
             if (!AutoScaleEngine.TryGetFactor (AutoScaleMode, AutoScaleDimensions, current, out var factor))
                 return;
 
+            ScaleClientAndChildren (factor);
+
+            AutoScaleDimensions = current;
+        }
+
+        // Scales the explicit children and the client area by factor, as one layout change.
+        private void ScaleClientAndChildren (System.Drawing.SizeF factor)
+        {
             var root = ContentRoot;
 
             root.SuspendLayout ();
@@ -1356,8 +1364,6 @@ namespace Majorsilence.Forms
             } finally {
                 root.ResumeLayout ();
             }
-
-            AutoScaleDimensions = current;
         }
 
         /// <inheritdoc/>
@@ -1368,6 +1374,8 @@ namespace Majorsilence.Forms
             // Before the backend window opens, which is both faithful and necessary. Upstream scales on
             // the form's first layout, ahead of any handler that measures anything; here it also has to
             // precede Backend.Show () because the window takes its size from the form as it opens.
+            // The legacy scale first, as upstream applies it in OnLoad ahead of anything else.
+            ApplyLegacyAutoScaling ();
             PerformAutoScale ();
         }
 
@@ -1826,8 +1834,82 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets or sets the base size used for autoscaling. Legacy WinForms designer property; stored no-op.</summary>
-        public System.Drawing.Size AutoScaleBaseSize { get; set; }
+        private System.Drawing.Size auto_scale_base_size;
+        private bool legacy_auto_scale_pending;
+
+        /// <summary>Gets or sets the base size used for autoscaling.</summary>
+        /// <remarks>
+        /// The .NET 1.x designer's scaling, still honoured by WinForms: assigning it arms a one-time
+        /// scale before the form is first shown, by the ratio of the form font's average character size
+        /// (measured as WinForms measures it) to this one, as upstream's <c>ApplyAutoScaling</c> does.
+        /// It was stored and ignored, so a dialog designed against an older, smaller font opened at its
+        /// recorded size here and about 30% larger under WinForms -- ReportDesigner's data source,
+        /// data set and other legacy dialogs among them.
+        /// </remarks>
+        public System.Drawing.Size AutoScaleBaseSize {
+            get => auto_scale_base_size;
+            set {
+                auto_scale_base_size = value;
+                legacy_auto_scale_pending = true;
+            }
+        }
+
+        // Upstream's ApplyAutoScaling: scales once, to the font's average character size over the
+        // recorded one, and records the new size so a second call does nothing.
+        private void ApplyLegacyAutoScaling ()
+        {
+            if (!legacy_auto_scale_pending)
+                return;
+
+            legacy_auto_scale_pending = false;
+
+            var recorded = auto_scale_base_size;
+
+            if (recorded.Width <= 0 || recorded.Height <= 0)
+                return;
+
+            // A form with no font of its own draws with the default one, which is what WinForms
+            // measures too (Form.Font falls back to Control.DefaultFont there).
+            var measured = LegacyAutoScaleSize (Font ?? DefaultFont);
+            var current = new System.Drawing.Size ((int)Math.Round (measured.Width), (int)Math.Round (measured.Height));
+
+            if (current == recorded)
+                return;
+
+            ScaleClientAndChildren (new System.Drawing.SizeF (
+                AdjustLegacyScale (current.Width / (float)recorded.Width),
+                AdjustLegacyScale (current.Height / (float)recorded.Height)));
+
+            auto_scale_base_size = current;
+        }
+
+        // Upstream's AdjustScale, kept for the sizes it produces: a ratio clearly above or below 1 is
+        // pushed a further 8% the same way, and one just under 1 is treated as 1.
+        private static float AdjustLegacyScale (float scale)
+        {
+            if (scale < .92f)
+                return scale + .08f;
+            if (scale < 1)
+                return 1;
+            if (scale > 1.01f)
+                return scale + .08f;
+            return scale;
+        }
+
+        // The average character size the legacy designer recorded in AutoScaleBaseSize, measured the way
+        // upstream's GetAutoScaleSize does: GDI+ MeasureString of a fixed sentence (which includes a sixth
+        // of an em of padding on each side) over a fixed divisor, and the font's line height. A different
+        // reference string would not reproduce the recorded numbers, and so not the ratio WinForms uses.
+        private static System.Drawing.SizeF LegacyAutoScaleSize (Majorsilence.Forms.Drawing.Font font)
+        {
+            const string Reference = "The quick brown fox jumped over the lazy dog.";
+            const double Divisor = 44.549996948242189;
+
+            var pixels = font.PixelSize;
+            var measured = TextMeasurer.MeasureText (Reference, TypefaceCache.Resolve (font), (int)Math.Round (pixels));
+
+            return new System.Drawing.SizeF ((float)((measured.Width + pixels / 3f) / Divisor), font.Height);
+        }
 
         /// <summary>
         /// Gets the Win32 creation parameters. WinForms compatibility for the classic
