@@ -2213,7 +2213,37 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>Draws a string with the given Majorsilence.Forms.Drawing.Font and Brush.</summary>
+        /// <remarks>As in GDI+, the text starts a sixth of an em right of <paramref name="x"/> (see LeadingPadding).</remarks>
         public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, float x, float y)
+            => DrawStringAt (text, font, brush, x + LeadingPadding (font, null), y);
+
+        // GDI+ insets the layout of every DrawString by a sixth of an em on each side, unless the format
+        // is GenericTypographic. Without it text sat flush against whatever box it was drawn in -- every
+        // report cell and design-surface text box drew 2px (at 10pt) further left than System.Drawing,
+        // touching the cell's left border. TextRenderer (GDI rules, its own padding flags) and the
+        // renderers draw through DrawTextBlock/DrawStringClipped/DrawStringAt, which add none.
+        private float LeadingPadding (Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.StringFormat? format)
+            => IsTypographic (format) ? 0f : FontUnits (font) / 6f;
+
+        private const Majorsilence.Forms.Drawing.StringFormatFlags TypographicFlags =
+            Majorsilence.Forms.Drawing.StringFormatFlags.FitBlackBox
+            | Majorsilence.Forms.Drawing.StringFormatFlags.LineLimit
+            | Majorsilence.Forms.Drawing.StringFormatFlags.NoClip;
+
+        private static bool IsTypographic (Majorsilence.Forms.Drawing.StringFormat? format)
+            => format is { Trimming: Majorsilence.Forms.Drawing.StringTrimming.None }
+               && (format.FormatFlags & TypographicFlags) == TypographicFlags;
+
+        // The layout box GDI+ actually lays text out in: the caller's, less the leading padding on each side.
+        private RectangleF PaddedLayout (RectangleF bounds, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.StringFormat? format)
+        {
+            var pad = LeadingPadding (font, format);
+
+            return pad <= 0 ? bounds : new RectangleF (bounds.X + pad, bounds.Y, Math.Max (0, bounds.Width - 2 * pad), bounds.Height);
+        }
+
+        // DrawString (x, y) without the leading padding: (x, y) is where the text itself starts.
+        private void DrawStringAt (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, float x, float y)
         {
             if (_canvas is null || string.IsNullOrEmpty (text)) return;
 
@@ -2281,19 +2311,21 @@ namespace Majorsilence.Forms.Drawing
         {
             if (_canvas is null || string.IsNullOrEmpty (text)) return;
 
+            var layout = PaddedLayout (bounds, font, null);
+
             // The canvas extension lays out to the rectangle's width and clips to it, which is exactly
             // the contract here. Solid brushes only, matching the point overload: a gradient or texture
             // brush has no single colour to hand RichTextKit and keeps the direct path below.
             if (brush is Majorsilence.Forms.Drawing.SolidBrush solid) {
                 _canvas.DrawText (text, font.GetSKTypeface (), (int)System.Math.Round (FontUnits (font)),
-                    Rectangle.Round (bounds), solid.Color.ToSKColor (), ContentAlignment.TopLeft);
+                    Rectangle.Round (layout), solid.Color.ToSKColor (), ContentAlignment.TopLeft);
 
                 return;
             }
 
             _canvas.Save ();
             _canvas.ClipRect (new SKRect (bounds.Left, bounds.Top, bounds.Right, bounds.Bottom));
-            DrawString (text, font, brush, bounds.Left, bounds.Top);
+            DrawStringAt (text, font, brush, layout.Left, layout.Top);
             _canvas.Restore ();
         }
 
@@ -2331,8 +2363,11 @@ namespace Majorsilence.Forms.Drawing
             // fit on one line takes the wrapping path, so a single line keeps the exact placement below.
             // A matrix column header in a report preview ("Clothing = 15316") was clipped to one line
             // where System.Drawing broke it onto two.
-            if (WrapsInBounds (display, font, brush, bounds, format, mnemonic) is { } solid) {
-                DrawTextBlock (display, font, solid.Color, Rectangle.Round (bounds),
+            // Laid out in the padded box, clipped to the caller's, as GDI+ does.
+            var layout = PaddedLayout (bounds, font, format);
+
+            if (WrapsInBounds (display, font, brush, layout, format, mnemonic) is { } solid) {
+                DrawTextBlock (display, font, solid.Color, Rectangle.Round (layout),
                     ToContentAlignment (format.Alignment, format.LineAlignment), maxLines: null, ellipsis: false);
                 return;
             }
@@ -2340,7 +2375,7 @@ namespace Majorsilence.Forms.Drawing
             // Measured on the DISPLAY text: sizing on the raw string would offset centred text by the
             // width of an ampersand that never appears.
             var origin = AlignTextInBounds (
-                display, font, bounds,
+                display, font, layout,
                 ToOffsetFactor (format.Alignment),
                 ToOffsetFactor (format.LineAlignment));
 
@@ -2389,7 +2424,7 @@ namespace Majorsilence.Forms.Drawing
             _canvas.Save ();
             _canvas.ClipRect (new SKRect (bounds.Left, bounds.Top, bounds.Right, bounds.Bottom));
             _canvas.RotateDegrees (90, pivotX, pivotY);
-            DrawString (display, font, brush, pivotX, pivotY);
+            DrawStringAt (display, font, brush, pivotX, pivotY);
             _canvas.Restore ();
         }
 
@@ -2513,14 +2548,14 @@ namespace Majorsilence.Forms.Drawing
             if (_canvas is null || string.IsNullOrEmpty (text)) return;
 
             if (clip is null) {
-                DrawString (text, font, brush, origin.X, origin.Y);
+                DrawStringAt (text, font, brush, origin.X, origin.Y);
                 return;
             }
 
             var rect = clip.Value;
             _canvas.Save ();
             _canvas.ClipRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom));
-            DrawString (text, font, brush, origin.X, origin.Y);
+            DrawStringAt (text, font, brush, origin.X, origin.Y);
             _canvas.Restore ();
         }
 
@@ -2530,11 +2565,11 @@ namespace Majorsilence.Forms.Drawing
 
         /// <summary>Draws a string at the given PointF (StringFormat is ignored).</summary>
         public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, PointF point, Majorsilence.Forms.Drawing.StringFormat? format)
-            => DrawString (text, font, brush, point.X, point.Y);
+            => DrawStringAt (text, font, brush, point.X + LeadingPadding (font, format), point.Y);
 
         /// <summary>Draws a string at the given float coordinates (StringFormat is ignored).</summary>
         public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, float x, float y, Majorsilence.Forms.Drawing.StringFormat? format)
-            => DrawString (text, font, brush, x, y);
+            => DrawStringAt (text, font, brush, x + LeadingPadding (font, format), y);
 
         // The SKBitmap/SKColor overloads below (through DrawImage(SKBitmap, float, float, float, float))
         // are Skia-native convenience helpers, not part of the GDI+ surface real WinForms code calls by

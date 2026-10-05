@@ -83,7 +83,11 @@ public class TextMeasurementParityTests
         using var brush = new Majorsilence.Forms.Drawing.SolidBrush (Color.Black);
 
         graphics.Clear (Color.White);
-        graphics.DrawString (Text, font, brush, 0, 0);
+
+        // Drawn as it was measured -- TextRenderer, NoPadding. Graphics.DrawString is GDI+ and insets the
+        // text by a sixth of an em, as System.Drawing does, so pairing it with a GDI measurement would
+        // fail on Windows too.
+        TextRenderer.DrawText (graphics, Text, font, Point.Empty, Color.Black, TextFormatFlags.NoPadding);
 
         var inkRight = RightmostInk (bitmap);
 

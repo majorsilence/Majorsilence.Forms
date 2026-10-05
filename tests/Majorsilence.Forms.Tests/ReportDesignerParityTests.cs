@@ -293,6 +293,34 @@ namespace Majorsilence.Forms.Tests
             Assert.True (upper > 0 && upper > lower * 2, $"upper half {upper}, lower half {lower}");
         }
 
+        [Fact]
+        public void DrawString_insets_the_text_a_sixth_of_an_em_unless_the_format_is_typographic ()
+        {
+            // GDI+ lays every DrawString out a sixth of an em in from the box; without it report cells
+            // and design-surface text sat flush against their left border. GenericTypographic has none.
+            int FirstInkColumn (Majorsilence.Forms.Drawing.StringFormat format)
+            {
+                using var bitmap = new SKBitmap (300, 60);
+                using var canvas = new SKCanvas (bitmap);
+                bitmap.Erase (SKColors.White);
+
+                using var font = new Majorsilence.Forms.Drawing.Font ("Arial", 30f);   // 40px em: a 6.7px inset
+                new Graphics (canvas).DrawString ("IIII", font, new Majorsilence.Forms.Drawing.SolidBrush (Color.Black), new RectangleF (20, 0, 260, 60), format);
+
+                for (var x = 0; x < bitmap.Width; x++)
+                    for (var y = 0; y < bitmap.Height; y++)
+                        if (bitmap.GetPixel (x, y).Red < 128)
+                            return x;
+
+                return -1;
+            }
+
+            var padded = FirstInkColumn (new Majorsilence.Forms.Drawing.StringFormat ());
+            var typographic = FirstInkColumn (Majorsilence.Forms.Drawing.StringFormat.GenericTypographic);
+
+            Assert.InRange (padded - typographic, 5, 8);
+        }
+
         // ── Tab headers ──────────────────────────────────────────────────────────
 
         [Fact]
