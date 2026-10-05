@@ -2351,20 +2351,19 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>
-        /// Draws <paramref name="text"/> rotated -90 degrees (counter-clockwise) to fill a tall,
-        /// narrow <paramref name="bounds"/> -- what RDL's <c>WritingMode="tb-rl"</c> calls for on
-        /// axis and category titles.
+        /// Draws <paramref name="text"/> rotated 90 degrees clockwise, reading top to bottom, to fill
+        /// a tall, narrow <paramref name="bounds"/> -- what GDI+ does with
+        /// <see cref="Majorsilence.Forms.Drawing.StringFormatFlags.DirectionVertical"/>, and what RDL's
+        /// <c>WritingMode="tb-rl"</c> calls for on axis and category titles.
         /// </summary>
         /// <remarks>
-        /// This rotates the whole run as one line, the way SSRS and every chart library render a
-        /// sideways axis title (read by tilting your head left) -- not the glyph-by-glyph vertical
-        /// stacking real CJK typesetting uses, which is what plain <c>StringFormatFlags.DirectionVertical</c>
-        /// means on Windows GDI+. RDL only ever pairs the flag with a single short Latin run in a box
-        /// the report author already sized for a rotated line (see PageDrawing.DrawString), so that is
-        /// what this renders.
+        /// The whole run rotates as one line, as GDI+ draws a Latin run under DirectionVertical. It
+        /// used to rotate the other way (-90, reading bottom to top), so a report chart's vertical
+        /// axis title ("Categories") read upwards in the Majorsilence.Forms viewer and downwards in the
+        /// System.Drawing one. Bottom-to-top is RDL's separate <c>Rotate270</c>, not tb-rl.
         /// GDI+ also swaps which factor governs which axis for vertical text: <c>Alignment</c> positions
-        /// the run along its reading direction (here, bottom-to-top) and <c>LineAlignment</c> positions
-        /// it across the column's width.
+        /// the run along its reading direction (top to bottom) and <c>LineAlignment</c> positions it
+        /// across the column, Near being the right-hand edge where a vertical line starts.
         /// </remarks>
         private void DrawStringVertical (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, RectangleF bounds, Majorsilence.Forms.Drawing.StringFormat format)
         {
@@ -2382,12 +2381,14 @@ namespace Majorsilence.Forms.Drawing
             var alongSlack = bounds.Height - size.Width;
             var acrossSlack = bounds.Width - size.Height;
 
-            var pivotX = bounds.Left + acrossSlack * ToOffsetFactor (format.LineAlignment);
-            var pivotY = bounds.Bottom - alongSlack * ToOffsetFactor (format.Alignment);
+            // Rotated clockwise about the pivot, the run occupies [pivotX - thickness, pivotX] across
+            // and [pivotY, pivotY + length] along, so the pivot is its top-right corner.
+            var pivotX = bounds.Right - acrossSlack * ToOffsetFactor (format.LineAlignment);
+            var pivotY = bounds.Top + alongSlack * ToOffsetFactor (format.Alignment);
 
             _canvas.Save ();
             _canvas.ClipRect (new SKRect (bounds.Left, bounds.Top, bounds.Right, bounds.Bottom));
-            _canvas.RotateDegrees (-90, pivotX, pivotY);
+            _canvas.RotateDegrees (90, pivotX, pivotY);
             DrawString (display, font, brush, pivotX, pivotY);
             _canvas.Restore ();
         }

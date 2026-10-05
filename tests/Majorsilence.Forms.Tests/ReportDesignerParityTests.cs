@@ -260,6 +260,39 @@ namespace Majorsilence.Forms.Tests
             Assert.NotEqual (Draw (Majorsilence.Forms.Drawing.FontStyle.Regular), Draw (Majorsilence.Forms.Drawing.FontStyle.Italic));
         }
 
+        [Fact]
+        public void Vertical_text_reads_top_to_bottom_as_GDI_plus_draws_it ()
+        {
+            // DirectionVertical rotated the run counter-clockwise, so a report chart's vertical axis
+            // title read upwards where System.Drawing draws it reading downwards. A dense start and a
+            // sparse tail puts most of the ink at whichever end the run begins.
+            using var bitmap = new SKBitmap (60, 300);
+            using var canvas = new SKCanvas (bitmap);
+            bitmap.Erase (SKColors.White);
+
+            using var font = new Majorsilence.Forms.Drawing.Font ("Arial", 16f);
+            var format = new Majorsilence.Forms.Drawing.StringFormat (Majorsilence.Forms.Drawing.StringFormatFlags.DirectionVertical) {
+                Alignment = Majorsilence.Forms.Drawing.StringAlignment.Center,
+                LineAlignment = Majorsilence.Forms.Drawing.StringAlignment.Center,
+            };
+            new Graphics (canvas).DrawString ("WWW.........", font, new Majorsilence.Forms.Drawing.SolidBrush (Color.Black), new RectangleF (0, 0, 60, 300), format);
+
+            int Ink (int top, int bottom)
+            {
+                var n = 0;
+                for (var y = top; y < bottom; y++)
+                    for (var x = 0; x < bitmap.Width; x++)
+                        if (bitmap.GetPixel (x, y).Red < 128)
+                            n++;
+                return n;
+            }
+
+            var upper = Ink (0, 150);
+            var lower = Ink (150, 300);
+
+            Assert.True (upper > 0 && upper > lower * 2, $"upper half {upper}, lower half {lower}");
+        }
+
         // ── Tab headers ──────────────────────────────────────────────────────────
 
         [Fact]
