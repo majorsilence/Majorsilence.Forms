@@ -174,6 +174,9 @@ namespace Majorsilence.Forms
             return owner.PageFor (GetTabAtLocation (location))?.ToolTipText;
         }
 
+        // The shortest row a TabControl's own height can shrink the tabs to (see LayoutTabs).
+        private const int MinimumRowHeight = 16;
+
         /// <summary>Gets the number of tab rows currently displayed (tabs wrap when they overflow).</summary>
         public int RowCount { get; private set; } = 1;
 
@@ -193,7 +196,16 @@ namespace Majorsilence.Forms
             var item_size = owner?.ItemSize ?? Size.Empty;
             var size_mode = owner?.SizeMode ?? TabSizeMode.Normal;
             var extra_height = 2 * (owner?.Padding.Y ?? 0);
-            var row_height = (item_size.Height > 0 ? item_size.Height : DefaultSize.Height) + extra_height;
+            var natural_height = DefaultSize.Height;
+
+            // A TabControl laid out for WinForms' tab height (~21px for Segoe UI 9pt) and used for its
+            // headers alone -- ReportDesigner's open-document strip -- is shorter than this row, which
+            // then hung below the control and was clipped, taking the selected tab's underline with it.
+            // The row fits such a control instead; MinimumRowHeight keeps the caption readable.
+            if (owner is { Height: > 0 } && owner.Height < natural_height)
+                natural_height = Math.Max (owner.Height, MinimumRowHeight);
+
+            var row_height = (item_size.Height > 0 ? item_size.Height : natural_height) + extra_height;
 
             if (owner is { Alignment: TabAlignment.Left or TabAlignment.Right }) {
                 LayoutTabsVertically (row_height, item_size, size_mode);

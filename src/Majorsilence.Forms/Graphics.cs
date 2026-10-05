@@ -412,15 +412,32 @@ namespace Majorsilence.Forms.Drawing
         internal float UnitsPerInch { get; set; } = 96f;
 
         private float FontUnits (Majorsilence.Forms.Drawing.Font font)
-            => UnitsPerInch == 96f ? font.PixelSize : font.PixelSize * UnitsPerInch / 96f;
+            => font.PixelSize * FontScale (font);
 
-        // The font's cached Skia font when the canvas is in 96ths of an inch; otherwise a resized copy the
-        // caller disposes.
+        // Canvas units per pixel of the font's own size. A font sized in a physical unit (points, the
+        // default) keeps its physical size whatever PageUnit is, as in GDI+: the page transform is
+        // already on the canvas, so it is divided back out here. Without that, a caller drawing with
+        // PageUnit = Point -- ReportDesigner's whole design surface -- got every font 96/72 too big.
+        // A Pixel/World/Display font is in page units, so the page transform applies to it.
+        private float FontScale (Majorsilence.Forms.Drawing.Font font)
+        {
+            var scale = UnitsPerInch / 96f;
+
+            if (font.Unit is not (Majorsilence.Forms.Drawing.GraphicsUnit.Pixel
+                               or Majorsilence.Forms.Drawing.GraphicsUnit.World
+                               or Majorsilence.Forms.Drawing.GraphicsUnit.Display))
+                scale /= PageTransformScale;
+
+            return scale;
+        }
+
+        // The font's cached Skia font when the canvas units are the font's own pixels; otherwise a
+        // resized copy the caller disposes.
         private SKFont SkFontFor (Majorsilence.Forms.Drawing.Font font, out SKFont? owned)
         {
             var cached = font.GetSKFont ();
 
-            if (UnitsPerInch == 96f) {
+            if (FontScale (font) == 1f) {
                 owned = null;
                 return cached;
             }

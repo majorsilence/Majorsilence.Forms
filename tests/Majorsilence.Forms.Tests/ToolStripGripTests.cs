@@ -101,7 +101,11 @@ namespace Majorsilence.Forms.Tests
                 var window = strip.LogicalToDeviceUnits (first.Bounds.Left);
                 var drawn = BandInk (strip, window);
 
+                // With the grip off the first item moves into the window, and a toolbar item's content
+                // starts 2px in (WinForms metrics), so its caption would count as ink. Hidden, the
+                // window holds only what the strip itself draws.
                 strip.GripVisible = false;
+                first.Visible = false;
                 Relayout (strip);
 
                 Assert.True (drawn > 0, "Nothing was drawn in the reserved grip band.");

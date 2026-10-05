@@ -331,12 +331,30 @@ namespace Majorsilence.Forms
                     RawResourcesReader.RawFormat.ActivatorStream
                         => BuildImage (entry.TypeName, entry.Data),
 
+                    // The converter's invariant string, e.g. "Ctrl+O" for a ShortcutKeys or "0, 3, 0, 3"
+                    // for a Padding. The reader fails these when the type is a WinForms one the enum
+                    // shim does not declare (Keys, Padding, ImeMode, ...), so every menu shortcut in a
+                    // migrated form was dropped. Handed on as the same text the raw-XML path parses.
+                    RawResourcesReader.RawFormat.TypeConverterString
+                        => ReadConverterString (entry),
+
                     _ => null,
                 };
 
                 if (value is not null)
                     _binaryEntries[name] = value;
             }
+        }
+
+        // A TypeConverterString payload is the converter's text as UTF-8; its length prefix is the one
+        // RawResourcesReader already consumed to cut the payload out.
+        internal static object? ReadConverterString (RawResourcesReader.RawEntry entry)
+        {
+            string text;
+            try { text = System.Text.Encoding.UTF8.GetString (entry.Data); }
+            catch (ArgumentException) { return null; }
+
+            return ParsePrimitive (LeadingType (entry.TypeName), text.Trim ());
         }
 
         // Migrated WinForms .resx files record Dock/Anchor property values against the *original*
@@ -810,6 +828,23 @@ namespace Majorsilence.Forms
 
             try
             {
+                // Keys is an enum, but its resx text is KeysConverter's ("Ctrl+Shift+S"), which
+                // Enum.Parse below rejects -- every ShortcutKeys stayed None.
+                if (underlying == typeof (Keys) && value is string keys)
+                {
+                    result = new KeysConverter ().ConvertFromInvariantString (keys);
+                    return result is not null;
+                }
+                // PaddingConverter's text: one value for all four sides, or "left, top, right, bottom".
+                if (underlying == typeof (Padding) && value is string padding)
+                {
+                    var sides = SplitTrimmed (padding).Select (p => int.Parse (p, NumberStyles.Integer, CultureInfo.InvariantCulture)).ToArray ();
+                    if (sides.Length is not (1 or 4))
+                        return false;
+
+                    result = sides.Length == 1 ? new Padding (sides[0]) : new Padding (sides[0], sides[1], sides[2], sides[3]);
+                    return true;
+                }
                 if (underlying.IsEnum && value is string s)
                 {
                     result = Enum.Parse (underlying, s, ignoreCase: true);

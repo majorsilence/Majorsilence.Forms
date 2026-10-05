@@ -77,6 +77,7 @@ namespace Majorsilence.Forms
             Controls.Add (frame);
             Activate (child);
             FitToClient (frame);
+            child.ApplyRequestedMdiState ();
             UpdateScrollExtent ();
             return frame;
         }

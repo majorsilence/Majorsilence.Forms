@@ -138,7 +138,6 @@ namespace Majorsilence.Forms.Renderers
                 : is_link ? LinkColour (link!)
                 : item_style.GetForegroundColor ();
             var font_size = e.LogicalToDeviceUnits (Theme.FontSize);
-            var pad = e.LogicalToDeviceUnits (8);
 
             // ToolStripItem carries the image/text placement knobs; a plain MenuItem keeps the
             // historical image-left/text-right arrangement.
@@ -146,13 +145,20 @@ namespace Majorsilence.Forms.Renderers
             var relation = strip_item?.TextImageRelation ?? TextImageRelation.ImageBeforeText;
             var text_align = strip_item?.TextAlign ?? ContentAlignment.MiddleLeft;
 
+            // A WinForms toolbar item is measured to its content plus its Padding (see
+            // ToolStripItem.DefaultPadding), so it has to be painted inside that same padding: the
+            // fixed 8px inset of a native toolbar item would leave a 24px icon button 8px for its icon.
+            var compat = strip_item is { IsOnPlainToolStrip: true };
+            var pad_left = e.LogicalToDeviceUnits (compat ? item.Padding.Left : 8);
+            var pad_right = e.LogicalToDeviceUnits (compat ? item.Padding.Right : 8);
+
             // Content box: inside the horizontal padding, less the dropdown arrow's gutter so text
             // never runs underneath the glyph.
             var arrow_gutter = item.HasItems ? e.LogicalToDeviceUnits (16) + 4 : 0;
             var content = new Rectangle (
-                item.DeviceBounds.Left + pad,
+                item.DeviceBounds.Left + pad_left,
                 item.DeviceBounds.Top,
-                Math.Max (0, item.DeviceBounds.Width - (pad * 2) - arrow_gutter),
+                Math.Max (0, item.DeviceBounds.Width - pad_left - pad_right - arrow_gutter),
                 item.DeviceBounds.Height);
 
             // DisplayStyle (TSM-07): the designer writes Image on nearly every icon button while its
@@ -251,7 +257,8 @@ namespace Majorsilence.Forms.Renderers
                             AlignedTop (content, image_size.Height, image_align),
                             image_size.Width, image_size.Height);
 
-                    var offset = image_size.IsEmpty ? e.LogicalToDeviceUnits (4) : image_size.Width + gap;
+                    // A compat item's width holds exactly its text, so the native lead-in would clip it.
+                    var offset = image_size.IsEmpty ? (compat ? 0 : e.LogicalToDeviceUnits (4)) : image_size.Width + gap;
                     text_rect = new Rectangle (content.Left + offset, content.Top,
                         Math.Max (0, content.Width - offset), content.Height);
                     break;
@@ -414,7 +421,11 @@ namespace Majorsilence.Forms.Renderers
             var font_size = control.LogicalToDeviceUnits (Theme.FontSize);
             var text = strip_item is { DisplaysText: false } ? string.Empty : item.Text;
             var measured = TextMeasurer.MeasureText (text, Theme.UIFont, font_size);
-            var text_width = (int) Math.Round (measured.Width);
+            // A compat item has no slack in its padding, so it rounds up as RenderItem does: rounding
+            // down left the text a pixel short of its own width, and it was clipped.
+            var text_width = strip_item is { IsOnPlainToolStrip: true }
+                ? (int) Math.Ceiling (measured.Width)
+                : (int) Math.Round (measured.Width);
             var text_height = (int) Math.Ceiling (measured.Height);
 
             // Vertical text swaps the two (TextDirection, W6 mechanisms).
@@ -449,6 +460,11 @@ namespace Majorsilence.Forms.Renderers
             } else {
                 width += text_width + image_size.Width;
                 height = Math.Max (image_size.Height, text_height);
+
+                // RenderItem puts a gap between the two. A native item's padding absorbs it; a compat
+                // item's (2px) cannot, so it is measured.
+                if (strip_item is { IsOnPlainToolStrip: true } && !image_size.IsEmpty && text_width > 0)
+                    width += control.LogicalToDeviceUnits (4);
             }
 
             if (item.HasItems)

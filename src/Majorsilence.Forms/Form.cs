@@ -1595,12 +1595,45 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the state of the form (normal/minimized/maximized).</summary>
+        /// <remarks>
+        /// An MDI child's state is its frame's: it owns no OS window, so the backend's state is never
+        /// seen. A state assigned before the child is shown is applied when its frame is created --
+        /// <c>child.WindowState = Maximized; child.Show ()</c> is how a tabbed MDI shell (ReportDesigner)
+        /// opens every document, and it used to open them at their restored size instead.
+        /// </remarks>
         public FormWindowState WindowState {
-            get => Backend.WindowState;
+            get => MdiHost?.WindowState ?? Backend.WindowState;
             set {
                 SourceGenerated.EnumValidator.Validate (value);
+
+                if (MdiHost is { } frame) {
+                    if (frame.WindowState == value)
+                        return;
+
+                    switch (value) {
+                        case FormWindowState.Maximized: frame.Maximize (); break;
+                        case FormWindowState.Minimized: frame.Minimize (); break;
+                        default: frame.Restore (); break;
+                    }
+
+                    return;
+                }
+
+                requested_mdi_state = value;
                 Backend.WindowState = value;
             }
+        }
+
+        // The WindowState assigned while this form had no MDI frame; applied by ApplyRequestedMdiState.
+        private FormWindowState requested_mdi_state = FormWindowState.Normal;
+
+        // Called once the MDI frame exists (MdiClient.AddChild).
+        internal void ApplyRequestedMdiState ()
+        {
+            if (MdiHost is null || requested_mdi_state == FormWindowState.Normal)
+                return;
+
+            WindowState = requested_mdi_state;
         }
 
         /// <summary>Gets or sets the active control on the form.</summary>

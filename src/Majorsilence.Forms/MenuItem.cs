@@ -324,10 +324,22 @@ namespace Majorsilence.Forms
             }
         }
 
+        private Padding? padding;
+
         /// <summary>
         /// Gets or sets the amount of padding to apply to the menu item.
         /// </summary>
-        public Padding Padding { get; set; } = new Padding (14, 3, 14, 3);
+        /// <remarks>Until assigned it reads <see cref="DefaultPadding"/>, which may depend on the strip the
+        /// item sits on.</remarks>
+        public Padding Padding {
+            get => padding ?? DefaultPadding;
+            set => padding = value;
+        }
+
+        /// <summary>
+        /// Gets the padding used when <see cref="Padding"/> has not been assigned.
+        /// </summary>
+        protected virtual Padding DefaultPadding => new Padding (14, 3, 14, 3);
 
         /// <summary>
         /// The parent menu item this item belongs to, if any.

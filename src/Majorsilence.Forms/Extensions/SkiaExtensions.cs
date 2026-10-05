@@ -9,12 +9,17 @@ namespace Majorsilence.Forms
     /// </summary>
     public static class SkiaExtensions
     {
+        // WinForms' disabled-image matrix (ToolStripRenderer.DisabledImageColorMatrix: its greyscale
+        // matrix times a 0.7 transparency one): half-weight luminance lifted by 0.38, at 70% alpha. A
+        // plain luminance greyscale left a black icon black, so a disabled toolbar of dark glyphs --
+        // ReportDesigner's B/I/U and export buttons -- looked exactly like an enabled one.
+        // Skia's matrix is column-vector with a normalized translate column; GDI+'s is its transpose.
         private static readonly SKColorFilter disabled_matrix = SKColorFilter.CreateColorMatrix (
                 [
-                    0.21f, 0.72f, 0.07f, 0, 0,
-                    0.21f, 0.72f, 0.07f, 0, 0,
-                    0.21f, 0.72f, 0.07f, 0, 0,
-                    0,     0,     0,     1, 0
+                    0.2125f, 0.2577f, 0.0361f, 0,    0.38f,
+                    0.2125f, 0.2577f, 0.0361f, 0,    0.38f,
+                    0.2125f, 0.2577f, 0.0361f, 0,    0.38f,
+                    0,       0,       0,       0.7f, 0
                 ]);
         private static readonly float[] focus_dash_intervals = [1f, 1f];
 
