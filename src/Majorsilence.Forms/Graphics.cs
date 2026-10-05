@@ -412,15 +412,32 @@ namespace Majorsilence.Forms.Drawing
         internal float UnitsPerInch { get; set; } = 96f;
 
         private float FontUnits (Majorsilence.Forms.Drawing.Font font)
-            => UnitsPerInch == 96f ? font.PixelSize : font.PixelSize * UnitsPerInch / 96f;
+            => font.PixelSize * FontScale (font);
 
-        // The font's cached Skia font when the canvas is in 96ths of an inch; otherwise a resized copy the
-        // caller disposes.
+        // Canvas units per pixel of the font's own size. A font sized in a physical unit (points, the
+        // default) keeps its physical size whatever PageUnit is, as in GDI+: the page transform is
+        // already on the canvas, so it is divided back out here. Without that, a caller drawing with
+        // PageUnit = Point -- ReportDesigner's whole design surface -- got every font 96/72 too big.
+        // A Pixel/World/Display font is in page units, so the page transform applies to it.
+        private float FontScale (Majorsilence.Forms.Drawing.Font font)
+        {
+            var scale = UnitsPerInch / 96f;
+
+            if (font.Unit is not (Majorsilence.Forms.Drawing.GraphicsUnit.Pixel
+                               or Majorsilence.Forms.Drawing.GraphicsUnit.World
+                               or Majorsilence.Forms.Drawing.GraphicsUnit.Display))
+                scale /= PageTransformScale;
+
+            return scale;
+        }
+
+        // The font's cached Skia font when the canvas units are the font's own pixels; otherwise a
+        // resized copy the caller disposes.
         private SKFont SkFontFor (Majorsilence.Forms.Drawing.Font font, out SKFont? owned)
         {
             var cached = font.GetSKFont ();
 
-            if (UnitsPerInch == 96f) {
+            if (FontScale (font) == 1f) {
                 owned = null;
                 return cached;
             }
@@ -2196,7 +2213,37 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>Draws a string with the given Majorsilence.Forms.Drawing.Font and Brush.</summary>
+        /// <remarks>As in GDI+, the text starts a sixth of an em right of <paramref name="x"/> (see LeadingPadding).</remarks>
         public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, float x, float y)
+            => DrawStringAt (text, font, brush, x + LeadingPadding (font, null), y);
+
+        // GDI+ insets the layout of every DrawString by a sixth of an em on each side, unless the format
+        // is GenericTypographic. Without it text sat flush against whatever box it was drawn in -- every
+        // report cell and design-surface text box drew 2px (at 10pt) further left than System.Drawing,
+        // touching the cell's left border. TextRenderer (GDI rules, its own padding flags) and the
+        // renderers draw through DrawTextBlock/DrawStringClipped/DrawStringAt, which add none.
+        private float LeadingPadding (Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.StringFormat? format)
+            => IsTypographic (format) ? 0f : FontUnits (font) / 6f;
+
+        private const Majorsilence.Forms.Drawing.StringFormatFlags TypographicFlags =
+            Majorsilence.Forms.Drawing.StringFormatFlags.FitBlackBox
+            | Majorsilence.Forms.Drawing.StringFormatFlags.LineLimit
+            | Majorsilence.Forms.Drawing.StringFormatFlags.NoClip;
+
+        private static bool IsTypographic (Majorsilence.Forms.Drawing.StringFormat? format)
+            => format is { Trimming: Majorsilence.Forms.Drawing.StringTrimming.None }
+               && (format.FormatFlags & TypographicFlags) == TypographicFlags;
+
+        // The layout box GDI+ actually lays text out in: the caller's, less the leading padding on each side.
+        private RectangleF PaddedLayout (RectangleF bounds, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.StringFormat? format)
+        {
+            var pad = LeadingPadding (font, format);
+
+            return pad <= 0 ? bounds : new RectangleF (bounds.X + pad, bounds.Y, Math.Max (0, bounds.Width - 2 * pad), bounds.Height);
+        }
+
+        // DrawString (x, y) without the leading padding: (x, y) is where the text itself starts.
+        private void DrawStringAt (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, float x, float y)
         {
             if (_canvas is null || string.IsNullOrEmpty (text)) return;
 
@@ -2264,19 +2311,21 @@ namespace Majorsilence.Forms.Drawing
         {
             if (_canvas is null || string.IsNullOrEmpty (text)) return;
 
+            var layout = PaddedLayout (bounds, font, null);
+
             // The canvas extension lays out to the rectangle's width and clips to it, which is exactly
             // the contract here. Solid brushes only, matching the point overload: a gradient or texture
             // brush has no single colour to hand RichTextKit and keeps the direct path below.
             if (brush is Majorsilence.Forms.Drawing.SolidBrush solid) {
                 _canvas.DrawText (text, font.GetSKTypeface (), (int)System.Math.Round (FontUnits (font)),
-                    Rectangle.Round (bounds), solid.Color.ToSKColor (), ContentAlignment.TopLeft);
+                    Rectangle.Round (layout), solid.Color.ToSKColor (), ContentAlignment.TopLeft);
 
                 return;
             }
 
             _canvas.Save ();
             _canvas.ClipRect (new SKRect (bounds.Left, bounds.Top, bounds.Right, bounds.Bottom));
-            DrawString (text, font, brush, bounds.Left, bounds.Top);
+            DrawStringAt (text, font, brush, layout.Left, layout.Top);
             _canvas.Restore ();
         }
 
@@ -2310,10 +2359,23 @@ namespace Majorsilence.Forms.Drawing
                     mnemonic = -1;   // Hide: strip the prefix, but draw no underline.
             }
 
+            // GDI+ word-wraps inside the layout rectangle unless NoWrap is set. Only text that does not
+            // fit on one line takes the wrapping path, so a single line keeps the exact placement below.
+            // A matrix column header in a report preview ("Clothing = 15316") was clipped to one line
+            // where System.Drawing broke it onto two.
+            // Laid out in the padded box, clipped to the caller's, as GDI+ does.
+            var layout = PaddedLayout (bounds, font, format);
+
+            if (WrapsInBounds (display, font, brush, layout, format, mnemonic) is { } solid) {
+                DrawTextBlock (display, font, solid.Color, Rectangle.Round (layout),
+                    ToContentAlignment (format.Alignment, format.LineAlignment), maxLines: null, ellipsis: false);
+                return;
+            }
+
             // Measured on the DISPLAY text: sizing on the raw string would offset centred text by the
             // width of an ampersand that never appears.
             var origin = AlignTextInBounds (
-                display, font, bounds,
+                display, font, layout,
                 ToOffsetFactor (format.Alignment),
                 ToOffsetFactor (format.LineAlignment));
 
@@ -2324,20 +2386,19 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>
-        /// Draws <paramref name="text"/> rotated -90 degrees (counter-clockwise) to fill a tall,
-        /// narrow <paramref name="bounds"/> -- what RDL's <c>WritingMode="tb-rl"</c> calls for on
-        /// axis and category titles.
+        /// Draws <paramref name="text"/> rotated 90 degrees clockwise, reading top to bottom, to fill
+        /// a tall, narrow <paramref name="bounds"/> -- what GDI+ does with
+        /// <see cref="Majorsilence.Forms.Drawing.StringFormatFlags.DirectionVertical"/>, and what RDL's
+        /// <c>WritingMode="tb-rl"</c> calls for on axis and category titles.
         /// </summary>
         /// <remarks>
-        /// This rotates the whole run as one line, the way SSRS and every chart library render a
-        /// sideways axis title (read by tilting your head left) -- not the glyph-by-glyph vertical
-        /// stacking real CJK typesetting uses, which is what plain <c>StringFormatFlags.DirectionVertical</c>
-        /// means on Windows GDI+. RDL only ever pairs the flag with a single short Latin run in a box
-        /// the report author already sized for a rotated line (see PageDrawing.DrawString), so that is
-        /// what this renders.
+        /// The whole run rotates as one line, as GDI+ draws a Latin run under DirectionVertical. It
+        /// used to rotate the other way (-90, reading bottom to top), so a report chart's vertical
+        /// axis title ("Categories") read upwards in the Majorsilence.Forms viewer and downwards in the
+        /// System.Drawing one. Bottom-to-top is RDL's separate <c>Rotate270</c>, not tb-rl.
         /// GDI+ also swaps which factor governs which axis for vertical text: <c>Alignment</c> positions
-        /// the run along its reading direction (here, bottom-to-top) and <c>LineAlignment</c> positions
-        /// it across the column's width.
+        /// the run along its reading direction (top to bottom) and <c>LineAlignment</c> positions it
+        /// across the column, Near being the right-hand edge where a vertical line starts.
         /// </remarks>
         private void DrawStringVertical (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, RectangleF bounds, Majorsilence.Forms.Drawing.StringFormat format)
         {
@@ -2355,13 +2416,15 @@ namespace Majorsilence.Forms.Drawing
             var alongSlack = bounds.Height - size.Width;
             var acrossSlack = bounds.Width - size.Height;
 
-            var pivotX = bounds.Left + acrossSlack * ToOffsetFactor (format.LineAlignment);
-            var pivotY = bounds.Bottom - alongSlack * ToOffsetFactor (format.Alignment);
+            // Rotated clockwise about the pivot, the run occupies [pivotX - thickness, pivotX] across
+            // and [pivotY, pivotY + length] along, so the pivot is its top-right corner.
+            var pivotX = bounds.Right - acrossSlack * ToOffsetFactor (format.LineAlignment);
+            var pivotY = bounds.Top + alongSlack * ToOffsetFactor (format.Alignment);
 
             _canvas.Save ();
             _canvas.ClipRect (new SKRect (bounds.Left, bounds.Top, bounds.Right, bounds.Bottom));
-            _canvas.RotateDegrees (-90, pivotX, pivotY);
-            DrawString (display, font, brush, pivotX, pivotY);
+            _canvas.RotateDegrees (90, pivotX, pivotY);
+            DrawStringAt (display, font, brush, pivotX, pivotY);
             _canvas.Restore ();
         }
 
@@ -2398,6 +2461,34 @@ namespace Majorsilence.Forms.Drawing
             _canvas.DrawRect (origin.X + before, y, width, 1f, paint);
             _canvas.Restore ();
         }
+
+        // The brush to wrap with when DrawString (..., StringFormat) has to wrap, or null to draw a single
+        // line: no NoWrap flag, text wider than the box, and a solid brush (the block layout takes one
+        // colour). As in GDI+, a box too short for the second line still breaks at a word and clips the
+        // rest -- "=sum(Fields!" rather than "=sum(Fields!Sa". A hotkey underline is placed on a single
+        // line, so it opts out.
+        private Majorsilence.Forms.Drawing.SolidBrush? WrapsInBounds (string text, Majorsilence.Forms.Drawing.Font font,
+            Majorsilence.Forms.Drawing.Brush brush, RectangleF bounds, Majorsilence.Forms.Drawing.StringFormat format, int mnemonic)
+        {
+            if (brush is not Majorsilence.Forms.Drawing.SolidBrush solid || mnemonic >= 0 || bounds.Width <= 0
+                || (format.FormatFlags & Majorsilence.Forms.Drawing.StringFormatFlags.NoWrap) != 0)
+                return null;
+
+            return MeasureString (text, font).Width > bounds.Width ? solid : null;
+        }
+
+        private static ContentAlignment ToContentAlignment (Majorsilence.Forms.Drawing.StringAlignment horizontal, Majorsilence.Forms.Drawing.StringAlignment vertical)
+            => (horizontal, vertical) switch {
+                (Majorsilence.Forms.Drawing.StringAlignment.Center, Majorsilence.Forms.Drawing.StringAlignment.Near) => ContentAlignment.TopCenter,
+                (Majorsilence.Forms.Drawing.StringAlignment.Far, Majorsilence.Forms.Drawing.StringAlignment.Near) => ContentAlignment.TopRight,
+                (Majorsilence.Forms.Drawing.StringAlignment.Near, Majorsilence.Forms.Drawing.StringAlignment.Center) => ContentAlignment.MiddleLeft,
+                (Majorsilence.Forms.Drawing.StringAlignment.Center, Majorsilence.Forms.Drawing.StringAlignment.Center) => ContentAlignment.MiddleCenter,
+                (Majorsilence.Forms.Drawing.StringAlignment.Far, Majorsilence.Forms.Drawing.StringAlignment.Center) => ContentAlignment.MiddleRight,
+                (Majorsilence.Forms.Drawing.StringAlignment.Near, Majorsilence.Forms.Drawing.StringAlignment.Far) => ContentAlignment.BottomLeft,
+                (Majorsilence.Forms.Drawing.StringAlignment.Center, Majorsilence.Forms.Drawing.StringAlignment.Far) => ContentAlignment.BottomCenter,
+                (Majorsilence.Forms.Drawing.StringAlignment.Far, Majorsilence.Forms.Drawing.StringAlignment.Far) => ContentAlignment.BottomRight,
+                _ => ContentAlignment.TopLeft,
+            };
 
         // Near -> 0 (no shift), Center -> half the slack, Far -> all of it.
         private static float ToOffsetFactor (Majorsilence.Forms.Drawing.StringAlignment alignment) => alignment switch {
@@ -2457,14 +2548,14 @@ namespace Majorsilence.Forms.Drawing
             if (_canvas is null || string.IsNullOrEmpty (text)) return;
 
             if (clip is null) {
-                DrawString (text, font, brush, origin.X, origin.Y);
+                DrawStringAt (text, font, brush, origin.X, origin.Y);
                 return;
             }
 
             var rect = clip.Value;
             _canvas.Save ();
             _canvas.ClipRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom));
-            DrawString (text, font, brush, origin.X, origin.Y);
+            DrawStringAt (text, font, brush, origin.X, origin.Y);
             _canvas.Restore ();
         }
 
@@ -2474,11 +2565,11 @@ namespace Majorsilence.Forms.Drawing
 
         /// <summary>Draws a string at the given PointF (StringFormat is ignored).</summary>
         public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, PointF point, Majorsilence.Forms.Drawing.StringFormat? format)
-            => DrawString (text, font, brush, point.X, point.Y);
+            => DrawStringAt (text, font, brush, point.X + LeadingPadding (font, format), point.Y);
 
         /// <summary>Draws a string at the given float coordinates (StringFormat is ignored).</summary>
         public void DrawString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.Brush brush, float x, float y, Majorsilence.Forms.Drawing.StringFormat? format)
-            => DrawString (text, font, brush, x, y);
+            => DrawStringAt (text, font, brush, x + LeadingPadding (font, format), y);
 
         // The SKBitmap/SKColor overloads below (through DrawImage(SKBitmap, float, float, float, float))
         // are Skia-native convenience helpers, not part of the GDI+ surface real WinForms code calls by

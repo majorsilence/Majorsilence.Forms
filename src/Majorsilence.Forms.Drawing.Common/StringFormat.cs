@@ -83,7 +83,12 @@ namespace Majorsilence.Forms.Drawing
         public static StringFormat GenericDefault => new StringFormat ();
 
         /// <summary>Gets a generic typographic StringFormat.</summary>
-        public static StringFormat GenericTypographic => new StringFormat { Trimming = StringTrimming.None };
+        /// <remarks>GDI+'s flags for it (FitBlackBox, LineLimit, NoClip) as well as no trimming. Graphics
+        /// tells it apart from a default format by them: a typographic format draws with no leading
+        /// padding, every other format is inset by a sixth of an em on each side, as in GDI+.</remarks>
+        public static StringFormat GenericTypographic => new StringFormat (StringFormatFlags.FitBlackBox | StringFormatFlags.LineLimit | StringFormatFlags.NoClip) {
+            Trimming = StringTrimming.None
+        };
 
         /// <summary>Gets or sets the horizontal alignment of the text.</summary>
         public StringAlignment Alignment { get; set; } = StringAlignment.Near;

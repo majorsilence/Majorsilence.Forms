@@ -3005,22 +3005,32 @@ namespace Majorsilence.Forms
         /// </remarks>
         internal virtual ControlStyle TypeDefaultStyle => DefaultStyle;
 
+        // The state styles of a type that has none of its own. They derive from this control's Style --
+        // not from Control's DefaultStyleHover/Active/Disabled, which know nothing of the type's look --
+        // so CurrentStyle picking one of them changes nothing visible. Derived from Control's defaults,
+        // a disabled or hovered ComboBox, CheckBox or ListBox lost its border and fill: every toolbar
+        // combo in ReportDesigner drew as a bare arrow until a report was opened. Types with :hover /
+        // :active / :disabled rules of their own (Button, LinkLabel, TrackBar) override these.
+        private ControlStyle? instance_style_hover;
+        private ControlStyle? instance_style_active;
+        private ControlStyle? instance_style_disabled;
+
         /// <summary>
         /// Gets the ControlStyle properties for this instance of the Control when the user is hovering over it.
         /// </summary>
-        public virtual ControlStyle StyleHover { get; } = new ControlStyle (DefaultStyleHover);
+        public virtual ControlStyle StyleHover => instance_style_hover ??= new ControlStyle (Style);
 
         /// <summary>
         /// Gets the ControlStyle properties for this instance of the Control while the mouse is held
         /// down on it (the CSS <c>:active</c> pseudo-class, #285).
         /// </summary>
-        public virtual ControlStyle StyleActive { get; } = new ControlStyle (DefaultStyleActive);
+        public virtual ControlStyle StyleActive => instance_style_active ??= new ControlStyle (Style);
 
         /// <summary>
         /// Gets the ControlStyle properties for this instance of the Control while
         /// <see cref="Enabled"/> is false (the CSS <c>:disabled</c> pseudo-class, #285).
         /// </summary>
-        public virtual ControlStyle StyleDisabled { get; } = new ControlStyle (DefaultStyleDisabled);
+        public virtual ControlStyle StyleDisabled => instance_style_disabled ??= new ControlStyle (Style);
 
         /// <summary>
         /// Gets the ControlStyle properties for this instance of the Control while

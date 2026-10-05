@@ -56,11 +56,17 @@ namespace Majorsilence.Forms
                 EllipsisEnabled = ellipsis,
             };
 
+            // The typeface's slant has to travel with its weight: RichTextKit re-resolves the face
+            // from the style's family name, weight and FontItalic, so without it every italic font
+            // drew upright -- a report chart's italic category labels among them.
+            var italic = font.FontSlant != SKFontStyleSlant.Upright;
+
             var styleNormal = new Style {
                 FontFamily = font.FamilyName,
                 FontSize = fontSize,
                 TextColor = color,
-                FontWeight = font.FontWeight
+                FontWeight = font.FontWeight,
+                FontItalic = italic
             };
 
             // Underline the mnemonic character (the access key) by splitting the text into a
@@ -71,6 +77,7 @@ namespace Majorsilence.Forms
                     FontSize = fontSize,
                     TextColor = color,
                     FontWeight = font.FontWeight,
+                    FontItalic = italic,
                     Underline = UnderlineStyle.Solid
                 };
 

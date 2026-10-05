@@ -1372,6 +1372,20 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets whether this item is selected. Stub in Majorsilence.Forms.</summary>
         public new bool Selected => Hovered;
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// On a toolbar, WinForms sizes an item to its content plus a 2px border and no padding of its
+        /// own (<c>ToolStripItem.DefaultPadding</c> is empty; the border is
+        /// <c>ToolStripItemInternalLayout</c>'s), so a 20px icon button is 24px wide. The menu padding
+        /// this used to inherit made the same button 48px, and a designer toolbar laid out for WinForms
+        /// ran out of room: its trailing items -- ReportDesigner's expression editor and zoom control --
+        /// were pushed off the end and never shown. Menus and status strips keep the menu metrics.
+        /// </remarks>
+        protected override Padding DefaultPadding => IsOnPlainToolStrip ? new Padding (2) : base.DefaultPadding;
+
+        // A ToolStrip in its own right rather than one of the menu or status strips that derive from it.
+        internal bool IsOnPlainToolStrip => OwnerControl is ToolStrip and not (Menu or MenuDropDown or StatusStrip);
     }
 
     /// <summary>Specifies the overflow behavior of a ToolStripItem.</summary>
