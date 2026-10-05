@@ -2327,6 +2327,16 @@ namespace Majorsilence.Forms.Drawing
                     mnemonic = -1;   // Hide: strip the prefix, but draw no underline.
             }
 
+            // GDI+ word-wraps inside the layout rectangle unless NoWrap is set. Only text that does not
+            // fit on one line takes the wrapping path, so a single line keeps the exact placement below.
+            // A matrix column header in a report preview ("Clothing = 15316") was clipped to one line
+            // where System.Drawing broke it onto two.
+            if (WrapsInBounds (display, font, brush, bounds, format, mnemonic) is { } solid) {
+                DrawTextBlock (display, font, solid.Color, Rectangle.Round (bounds),
+                    ToContentAlignment (format.Alignment, format.LineAlignment), maxLines: null, ellipsis: false);
+                return;
+            }
+
             // Measured on the DISPLAY text: sizing on the raw string would offset centred text by the
             // width of an ampersand that never appears.
             var origin = AlignTextInBounds (
@@ -2415,6 +2425,34 @@ namespace Majorsilence.Forms.Drawing
             _canvas.DrawRect (origin.X + before, y, width, 1f, paint);
             _canvas.Restore ();
         }
+
+        // The brush to wrap with when DrawString (..., StringFormat) has to wrap, or null to draw a single
+        // line: no NoWrap flag, text wider than the box, and a solid brush (the block layout takes one
+        // colour). As in GDI+, a box too short for the second line still breaks at a word and clips the
+        // rest -- "=sum(Fields!" rather than "=sum(Fields!Sa". A hotkey underline is placed on a single
+        // line, so it opts out.
+        private Majorsilence.Forms.Drawing.SolidBrush? WrapsInBounds (string text, Majorsilence.Forms.Drawing.Font font,
+            Majorsilence.Forms.Drawing.Brush brush, RectangleF bounds, Majorsilence.Forms.Drawing.StringFormat format, int mnemonic)
+        {
+            if (brush is not Majorsilence.Forms.Drawing.SolidBrush solid || mnemonic >= 0 || bounds.Width <= 0
+                || (format.FormatFlags & Majorsilence.Forms.Drawing.StringFormatFlags.NoWrap) != 0)
+                return null;
+
+            return MeasureString (text, font).Width > bounds.Width ? solid : null;
+        }
+
+        private static ContentAlignment ToContentAlignment (Majorsilence.Forms.Drawing.StringAlignment horizontal, Majorsilence.Forms.Drawing.StringAlignment vertical)
+            => (horizontal, vertical) switch {
+                (Majorsilence.Forms.Drawing.StringAlignment.Center, Majorsilence.Forms.Drawing.StringAlignment.Near) => ContentAlignment.TopCenter,
+                (Majorsilence.Forms.Drawing.StringAlignment.Far, Majorsilence.Forms.Drawing.StringAlignment.Near) => ContentAlignment.TopRight,
+                (Majorsilence.Forms.Drawing.StringAlignment.Near, Majorsilence.Forms.Drawing.StringAlignment.Center) => ContentAlignment.MiddleLeft,
+                (Majorsilence.Forms.Drawing.StringAlignment.Center, Majorsilence.Forms.Drawing.StringAlignment.Center) => ContentAlignment.MiddleCenter,
+                (Majorsilence.Forms.Drawing.StringAlignment.Far, Majorsilence.Forms.Drawing.StringAlignment.Center) => ContentAlignment.MiddleRight,
+                (Majorsilence.Forms.Drawing.StringAlignment.Near, Majorsilence.Forms.Drawing.StringAlignment.Far) => ContentAlignment.BottomLeft,
+                (Majorsilence.Forms.Drawing.StringAlignment.Center, Majorsilence.Forms.Drawing.StringAlignment.Far) => ContentAlignment.BottomCenter,
+                (Majorsilence.Forms.Drawing.StringAlignment.Far, Majorsilence.Forms.Drawing.StringAlignment.Far) => ContentAlignment.BottomRight,
+                _ => ContentAlignment.TopLeft,
+            };
 
         // Near -> 0 (no shift), Center -> half the slack, Far -> all of it.
         private static float ToOffsetFactor (Majorsilence.Forms.Drawing.StringAlignment alignment) => alignment switch {

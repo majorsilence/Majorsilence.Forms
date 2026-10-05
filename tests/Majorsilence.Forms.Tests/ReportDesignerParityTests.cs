@@ -199,6 +199,67 @@ namespace Majorsilence.Forms.Tests
             Assert.InRange (points / pixels, 0.95f, 1.05f);
         }
 
+        // ── DrawString with a StringFormat wraps, as GDI+ does ───────────────────
+
+        // Rows of the box that hold any dark ink: the first and last, or (-1, -1) when none do.
+        private static (int First, int Last) InkRows (Majorsilence.Forms.Drawing.StringFormat format)
+        {
+            using var bitmap = new SKBitmap (200, 120);
+            using var canvas = new SKCanvas (bitmap);
+            bitmap.Erase (SKColors.White);
+
+            using var font = new Majorsilence.Forms.Drawing.Font ("Arial", 9f);
+            var g = new Graphics (canvas);
+            g.DrawString ("Clothing = 15316", font, new Majorsilence.Forms.Drawing.SolidBrush (Color.Black), new RectangleF (10, 10, 70, 100), format);
+
+            int first = -1, last = -1;
+            for (var y = 0; y < bitmap.Height; y++)
+                for (var x = 0; x < bitmap.Width; x++)
+                    if (bitmap.GetPixel (x, y).Red < 128) {
+                        if (first < 0)
+                            first = y;
+                        last = y;
+                        break;
+                    }
+
+            return (first, last);
+        }
+
+        [Fact]
+        public void Text_wider_than_its_layout_box_wraps_onto_a_second_line ()
+        {
+            // A report preview's matrix column header ("Clothing = 15316") was clipped to one line where
+            // System.Drawing broke it onto two.
+            var single = InkRows (new Majorsilence.Forms.Drawing.StringFormat (Majorsilence.Forms.Drawing.StringFormatFlags.NoWrap));
+            var wrapped = InkRows (new Majorsilence.Forms.Drawing.StringFormat ());
+
+            var line = single.Last - single.First;
+
+            Assert.True (line > 0);
+            Assert.True (wrapped.Last - wrapped.First > line * 3 / 2,
+                $"one line is {line}px of ink; the wrapped text spans {wrapped.Last - wrapped.First}px");
+        }
+
+        [Fact]
+        public void An_italic_font_draws_differently_from_the_upright_one ()
+        {
+            // The text layout re-resolved the face from family and weight only, so italic drew upright:
+            // a report chart's italic category labels ("2002") came out plain.
+            byte[] Draw (Majorsilence.Forms.Drawing.FontStyle style)
+            {
+                using var bitmap = new SKBitmap (200, 40);
+                using var canvas = new SKCanvas (bitmap);
+                bitmap.Erase (SKColors.White);
+
+                using var font = new Majorsilence.Forms.Drawing.Font ("Arial", 14f, style);
+                new Graphics (canvas).DrawString ("Sales 2002", font, new Majorsilence.Forms.Drawing.SolidBrush (Color.Black), 5, 5);
+
+                return bitmap.Bytes;
+            }
+
+            Assert.NotEqual (Draw (Majorsilence.Forms.Drawing.FontStyle.Regular), Draw (Majorsilence.Forms.Drawing.FontStyle.Italic));
+        }
+
         // ── Tab headers ──────────────────────────────────────────────────────────
 
         [Fact]
