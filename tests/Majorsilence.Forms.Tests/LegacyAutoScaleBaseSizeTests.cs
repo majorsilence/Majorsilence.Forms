@@ -159,6 +159,33 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void An_AutoSize_label_is_as_big_as_its_text_after_scaling ()
+        {
+            // Upstream re-measures an AutoSize label after the scale; here it kept its scaled bounds,
+            // so ReportDesigner's "Fore Color:" label measured 64px but sat at 82.
+            HeadlessRenderer.Use ();
+
+            var form = new Form {
+                FormBorderStyle = FormBorderStyle.None,
+                ClientSize = new Size (466, 334),
+                Font = new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 11f),
+            };
+            var label = new Label { AutoSize = true, Location = new Point (4, 15), Size = new Size (58, 13), Text = "Fore Color:" };
+            var check = new CheckBox { AutoSize = true, Location = new Point (4, 40), Size = new Size (76, 17), Text = "Auto Hide" };
+            form.Controls.Add (label);
+            form.Controls.Add (check);
+            form.AutoScaleBaseSize = new Size (5, 13);
+
+            form.Show ();
+
+            using (form) {
+                Assert.Equal (label.GetPreferredSize (Size.Empty), label.Size);
+                Assert.Equal (check.GetPreferredSize (Size.Empty), check.Size);
+                Assert.True (label.Left > 4, "the label still moves with the scale");
+            }
+        }
+
+        [Fact]
         public void A_dialog_without_a_recorded_base_size_is_left_alone ()
         {
             var (form, button) = Dialog (null);

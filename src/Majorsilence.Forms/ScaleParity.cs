@@ -10,6 +10,22 @@ namespace Majorsilence.Forms
         internal override bool IsFixedHeightForScaling => DropDownStyle != ComboBoxStyle.Simple;
     }
 
+    public partial class Label
+    {
+        // AutoSize: as big as its text, whatever the factor (re-measured after the scale).
+        internal override bool SizesToContentWhenScaled => AutoSize;
+    }
+
+    public partial class CheckBox
+    {
+        internal override bool SizesToContentWhenScaled => AutoSize;
+    }
+
+    public partial class RadioButton
+    {
+        internal override bool SizesToContentWhenScaled => AutoSize;
+    }
+
     public abstract partial class TextBoxBase
     {
         // A single-line box is as tall as its font makes it; a multiline one is sized by its owner.
