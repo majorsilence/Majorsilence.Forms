@@ -376,6 +376,10 @@ public partial class Control
     internal virtual bool IsFixedWidthForScaling => false;
     internal virtual bool IsFixedHeightForScaling => false;
 
+    // A control whose size is its content's (an AutoSize label, check box or radio button): scaling
+    // moves it, and it then takes its preferred size rather than the scaled one.
+    internal virtual bool SizesToContentWhenScaled => false;
+
     /// <summary>
     /// Scales this control -- its bounds, and everything else measured in the same pixels -- by the
     /// given factor. Only the bounds components named by <paramref name="specified"/> are scaled.
@@ -434,6 +438,11 @@ public partial class Control
         Majorsilence.Forms.Layout.DefaultLayout.ScaleAnchorInfo (this, factor);
 
         SetBounds (scaled.X, scaled.Y, scaled.Width, scaled.Height, BoundsSpecified.All);
+
+        // Upstream re-measures an AutoSize label, check box or radio button after any change, scaling
+        // included; here the scaled bounds stuck, so a label measured at 64px stayed at its scaled 82.
+        if (SizesToContentWhenScaled)
+            Size = GetPreferredSize (Size.Empty);
 
         if (!min.IsEmpty)
             MinimumSize = ScaleSize (min, factor);

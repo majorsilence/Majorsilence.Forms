@@ -92,6 +92,7 @@ namespace Majorsilence.Forms
         {
             icon_box.Glyph = MessageGlyphs.For (icon);
             icon_box.Visible = icon_box.Glyph is not null;
+            CalculateDialogSize ();   // the glyph band widens the dialog
 
             if ((options & MessageBoxOptions.RightAlign) != 0)
                 label.TextAlign = ContentAlignment.TopRight;
@@ -154,13 +155,27 @@ namespace Majorsilence.Forms
             }
         }
 
+        // The widest the message runs before it wraps, and the tallest the dialog grows.
+        private const int MaxTextWidth = 560;
+        private const int MaxClientHeight = 700;
+
+        // Sizes the dialog to its message, as upstream's message box does: the text's own width up to a
+        // wrapping limit, its wrapped height, and never narrower than the button row. A fixed 400x200
+        // (stepped up by line count) left a one-line error floating in empty space, and still cut off
+        // a long line that had no newlines in it.
         private void CalculateDialogSize ()
         {
-            var num_lines = label?.Text?.Count (c => c == '\n') ?? 0;
+            var icon_width = icon_box.Visible ? icon_box.Width : 0;
+            var text = label.GetPreferredSize (new Size (MaxTextWidth - label.Padding.Horizontal, 0));
 
-            Size = num_lines > 10 ? new Size (800, 400)
-                 : num_lines > 4  ? new Size (600, 300)
-                 :                   new Size (400, 200);
+            var buttons = button_panel.Controls.GetAllControls ().OfType<Button> ().ToList ();
+            var buttons_width = buttons.Sum (b => b.Width + 10) + 30;
+
+            // The glyph is 32px with 12px above it, so the band needs 56px whatever the text's height.
+            var width = Math.Max (icon_width + text.Width, buttons_width);
+            var body = Math.Max (text.Height, icon_box.Visible ? 56 : 0);
+
+            ClientSize = new Size (Math.Max (width, 200), Math.Min (body + button_panel.Height, MaxClientHeight));
 
             CenterButtons ();
         }
