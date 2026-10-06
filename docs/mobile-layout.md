@@ -25,6 +25,35 @@ column.Controls.Add (new Label { Text = body, AutoSize = true });
 `GetPreferredSize` can report a width a few pixels over the one you proposed (a word that does not fit), so size a wrapping label
 from the **height** it returns.
 
+## A form-shaped column
+
+`StackPanel` stacks its children one after another and is the panel to reach for when the screen is a column of captions, fields and
+buttons. It is a Majorsilence extension (WinForms has no stack panel). Compared with a top-down `FlowLayoutPanel` it stretches every
+child to the column width without `Anchor`, can stop the column at a readable width on a wide window, and works the width out again on
+every layout pass, so a resize cannot leave a child at an old width.
+
+```csharp
+var form = new StackPanel {
+    Dock = DockStyle.Fill,
+    AutoScroll = true,                  // scrolls when the column is taller than the window; a relayout keeps the scroll position
+    MaximumContentWidth = 560,          // on a wider window the column stays 560 wide...
+    ContentAlignment = StackAlignment.Center,   // ...and in the middle (the default); the scroll bar stays at the window edge
+    Spacing = 8,                        // between children, on top of each child's Margin
+    Padding = new Padding (8),
+};
+form.Controls.Add (new Label { Text = "Server address", AutoSize = true });   // wraps to the column, reports its wrapped height
+form.Controls.Add (new TextBox { Height = 48 });                              // stretched to the column width
+var save = new Button { Text = "Save", Size = new Size (120, 48) };
+form.Controls.Add (save);
+form.SetAlignment (save, StackAlignment.End);                                  // this one keeps its own width, at the end
+```
+
+- A child keeps the height it was given. An `AutoSize` child is asked for its preferred size at the width it will have.
+- Invisible children take no room; setting `Visible` back closes or reopens the gap.
+- `Orientation = Orientation.Horizontal` stacks left to right and stretches the heights. `MaximumContentWidth` applies to a vertical stack only.
+- An `AutoSize` stack takes the height (or width) its children need, so a stack can sit inside another.
+- It does not wrap onto new lines (`FlowLayoutPanel`) or size in proportions (`TableLayoutPanel`).
+
 ## Cards
 
 `Card` is a `Panel` drawn as a rounded, bordered surface with padding. It takes its colours from the theme, so it follows a

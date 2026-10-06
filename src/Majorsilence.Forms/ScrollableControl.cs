@@ -263,6 +263,14 @@ namespace Majorsilence.Forms
             canvas_size.Height = height;
         }
 
+        /// <summary>
+        /// The width of the area content can fill: the client area less the padding and a visible vertical scroll bar. Unlike
+        /// <see cref="DisplayRectangle"/>, whose width becomes the scrollable content extent once a horizontal scroll bar shows,
+        /// this never depends on the content, so a layout that fills the width cannot be fed its own earlier overflow back.
+        /// </summary>
+        internal int ViewportWidth
+            => Math.Max (0, base.DisplayRectangle.Width - (vscrollbar.Visible ? vscrollbar.Width : 0) - Padding.Horizontal);
+
         /// <inheritdoc/>
         /// <remarks>
         /// <para>

@@ -52,6 +52,7 @@ namespace ControlGallery
             tree.Items.Add ("ScrollableControl", ImageLoader.Get ("button.png"));
             tree.Items.Add ("ScrollBar", ImageLoader.Get ("button.png"));
             tree.Items.Add ("SplitContainer", ImageLoader.Get ("button.png"));
+            tree.Items.Add ("StackPanel", ImageLoader.Get ("button.png"));
             tree.Items.Add ("StatusBar", ImageLoader.Get ("button.png"));
             tree.Items.Add ("StatusStrip", ImageLoader.Get ("button.png"));
             tree.Items.Add ("TabControl", ImageLoader.Get ("button.png"));
@@ -182,7 +183,7 @@ namespace ControlGallery
                 "ListBox", "ListView", "Menu", "MenuStrip", "MessageBox", "MVVM helpers",
                 "NavigationPane", "NumericUpDown", "Panel", "PictureBox", "ProgressBar",
                 "RadioButton", "Ribbon", "ScrollableControl", "ScrollBar", "SplitContainer",
-                "StatusBar", "StatusStrip", "TabControl", "TableLayoutPanel", "TabStrip",
+                "StackPanel", "StatusBar", "StatusStrip", "TabControl", "TableLayoutPanel", "TabStrip",
                 "TextBox", "TimePicker", "TitleBar", "ToolBar", "TrackBar", "TreeView",
                 "Game of Life", "Fractals", "Binary Rain", "Sorting Visualizer",
                 // Panels with side effects (open child windows / register events) are
@@ -257,6 +258,8 @@ namespace ControlGallery
                     return new ScrollBarPanel ();
                 case "SplitContainer":
                     return new SplitContainerPanel ();
+                case "StackPanel":
+                    return new StackPanelPanel ();
                 case "StatusBar":
                     return new Panels.StatusBarPanel ();
                 case "StatusStrip":
