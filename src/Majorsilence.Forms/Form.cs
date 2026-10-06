@@ -279,9 +279,15 @@ namespace Majorsilence.Forms
         /// which is the whole reason <c>ProcessCmdKey</c> runs first in WinForms' chain.
         /// </remarks>
         protected override bool ProcessCmdKey (ref Message msg, Keys keyData)
-            => KeyboardShortcuts.TryInvokeMenuShortcut (this, keyData)
+        {
+            // Alt, alone or with a key, is what reveals the access keys upstream.
+            if ((keyData & Keys.Alt) == Keys.Alt || (keyData & Keys.KeyCode) == Keys.Menu)
+                ShowKeyboardCues = true;
+
+            return KeyboardShortcuts.TryInvokeMenuShortcut (this, keyData)
                 || TryEnterMenuMode (keyData)
                 || base.ProcessCmdKey (ref msg, keyData);
+        }
 
         // F10 and a bare Alt put the selection on the menu bar, which is how menu mode is entered from
         // the keyboard; from there MenuBase.HandleNavigationKey owns the arrows, Enter and Escape
@@ -1177,6 +1183,25 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>Gets whether access keys are underlined in this form.</summary>
+        /// <remarks>
+        /// Upstream hides them until the user presses Alt (Windows' default), and then shows them for
+        /// the life of the window; an MDI child follows its parent, which receives the keys. An app that
+        /// has not chosen a font with <see cref="Application.SetDefaultFont"/> keeps the theme's look,
+        /// with the underline always shown.
+        /// </remarks>
+        public bool ShowKeyboardCues {
+            get => keyboard_cues_shown || !SystemFonts.HasDefaultFontOverride || (MdiParent?.ShowKeyboardCues ?? false);
+            internal set {
+                if (keyboard_cues_shown != value) {
+                    keyboard_cues_shown = value;
+                    Invalidate ();
+                }
+            }
+        }
+
+        private bool keyboard_cues_shown;
+
         /// <summary>
         /// Gets or sets the unscaled size of the window. For an MDI child this is the size of its content
         /// area inside the host frame, for a panel-hosted form the size of its frame; otherwise it's the
@@ -1537,8 +1562,10 @@ namespace Majorsilence.Forms
             set {
                 if (text != value) {
                     text = value;
-                    Backend.Title = text;
-                    TitleBar.Text = text;
+                    ApplyTitle ();
+
+                    // A maximized child's title is part of its parent's caption.
+                    MdiHost?.Client.SyncMergedChrome ();
                     OnTextChanged (EventArgs.Empty);
                 }
             }
@@ -1876,9 +1903,15 @@ namespace Majorsilence.Forms
             if (current == recorded)
                 return;
 
-            ScaleClientAndChildren (new System.Drawing.SizeF (
-                AdjustLegacyScale (current.Width / (float)recorded.Width),
-                AdjustLegacyScale (current.Height / (float)recorded.Height)));
+            Control.InLegacyAutoScale = true;
+
+            try {
+                ScaleClientAndChildren (new System.Drawing.SizeF (
+                    AdjustLegacyScale (current.Width / (float)recorded.Width),
+                    AdjustLegacyScale (current.Height / (float)recorded.Height)));
+            } finally {
+                Control.InLegacyAutoScale = false;
+            }
 
             auto_scale_base_size = current;
         }

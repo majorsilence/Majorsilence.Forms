@@ -56,6 +56,9 @@ namespace Majorsilence.Forms
         internal static void SetDefaultFont (Majorsilence.Forms.Drawing.Font? font)
             => _defaultFontOverride = font;
 
+        /// <summary>Whether the app chose its default font with Application.SetDefaultFont.</summary>
+        internal static bool HasDefaultFontOverride => _defaultFontOverride is not null;
+
         /// <summary>Gets the dialog box font.</summary>
         public static Majorsilence.Forms.Drawing.Font DialogFont => Create ();
 

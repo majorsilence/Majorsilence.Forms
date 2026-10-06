@@ -44,15 +44,27 @@ namespace Majorsilence.Forms
 
         // ── Geometry the hosted Form reports as its own ──────────────────────────
 
+        /// <summary>
+        /// Whether the caption and border are merged into the parent instead of drawn here: upstream
+        /// shows a maximized MDI child with no frame of its own, its icon and minimize/restore/close
+        /// buttons moved into the parent's menu bar and its title appended to the parent's. Only when
+        /// there is a menu bar to take them, or the buttons would have nowhere to go.
+        /// </summary>
+        internal bool ChromeMerged => WindowState == FormWindowState.Maximized && Client.Owner?.MdiMenuStrip is not null;
+
+        // The frame metrics in effect: the constants, or nothing while the chrome is merged.
+        private int Border => ChromeMerged ? 0 : FrameBorder;
+        private int Caption => ChromeMerged ? 0 : CaptionHeight;
+
         /// <summary>The logical size available to the child form's content (interior minus chrome).</summary>
         public Size ContentSize => new Size (
-            Math.Max (0, Width - 2 * FrameBorder),
-            Math.Max (0, Height - CaptionHeight - 2 * FrameBorder));
+            Math.Max (0, Width - 2 * Border),
+            Math.Max (0, Height - Caption - 2 * Border));
 
         /// <summary>Resizes the frame so the child's content area is <paramref name="content"/> logical pixels.</summary>
         public void SetContentSize (Size content)
         {
-            Size = new Size (content.Width + 2 * FrameBorder, content.Height + CaptionHeight + 2 * FrameBorder);
+            Size = new Size (content.Width + 2 * Border, content.Height + Caption + 2 * Border);
         }
 
         // ── Painting ─────────────────────────────────────────────────────────────
@@ -76,6 +88,20 @@ namespace Majorsilence.Forms
 
             var w = ScaledWidth;
             var h = ScaledHeight;
+
+            // Maximized under a menu bar: no frame at all, the child's content is the whole window.
+            if (ChromeMerged) {
+                if (w > 0 && h > 0) {
+                    EnsureContentBuffer (w, h);
+                    using (var canvas = new SKCanvas (content_buffer)) {
+                        ChildForm.RenderFrame (canvas, w, h, scaling);
+                        canvas.Flush ();
+                    }
+                    e.Canvas.DrawBitmap (content_buffer, 0, 0);
+                }
+                return;
+            }
+
             var border = D (FrameBorder);
             var caption = D (CaptionHeight);
             var active = Client.ActiveChild == ChildForm;
@@ -296,7 +322,7 @@ namespace Majorsilence.Forms
 
         private CaptionHit HitCaptionButton (int lx, int ly)
         {
-            if (ly < FrameBorder || ly > FrameBorder + CaptionHeight)
+            if (ChromeMerged || ly < FrameBorder || ly > FrameBorder + CaptionHeight)
                 return CaptionHit.None;
 
             var order = CaptionButtonOrder ();
@@ -396,8 +422,8 @@ namespace Majorsilence.Forms
 
         // e.X/e.Y are in this frame's logical coordinates (see OnMouseDown); the child's client area
         // starts one border in and one caption down.
-        private int InteriorX (MouseEventArgs e) => e.X - FrameBorder;
-        private int InteriorY (MouseEventArgs e) => e.Y - (FrameBorder + CaptionHeight);
+        private int InteriorX (MouseEventArgs e) => e.X - Border;
+        private int InteriorY (MouseEventArgs e) => e.Y - (Border + Caption);
 
         private void ForwardToChild (MouseEventArgs e, Action<Form> dispatch)
         {
@@ -405,7 +431,7 @@ namespace Majorsilence.Forms
                 return;
 
             // Only the interior (below the caption, inside the border) maps to the child's client area.
-            if (e.X < FrameBorder || e.X >= Width - FrameBorder || e.Y < FrameBorder + CaptionHeight || e.Y >= Height - FrameBorder)
+            if (e.X < Border || e.X >= Width - Border || e.Y < Border + Caption || e.Y >= Height - Border)
                 return;
 
             dispatch (ChildForm);
@@ -488,6 +514,7 @@ namespace Majorsilence.Forms
             WindowState = FormWindowState.Maximized;
             Client.LayoutMaximizedChild (this);
             ChildForm.RaiseMdiResize ();
+            Client.SyncMergedChrome ();
             Invalidate ();
         }
 
@@ -498,6 +525,7 @@ namespace Majorsilence.Forms
             WindowState = FormWindowState.Minimized;
             Size = new Size (MinimizedWidth, CaptionHeight + 2 * FrameBorder);
             Client.ArrangeMinimized ();
+            Client.SyncMergedChrome ();
             Invalidate ();
         }
 
@@ -506,11 +534,16 @@ namespace Majorsilence.Forms
             WindowState = FormWindowState.Normal;
             Client.SetChildBounds (this, RestoreBounds);
             ChildForm.RaiseMdiResize ();
+            Client.SyncMergedChrome ();
             Invalidate ();
         }
 
         // Clears maximized/minimized state without repositioning — the caller (a LayoutMdi pass) sets the
         // bounds itself.
-        internal void SetNormalStateInternal () => WindowState = FormWindowState.Normal;
+        internal void SetNormalStateInternal ()
+        {
+            WindowState = FormWindowState.Normal;
+            Client.SyncMergedChrome ();
+        }
     }
 }

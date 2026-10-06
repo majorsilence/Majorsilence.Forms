@@ -1,4 +1,5 @@
 ﻿using System.Drawing;
+using SkiaSharp;
 
 namespace Majorsilence.Forms.Renderers
 {
@@ -21,8 +22,59 @@ namespace Majorsilence.Forms.Renderers
                     // item that highlighted on hover (TSM-23).
                     StripRendererBridge.Separator (control, tss, vertical: true, e);
                     RenderMenuSeparatorItem (control, tss, e);
-                } else
+                } else if (item is MdiControlItem mdi)
+                    RenderMdiControlItem (control, mdi, e);
+                else
                     RenderItem (control, item, e);
+            }
+        }
+
+        // A maximized MDI child's icon or caption button, merged into the menu bar. The glyphs are drawn
+        // in the menu's text colour: ControlPaint's are white, for an accent-coloured caption.
+        private static void RenderMdiControlItem (Menu control, MdiControlItem item, PaintEventArgs e)
+        {
+            var hovered = item.Hovered || item.IsDropDownOpened;
+            var item_style = hovered ? Menu.DefaultItemHoverStyle : Menu.DefaultItemStyle;
+            e.Canvas.FillRectangle (item.DeviceBounds, item_style.TryGetBackgroundColor () ?? control.GetEffectiveBackgroundColor ());
+
+            var bounds = item.DeviceBounds;
+
+            if (item.ControlKind == MdiControlItem.Kind.System) {
+                var image = item.Child.Image ?? item.Child.MdiParent?.Image;
+                if (image?.ToSKBitmap () is { } bitmap) {
+                    using (bitmap) {
+                        // The small icon, as upstream's caption shows it: an .ico decodes to its largest frame.
+                        var size = Math.Min (e.LogicalToDeviceUnits (16), Math.Min (bounds.Width, bounds.Height));
+                        var x = bounds.X + (bounds.Width - size) / 2;
+                        var y = bounds.Y + (bounds.Height - size) / 2;
+                        using var small = bitmap.Resize (new SKSizeI (size, size), new SKSamplingOptions (SKCubicResampler.Mitchell));
+                        if (small is not null)
+                            e.Canvas.DrawBitmap (small, x, y);
+                    }
+                }
+                return;
+            }
+
+            var glyph = e.LogicalToDeviceUnits (10);
+            var box = new Rectangle (bounds.X + (bounds.Width - glyph) / 2, bounds.Y + (bounds.Height - glyph) / 2, glyph, glyph);
+            var color = item_style.GetForegroundColor ();
+
+            switch (item.ControlKind) {
+                case MdiControlItem.Kind.Minimize:
+                    e.Canvas.DrawLine (box.X, box.Bottom - 1, box.Right, box.Bottom - 1, color);
+                    break;
+                case MdiControlItem.Kind.Restore:
+                    var offset = e.LogicalToDeviceUnits (2);
+                    e.Canvas.DrawRectangle (new Rectangle (box.X, box.Y + offset, box.Width - offset, box.Height - offset), color);
+                    e.Canvas.DrawLine (box.X + offset, box.Y + offset, box.X + offset, box.Y, color);
+                    e.Canvas.DrawLine (box.X + offset, box.Y, box.Right, box.Y, color);
+                    e.Canvas.DrawLine (box.Right, box.Y, box.Right, box.Bottom - offset, color);
+                    e.Canvas.DrawLine (box.Right, box.Bottom - offset, box.Right - offset, box.Bottom - offset, color);
+                    break;
+                case MdiControlItem.Kind.Close:
+                    e.Canvas.DrawLine (box.X, box.Y, box.Right, box.Bottom, color);
+                    e.Canvas.DrawLine (box.X, box.Bottom, box.Right, box.Y, color);
+                    break;
             }
         }
 
@@ -38,9 +90,9 @@ namespace Majorsilence.Forms.Renderers
 
             // Text
             var font_color = item.Enabled ? item_style.GetForegroundColor () : Theme.ForegroundDisabledColor;
-            var font_size = e.LogicalToDeviceUnits (Theme.FontSize);
+            var font_size = e.LogicalToDeviceUnits (control.ItemFontSize);
 
-            e.Canvas.DrawMnemonicText (item.Text, Theme.UIFont, font_size, item.DeviceBounds, font_color, ContentAlignment.MiddleCenter);
+            e.Canvas.DrawMnemonicText (item.Text, control.ItemTypeface, font_size, item.DeviceBounds, font_color, ContentAlignment.MiddleCenter, maxLines: null, ellipsis: false, underline: control.ShowKeyboardCues);
         }
 
         /// <summary>
@@ -77,6 +129,19 @@ namespace Majorsilence.Forms.Renderers
 
             if (item is ToolStripSeparator tss)
                 return GetPreferredSeparatorItemSize (control, tss, proposedSize);
+
+            if (item is MdiControlItem mdi)
+                return new Size (control.LogicalToDeviceUnits (mdi.LogicalWidth), item.DeviceBounds.Height);
+
+            // Upstream's metrics (Menu.UpstreamFont): the text as GDI measures it -- with its padding of
+            // a sixth of the line height on each side -- inside the item padding and a 2px border.
+            if (control.UpstreamFont is { } font) {
+                var measured = TextMeasurer.MeasureText (Mnemonics.Strip (item.Text), control.ItemTypeface, control.LogicalToDeviceUnits (control.ItemFontSize));
+                var gdi_padding = 2 * (int) Math.Ceiling (font.Height / 6.0);
+                var extra = control.LogicalToDeviceUnits (gdi_padding + item.Padding.Horizontal + 4);
+
+                return new Size ((int) Math.Ceiling (measured.Width) + extra, item.DeviceBounds.Height);
+            }
 
             var padding = control.LogicalToDeviceUnits (item.Padding.Horizontal);
             var font_size = control.LogicalToDeviceUnits (Theme.FontSize);

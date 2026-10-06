@@ -100,6 +100,8 @@ namespace Majorsilence.Forms
                     Owner?.RaiseMdiChildActivate ();
             }
 
+            SyncMergedChrome ();
+
             UpdateScrollExtent ();
             Invalidate ();
         }
@@ -124,8 +126,15 @@ namespace Majorsilence.Forms
             GiveFocusToActiveChild ();
 
             Owner?.RaiseMdiChildActivate ();
+            SyncMergedChrome ();
             Invalidate ();
         }
+
+        /// <summary>
+        /// Brings the parent's menu bar and title in line with the active child: its icon and caption
+        /// buttons merged in while it is maximized, taken out again otherwise.
+        /// </summary>
+        internal void SyncMergedChrome () => Owner?.SyncMdiMergedChrome ();
 
         /// <summary>
         /// Moves keyboard focus off the container's own controls, so it belongs to the active child.

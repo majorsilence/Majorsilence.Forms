@@ -51,8 +51,59 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void LayoutItems ()
         {
-            StackLayoutEngine.HorizontalExpand.Layout (LogicalClientRectangle, Items.Where (i => i.Visible).Cast<ILayoutable> ());
+            var visible = Items.Where (i => i.Visible).ToList ();
+            var area = LogicalClientRectangle;
+
+            if (UpstreamFont is { } font) {
+                // Upstream's MenuStrip is as tall as its tallest item plus its padding (its AutoSize, which
+                // defaults on there; this strip's AutoSize defaults off, so it is not consulted), and lays
+                // its items out inside that padding.
+                var row = visible.Count == 0 ? font.Height + 4 : visible.Max (i => UpstreamItemHeight (i, font));
+                var height = row + Padding.Vertical;
+
+                if (Height != height && Dock is DockStyle.Top or DockStyle.Bottom or DockStyle.None)
+                    Height = height;
+
+                // The row is laid out at the height just set: the client rectangle read above predates it.
+                area = new Rectangle (area.X + Padding.Left, area.Y + Padding.Top,
+                    Math.Max (0, area.Width - Padding.Horizontal), row);
+            }
+
+            StackLayoutEngine.HorizontalExpand.Layout (area, visible.Cast<ILayoutable> ());
+
+            // ToolStripItemAlignment.Right: a merged MDI child's caption buttons, or a Help menu pinned
+            // to the far edge, as upstream lays a MenuStrip out.
+            PinTrailing (visible, area, vertical: false);
         }
+
+        // ── Upstream metrics ───────────────────────────────────────────────────────
+        //
+        // A menu bar draws with the theme's font and roomy padding. Once the app has chosen a font --
+        // on this strip, or app-wide with Application.SetDefaultFont, as a ported WinForms app does --
+        // it takes upstream's metrics instead: SystemFonts.MenuFont (a ToolStrip does not inherit its
+        // form's font), 4px item padding, a 2px item border, GDI's text padding, and a MenuStrip's
+        // own (6, 2, 0, 2) padding. Under the theme metrics ReportDesigner's "File" was 49px against
+        // WinForms' 37, and its menu bar 4px short.
+
+        /// <summary>The font menu items are laid out with under upstream's metrics, or null for the theme's.</summary>
+        internal Majorsilence.Forms.Drawing.Font? UpstreamFont
+            => HasOwnFont ? Font
+             : SystemFonts.HasDefaultFontOverride ? SystemFonts.MenuFont
+             : null;
+
+        /// <summary>The typeface items draw with.</summary>
+        internal SkiaSharp.SKTypeface ItemTypeface => UpstreamFont is { } font ? TypefaceCache.Resolve (font) : Theme.UIFont;
+
+        /// <summary>The logical pixel size items draw at.</summary>
+        internal int ItemFontSize => UpstreamFont is { } font ? (int) Math.Round (font.PixelSize) : Theme.FontSize;
+
+        // An item's height under upstream's metrics: a line of text, or a merged MDI child's 20px icon,
+        // inside its padding and the 2px item border.
+        private static int UpstreamItemHeight (MenuItem item, Majorsilence.Forms.Drawing.Font font)
+            => item is MdiControlItem ? 24 : font.Height + item.Padding.Vertical + 4;
+
+        /// <inheritdoc/>
+        protected override Padding DefaultPadding => UpstreamFont is not null ? new Padding (6, 2, 0, 2) : base.DefaultPadding;
 
         /// <inheritdoc/>
         protected override void OnDeselected (EventArgs e)

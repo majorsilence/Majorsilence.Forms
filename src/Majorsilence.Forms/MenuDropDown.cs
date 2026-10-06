@@ -261,6 +261,12 @@ namespace Majorsilence.Forms
         internal override MenuItem? DropDownOwnerItem => RootMenuItem.Parent is null ? null : RootMenuItem;
 
         /// <inheritdoc/>
+        /// <remarks>A drop-down is its own popup, not part of the form: it underlines access keys when the
+        /// strip that opened it does.</remarks>
+        protected internal override bool ShowKeyboardCues
+            => DropDownOwnerItem?.OwnerControl is { } owner ? owner.ShowKeyboardCues : base.ShowKeyboardCues;
+
+        /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
 
         /// <inheritdoc/>

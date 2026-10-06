@@ -1382,7 +1382,11 @@ namespace Majorsilence.Forms
         /// ran out of room: its trailing items -- ReportDesigner's expression editor and zoom control --
         /// were pushed off the end and never shown. Menus and status strips keep the menu metrics.
         /// </remarks>
-        protected override Padding DefaultPadding => IsOnPlainToolStrip ? new Padding (2) : base.DefaultPadding;
+        protected override Padding DefaultPadding
+            => IsOnPlainToolStrip ? new Padding (2)
+             // A menu bar under upstream's metrics (Menu.UpstreamFont): upstream's top-level menu item padding.
+             : OwnerControl is Menu { UpstreamFont: not null } ? new Padding (4, 0, 4, 0)
+             : base.DefaultPadding;
 
         // A ToolStrip in its own right rather than one of the menu or status strips that derive from it.
         internal bool IsOnPlainToolStrip => OwnerControl is ToolStrip and not (Menu or MenuDropDown or StatusStrip);

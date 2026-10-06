@@ -186,6 +186,34 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void Padding_and_margins_are_left_alone ()
+        {
+            // Upstream applies AutoScaleBaseSize through Scale (float, float) and ScaleCore, which move
+            // and resize but do not touch Padding or Margin (only the AutoScaleMode path scales those).
+            // Scaled here, ReportDesigner's menu bar padding went from 6,2 to 8,3.
+            HeadlessRenderer.Use ();
+
+            var form = new Form {
+                FormBorderStyle = FormBorderStyle.None,
+                ClientSize = new Size (456, 374),
+                Font = new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 11f),
+            };
+            var panel = new Panel { Location = new Point (10, 10), Size = new Size (200, 100), Padding = new Padding (6, 2, 0, 2) };
+            var button = new Button { Location = new Point (10, 200), Size = new Size (75, 23), Margin = new Padding (3) };
+            form.Controls.Add (panel);
+            form.Controls.Add (button);
+            form.AutoScaleBaseSize = new Size (5, 13);
+
+            form.Show ();
+
+            using (form) {
+                Assert.True (panel.Width > 200, "the panel itself still scales");
+                Assert.Equal (new Padding (6, 2, 0, 2), panel.Padding);
+                Assert.Equal (new Padding (3), button.Margin);
+            }
+        }
+
+        [Fact]
         public void A_dialog_without_a_recorded_base_size_is_left_alone ()
         {
             var (form, button) = Dialog (null);
