@@ -170,7 +170,8 @@ namespace Majorsilence.Forms.Tests
         {
             var (form, panel) = Shown (300, 200, 12);
             using var _ = form;
-            panel.AutoScrollPosition = new Point (0, -150);
+            // The setter takes the positive distance, as upstream's does (LAY-33).
+            panel.AutoScrollPosition = new Point (0, 150);
             var scrolledTop = panel.Controls[3].Top;
             var position = panel.AutoScrollPosition;
 

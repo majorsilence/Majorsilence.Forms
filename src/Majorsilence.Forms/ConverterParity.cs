@@ -524,13 +524,3 @@ namespace Majorsilence.Forms
         }
     }
 }
-
-namespace Majorsilence.Forms.Layout
-{
-    /// <summary>Converts a <see cref="TableLayoutSettings"/> for a designer.</summary>
-    /// <remarks>Upstream serialises the row and column styles into a .resx through this converter.
-    /// See ConverterParity.cs's header: nothing here consumes the descriptor it would produce.</remarks>
-    public class TableLayoutSettingsTypeConverter : TypeConverter
-    {
-    }
-}

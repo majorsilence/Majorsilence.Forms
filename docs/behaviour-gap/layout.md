@@ -129,6 +129,7 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Tests today:** `tests/Majorsilence.Forms.Tests/SplitterTests.cs` (asserts the `Drag` event only)
 
 ### LAY-06 — `SplitContainer.IsSplitterFixed` / `SplitterIncrement` — Cat C — P2 — High
+- **Still open (2026-10-06):** the mouse halves were fixed in earlier passes. `IsSplitterFixed` gates the drag (W6.2 sweep) and `SplitterIncrement` quantises it (W6 mechanisms). Keyboard moves remain. Upstream moves the bar with the arrow keys when the `SplitContainer` itself has focus (`_splitterFocused`), drawing a focus cue on the bar and ending the move on key-up with `SplitterMoved`. Ours has no focus state for the bar, so this needs a selectable `SplitContainer` and a focus cue as well as the key handling.
 - **Ours:** Both plain auto-properties (`src/Majorsilence.Forms/SplitContainer.cs:161,176`). `Splitter_Drag` never checks `IsSplitterFixed`, so a "fixed" splitter still drags; `SplitterIncrement` never quantises the movement and there is no keyboard handling at all (no `OnKeyDown`/`ProcessDialogKey` override on `SplitContainer`).
 - **Upstream:** `IsSplitterFixed` gates the mouse-capture path; `SplitterIncrement` quantises both mouse (`SplitContainer.cs:2117-2124`) and arrow-key moves (`SplitContainer.cs:955-968`, `SplitterIncrement` at `:742`).
 - **Impact:** Read-only splitters remain user-draggable; keyboard accessibility for the splitter is absent.
@@ -152,7 +153,8 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Test:** `Assert.Equal(DockStyle.None, new SplitContainer().Dock); Assert.Equal(50, new SplitContainer().SplitterDistance);`
 - **Tests today:** `tests/Majorsilence.Forms.Tests/SplitContainerTests.cs`
 
-### LAY-09 — `SplitContainer.BorderStyle` / `AutoScroll` / `AutoScrollMargin` / `AutoScrollMinSize` / `AutoScrollPosition` — Cat C — P2 — High
+### LAY-09 — `SplitContainer.BorderStyle` / `AutoScroll` / `AutoScrollMargin` / `AutoScrollMinSize` / `AutoScrollPosition` — Cat C — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** `BorderStyle` was **already fixed** in W6 mechanisms (`ApplyBorderStyle`, pinned by `ControlBorderStyleTests`). `AutoScroll` now always reads `false`, as upstream's override does. The other three `AutoScroll*` members stay stored, which matches upstream (stored-only baseline). Test: `LayoutContainerGapTests`.
 - **Ours:** All five are plain auto-properties in the parity partial (`src/Majorsilence.Forms/TailParity.cs:214,217,220,223,226`) with no reader. `SplitContainerRenderer` (`src/Majorsilence.Forms/Renderers/SplitContainerRenderer.cs`) does not consult `BorderStyle`.
 - **Upstream:** `BorderStyle` repaints and changes the client area / `_borderSize` used throughout the splitter math (`src/System.Windows.Forms/System/Windows/Forms/Layout/Containers/SplitContainer.cs:237`); AutoScroll lives on each `SplitterPanel` and genuinely scrolls.
 - **Impact:** `sc.BorderStyle = BorderStyle.Fixed3D` draws nothing and does not shrink the panels; `sc.Panel1.AutoScroll = true` content is clipped instead of scrolled (the `AutoScroll` here shadows nothing useful since it is declared on `SplitContainer` rather than the panels).
@@ -160,7 +162,8 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Test:** headless render of a `SplitContainer` with `BorderStyle.FixedSingle`; assert edge pixels differ from `BorderStyle.None`.
 - **Tests today:** `tests/Majorsilence.Forms.Tests/TailParityTests.cs` (asserts round-trip only)
 
-### LAY-10 — `SplitContainer.Orientation` setter leaves the splitter and Panel2 stale — Cat A — P2 — High
+### LAY-10 — `SplitContainer.Orientation` setter leaves the splitter and Panel2 stale — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** after the re-dock, the `Orientation` setter re-assigns the distance through the validating path. That clamps it to `Panel1MinSize`/`Panel2MinSize` on the new axis and raises `SplitterMoved`. Upstream does the same: `_splitDistance = 0; SplitterDistance = SplitterDistanceInternal`. Upstream keeps the pixel distance; it does not re-derive it from a ratio, so the finding's "derive from the ratio" suggestion was not followed. Test: `LayoutContainerGapTests`.
 - **Ours:** The setter re-docks `Panel1` and swaps `Panel1.Size`, but sets `splitter.Orientation` (which itself re-docks the splitter) *inside* a `SuspendLayout` and never re-clamps against `Panel2MinimumSize` (`src/Majorsilence.Forms/SplitContainer.cs:71-84`). `Panel1.Size = new Size(Panel1.Height, Panel1.Width)` transposes rather than preserving the split ratio.
 - **Upstream:** The `Orientation` setter recomputes the splitter rect, re-derives `SplitterDistance` from the ratio, updates the cursor and calls `UpdateSplitter()` (`src/System.Windows.Forms/System/Windows/Forms/Layout/Containers/SplitContainer.cs:418`).
 - **Impact:** Toggling orientation at runtime (a common "flip layout" menu item) leaves the split at a transposed pixel value that frequently exceeds `Panel2MinSize`, squashing Panel2 to nothing.
@@ -168,7 +171,8 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Test:** 400x100 container, `SplitterDistance = 300`, flip to `Horizontal`; assert `SplitterDistance <= Height - SplitterWidth - Panel2MinSize`.
 - **Tests today:** `tests/Majorsilence.Forms.Tests/SplitContainerTests.cs`
 
-### LAY-11 — `SplitContainer.SplitterDistance` setter clamps instead of validating — Cat A — P2 — High
+### LAY-11 — `SplitContainer.SplitterDistance` setter clamps instead of validating — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** a negative value throws `ArgumentOutOfRangeException`. Any other value is still clamped to the two minimums, and upstream clamps too, so the finding's "refuses" was wrong. Every assignment that asks for a different distance now raises `SplitterMoved`, programmatic ones included. Upstream also throws `InvalidOperationException` when the container is too small to honour both minimums. That throw is not ported: here the minimum wins, because a container whose layout has not yet run is routinely that small. Test: `LayoutContainerGapTests`.
 - **Ours:** `set => ResizePanels(value)` silently clamps into `[Panel1MinimumSize, GetMaximumPanel1Size()]` (`src/Majorsilence.Forms/SplitContainer.cs:145`, `:120`).
 - **Upstream:** The setter throws `ArgumentOutOfRangeException` for `value < 0` and refuses values that violate `Panel1MinSize`/`Panel2MinSize`, raising `SplitterMoved` when it does move (`src/System.Windows.Forms/System/Windows/Forms/Layout/Containers/SplitContainer.cs:634-700`).
 - **Impact:** Negative or nonsense values are absorbed rather than surfacing the bug; more importantly `SplitterMoved` is not raised, so listeners never see programmatic moves.
@@ -217,6 +221,7 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Tests today:** none
 
 ### LAY-17 — `TabPage.UseVisualStyleBackColor` — Cat C — P2 — High
+- **Still open (2026-10-06):** upstream returns `Color.Transparent` from `BackColor` while the flag is set, and paints the themed tab body. There is no themed tab body here: `TabControlRenderer` paints nothing, so the colour the page would show through to is the one it already paints. Making the flag "real" would first need a tab-body colour in the theme (a `TabControl::body` part). Wiring the setter to invalidate alone would change nothing visible.
 - **Ours:** `public new bool UseVisualStyleBackColor { get; set; }` (`src/Majorsilence.Forms/TabPage.cs:47`) — shadowing auto-property, never consulted when painting.
 - **Upstream:** the setter calls `Invalidate(true)` and the paint path uses it to pick the themed tab background instead of `BackColor` (`src/System.Windows.Forms/System/Windows/Forms/Controls/TabControl/TabPage.cs:318-331`, `:605-611`).
 - **Impact:** Designer files set `UseVisualStyleBackColor = true` on essentially every TabPage. Ours ignores it, so pages paint with the raw `BackColor` and the page background does not match the tab strip — a visible seam on every migrated tabbed form.
@@ -224,7 +229,8 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Test:** headless render two pages, one with the flag; assert the client-area pixel differs and matches the strip's body colour.
 - **Tests today:** none
 
-### LAY-18 — `TabControl.GetTabRect(index)` fabricates a rectangle out of range — Cat A — P2 — High
+### LAY-18 — `TabControl.GetTabRect(index)` fabricates a rectangle out of range — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** throws `ArgumentOutOfRangeException` for `index < 0` or `index >= TabCount`, as upstream does. Test: `LayoutContainerGapTests`.
 - **Ours:** out-of-range indices return `new Rectangle(index * 100, 0, 100, 25)` (`src/Majorsilence.Forms/TabControl.cs:171-174`).
 - **Upstream:** `ArgumentOutOfRangeException.ThrowIfNegative(index)` and `ThrowIfGreaterThanOrEqual(index, TabCount)` (`src/System.Windows.Forms/System/Windows/Forms/Controls/TabControl/TabControl.cs`, `GetTabRect`).
 - **Impact:** Hit-testing / owner-draw loops that overrun the tab count get a plausible-looking rectangle instead of an exception, so the bug lands as mis-positioned drawing far from its cause.
@@ -232,7 +238,8 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Test:** `Assert.Throws<ArgumentOutOfRangeException>(() => tc.GetTabRect(5))` on a 2-tab control.
 - **Tests today:** `tests/Majorsilence.Forms.Tests/TabControlTests.cs`
 
-### LAY-19 — `TabControl.SelectedIndex` does not validate — Cat A — P2 — Medium
+### LAY-19 — `TabControl.SelectedIndex` does not validate — Cat A — P2 — Medium — **CLOSED (2026-10-06)**
+- **Already fixed:** `TabStrip.SelectedIndex` runs `TabStripItemCollection.ValidateIndex`, which throws for values below -1. Pinned by `TabControlTests` (`SelectedIndex = -2`).
 - **Ours:** `set => tab_strip.SelectedIndex = value;` (`src/Majorsilence.Forms/TabControl.cs:100`); `TabStrip.SelectedIndex` (`src/Majorsilence.Forms/TabStrip.cs:246`) forwards to `Tabs.SelectedIndex` with no range check visible on the TabControl side.
 - **Upstream:** `ArgumentOutOfRangeException.ThrowIfLessThan(value, -1)` before anything else (`src/System.Windows.Forms/System/Windows/Forms/Controls/TabControl/TabControl.cs`, `SelectedIndex` setter).
 - **Impact:** `SelectedIndex = -5` is absorbed; the difference matters for code that relies on the throw to detect an empty TabControl.
@@ -240,7 +247,8 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Test:** `Assert.Throws<ArgumentOutOfRangeException>(() => tc.SelectedIndex = -2);`
 - **Tests today:** `tests/Majorsilence.Forms.Tests/TabControlTests.cs`
 
-### LAY-20 — `TabControl.HitTest(Point)` tests page bounds, not tab-header bounds — Cat A — P2 — High
+### LAY-20 — `TabControl.HitTest(Point)` tests page bounds, not tab-header bounds — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** `HitTest` tests each tab header's `GetTabRect`, limited to the strip's bounds, so a tab scrolled out of view is not hit. A point in the page body returns null. Test: `LayoutContainerGapTests`.
 - **Ours:** `TabPages.FirstOrDefault(tp => tp.Bounds.Contains(point))` (`src/Majorsilence.Forms/TabControl.cs:250`) — `TabPage.Bounds` is the page's client rectangle (Dock=Fill, i.e. the whole content area below the strip), so every point in the body "hits" whichever page happens to be first, and no point over a tab header hits anything.
 - **Upstream:** the equivalent is `TCM_HITTEST` over the tab *headers*.
 - **Impact:** Right-click-a-tab context menus (`var page = tc.HitTest(e.Location)`) select the wrong page or none. Common in MDI-style tabbed shells.
@@ -269,7 +277,8 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Test:** headless render a 2x2 TLP with `CellBorderStyle = Single`; assert the pixel at the cell boundary is the border colour, and that a `CellPaint` handler is called 4 times.
 - **Tests today:** none
 
-### LAY-23 — `TableLayout.SetElementBounds` ignores RightToLeft — Cat B — P2 — High
+### LAY-23 — `TableLayout.SetElementBounds` ignores RightToLeft — Cat B — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** un-commented the assignment. `TableLayoutPanel.OnRightToLeftChanged` now re-lays the grid out. Upstream gets that re-layout from `RecreateHandle`, and there is no handle here. Test: `LayoutContainerGapTests`.
 - **Ours:** `var isContainerRTL = false;` then `if (containerInfo.Container is Control) { var control = ...; //isContainerRTL = control.RightToLeft == RightToLeft.Yes;  TODO: RTL }` — the assignment is commented out, so `isContainerRTL` is a compile-time constant `false` (`src/Majorsilence.Forms/Layout/TableLayout.cs`, `SetElementBounds`).
 - **Upstream:** `if (containerInfo.Container is Control containerAsControl) { isContainerRTL = containerAsControl.RightToLeft == RightToLeft.Yes; }` and the whole column walk mirrors from `displayRectF.Right` (`src/System.Windows.Forms/System/Windows/Forms/Layout/TableLayout.cs`, `SetElementBounds`).
 - **Impact:** A `TableLayoutPanel` with `RightToLeft = Yes` lays columns out left-to-right, i.e. mirrored wrongly, for every RTL-localised app.
@@ -278,6 +287,7 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Tests today:** none
 
 ### LAY-24 — `DefaultLayout.LayoutAnchoredControls` skip condition widened — Cat A — P2 — High
+- **Still open (2026-10-06), deliberately:** the widened guard is documented in the code. A fixed-size container can transiently report a zero display rectangle (a themed form's root panel does, mid-construction). Upstream's narrower guard would collapse the anchored children, and our anchor re-capture then makes that collapse permanent. Narrowing it is only safe once `UpdateAnchorInfo` refuses to re-capture from bounds produced against an empty rectangle. Recommend P3.
 - **Ours:** `if ((displayRectangle.Width <= 0) || (displayRectangle.Height <= 0)) return;` — skips the anchored pass for *any* container with a degenerate display rectangle (`src/Majorsilence.Forms/Layout/DockAndAnchorLayout.cs:248`, with a long comment explaining the deliberate widening).
 - **Upstream:** `if (CommonProperties.GetAutoSize(container) && ((displayRectangle.Width == 0) || (displayRectangle.Height == 0))) return;` — only AutoSize containers, and only on an exactly-zero dimension (`src/System.Windows.Forms/System/Windows/Forms/Layout/DefaultLayout.cs:349-355`).
 - **Impact:** A non-AutoSize container that is currently zero-sized in one dimension (a collapsed splitter panel, a zero-height row in a TLP, a `Panel` sized by a not-yet-run parent layout) leaves its anchored children at stale bounds where upstream would place them (clamped to zero). Usually self-corrects on the next real layout; the residual risk is one stale frame or a child that never gets re-laid-out because nothing else changes.
@@ -312,7 +322,8 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Test:** `gb.AutoSize = true; Assert.True(((Control)gb).AutoSize);` plus a preferred-size assertion with one child.
 - **Tests today:** none
 
-### LAY-27 — `GroupBox.FlatStyle` / `UseCompatibleTextRendering` — Cat C — P2 — High
+### LAY-27 — `GroupBox.FlatStyle` / `UseCompatibleTextRendering` — Cat C — P2 — High — **CLOSED (2026-10-06)**
+- **Already fixed:** `FlatStyle` has been read by `GroupBoxRenderer` since W6 mechanisms, and its setter invalidates (`GroupBoxTests`, `W6ControlFeaturesTests`). `UseCompatibleTextRendering` stays stored. It is annotated on the stored-only baseline for every control: there is one text pipeline here.
 - **Ours:** Both bare auto-properties with "Stub" comments (`src/Majorsilence.Forms/GroupBox.cs:60,63`); `Renderers/GroupBoxRenderer.cs` never reads either, and neither setter calls `Invalidate()`.
 - **Upstream:** `FlatStyle` picks between the themed/3D/flat/popup frame and calls `Invalidate()` (`src/System.Windows.Forms/System/Windows/Forms/Controls/GroupBox/GroupBox.cs:172+`); `FlatStyle.System` also changes `DisplayRectangle`.
 - **Impact:** `FlatStyle = Flat` still paints a 3D-ish frame. Cosmetic but affects every "flat" themed migrated form.
@@ -344,7 +355,8 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Test:** `panel.AutoScroll = true;` with a child at y=1000 in a 200px panel; `panel.ScrollControlIntoView(child);` assert `panel.AutoScrollPosition.Y != 0` and the child's client-relative rectangle intersects the panel's client rectangle.
 - **Tests today:** none (listed in `tests/Majorsilence.Forms.Tests/NoOpStubBaseline.txt`, but high-impact enough to call out)
 
-### LAY-31 — `ScrollableControl.DockPadding` — Cat C — P2 — High
+### LAY-31 — `ScrollableControl.DockPadding` — Cat C — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** ported upstream's `DockPaddingEdges`. It is owner-backed, so every edge reads and writes `owner.Padding`, and `All` remaps Padding's -1 to 0. It also has `ICloneable`, `Equals`/`GetHashCode` and `ToString`. `ScrollableControl.DockPadding` creates it lazily with `this`. The public parameterless constructor is gone, as it is upstream, and `PrintPreviewDialog.DockPadding` holds a detached instance. Test: `LayoutContainerGapTests`.
 - **Ours:** `public DockPaddingEdges DockPadding { get; } = new ();` (`src/Majorsilence.Forms/RemainingMemberParity.cs:714`), where `DockPaddingEdges` is a detached bag of four ints with no owner and no consumer (`src/Majorsilence.Forms/MidSizeControlParity.cs:555-574`).
 - **Upstream:** `DockPaddingEdges` holds a `ScrollableControl _owner` and every property reads/writes `_owner.Padding`, so `DockPadding.All = 8` is exactly `Padding = new Padding(8)` and inset the `DisplayRectangle` (`src/System.Windows.Forms/System/Windows/Forms/Scrolling/ScrollableControl.DockPaddingEdgesConverter.cs:14-90`).
 - **Impact:** Designer code migrated from older VS versions emits `this.panel1.DockPadding.All = 5;`. Ours accepts it and the docked children sit flush against the edge.
@@ -360,7 +372,8 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Test:** `panel.AutoScrollMargin = new Size(0, 20);` assert the vertical scrollbar `Maximum` is 20 larger than with an empty margin.
 - **Tests today:** none
 
-### LAY-33 — `ScrollableControl.AutoScrollPosition` setter takes `Math.Abs` — Cat A — P2 — High
+### LAY-33 — `ScrollableControl.AutoScrollPosition` setter takes `Math.Abs` — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** the setter takes the value as the positive distance and clamps a negative one to the start, as upstream does by negating it into `SetDisplayRectLocation`. The scrollbar-visibility guard stays: a hidden bar is exactly "no range on that axis", and upstream's clamp gives 0 there too. One existing test assigned `(0, -300)` and relied on the `Math.Abs`; it now assigns `(0, 300)` (`AutoScrollLayoutPanelTests`). Test: `LayoutContainerGapTests`.
 - **Ours:** `set { var x = Math.Abs(value.X); var y = Math.Abs(value.Y); ... }` (`src/Majorsilence.Forms/ScrollableControl.cs:99-116`), so both `(0, 100)` and `(0, -100)` scroll down by 100. The setter is also a no-op when the corresponding scrollbar is not `Visible`.
 - **Upstream:** `set { if (Created) SetDisplayRectLocation(-value.X, -value.Y); SetScrollState(ScrollStateUserHasScrolled, false); }` — the value is **negated**, so `(0, 100)` scrolls down 100 and `(0, -100)` clamps to no scroll (this asymmetry is the well-known reason WinForms code writes `AutoScrollPosition = new Point(-saved.X, -saved.Y)`).
 - **Impact:** Any app that round-trips the getter's negative value directly (`p.AutoScrollPosition = savedPosition;`) scrolls in ours where Windows would not, and vice versa for code compensating for the quirk. The divergence is silent and position-dependent.
@@ -383,6 +396,7 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Tests today:** none
 
 ### LAY-35 — `DpiHelper.IsScalingRequired` / `IsScalingRequirementMet` are hard-coded `false` — Cat A — P2 — High
+- **Still open (2026-10-06), not applicable as written:** upstream's branch repairs anchors on child bounds that DPI scaling has pushed past the parent's edge. Here `Bounds` are logical: the device scale never reaches a child's bounds, so the precondition never arises. Driving the flag from the backend scale would apply the repair at scale 2 to layouts nobody scaled. All callers of `LogicalToDeviceUnits(value, devicePixels)` pass `DeviceDpi`, so the `0` path is unused. Recommend reclassifying to P3, or closing as won't-fix.
 - **Ours:** `private static readonly double deviceDpi = LogicalDpi;` — a readonly field initialised to 96 and never assigned from the real device (`src/Majorsilence.Forms/DpiHelper.cs:10`), so `IsScalingRequired => deviceDpi != LogicalDpi` is a compile-time `false` and `IsScalingRequirementMet` with it (`DpiHelper.cs:16,21`). The only consumers of the flag are the two right/bottom anchor fix-ups in `UpdateAnchorInfo` (`src/Majorsilence.Forms/Layout/DockAndAnchorLayout.cs:643,663`), which are therefore dead code. `LogicalToDeviceUnits(value, 0)` likewise returns `value` unchanged.
 - **Upstream:** `ScaleHelper.IsScalingRequirementMet` reflects the real system DPI and PerMonitorV2 awareness; the same two branches in `DefaultLayout.UpdateAnchorInfo` (`src/System.Windows.Forms/System/Windows/Forms/Layout/DefaultLayout.cs:333,345`) re-derive `Left`/`Top` from the *old* right/bottom anchor so a right-anchored control that has been pushed past the parent's edge by DPI scaling keeps its width.
 - **Impact:** At a non-96 DPI backend scale, right/bottom-anchored controls that overflow the parent are re-anchored from their clipped position and progressively drift/shrink across resizes. The rest of `DpiHelper` silently returns logical units where device units were expected whenever a caller passes `devicePixels == 0`.
@@ -390,7 +404,8 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Test:** at a simulated 144 DPI, assert `DpiHelper.IsScalingRequirementMet` is true and `LogicalToDeviceUnits(10, 0) == 15`.
 - **Tests today:** none
 
-### LAY-36 — `LayoutEventArgs.AffectedComponent` and `AffectedControl` are independent fields — Cat A — P2 — High
+### LAY-36 — `LayoutEventArgs.AffectedComponent` and `AffectedControl` are independent fields — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** ported upstream exactly: a single `WeakReference<IComponent>`, the `Control` constructor chained to the `IComponent` one, and `AffectedControl => AffectedComponent as Control`. Test: `LayoutContainerGapTests`.
 - **Ours:** two separate auto-properties, each written by only one of the two constructors (`src/Majorsilence.Forms/LayoutEventArgs.cs:38-66`): `LayoutEventArgs(Control?, string?)` sets `AffectedControl` and leaves `AffectedComponent` null; `LayoutEventArgs(IComponent?, string?)` sets `AffectedComponent` and leaves `AffectedControl` null — even when the component *is* a `Control`.
 - **Upstream:** one backing `WeakReference<IComponent>`; the `Control` constructor chains to the `IComponent` one, and `AffectedControl => AffectedComponent as Control` (`src/System.Windows.Forms/System/Windows/Forms/Layout/LayoutEventArgs.cs:10-33`).
 - **Impact:** Every internal `PerformLayout(control, property)` produces args whose `AffectedComponent` is null, and any `OnLayout` handler (including third-party layout panels ported from WinForms) that reads `e.AffectedComponent` gets nothing. Conversely a `ToolStripItem`-shaped layout raised with the `IComponent` overload yields a null `AffectedControl`. This is exactly the "reads one backing field while a sibling writes another" shape. Ours also holds a strong reference where upstream holds a weak one, so a cached `LayoutEventArgs` (see `Control.Layout.cs:411`, `_cachedLayoutEventArgs`) roots a disposed control.
@@ -398,7 +413,8 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Test:** `var e = new LayoutEventArgs(someControl, "Bounds"); Assert.Same(someControl, e.AffectedComponent);`
 - **Tests today:** none
 
-### LAY-37 — `TableLayoutSettings` serialization: converter is empty, `ISerializable` and the `LayoutSettings` setter are compiled out — Cat B — P1 — High
+### LAY-37 — `TableLayoutSettings` serialization: converter is empty, `ISerializable` and the `LayoutSettings` setter are compiled out — Cat B — P1 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** the `#if DESIGN_TIME` guards are gone. The real converter compiles, in `Majorsilence.Forms.Layout` as upstream has it; the finding was wrong to call that the wrong namespace. The empty stub in `ConverterParity.cs` is deleted. `TableLayoutSettings` carries `[TypeConverter]` and implements `ISerializable`, and `TableLayoutPanel.LayoutSettings` has upstream's setter, which applies a converter-produced settings object and throws `NotSupportedException` for a live one. Upstream reaches the converter and `Name` through `TypeDescriptor`. That fails the trim analyzer, so ours builds the converter directly and reads `Control.Name`, since no designer shadows it here. On netstandard2.0, `Enum.Parse` takes a substring. Tests: `TableLayoutSettingsSerializationTests` (5).
 - **Ours:** `TableLayoutSettingsTypeConverter` exists twice: the real port is entirely inside `#if DESIGN_TIME` (`src/Majorsilence.Forms/TableLayoutSettingsTypeConverter.cs:7`) and `DESIGN_TIME` is **not defined** in any project file, while the one that actually compiles is an empty `class TableLayoutSettingsTypeConverter : TypeConverter { }` in a *different* namespace, `Majorsilence.Forms.Layout` (`src/Majorsilence.Forms/ConverterParity.cs:533`). Consequently `[TypeConverter(...)]` and `, ISerializable` on `TableLayoutSettings` are also compiled out (`src/Majorsilence.Forms/TableLayoutSettings.cs:15,20`), and `TableLayoutPanel.LayoutSettings` has **no setter at all** (`src/Majorsilence.Forms/TableLayoutPanel.cs:43-58` — the setter body is inside `#if DESIGN_TIME`).
 - **Upstream:** `TableLayoutSettings` is `[TypeConverter(typeof(TableLayoutSettingsTypeConverter))]`, `[Serializable]`, `ISerializable`, and the converter round-trips the whole grid (styles + per-control Row/Column/RowSpan/ColumnSpan) to and from an XML string stored in the `.resx`; `TableLayoutPanel.LayoutSettings`'s setter applies a stub produced by that converter.
 - **Impact:** Any form with `Localizable = true` containing a `TableLayoutPanel` stores its grid in the `.resx` as `tableLayoutPanel1.LayoutSettings`. On ours the resource cannot be deserialised (the compiled converter's `CanConvertFrom(string)` is `false`, so `ConvertFrom` throws `NotSupportedException`) and even if it could there is nowhere to put it. The panel comes up with no styles and every child in cell (0,0). Also the type is in the wrong namespace for code that names it explicitly.
@@ -432,7 +448,8 @@ framework's base default (`true`), so forwarding it would change behaviour rathe
 - **Why not in W6.3:** 33 internal call sites across the layout, the renderer and 7 test files. Its own item, not a line in a sweep.
 - **Tests today:** `CoordinateSpaceTests` pins the members that were fixed; these are explicitly not covered.
 
-### LAY-39 — `TreeView.HitTest` can never report `PlusMinus` — Cat A — P2 — Medium
+### LAY-39 — `TreeView.HitTest` can never report `PlusMinus` — Cat A — P2 — Medium — **CLOSED (2026-10-06)**
+- **Fix (applied):** `HitTest` classifies x within the row from the regions the renderer paints, in device pixels like the node bounds: indent, button, state image (the check box), image, label. A leaf's glyph column reports `Indent`, as `TVHT_ONITEMINDENT` does. `TreeViewRenderer` exposes `ShowsGlyphFor`/`IndentStartFor` internally, and `ImageBoundsFor` is now internal. `RightOfLabel` is not reported because our text rectangle runs to the end of the row. Test: `LayoutContainerGapTests` (at scales 1 and 2).
 - **Ours:** the expander band is `pt.X < item.Bounds.Left` (`src/Majorsilence.Forms/MidSizeControlParity.Two.cs:174-197`), and a laid-out node's `Bounds.Left` is ~1 whatever its depth — the rectangle spans the whole row — so the threshold is ~0 and every point in the control classifies as `Label`.
 - **Upstream:** the hit-test distinguishes the plus/minus glyph, the state image, the label and the indent, each from its own measured region.
 - **Impact:** the standard "did the user click the expander rather than the node?" test is unanswerable; a handler that uses it to toggle expansion never fires.
