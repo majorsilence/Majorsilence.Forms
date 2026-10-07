@@ -144,9 +144,21 @@ namespace Majorsilence.Forms
             // EndEllipsis is the one users see: it is what Label.AutoEllipsis, ToolStripItem, ListView
             // and every truncating cell renderer ask for. Without it the text was hard-clipped
             // mid-glyph, so truncated text was indistinguishable from text that merely ends oddly
-            // (finding GFX-28). PathEllipsis -- middle truncation that keeps the filename -- still
-            // falls through to end-truncation; doing it properly needs its own pass.
+            // (finding GFX-28).
             var wraps = flags.HasFlag (TextFormatFlags.WordBreak);
+
+            // PathEllipsis is middle truncation: it keeps the file name, which is the only part of a
+            // shortened path that mattered, and end truncation clipped exactly that away. A pass of its
+            // own; anything still too wide afterwards (a file name longer than the box) end-ellipsises.
+            if (flags.HasFlag (TextFormatFlags.PathEllipsis) && !wraps) {
+                var shortened = PathEllipsize (g, display, font, bounds.Width);
+                if (!ReferenceEquals (shortened, display)) {
+                    display = shortened;
+                    mnemonic = -1;      // the index no longer points into the text being drawn
+                    origin = g.AlignTextInBounds (display, font, box, HorizontalFactor (flags), VerticalFactor (flags));
+                }
+            }
+
             var ellipsis = flags.HasFlag (TextFormatFlags.EndEllipsis)
                 || flags.HasFlag (TextFormatFlags.WordEllipsis)
                 || flags.HasFlag (TextFormatFlags.PathEllipsis);
@@ -169,6 +181,39 @@ namespace Majorsilence.Forms
             if (mnemonic >= 0 && mnemonic < display.Length)
                 g.DrawMnemonicUnderline (display, mnemonic, font, brush, origin, clip ?? box);
         }
+
+        private const string Ellipsis = "...";
+
+        /// <summary>
+        /// Shortens <paramref name="text"/> the way <c>DT_PATH_ELLIPSIS</c> does: characters are removed
+        /// from the middle and replaced with an ellipsis, keeping as much as possible of what follows the
+        /// last path separator. Returns the same instance when it already fits.
+        /// </summary>
+        internal static string PathEllipsize (Graphics g, string text, Majorsilence.Forms.Drawing.Font font, int width)
+        {
+            if (width <= 0 || g.MeasureString (text, font).Width <= width)
+                return text;
+
+            var separator = Math.Max (text.LastIndexOf ('\\'), text.LastIndexOf ('/'));
+            if (separator <= 0)
+                return text;    // nothing to keep but the whole: end truncation handles it
+
+            // Longest head that fits, by binary search over its length.
+            int low = 0, high = separator;
+            while (low < high) {
+                var mid = (low + high + 1) / 2;
+                if (g.MeasureString (Shortened (text, mid, separator), font).Width <= width)
+                    low = mid;
+                else
+                    high = mid - 1;
+            }
+
+            return Shortened (text, low, separator);
+        }
+
+        // The first headLength characters, the ellipsis, then everything from the separator on.
+        private static string Shortened (string text, int headLength, int separator)
+            => text.Remove (headLength, separator - headLength).Insert (headLength, Ellipsis);
 
         /// <summary>
         /// Applies the flags' hotkey-prefix handling, returning the text to draw and the index within it of

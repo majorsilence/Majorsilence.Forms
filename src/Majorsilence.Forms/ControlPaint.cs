@@ -245,17 +245,25 @@ namespace Majorsilence.Forms
             => DrawSizeGrip (graphics, backColor, new Rectangle (x, y, width, height));
 
         /// <summary>Draws a string greyed out, the way a disabled control's text is drawn.</summary>
-        /// <remarks>Unlike the StringFormat overload above this one draws: it lightens the colour
-        /// towards the background and hands the text to TextRenderer, which is what the disabled
-        /// state actually looks like.</remarks>
+        /// <remarks>The engraved two-pass look upstream draws, through TextRenderer; see the
+        /// Graphics overload.</remarks>
         public static void DrawStringDisabled (Majorsilence.Forms.Drawing.IDeviceContext dc, string s,
             Majorsilence.Forms.Drawing.Font font, System.Drawing.Color color, Rectangle layoutRectangle, TextFormatFlags format)
-            => TextRenderer.DrawText (dc, s, font, layoutRectangle, LightenForDisabled (color), format);
+        {
+            // GFX-05: upstream (Rendering/ControlPaint.cs, the HDC overload) draws the same engraved pair
+            // as the Graphics overload -- LightLight offset by one, then Dark on top -- and under high
+            // contrast ignores the caller's colour for GrayText. This drew once, halfway to white, which
+            // on a dark theme made disabled text BRIGHTER than enabled text.
+            if (SystemInformation.HighContrast) {
+                TextRenderer.DrawText (dc, s, font, layoutRectangle, SystemColors.GrayText, format);
+                return;
+            }
 
-        // Halfway to white is what GDI+ does for a grayed string, and it stays legible on the light
-        // and dark themes alike because it moves towards the caller's colour rather than a constant.
-        private static System.Drawing.Color LightenForDisabled (System.Drawing.Color color)
-            => System.Drawing.Color.FromArgb (color.A, (color.R + 255) / 2, (color.G + 255) / 2, (color.B + 255) / 2);
+            layoutRectangle.Offset (1, 1);
+            TextRenderer.DrawText (dc, s, font, layoutRectangle, LightLight (color), format);
+            layoutRectangle.Offset (-1, -1);
+            TextRenderer.DrawText (dc, s, font, layoutRectangle, Dark (color), format);
+        }
 
 #pragma warning disable CA1416
         /// <summary>Draws a string at the specified coordinates. Stub in Majorsilence.Forms.</summary>

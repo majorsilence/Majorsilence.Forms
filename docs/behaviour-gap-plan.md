@@ -4329,6 +4329,315 @@ Tests: `CursorAndFileDialogTests` (16) and the updated `FileDialogTests`, `Curso
 `FilterIndex = 1`, which equals the request's default, so it now opens on filter 3. A headless seam was
 added for it: `HeadlessRenderer.OpenFileResponse`/`SaveFileResponse` and the window's recorded `Cursor`.
 
+**Simple and value controls: the open findings of #349. — 2026-10-02.**
+
+Twenty-one of the twenty-six open findings in `docs/behaviour-gap/simple.md` closed, two of them partly; two (`SMP-28`, `SMP-60`) turned out to be fixed already. Three entries were wrong about upstream or stale, and the area file now says so: `SMP-45` (upstream validates only `SelectionEnd` against the effective range), `SMP-38` (`Wrap` was already consumed) and `SMP-56` (`TransparentColor` was already applied). The changes stay inside the simple and value controls and their renderers. Nothing in `Control.cs`, `WindowBase.cs`, `Form.cs` or `Graphics.cs` changed.
+
+- **`SMP-08` `PerformClick` and `CanSelect`.** A disabled button still ran its `Click` handler. Upstream's `Button`/`RadioButton.PerformClick` both return early unless `CanSelect`. The guard is the new `ButtonBase.CanPerformClick`, not `Control.CanSelect`. `Control.Visible` reports a control with no parent as hidden here, while upstream reports it visible. With `CanSelect` as the guard, every detached button stopped clicking: about 20 tests failed, including command bindings, Mvvm and RadScheduler. "Hidden" now means an explicit `Visible = false` on the control or one of its parents. One side effect: under system decorations the caption's help button is hidden, so `PerformClick` on it does nothing. `W6MechanismTests` now asserts that there.
+- **`SMP-12`.** The three `DefaultCursor => Cursors.Hand` overrides were removed. Upstream uses the arrow cursor.
+- **`SMP-17` `Label.PreferredWidth`/`PreferredHeight`.** These are now upstream's `PreferredSize.Width`/`Height`, so they include the border. `GetPreferredSizeCore` itself measured the mnemonic `&` (so did AutoSize). It now strips it whenever the renderer does: `LinkLabel` draws its text raw and opts out through `DrawsMnemonic`. An empty label still reports one line of the font, as upstream's "0" extent does.
+- **`SMP-18`/`SMP-19` `LinkLabel`.** The pointer shows the hand over an enabled link, through `OverrideCursor` (upstream `LinkLabel.cs`), and goes back on leave or disable. A click no longer marks the link visited.
+- **`SMP-24`/`SMP-25` `PictureBox`.** `BorderStyle` maps onto `Style.Border` the way `Panel.BorderStyle` does, so it draws the frame and insets the client area. `Normal` draws inside the padding. `AutoSize` is image + padding + border, as in upstream's `GetPreferredSizeCore`.
+- **`SMP-27` `ProgressBar.ForeColor`.** The bar is filled with a colour set on its own style chain. It is not `control.ForeColor`, because that is ambient here: the first version turned a bar on a black-text panel black (a guard test pins this).
+- **`SMP-30` `TrackBar`.** `Value` is stored as given, with no snapping. `SnapToTicks`, a Majorsilence-only property, now applies to user gestures only. Upstream's `_initializing` is in place. The designer's `ISupportInitialize` cast used to reach two empty explicit methods sitting beside the real public pair; it now reaches the public pair.
+- **`SMP-34`/`SMP-35` `NumericUpDown`.** `Value` throws out of range, as upstream does. The arrows and a typed value constrain first (upstream `ParseEditText`). Changing `Minimum`/`Maximum` now goes through `Value`, so `ValueChanged` fires where the value used to change silently. `BeginInit`/`EndInit` suspend the range check and the text update. Mvvm's `BindValue` now does the clamping it documents. `Accelerations` and hold-to-repeat are still open; no repeat timer exists.
+- **`SMP-38` `DomainUpDown`.** `SelectedIndex` throws out of range. Every selection change goes through one `SelectIndex`, which raises `SelectedItemChanged` once (the buttons used to raise it themselves). The item collection re-sorts on add, insert and replace, as upstream's does, and the selection follows its item through sorts and removals.
+- **`SMP-43`/`SMP-44`/`SMP-45` `MonthCalendar`.** `HitTest` splits the title into the month run, the year run and the background. The runs are measured with the renderer's font, and the renderer and `HitTest` share one caption and text area. The bolded-date arrays now read and replace the same lists the renderer uses. `SelectionEnd` validates against the effective range. Upstream checks `SelectionStart`, `SetDate`, `SetSelectionRange` and `TodayDate` against the raw fields, so those stay as they are.
+- **`SMP-50`.** `ScrollBar.Scroll` is a `ScrollEventHandler`. `ScrollableControl.Scroll` has the same defect; it belongs to another area and was not touched.
+- **`SMP-54`/`SMP-56` `ImageList`.** Setting `ImageSize` used to throw once images were present; it now resizes them in place and validates 1..256 with upstream's exception types. `Draw` throws for a bad index. `ColorDepth` stays stored-only on purpose, with documentation saying so.
+- **`SMP-57` `WebBrowser`, the control half.** A cancellable `Navigating` fires for navigations started from code. `Navigated` fires before `DocumentCompleted`. A history built from completed navigations, so clicked links count, drives `CanGoBack`/`CanGoForward`, their events, and `GoBack`/`GoForward`. `DocumentTitle` is read through the script bridge, and both engine result shapes are decoded. Testing uses a fake `IWebViewHandle` through new internal constructors. Still open: in-page `Navigating`, `Stop`, `Print` and the other engine switches. Each needs `IWebViewHandle` extended in all five backends.
+- **`SMP-59` `PropertyGrid.SelectedObjects`.** The whole array is kept. Following upstream's property merger, the grid shows only properties that every object has with the same name and type and without `[MergableProperty (false)]`. A cell shows a value only when all objects agree. Commit and `ResetSelectedProperty` write to every object, each through its own descriptor.
+
+Still open: `SMP-16` (`LiveSetting`: automation work), `SMP-46` (multi-month layout), `SMP-52` (`Form` is not a `ContainerControl` here), `SMP-55` (reshaping `ImageCollection` is a public API redesign), plus the open halves of `SMP-35` and `SMP-57`.
+
+Tests: `SimpleControlGapTests` (46 methods, 54 cases) plus updates to `NumericUpDownTests` (2 inverted), `ImageListTests` (1 inverted), `MidSizeControlParityTests` (1 loosened: the title centre depends on the month's name) and `W6MechanismTests` (1 branch). Neutralization: 49 rounds, one fix point each (a `DateTime.Now.Year < 0` short-circuit, or the old line restored); 46 went red first time. The other three stayed green, and each was fixed. The `TrackBar` init-skip in `ConstrainValue` had no test, so `TrackBar_Maximum_set_while_initializing_does_not_constrain_Value` was added. The `ImageList.Draw` round had deleted the guard rather than restoring the old silent one, and the collection's own indexer throws; redone with the old guard. `PropertyGrid`'s value comparison was covered only through `ValuesDiffer`; `Assert.Null (width.Value)` was added. All three are red now. Guards labelled in-test: `ProgressBar` keeps its trough border (SMP-28, already fixed), `SelectionStart` validates against the raw range (pins upstream). The no-ambient-colour `ProgressBar` guard was shown red against the `GetEffectiveForegroundColor` variant. Baselines got smaller: `UnraisedEventBaseline` -5, `NoOpStubBaseline` -2, `StoredOnlyPropertyBaseline` -3.
+
+**Lists: display text, binding events, selection order and input for the list controls (#347). — 2026-10-02.**
+
+Seventeen of the twenty open list findings closed in one change set across `ListControl`, `ListBox`, `ComboBox`, `CheckedListBox`, `ListView` and `TreeView`. Four of them were already half-fixed by later work (`LST-33`'s width/row count, `LST-34`'s `ScrollAlwaysVisible`, `LST-37`'s `HideSelection`, `LST-38`'s separator); the remaining half of each is what landed. Left open: `LST-07` (the `Suggest`/`Simple` remainder needs a presentation list separate from `Items`), `LST-46` (the decorative half of groups is rendering work) and `LST-61` (waits on a theme decision).
+
+- **Display text (`LST-14`, `LST-27`).** `ListBox.FindString*` compared `ToString`, and both controls had their own `GetItemText` that raised `Format` with the display *text* and never applied `FormatString`/`FormatInfo`. Upstream `ListControl.GetItemText` filters on `DisplayMember`, offers that value to `Format`, then runs `Formatter.FormatObject`. Now one base implementation does the same; the combo's drop-down list delegates its `GetItemText` to the combo, so the popup rows are formatted too.
+- **Binding events (`LST-28`).** The `DataSource`/`DisplayMember`/`ValueMember` overrides never raised, and a null source kept its rows. They now raise (value member then `SelectedValueChanged`, upstream's order), and `DataSource = null` clears selection and items, then resets `DisplayMember`, as upstream's `OnDataSourceChanged`/`DataSource` setter do. `ListControl` gained `OnDisplayMemberChanged`/`OnValueMemberChanged`.
+- **`SelectedValue` miss (`LST-29`).** A bound list now clears the selection for a value no row holds (upstream's `SelectedIndex = DataManager.Find (...)`). The no-`DataSource` fallback and whole-item comparison for an empty `ValueMember` are kept as recorded leniencies.
+- **Selection order (`LST-30`).** Selected indexes are kept sorted, so `SelectedIndex` is the lowest and `SelectedIndices`/`SelectedItems` ascend, as `LB_GETSELITEMS` reports.
+- **Event order (`LST-31`, `LST-32`).** `ListBox`: value then index. `ComboBox`: item, value, index. `SelectionChangeCommitted` now fires for arrow keys and the wheel on a closed combo, and fires *before* the text update and `SelectedIndexChanged` (upstream: `CBN_SELENDOK`, `CBN_CLOSEUP`, `CBN_SELCHANGE`); it used to come last.
+- **Drop-down sizing (`LST-33`).** `DropDownHeight` other than the default 106 is the list's height (upstream `UpdateDropDownHeight`), clearing `IntegralHeight`; `ItemHeight` is the list's real row height, or the set value in owner-draw.
+- **Scrolling and input (`LST-34`, `LST-35`, `LST-40`).** `TopIndex` moves the scrollbar instead of `top_index` alone. Navigation runs on key down, after the `KeyDown` handlers, in `ListBox` and in the combo's forwarding (an editable combo forwards only Up/Down/PageUp/PageDown, so letters stay with the edit region). Shift-click selects a range from an anchor in `MultiExtended`. The wheel steps a focused, closed combo.
+- **Smaller ones.** `ListView.FindItemWithText (string)` is the prefix + sub-item search (`LST-36`); no hand cursor on `ListBox`/`ComboBox` (`LST-37`); `FullPath` of a node in no tree throws (`LST-38`); `CheckedListBox.Items[i] = value` replaces and keeps the check state (`LST-39`); `ListBox.Text` is the selection's display text and selects by text (`LST-41`; automation now names the list by its own window text, so the list is not renamed by every click); `TreeView.TopNode` is real and settable and `TreeNode.IsVisible` follows the scroll (`LST-42`).
+
+Tests: `ListBehaviourGapTests` (30 methods, 31 cases). Neutralization: three rounds (30, 6 and 3 neutralizations, each an impossible `DateTime.Now.Year < 0` condition, files restored and `cmp`-verified after each); every case went red except the two labelled in-test as guards (`A_programmatic_change_is_not_committed`, `The_wheel_leaves_an_unfocused_combo_alone`). Rounds B and C existed to separate fixes one test covers twice (the key-down move masks the commit order; `TopNode`'s setter vs `IsVisible`; the null-source clear vs its event). Existing tests adjusted: `W6ControlFeaturesTests`' list key helper sends key downs; the `StoredOnlyPropertyBaseline` header note no longer names `ComboBox.DropDownHeight` as inert.
+
+**DataGridView: the Add overloads, CurrentCell, scrolling, HitTest, header values and content clicks (#342). — 2026-10-02.**
+
+#342's twelve open findings, checked against the code first: three were already closed by later work
+(`DGV-39` by W5.1, `DGV-42` by `DGV-43` plus W6 mechanisms, most of `DGV-38` by the fifth W6 chunk) and
+three were half closed (`DGV-23`'s `DisplayIndex`, `DGV-28`'s link painting, `DGV-36`'s commit). The rest
+were real. Eleven are closed; `DGV-23` stays open for `AllowUserToOrderColumns`.
+
+- **`DGV-04`.** `Rows.Add (params object[])` and `Columns.Add (name, headerText)` returned the row/column,
+  so `int r = grid.Rows.Add ("a", 1);` did not compile. Upstream returns the index; so do they now, and
+  the non-WinForms `Add (params string[])` is gone. `DataBindingComplete` was `EventHandler<EventArgs>`
+  with an empty `OnDataBindingComplete`; it is upstream's delegate, raised after a bind with `Reset` and
+  after every bound-list change with its type (`DataConnection.currencyManager_ListChanged`), not while
+  unbound. `RadGridView`'s column collection keeps Telerik's column-returning overload.
+- **`DGV-12`.** The `CurrentCell` setter moved column then row through the two index setters (two
+  `SelectionChanged`, `RowValidating` between the halves, a third `CurrentCellChanged`) and ignored null.
+  It now scrolls the cell into view and moves once; null clears the selection and the current cell, as
+  upstream's setter does. A refused move stays fail-soft rather than throwing.
+- **`DGV-34`.** `ScrollIntoView` only repainted; it scrolls rows (by real heights) and columns now.
+  `FirstDisplayedCell` answered (0, 0) and its setter moved the current cell; it follows the scroll and
+  assigning it scrolls. `DisplayedRowCount` counted from row 0 and ignored `includePartialRow`. `Scroll`
+  is declared on the grid, as upstream, and raised after every scroll with old and new positions.
+  **Two bugs found on the way:** the horizontal range took the vertical bar off twice and the row headers
+  not at all, so the last column could never be scrolled fully into view; and that device-pixel range was
+  never recomputed on a scale change, so at 2x it covered half the columns.
+- **`DGV-35`.** `HitTest` scanned cells only; it reports column/row/top-left headers and the scroll bars,
+  and `DataGridViewHitTestType` moved to namespace scope (it was nested, so the idiom compiled only in a
+  subclass).
+- **`DGV-24`.** `HeaderText` is `HeaderCell.Value` (upstream's getter, `""` for a non-string); the header
+  paints the cell's value, and a row's `HeaderCell.Value` -- the row-number idiom -- is painted, with the
+  glyph moved into upstream's 18-pixel strip when there is text.
+- **`DGV-36`.** `FormattedValue` skipped `CellFormatting`, `Format` and `NullValue`, so the clipboard
+  copied raw values. It goes through the painter's formatting pass, with a reentrancy guard.
+- **`DGV-28`.** `CellContentClick` fired for any click anywhere. Upstream needs the press and release on
+  the content; `GetContentBounds` became upstream's (cell-relative, logical: the text, the check glyph,
+  the button) and gates the content click, the content double-click, the check-box toggle and the link's
+  visited mark. Behaviour change: a click beside a short text is no longer a content click.
+- **`DGV-40`, `DGV-38`.** `Rows.CollectionChanged` is raised (Add/Remove/Refresh as upstream);
+  `RowDirtyStateNeeded` is a `QuestionEventHandler` asked by `IsCurrentRowDirty` in virtual mode.
+- **Not done:** `AllowUserToOrderColumns` (`DGV-23`). Telling a reorder drag from a click needs the header
+  click on the release; it sorts on the press here, so that move comes first.
+
+Tests: `DataGridViewGapClosureTests` (24 new); existing `DataGridViewColumnTests`, `DataGridViewRowTests`,
+`DataGridViewTests` (return types), `DataGridViewMouseKeyboardTests` and `DataGridViewLinkCellTests`
+(clicks now land on the content) updated; `StoredOnlyPropertyBaseline` loses `QuestionEventArgs.Response`.
+14 neutralization rounds, every one red, each failing only its own tests (plus the updated existing
+tests for the return types and `HeaderText`); snapshot compared byte-for-byte after each restore.
+
+**Text: editing gestures, selection semantics and the password clipboard (#350). — 2026-10-02.**
+
+Sixteen open findings in the text controls, worked against the current code: two were already fixed by
+W5.11 and only needed their headings marked (TXT-22, TXT-26), two were half done by W6 mechanisms
+(TXT-29's `ContentsResized`, TXT-30's click), and the rest are fixed here from upstream
+`TextBoxBase.cs`/`TextBox.cs`/`MaskedTextBox.cs`/`Formatter.cs` and `ClientUtils.GetWordBoundaryStart`.
+
+- **TXT-08 (P1)** — `Copy`/`Cut` put a password box's plaintext on the clipboard. Upstream's are
+  `WM_COPY`/`WM_CUT` against an `ES_PASSWORD` control, which ignores them (`MaskedTextBox.WmCopy`: "cannot
+  copy password to clipboard"). `TextBox` and `MaskedTextBox` now refuse both when `PasswordProtect`.
+- **TXT-13 (P1)** — Ctrl+Z was unbound. It calls `Undo`, gated on `ShortcutsEnabled` and refused when
+  read-only; `RichTextBox` also takes Ctrl+Y for its (W6) `Redo`.
+- **TXT-20** — `SelectedText` went through the typing path. It is now `SetSelectedTextInternal (text,
+  clearUndo: true)`: limits lifted, `Modified` and undo cleared. `Paste (string)` is the `clearUndo: false`
+  flavour, closing a P3 line. Three existing tests had pinned the old behaviour and were inverted or moved
+  to `Paste (string)`.
+- **TXT-21** — `SelectionStart`'s setter collapsed the selection; it is `Select (value, SelectionLength)`,
+  through a new `private protected virtual SelectInternal` that `TextBox` implements in one document step.
+- **TXT-23** — Ctrl+Backspace/Ctrl+Delete deleted one character. Backwards copies `GetWordBoundaryStart`;
+  forwards takes the word and the gap after it (rich edit's behaviour, a judgement).
+- **TXT-24** — double-click (the `Clicks == 2` press) selects the word, Shift+click extends (from
+  `e.Modifiers`, for LST-27's reason), PageUp/PageDown page a multiline box.
+- **TXT-25** — a read-only box with no colour of its own answers and paints `Theme.BackgroundColor`
+  (upstream's `SystemColors.Control`).
+- **TXT-27** — `DisplayText` drops the placeholder while focused (`ShouldRenderPlaceHolderText`).
+- **TXT-28** — upstream's `_selectionSet`: the first keyboard focus after `Text` is assigned selects all.
+- **TXT-29** — the document now reports caret/selection moves, batched so one edit is one report, and
+  `RichTextBox` raises `SelectionChanged` (`EN_SELCHANGE`) once per change.
+- **TXT-30** — detected links are painted in the accent colour, underlined; `ComputeSpans` cuts the text
+  at every run and link edge.
+- **TXT-31** — a multiline box's line-number family reads `TextBlock.Lines` (visual lines). Single-line
+  keeps newline counting, which two existing test classes pin.
+- **TXT-33** — `ValidateText` is `PerformTypeValidation (null)`: incomplete-mask gate, prompts stripped,
+  the type's `Parse` overloads in `Formatter.ParseObject`'s order, `TypeValidationCompleted` raised;
+  `OnValidating` validates before raising `Validating`. The `TypeConverter` step is left out (it would
+  need `DynamicallyAccessedMembers.All` on a public property).
+- **TXT-34** — `PasswordChar` and `UseSystemPasswordChar` are independent; the system character is
+  `U+25CF`, not `'*'`.
+
+Also: `MvvmTwoWayTests` (#353) now passes an explicit UI-thread dispatcher. Its default-dispatcher
+bindings depended on which thread built the first window in the run (the hazard `MvvmHelpersTests`
+already documents), and adding this item's test class to the Headless collection made three of them fail
+every run.
+
+Tests: `TextBoxEditingParityTests` — 28 tests (27 methods), 4 labelled as guards; `TextBoxUndoTests` and
+`AppendTextRoutingTests` updated (3 tests inverted/re-routed). Neutralization: 24 rounds, one per
+mechanism (including both halves of TXT-25, three of TXT-24, three of TXT-28, two of TXT-29/31/33), all
+red; files restored and `cmp`-checked.
+
+**ToolStrip family: the item, split-button, tooltip and context-menu close gaps (#351). — 2026-10-02.**
+Fifteen of the seventeen open ToolStrip findings closed in one change set, each checked against the code
+first and fixed from `dotnet/winforms`. Two of the five marked "status unverified" turned out to be half-done:
+TSM-18's enter/leave/hover/move/double-click were already wired (TSM-46, W6), only `MouseDown`/`MouseUp`
+were not; and TSM-36's `Rows[i].Bounds` are now live, but its suggested test is not upstream behaviour. Still
+open: TSM-19 (`NotifyIcon` needs a tray backend in every host) and TSM-36 (needs multi-strip rows).
+
+- **TSM-07 `DisplayStyle`.** It was stored and read by nothing, so a designer's `Image` button showed its
+  caption beside its icon. Upstream's internal layout tests the two flag bits (`DisplayStyle & Text`/`& Image`).
+  `ToolBarRenderer` now draws and measures only the halves shown, and `StatusStripRenderer` hides the caption.
+- **TSM-15 split button.** A click raised `ButtonClick` and opened the menu every time. `OnButtonClick` was
+  never called, and `DefaultItem` was never clicked. Upstream splits on `DropDownButtonBounds`.
+  `MenuBase.ClickItemAt` does the same now: the arrow opens the menu, and the button half is a leaf click that
+  raises `Click` and then `OnButtonClick`, which clicks `DefaultItem` first. The old `OnClick` override is
+  gone, which also stops `PerformButtonClick` raising `ButtonClick` twice.
+- **TSM-17 `ToolTip.Show`.** Every overload called `SetToolTip`, so nothing appeared until the next hover,
+  `x, y` and `duration` were ignored, and the control's own tip was overwritten. Now the tip shows at once,
+  at the point (client coordinates) or over the control's middle. It leaves `SetToolTip` alone, hides after
+  the duration, and throws on a negative duration, as upstream does.
+- **TSM-34 the delays.** Hover tips wait `InitialDelay`, use `ReshowDelay` when the pointer moves on from a
+  shown tip, and hide after `AutoPopDelay`. Item tips also auto-pop.
+- **TSM-18 `MouseDown`/`MouseUp`.** These now reach the item under the pointer, item-relative and only while
+  it is enabled. `MouseUp` goes only to the item the press began on (a drop-down is the exception), which is
+  upstream's `MouseDownAndUpMustBeInSameItem` rule.
+- **TSM-20/TSM-38 hosts.** `ToolStripControlHost.Text` and `Enabled` reach the hosted control, so
+  `toolStripComboBox1.Text` reads the combo. `ToolStrip.Renderer`, `GetItemAt` and the accessible
+  `HitTest` no longer cast every item, which threw on a `MenuSeparatorItem` or a plain `MenuItem`.
+- **TSM-21 close reasons.** Every close used to report `AppFocusChange`, `e.Cancel` was never read, and
+  `AutoClose` did nothing. Each closing path now names its reason: `Close (reason)`, an item click or Enter,
+  Escape, a click elsewhere, or focus loss. `Closing.Cancel` is pre-set from `AutoClose` as upstream's
+  `SetVisibleCore` does, and a cancelled close keeps the menu on screen. With `AutoClose` off, an item click
+  does not close the menu at all.
+- **TSM-23 separators on a bar.** A separator drew as a blank button that lit up on hover. It now draws as
+  the `MenuSeparatorItem` rule, and `CanSelect` is false.
+- **TSM-24 `CheckState`.** `CheckState` is now the stored value on menu items and buttons, so `Indeterminate`
+  round-trips. Changes raise `CheckedChanged` and then `CheckStateChanged`, and an indeterminate menu item
+  draws an indeterminate glyph.
+- **TSM-25, TSM-26, TSM-29, TSM-35.** `IsOnDropDown` is true below a menu-bar item. `PerformClick` skips a
+  disabled or hidden strip item; the legacy `MenuItem` keeps the Framework rule. Strips are not tab stops.
+  `DropDownOpened` fires only when something actually opened.
+- **TSM-32 legacy.** `Form.Menu` docks the `MainMenu` on the form, and the radio glyph reads
+  `MenuItem.RadioCheck` for any item.
+
+Tests: `ToolStripBehaviourGapTests` (36). 35 neutralization rounds; every test went red under at least one,
+except `A_legacy_MenuItem_keeps_the_Framework_rule`, which is labelled in-test as a guard.
+`A_release_on_another_strip_item_...` is also labelled a guard, because nothing raised these events before
+the fix; it still went red when its gates were removed. One round stayed green at first: the
+`AutoClose`-off item-click check in `MenuDropDown`, because the pre-cancelled `Closing` hid the change.
+The test now asserts that no `Closing` is raised at all, and it goes red. `StoredOnlyPropertyBaseline.txt`
+lost `ToolStripDropDown.AutoClose`.
+
+**Drawing: quality state, text layout, image formats and icons behave as upstream (#343). — 2026-10-02.**
+Thirty open drawing findings, worked from the P1s down. Twenty-three are closed (two of them were already fixed and are marked so), and seven are left open with reasons. Two results did not match what the findings said. Skia's default image sampling is *nearest*, not bilinear, so before this change every scaled `DrawImage` came out blocky. And `SystemColors` cannot simply become known colours: the BCL's colour table off Windows is the XP palette, so that change was tried and reverted.
+
+- **GFX-08 / GFX-16 / GFX-17 (quality state).** `InterpolationMode` was never read. It now maps to `SKSamplingOptions` on every image draw, through one `DrawBitmapSampled` helper. `TextRenderingHint` maps to RichTextKit's edging and hinting. The text-block cache had to be keyed on the rasterisation, because RichTextKit builds a run's blob on its first paint and keeps it. Images now honour `CompositingMode`. `Save`/`Restore` and `BeginContainer`/`EndContainer` carry a snapshot like GDI+'s `GdipSaveGraphics`: every quality mode, the page unit and scale (restored as fields), and the tracked clip region and clip baseline. `RenderingOrigin` phases hatch shaders. `PixelOffsetMode` and `CompositingQuality` are recorded as not applied: Skia already samples as `Half` does, and gamma-correct blending needs a linear surface.
+- **GFX-10.** `DpiX`/`DpiY` were hardcoded to 96. They now read `UnitsPerInch`, and `FromImage` takes the bitmap's resolution. The page transform converts through the same figure.
+- **GFX-14 / GFX-19 / GFX-20 / GFX-37 / GFX-28 (text).**
+  - `charactersFitted`/`linesFilled` come from a real `LayoutLines` pass. A partly visible last line counts; `LineLimit` takes whole lines only. The value lands on the next line's start, so a pagination loop resumes exactly there.
+  - The point `DrawString` overloads now honour `Alignment`, `LineAlignment` and `HotkeyPrefix`.
+  - `NoWrap` is honoured when measuring.
+  - `GenericTypographic` now carries upstream's flags.
+  - `PathEllipsis` truncates the middle and keeps the file name.
+- **GFX-21 / GFX-22 (images).** The `RectangleF` `DrawImage` overload no longer rounds, and image edges antialias under `SmoothingMode.AntiAlias`. The source rectangle is converted from its `GraphicsUnit` through the image's resolution.
+- **GFX-31 / GFX-32 (bitmaps).** `PixelFormat` reports the format the bitmap was constructed with, or the decoded surface's format. Formats without alpha allocate opaque surfaces. Indexed formats are refused by `FromImage`, as upstream does. `Clone` copies resolution, `RawFormat` (now detected on load), palette, frames and property items. It does not copy `Tag`, which upstream does not copy either.
+- **GFX-33 / GFX-34 / GFX-35 (icons).** An icon keeps its ICO bytes. `Save` writes them back verbatim, a sized icon decodes the matching embedded frame, and load failures throw instead of producing a 0×0 icon.
+- **GFX-40 / GFX-04 / GFX-05 (colours).** `ColorTranslator.ToHtml` now follows upstream's keyword, name and hex branches. `ContrastControlDark` and both `DrawStringDisabled` overloads gained their high-contrast branches; the IDC overload is engraved, and the Graphics overload passes its format through.
+- **GFX-41 / GFX-42 / GFX-45 / GFX-43 (paths, regions, attributes).**
+  - The path fill mode reaches the `SKPath`, so hit-testing and `Region` see the hole.
+  - `AddPath(connect)` joins figures, `CloseAllFigures` closes all of them, and `GetBounds` returns tight bounds. `Clone` keeps the open-figure state.
+  - `Region.Transform` is bounded, and leaves an infinite region alone.
+  - `SetNoOp` and `SetThreshold` work, and `ImageAttributes.Clone` copies them.
+- **Left open:**
+  - GFX-20: `Trimming` and `MeasureTrailingSpaces`.
+  - GFX-29: an adapter for arbitrary `IDeviceContext`.
+  - GFX-36: an animator thread plus `PictureBox` wiring.
+  - GFX-39: needs a palette decision.
+  - GFX-43: `WrapMode`.
+  - GFX-44: a float `Region` is a redesign.
+  - GFX-46: the finding's fix is not upstream on Windows 10.
+- **Also fixed:** `Image.Save` used to throw a null-reference on GIF/BMP/ICO, which Skia cannot encode; it now falls back to PNG. The duplicate `Majorsilence.Forms.ColorTranslator.ToHtml` now delegates.
+
+Tests: four new classes, 238 cases in all. `GraphicsStateFidelityTests` 15, `ImageFormatAndCloneTests` 11 and `DrawingTextAndImageParityTests` 29 make 55. `ColorIdentityAndContrastTests` has 183: six facts, plus a `ToHtml` theory with one case per `KnownColor` checked against the BCL's `System.Drawing.ColorTranslator`. Neutralization took three rounds and 39 neutralizations (21 + 17 + 1). Every test went red except the ones labelled in-test as guards:
+- NearestNeighbor sampling (Skia's default);
+- `Near` point alignment;
+- the 32px icon frame (the decoder's own pick);
+- `Clone` not copying `Tag`;
+- the 32bpp-ARGB/blank-bitmap cases;
+- `AntiAlias` text;
+- `VisibleClipBounds` (GFX-18, already fixed);
+- a transformed region that moves.
+
+The neutralized `Region.Transform` of an infinite region hangs, which is the finding's own impact. `StoredOnlyPropertyBaseline.txt` was regenerated: six `Graphics` entries are no longer stored-only.
+
+Rebased onto main after #391, which added GDI+'s sixth-of-an-em leading padding to DrawString. The GFX-19 point overloads keep that padding on the anchor's side (right of a near anchor, left of a far one, none around a centred one); `DrawString_at_a_point_keeps_the_leading_padding_on_the_anchors_side` covers it (Near and Far red with the padding removed, Center a guard).
+
+**Control base: focus, creation timing, handles, disposal, invoke, paint, region, binding context (#341). — 2026-10-06.**
+The Control base half that was hand-written rather than ported: one Selectable flag instead of two, upstream's lazy creation, a handle state of its own, a real teardown, and async invoke, region and binding-context notification. All 5 P1s are closed (CTL-06 already by SVC-13), and 10 of 12 P2s (CTL-21 and CTL-25 partly). CTL-14 is left open.
+
+- **CTL-03:** `CanSelect` read `ControlBehaviors.Selectable` while `SetStyle` wrote `ControlStyles.Selectable`. Now one flag: `SetControlBehavior`/`GetControlBehavior` route the bit to the style, and `CanSelect` reads `GetStyle`, as upstream `CanSelectCore`.
+- **CTL-04:** the second press of a double-click had `Clicks == 1`. It is now 2, as upstream's `WM_LBUTTONDBLCLK -> WmMouseDown (.., 2)`. The press uses the release's time/distance test (`WindowBase.CompletesDoubleClick`). Click/DoubleClick exclusivity was already done by EVT-01.
+- **CTL-05:** `Controls.Add` created a child whenever the parent chain was visible. The adapter is always "visible", so `HandleCreated` and `UserControl.Load` ran inside `InitializeComponent`. Now:
+  - `Insert` creates only under a created owner, as upstream `ControlCollection.Add`.
+  - `CreateControl` skips a hidden control, as upstream `CreateControl (false)`.
+  - `OnVisibleChanged` creates only under a created parent.
+  - The hosted show path (`Form.ShowHostedSequence`) creates the adapter, as `ShowBookkeeping` does.
+- **CTL-06:** already fixed by SVC-13.
+- **CTL-12:** two copy/paste faults are fixed: `scroll_position.Y = 0` (was `.X`), and the horizontal bar width is now `Bounds.Width`.
+- **CTL-15:** the `Parent` setter raised `ParentChanged` a second time after `Controls.Add`. That second call is removed.
+- **CTL-16:** `Dispose (true)` now sets `Disposing` (layout suspended) through `base.Dispose`, then `Disposed`, as upstream. `AssignParent`'s disposing short-circuit therefore finally fires, so there is no VisibleChanged or layout storm.
+- **CTL-19:** `BeginInvoke (Delegate)` returned an unstarted `Task`. It now returns a `TaskCompletionSource` task carrying the result or exception. `EndInvoke` returns or rethrows, and drains posted work on the UI thread, as upstream.
+- **CTL-20:** `States.HandleCreated` is separate from `Created`:
+  - `CreateHandle` raises `HandleCreated` once, and `CreateControl` goes through it.
+  - Reading `Handle` creates the handle, but the value stays `IntPtr.Zero` (native-interop policy).
+  - `RecreateHandle` runs `DestroyHandle` + `CreateHandle` with `RecreatingHandle`.
+- **CTL-21 (partly):** `Update` paints a dirty control into its surface synchronously and dirties its ancestors. `Refresh` is now `Invalidate (true) + Update ()`. Presentation still waits for the next frame, because there is no synchronous-present backend API.
+- **CTL-22:** the `Cursor`/`OverrideCursor` setters call `RefreshHoverCursor`.
+- **CTL-23:** `Region` now invalidates. `PaintChildren` clips the child's surface to the region, scaled to device, as `WindowBase` does for a form region. `FindVisibleChildAt` and `GetChildAtPoint` skip points outside the region.
+- **CTL-25 (partly):** `TopLevelControl` now stops at the first `GetTopLevel ()` control. A control on a form still answers with the form's root control, because `Form` is not a `Control`.
+- **CTL-26:** the right-button release after a context menu opens is still a `Click`/`MouseClick`. Focus on press is left-only (`TakesFocusOnPress`). `TextBoxBase`, `ListView` and `TreeView` also focus on a right press.
+- **CTL-27:** `UserControl` focuses on a press only when focus is not already inside it, as upstream `OnMouseDown`.
+- **CTL-29:** the change now cascades through `OnParentBindingContextChanged` to children without their own context. It is also raised from `AssignParent` (when created) and from `CreateControl`.
+- **CTL-14, left open:** an unparented `Visible == true` makes unparented controls selectable. `Select ()` then takes focus outside any adapter, so it needs the unparented-focus/`ActiveControl` path (CTL-07) settled first.
+
+Tests: `ControlBaseGapTests` (26) and `UserControlLoadTests` (8, rewritten: it pinned the eager timing). `TabControlClickTests`, `TabStripSelectionTests` and one `ToolStripTests` case now call `form.CreateControl ()` before driving an unshown form. One entry was added by hand to `ControlWindowParityBaseline.txt`. Neutralization: 25 rounds, one per mechanism, all red; every file was restored and checked with `cmp`, and the tree matched its pre-run diff.
+
+**Layout: TableLayoutSettings serialization, SplitContainer/TabControl validation, RTL tables, DockPadding, AutoScrollPosition, LayoutEventArgs, TreeView hit regions (#346). — 2026-10-06.**
+This pass covers the one layout P1 (LAY-37) and eleven P2s. Three of the P2s turned out to be already fixed, in whole or in part, by earlier work (LAY-09's `BorderStyle`, LAY-19, LAY-27). LAY-06, LAY-17, LAY-24 and LAY-35 are still open, each with a note in `docs/behaviour-gap/layout.md`.
+
+- **LAY-37: `TableLayoutSettings` serialization.**
+  - *Was:* the converter, `ISerializable` and the `LayoutSettings` setter were all behind a `DESIGN_TIME` symbol that nothing defines, and the converter that actually compiled was an empty stub. A localizable form's `.resx` grid could not be read back.
+  - *Upstream:* the converter round-trips the styles and each named control's cell as XML, and the setter applies the detached settings object the converter produces.
+  - *Now:* the guards are gone and the stub is deleted. The real converter lives in `Majorsilence.Forms.Layout`, which is upstream's namespace. Two upstream `TypeDescriptor` lookups fail the trim analyzer, so ours builds the converter directly and reads `Control.Name`.
+- **LAY-09: `SplitContainer.AutoScroll`** now always reads `false`, as upstream's override does. `BorderStyle` was already fixed in W6.
+- **LAY-10: changing `SplitContainer.Orientation`.**
+  - *Was:* the split was never re-validated against the new axis.
+  - *Upstream:* the setter re-assigns `SplitterDistance`, which re-clamps it and raises `SplitterMoved`.
+  - *Now:* ours does the same.
+- **LAY-11: `SplitterDistance` setter.**
+  - *Was:* any value was silently clamped, and `SplitterMoved` was never raised for a programmatic move.
+  - *Upstream:* throws for a negative value, clamps everything else to the minimums, and raises `SplitterMoved` on a change.
+  - *Now:* ours does the same. One exception: upstream's `InvalidOperationException` for a container too small to honour both minimums is not ported, because unlaid-out containers are routinely that small.
+- **LAY-18: `TabControl.GetTabRect`** throws for an out-of-range index, as upstream does. It used to return an invented 100x25 box.
+- **LAY-20: `TabControl.HitTest`** tests the tab headers. It used to test the page bounds, so every body point hit the first page.
+- **LAY-23: `TableLayout.SetElementBounds`.**
+  - *Was:* the RTL assignment was commented out, so right-to-left tables were not mirrored.
+  - *Now:* the assignment is restored, and `TableLayoutPanel` re-lays itself out when `RightToLeft` changes. Upstream gets that re-layout from `RecreateHandle`.
+- **LAY-31: `DockPaddingEdges`** is ported from upstream as a view of the owner's `Padding`. It used to be a detached bag that nothing read.
+- **LAY-33: `AutoScrollPosition` setter.**
+  - *Was:* it took `Math.Abs`, so assigning the getter's own value back scrolled.
+  - *Upstream:* negates the value and clamps it.
+  - *Now:* ours does the same. One test that relied on `Math.Abs` was corrected.
+- **LAY-36: `LayoutEventArgs`** is ported exactly: one weak `IComponent`, and `AffectedControl` derived from it. It used to keep two independent fields.
+- **LAY-39: `TreeView.HitTest`** classifies a point within the row from the regions the renderer paints: indent, button, state image, image, label. It used to report `Label` everywhere, never `PlusMinus`.
+
+Tests:
+- `TableLayoutSettingsSerializationTests`: 5.
+- `LayoutContainerGapTests`: 19, including one theory at scales 1 and 2.
+- Updated: `AutoScrollLayoutPanelTests` (1).
+- Neutralization: 18 rounds. Every new test went red in at least one round.
+- One round first stayed green. Disabling the LAY-18 range check alone still threw, from the collection indexer. Re-run against the original fabricated rectangle, it went red.
+- The stored-only baseline lost three `DockPaddingEdges` entries.
+
+**Services: the open P2s of dialogs, clipboard and printing (#348). — 2026-10-06.**
+
+Six of the eight open findings in `docs/behaviour-gap/services.md` closed; one of them (`SVC-39`) had already been fixed by the W6 mechanisms work, and the area file now says where. Two stay open because their fixes live in `WindowBase.cs`, which this change set did not own: `SVC-10` (`ModifierKeys` written by the `KeyEventArgs`/`MouseEventArgs` constructors) and `SVC-38` (`Cursor.Hide/Show` and the `.cur` constructors). Nothing in `Control.cs`, `WindowBase.cs`, `Form.cs` or the layout engines changed.
+
+- **`SVC-18` per-format clipboard text.** `GetText/ContainsText(TextDataFormat)` collapsed every format to the plain text, so `GetText (Rtf)` handed plain text to an RTF parser. Upstream maps each `TextDataFormat` to its own format (`ConvertToDataFormats`) and its `SetText` clears the clipboard first (`OLE/Clipboard.cs:468-479`). Now `Text`/`UnicodeText` read the platform text, `Rtf`/`Html`/`Csv` read only their own in-process entry (empty when absent), and both `SetText` overloads clear first. `SetData`'s text path writes the backend directly, so `SetDataObject`'s per-format loop is not cleared halfway through.
+- **`SVC-26` `FolderBrowserDialog`.** `Description` and `SelectedPath` never reached the picker. Upstream shows the description (as the title with `UseDescriptionForTitle`) and opens at `InitialDirectory`, else at `SelectedPath` (`SetDialogProperties`). The pickers have only a title and a start folder, so the description becomes the title when no `Title` is set, and an existing `SelectedPath` is the start folder. Headless gains `HeadlessRenderer.OpenFolderResponse`.
+- **`SVC-32` `BeginPrint`/`EndPrint`.** Typed `EventHandler`, so a ported `PrintEventArgs` handler did not compile. They are `PrintEventHandler` now, and the begin/end sequence is upstream's `PrintController.Print`: one args object for the whole job; a `BeginPrint` cancel raises only the document's `EndPrint` and `Print()` submits nothing; `PrintAction` is `PrintToPrinter` for `Print()` (it said `PrintToFile`), `PrintToPreview` under a preview controller.
+- **`SVC-35` `FontDialog`.** The family box is an editable list of installed families (fixed-pitch only with `FixedPitchOnly`). `FontMustExist` keeps the dialog open with an inline reason (ChooseFont uses a message box, which a test cannot dismiss). `MinSize`/`MaxSize` bound the size box. Underline/Strikeout check boxes appear with `ShowEffects`, and both flags survive OK either way. ChooseFont's 16-colour list appears with `ShowColor`. An Apply button appears with `ShowApply`; it commits and raises the new `OnApply`, as upstream's `HookProc` does.
+- **`SVC-36` `ColorDialog`.** A swatch click committed and closed; it now selects, and OK commits. The 16 `CustomColors` are shown and pickable. A Define Custom Colors pane (enabled by `AllowFullOpen`, open at start with `FullOpen` only when allowed, as upstream's `RunDialog`) takes R/G/B, and Add writes a COLORREF into the current slot. `Color` and `CustomColors` are copied back only on OK, as upstream. `AnyColor`/`SolidColorOnly` remain accepted-only (palette-display options), and the stored-only baseline records that reason.
+- **`SVC-39`.** Already fixed: `GetDataObject` returns a `DataObject` snapshot whose `SetData` stores.
+
+Tests: `ServicesDialogAndPrintTests` (14: SVC-26 ×2, SVC-32 ×2, SVC-35 ×5, SVC-36 ×5) and `ClipboardTests` (+3 cases in two tests; `GetText_WithFormat_DelegatesToText` renamed `GetText_PlainFormats_ShareTheText`). Neutralization: 16 rounds, each a `DateTime.Now.Year` impossible condition, files snapshotted and `cmp`-restored. 15 went red the first time. `SVC-36c` stayed green: `AllowFullOpen` was guarded twice, so removing one guard proved nothing. Removing both turned it red. Baselines: `FontDialog.Apply` left the unraised baseline, 9 dialog properties left the stored-only baseline, and `ColorDialog.AnyColor`/`SolidColorOnly` were re-annotated.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

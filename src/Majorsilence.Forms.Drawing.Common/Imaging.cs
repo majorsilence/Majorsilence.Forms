@@ -75,6 +75,18 @@ namespace Majorsilence.Forms.Drawing.Imaging
 
         internal SKEncodedImageFormat ToSKEncodedImageFormat () => SKFormat;
 
+        // The decoded container's format, or null for one GDI+ has no ImageFormat for.
+        internal static ImageFormat? FromSKEncodedImageFormat (SKEncodedImageFormat format) => format switch {
+            SKEncodedImageFormat.Bmp => Bmp,
+            SKEncodedImageFormat.Png => Png,
+            SKEncodedImageFormat.Jpeg => Jpeg,
+            SKEncodedImageFormat.Gif => Gif,
+            SKEncodedImageFormat.Ico => Icon,
+            SKEncodedImageFormat.Webp => Webp,
+            SKEncodedImageFormat.Heif => Heif,
+            _ => null,
+        };
+
         internal static ImageFormat FromFileName (string filename)
         {
             var ext = System.IO.Path.GetExtension (filename)?.ToLowerInvariant ();

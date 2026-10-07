@@ -4905,8 +4905,8 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Converts a Color to an HTML color string (#RRGGBB).</summary>
-        public static string ToHtml (Color color) => $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+        /// <summary>Converts a Color to an HTML color string; see <see cref="Majorsilence.Forms.Drawing.ColorTranslator.ToHtml"/> (GFX-40).</summary>
+        public static string ToHtml (Color color) => Majorsilence.Forms.Drawing.ColorTranslator.ToHtml (color);
 
         /// <summary>Translates an OLE color value to a Color.</summary>
         public static Color FromOle (int oleColor) => Color.FromArgb (0xFF, oleColor & 0xFF, (oleColor >> 8) & 0xFF, (oleColor >> 16) & 0xFF);

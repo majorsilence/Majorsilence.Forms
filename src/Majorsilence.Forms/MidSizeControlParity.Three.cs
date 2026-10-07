@@ -24,7 +24,12 @@ namespace Majorsilence.Forms
     public partial class ControlPaint
     {
         /// <summary>Gets the colour used to darken a control's background for contrast.</summary>
-        public static Color ContrastControlDark => SystemColors.ControlDark;
+        /// <remarks>
+        /// GFX-04: the window-frame colour under high contrast, as upstream's ControlPaint.cs has it. The
+        /// member exists for that branch alone -- without it, it is just another name for ControlDark.
+        /// </remarks>
+        public static Color ContrastControlDark
+            => SystemInformation.HighContrast ? SystemColors.WindowFrame : SystemColors.ControlDark;
 
         /// <inheritdoc cref="DrawCaptionButton(Graphics,Rectangle,CaptionButton,ButtonState)"/>
         public static void DrawCaptionButton (Graphics graphics, int x, int y, int width, int height, CaptionButton button, ButtonState state)

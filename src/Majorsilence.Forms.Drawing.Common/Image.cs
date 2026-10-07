@@ -40,8 +40,27 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Gets the width and height of this image.</summary>
         public System.Drawing.SizeF PhysicalDimension => new System.Drawing.SizeF (Width, Height);
 
-        /// <summary>Gets the pixel format of this image. Always 32bpp ARGB in Majorsilence.Forms.Drawing.</summary>
-        public PixelFormat PixelFormat => PixelFormat.Format32bppArgb;
+        /// <summary>Gets the pixel format of this image.</summary>
+        /// <remarks>
+        /// GFX-31: this was the constant <see cref="PixelFormat.Format32bppArgb"/>, so image-processing
+        /// code that branches on the format (3-byte stride arithmetic for 24bpp, "can I save this as
+        /// JPEG" via <see cref="IsAlphaPixelFormat"/>) always took the 32bpp-with-alpha branch. It is the
+        /// format the image was created in when that was stated -- a constructor taking a
+        /// <see cref="PixelFormat"/>, or upstream's fixed 32bpp ARGB for a blank or copied bitmap -- and
+        /// otherwise what the decoded surface holds: no alpha channel reads as 24bpp RGB (a JPEG, an RGB
+        /// PNG), as GDI+ reports them.
+        /// </remarks>
+        public PixelFormat PixelFormat => pixelFormat ?? FormatOf (backing);
+
+        // The format a constructor was asked for; null where it is read off the decoded surface.
+        private protected PixelFormat? pixelFormat;
+
+        private static PixelFormat FormatOf (SKBitmap? bitmap) => bitmap switch {
+            null => PixelFormat.Format32bppArgb,
+            { AlphaType: SKAlphaType.Opaque, ColorType: SKColorType.Rgb565 } => PixelFormat.Format16bppRgb565,
+            { AlphaType: SKAlphaType.Opaque } => PixelFormat.Format24bppRgb,
+            _ => PixelFormat.Format32bppArgb,
+        };
 
         /// <summary>Gets the file format of this image.</summary>
         public ImageFormat RawFormat { get; internal set; } = ImageFormat.Png;
@@ -81,6 +100,11 @@ namespace Majorsilence.Forms.Drawing
             try {
                 using var codec = SKCodec.Create (new SKMemoryStream (data));
                 frameCount = Math.Max (1, codec?.FrameCount ?? 1);
+
+                // The container the bytes came in, as GDI+ reports it: a loaded JPEG's RawFormat is Jpeg,
+                // which is what image.Save (path, image.RawFormat) relies on to round-trip. It stayed Png.
+                if (codec is not null)
+                    RawFormat = ImageFormat.FromSKEncodedImageFormat (codec.EncodedFormat) ?? RawFormat;
             } catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) {
                 frameCount = 1;
             }
@@ -95,7 +119,7 @@ namespace Majorsilence.Forms.Drawing
         /// Reports the handful of <see cref="ImageFlags"/> that are knowable here: every surface is a
         /// readable, writable, 32bpp color bitmap. GDI+'s colorimetry flags are not modelled.
         /// </remarks>
-        public int Flags => (int)(ImageFlags.HasAlpha | ImageFlags.ColorSpaceRgb);
+        public int Flags => (int)((IsAlphaPixelFormat (PixelFormat) ? ImageFlags.HasAlpha : ImageFlags.None) | ImageFlags.ColorSpaceRgb);
 
         /// <summary>Gets or sets an arbitrary object associated with this image.</summary>
         public object? Tag { get; set; }
@@ -283,7 +307,13 @@ namespace Majorsilence.Forms.Drawing
                 return;
 
             using var image = SKImage.FromBitmap (backing);
-            using var data = image.Encode (format.ToSKEncodedImageFormat (), quality);
+
+            // Skia encodes PNG, JPEG and WebP only. The other containers fall back to PNG -- what the
+            // ImageFormat members document -- rather than a null-reference from the failed encode, which
+            // matters now that a loaded GIF, BMP or icon reports its own RawFormat and the idiom
+            // image.Save (stream, image.RawFormat) asks for exactly that container.
+            using var data = image.Encode (format.ToSKEncodedImageFormat (), quality)
+                ?? image.Encode (SKEncodedImageFormat.Png, quality);
             data.SaveTo (stream);
         }
 
@@ -307,7 +337,29 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>Creates an exact copy of this image.</summary>
-        public object Clone () => new Bitmap (backing?.Copy ());
+        /// <remarks>
+        /// GFX-32: the copy used to carry only the pixels, so the "clone, modify, save" pattern reset a
+        /// 300-DPI scan to 96 DPI, turned a JPEG's <see cref="RawFormat"/> into PNG and dropped the EXIF
+        /// property items. GDI+'s <c>GdipCloneImage</c> copies the whole native image: resolution, raw
+        /// format, palette, pixel format, frames and property items. <see cref="Tag"/> is not part of the
+        /// native image -- it is a managed field upstream's <c>Clone</c> does not copy -- so it stays
+        /// behind here too.
+        /// </remarks>
+        public object Clone ()
+        {
+            var copy = new Bitmap (backing?.Copy ()) {
+                RawFormat = RawFormat,
+                HorizontalResolution = HorizontalResolution,
+                VerticalResolution = VerticalResolution,
+                Palette = new ColorPalette ((System.Drawing.Color[])Palette.Entries.Clone ()) { Flags = Palette.Flags },
+            };
+
+            copy.pixelFormat = pixelFormat;
+            copy.encodedSource = encodedSource;
+            copy.frameCount = frameCount;
+            copy.propertyItems = propertyItems?.Select (p => new PropertyItem { Id = p.Id, Len = p.Len, Type = p.Type, Value = (byte[]?)p.Value?.Clone () }).ToList ();
+            return copy;
+        }
 
         /// <summary>Releases the resources used by this image.</summary>
         public virtual void Dispose ()
@@ -366,13 +418,35 @@ namespace Majorsilence.Forms.Drawing
         public Bitmap (Stream stream, bool useIcm) : this (stream) { }
 
         /// <summary>Initializes a new blank bitmap with the specified dimensions.</summary>
-        public Bitmap (int width, int height)
-        {
-            backing = new SKBitmap (Math.Max (1, width), Math.Max (1, height), SKColorType.Bgra8888, SKAlphaType.Premul);
-        }
+        public Bitmap (int width, int height) : this (width, height, PixelFormat.Format32bppArgb) { }
 
         /// <summary>Initializes a new blank bitmap with the specified dimensions and pixel format.</summary>
-        public Bitmap (int width, int height, PixelFormat format) : this (width, height) { }
+        /// <remarks>
+        /// GFX-31: the format used to be thrown away. It is recorded and reported by
+        /// <see cref="Image.PixelFormat"/>, and the surface is allocated to match where Skia can draw to
+        /// one: formats without alpha get an opaque surface, the rest a premultiplied one (a Skia canvas
+        /// cannot target an unpremultiplied raster, and GDI+ composites premultiplied internally anyway).
+        /// Indexed and 16-bit-per-channel formats are stored at 32bpp and still report the format asked
+        /// for; as in GDI+, <c>Graphics.FromImage</c> refuses an indexed one.
+        /// </remarks>
+        /// <exception cref="ArgumentException"><paramref name="format"/> is not a pixel format (a flag such as <see cref="PixelFormat.Indexed"/>, or <see cref="PixelFormat.Undefined"/>).</exception>
+        public Bitmap (int width, int height, PixelFormat format)
+        {
+            // GDI+'s GdipCreateBitmapFromScan0 rejects the non-format members with InvalidParameter.
+            if (GetPixelFormatSize (format) == 0)
+                throw new ArgumentException ($"{format} is not a pixel format.", nameof (format));
+
+            var alpha = IsAlphaPixelFormat (format) || (format & PixelFormat.Indexed) != 0
+                ? SKAlphaType.Premul
+                : SKAlphaType.Opaque;
+
+            backing = new SKBitmap (Math.Max (1, width), Math.Max (1, height), SKColorType.Bgra8888, alpha);
+            pixelFormat = format;
+
+            // A fresh Skia bitmap's pixels are uninitialised; GDI+'s are zero (transparent, or black for
+            // an opaque format).
+            backing.Erase (alpha == SKAlphaType.Opaque ? SKColors.Black : SKColors.Transparent);
+        }
 
         /// <summary>
         /// Initializes a new bitmap from caller-owned, already-allocated pixel memory (typically pinned
@@ -400,6 +474,7 @@ namespace Majorsilence.Forms.Drawing
             var info = new SKImageInfo (width, height, colorType, alphaType);
             backing = new SKBitmap ();
             backing.InstallPixels (info, scan0, stride);
+            pixelFormat = format;
         }
 
         /// <summary>
@@ -420,9 +495,15 @@ namespace Majorsilence.Forms.Drawing
         public Bitmap (int width, int height, IDeviceContext deviceContext) : this (width, height) { }
 
         /// <summary>Initializes a new bitmap as a copy of an existing image.</summary>
+        /// <remarks>
+        /// Upstream draws the original into a new 32bpp ARGB bitmap, so the copy reports that format
+        /// whatever the original's was; unlike <see cref="Image.Clone"/> it does not carry the resolution
+        /// or metadata across either.
+        /// </remarks>
         public Bitmap (Image original)
         {
             backing = original?.GetSKBitmap ()?.Copy () ?? new SKBitmap (1, 1);
+            pixelFormat = PixelFormat.Format32bppArgb;
         }
 
         /// <summary>Initializes a new bitmap by resizing an existing image to the specified size.</summary>
@@ -434,6 +515,8 @@ namespace Majorsilence.Forms.Drawing
             var source = original?.GetSKBitmap ();
             width = Math.Max (1, width);
             height = Math.Max (1, height);
+
+            pixelFormat = PixelFormat.Format32bppArgb;
 
             if (source is null) {
                 backing = new SKBitmap (width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
@@ -451,10 +534,17 @@ namespace Majorsilence.Forms.Drawing
 
         /// <summary>Creates a copy of the section of this bitmap defined by the rectangle.</summary>
         /// <remarks>
-        /// <paramref name="format"/> is accepted for API compatibility; every surface here is 32bpp, so
-        /// the copy keeps that format regardless (see <see cref="Image.PixelFormat"/>).
+        /// The pixels stay 32bpp; <paramref name="format"/> is what the copy reports as its
+        /// <see cref="Image.PixelFormat"/> (see the <c>Bitmap (int, int, PixelFormat)</c> constructor).
         /// </remarks>
         public Bitmap Clone (System.Drawing.Rectangle rect, PixelFormat format)
+        {
+            var copy = CloneArea (rect);
+            copy.pixelFormat = GetPixelFormatSize (format) == 0 ? PixelFormat : format;
+            return copy;
+        }
+
+        private Bitmap CloneArea (System.Drawing.Rectangle rect)
         {
             if (backing is null || rect.Width <= 0 || rect.Height <= 0)
                 return new Bitmap (Math.Max (1, rect.Width), Math.Max (1, rect.Height));
@@ -485,8 +575,10 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>Sets the color of the specified pixel.</summary>
+        /// <remarks>A format without alpha stores the colour opaque, as GDI+ does for 24bpp RGB.</remarks>
         public void SetPixel (int x, int y, System.Drawing.Color color)
-            => backing?.SetPixel (x, y, new SKColor (color.R, color.G, color.B, color.A));
+            => backing?.SetPixel (x, y, new SKColor (color.R, color.G, color.B,
+                backing.AlphaType == SKAlphaType.Opaque ? (byte)255 : color.A));
 
         /// <summary>
         /// Makes the default transparent color transparent for this image.
