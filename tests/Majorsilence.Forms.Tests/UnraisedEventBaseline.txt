@@ -46,7 +46,6 @@ Majorsilence.Forms.DataGridTextBox.TextChanged    -- upstream ships this family 
 Majorsilence.Forms.DataGridView.RowUnshared    -- rows are never shared here; there is nothing to unshare
 Majorsilence.Forms.Design.DesignerActionUIService.DesignerActionListsChanged    -- design-time service; there is no designer host
 Majorsilence.Forms.FolderBrowserDialog.HelpRequest    -- native dialogs; no help button to click
-Majorsilence.Forms.FontDialog.Apply    -- native dialog; no Apply button to click
 Majorsilence.Forms.Form.DpiChanged    -- no DPI-change path; the headless scale is fixed for the process
 Majorsilence.Forms.Form.InputLanguageChanged    -- no input-language switching path
 Majorsilence.Forms.Form.InputLanguageChanging    -- no input-language switching path

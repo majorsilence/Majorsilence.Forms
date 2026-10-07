@@ -92,6 +92,7 @@ behaviour (existing tests are set/get round-trips).
 - **Tests today:** none.
 
 ### SVC-10 — `Control.ModifierKeys` updated only as a side effect of `KeyEventArgs`/`MouseEventArgs` construction — Cat A — P2 — Medium
+- **Still open (2026-10-06):** the fix is seven one-line writes of `Control.ModifierKeys = keys & Keys.Modifiers` at the top of `WindowBase.HandleKeyDown/HandleKeyUp/HandlePointerPressed/Released/Moved/Wheel/Exited`, then deleting the two EventArgs-constructor writes (and flipping the `ListViewModifierSelectionTests` / `DataGridViewSelectionTests` comments that describe the side effect). `WindowBase.cs` was outside the services change set for #348 (shared with the control and layout work) and the edit was refused there, so it waits for a change that owns that file.
 - **Ours:** The constructors write the static (`src/Majorsilence.Forms/KeyEventArgs.cs:18`, `MouseEventArgs.cs:37`). User or test code constructing `new KeyEventArgs(Keys.Control | Keys.C)` (to call `OnKeyDown` manually, a common pattern) overwrites the global; after the last event the value is stale until the next event.
 - **Upstream:** `GetKeyState` live (`Control.cs:2596`).
 - **Impact:** Stale modifiers in timers/Idle handlers; simulated events corrupt real state. Cosmetic in most apps.
@@ -169,7 +170,8 @@ behaviour (existing tests are set/get round-trips).
 - **Test:** `new DataObject("hi").GetData(typeof(string))` == "hi"; `new DataObject(DataFormats.UnicodeText, "hi").GetDataPresent(DataFormats.Text)` true.
 - **Tests today:** MidSizeControlParity.ThreeTests (typed helpers), none for conversion.
 
-### SVC-18 — `Clipboard.GetText(TextDataFormat)` / `ContainsText(TextDataFormat)` / `SetText(text, format)` — Cat A — P2 — High
+### SVC-18 — `Clipboard.GetText(TextDataFormat)` / `ContainsText(TextDataFormat)` / `SetText(text, format)` — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** `Clipboard.GetText/ContainsText(TextDataFormat)` read only their own format: `Text`/`UnicodeText` the platform text, `Rtf`/`Html`/`CommaSeparatedValue` the in-process entry under `DataObject.FormatName` (empty / false when absent), as upstream's `ConvertToDataFormats`. `SetText(text)` and `SetText(text, format)` clear the clipboard first, as upstream's (`OLE/Clipboard.cs:468-479`), so a stale RTF payload cannot answer after plain text replaces it; `SetData`'s text path writes the backend directly so `SetDataObject`'s per-format loop is not cleared mid-way. `ClipboardTests` (`GetText_WithFormat_DelegatesToText` renamed `GetText_PlainFormats_ShareTheText`; three new).
 - **Ours:** All format overloads collapse to plain text (`src/Majorsilence.Forms/Clipboard.cs:43`, `:55`, `:58`): `GetText(Rtf)` returns the plain text; `ContainsText(Rtf)` is true whenever any text is present.
 - **Upstream:** Each `TextDataFormat` maps to its own clipboard format; `GetText(Rtf)` returns `string.Empty` when no RTF is present (`OLE/Clipboard.cs:118`, `:391-396`).
 - **Impact:** `if (Clipboard.ContainsText(TextDataFormat.Rtf)) rtb.SelectedRtf = Clipboard.GetText(TextDataFormat.Rtf);` feeds plain text into an RTF parser; CSV/HTML paste paths receive the wrong payload.
@@ -241,7 +243,8 @@ behaviour (existing tests are set/get round-trips).
 - **Test:** Headless: `new OpenFileDialog().ShowDialog()` with no forms must reach the backend's `ShowOpenFileDialog` (record on the stub).
 - **Tests today:** FileDialogModalPumpTests (with an owner).
 
-### SVC-26 — `FolderBrowserDialog.Description` never displayed; `SelectedPath` not used as the start folder — Cat C/A — P2 — High
+### SVC-26 — `FolderBrowserDialog.Description` never displayed; `SelectedPath` not used as the start folder — Cat C/A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** `FolderBrowserDialog.BuildRequest` sends `Description` as the picker title when `UseDescriptionForTitle` or no `Title` is set (the pickers have no prompt line), and opens at `InitialDirectory`, else at an existing `SelectedPath` (upstream preselects it inside its parent; no picker here can, so it opens inside it). Headless gains `HeadlessRenderer.OpenFolderResponse` to observe the request. `ServicesDialogAndPrintTests` (2).
 - **Ours:** Only `Title` (a non-WinForms member) and `InitialDirectory` are forwarded (`src/Majorsilence.Forms/FolderBrowserDialog.cs:65-70`); `Description`/`UseDescriptionForTitle` are stored (`:23-33`), `SelectedPath` is write-only input.
 - **Upstream:** `Description` is the dialog's prompt text (or title when `UseDescriptionForTitle`), and the start folder is `InitialDirectory` if set else `SelectedPath` (`Dialogs/CommonDialogs/FolderBrowserDialog.cs:337-378`).
 - **Impact:** `fbd.Description = "Choose the export folder"; fbd.SelectedPath = lastFolder;` shows an untitled picker opened at the default location.
@@ -298,7 +301,8 @@ behaviour (existing tests are set/get round-trips).
 - **Test:** `new PrintDialog { PrinterSettings = ps }.PrinterSettings` is the same reference; headless `ShowDialog(ownerForm)` shows a form containing at least one `Button`.
 - **Tests today:** TailParity.TwoTests (property round-trips).
 
-### SVC-32 — `PrintDocument.BeginPrint`/`EndPrint` typed `EventHandler` instead of `PrintEventHandler` — Cat E — P2 — High
+### SVC-32 — `PrintDocument.BeginPrint`/`EndPrint` typed `EventHandler` instead of `PrintEventHandler` — Cat E — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** `BeginPrint`/`EndPrint` are `PrintEventHandler`, `OnBeginPrint/OnEndPrint(PrintEventArgs)`. The walk follows upstream's `PrintController.Print` (System.Drawing.Common `Printing/PrintController.cs:39-85`): one args object from BeginPrint to EndPrint; a BeginPrint cancel raises only the document's EndPrint (the controller never starts) and `Print()` then submits nothing; `PrintAction` is `PrintToPreview` under a preview controller, else `PrintToFile`/`PrintToPrinter` by destination (`Print()` was reporting `PrintToFile` for a printer job). `ServicesDialogAndPrintTests` (2).
 - **Ours:** `public event EventHandler? BeginPrint; ... EndPrint;` and `OnBeginPrint(EventArgs)` (`src/Majorsilence.Forms/Printing/PrintDocument.cs:31-36`, `:118`, `:144`); `PrintEventArgs` exists but is unused by the document (`:281-285`).
 - **Upstream:** `event PrintEventHandler BeginPrint/EndPrint` with `PrintEventArgs : CancelEventArgs` (`PrintDocument.cs:113-130`); `e.Cancel = true` in `BeginPrint` aborts the job, `e.PrintAction` tells the handler whether this is preview/file/printer.
 - **Impact:** A method `void doc_BeginPrint(object sender, PrintEventArgs e)` cannot be subscribed (compile error on the ported designer line); `e.Cancel` is unavailable, so "no data to print → cancel" logic has to be rewritten.
@@ -322,7 +326,8 @@ behaviour (existing tests are set/get round-trips).
 - **Test:** Headless form with two TextBoxes, first focused; `SendKeys.SendWait("{TAB}")` → second focused; `SendKeys.SendWait("abc")` → its Text == "abc".
 - **Tests today:** none (AutomationTests' `SendKeys` is the WebDriver server, unrelated).
 
-### SVC-35 — `FontDialog` — `Apply` never raised, `MinSize`/`MaxSize`/`FontMustExist`/`FixedPitchOnly` not applied, `Underline`/`Strikeout` lost on OK, `Color` never editable — Cat A/C/D — P2 — High
+### SVC-35 — `FontDialog` — `Apply` never raised, `MinSize`/`MaxSize`/`FontMustExist`/`FixedPitchOnly` not applied, `Underline`/`Strikeout` lost on OK, `Color` never editable — Cat A/C/D — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** the family box is an editable `ComboBox` listing the installed families (`SKFontManager`), only fixed-pitch ones under `FixedPitchOnly`; `FontMustExist` keeps the dialog open with an inline message for an unlisted name (ChooseFont shows a message box, which a test cannot dismiss); `MinSize`/`MaxSize` bound the size box; Underline/Strikeout check boxes (shown with `ShowEffects`) and both flags survive OK whether shown or not; a 16-colour list (ChooseFont's) with `ShowColor && ShowEffects`, committed to `Color` on OK; an Apply button with `ShowApply` that commits and raises `OnApply`, as upstream's `HookProc` does. `ServicesDialogAndPrintTests` (5).
 - **Ours:** `Apply` is `add {} remove {}` (`src/Majorsilence.Forms/FontDialog.cs:154`); `MinSize`/`MaxSize` only clamp each other and never reach `size_box.Minimum/Maximum` (`:114-140`, `size_box` fixed 1..512 at `:34`); `BuildFont` composes only Bold/Italic so a font set with `FontStyle.Underline` comes back without it after OK (`:49-63`); the family is a free-text `TextBox` and an unknown name silently becomes Arial (`:58-62`); `ShowColor` has no colour picker (`Color` is stored only, `:83-86`).
 - **Upstream:** `CF_LIMITSIZE` enforces `MinSize`/`MaxSize`, `CF_EFFECTS` shows Underline/Strikeout/Color, `CF_FORCEFONTEXIST` validates, `OnApply` fires on the Apply button (`Dialogs/CommonDialogs/FontDialog.cs:166-168`, `:176-230`, `:246-268`, `:287-361`).
 - **Impact:** Font round-trips drop underline/strikeout; Apply-button previews never run; users cannot pick a colour or browse installed fonts.
@@ -330,7 +335,8 @@ behaviour (existing tests are set/get round-trips).
 - **Test:** `dlg.Font = new Font("Arial", 10, FontStyle.Underline)`; click OK (headless `PerformClick`) → `dlg.Font.Underline`.
 - **Tests today:** FontDialogTests (round-trips).
 
-### SVC-36 — `ColorDialog` — `CustomColors`/`FullOpen`/`AllowFullOpen`/`AnyColor`/`SolidColorOnly` stored only; no arbitrary colour entry — Cat C — P2 — High
+### SVC-36 — `ColorDialog` — `CustomColors`/`FullOpen`/`AllowFullOpen`/`AnyColor`/`SolidColorOnly` stored only; no arbitrary colour entry — Cat C — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** a swatch click selects (the RGB boxes follow) and OK commits, as ChooseColor; the 16 `CustomColors` show as swatches and can be picked; a "Define Custom Colors >>" pane (enabled by `AllowFullOpen`, open at start with `FullOpen` only when allowed, as upstream's `RunDialog` clears `CC_FULLOPEN`) takes R/G/B and "Add to Custom Colors" writes the COLORREF (0x00BBGGRR) into the current slot. Both `Color` and `CustomColors` are copied back only on OK. `AnyColor`/`SolidColorOnly` stay accepted-only: they matter only on palette displays (recorded in the stored-only baseline). `ServicesDialogAndPrintTests` (5).
 - **Ours:** A 40-swatch grid; clicking a swatch immediately returns OK (`src/Majorsilence.Forms/ColorDialog.cs:33-62`); the 16 `CustomColors` slots are normalised and stored (`:104-107`, `:126-146`) but never displayed or updated; the current `Color` is not highlighted.
 - **Upstream:** `CC_FULLOPEN`/`CC_ANYCOLOR`/`lpCustColors` open the RGB/HSL editor and persist the user's custom colours back into `CustomColors` (`Dialogs/CommonDialogs/ColorDialog.cs:72-136`).
 - **Impact:** Apps that persist `CustomColors` between sessions round-trip the stored array but users can never define a custom colour; any colour outside the 40 presets is unreachable.
@@ -347,6 +353,7 @@ behaviour (existing tests are set/get round-trips).
 - **Tests today:** none.
 
 ### SVC-38 — `Cursor.Hide()/Show()`, `Cursor(Stream)/Cursor(string)/Cursor(IntPtr)` — Cat B — P2 — High
+- **Still open (2026-10-06):** `Hide()/Show()` need a hidden-cursor override applied where `WindowBase` hands cursors to the backend (five `Backend.SetCursor` sites, plus `Form.cs`'s border cursors) and a `CursorType.None` mapped in each backend; `WindowBase.cs`/`Form.cs` were outside the services change set for #348. The `.cur` constructors need a bitmap-cursor method on `IWindowBackend`, implemented by every backend (netstandard2.0 has no default interface members) -- a seam change of its own.
 - **Ours:** `Hide`/`Show` empty (`src/Majorsilence.Forms/Cursor.cs:81-84`, in baseline); the three constructors produce `Arrow` (`:19-37`).
 - **Upstream:** `ShowCursor(false/true)` (`Input/Cursor.cs:373`, `:463`); `.cur`/`.ani` resources load as real cursors.
 - **Impact:** Kiosk/game/presentation apps cannot hide the pointer; custom cursors shipped as resources show as the arrow.
@@ -354,7 +361,8 @@ behaviour (existing tests are set/get round-trips).
 - **Test:** After `Cursor.Hide()`, the recording backend saw `SetCursor(None)`.
 - **Tests today:** CursorTests (no-throw only).
 
-### SVC-39 — `IDataObject` returned by `Clipboard.GetDataObject()` is case-sensitive and `SetData` is a no-op — Cat A — P2 — High
+### SVC-39 — `IDataObject` returned by `Clipboard.GetDataObject()` is case-sensitive and `SetData` is a no-op — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Already fixed** by the W6 mechanisms work: `ClipboardDataObject` is gone and `Clipboard.GetDataObject()` returns a `DataObject` snapshot whose `SetData` stores, so augment-then-`SetDataObject` round-trips (`W6EditingBindingAndSettingsTests.Named_formats_survive_the_clipboard_within_the_process`). Lookups go through SVC-17's mapped-format groups case-insensitively; an unmapped custom name is matched exactly, as upstream's `DataStore` (`BackCompatibleStringComparer`, ordinal) matches it.
 - **Ours:** `ClipboardDataObject.GetDataPresent/GetData` compare with `==` while `Clipboard.ContainsData` uses `OrdinalIgnoreCase`; all `SetData` overloads are empty (`src/Majorsilence.Forms/Clipboard.cs:98-112`, in baseline as `ClipboardDataObject.SetData`).
 - **Upstream:** Returns the live `DataObject`; `SetData` on it mutates the object (`OLE/Clipboard.cs:55-60`).
 - **Impact:** `var d = Clipboard.GetDataObject(); d.SetData(...); Clipboard.SetDataObject(d)` (augment-then-restore idiom) loses the added data.

@@ -90,6 +90,10 @@ namespace Majorsilence.Forms.Headless
         /// <summary>What a save-file picker on the headless backend returns; null (the default) cancels.</summary>
         public static System.Func<Majorsilence.Forms.Backends.SaveFileRequest, string?>? SaveFileResponse { get; set; }
 
+        /// <summary>What a folder picker on the headless backend returns for the request it is handed;
+        /// null (the default) cancels. Lets a test see the request <c>FolderBrowserDialog</c> builds.</summary>
+        public static System.Func<Majorsilence.Forms.Backends.FolderDialogRequest, string?>? OpenFolderResponse { get; set; }
+
         /// <summary>
         /// Installs the headless backend as the active platform. Call once before creating any window.
         /// </summary>
