@@ -77,9 +77,14 @@ namespace Majorsilence.Forms
         /// too: upstream passes the change down through <see cref="OnParentBindingContextChanged"/>
         /// (Control.cs OnBindingContextChanged). Without it a control whose context was inherited never
         /// heard that it changed (CTL-29).
+        /// <para>Before the event, this control's <see cref="DataBindings"/> move to the managers of
+        /// the new context, as upstream's <c>UpdateBindings</c> call here does (BND-15). An override
+        /// that does not call the base keeps its bindings where they were, as upstream.</para>
         /// </remarks>
         protected virtual void OnBindingContextChanged (EventArgs e)
         {
+            UpdateBindings ();
+
             BindingContextChanged?.Invoke (this, e);
 
             foreach (var child in Controls.GetAllControls ().ToArray ())

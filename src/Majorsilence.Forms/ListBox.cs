@@ -327,7 +327,7 @@ namespace Majorsilence.Forms
                     return;
 
                 _dataSource = value;
-                source_tracker.Attach (value);
+                source_tracker.Attach (value, value is null ? null : BindingContext);
 
                 if (value is null) {
                     if (SelectionMode != SelectionMode.None)
@@ -349,6 +349,18 @@ namespace Majorsilence.Forms
         // position in step. Without it the control kept whatever the list held at bind time -- which for
         // designer code, where the data arrives after InitializeComponent, is nothing.
         private readonly DataSourceBinding.ListSourceTracker source_tracker;
+
+        // The list's data connection follows the binding context exactly as its DataBindings do:
+        // upstream's ListControl.OnBindingContextChanged re-runs SetDataConnection. A list bound in
+        // designer order would otherwise keep the provisional context's manager and drift from every
+        // other control on the form (BND-26).
+        internal override void UpdateBindings ()
+        {
+            base.UpdateBindings ();
+
+            if (HasInheritedOrOwnBindingContext)
+                source_tracker.Rebind (_dataSource, BindingContext);
+        }
 
         /// <summary>Gets or sets the property to display from the data source.</summary>
         /// <remarks>Raises <see cref="ListControl.DisplayMemberChanged"/> on a real change (<c>LST-28</c>).</remarks>

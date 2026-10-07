@@ -26,6 +26,21 @@ namespace Majorsilence.Forms
 
         public new WindowBase ParentForm { get; }
 
+        /// <summary>The window's binding context: the adapter is the root its children inherit from.</summary>
+        /// <remarks>
+        /// Upstream the form IS the root control, so a child's inherited context is the form's. Here the
+        /// chain ended at this adapter, which minted a context of its own -- so
+        /// <c>form.BindingContext[table]</c> and the manager every control on the form bound through
+        /// were two different objects, and moving one never moved the other (BND-15).
+        /// </remarks>
+        public override BindingContext BindingContext {
+            get => ((IBindableComponent) ParentForm).BindingContext ?? base.BindingContext;
+            set {
+                ((IBindableComponent) ParentForm).BindingContext = value;
+                OnBindingContextChanged (EventArgs.Empty);
+            }
+        }
+
         /// <summary>
         /// Lays the window's children out, then lets the window itself lay out.
         /// </summary>
