@@ -381,7 +381,9 @@ jobs:
 
       # The browser-head checks (samples/Gallery.Wasm/ModalCheckForm.cs, issue #406) against the same
       # bundle: each blocking modal call must THROW naming its async form, each awaited one must RETURN,
-      # the accessibility DOM must mirror the check form's controls, and nothing may hang. --expect
+      # the accessibility DOM must mirror the check form's controls, the rendering checks' screenshots
+      # must show what they ask for (owner drawn, dialog frame whole, OK click answers), and nothing may
+      # hang. --expect
       # compares every check with the table at the top of modal-check.mjs and exits non-zero on any
       # difference. It drives the google-chrome preinstalled on the ubuntu runner over the DevTools
       # protocol (no npm packages; it serves the bundle itself on 127.0.0.1). --no-sandbox because

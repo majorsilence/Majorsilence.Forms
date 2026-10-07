@@ -360,6 +360,11 @@ Activity's Looper, the OS run loop) drives the UI from then on, and `RunCore` mu
   (`document.title`) and the Android task label can both carry it.
 - **`ShowDialog` isn't OS-modal**, because there is no modal window concept. It still *behaves*
   modally: the parent-disable that makes it modal lives above the seam, in `Form.ShowDialogAsync`.
+  Every window after the first is an absolutely positioned child of the first one's view, so the root
+  is disabled with a flag of its own rather than Avalonia's inherited `IsEnabled` (which would disable
+  the dialog with it), and it ignores input that started in another window's view. A secondary window
+  has no caption and opens at the view's top-left: `Screen` reports no screens there, so
+  `CenterParent`/`CenterScreen` have nothing to centre on.
   **In the browser the blocking `ShowDialog` does not work at all** -- it throws, and
   `ShowDialogAsync` is the call to make; see [Browser threading](#browser-threading). **Nor does it
   on Android or iOS** -- measured, Avalonia's dispatcher cannot push a nested frame there either; see
