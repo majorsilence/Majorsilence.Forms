@@ -192,7 +192,7 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets the height one line of text needs at the current font, including padding.</summary>
         public virtual int PreferredHeight
-            => (int)Math.Ceiling (TextMeasurer.MeasureText ("Wg", this).Height) + Padding.Top + Padding.Bottom + 4;
+            => TextMeasurer.LogicalLineHeight (this) + Padding.Top + Padding.Bottom + 4;
 
         /// <summary>
         /// A single-line text box's height is fixed by its font, so report that as the preferred one.

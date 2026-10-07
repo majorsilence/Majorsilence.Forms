@@ -27,7 +27,7 @@ namespace Majorsilence.Forms
         /// Upstream declares it on <c>DateTimePicker</c> itself, and the API gate caught the gap.
         /// </remarks>
         public int PreferredHeight
-            => (int)Math.Ceiling (TextMeasurer.MeasureText ("Wg", this).Height)
+            => TextMeasurer.LogicalLineHeight (this)
                 + Padding.Top + Padding.Bottom + 4;   // 4px matches the default border/inset
 
         /// <summary>The width of the drop-down (or spin) button strip at the control's right edge.</summary>

@@ -92,7 +92,7 @@ namespace Majorsilence.Forms
         {
             get
             {
-                var lineHeight = (int)System.Math.Ceiling (TextMeasurer.MeasureText ("Wg", this).Height);
+                var lineHeight = TextMeasurer.LogicalLineHeight (this);
                 return lineHeight + (Padding.Top + Padding.Bottom) + 4; // 4px matches the default border/inset
             }
         }

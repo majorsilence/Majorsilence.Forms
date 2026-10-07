@@ -287,7 +287,7 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets the height one line of the combo box needs at the current font.</summary>
         public int PreferredHeight
-            => (int)Math.Ceiling (TextMeasurer.MeasureText ("Wg", this).Height) + Padding.Top + Padding.Bottom + 6;
+            => TextMeasurer.LogicalLineHeight (this) + Padding.Top + Padding.Bottom + 6;
 
         /// <summary>Gets the height of the item at the specified index.</summary>
         /// <remarks>In <see cref="DrawMode.OwnerDrawVariable"/> this is the height <see cref="MeasureItem"/>
