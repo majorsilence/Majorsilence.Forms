@@ -362,6 +362,13 @@ namespace Majorsilence.Forms
 
         public TextSelection GetTextSelection () => new TextSelection (selection_start, selection_end, selection_color);
 
+        /// <summary>
+        /// The height of one line of this box's text, for when there is no text: an empty text block measures 0,
+        /// which would leave nothing to centre a single line on or to size the caret from.
+        /// </summary>
+        internal int EmptyLineHeight
+            => (int)TextMeasurer.CreateTextBlock ("l", font, textbox.CurrentFontSize, TextMeasurer.MaxSize, alignment, placeholder_font_color, 1).MeasuredHeight;
+
         public TextBlock GetTextBlock ()
         {
             var font_size = textbox.CurrentFontSize;

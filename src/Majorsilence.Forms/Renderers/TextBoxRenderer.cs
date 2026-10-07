@@ -43,7 +43,7 @@ namespace Majorsilence.Forms.Renderers
                 DrawMisspellingSquiggles (control, block, e.Canvas);
 
             if (control.Selected) {
-                var caret = TextMeasurer.GetCursorLocation (block, GetTextOrigin (control), GetCursorIndex (control), GetCurrentFontSize (control));
+                var caret = control.CaretRectangle (GetCursorIndex (control));
                 e.Canvas.DrawRectangle (caret, Theme.ForegroundColor);
             }
 
