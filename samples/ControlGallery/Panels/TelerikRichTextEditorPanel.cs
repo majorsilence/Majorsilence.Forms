@@ -53,10 +53,11 @@ namespace ControlGallery.Panels
             Controls.Add (resetButton);
 
             var showHtmlButton = new Button { Text = "Show Exported HTML", Left = 320, Top = 34 + ribbon.Height + 346, Width = 180, Height = 28 };
-            showHtmlButton.Click += (_, _) => {
+            // Awaited, not MessageBox.Show: this gallery also runs in the browser, which cannot block.
+            showHtmlButton.Click += async (_, _) => {
                 var provider = new HtmlFormatProvider ();
                 var html = provider.Export (editor.Document);
-                MessageBox.Show (html, "HtmlFormatProvider.Export");
+                await MessageBox.ShowAsync (html, "HtmlFormatProvider.Export");
             };
             Controls.Add (showHtmlButton);
 

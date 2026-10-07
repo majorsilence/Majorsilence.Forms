@@ -126,6 +126,25 @@ is built from a separate repo.
 > cleanly with invisible icons. The same applies to `Gallery.Android` and `Gallery.iOS`. Making the
 > images `EmbeddedResource`s of `ControlGallery` would fix all three at once.
 
+**The browser-head checks** (`ModalCheckForm.cs`, issue #406). Open the published bundle with
+`?check=<name>` and the page runs one check instead of the gallery, writing `MFCHECK` lines to the
+browser console: the blocking modal calls (`showdialog`, `messagebox`, `commondialog`, `taskdialog`),
+their awaitable forms (`showdialogasync`, `messageboxasync`, `taskdialogasync`), and `a11y`, a form for
+reading the [accessibility DOM](backends.md#accessibility-dom-browser). `tools/modal-check.mjs` runs them
+all in headless Chrome -- Node 22+ and a local Chrome/Chromium, nothing installed, nothing fetched -- and
+reports each as RETURNED, THREW or HUNG (one page load per check, since a hang would stop the rest):
+
+```bash
+dotnet publish samples/Gallery.Wasm -c Release -o out
+node samples/Gallery.Wasm/tools/modal-check.mjs out/wwwroot            # all checks
+node samples/Gallery.Wasm/tools/modal-check.mjs out/wwwroot a11y       # just one
+```
+
+`CHROME` points it at a browser elsewhere, `MF_CHECK_SCREENSHOTS=<dir>` saves what each page showed, and
+`MF_CHECK_VERBOSE=1` echoes the whole console. What the checks found is in
+[Browser threading](backends.md#browser-threading). The head also references the browser-blocking-call
+analyzer, so a blocking call added to it fails the Release build (`MFB001`-`MFB003`).
+
 There's no separate WASM package: `Majorsilence.Forms.Avalonia` multi-targets `net10.0-browser`
 alongside its desktop TFMs, and startup is async and host-driven rather than a blocking
 `Application.Run` (`samples/Gallery.Wasm/Program.cs` is a one-liner over

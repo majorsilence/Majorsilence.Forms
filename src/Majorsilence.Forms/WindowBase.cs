@@ -760,7 +760,15 @@ namespace Majorsilence.Forms
                 canvas.Restore ();
 
             canvas.Flush ();
+
+            FrameRendered?.Invoke (this);
         }
+
+        /// <summary>
+        /// Raised after any window draws a frame. The browser's accessibility DOM (AriaDomMirror) follows
+        /// the UI by it: whatever a reader would notice changing also repaints.
+        /// </summary>
+        internal static event Action<WindowBase>? FrameRendered;
 
         // The scale the controls last heard about; zero until the first frame establishes one.
         private double dpi_scaling;

@@ -14,7 +14,8 @@ namespace ControlGallery.Panels
                 Width = 130
             });
 
-            button1.Click += (o, e) => new MessageBoxForm ("Short Title", "Short Message").ShowDialog (FindForm ()!);
+            // Awaited rather than ShowDialog: this gallery also runs in the browser, which cannot block.
+            button1.Click += async (o, e) => await new MessageBoxForm ("Short Title", "Short Message").ShowDialogAsync (FindForm ()!);
 
             var button2 = Controls.Add (new Button {
                 Text = "Medium Message",
@@ -23,7 +24,7 @@ namespace ControlGallery.Panels
                 Width = 130
             });
 
-            button2.Click += (o, e) => new MessageBoxForm ("This is a very very very very very very medium title", new StackTrace (6).ToString ()).ShowDialog (FindForm ()!);
+            button2.Click += async (o, e) => await new MessageBoxForm ("This is a very very very very very very medium title", new StackTrace (6).ToString ()).ShowDialogAsync (FindForm ()!);
 
             var button3 = Controls.Add (new Button {
                 Text = "Long Message",
@@ -32,7 +33,7 @@ namespace ControlGallery.Panels
                 Width = 130
             });
 
-            button3.Click += (o, e) => new MessageBoxForm ("This is a very very very very very very very very very very very very very very long title", new StackTrace ().ToString ()).ShowDialog (FindForm ()!);
+            button3.Click += async (o, e) => await new MessageBoxForm ("This is a very very very very very very very very very very very very very very long title", new StackTrace ().ToString ()).ShowDialogAsync (FindForm ()!);
 
             var button4 = Controls.Add (new Button {
                 Text = "Two Messages",

@@ -359,8 +359,11 @@ Activity's Looper, the OS run loop) drives the UI from then on, and `RunCore` mu
   against. `Title` is also a no-op today, but that one is pending work, not inherent — the browser tab
   (`document.title`) and the Android task label can both carry it.
 - **`ShowDialog` isn't OS-modal**, because there is no modal window concept. It still *behaves*
-  modally: the parent-disable and blocking wait that make it modal live above the seam, in
-  `WindowBase.ShowDialog` + `RunModalLoop`.
+  modally: the parent-disable that makes it modal lives above the seam, in `Form.ShowDialogAsync`.
+  **In the browser the blocking `ShowDialog` does not work at all** -- it throws, and
+  `ShowDialogAsync` is the call to make; see [Browser threading](#browser-threading). On Android and
+  iOS the blocking wait (`RunModalLoop`, Avalonia's `Dispatcher.PushFrame`) is unchanged and has not
+  been measured on a device.
 - **No WebView.** `AvaloniaWebViewHandle.cs` is excluded from the compile for every single-view TFM
   and the backend's WebView members report unsupported, so compat controls that need one —
   `RadPdfViewer`, `RadRichTextEditor` — fall back to their plain-viewer/`RichTextBox` paths. Browser/
@@ -402,6 +405,193 @@ headless test suite exercises the shared core, not a real head.
   interactively on a simulator or device.
 
 See [`samples.md`](samples.md) for how to build and run each.
+
+### Browser threading
+
+In the browser, .NET runs on the page's one JavaScript thread, and the tab's event loop -- not .NET --
+decides when anything runs. A call that does not return also stops the input, timers and painting that
+would have let it return. Desktop WinForms code blocks that thread all the time; on this target it has
+to `await` instead (issue #406).
+
+**What happens, measured.** `samples/Gallery.Wasm` has a browser-head check for exactly this
+(`?check=<name>`; see [`samples.md`](samples.md#gallerywasm)). Run in headless Chrome against
+Avalonia.Browser 12.1.1:
+
+| Call | Before #406 | Now |
+|---|---|---|
+| `Form.ShowDialog` | Threw `PlatformNotSupportedException` with no message (`Arg_PlatformNotSupported`): Avalonia.Browser's dispatcher has no nested frame, so `Dispatcher.PushFrame` refuses. It did not hang. | Throws `PlatformNotSupportedException` naming `Form.ShowDialogAsync`, before the dialog is shown. |
+| `MessageBox.Show` | The same message-less exception -- and the message box stayed on screen, since the throw came from inside the loop, after it was shown. | Throws naming `MessageBox.ShowAsync`; nothing is left open. |
+| `OpenFileDialog.ShowDialog` (`CommonDialog`-style pickers) | The same message-less exception. | Throws naming `FileDialog.ShowDialogAsync`. |
+| `TaskDialog.ShowDialog`, and `TaskDialog.ShowDialogAsync` | Both threw: the async one wrapped the blocking one. | `ShowDialog` throws naming `ShowDialogAsync`; `ShowDialogAsync` works. |
+| `Form.ShowDialogAsync`, `MessageBox.ShowAsync` | Work: the dialog is modal and the task completes with the result. | Unchanged. |
+
+So a nested loop cannot run here, and the blocking calls now fail *clearly* instead of obscurely. The
+seam for this is `IModalLoopSupport.CanRunModalLoop` (an optional `IPlatformBackend` capability; the
+Avalonia backend reports `false` on its `net10.0-browser` row only). Every blocking modal entry point
+checks it before it shows anything, so a refused call leaves no dialog on screen, nothing on the modal
+stack and no owner disabled; `RunModalLoop` itself also throws the same explanation for a direct caller.
+
+**The async forms.** Every modal API has one, and each works on every backend -- the dialog is just as
+modal, because modality (owner disabled, `Application.ModalStack`) lives in `Form.ShowDialogAsync`, not in
+the waiting:
+
+| Blocking | Awaitable |
+|---|---|
+| `Form.ShowDialog ()`, `(IWin32Window)`, `(Form)` | `Form.ShowDialogAsync ()`, `(IWin32Window)`, `(Form?)` -- the same owner choice as the blocking overload |
+| `MessageBox.Show (…)`, every overload | `MessageBox.ShowAsync (…)`, the same arguments |
+| `OpenFileDialog`/`SaveFileDialog`/`FolderBrowserDialog.ShowDialog (…)` | `ShowDialogAsync ()`, `(IWin32Window)`, `(Form)` |
+| `TaskDialog.ShowDialog (…)` | `TaskDialog.ShowDialogAsync (…)` |
+| `ColorDialog`/`FontDialog`/`PrintPreviewDialog.ShowDialog` | `ShowDialogAsync (…)` (they are forms) |
+| `PrintDialog`/`PageSetupDialog.ShowDialog` | `ShowDialogAsync (…)`: UI-less stubs, both answer OK at once |
+| `CommonDialog.ShowDialog (…)` (your own subclass) | `CommonDialog.ShowDialogAsync (…)`; override `RunDialogAsync` to show your UI with `ShowDialogAsync` |
+| `VbInteraction.MsgBox`/`InputBox` | `VbInteraction.MsgBoxAsync`/`InputBoxAsync` |
+| `RadMessageBox.Show (…)` (Telerik compat) | `RadMessageBox.ShowAsync (…)` |
+
+The usual shape is an `async void` event handler -- the one place `async void` is the idiom:
+
+```csharp
+private async void deleteButton_Click (object sender, EventArgs e)
+{
+    if (await MessageBox.ShowAsync (this, "Delete the selected rows?", "Orders", MessageBoxButtons.YesNo) != DialogResult.Yes)
+        return;
+
+    using var options = new DeleteOptionsForm ();
+    if (await options.ShowDialogAsync (this) == DialogResult.OK)
+        await DeleteAsync (options.Mode);
+}
+```
+
+The same rule covers everything else that blocks: `task.Result`, `task.Wait ()` and
+`GetAwaiter ().GetResult ()` wait on the one thread that would complete the task, and `Thread.Sleep`
+freezes the page for its duration -- use `await` and `await Task.Delay`. Synchronous HTTP
+(`HttpClient.Send`) is marked unsupported on the browser by .NET itself; use the `…Async` methods.
+
+**The analyzer.** The `Majorsilence.Forms` package carries a Roslyn analyzer that flags these in browser
+code, with a code fix to the awaited form:
+
+| Id | Flags |
+|---|---|
+| `MFB001` | A blocking modal call (`ShowDialog`, `MessageBox.Show`, `TaskDialog.ShowDialog`, the pickers, `VbInteraction.MsgBox`/`InputBox`, `RadMessageBox.Show`), naming its awaitable twin. |
+| `MFB002` | A synchronous wait on a task: `.Result`, `.Wait ()`, `Task.WaitAll`/`WaitAny`, `.GetAwaiter ().GetResult ()`. |
+| `MFB003` | `Thread.Sleep`. |
+
+It is silent unless the code is browser code: a `net*-browser` target framework (the SDK defines
+`BROWSER`), a library that declares `<SupportedPlatform Include="browser" />`, or an explicit opt-in --
+the way to cover a shared UI library that a browser head references:
+
+```ini
+# .editorconfig (or a .globalconfig) next to the shared UI library
+[*.cs]
+majorsilence_forms.browser_target = true
+```
+
+The code fix (`await dialog.ShowDialogAsync (this)`, `await MessageBox.ShowAsync (…)`, `await task`,
+`await Task.Delay (n)`) is offered only where it keeps the program's shape: inside a function that is
+already `async`, or a `void` event handler shaped `(object sender, EventArgs e)`, which it marks
+`async`. Anywhere else -- a value-returning method, a constructor, inside `lock` -- making the caller
+async changes its signature and every caller of it, so the diagnostic stands without a fix.
+`Task.WaitAll`/`WaitAny` and `Wait (timeout)` are flagged without a fix too: their awaited forms answer
+a different question.
+
+**Why the platform's threading options don't remove the need for async.**
+
+- **`WasmEnableThreads` with COOP/COEP.** Serving the page with `Cross-Origin-Opener-Policy: same-origin`
+  and `Cross-Origin-Embedder-Policy: require-corp` lets the experimental multithreaded runtime start
+  worker threads. It does not let the main thread block -- browsers still forbid that -- and JavaScript
+  interop, and with it the UI, stays on the main thread. The modal loop would have to run on that
+  thread, so nothing changes for it. The threaded runtime also still has open bugs (timers on .NET 10/11,
+  dotnet/runtime#133984).
+- **The deputy-thread proposal** (dotnet/aspnetcore#54365) runs .NET off the main thread. It is a
+  proposal, and it breaks synchronous JS interop.
+
+**What to watch** (tracked in [`BACKLOG.md`](../BACKLOG.md#browser-blocking-calls-re-evaluate-when-the-platform-moves)):
+
+- **JSPI** (JavaScript Promise Integration) lets WebAssembly call a promise-returning browser API as if it
+  were synchronous, and ships in every major browser. .NET does not use it today. If it does -- for
+  example with the CoreCLR browser runtime expected in .NET 12 -- a synchronous wait on async browser
+  work could become possible, and a nested modal loop with it.
+- **The CoreCLR browser runtime**, and **WASM threading** becoming supported rather than experimental.
+
+When any of these lands, re-run the Gallery.Wasm check: if a nested loop works, the Avalonia backend's
+`CanRunModalLoop` is the one switch to turn back on.
+
+### Accessibility DOM (browser)
+
+Majorsilence.Forms draws every control into one canvas, which a screen reader, the browser's
+find-in-page or a DOM-based test tool cannot see into. On the browser target the Avalonia backend
+therefore keeps a **DOM mirror of the open forms next to the canvas**: one transparent, click-through
+element per control, carrying its ARIA role, name, state and bounds.
+
+**Why it is built here and not taken from Avalonia.** Avalonia.Browser 12.1.1 has no accessibility layer
+to reuse. The DOM it creates is the canvas, a native-control host `div` and a hidden IME `<input>`
+(`createAvaloniaHost` in its `webapp/modules/avalonia/dom.ts`); there is no automation-peer-to-ARIA
+bridge in its script or its assembly. Even if there were, it could not help: Majorsilence.Forms renders
+all its controls into a single Avalonia visual, so Avalonia's own automation tree holds one node. The
+mirror is built instead from the framework's own automation tree -- the same `AutomationElement` tree
+that the Windows UI Automation bridge, the WebDriver server and in-process tests read -- so anything a
+test can find, a screen reader can find too.
+
+**How it works.**
+
+- `AriaDom` (core, `Automation/AriaDom.cs`) maps the tree to ARIA elements and diffs two snapshots into
+  create/update/remove operations. It is host-neutral and unit-tested (`AriaDomTests`).
+- `AriaDomMirror` re-reads the tree after a window paints, at most every 100 ms, and sends only what
+  changed: anything a reader would notice changing -- text, visibility, bounds, enabled state, focus,
+  controls coming and going -- repaints, and an idle UI costs nothing.
+- `BrowserAccessibility.cs` (Avalonia backend, `net10.0-browser` row only) carries the operations to
+  `BrowserAccessibility.js` through `[JSImport]`. The script is embedded in the assembly and loaded from a
+  `data:` URL, so a head project needs no extra file.
+
+**What a page gets.** Inside the host element (`<div id="out">` in the gallery), after the canvas:
+
+```html
+<div class="mf-a11y-root">
+  <div id="mf-a11y-1" role="region" aria-label="Customer" data-mf-type="CustomerForm" style="left:0px;top:0px;…">
+    <div id="mf-a11y-3" role="button" data-mf-automation-id="saveButton" data-mf-type="Button" style="…"><span class="mf-a11y-text">Save</span></div>
+    <div id="mf-a11y-4" role="checkbox" aria-checked="true" data-mf-automation-id="agree" …><span class="mf-a11y-text">I agree</span></div>
+    <div id="mf-a11y-5" role="textbox" aria-label="Customer name" data-mf-automation-id="nameBox" …><span class="mf-a11y-text">Ada</span></div>
+  </div>
+</div>
+```
+
+- **Roles** follow the control (or an explicit `AccessibleRole`): `button`, `checkbox`, `radio`,
+  `textbox`, `combobox`, `listbox`/`option`, `tablist`/`tab`/`tabpanel`, `menubar`/`menuitem`, `toolbar`,
+  `status`, `tree`, `slider`, `spinbutton`, `progressbar`, `link`, `img`, `group` (named groups only). A
+  form is a named `region`; a modal dialog is `role="dialog" aria-modal="true"`.
+- **Names** come from `AccessibleName`, else the text without its mnemonic `&`. A role that ARIA names
+  from content (button, checkbox, option, menu item, …) and plain labels carry it as text, which is also
+  what find-in-page and text locators match; other roles use `aria-label`. A designer identifier
+  (`button1`) is never read out as a name -- it is `data-mf-automation-id`.
+- **States:** `aria-checked` (`mixed` for an indeterminate check box), `aria-selected`, `aria-disabled`,
+  `aria-expanded`, `aria-multiline`; custom-painted controls' `IAutomationStateProvider` state appears as
+  `data-mf-state-*`.
+- **Focus:** the host element (which Avalonia keeps focused) gets `role="application"`, if it has no role
+  of its own, and `aria-activedescendant` pointing at the focused control's element.
+- **Privacy:** a password box's text never reaches the page; its name does.
+- **Bounds:** each element is absolutely positioned over the control it mirrors, in CSS pixels, so
+  find-in-page highlights land on the right place.
+
+**For test tools.** Locate by role and name, or by `[data-mf-automation-id=…]`. The elements are
+`pointer-events: none` -- input still belongs to the canvas -- so click at the element's bounding box
+(Playwright: `locator.boundingBox ()` then `page.mouse.click`) rather than with a DOM click.
+
+**Limits, today.** Popups (an open combo box drop-down, menu drop-downs, tooltips) are not forms and are
+not mirrored. Value changes are reflected in the DOM but not announced through a live region. Grids and
+list views expose what the automation tree does, which is not their rows. Nothing here has been tried
+with a real screen reader yet; it was verified by reading the DOM in headless Chrome
+(`samples/Gallery.Wasm`, `?check=a11y`).
+
+**Opting out.** Set the `Majorsilence.Forms.Browser.DisableAccessibilityDom` AppContext switch, for
+example in the head's project file:
+
+```xml
+<ItemGroup>
+  <RuntimeHostConfigurationOption Include="Majorsilence.Forms.Browser.DisableAccessibilityDom" Value="true" />
+</ItemGroup>
+```
+
+A page whose Content-Security-Policy does not allow `data:` scripts refuses the module; the app runs
+unmirrored and logs why to the console.
 
 ## The Headless backend (reference)
 

@@ -1021,6 +1021,8 @@ namespace Majorsilence.Forms
         /// if one is open, otherwise the first open form.</summary>
         public DialogResult ShowDialog ()
         {
+            BlockingModal.ThrowIfUnsupported ("Form.ShowDialog", "Form.ShowDialogAsync");
+
             // A dialog opened from inside another modal dialog belongs to that dialog, not to the
             // main window sitting behind it (which FindModalOwner would pick). Same reasoning as
             // Application.ModalStack.
@@ -1108,6 +1110,10 @@ namespace Majorsilence.Forms
         /// Mirrors WinForms Form.ShowDialog(owner); the modal loop keeps the UI pumped.</summary>
         public DialogResult ShowDialog (Form parent)
         {
+            // Checked before ShowDialogAsync: once that runs the dialog is on screen and its owner
+            // disabled, and a refusal from the loop itself would strand both (issue #406).
+            BlockingModal.ThrowIfUnsupported ("Form.ShowDialog", "Form.ShowDialogAsync");
+
             var result = RunModal (ShowDialogAsync (parent));
             // FormClosed is raised once from OnBackendClosed during the dialog's close, before this returns.
             return result;

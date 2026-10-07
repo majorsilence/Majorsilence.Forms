@@ -11,7 +11,7 @@ namespace Majorsilence.Forms.Backends
     /// The default <see cref="IPlatformBackend"/>: hosts Majorsilence.Forms on Avalonia 12. Application
     /// bootstrap and the message loop are delegated to Avalonia's <see cref="Dispatcher"/>.
     /// </summary>
-    public sealed class AvaloniaPlatformBackend : IPlatformBackend, IWebViewFactory, IReducedMotionSource, IAudioBackend
+    public sealed class AvaloniaPlatformBackend : IPlatformBackend, IWebViewFactory, IReducedMotionSource, IAudioBackend, IModalLoopSupport
 #if BROWSER
         , IAsyncPlatformBackend
 #endif
@@ -65,6 +65,7 @@ namespace Majorsilence.Forms.Backends
             Majorsilence.Forms.Theme.WarmupFonts ();
             HookDispatcherExceptions ();
             HookApplicationLifecycle ();
+            await BrowserAccessibility.StartAsync (hostElementId).ConfigureAwait (true);
         }
 
         /// <inheritdoc/>
@@ -599,6 +600,28 @@ namespace Majorsilence.Forms.Backends
                 s.IsPrimary)).ToArray ();
         }
 
+#if BROWSER
+        /// <inheritdoc/>
+        /// <remarks>
+        /// False in the browser: measured with <c>samples/Gallery.Wasm</c>'s modal check (issue #406),
+        /// Avalonia.Browser's dispatcher has no nested frame -- <see cref="Dispatcher.PushFrame"/> throws a
+        /// bare <see cref="PlatformNotSupportedException"/> -- because the page's JavaScript event loop, not
+        /// .NET, owns the only thread. The blocking modal APIs check this before they show anything.
+        /// </remarks>
+        public bool CanRunModalLoop => false;
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Not reached through the framework's own modal APIs, which check <see cref="CanRunModalLoop"/>
+        /// first. A direct caller gets the same explanation they would, rather than the message-less
+        /// exception Avalonia's <see cref="Dispatcher.PushFrame"/> throws here.
+        /// </remarks>
+        public void RunModalLoop (System.Threading.Tasks.Task completed) =>
+            throw new PlatformNotSupportedException (BlockingModal.Message ("A blocking modal loop", "the dialog's async form (ShowDialogAsync, MessageBox.ShowAsync)"));
+#else
+        /// <inheritdoc/>
+        public bool CanRunModalLoop => true;
+
         /// <inheritdoc/>
         public void RunModalLoop (System.Threading.Tasks.Task completed)
         {
@@ -606,6 +629,7 @@ namespace Majorsilence.Forms.Backends
             completed.ContinueWith (_ => frame.Continue = false, System.Threading.Tasks.TaskScheduler.Default);
             Dispatcher.UIThread.PushFrame (frame);
         }
+#endif
 
         private sealed class AvaloniaTimer : IPlatformTimer
         {

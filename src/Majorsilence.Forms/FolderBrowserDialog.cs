@@ -42,6 +42,9 @@ namespace Majorsilence.Forms
         /// <summary>Shows the dialog synchronously (blocking call).</summary>
         public DialogResult ShowDialog ()
         {
+            // Refused even with no owner, for the reason FileDialog.ShowDialog () gives.
+            BlockingModal.ThrowIfUnsupported ("FolderBrowserDialog.ShowDialog", "FolderBrowserDialog.ShowDialogAsync");
+
             var owner = Application.ModalOwnerCandidates.LastOrDefault ();
             return owner is not null ? ShowDialog (owner) : DialogResult.Cancel;
         }
@@ -54,7 +57,25 @@ namespace Majorsilence.Forms
         /// Waits by pumping a nested message loop rather than blocking — see
         /// <see cref="FileDialog.ShowDialogSync(Form)"/> for why a blocking wait deadlocks here.
         /// </remarks>
-        public DialogResult ShowDialog (Form owner) => Form.RunModal (ShowDialogAsync (owner));
+        public DialogResult ShowDialog (Form owner)
+        {
+            BlockingModal.ThrowIfUnsupported ("FolderBrowserDialog.ShowDialog", "FolderBrowserDialog.ShowDialogAsync");
+
+            return Form.RunModal (ShowDialogAsync (owner));
+        }
+
+        /// <summary>Shows the dialog without blocking the caller, owned as <see cref="ShowDialog()"/> would
+        /// own it; with no open form to show against it answers Cancel, as that does.</summary>
+        public Task<DialogResult> ShowDialogAsync ()
+        {
+            var owner = Application.ModalOwnerCandidates.LastOrDefault ();
+            return owner is not null ? ShowDialogAsync (owner) : Task.FromResult (DialogResult.Cancel);
+        }
+
+        /// <summary>Shows the dialog without blocking the caller, owned by the given window -- or, for a
+        /// control, by its form.</summary>
+        public Task<DialogResult> ShowDialogAsync (IWin32Window owner)
+            => (owner as Form ?? (owner as Control)?.FindForm ()) is { } form ? ShowDialogAsync (form) : ShowDialogAsync ();
 
         /// <summary>
         /// Shows the dialog to the user without blocking the caller.

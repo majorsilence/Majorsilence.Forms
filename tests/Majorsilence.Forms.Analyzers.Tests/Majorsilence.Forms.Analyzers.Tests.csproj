@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>$(_TargetFramework)</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="xunit.v3" />
+    <!-- The same Roslyn the analyzer is built against (see its csproj): the tests run it in an
+         AdhocWorkspace rather than through the compiler that builds this project. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" VersionOverride="4.11.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Analyzers\Majorsilence.Forms.Analyzers.csproj" />
+    <!-- The code under analysis calls the real Majorsilence.Forms API, so the tests compile it against
+         the real assembly (and the Telerik compat one, for RadMessageBox). -->
+    <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Telerik\Majorsilence.Forms.Telerik.csproj" />
+  </ItemGroup>
+
+</Project>

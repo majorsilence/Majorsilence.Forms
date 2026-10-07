@@ -31,14 +31,31 @@ namespace Majorsilence.Forms
         /// </summary>
         public static MsgBoxResult MsgBox (object? prompt, MsgBoxStyle buttons = MsgBoxStyle.OkOnly, object? title = null)
         {
-            var text = prompt?.ToString () ?? string.Empty;
-            var caption = title?.ToString () ?? string.Empty;
-            var button = (MessageBoxButtons) ((int) buttons & 0xF);
-            var icon = (MessageBoxIcon) ((int) buttons & 0xF0);
+            var (text, caption, button, icon) = MsgBoxArguments (prompt, buttons, title);
 
             var result = MessageBox.Show (text, caption, button, icon);
             return (MsgBoxResult) (int) result;
         }
+
+        /// <summary>
+        /// The awaitable form of <see cref="MsgBox"/>: shows the same dialog without blocking the caller,
+        /// and the task completes with the button pressed. The form to use where the caller cannot block --
+        /// the browser target (issue #406).
+        /// </summary>
+        public static async Task<MsgBoxResult> MsgBoxAsync (object? prompt, MsgBoxStyle buttons = MsgBoxStyle.OkOnly, object? title = null)
+        {
+            var (text, caption, button, icon) = MsgBoxArguments (prompt, buttons, title);
+
+            var result = await MessageBox.ShowAsync (text, caption, button, icon).ConfigureAwait (true);
+            return (MsgBoxResult) (int) result;
+        }
+
+        private static (string Text, string Caption, MessageBoxButtons Buttons, MessageBoxIcon Icon) MsgBoxArguments (
+            object? prompt, MsgBoxStyle buttons, object? title)
+            => (prompt?.ToString () ?? string.Empty,
+                title?.ToString () ?? string.Empty,
+                (MessageBoxButtons) ((int) buttons & 0xF),
+                (MessageBoxIcon) ((int) buttons & 0xF0));
 
         /// <summary>
         /// Prompts the user for a single line of text and returns it, or an empty string if cancelled.
@@ -48,6 +65,13 @@ namespace Majorsilence.Forms
         /// </summary>
         public static string InputBox (string prompt, string title = "", string defaultResponse = "", int xPos = -1, int yPos = -1)
             => InputBoxDialog.ShowInput (prompt, title, defaultResponse);
+
+        /// <summary>
+        /// The awaitable form of <see cref="InputBox"/>: shows the same prompt without blocking the caller;
+        /// the task completes with the text entered, or an empty string if cancelled.
+        /// </summary>
+        public static Task<string> InputBoxAsync (string prompt, string title = "", string defaultResponse = "", int xPos = -1, int yPos = -1)
+            => InputBoxDialog.ShowInputAsync (prompt, title, defaultResponse);
 
         // A minimal single-line prompt dialog; the fork has no InputBox of its own.
         private sealed class InputBoxDialog : Form
@@ -78,6 +102,12 @@ namespace Majorsilence.Forms
             {
                 using var dialog = new InputBoxDialog (prompt, title, defaultResponse);
                 return dialog.ShowDialog () == DialogResult.OK ? dialog._textBox.Text : string.Empty;
+            }
+
+            public static async Task<string> ShowInputAsync (string prompt, string title, string defaultResponse)
+            {
+                using var dialog = new InputBoxDialog (prompt, title, defaultResponse);
+                return await dialog.ShowDialogAsync ().ConfigureAwait (true) == DialogResult.OK ? dialog._textBox.Text : string.Empty;
             }
         }
     }

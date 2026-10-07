@@ -11,15 +11,19 @@ namespace Majorsilence.Forms
 
     public partial class Form
     {
-        /// <summary>Shows the form modally, without an explicit owner.</summary>
-        /// <remarks>Falls back to the most recently opened form as the owner, which is the same
-        /// choice <c>ShowDialog ()</c> already makes.</remarks>
+        /// <summary>Shows the form modally, without an explicit owner, and without blocking the caller.</summary>
+        /// <remarks>Owned by the window <see cref="ShowDialog()"/> would pick -- the innermost modal dialog
+        /// showing, otherwise the first open form -- so a call ported from <c>ShowDialog ()</c> to this one
+        /// (the browser target needs it; issue #406) lands over the same window. It used to take the most
+        /// recently opened form instead, which is not the choice <c>ShowDialog ()</c> makes.</remarks>
         public Task<DialogResult> ShowDialogAsync ()
-            => ShowDialogAsync (Application.ModalOwnerCandidates.LastOrDefault ()!);
+            => ShowDialogAsync ((Application.ActiveModalForm != this ? Application.ActiveModalForm : null) ?? FindModalOwner (this));
 
-        /// <summary>Shows the form modally, owned by the given window.</summary>
+        /// <summary>Shows the form modally, owned by the given window, without blocking the caller.</summary>
+        /// <remarks>A control owner means the form it is on, as for <see cref="ShowDialog(IWin32Window)"/>;
+        /// anything else gets the ownerless choice of <see cref="ShowDialogAsync()"/>.</remarks>
         public Task<DialogResult> ShowDialogAsync (IWin32Window owner)
-            => ShowDialogAsync (owner as Form ?? Application.ModalOwnerCandidates.LastOrDefault ()!);
+            => OwnerFormOf (owner) is { } parent ? ShowDialogAsync (parent) : ShowDialogAsync ();
 
         /// <summary>Validates the child controls, limited to those the constraints select.</summary>
         public bool ValidateChildren (ValidationConstraints validationConstraints)

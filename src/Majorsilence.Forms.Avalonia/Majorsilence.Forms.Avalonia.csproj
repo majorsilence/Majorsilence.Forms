@@ -92,6 +92,16 @@
     <PackageReference Include="Avalonia.Browser" />
   </ItemGroup>
 
+  <!-- The browser's accessibility DOM (BrowserAccessibility.cs) talks to its script through [JSImport],
+       whose generated marshalling code is unsafe; the script is embedded and loaded from a data: URL, so
+       a head project needs no extra static file. -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-browser'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-browser'">
+    <EmbeddedResource Include="BrowserAccessibility.js" LogicalName="Majorsilence.Forms.BrowserAccessibility.js" />
+  </ItemGroup>
+
   <!-- Android: Avalonia's Android platform replaces Avalonia.Desktop. -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-android'">
     <PackageReference Include="Avalonia.Android" />

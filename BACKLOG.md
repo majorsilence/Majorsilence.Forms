@@ -615,3 +615,32 @@ above shows. `src/Majorsilence.Forms/WinFormsCompat.cs` has a second copy whose 
 The two copies have already drifted: on empty input the Forms one returns `Color.Empty`, the Drawing one
 throws `ArgumentException`. Both already return BCL `Color`, so replacing them with the in-box type is
 close to a drop-in, and collapses three implementations of one function to one.
+
+## Browser blocking calls: re-evaluate when the platform moves
+
+Issue #406. On the browser target the blocking modal APIs (`Form.ShowDialog`, `MessageBox.Show`, the
+pickers' `ShowDialog`, `TaskDialog.ShowDialog`) throw `PlatformNotSupportedException` naming their
+async form, because Avalonia.Browser's dispatcher has no nested frame and .NET has the page's only
+thread. Measured with `samples/Gallery.Wasm`'s check (`tools/modal-check.mjs`); the reasoning is in
+[`docs/backends.md`](docs/backends.md#browser-threading). Re-run the check, and turn the Avalonia
+backend's `CanRunModalLoop` back on for the browser if a nested loop then works, when any of these lands:
+
+- the CoreCLR browser runtime (expected around .NET 12);
+- .NET using JSPI (JavaScript Promise Integration), which would allow synchronous waits on async browser work;
+- WASM multithreading becoming supported rather than experimental (it does not let the main thread
+  block today), or the deputy-thread proposal (dotnet/aspnetcore#54365) shipping.
+
+Left over from the same work:
+
+- **Android and iOS are unmeasured.** Their `RunModalLoop` is still Avalonia's `Dispatcher.PushFrame`
+  and `CanRunModalLoop` reports true; whether a nested frame runs there has not been tried on a device.
+- **`FileDialog.ShowDialogAsync` does not raise `FileOk`.** The blocking `ShowDialogSync` raises it
+  after the pick (and turns a cancelled `FileOk` into Cancel); the awaitable path returns the picker's
+  answer directly. Now that the awaitable path is the only one in the browser, it should do the same.
+- **The Gallery.Wasm check is not in CI.** The `wasm` job publishes the bundle; running
+  `tools/modal-check.mjs` against it would keep the measurements above honest.
+- **Accessibility DOM (browser):** popups (combo box drop-downs, menu drop-downs, tooltips) are not
+  mirrored, value changes are not announced through a live region, and nothing has been tried with a
+  real screen reader -- it was verified by reading the DOM in headless Chrome. Seen once while building
+  the check, not investigated: controls added to an already-shown form from a `Timer.Tick` did not
+  appear in the canvas (or the mirror) until something else repainted.

@@ -536,6 +536,18 @@ namespace Majorsilence.Forms.Design
 
                 return result;
             }
+
+            /// <summary>Shows the browser without blocking the caller.</summary>
+            public async System.Threading.Tasks.Task<Majorsilence.Forms.DialogResult> ShowDialogAsync ()
+            {
+                using var dialog = new FolderBrowserDialog { Description = Description };
+                var result = await dialog.ShowDialogAsync ().ConfigureAwait (true);
+
+                if (result == Majorsilence.Forms.DialogResult.OK)
+                    DirectoryPath = dialog.SelectedPath;
+
+                return result;
+            }
         }
     }
 
