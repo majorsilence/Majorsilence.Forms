@@ -64,23 +64,63 @@ namespace Majorsilence.Forms
             }
 
             /// <summary>Points the tracker at a new data source, detaching from the previous one.</summary>
-            internal void Attach (object? dataSource)
+            /// <param name="dataSource">The control's data source.</param>
+            /// <param name="context">The control's binding context, which owns the currency manager a
+            /// plain list source shares with every other control bound to it.</param>
+            internal void Attach (object? dataSource, BindingContext? context)
             {
                 Detach ();
 
-                if (AsList (dataSource) is IBindingList list) {
-                    list.ListChanged += OnListChanged;
-                    watched = list;
+                var list = AsList (dataSource);
+
+                if (list is IBindingList bindingList) {
+                    bindingList.ListChanged += OnListChanged;
+                    watched = bindingList;
                 }
 
-                // A source that owns a currency manager (a BindingSource) shares its current item with
-                // every control bound to it, which is what makes master/detail and a bound navigator move
-                // a list control's selection.
-                if (dataSource is ICurrencyManagerProvider provider
-                    && provider.GetRelatedCurrencyManager (null) is { } owned) {
-                    owned.PositionChanged += OnPositionChanged;
-                    manager = owned;
+                // The source's currency manager is what keeps every control bound to it on one item:
+                // master/detail, a bound navigator, a text box beside the list. Through the binding
+                // context, as upstream's SetDataConnection (ListControl.cs: BindingContext[dataSource,
+                // ...]) -- a BindingSource hands its own manager out through the context, and a plain
+                // List<T> or DataTable gets the one the context caches for it, which is the same one a
+                // `textBox.DataBindings.Add ("Text", table, ...)` on the same form resolves (BND-26).
+                // Only a BindingSource was tracked before, so a list over a plain table moved nothing.
+                var shared = dataSource is ICurrencyManagerProvider provider
+                    ? provider.GetRelatedCurrencyManager (null)
+                    : list is not null ? context?[dataSource, string.Empty] as CurrencyManager : null;
+
+                if (shared is not null) {
+                    shared.PositionChanged += OnPositionChanged;
+                    manager = shared;
                 }
+            }
+
+            /// <summary>Re-resolves the shared manager after the control's binding context changed,
+            /// and puts the control and that manager on one item.</summary>
+            internal void Rebind (object? dataSource, BindingContext? context)
+            {
+                if (dataSource is null)
+                    return;
+
+                var previous = manager;
+                Attach (dataSource, context);
+
+                // A BindingSource hands back the same manager whatever the context: nothing moved.
+                if (manager is null || ReferenceEquals (previous, manager))
+                    return;
+
+                // A selection the control already has was made through the context it is leaving --
+                // in practice the provisional one, by code that bound and selected before parenting
+                // (a grid seeds its combo editor that way). Upstream's control is parented before it
+                // can select anything, so its selection always went to the shared manager; carry it
+                // there. With nothing selected, show the manager's current item, as upstream's
+                // SetDataConnection does on a context change.
+                var selected = currentSelection ();
+
+                if (selected >= 0)
+                    OnSelectionChanged (selected);
+                else if (manager.Position >= 0)
+                    Guard (() => selectPosition (manager.Position));
             }
 
             /// <summary>Reports a selection change made in the control, moving the source's position.</summary>

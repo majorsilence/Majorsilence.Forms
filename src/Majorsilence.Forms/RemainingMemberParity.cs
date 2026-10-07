@@ -35,8 +35,17 @@ namespace Majorsilence.Forms
         public event EventHandler? BindingContextChanged;
 
         /// <summary>Raises the <see cref="BindingContextChanged"/> event.</summary>
+        /// <remarks>Moves every binding onto the new context's managers first, as upstream
+        /// (BindableComponent.cs OnBindingContextChanged).</remarks>
         protected virtual void OnBindingContextChanged (EventArgs e)
-            => BindingContextChanged?.Invoke (this, e);
+        {
+            if (BindingContextIfCreated is { } context && DataBindingsIfCreated is { } bindings) {
+                foreach (var binding in bindings.ToArray ())
+                    Majorsilence.Forms.BindingContext.UpdateBinding (context, binding);
+            }
+
+            BindingContextChanged?.Invoke (this, e);
+        }
     }
 
     public partial class BindingCompleteEventArgs

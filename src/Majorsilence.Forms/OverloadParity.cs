@@ -328,6 +328,11 @@ namespace Majorsilence.Forms
         public Binding Add (string propertyName, object? dataSource, string? dataMember, bool formattingEnabled,
             DataSourceUpdateMode updateMode, object? nullValue, string? formatString, IFormatProvider? formatInfo)
         {
+            // Upstream's ArgumentNullException.ThrowIfNull(dataSource) (ControlBindingsCollection.cs):
+            // a null source used to build a PropertyManager over nothing -- a binding that never moved
+            // a value and never said why (BND-17).
+            Guard.ThrowIfNull (dataSource);
+
             // Configure BEFORE adding. Adding is what makes a binding live -- it resolves the target
             // property and subscribes for changes -- and the subscription depends on
             // DataSourceUpdateMode, so setting the mode afterwards left every binding created through

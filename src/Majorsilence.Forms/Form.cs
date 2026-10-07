@@ -517,7 +517,9 @@ namespace Majorsilence.Forms
         /// close overrides this rather than subscribing to itself. On the real close path here too.</remarks>
         protected virtual void OnFormClosed (FormClosedEventArgs e) => FormClosed?.Invoke (this, e);
 
-        internal void RaiseFormClosed ()
+        // `raise_event` is false when the window goes because the form was disposed rather than closed:
+        // the menu bookkeeping below still applies, the event does not (FRM-29).
+        internal void RaiseFormClosed (bool raise_event = true)
         {
             if (_formClosedFired)
                 return;
@@ -541,7 +543,8 @@ namespace Majorsilence.Forms
                     (menu as ContextMenu)?.CloseUnconditionally ();
             }
 
-            OnFormClosed (new FormClosedEventArgs (PendingCloseReason));
+            if (raise_event)
+                OnFormClosed (new FormClosedEventArgs (PendingCloseReason));
         }
 
         /// <summary>
@@ -737,7 +740,7 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        protected override System.Drawing.Size DefaultSize => new System.Drawing.Size (1080, 720);
+        protected override System.Drawing.Size DefaultSize => new System.Drawing.Size (300, 300);
 
         /// <summary>Gets the default style for all forms.</summary>
         public new static readonly ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle,
@@ -836,6 +839,8 @@ namespace Majorsilence.Forms
                     PanelHost.Location = value;
                 else
                     Backend.Location = value;
+
+                OnGeometryChanged ();
 
                 // WinForms raises Move/LocationChanged for a programmatic Location assignment, not only
                 // for an OS-driven move. This setter shadows WindowBase.Location (`new`), so without
@@ -1090,39 +1095,13 @@ namespace Majorsilence.Forms
 
         internal override void SetWindowStartupLocation (WindowBase? owner = null)
         {
-            var scaling = Scaling;
-
-            // Window size in device pixels (screen geometry is reported in device pixels).
-            var width = (int) (Backend.ClientSize.Width * scaling);
-            var height = (int) (Backend.ClientSize.Height * scaling);
-
-            if (StartPosition == FormStartPosition.CenterScreen) {
-                var ownerPos = owner is not null ? owner.Backend.Location : Backend.Location;
-                var screen = Screen.FromPoint (ownerPos);
-
-                if (screen != null) {
-                    var wa = screen.WorkingArea;
-                    var position = new System.Drawing.Point (
-                        wa.X + (wa.Width - width) / 2,
-                        wa.Y + (wa.Height - height) / 2);
-
-                    // Ensure we don't position the titlebar offscreen
-                    position.X = Math.Max (position.X, wa.X);
-                    position.Y = Math.Max (position.Y, wa.Y);
-
-                    Location = position;
-                }
-            } else if (StartPosition == FormStartPosition.CenterParent) {
-                if (owner != null) {
-                    var ownerPos = owner.Backend.Location;
-                    var ownerWidth = (int) (owner.Backend.ClientSize.Width * scaling);
-                    var ownerHeight = (int) (owner.Backend.ClientSize.Height * scaling);
-
-                    var x = ownerPos.X + (ownerWidth - width) / 2;
-                    var y = ownerPos.Y + (ownerHeight - height) / 2;
-                    Location = new System.Drawing.Point (x, y);
-                }
-            }
+            // Upstream's AdjustFormPosition, run as the window is first shown (Form.cs). CenterParent
+            // with no owner falls back to the screen there too -- it used to leave the window wherever
+            // the OS put it.
+            if (StartPosition == FormStartPosition.CenterScreen)
+                CenterToScreen (owner);
+            else if (StartPosition == FormStartPosition.CenterParent)
+                CenterToParent (owner);
         }
 
         /// <summary>Displays the window modally with the given owner and blocks until closed.
@@ -1252,8 +1231,17 @@ namespace Majorsilence.Forms
                     MdiHost.SetContentSize (value);
                 else if (PanelHost != null)
                     PanelHost.Size = value;
-                else
+                else {
                     Backend.Size = value;
+
+                    // Resize, SizeChanged and the layout pass run before the setter returns, as
+                    // upstream's SetBoundsCore -> UpdateBounds does (Control.cs). They waited for the
+                    // backend to report the new client size or for the next frame, so
+                    // `form.Width = 500; var w = docked.Width;` read the old geometry (FRM-37).
+                    SyncAdapterBounds ();
+                }
+
+                OnGeometryChanged ();
             }
         }
 
@@ -1269,8 +1257,15 @@ namespace Majorsilence.Forms
             set => Size = new System.Drawing.Size (Size.Width, value);
         }
 
-        /// <summary>Gets the currently active form (the most recently focused open form).</summary>
-        public static Form? ActiveForm => Application.OpenForms.LastOrDefault ();
+        /// <summary>Gets the form that currently has activation, or null when none of this application's forms has.</summary>
+        /// <remarks>
+        /// Upstream returns the foreground window. Here it is the form whose window the backend last
+        /// reported activated (or that was shown activated), until it deactivates to something outside
+        /// the application or closes. A form drawn inside another (an MDI child, a panel-hosted form)
+        /// owns no window, so the window presenting it answers instead -- as upstream, where an MDI
+        /// child is never the foreground window.
+        /// </remarks>
+        public static Form? ActiveForm => ActiveFormWindow?.PresentationWindow as Form;
 
         /// <summary>
         /// The height the library's own title bar takes off the top of the window, or zero when the
@@ -1487,6 +1482,12 @@ namespace Majorsilence.Forms
                 Backend.SetSystemDecorations (use_system_decorations && !IsBorderless);
                 Style.Border.Width = IsBorderless || use_system_decorations ? 0 : 1;
                 Resizeable = value is FormBorderStyle.Sizable or FormBorderStyle.SizableToolWindow;
+
+                // Whether the user can resize the window is the border style's call alone (upstream
+                // maps the sizable styles to WS_THICKFRAME in Form.CreateParams). MaximizeBox used to
+                // write this, so a fixed dialog drawn by the OS stayed resizable and a sizable one with
+                // MaximizeBox = false could not be resized at all (FRM-18).
+                Backend.CanResize = Resizeable;
                 UpdateTitleBarChrome ();
             }
         }
@@ -1497,15 +1498,23 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets whether a maximize button appears in the title bar.</summary>
         /// <remarks>
+        /// <para>
         /// Both boxes used to stop short of the caption this library draws: MaximizeBox only forwarded to
         /// the backend and MinimizeBox was stored, so a designer's <c>MaximizeBox = False</c> still showed
         /// a live maximize button. Each now re-applies the caption-button rules (see ApplyControlBox).
+        /// </para>
+        /// <para>
+        /// It does not decide whether the window can be resized: upstream it toggles only
+        /// <c>WS_MAXIMIZEBOX</c> (Form.cs), and resizability is <see cref="FormBorderStyle"/>'s. It used
+        /// to forward to the backend's resizability, so the designer's <c>MaximizeBox = false</c> made
+        /// every "resizable but not maximizable" dialog fixed-size. Where the OS draws the caption
+        /// (macOS) no backend seam exists for its zoom button, so that button stays.
+        /// </para>
         /// </remarks>
         public bool MaximizeBox {
             get => maximize_box;
             set {
                 maximize_box = value;
-                Backend.CanResize = value;
                 ApplyControlBox ();
             }
         }
@@ -1668,6 +1677,12 @@ namespace Majorsilence.Forms
                 }
 
                 requested_mdi_state = value;
+
+                // Leaving the normal state: whatever geometry changes reach us from here on belong to
+                // the maximized or minimized window, so the normal bounds are taken now.
+                if (value != FormWindowState.Normal)
+                    OnGeometryChanged ();
+
                 Backend.WindowState = value;
             }
         }
@@ -2319,23 +2334,73 @@ namespace Majorsilence.Forms
         /// <summary>Activates the form. Mirrors WinForms Control.Select as it applies to a Form.</summary>
         public void Select () => BringToFront ();
 
-        /// <summary>Centers the form in its parent or on screen.</summary>
-        public void CenterToScreen ()
+        /// <summary>Moves the form to the centre of the working area of its owner's screen, or of the screen under the mouse when it has no owner.</summary>
+        /// <remarks>
+        /// Moves the window now, as upstream does. It used to set <see cref="StartPosition"/> instead
+        /// (and nothing at all under <see cref="FormStartPosition.Manual"/>), so it took effect only if
+        /// called before the first show -- and recentring a form from <c>Load</c> or after resizing it,
+        /// what the method is for, did nothing. A form drawn inside another (MDI child, panel-hosted)
+        /// has no screen position to centre, so is left where it is.
+        /// </remarks>
+        public void CenterToScreen () => CenterToScreen (null);
+
+        /// <summary>Moves the form to the centre of its owner, kept within the owner's screen, or centres it on screen when it has no owner.</summary>
+        public void CenterToParent () => CenterToParent (null);
+
+        // Upstream Form.CenterToScreen (Form.cs): the owner's screen if there is one -- the dialog
+        // owner at show time -- else the screen under the mouse; never above or left of its working
+        // area.
+        private void CenterToScreen (WindowBase? owner)
         {
-            if (StartPosition != FormStartPosition.Manual)
-                StartPosition = FormStartPosition.CenterScreen;
+            if (IsFrameHosted)
+                return;
+
+            owner ??= Owner?.PresentationWindow;
+
+            var desktop = owner is not null ? Screen.FromControl (owner) : Screen.FromPoint (MousePosition);
+
+            if (desktop is null)
+                return;
+
+            var area = desktop.WorkingArea;
+            var size = ScreenBounds.Size;
+
+            Location = new System.Drawing.Point (
+                Math.Max (area.X, area.X + (area.Width - size.Width) / 2),
+                Math.Max (area.Y, area.Y + (area.Height - size.Height) / 2));
         }
 
-        /// <summary>Centers the form within its owner form, or on the screen if there is no owner.</summary>
-        public void CenterToParent ()
+        // Upstream Form.CenterToParent (Form.cs): centred over the owner window, then pulled back
+        // inside the working area of the owner's screen; no owner means the screen instead.
+        private void CenterToParent (WindowBase? owner)
         {
-            if (Owner != null) {
-                var ob = Owner.Bounds;
-                var b = Bounds;
-                Location = new System.Drawing.Point (ob.Left + (ob.Width - b.Width) / 2, ob.Top + (ob.Height - b.Height) / 2);
-            } else {
-                CenterToScreen ();
+            if (!TopLevel || IsFrameHosted)
+                return;
+
+            owner ??= Owner?.PresentationWindow;
+
+            if (owner is null || Screen.FromControl (owner) is not { } desktop) {
+                CenterToScreen (null);
+                return;
             }
+
+            var area = desktop.WorkingArea;
+            var parent = owner.ScreenBounds;
+            var size = ScreenBounds.Size;
+
+            var x = (parent.Left + parent.Right - size.Width) / 2;
+            if (x < area.X)
+                x = area.X;
+            else if (x + size.Width > area.Right)
+                x = area.Right - size.Width;
+
+            var y = (parent.Top + parent.Bottom - size.Height) / 2;
+            if (y < area.Y)
+                y = area.Y;
+            else if (y + size.Height > area.Bottom)
+                y = area.Bottom - size.Height;
+
+            Location = new System.Drawing.Point (x, y);
         }
 
         /// <summary>Brings the form to the front of the z-order.</summary>
@@ -2364,7 +2429,23 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets the bounds of the form when it is not minimized or maximized.</summary>
-        public System.Drawing.Rectangle RestoreBounds => Bounds;
+        /// <remarks>
+        /// The bounds the form last had in the normal state, as upstream tracks them (Form.cs
+        /// RestoreBounds). It returned the current bounds, so "save the window placement on close"
+        /// code stored the maximized rectangle, and the next launch opened a normal-state window
+        /// filling the screen (FRM-36).
+        /// </remarks>
+        public System.Drawing.Rectangle RestoreBounds =>
+            WindowState == FormWindowState.Normal || restore_bounds is not { } normal ? Bounds : normal;
+
+        // The last bounds seen while the form was in the normal state.
+        private System.Drawing.Rectangle? restore_bounds;
+
+        internal override void OnGeometryChanged ()
+        {
+            if (MdiHost is null && WindowState == FormWindowState.Normal)
+                restore_bounds = Bounds;
+        }
 
         /// <summary>Gets or sets whether the form is displayed in the Windows taskbar.</summary>
         public bool ControlBox {
@@ -2402,7 +2483,7 @@ namespace Majorsilence.Forms
             TitleBar.AllowHelp = control_box && help_button && !any_box;
         }
 
-        /// <summary>Gets or sets the help button visibility in the title bar. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether the caption shows a help button; it appears only when both <see cref="MinimizeBox"/> and <see cref="MaximizeBox"/> are off, as upstream.</summary>
         public bool HelpButton {
             get => help_button;
             set {
@@ -2413,7 +2494,7 @@ namespace Majorsilence.Forms
 
         private bool help_button;
 
-        /// <summary>Gets or sets whether to display the icon in the title bar. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether to display the icon in the title bar this library draws.</summary>
         public bool ShowIcon {
             get => TitleBar.ShowImage;
             set => TitleBar.ShowImage = value;

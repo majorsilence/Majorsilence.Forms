@@ -116,6 +116,10 @@ namespace Majorsilence.Forms
             // would create a binding manager nobody may need; anyone who cares compares then.
             if (binding_context is null && Created)
                 OnBindingContextChanged (EventArgs.Empty);
+            else if (binding_context is null)
+                // Not created yet, so no event (see above) -- but the bindings must still leave the
+                // provisional context for the inherited one (BND-15).
+                UpdateBindingsInTree ();
 
             if (Parent is not null)
                 Parent.LayoutEngine.InitLayout (this, BoundsSpecified.All);

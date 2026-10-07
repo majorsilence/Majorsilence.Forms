@@ -56,9 +56,17 @@ namespace Majorsilence.Forms
                 } catch (Exception ex) {
                     error = ex;
                 } finally {
-                    _is_busy = false;
                     var completed = new RunWorkerCompletedEventArgs (args.Result, error, args.Cancel);
-                    Platform.Backend.Post (() => RunWorkerCompleted?.Invoke (this, completed));
+
+                    // Busy until the completion runs, on the UI thread, as the BCL worker's
+                    // AsyncOperationCompleted clears it immediately before raising RunWorkerCompleted.
+                    // Cleared here on the worker thread, a UI timer's `if (!worker.IsBusy)
+                    // worker.RunWorkerAsync ()` could start a second run while the first one's
+                    // completion was still queued, and the two runs' handlers interleaved (FRM-34).
+                    Platform.Backend.Post (() => {
+                        _is_busy = false;
+                        RunWorkerCompleted?.Invoke (this, completed);
+                    });
                 }
             });
         }
@@ -105,16 +113,35 @@ namespace Majorsilence.Forms
     /// <summary>Provides data for the BackgroundWorker.RunWorkerCompleted event.</summary>
     public class RunWorkerCompletedEventArgs : EventArgs
     {
+        private readonly object? result;
+
         /// <summary>Initializes a new instance.</summary>
         public RunWorkerCompletedEventArgs (object? result, Exception? error, bool cancelled)
         {
-            Result = result;
+            this.result = result;
             Error = error;
             Cancelled = cancelled;
         }
 
         /// <summary>Gets the result of the background operation.</summary>
-        public object? Result { get; }
+        /// <exception cref="System.Reflection.TargetInvocationException"><see cref="Error"/> is set; it is the inner exception.</exception>
+        /// <exception cref="InvalidOperationException">The operation was cancelled.</exception>
+        /// <remarks>
+        /// Throws as the BCL's does (AsyncCompletedEventArgs.RaiseExceptionIfNecessary): reading the
+        /// result of a run that failed used to yield null, so the failure surfaced -- if at all -- as a
+        /// NullReferenceException somewhere downstream of the completion handler.
+        /// </remarks>
+        public object? Result {
+            get {
+                if (Error is not null)
+                    throw new System.Reflection.TargetInvocationException ("An exception occurred during the operation, making the result invalid. Check InnerException for exception details.", Error);
+
+                if (Cancelled)
+                    throw new InvalidOperationException ("Operation has been canceled.");
+
+                return result;
+            }
+        }
 
         /// <summary>Gets the exception raised during the background operation, or null if none.</summary>
         public Exception? Error { get; }

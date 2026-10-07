@@ -97,7 +97,8 @@ MdiChildActivate) is comparatively solid and produced no P0/P1 findings of its o
 - **Test:** Headless: two TextBoxes, `tb2.Select()`; assert `form.ActiveControl == tb2`.
 - **Tests today:** none.
 
-### FRM-11 — `Form.ActiveForm` returns the most recently *opened* form — Cat A — P1 — High
+### FRM-11 — `Form.ActiveForm` returns the most recently *opened* form — Cat A — P1 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** `WindowBase` records the form the backend last activated (or that was shown activated) and clears it when that form deactivates to something outside the application or closes; a deactivation to one of the application's own popups keeps it, as a Windows menu never takes the foreground. `Form.ActiveForm` returns it (through `PresentationWindow`, so a hosted form answers its window). `IsActive` alone could not answer: headless never deactivates the previous window. Tests: `FormGapTests.FRM11_*` (2).
 - **Ours:** `=> Application.OpenForms.LastOrDefault()` (`Form.cs:895`).
 - **Upstream:** `FromHandle(GetForegroundWindow()) as Form` — the form that currently has activation (`Form.cs:286`).
 - **Impact:** Multi-window apps (main + tool windows, MDI shells with floating windows) use `Form.ActiveForm` to decide where to route a command or centre a dialog; here it always names the newest window, even after the user clicks back to the main one.
@@ -162,7 +163,8 @@ MdiChildActivate) is comparatively solid and produced no P0/P1 findings of its o
 - **Test:** Headless: form with `AutoScaleDimensions=(6,13)`, `Font` set so current dims are (9,19.5); button at (100,100) size (75,23) → after `Show()`, bounds scaled by (1.5,1.5).
 - **Tests today:** none.
 
-### FRM-18 — `Form.MaximizeBox` controls window resizability — Cat A — P1 — High
+### FRM-18 — `Form.MaximizeBox` controls window resizability — Cat A — P1 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** `MaximizeBox` no longer writes `Backend.CanResize`; `FormBorderStyle` does (sizable styles only, upstream's `WS_THICKFRAME`), so a fixed dialog drawn by the OS is no longer resizable either. Where the OS draws the caption (macOS) there is no backend seam for its zoom button, so that button still shows. Tests: `FormGapTests.FRM18_*` (2).
 - **Ours:** `MaximizeBox { get => Backend.CanResize; set => Backend.CanResize = value; }` (`Form.cs:991-994`), while the custom title bar's maximize button is a separate `AllowMaximize`/`TitleBar.AllowMaximize` (191-194).
 - **Upstream:** `MaximizeBox` toggles `WS_MAXIMIZEBOX` (`Form.cs:1389-1397`); resizability is `FormBorderStyle`.
 - **Impact:** `MaximizeBox = false` on a `Sizable` form (very common: "resizable but not maximizable" dialogs, and every designer-generated dialog sets `MaximizeBox = false; MinimizeBox = false`) makes the window non-resizable; meanwhile the drawn maximize glyph stays visible and functional.
@@ -178,7 +180,8 @@ MdiChildActivate) is comparatively solid and produced no P0/P1 findings of its o
 - **Test:** Headless: `ControlBox = false; Show()` → title bar `CaptionButtonsWidth == 0`.
 - **Tests today:** round-trip tests only.
 
-### FRM-20 — `Form.CenterToScreen()` / `CenterToParent()` do not move the window — Cat A — P1 — High
+### FRM-20 — `Form.CenterToScreen()` / `CenterToParent()` do not move the window — Cat A — P1 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** upstream's `CenterToScreen` (owner's screen, else the screen under the mouse; never above/left of the working area) and `CenterToParent` (centred over the owner, pulled back inside its screen's working area; no owner falls back to the screen) move the window at once and no longer touch `StartPosition`. `SetWindowStartupLocation` is upstream's `AdjustFormPosition`, so `CenterParent` with no owner centres on screen. Window sizes are converted to desktop pixels through the new `WindowBase.ScreenBounds`. `FormTests.CenterToScreen_Invoke_SetsStartPosition`, which pinned the old behaviour, now asserts `StartPosition` is left alone. Tests: `FormGapTests.FRM20_*` (4).
 - **Ours:** `CenterToScreen` only assigns `StartPosition = CenterScreen` (and does nothing when it is `Manual`), so it has an effect only if called before the first `Show()` (`Form.cs:1527-1531`); `CenterToParent` without an `Owner` falls through to it (1534-1543). `CenterParent` at show time also does nothing when there is no owner (`SetWindowStartupLocation`, `Form.cs:794-804`).
 - **Upstream:** `CenterToScreen` computes the working-area centre and sets `Location` immediately (`Form.cs:3945-3968`); `CenterToParent` falls back to `CenterToScreen` (3894-3942); WinForms invokes these at first show for `CenterScreen`/`CenterParent`.
 - **Impact:** `CenterToScreen()` called from `Load`/after a resize (the documented way to recentre a form whose size was computed at runtime) is a no-op; forms with `StartPosition = Manual` can never be centred programmatically; `CenterParent` with no owner appears at the OS default position instead of screen centre.
@@ -234,7 +237,8 @@ MdiChildActivate) is comparatively solid and produced no P0/P1 findings of its o
 - **Test:** Headless: `new MessageBoxForm("t","m", YesNoCancel)` → three buttons with DialogResults Yes/No/Cancel; `AcceptButton` == first.
 - **Tests today:** none for MessageBox.
 
-### FRM-27 — `MessageBox.Show(IWin32Window owner, …, defaultButton, options[, help…])` NREs for a `Control` owner — Cat A — P2 — High
+### FRM-27 — `MessageBox.Show(IWin32Window owner, …, defaultButton, options[, help…])` NREs for a `Control` owner — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** the NRE was already gone (every owner overload goes through `OwnerForm`, which falls back to the active modal form or the first open one). What remained: a `Control` owner was not resolved to its own form, so a message box raised from a control in a tool window was owned by the main window. `OwnerForm` now tries `(owner as Control)?.FindForm ()` first. Test: `FormGapTests.FRM27_*`.
 - **Ours:** the seven-plus-argument owner overloads do `Show((owner as Form)!, …)` (`WinFormsCompat.cs:950-976`) → `Show(Form owner, …)` → `form.ShowDialog(owner)` with `owner == null` → `ShowDialogAsync(null)` → `parent.PresentationWindow` throws `NullReferenceException` (`Form.cs:829`, `WindowBase.cs:1685`). The five-argument owner overload (999-1004) resolves correctly.
 - **Upstream:** any `IWin32Window` owner works (`Dialogs/MessageBox.cs:160-170`).
 - **Impact:** `MessageBox.Show(this, msg, title, OK, Error, Button1, RightAlign)` from inside a `UserControl` crashes.
@@ -250,7 +254,8 @@ MdiChildActivate) is comparatively solid and produced no P0/P1 findings of its o
 - **Test:** Headless modal form, no CancelButton, `HandleKeyDown(Escape)` → `DialogResult` still `None`.
 - **Tests today:** none.
 
-### FRM-29 — `Dispose()` raises `FormClosed` (and `Closed`) — Cat A — P2 — Medium
+### FRM-29 — `Dispose()` raises `FormClosed` (and `Closed`) — Cat A — P2 — Medium — **CLOSED (2026-10-06)**
+- **Fix (applied):** `Dispose` marks the backend close it triggers, and the closed sequence then skips `Closed` and `FormClosed` (keeping the menu cleanup `RaiseFormClosed` does, `Deactivate` and `HandleDestroyed`). The library's own listeners -- `Application.Run (form)`, `ApplicationContext.MainForm`, a popup's parent -- moved to a new internal `WindowGone` event raised for both, as upstream's follow `HandleDestroyed`. This also stops a closed modal dialog raising `FormClosed` a second time when it is later disposed. Tests: `FormGapTests.FRM29_*` (3).
 - **Ours:** `Dispose` calls `Backend.Close()` with `_closingHandled = true` (`WindowBase.cs:263-273`); both backends invoke `OnBackendClosed` from their closed callback (`MajorsilenceFormsWindowHost.cs:101`, `HeadlessWindowHost.cs:55-60`), which raises `Closed`, `FormClosed` (once) and `HandleDestroyed`. The matrix row says only that `FormClosing` is not raised.
 - **Upstream:** `Dispose` without `Close` raises neither `FormClosing` nor `FormClosed` (`Form.cs:3512-3560`; the events live in `WmClose`).
 - **Impact:** `FormClosed` handlers that persist state / detach shared services run on a plain `Dispose` of a never-closed form (e.g. a form constructed, populated, then discarded); `Closed` ends `Application.Run(WindowBase)` (`Application.cs:284`) when the main form is disposed — acceptable, but it happens via a "closed" event the form never had.
@@ -274,7 +279,8 @@ MdiChildActivate) is comparatively solid and produced no P0/P1 findings of its o
 - **Test:** Subscribe, set `Text`, assert raised once.
 - **Tests today:** `FormTests.Text_Set_GetReturnsExpected` (storage).
 
-### FRM-32 — `Form.DefaultSize` is 1080x720 — Cat E — P2 — High
+### FRM-32 — `Form.DefaultSize` is 1080x720 — Cat E — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** `DefaultSize` is upstream's 300x300. The Explorer sample, the only sample form that relied on the old default, now sets its size. Test: `FormGapTests.FRM32_*`.
 - **Ours:** `protected override Size DefaultSize => new Size(1080, 720)` (`Form.cs:474`), applied to the backend in the ctor (62).
 - **Upstream:** `new Size(300, 300)` (`Form.cs:882`).
 - **Impact:** Any form created without a designer `ClientSize` (code-built dialogs, `new Form { Text = "..." }` hosts, quick property sheets) opens near full-screen on a laptop.
@@ -282,7 +288,8 @@ MdiChildActivate) is comparatively solid and produced no P0/P1 findings of its o
 - **Test:** `new Form().Size == (300,300)` headless.
 - **Tests today:** none.
 
-### FRM-33 — `Screen.FromControl(...)` always returns the primary screen — Cat A — P2 — High
+### FRM-33 — `Screen.FromControl(...)` always returns the primary screen — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** `FromControl (Control)` takes the control's rectangle on the desktop, `FromControl (WindowBase)` the window's (`ScreenBounds`, through `PresentationWindow` for a hosted form), and `FromRectangle` is now upstream's `MonitorFromRect` nearest: the screen with the largest intersection, else the one holding the centre, else the primary. `HeadlessPlatformBackend.Screens` (internal) lets a test supply a second monitor. Tests: `FormGapTests.FRM33_*` (2).
 - **Ours:** both overloads `=> PrimaryScreen` (`Screen.cs:54-59`).
 - **Upstream:** `FromHandle(control.Handle)` → `MonitorFromWindow` nearest (`Screen.cs:265-277`).
 - **Impact:** Dialogs positioned/sized against `Screen.FromControl(this).WorkingArea` on a secondary monitor open on the primary one; popups clamped to the wrong monitor.
@@ -290,7 +297,8 @@ MdiChildActivate) is comparatively solid and produced no P0/P1 findings of its o
 - **Test:** Headless with two fake screens via a settable `GetScreens`; window located on the second → `FromControl` returns it.
 - **Tests today:** none.
 
-### FRM-34 — `BackgroundWorker` semantics: `IsBusy` clears early, `Result` never throws, type shadows `System.ComponentModel` — Cat A/E — P2 — High
+### FRM-34 — `BackgroundWorker` semantics: `IsBusy` clears early, `Result` never throws, type shadows `System.ComponentModel` — Cat A/E — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** `IsBusy` is cleared in the posted completion, immediately before `RunWorkerCompleted`, as the BCL's; `RunWorkerCompletedEventArgs.Result` throws `TargetInvocationException` (inner = `Error`) after a failure and `InvalidOperationException` after a cancel. **Left open:** the type still shadows `System.ComponentModel.BackgroundWorker` (CS0104 with both namespaces imported); removing it is a public API change. Tests: `FormGapTests.FRM34_*` (2).
 - **Ours:** `_is_busy = false` is set on the worker thread *before* the completion callback is posted (`BackgroundWorker.cs:56-58`); `RunWorkerCompletedEventArgs.Result` is a plain getter (111-112) even when `Error != null` or `Cancelled`; the class is `Majorsilence.Forms.BackgroundWorker`, so a file with both `using System.ComponentModel;` and `using Majorsilence.Forms;` gets CS0104 on `BackgroundWorker`/`DoWorkEventArgs`/`RunWorkerCompletedEventArgs`.
 - **Upstream:** `System.ComponentModel.BackgroundWorker` (runtime, not in the winforms repo) clears `IsBusy` on the UI thread immediately before raising `RunWorkerCompleted`; `Result` throws `TargetInvocationException` when `Error` is set and `InvalidOperationException` when `Cancelled`; WinForms apps use the BCL type directly.
 - **Impact:** `if (!worker.IsBusy) worker.RunWorkerAsync()` from a UI timer can start a second run while the first completion is still queued (the second `RunWorkerAsync` then throws "already running" upstream but not here — instead handlers interleave); `e.Result` after a failed DoWork silently yields null instead of surfacing the error.
@@ -298,7 +306,8 @@ MdiChildActivate) is comparatively solid and produced no P0/P1 findings of its o
 - **Test:** DoWork throws → `Assert.Throws<TargetInvocationException>(() => e.Result)` in `RunWorkerCompleted`.
 - **Tests today:** none.
 
-### FRM-35 — `Application.ProductName` / `CompanyName` / `ProductVersion` lack fallbacks; `UserAppDataPath` omits the version segment — Cat A — P2 — High
+### FRM-35 — `Application.ProductName` / `CompanyName` / `ProductVersion` lack fallbacks; `UserAppDataPath` omits the version segment — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** `ProductName` falls back to the last segment of the entry point's namespace then its type name, `CompanyName` to the first segment then `ProductName`, `ProductVersion` to the assembly version then `1.0.0.0`; the three data paths are upstream's `GetDataPath` -- `<base>/<Company>/<Product>/<Version>`, created on read. Upstream's Win32 version-resource step is skipped (it reads the same attributes on a .NET assembly). Testable through internal `*Of (Assembly, Type)` helpers. Tests: `FormGapTests.FRM35_*` (2).
 - **Ours:** `ProductName`/`CompanyName` return the assembly attribute or `null` (`Application.cs:408-411, 432-435`); `UserAppDataPath`/`LocalUserAppDataPath`/`CommonAppDataPath` are `Path.Combine(base, Company ?? "", Product ?? "")` (438-456).
 - **Upstream:** `ProductName` falls back to the entry type's namespace then type name (`Application.cs:495-535`); `CompanyName`/`ProductVersion` have similar chains; `UserAppDataPath` = `GetDataPath(ApplicationData)` = `<base>\<Company>\<Product>\<Version>` (665-666).
 - **Impact:** An app without `AssemblyCompany`/`AssemblyProduct` (SDK projects default `Product` to the assembly name but `Company` also to the assembly name — fine — but hand-edited csproj/AssemblyInfo often omit them) gets `UserAppDataPath == %APPDATA%` root and writes settings there; version-scoped settings folders differ from the Windows build.
@@ -306,7 +315,8 @@ MdiChildActivate) is comparatively solid and produced no P0/P1 findings of its o
 - **Test:** With a fake entry assembly lacking attributes, assert `ProductName` is non-empty and `UserAppDataPath` ends with `/<Product>/<Version>`.
 - **Tests today:** `ApplicationInfoTests.cs` (covers `ApplicationInfo` only).
 
-### FRM-36 — `Form.RestoreBounds` returns current `Bounds` even when maximized/minimized — Cat A — P2 — High
+### FRM-36 — `Form.RestoreBounds` returns current `Bounds` even when maximized/minimized — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** `Form` records its bounds on every programmatic or platform move/resize while `WindowState == Normal` (an internal `WindowBase.OnGeometryChanged` hook, so an `OnResize` override that skips base cannot starve it), and once more as `WindowState` leaves Normal; `RestoreBounds` returns them while maximized or minimized. Not done: upstream also folds a programmatic `Size`/`Location` set while maximized into the restore bounds. Test: `FormGapTests.FRM36_*`.
 - **Ours:** `public Rectangle RestoreBounds => Bounds;` (`Form.cs:1571`); `MaximizedBounds` is stored-only (1290).
 - **Upstream:** tracks the last normal-state bounds and returns those while maximized (`Form.cs:1660-1678`).
 - **Impact:** "Save window placement on close" code stores the maximized rectangle and restores a form that fills the screen in `Normal` state next launch.
@@ -314,7 +324,8 @@ MdiChildActivate) is comparatively solid and produced no P0/P1 findings of its o
 - **Test:** Headless: set bounds, `WindowState = Maximized`, change backend size; `RestoreBounds` unchanged.
 - **Tests today:** `WindowStateGeometryParityTests.cs` (does not assert RestoreBounds under Maximized).
 
-### FRM-37 — `Form.Size`/`Width`/`Height` setter raises no synchronous `Resize`/`SizeChanged`/layout — Cat A — P2 — Medium
+### FRM-37 — `Form.Size`/`Width`/`Height` setter raises no synchronous `Resize`/`SizeChanged`/layout — Cat A — P2 — Medium — **CLOSED (2026-10-06)**
+- **Fix (applied):** the `Size` setter (and `Width`/`Height`/`ClientSize` through it) and `WindowBase.SetBoundsCore` call `SyncAdapterBounds ()` right after writing the backend size, so `Resize` and the layout pass run before the setter returns (frame-hosted forms excepted -- their host lays them out). Test: `FormGapTests.FRM37_*`.
 - **Ours:** the setter writes `Backend.Size` only (`Form.cs:858-879`); the layout pass and `OnResize` happen later in `SyncAdapterBounds` when the backend reports the new client size or the next frame paints (`WindowBase.cs:512-526`). `SetBoundsCore` likewise (324-339).
 - **Upstream:** `SetBoundsCore` → `UpdateBounds` → `OnSizeChanged`/`OnResize` and layout synchronously (Control.cs), so `form.Width = 500; var w = panel.Width;` sees the docked panel already resized.
 - **Impact:** Code that resizes a form and immediately reads a docked/anchored child's size, or relies on `Resize` firing before the next statement (e.g. to re-centre), reads stale geometry.
@@ -323,6 +334,7 @@ MdiChildActivate) is comparatively solid and produced no P0/P1 findings of its o
 - **Tests today:** `WindowGeometryWriteTests.cs` (asserts the write reaches the backend only).
 
 ### FRM-38 — `ShowIcon`, `TransparencyKey`, `SizeGripStyle`, `HelpButton`, `MaximizedBounds`, `AutoValidate`, `AutoSize`/`AutoSizeMode` stored-only — Cat C — P2 — High
+- **Status (2026-10-06):** partly fixed by earlier work -- `ShowIcon` drives `TitleBar.ShowImage`, `HelpButton` shows the caption's `?` and raises `HelpButtonClicked`, and `AutoValidate` is consulted by the adapter's focus-change validation. **Still open:** `TransparencyKey` (needs a colour-keyed region from the rendered frame, or a backend shaped-window seam), `AutoSize`/`AutoSizeMode` (upstream's `Form.OnLayout` sizes to `PreferredSize`; here the window's preferred size includes the caption and border, so it needs a content-root preferred size first), `SizeGripStyle` and `MaximizedBounds` (P3 per the fix note).
 - **Ours:** `ShowIcon` (`Form.cs:1580`), `HelpButton` (1577), `TransparencyKey` (1035), `SizeGripStyle` (1012-1019), `MaximizedBounds` (1290), `AutoValidate` (925), `WindowBase.AutoSize` (`WindowBase.cs:2115`) and `Form.AutoSizeMode` (`ControlAndFormParity.cs:462`) are auto-properties nothing reads; `TitleBar.ShowImage` is a separate knob.
 - **Upstream:** `ShowIcon` toggles the caption icon (`Form.cs:1834-1846`); `TransparencyKey` makes the form layered/colour-keyed (2081-2100); `SizeGripStyle` draws the grip; `HelpButton` shows `?` and raises `HelpButtonClicked`; `AutoSize` sizes the form to its content; `AutoValidate` gates implicit validation.
 - **Impact:** `ShowIcon = false` forms still show an icon; shaped/colour-keyed forms (`TransparencyKey = Magenta` splash screens) render opaque magenta; `AutoSize = true` forms keep their designer size; forms with `AutoValidate = Disable` still validate on focus change.

@@ -14,6 +14,9 @@ namespace Explore
         {
             //SuspendLayout ();
 
+            // A form's default size is upstream's 300x300 (FRM-32); an explorer needs room.
+            Size = new System.Drawing.Size (1080, 720);
+
             // ListView
             view = Controls.Add (new ListView { Dock = DockStyle.Fill });
             view.ItemDoubleClicked += View_ItemDoubleClicked;
