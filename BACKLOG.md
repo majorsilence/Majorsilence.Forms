@@ -644,9 +644,18 @@ Left over from the same work:
   a physical device and in a Release/AOT build (iOS device builds are always AOT), and on Android's CoreCLR
   runtime; re-check if Avalonia's Android or iOS dispatcher gains nested-frame support. The MFB analyzer
   is browser-only, so blocking calls in mobile code are not flagged at build time.
-- **Accessibility DOM (browser):** popups (combo box drop-downs, menu drop-downs, tooltips) are not
-  mirrored, value changes are not announced through a live region, and nothing has been tried with a
-  real screen reader -- it was verified by reading the DOM in headless Chrome.
+- **Accessibility DOM (browser):** popups (combo box lists, menu and context-menu drop-downs, tool tips)
+  are mirrored and linked to their owners, and a polite/assertive live region announces live labels,
+  status bars, dialogs and message boxes opening, focused value changes and
+  `RaiseAutomationNotification`/`RaiseLiveRegionChanged` (docs/backends.md, "Accessibility DOM
+  (browser)"). **Nothing has been tried with a real screen reader** -- it was verified by reading the DOM
+  and recording the live regions' output in headless Chrome; VoiceOver/NVDA/JAWS behaviour inside
+  `role="application"` with `aria-activedescendant` is the open question. Still not covered: grid and list
+  view rows, arrow keys in an editable combo box, a form hidden with `Hide` (leaves the mirror only at
+  the next repaint). Seen while building the check, not investigated here: a submenu opened from code
+  (`ShowDropDown` on the parent's item, then on the submenu's) is drawn at the parent menu's top rather
+  than beside its item, and the mirror reproduces the drawn position. (A menu drop-down opened from code
+  also painted its background but not its items; that was the missing repaint on add, fixed below.)
 - **Fixed: rendering of late controls and of dialogs (`?check=timeradd`, `dialogvisual`,
   `messageboxvisual`, `owneddialogvisual`).** A control added to a shown form never told its window to
   repaint -- not specific to `Timer.Tick`; the desktop Avalonia window polls for dirty controls every

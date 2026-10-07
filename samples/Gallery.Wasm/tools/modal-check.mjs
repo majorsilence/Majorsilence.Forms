@@ -6,6 +6,10 @@
 // (and clicks the dialog's OK button), and prints what it found. With --expect a disagreement is a
 // mismatch like any other.
 //
+// The a11y check steps through popups and announcements after READY (a STEP line each); this reads the
+// accessibility DOM after each one, records what the live regions said (LIVE lines) and flags any
+// aria-controls/-describedby/-activedescendant naming an element that is not there (DANGLING lines).
+//
 //   dotnet publish samples/Gallery.Wasm -c Release -o out
 //   node samples/Gallery.Wasm/tools/modal-check.mjs out/wwwroot [--expect] [--report=<file>] [check ...]
 //
@@ -34,8 +38,16 @@ import { dirname, extname, join, normalize, resolve, sep } from "node:path";
 //   outcome   RETURNED, THREW, READY (a11y) -- or HUNG / NO RESULT, which never match.
 //   detail    a regular expression the rest of the outcome line must match.
 //   after     the AFTER line: what the call left behind (a dialog still open, a disabled owner).
-//   nodes     a11y only: each entry must match one mirrored element; a null value means "attribute absent".
-//   activeDescendant  a11y only: data-mf-automation-id of the element aria-activedescendant points at.
+//   steps     a11y only: what the accessibility DOM shows after READY ("ready") and after each STEP the
+//             page logs; a step that is never logged is a mismatch, and so is a dangling reference in any
+//             read. Per step:
+//     nodes     each entry must match one mirrored element: a string is the exact value, a null value
+//               means "attribute absent", a RegExp must match, and { ref: {...} } means the attribute is
+//               an id whose element matches that entry (aria-controls, aria-describedby).
+//     absent    no mirrored element may match any of these entries.
+//     activeDescendant  what aria-activedescendant points at: a data-mf-automation-id, or an entry.
+//     live      exactly what the live regions said during the step, as [region, text] pairs, in order.
+//   logs      regular expressions some MFCHECK line must match.
 //   snaps     the rendering checks: how many SNAP lines the page must log. Every SNAP is checked against
 //             the screenshot taken when it arrives (colour probes, the dialog's drawn edges, the
 //             accessibility DOM, the click answering the dialog), and any failure there is a mismatch.
@@ -62,15 +74,98 @@ const expected = {
     taskdialogasync: awaited("OK"),
     a11y: {
         outcome: "READY",
-        activeDescendant: "nameBox",
-        nodes: [
-            { role: "region", "aria-label": "Modal check: a11y", "data-mf-automation-id": null },
-            { "data-mf-automation-id": "status", role: null, text: "Running check 'a11y'. Results go to the console or device log (MFCHECK lines)." },
-            { "data-mf-automation-id": "okButton", role: "button", text: "OK", "aria-disabled": null },
-            { "data-mf-automation-id": "agree", role: "checkbox", "aria-checked": "true", text: "I agree" },
-            { "data-mf-automation-id": "nameBox", role: "textbox", "aria-label": "Customer name", text: "Ada" },
-            { "data-mf-automation-id": "disabledButton", role: "button", "aria-disabled": "true", text: "Unavailable" },
-        ],
+        logs: [/^MFCHECK A11Y-MESSAGEBOX Cancel$/],
+        steps: {
+            ready: {
+                activeDescendant: "nameBox",
+                nodes: [
+                    { role: "region", "aria-label": "Modal check: a11y", "data-mf-automation-id": null },
+                    { "data-mf-automation-id": "status", role: null, text: "Running check 'a11y'. Results go to the console or device log (MFCHECK lines)." },
+                    { "data-mf-automation-id": "okButton", role: "button", text: "OK", "aria-disabled": null },
+                    { "data-mf-automation-id": "agree", role: "checkbox", "aria-checked": "true", text: "I agree" },
+                    { "data-mf-automation-id": "nameBox", role: "textbox", "aria-label": "Customer name", text: "Ada" },
+                    { "data-mf-automation-id": "disabledButton", role: "button", "aria-disabled": "true", text: "Unavailable" },
+                    { "data-mf-automation-id": "fruit", role: "combobox", "aria-label": "Fruit", "aria-expanded": "false", "aria-valuetext": "Banana" },
+                    { "data-mf-automation-id": "savedLabel", role: null, text: "Not saved" },
+                    { role: "menubar" },
+                    { role: "menuitem", text: "File", "aria-haspopup": "menu", "aria-expanded": "false" },
+                    // The status element is not live itself, so its implicit politeness does not repeat
+                    // what the live region says.
+                    { role: "status", "aria-live": "off" },
+                ],
+                absent: [{ "data-mf-popup": /./ }],
+                // Nothing on the first sync: the page just loaded.
+                live: [],
+            },
+            "combo-open": {
+                nodes: [
+                    { "data-mf-automation-id": "fruit", "aria-expanded": "true", "aria-controls": { ref: { role: "listbox", "aria-label": "Fruit" } } },
+                    { "data-mf-popup": "listbox" },
+                    { role: "option", text: "Apple", "aria-selected": "false" },
+                    { role: "option", text: "Banana", "aria-selected": "true" },
+                    { role: "option", text: "Cherry", "aria-selected": "false" },
+                ],
+                // While the list is open, focus is on its highlighted item.
+                activeDescendant: { role: "option", text: "Banana" },
+                // Focus arriving on the combo box is the reader's to announce.
+                live: [],
+            },
+            "combo-close": {
+                nodes: [{ "data-mf-automation-id": "fruit", "aria-expanded": "false", "aria-controls": null }],
+                absent: [{ "data-mf-popup": /./ }, { role: "listbox" }],
+                activeDescendant: "fruit",
+                live: [],
+            },
+            "combo-value": {
+                nodes: [{ "data-mf-automation-id": "fruit", "aria-valuetext": "Cherry" }],
+                live: [["polite", "Cherry"]],
+            },
+            "menu-open": {
+                nodes: [
+                    { role: "menuitem", text: "File", "aria-expanded": "true", "aria-controls": { ref: { role: "menu", "aria-label": "File" } } },
+                    { "data-mf-popup": "menu" },
+                    { role: "menuitem", text: "Open" },
+                    { role: "menuitem", text: "Recent", "aria-haspopup": "menu", "aria-expanded": "true", "aria-controls": { ref: { role: "menu", "aria-label": "Recent" } } },
+                    { role: "menuitemcheckbox", text: "Word wrap", "aria-checked": "true" },
+                    { role: "menuitem", text: "Exit", "aria-disabled": "true" },
+                    { role: "menuitem", text: "notes.txt" },
+                ],
+                live: [],
+            },
+            "menu-close": {
+                nodes: [{ role: "menuitem", text: "File", "aria-expanded": "false", "aria-controls": null }],
+                absent: [{ "data-mf-popup": /./ }, { role: "menu" }],
+                live: [],
+            },
+            tooltip: {
+                nodes: [
+                    { role: "tooltip", "data-mf-popup": "tooltip", text: "Saves the order" },
+                    { "data-mf-automation-id": "okButton", "aria-describedby": { ref: { role: "tooltip" } } },
+                ],
+                live: [],
+            },
+            "tooltip-hide": {
+                nodes: [{ "data-mf-automation-id": "okButton", "aria-describedby": null }],
+                absent: [{ role: "tooltip" }],
+                live: [],
+            },
+            // A live label (LiveSetting = Polite) and a status bar both changed.
+            status: {
+                nodes: [{ "data-mf-automation-id": "savedLabel", text: "Saved" }, { role: null, text: "3 records loaded" }],
+                live: [["polite", "Saved"], ["polite", "3 records loaded"]],
+            },
+            notify: { live: [["assertive", "Upload complete"]] },
+            // An error message box: an alert dialog described by its message, announced at once.
+            messagebox: {
+                nodes: [{ role: "alertdialog", "aria-label": "Save failed", "aria-modal": "true", "aria-describedby": { ref: { text: "The disk is full." } } }],
+                live: [["assertive", "Save failed. The disk is full."]],
+            },
+            "messagebox-closed": {
+                absent: [{ role: "alertdialog" }],
+                activeDescendant: "fruit",
+                live: [],
+            },
+        },
     },
     // A control added from a Timer.Tick after the form is up reaches the canvas and the accessibility DOM.
     // It opens no dialog, so it logs no AFTER line.
@@ -100,8 +195,11 @@ const reportFile = flags.get("report") || null;
 const root = resolve(positional[0] ?? "out/wwwroot");
 const checks = positional.length > 1 ? positional.slice(1) : Object.keys(expected);
 const timeoutMs = Number(process.env.MF_CHECK_TIMEOUT_MS ?? 20000);
-// How long the a11y check waits for the mirror to match (with --expect) or to settle (without).
-const a11ySettleMs = Number(process.env.MF_A11Y_SETTLE_MS ?? (expectMode ? 10000 : 1500));
+// How long after READY or a STEP the a11y check first reads the page: the mirror syncs at most every
+// 100 ms and the polite live region waits 250 ms. With --expect a read that does not match yet is
+// retried until it does, the page logs its next line, or MF_A11Y_STEP_MS is up.
+const a11ySettleMs = Number(process.env.MF_A11Y_SETTLE_MS ?? 700);
+const a11yStepMs = Number(process.env.MF_A11Y_STEP_MS ?? 10000);
 
 if (!existsSync(join(root, "index.html"))) {
     console.error(`No index.html under ${root}. Pass the published wwwroot folder.`);
@@ -184,46 +282,86 @@ const send = (method, params = {}, sessionId) => new Promise(r => {
 });
 
 // Reads the accessibility DOM next to the canvas: every mirrored element with the attributes the checks
-// look at, its text and its box.
+// look at, its text and its box (and its page box, for popups and the controls they belong to, to
+// check placement); what the live regions said since the last read, recorded by the observer below;
+// and every aria-controls/-describedby/-activedescendant that names a missing element.
 const a11yRead = `(() => {
     const root = document.querySelector('.mf-a11y-root');
     if (!root) return { error: 'NO .mf-a11y-root ELEMENT' };
-    const names = ['role', 'aria-label', 'aria-checked', 'aria-disabled', 'aria-modal', 'data-mf-automation-id'];
+    const names = ['role', 'aria-label', 'aria-checked', 'aria-selected', 'aria-disabled', 'aria-modal', 'aria-expanded',
+        'aria-haspopup', 'aria-controls', 'aria-describedby', 'aria-pressed', 'aria-live', 'aria-valuetext',
+        'data-mf-popup', 'data-mf-automation-id'];
     const nodes = [];
     const walk = (el, depth) => {
         for (const c of el.children) {
-            if (c.classList.contains('mf-a11y-text')) continue;
+            if (c.classList.contains('mf-a11y-text') || c.classList.contains('mf-a11y-live')) continue;
             const attrs = {};
             for (const a of names) if (c.hasAttribute(a)) attrs[a] = c.getAttribute(a);
             const text = c.querySelector(':scope > .mf-a11y-text');
+            const linked = c.hasAttribute('data-mf-popup') || c.hasAttribute('aria-controls') || c.hasAttribute('aria-describedby');
+            const r = c.getBoundingClientRect();
             nodes.push({ id: c.id, depth, attrs, text: text ? text.textContent : null,
-                box: c.style.left + ',' + c.style.top + ' ' + c.style.width + ' x ' + c.style.height });
+                box: c.style.left + ',' + c.style.top + ' ' + c.style.width + ' x ' + c.style.height,
+                page: linked ? Math.round(r.left) + ',' + Math.round(r.top) + '-' + Math.round(r.right) + ',' + Math.round(r.bottom) : null });
             walk(c, depth + 1);
         }
     };
     walk(root, 0);
     const host = root.closest('.avalonia-container');
-    return { activeDescendant: host && host.getAttribute('aria-activedescendant'), nodes };
+    const live = (window.__mfLive ?? []).splice(0).map(e => [e.region, e.text]);
+    const dangling = [...document.querySelectorAll('[aria-controls],[aria-describedby],[aria-activedescendant]')]
+        .flatMap(e => ['aria-controls', 'aria-describedby', 'aria-activedescendant'].map(a => e.getAttribute(a)).filter(Boolean))
+        .filter(id => !document.getElementById(id));
+    return { activeDescendant: host && host.getAttribute('aria-activedescendant'), nodes, live, dangling };
 })()`;
+
+// Records what the accessibility DOM's live regions say, as a screen reader would hear it: each line
+// added to a [data-mf-live] region. Installed before the page's own scripts run.
+const liveObserver = `window.__mfLive = [];
+new MutationObserver(records => {
+    for (const r of records) for (const n of r.addedNodes) {
+        const region = n.parentElement && n.parentElement.closest('[data-mf-live]');
+        if (region && n.nodeType === 1 && !n.matches('[data-mf-live]')) window.__mfLive.push({ region: region.getAttribute('data-mf-live'), text: n.textContent });
+    }
+}).observe(document, { childList: true, subtree: true });`;
 
 const formatA11y = a11y => a11y.error ?? ["active-descendant=" + a11y.activeDescendant, ...a11y.nodes.map(n =>
     "  ".repeat(n.depth) + "#" + n.id + " " + Object.entries(n.attrs).map(([k, v]) => k + "=" + JSON.stringify(v)).join(" ")
-    + (n.text !== null ? " text=" + JSON.stringify(n.text) : "") + " @" + n.box)].join("\n");
+    + (n.text !== null ? " text=" + JSON.stringify(n.text) : "") + " @" + n.box + (n.page ? " page=" + n.page : "")),
+    ...(a11y.live ?? []).map(([region, text]) => `LIVE ${region}: ${JSON.stringify(text)}`),
+    ...(a11y.dangling ?? []).map(id => "DANGLING REFERENCE " + id)].join("\n");
 
-// The ways a11y differs from its expectation; empty when it matches.
-function a11yProblems(a11y, want) {
+// Prints an expectation entry, RegExps included.
+const show = v => JSON.stringify(v, (_, x) => x instanceof RegExp ? String(x) : x);
+
+// The ways one read of the accessibility DOM differs from a step's expectation; empty when it matches.
+// `live` is everything the live regions said during the step so far.
+function a11yProblems(a11y, want, live) {
     if (!a11y || a11y.error) return [a11y?.error ?? "the accessibility DOM could not be read"];
     const problems = [];
-    const value = (n, k) => k === "text" ? n.text : n.attrs[k] ?? null;
-    for (const node of want.nodes ?? []) {
-        if (!a11y.nodes.some(n => Object.entries(node).every(([k, v]) => value(n, k) === v)))
-            problems.push("no mirrored element matching " + JSON.stringify(node));
+    const byId = id => a11y.nodes.find(n => n.id === id);
+    const matches = (n, entry) => Object.entries(entry).every(([k, v]) => {
+        const got = k === "text" ? n.text : n.attrs[k] ?? null;
+        if (v === null || typeof v === "string") return got === v;
+        if (v instanceof RegExp) return got !== null && v.test(got);
+        if (v?.ref) { const target = got && byId(got); return !!target && matches(target, v.ref); }
+        return false;
+    });
+    for (const entry of want.nodes ?? [])
+        if (!a11y.nodes.some(n => matches(n, entry))) problems.push("no mirrored element matching " + show(entry));
+    for (const entry of want.absent ?? []) {
+        const found = a11y.nodes.find(n => matches(n, entry));
+        if (found) problems.push(`#${found.id} should not be mirrored now (matches ${show(entry)})`);
     }
     if (want.activeDescendant) {
-        const target = a11y.nodes.find(n => n.attrs["data-mf-automation-id"] === want.activeDescendant);
-        if (!target || a11y.activeDescendant !== target.id)
-            problems.push(`aria-activedescendant is ${JSON.stringify(a11y.activeDescendant)}, not the element of ${want.activeDescendant} (${target ? "#" + target.id : "not mirrored"})`);
+        const entry = typeof want.activeDescendant === "string" ? { "data-mf-automation-id": want.activeDescendant } : want.activeDescendant;
+        const target = byId(a11y.activeDescendant);
+        if (!target || !matches(target, entry))
+            problems.push(`aria-activedescendant is ${JSON.stringify(a11y.activeDescendant)}, not an element matching ${show(entry)}`);
     }
+    if (want.live && JSON.stringify(live) !== JSON.stringify(want.live))
+        problems.push(`live regions said ${JSON.stringify(live)}, expected ${JSON.stringify(want.live)}`);
+    for (const id of a11y.dangling ?? []) problems.push(`an ARIA reference names #${id}, which is not in the page`);
     return problems;
 }
 
@@ -344,11 +482,52 @@ function problemsOf(r) {
         if (after !== want.after) problems.push(`expected AFTER "${want.after}", got ${after === undefined ? "no AFTER line" : `"${after}"`}`);
     }
     for (const l of r.lines.filter(l => l.startsWith("PAGE EXCEPTION"))) problems.push(l);
-    if (r.check === "a11y" && outcome === "READY") problems.push(...a11yProblems(r.a11y, want));
+    for (const re of want.logs ?? [])
+        if (!r.lines.some(l => re.test(l.replace(/^.*?(?=MFCHECK )/, "")))) problems.push(`no MFCHECK line matching ${re}`);
+    if (want.steps && outcome === "READY") {
+        for (const [name, step] of Object.entries(want.steps)) {
+            const read = r.a11y?.find(s => s.step === name);
+            if (!read) { problems.push(`step '${name}' was never logged (or never read)`); continue; }
+            for (const p of a11yProblems(read.dom, step, read.live)) problems.push(`${name}: ${p}`);
+        }
+    }
     if (want.snaps !== undefined && r.snaps.length < want.snaps)
         problems.push(`expected ${want.snaps} SNAP line(s), got ${r.snaps.length} -- the page never asked for its screenshot`);
     for (const f of r.snaps.flatMap(s => s.failures)) problems.push("snap: " + f);
     return problems;
+}
+
+// Reads the accessibility DOM after an a11y step: once after a11ySettleMs; with --expect, again every
+// 200 ms while it differs from the step's expectation and the page has not moved on to its next line.
+// Live-region output is collected across the reads.
+async function readStep(sessionId, step, lines) {
+    const linesAtStep = lines.length;
+    const started = Date.now();
+    const want = expected.a11y?.steps?.[step];
+    const live = [];
+    let dom;
+    await new Promise(r => setTimeout(r, a11ySettleMs));
+    // MF_CHECK_SCREENSHOTS also keeps what the canvas showed at each step, to compare with the DOM.
+    if (process.env.MF_CHECK_SCREENSHOTS) {
+        mkdirSync(process.env.MF_CHECK_SCREENSHOTS, { recursive: true });
+        const shot = await Promise.race([
+            send("Page.captureScreenshot", { format: "png" }, sessionId),
+            new Promise(r => setTimeout(() => r(null), 5000)),
+        ]);
+        if (shot?.result?.data) writeFileSync(join(process.env.MF_CHECK_SCREENSHOTS, `a11y-${step}.png`), Buffer.from(shot.result.data, "base64"));
+    }
+    for (;;) {
+        const evaluated = await Promise.race([
+            send("Runtime.evaluate", { expression: a11yRead, returnByValue: true }, sessionId),
+            new Promise(r => setTimeout(() => r(null), 5000)),
+        ]);
+        dom = evaluated?.result?.result?.value ?? { error: "(evaluate did not return)" };
+        live.push(...(dom.live ?? []));
+        if (!expectMode || !want || !a11yProblems(dom, want, live).length) break;
+        if (lines.length > linesAtStep || Date.now() - started > a11yStepMs) break;
+        await new Promise(r => setTimeout(r, 200));
+    }
+    return { step, dom, live };
 }
 
 const results = [];
@@ -360,6 +539,7 @@ for (const check of checks) {
     let done;
     const finished = new Promise(r => done = r);
     const snaps = [];
+    const reads = [];
 
     const onMessage = msg => {
         if (msg.sessionId !== sessionId) return;
@@ -371,7 +551,11 @@ for (const check of checks) {
                 const snap = /MFCHECK SNAP (.*)$/.exec(text.trim());
                 if (snap) snaps.push(checkSnap(JSON.parse(snap[1]), sessionId, check, snaps.length + 1)
                     .catch(e => ({ failures: [`the screenshot could not be checked: ${e.message}`], notes: [] })));
-                if (/MFCHECK (END|READY)/.test(text)) done();
+                // The a11y check steps through popups and announcements after READY; each STEP (and
+                // READY itself) is read once the mirror and the polite region's debounce have settled.
+                const step = check === "a11y" && /MFCHECK (?:STEP (\S+)|(READY) a11y)/.exec(text);
+                if (step) reads.push(readStep(sessionId, step[1] ?? "ready", lines));
+                if (/MFCHECK END/.test(text) || (check !== "a11y" && /MFCHECK READY/.test(text))) done();
             }
         } else if (msg.method === "Runtime.exceptionThrown") {
             lines.push("PAGE EXCEPTION " + (msg.params.exceptionDetails.exception?.description ?? msg.params.exceptionDetails.text));
@@ -385,24 +569,12 @@ for (const check of checks) {
     // follows painting) would never catch up after the first frame.
     await send("Page.bringToFront", {}, sessionId);
     await send("Emulation.setFocusEmulationEnabled", { enabled: true }, sessionId);
+    await send("Page.addScriptToEvaluateOnNewDocument", { source: liveObserver }, sessionId);
     await send("Page.navigate", { url: `${base}index.html?check=${encodeURIComponent(check)}` }, sessionId);
 
-    const timedOut = await Promise.race([finished.then(() => false), new Promise(r => setTimeout(() => r(true), timeoutMs))]);
-    let a11y = null;
-
-    if (!timedOut && check === "a11y") {
-        // The mirror follows painting, so its first sync can land after READY. Without --expect, wait a
-        // fixed time and report what is there; with it, poll until it matches or the time is up.
-        const deadline = Date.now() + a11ySettleMs;
-        do {
-            await new Promise(r => setTimeout(r, expectMode ? 250 : a11ySettleMs));
-            const evaluated = await Promise.race([
-                send("Runtime.evaluate", { expression: a11yRead, returnByValue: true }, sessionId),
-                new Promise(r => setTimeout(() => r(null), 5000)),
-            ]);
-            a11y = evaluated?.result?.result?.value ?? { error: "(evaluate did not return)" };
-        } while (expectMode && Date.now() < deadline && (expected.a11y ? a11yProblems(a11y, expected.a11y).length : 0));
-    }
+    // The a11y check runs through all its steps, so it gets twice as long.
+    const timedOut = await Promise.race([finished.then(() => false), new Promise(r => setTimeout(() => r(true), check === "a11y" ? timeoutMs * 2 : timeoutMs))]);
+    const a11y = reads.length ? await Promise.all(reads) : null;
 
     // MF_CHECK_SCREENSHOTS=<dir> saves what the page showed at the end of each check.
     if (process.env.MF_CHECK_SCREENSHOTS) {
@@ -436,11 +608,12 @@ for (const check of checks) {
     results.push(result);
     console.log(`\n== ${check}: ${verdict}`);
     for (const l of lines) console.log("   " + l);
+    for (const r of a11y ?? [])
+        console.log(`   | -- ${r.step}\n` + formatA11y({ ...r.dom, live: r.live }).split("\n").map(l => "   | " + l).join("\n"));
     for (const r of snapResults) {
         for (const n of r.notes) console.log("   snap ok   " + n);
         for (const f of r.failures) console.log("   snap FAIL " + f);
     }
-    if (a11y) console.log(formatA11y(a11y).split("\n").map(l => "   | " + l).join("\n"));
     for (const p of result.problems ?? []) console.log("   MISMATCH " + p);
 
     // Closing a target whose thread is blocked still works: the browser process owns it.

@@ -80,7 +80,7 @@ namespace Majorsilence.Forms
                 return;
 
             calendar ??= BuildCalendar ();
-            drop_down ??= new PopupWindow (window);
+            drop_down ??= new PopupWindow (window) { AccessibleOwner = this };
 
             calendar.SelectionStart = Value;
             drop_down.Controls.Add (calendar);

@@ -145,11 +145,14 @@ namespace Gallery.Checks
                     });
                     break;
                 case "a11y":
-                    // Nothing to call: the harness reads the accessibility DOM next to the canvas, which
-                    // has one control of each common kind to find (AddA11yTargets). Focus one, so the
-                    // host's aria-activedescendant has something to point at.
+                    // The harness reads the accessibility DOM next to the canvas, which has one control
+                    // of each common kind to find (AddA11yTargets). Focus one, so the host's
+                    // aria-activedescendant has something to point at; then step through the popups and
+                    // announcements, logging a STEP line for each so the harness reads the DOM and the
+                    // live regions after it.
                     Controls.Find ("nameBox", false).FirstOrDefault ()?.Focus ();
                     Log ("READY", "a11y");
+                    await RunA11yStepsAsync ();
                     break;
                 case "timeradd":
                     await TimerAddAsync ();
@@ -410,12 +413,79 @@ namespace Gallery.Checks
                 top.Close ();
         }
 
+        private ComboBox? fruit;
+        private ToolStripMenuItem? file_menu;
+        private ToolStripMenuItem? recent_menu;
+        private ToolStripStatusLabel? status_label;
+        private Label? saved_label;
+        private ToolTip? tips;
+
         private void AddA11yTargets ()
         {
             Controls.Add (new Button { Name = "okButton", Text = "&OK", Left = 12, Top = 60, Width = 90 });
             Controls.Add (new CheckBox { Name = "agree", Text = "I agree", Checked = true, Left = 12, Top = 100, Width = 160 });
             Controls.Add (new TextBox { Name = "nameBox", AccessibleName = "Customer name", Text = "Ada", Left = 12, Top = 140, Width = 200 });
             Controls.Add (new Button { Name = "disabledButton", Text = "Unavailable", Enabled = false, Left = 120, Top = 60, Width = 120 });
+
+            fruit = new ComboBox { Name = "fruit", AccessibleName = "Fruit", DropDownStyle = ComboBoxStyle.DropDownList, Left = 260, Top = 60, Width = 150 };
+            fruit.Items.AddRange (new object[] { "Apple", "Banana", "Cherry" });
+            fruit.SelectedIndex = 1;
+            Controls.Add (fruit);
+
+            saved_label = new Label { Name = "savedLabel", Text = "Not saved", LiveSetting = AutomationLiveSetting.Polite, Left = 260, Top = 100, Width = 200 };
+            Controls.Add (saved_label);
+
+            var menu = new MenuStrip ();
+            file_menu = new ToolStripMenuItem ("&File");
+            recent_menu = new ToolStripMenuItem ("&Recent");
+            recent_menu.DropDownItems.Add (new ToolStripMenuItem ("notes.txt"));
+            file_menu.DropDownItems.Add (new ToolStripMenuItem ("&Open"));
+            file_menu.DropDownItems.Add (recent_menu);
+            file_menu.DropDownItems.Add (new ToolStripMenuItem ("&Word wrap") { CheckOnClick = true, Checked = true });
+            file_menu.DropDownItems.Add (new ToolStripMenuItem ("E&xit") { Enabled = false });
+            menu.Items.Add (file_menu);
+            Controls.Add (menu);
+
+            var status = new StatusStrip ();
+            status_label = new ToolStripStatusLabel { Text = "Ready" };
+            status.Items.Add (status_label);
+            Controls.Add (status);
+
+            tips = new ToolTip { ShowAlways = true };
+        }
+
+        // Each step changes something, then waits long enough for the mirror (100 ms) and the polite
+        // live region's debounce (250 ms) to settle before the harness reads the page.
+        private async Task RunA11yStepsAsync ()
+        {
+            async Task Step (string name, Action change)
+            {
+                change ();
+                Log ("STEP", name);
+                await Task.Delay (1200).ConfigureAwait (true);
+            }
+
+            var ok = Controls.Find ("okButton", false).First ();
+
+            // The harness reads the page as it was at READY first. Longer than a step: the mirror's first
+            // sync after boot is the slowest, and a CI runner is slower than a desktop.
+            await Task.Delay (3000).ConfigureAwait (true);
+
+            await Step ("combo-open", () => { fruit!.Focus (); fruit.DroppedDown = true; });
+            await Step ("combo-close", () => fruit!.DroppedDown = false);
+            await Step ("combo-value", () => fruit!.SelectedIndex = 2);
+            await Step ("menu-open", () => { file_menu!.ShowDropDown (); recent_menu!.ShowDropDown (); });
+            await Step ("menu-close", () => file_menu!.HideDropDown ());
+            await Step ("tooltip", () => tips!.Show ("Saves the order", ok));
+            await Step ("tooltip-hide", () => tips!.Hide (ok));
+            await Step ("status", () => { status_label!.Text = "3 records loaded"; saved_label!.Text = "Saved"; });
+            await Step ("notify", () => ok.AccessibilityObject.RaiseAutomationNotification (
+                AutomationNotificationKind.ActionCompleted, AutomationNotificationProcessing.ImportantAll, "Upload complete"));
+
+            Task<DialogResult>? box = null;
+            await Step ("messagebox", () => box = MessageBox.ShowAsync (this, "The disk is full.", "Save failed", MessageBoxButtons.OK, MessageBoxIcon.Error));
+            await Step ("messagebox-closed", CloseTopDialog);
+            Log ("A11Y-MESSAGEBOX", box is null ? "not shown" : (await box).ToString ());
         }
 
         // On Android the line goes to logcat under its own tag, so `adb logcat -s MFCHECK` finds it;

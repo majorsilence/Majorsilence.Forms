@@ -60,8 +60,37 @@ namespace Majorsilence.Forms.Automation
         /// by <c>aria-activedescendant</c> on the host, not by rewriting elements.</summary>
         public bool Focused { get; }
 
-        // What the node was built from, so tests (and a later live-region phase) can find a control's node.
+        // What the node was built from, so tests and the owner links of popups can find a control's node.
         internal object Source { get; }
+
+        /// <summary>Whether this is the item a keyboard user is on inside an open drop-down -- the
+        /// highlighted menu item, the selected option of a combo box's open list -- which
+        /// <c>aria-activedescendant</c> points at in preference to the focused control. Not part of
+        /// equality, like <see cref="Focused"/>.</summary>
+        public bool Active { get; init; }
+
+        /// <summary>When this node's <see cref="Spoken"/> text is announced through the live region.</summary>
+        public AriaAnnounce Announce { get; init; }
+
+        /// <summary>How urgently: <see cref="AriaLive.Assertive"/> interrupts the reader.</summary>
+        public AriaLive Live { get; init; }
+
+        /// <summary>What is announced for this node: a live label's text, a value, a dialog's title and message.</summary>
+        public string? Spoken { get; init; }
+
+        /// <summary>A copy with the given attributes added or replaced (the links a popup adds to its owner).</summary>
+        internal AriaNode With (IEnumerable<KeyValuePair<string, string>> extra)
+        {
+            var merged = new SortedDictionary<string, string> (StringComparer.Ordinal);
+            foreach (var a in Attributes)
+                merged[a.Key] = a.Value;
+            foreach (var a in extra)
+                merged[a.Key] = a.Value;
+
+            return new AriaNode (Id, ParentId, Index, Role, merged.ToList (), Text, Bounds, Focused, Source) {
+                Active = Active, Announce = Announce, Live = Live, Spoken = Spoken,
+            };
+        }
 
         /// <summary>The DOM <c>id</c>, which <c>aria-activedescendant</c> refers to.</summary>
         public string ElementId => AriaDom.ElementIdPrefix + Id;
@@ -84,6 +113,55 @@ namespace Majorsilence.Forms.Automation
 
         /// <inheritdoc/>
         public override string ToString () => $"{Role ?? "-"} #{Id} \"{Text ?? this["aria-label"]}\" {Bounds}";
+    }
+
+    /// <summary>How urgently an announcement is spoken: the ARIA <c>aria-live</c> politeness.</summary>
+    internal enum AriaLive
+    {
+        /// <summary>Not announced.</summary>
+        Off,
+        /// <summary>Spoken when the reader is idle.</summary>
+        Polite,
+        /// <summary>Spoken at once, interrupting.</summary>
+        Assertive,
+    }
+
+    /// <summary>What change to a node is announced through the live region.</summary>
+    internal enum AriaAnnounce
+    {
+        /// <summary>Nothing.</summary>
+        None,
+        /// <summary>Its text changing: a label with a <c>LiveSetting</c>, anything on a status bar.</summary>
+        TextChange,
+        /// <summary>Its value changing while it has focus and focus stays on it: a combo box, slider or
+        /// spin box, whose value a reader following <c>aria-activedescendant</c> would not otherwise hear.</summary>
+        FocusedValueChange,
+        /// <summary>Its appearing: a modal dialog or message box.</summary>
+        Opened,
+    }
+
+    /// <summary>Something to say through the live region.</summary>
+    internal readonly struct AriaAnnouncement
+    {
+        internal AriaAnnouncement (string text, bool assertive, string? key)
+        {
+            Text = text;
+            Assertive = assertive;
+            Key = key;
+        }
+
+        /// <summary>What is said.</summary>
+        public string Text { get; }
+
+        /// <summary>Whether it interrupts (<c>aria-live="assertive"</c>) rather than waits.</summary>
+        public bool Assertive { get; }
+
+        /// <summary>What it is about: a later polite announcement with the same key replaces one not yet
+        /// spoken, and the same text for the same key is not repeated. Null for a one-off.</summary>
+        public string? Key { get; }
+
+        /// <inheritdoc/>
+        public override string ToString () => (Assertive ? "assertive " : "polite ") + Key + ": " + Text;
     }
 
     /// <summary>One change to apply to the accessibility DOM.</summary>
@@ -124,19 +202,35 @@ namespace Majorsilence.Forms.Automation
         private static int next_id;
 
         /// <summary>Builds the mirror of every window, in z-order (later windows on top).</summary>
+        /// <remarks>
+        /// Popups (<see cref="PopupWindow"/>: combo box lists, menu drop-downs, tool tips) are mirrored
+        /// after the forms, each inside the element of the window it was opened for -- so a drop-down of a
+        /// modal dialog is inside the <c>aria-modal</c> dialog, where a reader still looks -- and linked
+        /// to the control that opened it.
+        /// </remarks>
         internal static List<AriaNode> Build (IEnumerable<WindowBase> windows)
         {
             var nodes = new List<AriaNode> ();
+            var popups = new List<PopupWindow> ();
             var index = 0;
 
             foreach (var window in windows) {
+                if (window is PopupWindow popup) {
+                    popups.Add (popup);
+                    continue;
+                }
+
                 // The modal stack rather than Form.Modal: that property is outbound state for applications
                 // (the stored-only baseline keeps it as the example of one), and the stack is what the
                 // framework itself consults.
                 var modal = window is Form form && Application.ModalStack.Contains (form);
                 var owned = window is Form { Owner: not null };
-                AddWindow (nodes, AutomationProvider.BuildTree (window), window.Bounds, modal, owned, index++);
+                AddWindow (nodes, AutomationProvider.BuildTree (window), window.Bounds, modal, owned, index++, window as MessageBoxForm);
             }
+
+            // In the order they were shown, so a submenu comes after (and inside) the menu it hangs off.
+            foreach (var popup in popups)
+                AddPopup (nodes, popup, ref index);
 
             return nodes;
         }
@@ -145,7 +239,8 @@ namespace Majorsilence.Forms.Automation
         /// Adds one window's subtree. <paramref name="windowBounds"/> is where the window sits in the page
         /// area; the automation tree's own bounds are window-relative, so they are offset by it.
         /// </summary>
-        internal static void AddWindow (List<AriaNode> nodes, AutomationElement root, Rectangle windowBounds, bool modal, bool owned, int index)
+        internal static void AddWindow (List<AriaNode> nodes, AutomationElement root, Rectangle windowBounds, bool modal, bool owned, int index,
+            MessageBoxForm? message = null)
         {
             var used = new HashSet<string> (nodes.Select (n => n.Id));
             var id = IdOf (root.Source, null, index, used);
@@ -154,7 +249,8 @@ namespace Majorsilence.Forms.Automation
             string? role = null;
 
             if (modal || owned) {
-                role = "dialog";
+                // A message box is the ARIA alert dialog: it exists to say something urgent and wait.
+                role = message is null ? "dialog" : "alertdialog";
                 if (modal)
                     attributes["aria-modal"] = "true";
             } else if (root.Name.Length > 0) {
@@ -166,32 +262,176 @@ namespace Majorsilence.Forms.Automation
             if (root.Name.Length > 0)
                 attributes["aria-label"] = root.Name;
 
+            if (message is not null)
+                attributes["aria-describedby"] = ElementIdPrefix + KeyOf (message.MessageLabel);
+
             attributes["data-mf-type"] = root.ControlType;
 
+            // Opening a modal dialog is announced: focus moving into it is not always enough for a reader
+            // to say what it is, and a message box's text is what the user must hear. An error or warning
+            // interrupts; anything else waits its turn.
+            var announce = modal || message is not null ? AriaAnnounce.Opened : AriaAnnounce.None;
+            var spoken = message is null ? root.Name : JoinSentences (root.Name, message.MessageLabel.Text);
+            var live = message?.Glyph is Renderers.MessageGlyph.Error or Renderers.MessageGlyph.Warning ? AriaLive.Assertive : AriaLive.Polite;
+
             nodes.Add (new AriaNode (id, null, index, role, attributes.ToList (), null,
-                new Rectangle (windowBounds.Location, windowBounds.Size), false, root.Source));
+                new Rectangle (windowBounds.Location, windowBounds.Size), false, root.Source) {
+                Announce = announce,
+                Live = announce == AriaAnnounce.None ? AriaLive.Off : live,
+                Spoken = announce == AriaAnnounce.None ? null : spoken,
+            });
 
             // Children's bounds are window-client logical coordinates, which are window coordinates
             // already offset past the caption; the window element starts at the window's own corner.
-            AddChildren (nodes, root, id, Point.Empty, used);
+            AddChildren (nodes, root, id, Point.Empty, used, default, null);
         }
 
-        private static void AddChildren (List<AriaNode> nodes, AutomationElement parent, string parentId, Point parentOrigin, HashSet<string> used)
+        private static string JoinSentences (string first, string second)
+        {
+            first = first.Trim ();
+            second = second.Trim ();
+
+            if (first.Length == 0)
+                return second;
+            if (second.Length == 0)
+                return first;
+
+            return first + (char.IsPunctuation (first[first.Length - 1]) ? " " : ". ") + second;
+        }
+
+        // What kind of popup a subtree is in, which decides what its items mean to a reader.
+        private enum PopupKind
+        {
+            None,
+            Menu,
+            ComboList,
+            Other,
+        }
+
+        private readonly struct Context
+        {
+            internal Context (PopupKind popup, bool inStatus)
+            {
+                Popup = popup;
+                InStatus = inStatus;
+            }
+
+            public PopupKind Popup { get; }
+
+            // Under a status bar: its text changes are announced, as ARIA's role="status" means.
+            public bool InStatus { get; }
+        }
+
+        /// <summary>
+        /// Adds a shown popup: inside the element of the window it was opened for (positioned relative to
+        /// it), or at the top level if that window is not mirrored; then links the control that opened it.
+        /// </summary>
+        private static void AddPopup (List<AriaNode> nodes, PopupWindow popup, ref int rootIndex)
+        {
+            var root = AutomationProvider.BuildTree (popup);
+            var used = new HashSet<string> (nodes.Select (n => n.Id));
+
+            var parent_window = popup.ParentWindow;
+            var parent = nodes.FirstOrDefault (n => ReferenceEquals (n.Source, parent_window.adapter));
+            // The size the popup asked to be shown at: its backend's client size is not always settled
+            // yet when the mirror reads it (a tool tip's read 0 x 0 in the browser).
+            var bounds = new Rectangle (popup.Location, popup.Size);
+
+            if (parent is not null)
+                bounds.Offset (-parent_window.Bounds.X, -parent_window.Bounds.Y);
+
+            var index = parent is null ? rootIndex++ : nodes.Count (n => n.ParentId == parent.Id);
+            var id = IdOf (root.Source, parent?.Id, index, used);
+
+            var menu = root.Children.Count == 1 ? root.Children[0].Source as MenuDropDown : null;
+            var owner = popup.AccessibleOwner ?? menu?.DropDownOwnerItem;
+            var kind = menu is not null ? PopupKind.Menu : owner is ComboBox ? PopupKind.ComboList : PopupKind.Other;
+
+            var attributes = new SortedDictionary<string, string> (StringComparer.Ordinal) {
+                ["data-mf-popup"] = popup.IsToolTip ? "tooltip" : kind switch {
+                    PopupKind.Menu => "menu",
+                    PopupKind.ComboList => "listbox",
+                    _ => "other",
+                },
+                ["data-mf-type"] = root.ControlType,
+            };
+
+            if (popup.IsToolTip) {
+                // A tip is one piece of text; its label's own node would only say it twice.
+                var tip = string.Join (Environment.NewLine, root.Children.Select (c => c.Name).Where (n => n.Length > 0));
+                var node = new AriaNode (id, parent?.Id, index, "tooltip", attributes.ToList (), tip.Length > 0 ? tip : null, bounds, false, root.Source);
+                nodes.Add (node);
+                Link (nodes, owner, new[] { new KeyValuePair<string, string> ("aria-describedby", node.ElementId) }, null);
+                return;
+            }
+
+            nodes.Add (new AriaNode (id, parent?.Id, index, null, attributes.ToList (), null, bounds, false, root.Source));
+            AddChildren (nodes, root, id, Point.Empty, used, new Context (kind, false), null);
+
+            // The owner controls the menu or list itself rather than the wrapper around it, so a reader
+            // that follows aria-controls lands on the items.
+            var target = nodes.FirstOrDefault (n => n.ParentId == id && n.Role is "menu" or "listbox")
+                ?? nodes.First (n => n.Id == id);
+
+            Link (nodes, owner, new[] {
+                new KeyValuePair<string, string> ("aria-controls", target.ElementId),
+                new KeyValuePair<string, string> ("aria-expanded", "true"),
+            }, target);
+        }
+
+        // Adds the popup's links to its owner's element, and names an unnamed menu or list after the
+        // owner ("File", the combo box's label) so a reader entering it hears what it belongs to.
+        private static void Link (List<AriaNode> nodes, object? owner, KeyValuePair<string, string>[] links, AriaNode? target)
+        {
+            if (owner is null)
+                return;
+
+            var at = nodes.FindIndex (n => ReferenceEquals (n.Source, owner));
+            if (at < 0)
+                return;
+
+            var owner_node = nodes[at];
+            nodes[at] = owner_node.With (links);
+
+            var name = owner_node.Text ?? owner_node["aria-label"];
+            if (target is null || target.Role is not ("menu" or "listbox") || target["aria-label"] is not null || string.IsNullOrEmpty (name))
+                return;
+
+            var t = nodes.IndexOf (target);
+            nodes[t] = target.With (new[] { new KeyValuePair<string, string> ("aria-label", name!) });
+        }
+
+        private static void AddChildren (List<AriaNode> nodes, AutomationElement parent, string parentId, Point parentOrigin, HashSet<string> used,
+            Context context, string? parentRole)
         {
             for (var i = 0; i < parent.Children.Count; i++) {
                 var child = parent.Children[i];
                 var id = IdOf (child.Source, parentId, i, used);
+                var node = Map (child, parent, id, parentId, i, parentOrigin, context, parentRole);
 
-                nodes.Add (Map (child, parent, id, parentId, i, parentOrigin));
-                AddChildren (nodes, child, id, child.Bounds.Location, used);
+                nodes.Add (node);
+
+                // The automation tree nests a menu item's whole submenu under it, open or not. ARIA has no
+                // menu item inside a menu item: a submenu is its own menu, mirrored as the popup it is
+                // when it is open, and the item says it has one (aria-haspopup, aria-expanded).
+                if (child.Source is MenuItem)
+                    continue;
+
+                AddChildren (nodes, child, id, child.Bounds.Location, used,
+                    new Context (context.Popup, context.InStatus || node.Role == "status"), node.Role);
             }
         }
 
-        private static AriaNode Map (AutomationElement e, AutomationElement parent, string id, string parentId, int index, Point parentOrigin)
+        private static AriaNode Map (AutomationElement e, AutomationElement parent, string id, string parentId, int index, Point parentOrigin,
+            Context context, string? parentRole)
         {
-            var role = RoleOf (e);
+            var role = e.Source is MenuItem item && e.Role == "menuitem" ? ItemRole (item, parentRole) : RoleOf (e);
             var attributes = new SortedDictionary<string, string> (StringComparer.Ordinal);
             string? text = null;
+            var active = false;
+            var announce = AriaAnnounce.None;
+            var live = AriaLive.Off;
+            string? spoken = null;
 
             // AutomationProvider falls back to the control's Name (its designer identifier, "button1") when
             // a control has no text or accessible name. That is an id for tests, not a name for people, so
@@ -232,10 +472,59 @@ namespace Majorsilence.Forms.Automation
                 attributes["aria-expanded"] = e.Source is ComboBox { DroppedDown: true } ? "true" : "false";
                 if (!string.IsNullOrEmpty (e.Value))
                     attributes["aria-valuetext"] = e.Value!;
+                announce = AriaAnnounce.FocusedValueChange;
+                spoken = e.Value;
                 break;
             case "option":
-                attributes["aria-selected"] = parent.Value is { Length: > 0 } selected && selected == e.Name ? "true" : "false";
+                var selected = parent.Value is { Length: > 0 } value && value == e.Name;
+                attributes["aria-selected"] = selected ? "true" : "false";
+                // In a combo box's open list the selected option is where the arrow keys are.
+                active = selected && context.Popup == PopupKind.ComboList;
                 break;
+            case "slider" when e.Source is TrackBar track:
+                attributes["aria-valuemin"] = Number (track.Minimum);
+                attributes["aria-valuemax"] = Number (track.Maximum);
+                attributes["aria-valuenow"] = Number (track.Value);
+                attributes["aria-orientation"] = track.Orientation == Orientation.Vertical ? "vertical" : "horizontal";
+                announce = AriaAnnounce.FocusedValueChange;
+                spoken = attributes["aria-valuenow"];
+                break;
+            case "spinbutton" when e.Source is NumericUpDown number:
+                attributes["aria-valuemin"] = number.Minimum.ToString (System.Globalization.CultureInfo.InvariantCulture);
+                attributes["aria-valuemax"] = number.Maximum.ToString (System.Globalization.CultureInfo.InvariantCulture);
+                attributes["aria-valuenow"] = number.Value.ToString (System.Globalization.CultureInfo.InvariantCulture);
+                // What the box shows (thousands separators, hex) is what a reader should say.
+                if (!string.IsNullOrEmpty (number.Text))
+                    attributes["aria-valuetext"] = number.Text;
+                announce = AriaAnnounce.FocusedValueChange;
+                spoken = number.Text;
+                break;
+            case "spinbutton" when e.Source is DomainUpDown domain:
+                if (!string.IsNullOrEmpty (domain.Text))
+                    attributes["aria-valuetext"] = domain.Text;
+                announce = AriaAnnounce.FocusedValueChange;
+                spoken = domain.Text;
+                break;
+            case "status":
+                // The live region next to the mirror announces a status bar's changes, once and debounced;
+                // the element's own implicit politeness would announce them a second time.
+                attributes["aria-live"] = "off";
+                break;
+            }
+
+            if (e.Source is MenuItem menu_item) {
+                if (role == "menuitemcheckbox")
+                    attributes["aria-checked"] = menu_item.Checked ? "true" : "false";
+                else if (role == "button" && menu_item is ToolStripButton { CheckOnClick: true } or { Checked: true })
+                    attributes["aria-pressed"] = menu_item.Checked ? "true" : "false";
+
+                if (role is "menuitem" or "menuitemcheckbox" or "button" && menu_item.HasItems) {
+                    attributes["aria-haspopup"] = "menu";
+                    attributes["aria-expanded"] = menu_item.IsDropDownOpened ? "true" : "false";
+                }
+
+                // The highlighted item of an open menu, or of a menu bar being driven from the keyboard.
+                active = menu_item.Selected && (context.Popup == PopupKind.Menu || menu_item.ParentControl is MenuBase { IsActivated: true });
             }
 
             if (!e.Enabled)
@@ -249,16 +538,51 @@ namespace Majorsilence.Forms.Automation
             foreach (var state in e.State)
                 attributes["data-mf-state-" + state.Key] = state.Value;
 
+            // A label the application marked live (LiveSetting), and anything on a status bar, is
+            // announced when its text changes, as upstream raises LiveRegionChanged for it.
+            var setting = LiveAnnouncer.LiveSettingOf (e.Source);
+            if (setting != AutomationLiveSetting.Off || context.InStatus || role == "status") {
+                announce = AriaAnnounce.TextChange;
+                live = setting == AutomationLiveSetting.Assertive ? AriaLive.Assertive : AriaLive.Polite;
+                spoken = text ?? (name.Length > 0 ? name : null);
+            } else if (announce != AriaAnnounce.None) {
+                live = AriaLive.Polite;
+            }
+
             var bounds = new Rectangle (e.Bounds.X - parentOrigin.X, e.Bounds.Y - parentOrigin.Y, e.Bounds.Width, e.Bounds.Height);
 
-            return new AriaNode (id, parentId, index, role, attributes.ToList (), text, bounds, e.Focused, e.Source);
+            return new AriaNode (id, parentId, index, role, attributes.ToList (), text, bounds, e.Focused, e.Source) {
+                Active = active,
+                Announce = announce,
+                Live = live,
+                Spoken = spoken,
+            };
         }
+
+        // A tool strip item's role depends on the strip: a menu's items are menu items, a toolbar's are
+        // buttons, a status bar's labels are text. ARIA allows a menu item only inside a menu or menu bar.
+        private static string? ItemRole (MenuItem item, string? parentRole)
+        {
+            if (item is ToolStripStatusLabel or ToolStripLabel)
+                return null;
+
+            switch (parentRole) {
+            case "toolbar":
+                return item is ToolStripButton or ToolStripDropDownButton ? "button" : null;
+            case "status":
+                return null;
+            }
+
+            return item is ToolStripMenuItem { CheckOnClick: true } || item.Checked ? "menuitemcheckbox" : "menuitem";
+        }
+
+        private static string Number (int value) => value.ToString (System.Globalization.CultureInfo.InvariantCulture);
 
         private static string Flag (string? value) => value == "true" ? "true" : "false";
 
         // ARIA roles whose accessible name is computed from their content.
         private static bool NamedFromContent (string role) => role switch {
-            "button" or "checkbox" or "radio" or "link" or "menuitem" or "option" or "tab" or "tooltip" or "treeitem" => true,
+            "button" or "checkbox" or "radio" or "link" or "menuitem" or "menuitemcheckbox" or "option" or "tab" or "tooltip" or "treeitem" => true,
             _ => false,
         };
 
@@ -267,44 +591,63 @@ namespace Majorsilence.Forms.Automation
         /// (<c>button</c>, <c>textbox</c>, …) or an explicit <see cref="AccessibleRole"/> name, lower-cased.
         /// Null means a generic element.
         /// </summary>
-        internal static string? RoleOf (AutomationElement e) => e.Role switch {
-            "button" or "pushbutton" or "splitbutton" or "buttondropdown" or "buttonmenu" or "buttondropdowngrid" => "button",
-            "checkbox" or "checkbutton" => "checkbox",
-            "radio" or "radiobutton" => "radio",
-            "textbox" or "text" or "richtextbox" or "maskedtextbox" or "hotkeyfield" or "ipaddress" => "textbox",
-            "combobox" or "droplist" => "combobox",
-            "list" or "listbox" or "checkedlistbox" => "listbox",
-            "listitem" => "option",
-            "tablist" or "pagetablist" => "tablist",
-            "pagetab" => "tab",
-            "tabpage" => "tabpanel",
-            "progressbar" => "progressbar",
-            "scrollbar" => "scrollbar",
-            "slider" or "trackbar" => "slider",
-            "spinbutton" or "numericupdown" or "domainupdown" => "spinbutton",
-            "link" or "linklabel" => "link",
-            "menustrip" or "menubar" or "mainmenu" => "menubar",
-            "menuitem" => "menuitem",
-            "menupopup" or "contextmenustrip" or "contextmenu" => "menu",
-            "separator" => "separator",
-            "toolstrip" or "toolbar" => "toolbar",
-            "statusstrip" or "statusbar" => "status",
-            "treeview" or "outline" => "tree",
-            "outlineitem" => "treeitem",
-            "picturebox" or "graphic" => e.Name.Length > 0 && e.Name != e.AutomationId ? "img" : null,
-            // An unnamed group is noise to a reader: every layout panel would be announced.
-            "group" or "grouping" or "groupbox" => e.Name.Length > 0 && e.Name != e.AutomationId ? "group" : null,
-            "dialog" => "dialog",
-            "alert" => "alert",
-            "tooltip" => "tooltip",
-            "document" => "document",
-            "table" => "table",
-            "row" => "row",
-            "cell" => "cell",
-            "columnheader" => "columnheader",
-            "rowheader" => "rowheader",
-            _ => null,
-        };
+        internal static string? RoleOf (AutomationElement e)
+        {
+            // A drop-down (a submenu, a context menu) and a menu bar are told apart by type: their automation
+            // roles are their type names, and a menu bar's class is plainly "Menu".
+            if (e.Source is Control { AccessibleRole: AccessibleRole.Default } control) {
+                if (control is MenuDropDown)
+                    return "menu";
+                if (control is Menu)
+                    return "menubar";
+            }
+
+            return e.Role switch {
+                "button" or "pushbutton" or "splitbutton" or "buttondropdown" or "buttonmenu" or "buttondropdowngrid" => "button",
+                "checkbox" or "checkbutton" => "checkbox",
+                "radio" or "radiobutton" => "radio",
+                "textbox" or "text" or "richtextbox" or "maskedtextbox" or "hotkeyfield" or "ipaddress" => "textbox",
+                "combobox" or "droplist" => "combobox",
+                "list" or "listbox" or "checkedlistbox" => "listbox",
+                "listitem" => "option",
+                "tablist" or "pagetablist" => "tablist",
+                "pagetab" => "tab",
+                "tabpage" => "tabpanel",
+                "progressbar" => "progressbar",
+                "scrollbar" => "scrollbar",
+                "slider" or "trackbar" => "slider",
+                "spinbutton" or "numericupdown" or "domainupdown" => "spinbutton",
+                "link" or "linklabel" => "link",
+                "menustrip" or "menubar" or "mainmenu" => "menubar",
+                "menuitem" => "menuitem",
+                "menupopup" or "contextmenustrip" or "contextmenu" or "menudropdown" => "menu",
+                "separator" => "separator",
+                "toolstrip" or "toolbar" => "toolbar",
+                "statusstrip" or "statusbar" => "status",
+                "treeview" or "outline" => "tree",
+                "outlineitem" => "treeitem",
+                "picturebox" or "graphic" => e.Name.Length > 0 && e.Name != e.AutomationId ? "img" : null,
+                // An unnamed group is noise to a reader: every layout panel would be announced.
+                "group" or "grouping" or "groupbox" => e.Name.Length > 0 && e.Name != e.AutomationId ? "group" : null,
+                "dialog" => "dialog",
+                "alert" => "alert",
+                "tooltip" => "tooltip",
+                "document" => "document",
+                "table" => "table",
+                "row" => "row",
+                "cell" => "cell",
+                "columnheader" => "columnheader",
+                "rowheader" => "rowheader",
+                _ => null,
+            };
+        }
+
+        /// <summary>The element key a control or menu item has (or will have) in the mirror, or null for
+        /// anything else. What an explicit announcement about it is keyed by.</summary>
+        internal static string? KeyOf (object? source) =>
+            source is Control or MenuItem
+                ? ids.GetValue (source, _ => System.Threading.Interlocked.Increment (ref next_id).ToString (System.Globalization.CultureInfo.InvariantCulture))
+                : null;
 
         // A control or menu item keeps one id for its lifetime. Anything else -- a list item is whatever
         // object the application added, often a string, and equal strings are one object -- is keyed by
@@ -359,7 +702,120 @@ namespace Majorsilence.Forms.Automation
         }
 
         /// <summary>The element that has keyboard focus, or null: the deepest focused node.</summary>
-        internal static AriaNode? FocusedNode (IReadOnlyList<AriaNode> nodes) => nodes.LastOrDefault (n => n.Focused);
+        internal static AriaNode? FocusedNode (IEnumerable<AriaNode> nodes) => DeepestFocused (nodes);
+
+        // The focused node with the most ancestors: Build lists parents before children, but a dictionary
+        // of the last snapshot promises no order.
+        private static AriaNode? DeepestFocused (IEnumerable<AriaNode> nodes)
+        {
+            var list = nodes as IReadOnlyList<AriaNode> ?? nodes.ToList ();
+            var focused = list.Where (n => n.Focused).ToList ();
+
+            if (focused.Count <= 1)
+                return focused.FirstOrDefault ();
+
+            var parents = list.ToDictionary (n => n.Id, n => n.ParentId);
+            return focused.OrderBy (n => Depth (n.Id, parents)).Last ();
+        }
+
+        private static int Depth (string id, Dictionary<string, string?> parents)
+        {
+            var depth = 0;
+            while (parents.TryGetValue (id, out var parent) && parent is not null) {
+                id = parent;
+                depth++;
+            }
+            return depth;
+        }
+
+        /// <summary>
+        /// The element <c>aria-activedescendant</c> points at: the highlighted item of an open drop-down
+        /// (the last one, so the innermost submenu), else the focused control -- or, for a focused list,
+        /// its selected option, which is what the ARIA listbox pattern makes active.
+        /// </summary>
+        internal static AriaNode? ActiveNode (IReadOnlyList<AriaNode> nodes)
+        {
+            if (nodes.LastOrDefault (n => n.Active) is { } highlighted)
+                return highlighted;
+
+            var focused = FocusedNode (nodes);
+
+            if (focused?.Role == "listbox")
+                return nodes.FirstOrDefault (n => n.ParentId == focused.Id && n["aria-selected"] == "true") ?? focused;
+
+            return focused;
+        }
+
+        /// <summary>
+        /// What to say through the live region for the change from <paramref name="before"/> to
+        /// <paramref name="after"/>: a live label's or status bar's new text, a modal dialog or message box
+        /// that opened, the new value of the control that kept focus. Nothing for the first snapshot -- a
+        /// page that has just loaded has nothing to announce -- and nothing twice: one announcement per text.
+        /// </summary>
+        internal static List<AriaAnnouncement> Announcements (IReadOnlyDictionary<string, AriaNode> before, IReadOnlyList<AriaNode> after)
+        {
+            var list = new List<AriaAnnouncement> ();
+
+            if (before.Count == 0)
+                return list;
+
+            var after_by_id = new Dictionary<string, AriaNode> ();
+            foreach (var n in after)
+                after_by_id[n.Id] = n;
+
+            var focused_now = FocusedNode (after);
+            var focus_now = FocusPath (after_by_id, focused_now);
+            var focus_before = FocusPath (before, FocusedNode (before.Values));
+
+            foreach (var node in after) {
+                if (node.Spoken is not { } spoken || string.IsNullOrWhiteSpace (spoken))
+                    continue;
+
+                before.TryGetValue (node.Id, out var old);
+
+                switch (node.Announce) {
+                case AriaAnnounce.Opened when old is null:
+                case AriaAnnounce.TextChange when old is not null && old.Spoken != spoken:
+                    Add (list, spoken, node.Live == AriaLive.Assertive, node.Id);
+                    break;
+                case AriaAnnounce.FocusedValueChange when old is not null && old.Spoken != spoken:
+                    // Only while focus stays on it: a reader announces the control, value and all, when
+                    // focus arrives. And not while the user types into an editable combo box -- the reader
+                    // echoes the typing already.
+                    if (!focus_now.Contains (node.Id) || !focus_before.Contains (node.Id))
+                        break;
+                    if (focused_now is not null && focused_now.Id != node.Id && focused_now.Role == "textbox")
+                        break;
+                    Add (list, spoken, false, node.Id);
+                    break;
+                }
+            }
+
+            return list;
+        }
+
+        // The focused node and its ancestors: a combo box or spin box counts as focused when its inner
+        // edit box is.
+        private static HashSet<string> FocusPath (IReadOnlyDictionary<string, AriaNode> nodes, AriaNode? focused)
+        {
+            var path = new HashSet<string> ();
+
+            for (var n = focused; n is not null; n = n.ParentId is { } p && nodes.TryGetValue (p, out var parent) ? parent : null)
+                path.Add (n.Id);
+
+            return path;
+        }
+
+        /// <summary>Adds an announcement unless the same text is already there; an assertive one wins.</summary>
+        internal static void Add (List<AriaAnnouncement> list, string text, bool assertive, string? key)
+        {
+            var at = list.FindIndex (a => a.Text == text);
+
+            if (at < 0)
+                list.Add (new AriaAnnouncement (text, assertive, key));
+            else if (assertive && !list[at].Assertive)
+                list[at] = new AriaAnnouncement (text, true, list[at].Key ?? key);
+        }
 
         /// <summary>
         /// Serializes the operations for the browser side: an array of <c>{"remove": id}</c> and
@@ -423,6 +879,73 @@ namespace Majorsilence.Forms.Automation
 
         /// <summary>Points the host's <c>aria-activedescendant</c> at the focused element, or clears it.</summary>
         void SetActiveDescendant (string? elementId);
+
+        /// <summary>Says something through the live region: assertively, or politely after a short quiet
+        /// spell in which a newer announcement with the same <paramref name="key"/> replaces it.</summary>
+        void Announce (string text, bool assertive, string? key);
+    }
+
+    /// <summary>
+    /// Where the framework's explicit announcements go: <see cref="AccessibleObject.RaiseAutomationNotification"/>
+    /// and <see cref="AccessibleObject.RaiseLiveRegionChanged"/>. A browser's <see cref="AriaDomMirror"/>
+    /// listens and speaks them through its live region; with nothing listening they are not delivered,
+    /// and those methods say so by returning false, as upstream does without an automation client.
+    /// </summary>
+    internal static class LiveAnnouncer
+    {
+        /// <summary>Raised for each announcement; a listener speaks it.</summary>
+        internal static event Action<AriaAnnouncement>? Announced;
+
+        /// <summary>Hands the announcement to the listeners; false if there are none or there is nothing to say.</summary>
+        internal static bool Announce (string? text, bool assertive, string? key)
+        {
+            var handler = Announced;
+
+            if (handler is null || string.IsNullOrWhiteSpace (text))
+                return false;
+
+            handler (new AriaAnnouncement (text!, assertive, key));
+            return true;
+        }
+
+        /// <summary>The <c>LiveSetting</c> of a label or status-bar label; Off for anything else.</summary>
+        internal static AutomationLiveSetting LiveSettingOf (object? source) => source switch {
+            Label label => label.LiveSetting,
+            ToolStripStatusLabel status => status.LiveSetting,
+            _ => AutomationLiveSetting.Off,
+        };
+
+        /// <summary><see cref="AccessibleObject.RaiseLiveRegionChanged"/>: announces a live label's text.</summary>
+        internal static bool LiveRegionChanged (object? owner)
+        {
+            var setting = LiveSettingOf (owner);
+
+            if (setting == AutomationLiveSetting.Off)
+                return false;
+
+            // The same text the mirror computes for the label's node, so this and the mirror noticing the
+            // text change are recognised as one announcement rather than spoken twice.
+            var text = owner switch {
+                Control c => !string.IsNullOrEmpty (c.AccessibleName) ? c.AccessibleName : Mnemonics.Strip (c.Text),
+                ToolStripItem i => Mnemonics.Strip (i.Text),
+                _ => null,
+            };
+
+            return Announce (text, setting == AutomationLiveSetting.Assertive, AriaDom.KeyOf (owner));
+        }
+
+        /// <summary><see cref="AccessibleObject.RaiseAutomationNotification"/>.</summary>
+        internal static bool Notify (object? owner, AutomationNotificationProcessing processing, string? text)
+        {
+            var assertive = processing is AutomationNotificationProcessing.ImportantAll or AutomationNotificationProcessing.ImportantMostRecent;
+
+            // The "most recent" kinds replace a notification from the same source not yet spoken; the
+            // "all" kinds are each spoken.
+            var replaces = processing is AutomationNotificationProcessing.ImportantMostRecent
+                or AutomationNotificationProcessing.MostRecent or AutomationNotificationProcessing.CurrentThenMostRecent;
+
+            return Announce (text, assertive, replaces ? "notification-" + (AriaDom.KeyOf (owner) ?? "app") : null);
+        }
     }
 
     /// <summary>
@@ -438,6 +961,8 @@ namespace Majorsilence.Forms.Automation
     {
         private readonly IAriaDomSink sink;
         private readonly Func<IEnumerable<WindowBase>> windows;
+        private readonly bool announce;
+        private readonly List<AriaAnnouncement> pending = new ();
         private Dictionary<string, AriaNode> current = new ();
         private string? active_element;
         private Backends.IPlatformTimer? timer;
@@ -447,16 +972,37 @@ namespace Majorsilence.Forms.Automation
         /// <summary>The longest a change waits before it reaches the DOM, and the shortest gap between syncs.</summary>
         internal const int IntervalMilliseconds = 100;
 
-        internal AriaDomMirror (IAriaDomSink sink, Func<IEnumerable<WindowBase>>? windows = null)
+        /// <param name="sink">Where the changes go.</param>
+        /// <param name="windows">The windows to mirror; by default the shown forms and popups.</param>
+        /// <param name="announce">Whether to speak changes through the live region (and so deliver
+        /// <see cref="AccessibleObject.RaiseAutomationNotification"/>).</param>
+        internal AriaDomMirror (IAriaDomSink sink, Func<IEnumerable<WindowBase>>? windows = null, bool announce = true)
         {
             this.sink = sink;
             this.windows = windows ?? DefaultWindows;
+            this.announce = announce;
             WindowBase.FrameRendered += OnFrameRendered;
+            PopupWindow.ShownPopupsChanged += RequestSync;
+            Application.OpenForms.Changed += RequestSync;
+
+            if (announce)
+                LiveAnnouncer.Announced += OnAnnounced;
         }
 
-        // Shown forms, in the order they were opened: a dialog opened later sits above its owner.
-        private static Form[] DefaultWindows () =>
-            Application.OpenForms.Cast<Form> ().Where (f => f.Visible).ToArray ();
+        // Shown forms, in the order they were opened (a dialog opened later sits above its owner), then
+        // the shown popups, in the order they were shown.
+        private static WindowBase[] DefaultWindows () =>
+            Application.OpenForms.Cast<Form> ().Where (f => f.Visible).Cast<WindowBase> ()
+                .Concat (PopupWindow.ShownPopups.Where (p => p.Visible && !p.IsDisposed))
+                .ToArray ();
+
+        private void OnAnnounced (AriaAnnouncement announcement)
+        {
+            lock (pending)
+                pending.Add (announcement);
+
+            RequestSync ();
+        }
 
         /// <summary>The nodes last sent, by id.</summary>
         internal IReadOnlyDictionary<string, AriaNode> Current => current;
@@ -499,14 +1045,27 @@ namespace Majorsilence.Forms.Automation
             if (ops.Count > 0)
                 sink.Apply (AriaDom.ToJson (ops));
 
+            var spoken = announce ? AriaDom.Announcements (current, nodes) : new List<AriaAnnouncement> ();
+
             current = nodes.ToDictionary (n => n.Id);
 
-            var focused = AriaDom.FocusedNode (nodes)?.ElementId;
+            var focused = AriaDom.ActiveNode (nodes)?.ElementId;
 
             if (focused != active_element) {
                 active_element = focused;
                 sink.SetActiveDescendant (focused);
             }
+
+            // After the DOM they talk about is in place. An explicit announcement of a change the mirror
+            // noticed too (a live label's text, then RaiseLiveRegionChanged) is one announcement.
+            lock (pending) {
+                foreach (var p in pending)
+                    AriaDom.Add (spoken, p.Text, p.Assertive, p.Key);
+                pending.Clear ();
+            }
+
+            foreach (var a in spoken)
+                sink.Announce (a.Text, a.Assertive, a.Key);
         }
 
         /// <inheritdoc/>
@@ -517,6 +1076,9 @@ namespace Majorsilence.Forms.Automation
 
             disposed = true;
             WindowBase.FrameRendered -= OnFrameRendered;
+            PopupWindow.ShownPopupsChanged -= RequestSync;
+            Application.OpenForms.Changed -= RequestSync;
+            LiveAnnouncer.Announced -= OnAnnounced;
             timer?.Dispose ();
         }
     }

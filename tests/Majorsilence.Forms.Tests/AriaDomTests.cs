@@ -13,7 +13,7 @@ namespace Majorsilence.Forms.Tests;
 // framework's automation tree into ARIA elements; everything but the final JavaScript DOM writes is
 // host-neutral and tested here: the tree -> ARIA mapping, the diff between snapshots, the wire format,
 // and the mirror that drives a sink.
-public class AriaDomTests
+public partial class AriaDomTests
 {
     private static Form BuildForm ()
     {
@@ -257,6 +257,10 @@ public class AriaDomTests
         public void Apply (string opsJson) => Batches.Add (opsJson);
 
         public void SetActiveDescendant (string? elementId) => Active.Add (elementId);
+
+        public readonly List<AriaAnnouncement> Announced = new ();
+
+        public void Announce (string text, bool assertive, string? key) => Announced.Add (new AriaAnnouncement (text, assertive, key));
     }
 
     [Fact]
