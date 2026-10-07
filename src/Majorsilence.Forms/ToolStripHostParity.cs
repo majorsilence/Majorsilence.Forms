@@ -67,11 +67,40 @@ namespace Majorsilence.Forms
         // the previous pass gave it for a size of its own.
         private Size natural_size;
 
-        private Rectangle AlignedBounds (Rectangle box)
+        /// <summary>Adjusts the size this host asks for; a derived host whose control sizes itself overrides it.</summary>
+        private protected virtual Size AdjustWantedSize (Size want) => want;
+
+        /// <summary>
+        /// Scales the size this host asks for, as a strip's legacy AutoScaleBaseSize scale does upstream:
+        /// the hosted control is a child of the strip there and scales with it, along each axis its size
+        /// does not come from its content. Here the host re-applied its remembered, unscaled size on every
+        /// layout, so ReportDesigner's expression box stayed 250px wide where WinForms makes it 320.
+        /// </summary>
+        internal void ScaleWantedSize (float dx, float dy)
         {
+            // An AutoSize control is as big as its content (a text box only along its height, below).
+            if (Control.AutoSize && Control is not TextBoxBase)
+                return;
+
             var want = new Size (
                 PreferredSizeOverride.Width > 0 ? PreferredSizeOverride.Width : natural_size.Width,
                 PreferredSizeOverride.Height > 0 ? PreferredSizeOverride.Height : natural_size.Height);
+
+            var scaled = new Size (
+                Control.KeepsWidthWhenScaled ? want.Width : (int) Math.Round (want.Width * dx),
+                Control.KeepsHeightWhenScaled ? want.Height : (int) Math.Round (want.Height * dy));
+
+            if (PreferredSizeOverride.Width > 0 || PreferredSizeOverride.Height > 0)
+                PreferredSizeOverride = scaled;
+            else
+                natural_size = scaled;
+        }
+
+        private Rectangle AlignedBounds (Rectangle box)
+        {
+            var want = AdjustWantedSize (new Size (
+                PreferredSizeOverride.Width > 0 ? PreferredSizeOverride.Width : natural_size.Width,
+                PreferredSizeOverride.Height > 0 ? PreferredSizeOverride.Height : natural_size.Height));
 
             var width = want.Width > 0 && want.Width < box.Width ? want.Width : box.Width;
             var height = want.Height > 0 && want.Height < box.Height ? want.Height : box.Height;
@@ -109,7 +138,7 @@ namespace Majorsilence.Forms
             // The strip's layout engine adds Margin around whatever this returns, so it is not folded
             // in here (that would double it) -- unlike the text-measuring renderers, which bake in
             // Padding because a drawn item has no hosted control to carry its own.
-            return want;
+            return AdjustWantedSize (want);
         }
 
         /// <summary>Gets or sets whether the hosted control causes validation when it receives focus.</summary>
@@ -193,6 +222,16 @@ namespace Majorsilence.Forms
 
     public partial class ToolStripTextBox
     {
+        /// <inheritdoc/>
+        /// <remarks>
+        /// A single-line box is as tall as its font makes it, whatever height was set: upstream's hosted
+        /// text box is AutoSize, which fixes its height to PreferredHeight. Taking the resx height
+        /// instead stretched ReportDesigner's expression box to the full 38px toolbar row, where
+        /// WinForms draws a 23px box centred in it.
+        /// </remarks>
+        private protected override System.Drawing.Size AdjustWantedSize (System.Drawing.Size want)
+            => TextBox.Multiline ? want : new System.Drawing.Size (want.Width, TextBox.PreferredHeight);
+
         /// <summary>Gets or sets the alignment of the text in the hosted text box.</summary>
         public HorizontalAlignment TextBoxTextAlign {
             get => TextBox.TextAlign;

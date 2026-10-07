@@ -49,6 +49,10 @@ namespace Majorsilence.Forms
         {
             base.ScaleCore (dx, dy);
 
+            // Hosted controls scale with the strip, as they do upstream where they are its children.
+            foreach (var host in Items.OfType<ToolStripControlHost> ())
+                host.ScaleWantedSize (dx, dy);
+
             var preferred = GetPreferredSize (System.Drawing.Size.Empty);
 
             if (Orientation == Orientation.Horizontal) {
