@@ -117,8 +117,12 @@ public class DrawingTextAndImageParityTests
         var ink = Ink (bitmap);
         var width = g.MeasureString ("WWWW", font).Width;
 
-        // The ink's centre sits where the alignment puts the run relative to the anchor.
-        var expected = 150 + width * (0.5f - (alignment == MFD.StringAlignment.Near ? 0f : alignment == MFD.StringAlignment.Center ? 0.5f : 1f));
+        // The ink's centre sits where the alignment puts the run relative to the anchor, plus GDI+'s
+        // sixth-of-an-em padding on the anchor's side (right of a near anchor, left of a far one). Leaving
+        // the padding out used 3px of the 4px tolerance, and Linux's glyph metrics took the rest.
+        var factor = alignment == MFD.StringAlignment.Near ? 0f : alignment == MFD.StringAlignment.Center ? 0.5f : 1f;
+        var pad = 14f * 96f / 72f / 6f;
+        var expected = 150 + width * (0.5f - factor) + pad * (1 - 2 * factor);
         Assert.InRange ((ink.Left + ink.Right) / 2f, expected - 4, expected + 4);
         if (alignment == MFD.StringAlignment.Far)
             Assert.True (ink.Bottom <= 41, "LineAlignment.Far puts the text above the anchor");
