@@ -264,7 +264,7 @@ namespace Majorsilence.Forms
         /// <c>System.Windows.Forms.UpDownBase.PreferredHeight</c> does.
         /// </summary>
         public override int PreferredHeight
-            => (int)Math.Ceiling (TextMeasurer.MeasureText ("Wg", this).Height)
+            => TextMeasurer.LogicalLineHeight (this)
                 + Padding.Top + Padding.Bottom + 4;   // 4px matches the default border/inset
 
         /// <summary>

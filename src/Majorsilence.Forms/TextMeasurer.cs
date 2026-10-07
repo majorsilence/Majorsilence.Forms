@@ -343,6 +343,12 @@ namespace Majorsilence.Forms
         /// </summary>
         public static Size MaxSize = new Size (int.MaxValue, int.MaxValue);
 
+        // One line of text at the control's font, in LOGICAL pixels. MeasureText (text, control) measures at the
+        // DEVICE font size, so a PreferredHeight built straight from it came out doubled at scale 2 and then laid a
+        // logical box out at that device height (a ToolStripTextBox 42px tall in a 40px row on Windows).
+        internal static int LogicalLineHeight (Control control)
+            => control.DeviceToLogicalUnits ((int)Math.Ceiling (MeasureText ("Wg", control).Height));
+
         /// <summary>
         /// Measures the specified text using font characteristics from the provided control.
         /// </summary>
