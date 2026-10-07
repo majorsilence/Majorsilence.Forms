@@ -30,11 +30,14 @@ namespace Majorsilence.Forms.Printing
         /// <summary>Raised for each page being printed.</summary>
         public event PrintPageEventHandler? PrintPage;
 
-        /// <summary>Raised before the first page is printed.</summary>
-        public event EventHandler? BeginPrint;
+        /// <summary>Raised before the first page is printed; setting <see cref="System.ComponentModel.CancelEventArgs.Cancel"/> stops the job.</summary>
+        /// <remarks>A <see cref="PrintEventHandler"/>, as upstream's is (SVC-32): it was a plain
+        /// <c>EventHandler</c>, so a ported <c>void doc_BeginPrint (object sender, PrintEventArgs e)</c>
+        /// did not compile and <c>e.Cancel</c> / <c>e.PrintAction</c> needed a cast.</remarks>
+        public event PrintEventHandler? BeginPrint;
 
-        /// <summary>Raised after the last page is printed.</summary>
-        public event EventHandler? EndPrint;
+        /// <summary>Raised after the last page is printed, and after a job <see cref="BeginPrint"/> cancelled.</summary>
+        public event PrintEventHandler? EndPrint;
 
         /// <summary>Raised before each page is printed to allow per-page settings changes; cancelling stops the job.</summary>
         public event EventHandler<QueryPageSettingsEventArgs>? QueryPageSettings;
@@ -53,10 +56,10 @@ namespace Majorsilence.Forms.Printing
         protected virtual void OnQueryPageSettings (QueryPageSettingsEventArgs e) => QueryPageSettings?.Invoke (this, e);
 
         /// <summary>Raises the BeginPrint event.</summary>
-        protected virtual void OnBeginPrint (EventArgs e) => BeginPrint?.Invoke (this, e);
+        protected virtual void OnBeginPrint (PrintEventArgs e) => BeginPrint?.Invoke (this, e);
 
         /// <summary>Raises the EndPrint event.</summary>
-        protected virtual void OnEndPrint (EventArgs e) => EndPrint?.Invoke (this, e);
+        protected virtual void OnEndPrint (PrintEventArgs e) => EndPrint?.Invoke (this, e);
 
         /// <summary>Releases resources used by the document. WinForms compatibility — the document holds no unmanaged state between prints.</summary>
         public void Dispose ()
@@ -85,29 +88,43 @@ namespace Majorsilence.Forms.Printing
             var settings = PrinterSettings;
 
             if (settings.PrintToFile && !string.IsNullOrEmpty (settings.PrintFileName)) {
-                PrintToPdf (settings.PrintFileName);
+                PrintToPdf (settings.PrintFileName, ActionFor (PrintAction.PrintToFile));
                 return settings.PrintFileName;
             }
 
             var path = Path.Combine (Path.GetTempPath (), MakeSafeFileName (DocumentName) + ".pdf");
-            PrintToPdf (path);
-            NativePrinting.Submit (path, settings);
+
+            // A job BeginPrint cancelled never reaches the printer, as upstream's PrintController.Print
+            // returns before the first page (SVC-32).
+            if (PrintToPdf (path, ActionFor (PrintAction.PrintToPrinter)))
+                NativePrinting.Submit (path, settings);
+
             return path;
+        }
+
+        // Upstream's PrintController.Print: a preview controller makes every job a preview, otherwise the
+        // destination decides.
+        private PrintAction ActionFor (PrintAction destination)
+            => PrintController?.IsPreview == true ? PrintAction.PrintToPreview : destination;
+
+        private bool PrintToPdf (string path, PrintAction action)
+        {
+            using var stream = File.Create (path);
+            return PrintToPdf (stream, action);
         }
 
         /// <summary>
         /// Renders the document to a PDF file at the specified path.
         /// </summary>
-        public void PrintToPdf (string path)
-        {
-            using var stream = File.Create (path);
-            PrintToPdf (stream);
-        }
+        public void PrintToPdf (string path) => PrintToPdf (path, ActionFor (PrintAction.PrintToFile));
 
         /// <summary>
         /// Renders the document to a PDF written to the specified stream.
         /// </summary>
-        public void PrintToPdf (Stream stream)
+        public void PrintToPdf (Stream stream) => PrintToPdf (stream, ActionFor (PrintAction.PrintToFile));
+
+        // Returns false when BeginPrint cancelled the job.
+        private bool PrintToPdf (Stream stream, PrintAction action)
         {
             Guard.ThrowIfNull (stream);
 
@@ -124,13 +141,14 @@ namespace Majorsilence.Forms.Printing
 
             using var document = SKDocument.CreatePdf (stream);
 
-            WalkPages (PrintAction.PrintToFile, settings, UnitsPerInch, page_bounds, margin_bounds, () => {
+            var printed = WalkPages (action, settings, UnitsPerInch, page_bounds, margin_bounds, () => {
                 var page_canvas = document.BeginPage (width_points, height_points);
                 page_canvas.Scale (scale);
                 return (page_canvas, () => document.EndPage ());
             });
 
             document.Close ();
+            return printed;
         }
 
         /// <summary>
@@ -168,20 +186,30 @@ namespace Majorsilence.Forms.Printing
         // is what makes a preview controller a real destination (W6 mechanisms). OriginAtMargins moves
         // the canvas origin to the margin corner, as upstream's does, so a handler that draws at (0,0)
         // starts inside the margin and MarginBounds is reported relative to that origin.
-        private void WalkPages (PrintAction action, PageSettings settings, float dpi,
+        //
+        // Begin and end are upstream's PrintController.Print exactly (System.Drawing.Common,
+        // Printing/PrintController.cs): one PrintEventArgs travels from BeginPrint to EndPrint; a
+        // BeginPrint cancel raises only the document's EndPrint, the controller never having started;
+        // an OnStartPrint cancel ends both. Returns false for a job cancelled before its first page.
+        private bool WalkPages (PrintAction action, PageSettings settings, float dpi,
             RectangleF pageBounds, RectangleF marginBounds, Func<(SKCanvas Canvas, Action End)>? beginPage)
         {
             var controller = PrintController;
-            var start = new PrintEventArgs { PrintAction = action };
+            var job = new PrintEventArgs { PrintAction = action };
 
-            OnBeginPrint (start);
-            controller?.OnStartPrint (this, start);
+            OnBeginPrint (job);
 
-            if (start.Cancel) {
-                var cancelled = new PrintEventArgs { PrintAction = action };
-                controller?.OnEndPrint (this, cancelled);
-                OnEndPrint (cancelled);
-                return;
+            if (job.Cancel) {
+                OnEndPrint (job);
+                return false;
+            }
+
+            controller?.OnStartPrint (this, job);
+
+            if (job.Cancel) {
+                OnEndPrint (job);
+                controller?.OnEndPrint (this, job);
+                return false;
             }
 
             var reported_margins = OriginAtMargins
@@ -239,9 +267,13 @@ namespace Majorsilence.Forms.Printing
                 page++;
             } while (has_more && page < MaxPages);
 
-            var end = new PrintEventArgs { PrintAction = action };
-            controller?.OnEndPrint (this, end);
-            OnEndPrint (end);
+            try {
+                OnEndPrint (job);
+            } finally {
+                controller?.OnEndPrint (this, job);
+            }
+
+            return true;
         }
 
         /// <summary>Gets or sets the print controller. Stored but not used in Majorsilence.Forms — the PDF pipeline is always used.</summary>

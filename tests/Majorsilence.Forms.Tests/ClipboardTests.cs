@@ -31,11 +31,44 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void GetText_WithFormat_DelegatesToText ()
+        public void GetText_PlainFormats_ShareTheText ()
         {
             Clipboard.SetText ("formatted");
             Assert.Equal ("formatted", Clipboard.GetText (TextDataFormat.UnicodeText));
             Assert.True (Clipboard.ContainsText (TextDataFormat.Text));
+        }
+
+        // SVC-18: every TextDataFormat collapsed to the plain text, so the RTF paste idiom
+        // `if (ContainsText (Rtf)) rtb.SelectedRtf = GetText (Rtf)` fed plain text to the RTF parser.
+        [Theory]
+        [InlineData (TextDataFormat.Rtf)]
+        [InlineData (TextDataFormat.Html)]
+        [InlineData (TextDataFormat.CommaSeparatedValue)]
+        public void PlainText_DoesNotAnswerForTheRichFormats (TextDataFormat format)
+        {
+            Clipboard.SetText ("plain");
+
+            Assert.False (Clipboard.ContainsText (format));
+            Assert.Equal (string.Empty, Clipboard.GetText (format));
+        }
+
+        [Fact]
+        public void SetText_WithRtf_StoresUnderRtfOnly_AndTheNextSetTextReplacesIt ()
+        {
+            Clipboard.SetText ("plain");
+            Clipboard.SetText ("{\\rtf1 x}", TextDataFormat.Rtf);
+
+            // Upstream's SetText clears the clipboard first: the earlier plain text is gone.
+            Assert.True (Clipboard.ContainsText (TextDataFormat.Rtf));
+            Assert.Equal ("{\\rtf1 x}", Clipboard.GetText (TextDataFormat.Rtf));
+            Assert.Equal ("{\\rtf1 x}", Clipboard.GetData (DataFormats.Rtf.Name));
+            Assert.False (Clipboard.ContainsText ());
+            Assert.False (Clipboard.ContainsText (TextDataFormat.Html));
+
+            // ...and so is a stale RTF payload once plain text replaces it.
+            Clipboard.SetText ("newer");
+            Assert.False (Clipboard.ContainsText (TextDataFormat.Rtf));
+            Assert.Equal ("newer", Clipboard.GetText ());
         }
 
         [Fact]

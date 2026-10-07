@@ -159,7 +159,8 @@ namespace Majorsilence.Forms.Headless
 
         public Task<string?> ShowSaveFileDialog (SaveFileRequest request)
             => Task.FromResult (HeadlessRenderer.SaveFileResponse?.Invoke (request));
-        public Task<string?> ShowOpenFolderDialog (FolderDialogRequest request) => Task.FromResult<string?> (null);
+        public Task<string?> ShowOpenFolderDialog (FolderDialogRequest request)
+            => Task.FromResult (HeadlessRenderer.OpenFolderResponse?.Invoke (request));
 
         /// <summary>Renders the current frame into a fresh offscreen surface and returns the snapshot.</summary>
         internal SKImage Render ()

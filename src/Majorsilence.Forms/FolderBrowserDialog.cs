@@ -14,12 +14,17 @@ namespace Majorsilence.Forms
         /// Gets or sets the selected folder path. Setting null coerces to an empty string,
         /// matching WinForms semantics (the getter never returns null).
         /// </summary>
+        /// <remarks>An existing folder set here is where the picker opens when
+        /// <see cref="FileSystemDialog.InitialDirectory"/> is not set, as upstream.</remarks>
         public string SelectedPath {
             get => selected_path;
             set => selected_path = value ?? string.Empty;
         }
 
-        /// <summary>Gets or sets the descriptive text above the tree view. Stub in Majorsilence.Forms (used as window title). Setting null coerces to an empty string.</summary>
+        /// <summary>Gets or sets the descriptive text shown in the dialog. Setting null coerces to an empty string.</summary>
+        /// <remarks>The platform pickers have no prompt line, so the description is shown as the picker's
+        /// title -- always with <see cref="UseDescriptionForTitle"/>, and otherwise when
+        /// <see cref="FileSystemDialog.Title"/> is empty.</remarks>
         public string Description {
             get => description;
             set => description = value ?? string.Empty;
@@ -28,7 +33,7 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether a New Folder button is shown. Stub in Majorsilence.Forms.</summary>
         public bool ShowNewFolderButton { get; set; } = true;
 
-        /// <summary>Gets or sets whether the description is used as the dialog title. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether the description is used as the dialog title, over <see cref="FileSystemDialog.Title"/>.</summary>
         public bool UseDescriptionForTitle { get; set; }
 
         /// <summary>Gets or sets the root folder at which to start browsing. Stub in Majorsilence.Forms.</summary>
@@ -56,10 +61,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public async Task<DialogResult> ShowDialogAsync (Form owner)
         {
-            var request = new FolderDialogRequest {
-                InitialDirectory = GetInitialDirectory (),
-                Title = Title
-            };
+            var request = BuildRequest ();
 
             var result = await owner.Backend.ShowOpenFolderDialog (request);
 
@@ -67,6 +69,26 @@ namespace Majorsilence.Forms
 
             return result is null ? DialogResult.Cancel : DialogResult.OK;
         }
+
+        // What the picker is asked to show (SVC-26). Upstream (Dialogs/CommonDialogs/FolderBrowserDialog.cs,
+        // SetDialogProperties) puts Description in the dialog -- as its title with UseDescriptionForTitle,
+        // otherwise as prompt text above the folder view -- and opens at InitialDirectory, else at the
+        // folder SelectedPath names. The platform pickers have a title and a start folder and nothing
+        // else, so the description becomes the title whenever no title of our own was set, and the
+        // start folder is SelectedPath itself (upstream preselects it inside its parent, which no
+        // picker here can express; opening inside it keeps "OK" choosing the same folder).
+        internal FolderDialogRequest BuildRequest ()
+        {
+            var title = UseDescriptionForTitle || Title.Length == 0 ? Description : Title;
+
+            return new FolderDialogRequest {
+                InitialDirectory = GetInitialDirectory () ?? ExistingSelectedPath (),
+                Title = title.Length == 0 ? Title : title
+            };
+        }
+
+        private string? ExistingSelectedPath ()
+            => selected_path.Length != 0 && Directory.Exists (selected_path) ? Path.GetFullPath (selected_path) : null;
 
         /// <summary>
         /// Resets the properties of the dialog to their default values.
