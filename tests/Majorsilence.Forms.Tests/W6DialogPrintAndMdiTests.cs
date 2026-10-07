@@ -263,7 +263,7 @@ public class W6DialogPrintAndMdiTests
         using var document = TwoPageDocument ();
         var preview = new PreviewPrintController ();
         PrintAction? seen = null;
-        document.BeginPrint += (_, e) => seen = ((PrintEventArgs) e).PrintAction;
+        document.BeginPrint += (_, e) => seen = e.PrintAction;
         document.PrintController = preview;
 
         document.RunThroughController (PrintAction.PrintToPreview);

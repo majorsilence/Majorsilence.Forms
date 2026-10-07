@@ -511,15 +511,23 @@ namespace Majorsilence.Forms
         {
             Guard.ThrowIfNull (graphics);
 
-            // Upstream's shape: the highlight offset by one, then the shadow on top. That is what gives
-            // disabled text its engraved look rather than just a paler colour.
+            // Upstream's shape (Rendering/ControlPaint.cs): GrayText alone under high contrast, otherwise
+            // the highlight offset by one and the shadow on top -- the engraved look rather than just a
+            // paler colour. The shadow is Dark (color), i.e. Darker (0.5), and the format is passed
+            // through to both passes (GFX-05: it was dropped, and the shadow used the 0 fraction).
+            if (SystemInformation.HighContrast) {
+                using var gray = new MFDrawing.SolidBrush (SystemColors.GrayText);
+                graphics.DrawString (s, font, gray, layoutRectangle, format);
+                return;
+            }
+
             var highlight = new RectangleF (layoutRectangle.X + 1, layoutRectangle.Y + 1, layoutRectangle.Width, layoutRectangle.Height);
 
             using (var light = new MFDrawing.SolidBrush (LightLight (color)))
-                graphics.DrawString (s, font, light, highlight);
+                graphics.DrawString (s, font, light, highlight, format);
 
-            using var dark = new MFDrawing.SolidBrush (Dark (color, 0f));
-            graphics.DrawString (s, font, dark, layoutRectangle);
+            using var dark = new MFDrawing.SolidBrush (Dark (color));
+            graphics.DrawString (s, font, dark, layoutRectangle, format);
         }
 
         /// <summary>

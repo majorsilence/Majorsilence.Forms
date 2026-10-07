@@ -74,6 +74,14 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         }
 
         /// <summary>Gets or sets the fill mode for this path.</summary>
+        /// <remarks>
+        /// GFX-41: this was a plain auto-property and never reached the <c>SKPath</c>, which stayed at
+        /// Skia's default of winding -- so a donut built with the default <c>Alternate</c> hit-tested
+        /// solid (<see cref="IsVisible(PointF)"/> was true in the hole) and <c>new Region (path)</c>, the
+        /// way a see-through window shape is built, filled the hole in. Only <c>Graphics.FillPath</c>,
+        /// which set the fill type itself, was right. The mode is pushed onto the path whenever it is
+        /// handed to Skia (<see cref="ToSKPath"/>), so the paths Flatten, Widen and Reset swap in follow it too.
+        /// </remarks>
         public FillMode FillMode { get; set; } = FillMode.Alternate;
 
         /// <summary>Gets the points that make up this path.</summary>
@@ -91,7 +99,11 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         /// <summary>Gets the number of points in this path.</summary>
         public int PointCount => path.PointCount;
 
-        internal SKPath ToSKPath () => path;
+        internal SKPath ToSKPath ()
+        {
+            path.FillType = FillMode == FillMode.Winding ? SKPathFillType.Winding : SKPathFillType.EvenOdd;
+            return path;
+        }
 
         // Point indices flagged by SetMarkers. GDI+ carries markers as a flag bit on the point type
         // rather than as separate state, which is how they surface through PathTypes below.
@@ -130,6 +142,8 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
             clone.path.Dispose ();
             clone.path = new SKPath (path);
             clone.markers.AddRange (markers);
+            // An open figure stays open in the copy, so the next segment (or AddPath's connect) joins it.
+            clone.figureOpen = figureOpen;
             return clone;
         }
 
@@ -748,10 +762,18 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         }
 
         /// <summary>Appends another path to this path.</summary>
+        /// <remarks>
+        /// GFX-42: with <paramref name="connect"/>, GDI+ (GdipAddPathPath) joins the added path's first
+        /// figure to this path's open figure with a line instead of starting a new one, so an outline
+        /// composed from segments strokes without gaps at the joins. The flag was ignored.
+        /// </remarks>
         public void AddPath (GraphicsPath addingPath, bool connect)
         {
-            if (addingPath is not null)
-                path.AddPath (addingPath.path);
+            if (addingPath is null)
+                return;
+
+            path.AddPath (addingPath.path, connect && figureOpen && path.PointCount > 0 ? SKPathAddMode.Extend : SKPathAddMode.Append);
+            figureOpen = addingPath.figureOpen;
         }
 
         /// <summary>Starts a new figure without closing the current one.</summary>
@@ -765,9 +787,51 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         }
 
         /// <summary>Closes all open figures.</summary>
+        /// <remarks>
+        /// GFX-42: this closed only the last figure, exactly like <see cref="CloseFigure"/>. GDI+
+        /// (GdipClosePathFigures) closes every one, so the path is rebuilt with each contour closed.
+        /// </remarks>
         public void CloseAllFigures ()
         {
-            path.Close ();
+            var closed = new SKPath { FillType = path.FillType };
+            using (var iterator = path.CreateRawIterator ()) {
+                var points = new SKPoint[4];
+                var open = false;
+                SKPathVerb verb;
+
+                while ((verb = iterator.Next (points)) != SKPathVerb.Done) {
+                    switch (verb) {
+                    case SKPathVerb.Move:
+                        if (open)
+                            closed.Close ();
+                        closed.MoveTo (points[0]);
+                        open = true;
+                        break;
+                    case SKPathVerb.Line:
+                        closed.LineTo (points[1]);
+                        break;
+                    case SKPathVerb.Quad:
+                        closed.QuadTo (points[1], points[2]);
+                        break;
+                    case SKPathVerb.Conic:
+                        closed.ConicTo (points[1], points[2], iterator.ConicWeight ());
+                        break;
+                    case SKPathVerb.Cubic:
+                        closed.CubicTo (points[1], points[2], points[3]);
+                        break;
+                    case SKPathVerb.Close:
+                        closed.Close ();
+                        open = false;
+                        break;
+                    }
+                }
+
+                if (open)
+                    closed.Close ();
+            }
+
+            path.Dispose ();
+            path = closed;
             figureOpen = false;
         }
 
@@ -786,9 +850,14 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
         }
 
         /// <summary>Gets the bounding rectangle of this path.</summary>
+        /// <remarks>
+        /// GFX-42: the curve's own bounds (<c>SKPath.TightBounds</c>), as GDI+'s GdipGetPathWorldBounds
+        /// reports them. <c>SKPath.Bounds</c> is the box of the control points, which for a Bezier or a
+        /// rounded rectangle overshoots the shape, so anything centred or invalidated around it was off.
+        /// </remarks>
         public RectangleF GetBounds ()
         {
-            var b = path.Bounds;
+            var b = path.TightBounds;
             return new RectangleF (b.Left, b.Top, b.Width, b.Height);
         }
 
@@ -798,21 +867,21 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
             using var copy = new SKPath (path);
             if (matrix is not null)
                 copy.Transform (matrix.ToSKMatrix ());
-            var b = copy.Bounds;
+            var b = copy.TightBounds;
             return new RectangleF (b.Left, b.Top, b.Width, b.Height);
         }
 
         /// <summary>Returns whether the specified point lies within this path.</summary>
-        public bool IsVisible (PointF point) => path.Contains (point.X, point.Y);
+        public bool IsVisible (PointF point) => ToSKPath ().Contains (point.X, point.Y);
 
         /// <summary>Returns whether the specified point lies within this path.</summary>
-        public bool IsVisible (float x, float y) => path.Contains (x, y);
+        public bool IsVisible (float x, float y) => ToSKPath ().Contains (x, y);
 
         /// <summary>Returns whether the specified point lies within this path.</summary>
-        public bool IsVisible (Point point) => path.Contains (point.X, point.Y);
+        public bool IsVisible (Point point) => ToSKPath ().Contains (point.X, point.Y);
 
         /// <summary>Returns whether the specified point lies within this path.</summary>
-        public bool IsVisible (int x, int y) => path.Contains (x, y);
+        public bool IsVisible (int x, int y) => ToSKPath ().Contains (x, y);
 
         // The `object? graphics` overloads below exist because GDI+ takes a Graphics here to supply the
         // device resolution. Graphics lives in Majorsilence.Forms, which depends on this assembly rather
@@ -1182,6 +1251,11 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
     public sealed class GraphicsState
     {
         internal int Count { get; }
+
+        // The rest of the Graphics state (quality modes, page unit, the tracked clip) that Skia's save
+        // stack does not hold. Opaque here: Graphics lives in the assembly above this one (GFX-16).
+        internal object? Snapshot { get; set; }
+
         internal GraphicsState (int count = 0) => Count = count;
     }
 

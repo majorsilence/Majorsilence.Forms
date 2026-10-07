@@ -343,8 +343,9 @@ namespace Majorsilence.Forms.Drawing.Imaging
         /// Sets the alpha threshold above which a color is treated as fully opaque, as a fraction 0..1.
         /// </summary>
         /// <remarks>
-        /// Stored and round-tripped. Applying it means a per-pixel pass on the source (as
-        /// <see cref="SetColorKey(Color, Color)"/> does), which is not yet wired into the draw path.
+        /// GFX-43: applied after the colour matrix and gamma, as a step on each colour channel -- a
+        /// channel above the threshold goes to full intensity, the rest to zero -- which is how GDI+
+        /// binarises an image. It used to be stored and never read.
         /// </remarks>
         public void SetThreshold (float threshold) => SetThreshold (threshold, ColorAdjustType.Default);
 
@@ -497,6 +498,35 @@ namespace Majorsilence.Forms.Drawing.Imaging
         /// </summary>
         internal SKColorFilter? ToSKColorFilter ()
         {
+            // GFX-43: SetNoOp suspends every adjustment for as long as it is set -- the documented way to
+            // draw unmodified through a configured ImageAttributes. The doc said so; the filter ignored it,
+            // so images asked to be drawn untouched came out tinted or faded.
+            if (NoOp)
+                return null;
+
+            var filter = MatrixAndGammaFilter ();
+
+            if (Threshold is not { } threshold)
+                return filter;
+
+            var step = new byte[256];
+            var identity = new byte[256];
+            for (var i = 0; i < 256; i++) {
+                identity[i] = (byte)i;
+                step[i] = i / 255f > threshold ? (byte)255 : (byte)0;
+            }
+
+            var thresholdFilter = SKColorFilter.CreateTable (identity, step, step, step);
+            if (filter is null)
+                return thresholdFilter;
+
+            using (filter)
+            using (thresholdFilter)
+                return SKColorFilter.CreateCompose (thresholdFilter, filter);
+        }
+
+        private SKColorFilter? MatrixAndGammaFilter ()
+        {
             SKColorFilter? matrixFilter = null;
             if (colorMatrix is not null && !colorMatrix.IsIdentity)
                 matrixFilter = SKColorFilter.CreateColorMatrix (colorMatrix.ToSkiaColorMatrix ());
@@ -537,7 +567,7 @@ namespace Majorsilence.Forms.Drawing.Imaging
         /// </summary>
         internal SKBitmap? ApplyPixelAdjustments (SKBitmap? source)
         {
-            if (source is null || !HasPixelAdjustments)
+            if (source is null || NoOp || !HasPixelAdjustments)
                 return null;
 
             var result = source.Copy (SKColorType.Bgra8888) ?? source.Copy ();
@@ -592,6 +622,13 @@ namespace Majorsilence.Forms.Drawing.Imaging
             remapTable = remapTable is null ? null : (ColorMap[])remapTable.Clone (),
             WrapMode = WrapMode,
             ClampColor = ClampColor,
+            // GFX-43: these four were left behind, so a clone of a suspended or thresholded set of
+            // attributes drew differently from the original.
+            NoOp = NoOp,
+            Threshold = Threshold,
+            OutputChannel = OutputChannel,
+            OutputChannelColorProfile = OutputChannelColorProfile,
+            brushRemapTable = brushRemapTable is null ? null : (ColorMap[])brushRemapTable.Clone (),
         };
 
         /// <summary>

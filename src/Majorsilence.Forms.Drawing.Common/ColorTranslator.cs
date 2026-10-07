@@ -50,15 +50,64 @@ namespace Majorsilence.Forms.Drawing
             return Color.FromName (html);
         }
 
-        /// <summary>Translates a <see cref="Color"/> to an HTML color string (#RRGGBB or #AARRGGBB).</summary>
+        /// <summary>
+        /// Translates a <see cref="Color"/> to an HTML color string: the CSS system-colour keyword for a
+        /// system color, the name for any other known color, otherwise <c>#RRGGBB</c>.
+        /// </summary>
+        /// <remarks>
+        /// GFX-40: this always produced hex, and an 8-digit <c>#AARRGGBB</c> form for translucent colours
+        /// that HTML does not have. It follows <c>System.Drawing.ColorTranslator.ToHtml</c>'s three
+        /// branches now -- including its quirks, which callers comparing output depend on: a system
+        /// colour with no CSS keyword (<c>ButtonFace</c>, <c>ButtonHighlight</c>, <c>ButtonShadow</c>)
+        /// gives an empty string, <c>LightGray</c> is spelled <c>LightGrey</c>, and alpha is dropped.
+        /// </remarks>
         public static string ToHtml (Color color)
         {
-            if (color == Color.Empty)
+            if (color.IsEmpty)
                 return string.Empty;
-            if (color.A < 255)
-                return $"#{color.A:X2}{color.R:X2}{color.G:X2}{color.B:X2}";
+
+            // By name rather than KnownColor, which netstandard2.0 does not have; a system colour's name
+            // is its KnownColor member's name. netstandard2.0's Color cannot report system-colour identity
+            // at all, so that build falls through to the colour's name.
+#if !NETSTANDARD2_0
+            if (color.IsSystemColor)
+                return SystemColorKeyword (color.Name);
+#endif
+
+            if (color.IsNamedColor)
+                return color == Color.LightGray ? "LightGrey" : color.Name;
+
             return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
         }
+
+        // The CSS2 system-colour keywords, as System.Drawing's ColorTranslator maps them.
+        private static string SystemColorKeyword (string name) => name switch {
+            "ActiveBorder" => "activeborder",
+            "GradientActiveCaption" or "ActiveCaption" => "activecaption",
+            "AppWorkspace" => "appworkspace",
+            "Desktop" => "background",
+            "Control" or "ControlLight" => "buttonface",
+            "ControlDark" => "buttonshadow",
+            "ControlText" => "buttontext",
+            "ActiveCaptionText" => "captiontext",
+            "GrayText" => "graytext",
+            "HotTrack" or "Highlight" => "highlight",
+            "MenuHighlight" or "HighlightText" => "highlighttext",
+            "InactiveBorder" => "inactiveborder",
+            "GradientInactiveCaption" or "InactiveCaption" => "inactivecaption",
+            "InactiveCaptionText" => "inactivecaptiontext",
+            "Info" => "infobackground",
+            "InfoText" => "infotext",
+            "MenuBar" or "Menu" => "menu",
+            "MenuText" => "menutext",
+            "ScrollBar" => "scrollbar",
+            "ControlDarkDark" => "threeddarkshadow",
+            "ControlLightLight" => "buttonhighlight",
+            "Window" => "window",
+            "WindowFrame" => "windowframe",
+            "WindowText" => "windowtext",
+            _ => string.Empty,
+        };
     
         /// <summary>
         /// Converts a color to a Win32 COLORREF, which packs the channels as 0x00BBGGRR.

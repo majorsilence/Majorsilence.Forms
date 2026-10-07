@@ -57,6 +57,10 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
     public sealed class GraphicsContainer
     {
         internal int Count { get; }
+
+        // See GraphicsState.Snapshot.
+        internal object? Snapshot { get; set; }
+
         internal GraphicsContainer (int count) => Count = count;
     }
 

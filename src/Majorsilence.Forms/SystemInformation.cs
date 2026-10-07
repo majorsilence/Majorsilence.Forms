@@ -145,7 +145,12 @@ namespace Majorsilence.Forms
         /// palette on this flag keeps the palette it has, which is the safe direction to be wrong in --
         /// and <see cref="Theme.SetBuiltInTheme"/> is the way to select one deliberately.
         /// </remarks>
-        public static bool HighContrast => false;
+        public static bool HighContrast => HighContrastOverride ?? false;
+
+        // Test seam: the members whose whole point is their high-contrast branch (ControlPaint's
+        // ContrastControlDark and DrawStringDisabled) cannot otherwise be exercised, since no backend
+        // reports the OS preference.
+        internal static bool? HighContrastOverride { get; set; }
 
         /// <summary>Gets how long a submenu waits before opening, in milliseconds.</summary>
         /// <remarks>400, the Windows default. This is the delay a menu manager sleeps for before pushing

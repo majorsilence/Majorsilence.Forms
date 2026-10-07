@@ -31,15 +31,24 @@ namespace Majorsilence.Forms
     /// <summary>
     ///  Provides data for the Layout event.
     /// </summary>
+    /// <remarks>
+    ///  One affected component, as upstream holds it (Layout/LayoutEventArgs.cs): the <see cref="Control"/>
+    ///  constructor chains to the <see cref="IComponent"/> one and <see cref="AffectedControl"/> is that
+    ///  component as a control. These were two fields, each written by one constructor, so every layout a
+    ///  control raised reported a null <see cref="AffectedComponent"/> and one raised for a control through
+    ///  the component overload a null <see cref="AffectedControl"/> (LAY-36). The reference is weak, as
+    ///  upstream's is, so a cached instance does not keep a disposed control alive.
+    /// </remarks>
     public sealed class LayoutEventArgs : EventArgs
     {
+        private readonly WeakReference<IComponent>? affected_component;
+
         /// <summary>
         ///  Initializes a new instance of the LayoutEventArgs class.
         /// </summary>
         public LayoutEventArgs (Control? affectedControl, string? affectedProperty)
+            : this ((IComponent?)affectedControl, affectedProperty)
         {
-            AffectedControl = affectedControl;
-            AffectedProperty = affectedProperty;
         }
 
         /// <summary>
@@ -47,19 +56,25 @@ namespace Majorsilence.Forms
         /// </summary>
         public LayoutEventArgs (IComponent? affectedComponent, string? affectedProperty)
         {
-            AffectedComponent = affectedComponent;
+            affected_component = affectedComponent is not null ? new WeakReference<IComponent> (affectedComponent) : null;
             AffectedProperty = affectedProperty;
         }
 
         /// <summary>
         /// Gets the component affected by this layout event.
         /// </summary>
-        public IComponent? AffectedComponent { get; }
+        public IComponent? AffectedComponent {
+            get {
+                IComponent? target = null;
+                affected_component?.TryGetTarget (out target);
+                return target;
+            }
+        }
 
         /// <summary>
         /// Gets the control affected by this layout event.
         /// </summary>
-        public Control? AffectedControl { get; }
+        public Control? AffectedControl => AffectedComponent as Control;
 
         /// <summary>
         /// Gets the property affected by this layout event.

@@ -223,17 +223,40 @@ namespace Majorsilence.Forms
             if (GetNodeAt (pt) is not { } item)
                 return new TreeViewHitTestInfo (null, TreeViewHitTestLocations.AboveClientArea);
 
-            var node = item as TreeNode;
+            return new TreeViewHitTestInfo (item, LocateWithinRow (item, LogicalToDeviceUnits (pt.X)));
+        }
 
-            // The indent before a node's label is where the expand glyph and the state image live,
-            // which is what lets a caller tell a click on the plus sign from a click on the label.
-            // item.Bounds is the laid-out device-pixel rectangle, so it comes back to logical here.
-            var indent = DeviceToLogicalUnits (item.Bounds.Left);
+        // LAY-39: which part of a node's row an x falls on, read from the regions the renderer paints
+        // (device pixels, like the node's Bounds). This keyed off item.Bounds.Left, and a laid-out node's
+        // bounds span the whole row from x ~= 1 whatever its depth, so nothing ever came back PlusMinus and
+        // "did the user click the expander?" was unanswerable. Upstream asks the native control
+        // (TVM_HITTEST), whose regions run in the same order: indent, button, state image, image, label.
+        private TreeViewHitTestLocations LocateWithinRow (TreeNode item, int x)
+        {
+            if (Renderers.RenderManager.GetRenderer<Renderers.TreeViewRenderer> () is not { } renderer)
+                return TreeViewHitTestLocations.Label;
 
-            if (pt.X < indent)
-                return new TreeViewHitTestInfo (node, TreeViewHitTestLocations.PlusMinus);
+            if (x >= renderer.TextBoundsFor (this, item).Left)
+                return TreeViewHitTestLocations.Label;
 
-            return new TreeViewHitTestInfo (node, TreeViewHitTestLocations.Label);
+            var image = renderer.ImageBoundsFor (this, item);
+
+            if (!image.IsEmpty && x >= image.Left)
+                return TreeViewHitTestLocations.Image;
+
+            var glyph = renderer.GetGlyphBounds (this, item);
+            var glyph_start = glyph.IsEmpty ? renderer.IndentStartFor (this, item) : glyph.Left;
+            var check_start = glyph.IsEmpty ? glyph_start : glyph.Right;
+
+            // With CheckBoxes the box is the state image, as it is upstream.
+            if (CheckBoxes && x >= check_start && x < check_start + ScaledCheckWidth)
+                return TreeViewHitTestLocations.StateImage;
+
+            // A leaf has no button, so its glyph column is indent, as TVHT_ONITEMINDENT reports it.
+            if (!glyph.IsEmpty && x >= glyph.Left && x < glyph.Right && renderer.ShowsGlyphFor (this, item))
+                return TreeViewHitTestLocations.PlusMinus;
+
+            return TreeViewHitTestLocations.Indent;
         }
     }
 

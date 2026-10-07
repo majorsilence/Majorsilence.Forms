@@ -232,14 +232,27 @@ namespace Majorsilence.Forms.Drawing
         /// region's boundary path, since a region stores scanlines rather than geometry and so cannot
         /// be transformed in place.
         /// </summary>
+        /// <remarks>
+        /// GFX-45: rasterised against the transformed path's own bounds, as the constructor and
+        /// <c>Combine (GraphicsPath, ...)</c> already do; the unclipped <c>SetPath</c> walks the whole
+        /// coordinate space, which is the drag-time cost those two document. An infinite region stays
+        /// infinite (GDI+ leaves it so under any transform) rather than turning its ±2^28 boundary
+        /// into a path.
+        /// </remarks>
         public void Transform (Matrix matrix)
         {
             Guard.ThrowIfNull (matrix);
 
+            if (IsInfinite () || region.IsEmpty)
+                return;
+
             using var path = region.GetBoundaryPath ();
             using var transformed = new SKPath (path);
             transformed.Transform (matrix.ToSKMatrix ());
-            region.SetPath (transformed);
+
+            using var clip = new SKRegion ();
+            clip.SetRect (BoundsClip (transformed));
+            region.SetPath (transformed, clip);
         }
 
         /// <summary>

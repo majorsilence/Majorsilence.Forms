@@ -334,8 +334,15 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets or sets whether the container scrolls when its contents do not fit.</summary>
-        public virtual bool AutoScroll { get; set; }
+        /// <summary>Gets whether the container scrolls; always <see langword="false"/>.</summary>
+        /// <remarks>Upstream's override answers <see langword="false"/> whatever is assigned ("SplitContainer
+        /// doesn't support AutoScroll", Layout/Containers/SplitContainer.cs), so code that reads the flag back
+        /// to decide whether to scroll the container does not. Assign <c>AutoScroll</c> on
+        /// <see cref="Panel1"/> or <see cref="Panel2"/>, which do scroll (LAY-09).</remarks>
+        public virtual bool AutoScroll {
+            get => false;
+            set { }
+        }
 
         /// <summary>Gets or sets the margin left around a control scrolled into view.</summary>
         /// <remarks>Stored, as upstream leaves it: a <c>SplitContainer</c> answers <c>false</c> from

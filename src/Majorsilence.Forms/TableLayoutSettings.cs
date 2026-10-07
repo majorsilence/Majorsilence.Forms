@@ -5,6 +5,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.Serialization;
 using Majorsilence.Forms.Layout;
 
 namespace Majorsilence.Forms;
@@ -12,14 +13,9 @@ namespace Majorsilence.Forms;
 /// <summary>
 ///  This is a wrapper class to expose interesting properties of TableLayout
 /// </summary>
-#if DESIGN_TIME
 [TypeConverter (typeof (TableLayoutSettingsTypeConverter))]
-#endif
 [Serializable]  // This class participates in resx serialization.
-public sealed partial class TableLayoutSettings : LayoutSettings
-#if DESIGN_TIME
-    , ISerializable
-#endif
+public sealed partial class TableLayoutSettings : LayoutSettings, ISerializable
 {
     private static readonly int[] borderStyleToOffset =
     [
@@ -32,7 +28,7 @@ public sealed partial class TableLayoutSettings : LayoutSettings
         /*OutsetPartial = */ 3
     ];
     private TableLayoutPanelCellBorderStyle _borderStyle;
-    private readonly TableLayoutSettingsStub? _stub;
+    private TableLayoutSettingsStub? _stub;
 
     // used by TableLayoutSettingsTypeConverter
     internal TableLayoutSettings () : base (null!)
@@ -42,10 +38,11 @@ public sealed partial class TableLayoutSettings : LayoutSettings
 
     internal TableLayoutSettings (IArrangedElement owner) : base (owner) { }
 
-#if DESIGN_TIME
     private TableLayoutSettings (SerializationInfo serializationInfo, StreamingContext context) : this ()
     {
-        var converter = TypeDescriptor.GetConverter (this);
+        // Upstream asks TypeDescriptor.GetConverter (this), which the trim analyzer rejects; the
+        // [TypeConverter] above names this converter, so construct it directly.
+        var converter = new TableLayoutSettingsTypeConverter ();
         var stringVal = serializationInfo.GetString ("SerializedString");
 
         if (!string.IsNullOrEmpty (stringVal)) {
@@ -54,7 +51,6 @@ public sealed partial class TableLayoutSettings : LayoutSettings
             }
         }
     }
-#endif
 
     /// <inheritdoc/>
     public override LayoutEngine LayoutEngine => TableLayout.Instance;
@@ -178,7 +174,6 @@ public sealed partial class TableLayoutSettings : LayoutSettings
     [MemberNotNullWhen (true, nameof (_stub))]
     internal bool IsStub => _stub is not null;
 
-#if DESIGN_TIME
     internal void ApplySettings (TableLayoutSettings settings)
     {
         if (settings.IsStub) {
@@ -191,7 +186,6 @@ public sealed partial class TableLayoutSettings : LayoutSettings
             }
         }
     }
-#endif
 
     #region Extended Properties
     /// <summary>
@@ -398,10 +392,9 @@ public sealed partial class TableLayoutSettings : LayoutSettings
 
     #endregion
 
-#if DESIGN_TIME
     void ISerializable.GetObjectData (SerializationInfo si, StreamingContext context)
     {
-        var converter = TypeDescriptor.GetConverter (this);
+        var converter = new TableLayoutSettingsTypeConverter ();
         var stringVal = converter.ConvertToInvariantString (this);
 
         if (!string.IsNullOrEmpty (stringVal))
@@ -419,12 +412,9 @@ public sealed partial class TableLayoutSettings : LayoutSettings
                 if (element is Control c) {
                     var controlInfo = new ControlInformation ();
 
-                    // We need to go through the PropertyDescriptor for the Name property
-                    // since it is shadowed.
-                    var prop = TypeDescriptor.GetProperties (c)["Name"];
-
-                    if (prop is not null && prop.PropertyType == typeof (string))
-                        controlInfo.Name = prop.GetValue (c);
+                    // Upstream reads Name through a PropertyDescriptor because a designer shadows it;
+                    // there is no designer here, and that lookup is not trim-safe.
+                    controlInfo.Name = c.Name;
 
                     controlInfo.Row = GetRow (c);
                     controlInfo.RowSpan = GetRowSpan (c);
@@ -437,5 +427,4 @@ public sealed partial class TableLayoutSettings : LayoutSettings
             return controlsInfo;
         }
     }
-#endif
 }

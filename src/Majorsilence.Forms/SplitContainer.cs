@@ -129,6 +129,14 @@ namespace Majorsilence.Forms
                     last_client_extent = -1;
 
                     ResumeLayout (true);
+
+                    // LAY-10: the transposed Panel1 carries the same pixel distance across, but nothing
+                    // re-validated it against the new axis, so a 300px split flipped into a 100px-tall
+                    // container squashed Panel2 to nothing. Upstream's setter (Layout/Containers/
+                    // SplitContainer.cs, Orientation) zeroes _splitDistance and re-assigns
+                    // SplitterDistance, which re-clamps against Panel1MinSize/Panel2MinSize and
+                    // raises SplitterMoved.
+                    SetSplitterDistance (SplitterDistance, force: true);
                 }
             }
         }
@@ -199,10 +207,36 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the distance in pixels from the left or top edge to the splitter.</summary>
+        /// <remarks>A value below <see cref="Panel1MinSize"/>, or one that would leave Panel2 smaller
+        /// than <see cref="Panel2MinSize"/>, is moved to the nearest allowed position, and a change raises
+        /// <see cref="SplitterMoved"/>, as upstream does.</remarks>
+        /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
         public int SplitterDistance {
             // Vertical docks Panel1 to the left, so its Width is the distance.
             get => orientation == Orientation.Vertical ? Panel1.Width : Panel1.Height;
-            set => ResizePanels (value);
+            set => SetSplitterDistance (value, force: false);
+        }
+
+        // LAY-11, after upstream's SplitterDistance setter (Layout/Containers/SplitContainer.cs): a
+        // negative value throws, anything else is clamped to the two minimums, and every assignment that
+        // asked for a different distance raises SplitterMoved -- programmatic moves included, which is how
+        // listeners that persist the layout see a restore. Upstream compares the requested value, not the
+        // clamped one, so an assignment clamped back to where the splitter already was still raises.
+        // Upstream additionally throws InvalidOperationException when the container is too small to honour
+        // both minimums; here the minimum wins instead (see ResizePanels), because a container whose layout
+        // has not run yet is routinely that small.
+        private void SetSplitterDistance (int value, bool force)
+        {
+            if (!force && value == SplitterDistance)
+                return;
+
+            if (value < 0)
+                throw new ArgumentOutOfRangeException (nameof (SplitterDistance), value, string.Format (Majorsilence.Forms.Layout.SR.InvalidLowBoundArgumentEx, nameof (SplitterDistance), value, 0));
+
+            ResizePanels (value);
+
+            var rect = SplitterRectangle;
+            OnSplitterMoved (new SplitterEventArgs (rect.X + rect.Width / 2, rect.Y + rect.Height / 2, rect.X, rect.Y));
         }
 
         /// <summary>Gets or sets which panel keeps its size when the container is resized.</summary>

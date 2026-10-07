@@ -30,16 +30,29 @@ namespace Majorsilence.Forms
         /// <summary>Gets the text contents of the clipboard synchronously.</summary>
         public static string GetText () => Platform.Backend.GetClipboardText ();
 
-        /// <summary>Sets the text contents of the clipboard synchronously.</summary>
-        public static void SetText (string text) => Platform.Backend.SetClipboardText (text);
+        /// <summary>Clears the clipboard and then puts text on it.</summary>
+        /// <remarks>As upstream (<c>OLE/Clipboard.cs</c>, <c>SetText</c> places a new one-format
+        /// <c>DataObject</c>), whatever the clipboard held before goes: an RTF or HTML payload from an
+        /// earlier copy must not still answer <see cref="ContainsText(TextDataFormat)"/> after plain
+        /// text has replaced it (SVC-18).</remarks>
+        public static void SetText (string text)
+        {
+            ClearInProcess ();
+            Platform.Backend.SetClipboardText (text);
+        }
 
         /// <summary>Clears the clipboard synchronously.</summary>
         public static void Clear ()
         {
             // The in-process image and formats go with the text (W6 mechanisms).
+            ClearInProcess ();
+            Platform.Backend.ClearClipboard ();
+        }
+
+        private static void ClearInProcess ()
+        {
             clipboard_image = null;
             clipboard_data.Clear ();
-            Platform.Backend.ClearClipboard ();
         }
 
         // Named formats other than text and image are in-process too, for the same reason the image
@@ -59,7 +72,15 @@ namespace Majorsilence.Forms
         public static bool ContainsText () => !string.IsNullOrEmpty (GetText ());
 
         /// <summary>Returns whether the clipboard contains text in the specified format.</summary>
-        public static bool ContainsText (TextDataFormat format) => ContainsText ();
+        /// <remarks>Each <see cref="TextDataFormat"/> is its own clipboard format, as upstream's
+        /// <c>ConvertToDataFormats</c> maps them: plain text does not answer for <c>Rtf</c>, <c>Html</c>
+        /// or <c>CommaSeparatedValue</c> (SVC-18). <c>Text</c> and <c>UnicodeText</c> are one piece of
+        /// data and both read the platform clipboard.</remarks>
+        public static bool ContainsText (TextDataFormat format)
+            => IsPlainText (format) ? ContainsText () : clipboard_data.TryGetValue (DataObject.FormatName (format), out var data) && data is string text && text.Length > 0;
+
+        private static bool IsPlainText (TextDataFormat format)
+            => format is TextDataFormat.Text or TextDataFormat.UnicodeText;
 
         // The image clipboard is IN-PROCESS (W6 mechanisms). The platform backends expose text only,
         // so a system-wide image clipboard would be a new backend capability across all five of them.
@@ -86,11 +107,29 @@ namespace Majorsilence.Forms
         /// </remarks>
         public static void SetImage (Majorsilence.Forms.Drawing.Image image) => clipboard_image = image;
 
-        /// <summary>Gets the text on the clipboard for the specified format.</summary>
-        public static string GetText (TextDataFormat format) => GetText ();
+        /// <summary>Gets the text on the clipboard for the specified format, or an empty string when there is none in it.</summary>
+        /// <remarks>See <see cref="ContainsText(TextDataFormat)"/>: <c>GetText (TextDataFormat.Rtf)</c> used
+        /// to return the plain text, which an RTF consumer then parsed as markup (SVC-18).</remarks>
+        public static string GetText (TextDataFormat format)
+            => IsPlainText (format)
+                ? GetText ()
+                : clipboard_data.TryGetValue (DataObject.FormatName (format), out var data) && data is string text ? text : string.Empty;
 
-        /// <summary>Sets the text on the clipboard in the specified format.</summary>
-        public static void SetText (string text, TextDataFormat format) => SetText (text);
+        /// <summary>Clears the clipboard and then puts text on it in the specified format.</summary>
+        /// <remarks>Plain text reaches the platform clipboard; RTF, HTML and CSV are in-process, as
+        /// every format other than text is here (see <see cref="SetImage"/>). Either way the clipboard
+        /// is cleared first, as upstream's is (SVC-18).</remarks>
+        public static void SetText (string text, TextDataFormat format)
+        {
+            if (IsPlainText (format)) {
+                SetText (text);
+                return;
+            }
+
+            ClearInProcess ();
+            Platform.Backend.ClearClipboard ();
+            clipboard_data[DataObject.FormatName (format)] = text;
+        }
 
         /// <summary>Sets an IDataObject on the clipboard. Stub — stores text if the object supports it.</summary>
         /// <summary>Places data on the clipboard, retrying if another process holds it.</summary>
@@ -163,8 +202,10 @@ namespace Majorsilence.Forms
         {
             Guard.ThrowIfNull (format);
 
+            // Straight to the backend, not through SetText: SetDataObject adds an object's formats one
+            // at a time through here, and SetText's clear would drop the ones already added.
             if (IsTextFormat (format) && data is string text) {
-                SetText (text);
+                Platform.Backend.SetClipboardText (text);
                 return;
             }
 
@@ -371,7 +412,7 @@ namespace Majorsilence.Forms
 
         // The four text kinds are distinct clipboard formats, not decorations on one: storing RTF and
         // reading it back as UnicodeText has to miss, or a paste would insert the markup.
-        private static string FormatName (TextDataFormat format) => format switch {
+        internal static string FormatName (TextDataFormat format) => format switch {
             TextDataFormat.Rtf => DataFormats.Rtf.Name,
             TextDataFormat.Html => DataFormats.Html.Name,
             TextDataFormat.CommaSeparatedValue => DataFormats.CommaSeparatedValue.Name,

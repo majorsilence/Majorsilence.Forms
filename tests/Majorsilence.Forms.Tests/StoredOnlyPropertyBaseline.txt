@@ -55,11 +55,9 @@ Majorsilence.Forms.ButtonBase.UseCompatibleTextRendering    -- GDI/visual-styles
 Majorsilence.Forms.ButtonRenderer.RenderMatchingApplicationState    -- GDI/visual-styles rendering switch; one text and theme pipeline here
 Majorsilence.Forms.CheckedListBox.ThreeDCheckBoxes    -- check glyphs are flat in every style; no 3D variant to select
 Majorsilence.Forms.CheckedListBox.UseCompatibleTextRendering    -- GDI/visual-styles rendering switch; one text and theme pipeline here
-Majorsilence.Forms.ColorDialog.AllowFullOpen    -- framework-written (outbound state)
-Majorsilence.Forms.ColorDialog.AnyColor    -- framework-written (outbound state)
-Majorsilence.Forms.ColorDialog.FullOpen    -- framework-written (outbound state)
+Majorsilence.Forms.ColorDialog.AnyColor    -- palette-display option; every colour is solid and available on a true-colour surface (SVC-36)
 Majorsilence.Forms.ColorDialog.ShowHelp    -- framework-written (outbound state)
-Majorsilence.Forms.ColorDialog.SolidColorOnly    -- framework-written (outbound state)
+Majorsilence.Forms.ColorDialog.SolidColorOnly    -- palette-display option; every colour is solid and available on a true-colour surface (SVC-36)
 Majorsilence.Forms.ComboBox.HideSelection    -- not an upstream ComboBox member; left unread deliberately (see ComboBox.cs)
 Majorsilence.Forms.CommonDialog.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.Control.AccessibleDefaultActionDescription    -- accessibility metadata; no accessible-object tree
@@ -169,12 +167,6 @@ Majorsilence.Forms.DragEventArgs.MessageReplacementToken    -- drop-description 
 Majorsilence.Forms.DrawTreeNodeEventArgs.Canvas    -- framework-written (outbound state)
 Majorsilence.Forms.DrawTreeNodeEventArgs.TreeView    -- framework-written (outbound state)
 Majorsilence.Forms.Drawing.BufferedGraphicsContext.MaximumBuffer    -- every surface is double-buffered by the Skia pipeline; nothing to switch
-Majorsilence.Forms.Drawing.Graphics.CompositingQuality    -- GDI+ quality knob; Skia's pipeline has one quality setting and no equivalent
-Majorsilence.Forms.Drawing.Graphics.InterpolationMode    -- GDI+ quality knob; Skia's pipeline has one quality setting and no equivalent
-Majorsilence.Forms.Drawing.Graphics.PixelOffsetMode    -- GDI+ quality knob; Skia's pipeline has one quality setting and no equivalent
-Majorsilence.Forms.Drawing.Graphics.RenderingOrigin    -- GDI+ quality knob; Skia's pipeline has one quality setting and no equivalent
-Majorsilence.Forms.Drawing.Graphics.TextContrast    -- GDI+ quality knob; Skia's pipeline has one quality setting and no equivalent
-Majorsilence.Forms.Drawing.Graphics.TextRenderingHint    -- GDI+ quality knob; Skia's pipeline has one quality setting and no equivalent
 Majorsilence.Forms.Drawing.SkiaGraphics.DpiX    -- framework-written (outbound state)
 Majorsilence.Forms.ErrorProvider.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.FileDialog.AddToRecent    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
@@ -203,18 +195,11 @@ Majorsilence.Forms.FolderBrowserDialog.RootFolder    -- framework-written (outbo
 Majorsilence.Forms.FolderBrowserDialog.ShowHiddenFiles    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.FolderBrowserDialog.ShowNewFolderButton    -- framework-written (outbound state)
 Majorsilence.Forms.FolderBrowserDialog.ShowPinnedPlaces    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
-Majorsilence.Forms.FolderBrowserDialog.UseDescriptionForTitle    -- framework-written (outbound state)
 Majorsilence.Forms.FontDialog.AllowScriptChange    -- framework-written (outbound state)
 Majorsilence.Forms.FontDialog.AllowSimulations    -- framework-written (outbound state)
 Majorsilence.Forms.FontDialog.AllowVectorFonts    -- framework-written (outbound state)
 Majorsilence.Forms.FontDialog.AllowVerticalFonts    -- framework-written (outbound state)
-Majorsilence.Forms.FontDialog.Color    -- framework-written (outbound state)
-Majorsilence.Forms.FontDialog.FixedPitchOnly    -- framework-written (outbound state)
-Majorsilence.Forms.FontDialog.FontMustExist    -- framework-written (outbound state)
 Majorsilence.Forms.FontDialog.ScriptsOnly    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
-Majorsilence.Forms.FontDialog.ShowApply    -- framework-written (outbound state)
-Majorsilence.Forms.FontDialog.ShowColor    -- framework-written (outbound state)
-Majorsilence.Forms.FontDialog.ShowEffects    -- framework-written (outbound state)
 Majorsilence.Forms.FontDialog.ShowHelp    -- framework-written (outbound state)
 Majorsilence.Forms.Form.AccessibleDescription    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.Form.AccessibleName    -- accessibility metadata; no accessible-object tree
@@ -295,9 +280,6 @@ Majorsilence.Forms.RichTextBox.SelectionTabs    -- paragraph geometry: the text 
 Majorsilence.Forms.SaveFileDialog.CheckWriteAccess    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.SaveFileDialog.ExpandedMode    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.ScrollBar.ScaleScrollBarForDpiChange    -- Win32 handle/window-class detail; no equivalent here
-Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Bottom    -- framework-written (outbound state)
-Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Left    -- framework-written (outbound state)
-Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Right    -- framework-written (outbound state)
 Majorsilence.Forms.SplitContainer.AutoScrollMargin    -- upstream's SplitContainer answers false from AutoScroll whatever is assigned, so the container never scrolls; the panels do, through their own
 Majorsilence.Forms.SplitContainer.AutoScrollMinSize    -- see AutoScrollMargin: the container does not scroll
 Majorsilence.Forms.SplitContainer.AutoScrollPosition    -- see AutoScrollMargin: the container does not scroll
