@@ -190,8 +190,15 @@ namespace Majorsilence.Forms
         /// </remarks>
         public override Point GetPositionFromCharIndex (int index)
         {
-            var caret = TextMeasurer.GetCursorLocation (document.GetTextBlock (), TextOrigin, index, CurrentFontSize);
+            var caret = CaretRectangle (index);
             return caret.IsEmpty ? Point.Empty : DeviceToLogicalUnits (caret.Location);
+        }
+
+        // The caret's rectangle in device units. An empty box has no text to size it from, so it is sized from one line.
+        internal Rectangle CaretRectangle (int index)
+        {
+            var block = document.GetTextBlock ();
+            return TextMeasurer.GetCursorLocation (block, TextOrigin, index, CurrentFontSize, block.MeasuredHeight == 0 ? document.EmptyLineHeight : 0);
         }
 
         /// <summary>
@@ -632,7 +639,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public override void ScrollToCaret ()
         {
-            var caret = TextMeasurer.GetCursorLocation (document.GetTextBlock (), TextOrigin, document.CursorIndex, CurrentFontSize);
+            var caret = CaretRectangle (document.CursorIndex);
 
             if (caret.IsEmpty)
                 return;
@@ -1137,7 +1144,9 @@ namespace Majorsilence.Forms
                 if (Multiline)
                     return 0;
 
-                var slack = PaddedClientRectangle.Height - (int) document.GetTextBlock ().MeasuredHeight;
+                // An empty box has no measured text, so centre the one line it will have when typed into.
+                var measured = (int)document.GetTextBlock ().MeasuredHeight;
+                var slack = PaddedClientRectangle.Height - (measured > 0 ? measured : document.EmptyLineHeight);
                 return slack > 0 ? slack / 2 : 0;
             }
         }

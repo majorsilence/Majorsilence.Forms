@@ -234,10 +234,18 @@ namespace Majorsilence.Forms
         /// Gets the cursor location at the specified code point.
         /// </summary>
         public static Rectangle GetCursorLocation (TextBlock block, Point location, int codePoint, int fontSize)
+            => GetCursorLocation (block, location, codePoint, fontSize, emptyLineHeight: 0);
+
+        /// <summary>
+        /// Gets the cursor location at the specified code point. With no text there is nothing to measure, so
+        /// <paramref name="emptyLineHeight"/> (the height one line of this text would have) sizes the cursor the way a
+        /// cursor on text is sized; zero falls back to a guess from <paramref name="fontSize"/>.
+        /// </summary>
+        public static Rectangle GetCursorLocation (TextBlock block, Point location, int codePoint, int fontSize, int emptyLineHeight)
         {
-            // If there isn't any text the cursor height will be 0, so return a best effort based on font size
+            // If there isn't any text the cursor height will be 0, so size it from one line of text, or failing that from the font size
             if (block.MeasuredHeight == 0)
-                return new Rectangle (location.X, location.Y + 1, 0, fontSize + 2);
+                return new Rectangle (location.X, location.Y + 1, 0, emptyLineHeight > 0 ? emptyLineHeight - 2 : fontSize + 2);
 
             try {
                 var caret_rect = block.GetCaretInfo (new CaretPosition (codePoint)).CaretRectangle;
