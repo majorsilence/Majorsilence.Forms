@@ -621,9 +621,11 @@ close to a drop-in, and collapses three implementations of one function to one.
 Issue #406. On the browser target the blocking modal APIs (`Form.ShowDialog`, `MessageBox.Show`, the
 pickers' `ShowDialog`, `TaskDialog.ShowDialog`) throw `PlatformNotSupportedException` naming their
 async form, because Avalonia.Browser's dispatcher has no nested frame and .NET has the page's only
-thread. Measured with `samples/Gallery.Wasm`'s check (`tools/modal-check.mjs`); the reasoning is in
+thread. Measured with `samples/Gallery.Wasm`'s check (`tools/modal-check.mjs`), which CI's `wasm` job runs
+with `--expect` on every PR; the reasoning is in
 [`docs/backends.md`](docs/backends.md#browser-threading). Re-run the check, and turn the Avalonia
-backend's `CanRunModalLoop` back on for the browser if a nested loop then works, when any of these lands:
+backend's `CanRunModalLoop` back on for the browser if a nested loop then works (and update the script's
+`expected` table, which is what CI holds the browser to), when any of these lands:
 
 - the CoreCLR browser runtime (expected around .NET 12);
 - .NET using JSPI (JavaScript Promise Integration), which would allow synchronous waits on async browser work;
@@ -634,8 +636,6 @@ Left over from the same work:
 
 - **Android and iOS are unmeasured.** Their `RunModalLoop` is still Avalonia's `Dispatcher.PushFrame`
   and `CanRunModalLoop` reports true; whether a nested frame runs there has not been tried on a device.
-- **The Gallery.Wasm check is not in CI.** The `wasm` job publishes the bundle; running
-  `tools/modal-check.mjs` against it would keep the measurements above honest.
 - **Accessibility DOM (browser):** popups (combo box drop-downs, menu drop-downs, tooltips) are not
   mirrored, value changes are not announced through a live region, and nothing has been tried with a
   real screen reader -- it was verified by reading the DOM in headless Chrome. Seen once while building
