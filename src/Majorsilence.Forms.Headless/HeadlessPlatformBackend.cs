@@ -22,7 +22,7 @@ namespace Majorsilence.Forms.Headless
     /// (2) a reference second backend proving the <see cref="IPlatformBackend"/>/<see cref="IWindowBackend"/>
     /// seam is genuinely toolkit-agnostic — the same shape a real Uno backend follows.
     /// </summary>
-    public sealed class HeadlessPlatformBackend : IPlatformBackend, IAnimationFrameSource, IReducedMotionSource, IAudioBackend, IKeepScreenAwakeBackend, IDisposable
+    public sealed class HeadlessPlatformBackend : IPlatformBackend, IAnimationFrameSource, IReducedMotionSource, IAudioBackend, IKeepScreenAwakeBackend, IModalLoopSupport, IDisposable
     {
         /// <summary>Gets the animation frames, which run only when stepped by hand.</summary>
         public HeadlessAnimationClock AnimationClock { get; } = new ();
@@ -326,9 +326,19 @@ namespace Majorsilence.Forms.Headless
                     isPrimary: true)
             };
 
+        /// <summary>
+        /// Whether <see cref="RunModalLoop"/> may block. True by default; a test sets it false to stand in
+        /// for a backend that cannot block its UI thread (the browser), so the blocking modal APIs' refusal
+        /// and their async twins can be exercised without a browser.
+        /// </summary>
+        public bool CanRunModalLoop { get; set; } = true;
+
         /// <inheritdoc/>
         public void RunModalLoop (System.Threading.Tasks.Task completed)
         {
+            if (!CanRunModalLoop)
+                throw new PlatformNotSupportedException (BlockingModal.Message ("A blocking modal loop", "the dialog's async form"));
+
             while (!completed.IsCompleted) {
                 DrainQueue ();
                 _signal.WaitOne (10);

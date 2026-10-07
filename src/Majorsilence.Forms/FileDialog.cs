@@ -235,6 +235,10 @@ namespace Majorsilence.Forms
         /// dialog if one is open, otherwise the first open form. WinForms compatibility.</summary>
         public DialogResult ShowDialog ()
         {
+            // Refused even with no owner to show against (which answers Cancel): on a backend that
+            // cannot block, a Cancel here would read as the user dismissing a picker that never opened.
+            BlockingModal.ThrowIfUnsupported ("FileDialog.ShowDialog", "FileDialog.ShowDialogAsync");
+
             var owner = Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
             return owner is not null ? ShowDialogSync (owner) : DialogResult.Cancel;
         }
@@ -243,12 +247,30 @@ namespace Majorsilence.Forms
         /// Previously discarded the owner argument and fell through to <see cref="ShowDialog()"/>.</summary>
         public DialogResult ShowDialog (IWin32Window owner)
         {
+            BlockingModal.ThrowIfUnsupported ("FileDialog.ShowDialog", "FileDialog.ShowDialogAsync");
+
             var form = owner as Form ?? Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
             return form is not null ? ShowDialogSync (form) : DialogResult.Cancel;
         }
 
         /// <summary>Shows the dialog asynchronously with the specified owner form.</summary>
         public abstract Task<DialogResult> ShowDialogAsync (Form owner);
+
+        /// <summary>Shows the dialog without blocking the caller, owned as <see cref="ShowDialog()"/> would
+        /// own it; with no open form to show against it answers Cancel, as that does.</summary>
+        public Task<DialogResult> ShowDialogAsync ()
+        {
+            var owner = Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
+            return owner is not null ? ShowDialogAsync (owner) : Task.FromResult (DialogResult.Cancel);
+        }
+
+        /// <summary>Shows the dialog without blocking the caller, owned by the given window -- or, for a
+        /// control, by its form -- as <see cref="ShowDialog(IWin32Window)"/> would own it.</summary>
+        public Task<DialogResult> ShowDialogAsync (IWin32Window owner)
+        {
+            var form = owner as Form ?? (owner as Control)?.FindForm () ?? Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
+            return form is not null ? ShowDialogAsync (form) : Task.FromResult (DialogResult.Cancel);
+        }
 
         /// <summary>Shows the dialog modally with the given owner and blocks until closed.</summary>
         public DialogResult ShowDialog (Form owner) => ShowDialogSync (owner);
@@ -263,6 +285,8 @@ namespace Majorsilence.Forms
         /// </remarks>
         public DialogResult ShowDialogSync (Form owner)
         {
+            BlockingModal.ThrowIfUnsupported ("FileDialog.ShowDialog", "FileDialog.ShowDialogAsync");
+
             var result = Form.RunModal (ShowDialogAsync (owner));
 
             if (result != DialogResult.OK)

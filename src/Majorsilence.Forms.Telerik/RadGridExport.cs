@@ -446,6 +446,30 @@ namespace Majorsilence.Forms.Telerik
         public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons, RadMessageIcon icon)
             => Majorsilence.Forms.MessageBox.Show (owner, text, caption, buttons, ToMessageBoxIcon (icon));
 
+        /// <summary>Shows a message box with the specified text, without blocking the caller.</summary>
+        /// <returns>A task that completes with the button the user chose. The form to use where the
+        /// caller cannot block -- the browser target.</returns>
+        public static Task<DialogResult> ShowAsync (string text) => Majorsilence.Forms.MessageBox.ShowAsync (text);
+
+        /// <inheritdoc cref="ShowAsync(string)"/>
+        public static Task<DialogResult> ShowAsync (string text, string caption) => Majorsilence.Forms.MessageBox.ShowAsync (text, caption);
+
+        /// <inheritdoc cref="ShowAsync(string)"/>
+        public static Task<DialogResult> ShowAsync (string text, string caption, MessageBoxButtons buttons)
+            => Majorsilence.Forms.MessageBox.ShowAsync (text, caption, buttons);
+
+        /// <inheritdoc cref="ShowAsync(string)"/>
+        public static Task<DialogResult> ShowAsync (string text, string caption, MessageBoxButtons buttons, RadMessageIcon icon)
+            => Majorsilence.Forms.MessageBox.ShowAsync (text, caption, buttons, ToMessageBoxIcon (icon));
+
+        /// <inheritdoc cref="ShowAsync(string)"/>
+        public static Task<DialogResult> ShowAsync (Form owner, string text, string caption, MessageBoxButtons buttons, RadMessageIcon icon)
+            => Majorsilence.Forms.MessageBox.ShowAsync (owner, text, caption, buttons, ToMessageBoxIcon (icon));
+
+        /// <inheritdoc cref="ShowAsync(string)"/>
+        public static Task<DialogResult> ShowAsync (IWin32Window owner, string text, string caption, MessageBoxButtons buttons, RadMessageIcon icon)
+            => Majorsilence.Forms.MessageBox.ShowAsync (owner, text, caption, buttons, ToMessageBoxIcon (icon));
+
         private static MessageBoxIcon ToMessageBoxIcon (RadMessageIcon icon) => icon switch {
             RadMessageIcon.Error => MessageBoxIcon.Error,
             RadMessageIcon.Warning => MessageBoxIcon.Warning,

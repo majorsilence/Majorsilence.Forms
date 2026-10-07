@@ -271,5 +271,15 @@ namespace Majorsilence.Forms.Telerik
         /// and returns <see cref="DialogResult.OK"/>.
         /// </summary>
         public new DialogResult ShowDialog () => DialogResult.OK;
+
+        /// <summary>The awaitable form of <see cref="ShowDialog()"/>: completes at once with OK, as that
+        /// returns it. Declared so an awaited call does not show this UI-less dialog as an empty form.</summary>
+        public new Task<DialogResult> ShowDialogAsync () => Task.FromResult (ShowDialog ());
+
+        /// <inheritdoc cref="ShowDialogAsync()"/>
+        public new Task<DialogResult> ShowDialogAsync (IWin32Window owner) => ShowDialogAsync ();
+
+        /// <inheritdoc cref="ShowDialogAsync()"/>
+        public new Task<DialogResult> ShowDialogAsync (Form? parent) => ShowDialogAsync ();
     }
 }

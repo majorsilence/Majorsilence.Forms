@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Roslyn analyzer + code fix flagging calls that block the UI thread (ShowDialog, MessageBox.Show,
+       .Result/.Wait(), Thread.Sleep) in code that runs on the browser (WebAssembly) target, where .NET has
+       the page's only thread and cannot block it (issue #406). Not a package of its own: it ships inside
+       the Majorsilence.Forms package under analyzers/dotnet/cs (see that csproj), so every consumer has it,
+       and it stays silent unless the project targets the browser or opts in. -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <IsPackable>false</IsPackable>
+    <!-- RS1038: the code fix lives in this same assembly, which is the usual shape for a package that
+         ships one analyzer with its fix; splitting them would buy nothing here. -->
+    <NoWarn>$(NoWarn);RS1036;RS1038</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 4.11.0, as for the source generator in Majorsilence.Forms.WinFormsShims.Compat: an analyzer loads
+         into the consumer's compiler, and a newer Roslyn API than the host ships makes the host refuse to
+         load it (CS9057). The Workspaces package is pinned centrally at the migrator's 5.6.0, so it is
+         overridden to the same floor here. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" VersionOverride="4.11.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Majorsilence.Forms.Analyzers.Tests" />
+  </ItemGroup>
+
+</Project>

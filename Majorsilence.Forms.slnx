@@ -30,6 +30,7 @@
     <Project Path="samples/WinFormsCompatDemo/WinFormsCompatDemo.csproj" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/Majorsilence.Forms.Analyzers/Majorsilence.Forms.Analyzers.csproj" />
     <Project Path="src/Majorsilence.Forms.Avalonia/Majorsilence.Forms.Avalonia.csproj" />
     <Project Path="src/Majorsilence.Forms.Drawing.Common/Majorsilence.Forms.Drawing.Common.csproj" />
     <Project Path="src/Majorsilence.Forms.Essentials/Majorsilence.Forms.Essentials.csproj" />
@@ -51,6 +52,7 @@
     <Project Path="src/Majorsilence.Forms.WindowsUIAutomation/Majorsilence.Forms.WindowsUIAutomation.csproj" />
   </Folder>
   <Folder Name="/Tests/">
+    <Project Path="tests/Majorsilence.Forms.Analyzers.Tests/Majorsilence.Forms.Analyzers.Tests.csproj" />
     <Project Path="tests/Majorsilence.Forms.Drawing.Common.Tests/Majorsilence.Forms.Drawing.Common.Tests.csproj" />
     <Project Path="tests/Majorsilence.Forms.Mcp.Tests/Majorsilence.Forms.Mcp.Tests.csproj" />
     <Project Path="tests/Majorsilence.Forms.Migrator.Tests/Majorsilence.Forms.Migrator.Tests.csproj" />

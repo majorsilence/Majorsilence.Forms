@@ -32,6 +32,18 @@ namespace Majorsilence.Forms
 
         /// <summary>Shows the print dialog and returns OK (stub — no UI is displayed).</summary>
         public new DialogResult ShowDialog () => DialogResult.OK;
+
+        /// <summary>The awaitable form of <see cref="ShowDialog()"/>: completes at once with OK, as that
+        /// returns it (stub -- no UI is displayed).</summary>
+        /// <remarks>Declared here, hiding the inherited <see cref="Form.ShowDialogAsync()"/> family, so an
+        /// awaited call means the same as the blocking one instead of showing this stub as an empty form.</remarks>
+        public new Task<DialogResult> ShowDialogAsync () => Task.FromResult (ShowDialog ());
+
+        /// <inheritdoc cref="ShowDialogAsync()"/>
+        public new Task<DialogResult> ShowDialogAsync (IWin32Window owner) => ShowDialogAsync ();
+
+        /// <inheritdoc cref="ShowDialogAsync()"/>
+        public new Task<DialogResult> ShowDialogAsync (Form? parent) => ShowDialogAsync ();
     }
 
     /// <summary>
@@ -64,6 +76,44 @@ namespace Majorsilence.Forms
         /// </remarks>
         public new DialogResult ShowDialog ()
         {
+            // Before the page walk, which is the slow part: on a backend that cannot block there is no
+            // point capturing pages for a dialog that will not be shown (issue #406).
+            BlockingModal.ThrowIfUnsupported ("PrintPreviewDialog.ShowDialog", "PrintPreviewDialog.ShowDialogAsync");
+
+            PreparePreview ();
+
+            return base.ShowDialog ();
+        }
+
+        /// <summary>Shows the preview dialog without blocking the caller.</summary>
+        /// <remarks>The pages are captured as for <see cref="ShowDialog()"/>, then the dialog is shown with
+        /// <see cref="Form.ShowDialogAsync()"/>. Declared here because the inherited one would skip the
+        /// capture and show an empty dialog.</remarks>
+        public new Task<DialogResult> ShowDialogAsync ()
+        {
+            PreparePreview ();
+
+            return base.ShowDialogAsync ();
+        }
+
+        /// <inheritdoc cref="ShowDialogAsync()"/>
+        public new Task<DialogResult> ShowDialogAsync (IWin32Window owner)
+        {
+            PreparePreview ();
+
+            return base.ShowDialogAsync (owner);
+        }
+
+        /// <inheritdoc cref="ShowDialogAsync()"/>
+        public new Task<DialogResult> ShowDialogAsync (Form? parent)
+        {
+            PreparePreview ();
+
+            return base.ShowDialogAsync (parent);
+        }
+
+        private void PreparePreview ()
+        {
             HostPreview ();
 
             var previous = Cursor;
@@ -77,8 +127,6 @@ namespace Majorsilence.Forms
                 if (UseWaitCursor)
                     Cursor = previous;
             }
-
-            return base.ShowDialog ();
         }
 
         // The hosted control fills the dialog. Done on show rather than in the constructor because the
@@ -139,6 +187,18 @@ namespace Majorsilence.Forms
 
         /// <summary>Shows the page setup dialog and returns OK (stub — no UI is displayed).</summary>
         public new DialogResult ShowDialog () => DialogResult.OK;
+
+        /// <summary>The awaitable form of <see cref="ShowDialog()"/>: completes at once with OK, as that
+        /// returns it (stub -- no UI is displayed).</summary>
+        /// <remarks>Declared here, hiding the inherited <see cref="Form.ShowDialogAsync()"/> family, so an
+        /// awaited call means the same as the blocking one instead of showing this stub as an empty form.</remarks>
+        public new Task<DialogResult> ShowDialogAsync () => Task.FromResult (ShowDialog ());
+
+        /// <inheritdoc cref="ShowDialogAsync()"/>
+        public new Task<DialogResult> ShowDialogAsync (IWin32Window owner) => ShowDialogAsync ();
+
+        /// <inheritdoc cref="ShowDialogAsync()"/>
+        public new Task<DialogResult> ShowDialogAsync (Form? parent) => ShowDialogAsync ();
     }
 
     /// <summary>

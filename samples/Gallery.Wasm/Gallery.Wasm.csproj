@@ -17,6 +17,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The browser-blocking-call analyzer, as a package consumer gets it inside Majorsilence.Forms: this
+         head is a net10.0-browser project, so it is active here. ModalCheckForm makes its blocking calls
+         on purpose, under a pragma. -->
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Analyzers\Majorsilence.Forms.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- The gallery loads PNGs via File I/O from an "Images" folder relative to the working dir
          (ImageLoader.cs). There is no real filesystem in the browser, so preload the same images into
          the WASM runtime's in-memory filesystem — this keeps ImageLoader (and ControlGallery generally)

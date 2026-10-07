@@ -46,6 +46,7 @@ namespace Majorsilence.Forms
             TaskDialogStartupLocation startupLocation = TaskDialogStartupLocation.CenterOwner)
         {
             Guard.ThrowIfNull (page);
+            BlockingModal.ThrowIfUnsupported ("TaskDialog.ShowDialog", "TaskDialog.ShowDialogAsync");
 
             var chosen = page.Buttons.Count > 0 ? page.Buttons[0] : TaskDialogButton.OK;
 
@@ -79,10 +80,38 @@ namespace Majorsilence.Forms
             TaskDialogStartupLocation startupLocation = TaskDialogStartupLocation.CenterOwner)
             => ShowDialogAsync (owner: null, page, startupLocation);
 
-        /// <inheritdoc cref="ShowDialog(TaskDialogPage,TaskDialogStartupLocation)"/>
-        public static Task<TaskDialogButton> ShowDialogAsync (IWin32Window? owner, TaskDialogPage page,
+        /// <summary>Shows the dialog without blocking the caller; the task completes with the button the
+        /// user chose.</summary>
+        /// <remarks>This used to run the blocking <see cref="ShowDialog(IWin32Window,TaskDialogPage,TaskDialogStartupLocation)"/>
+        /// and wrap its answer in a completed task, so it blocked exactly as that does -- and on the browser
+        /// target, which cannot block, it failed the same way (issue #406). It now shows the same dialog
+        /// through <see cref="Form.ShowDialogAsync()"/>; the page's Created/Destroyed events and its
+        /// <see cref="TaskDialogPage.BoundDialog"/> bracket the dialog's lifetime as they do for the
+        /// blocking call.</remarks>
+        public static async Task<TaskDialogButton> ShowDialogAsync (IWin32Window? owner, TaskDialogPage page,
             TaskDialogStartupLocation startupLocation = TaskDialogStartupLocation.CenterOwner)
-            => Task.FromResult (ShowDialog (owner, page, startupLocation));
+        {
+            Guard.ThrowIfNull (page);
+
+            var chosen = page.Buttons.Count > 0 ? page.Buttons[0] : TaskDialogButton.OK;
+
+            using var form = Build (page, button => chosen = button);
+            page.Bind (new TaskDialog (form));
+
+            try {
+                page.RaiseCreated ();
+
+                if (owner is Form ownerForm)
+                    await form.ShowDialogAsync (ownerForm).ConfigureAwait (true);
+                else
+                    await form.ShowDialogAsync ().ConfigureAwait (true);
+            } finally {
+                page.Bind (null);
+                page.RaiseDestroyed ();
+            }
+
+            return chosen;
+        }
 
         /// <inheritdoc cref="ShowDialog(IntPtr,TaskDialogPage,TaskDialogStartupLocation)"/>
         public static Task<TaskDialogButton> ShowDialogAsync (IntPtr hwndOwner, TaskDialogPage page,

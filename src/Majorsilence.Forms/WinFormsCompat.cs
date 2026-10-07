@@ -895,7 +895,11 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Displays a message box with a specified message, title, buttons, and icon.
     /// </summary>
-    public static class MessageBox
+    /// <remarks>Every <c>Show</c> overload has a <c>ShowAsync</c> twin taking the same arguments (see
+    /// MessageBox.Async.cs). <c>Show</c> blocks the caller in a nested modal loop, which the browser target
+    /// cannot run; there it throws <see cref="PlatformNotSupportedException"/> and <c>ShowAsync</c> is the
+    /// call to make.</remarks>
+    public static partial class MessageBox
     {
         /// <summary>Shows a message box with the specified text.</summary>
         public static DialogResult Show (string text)
@@ -919,17 +923,29 @@ namespace Majorsilence.Forms
         private static DialogResult ShowCore (Form? owner, string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon,
             MessageBoxDefaultButton defaultButton, MessageBoxOptions options)
         {
-            // Prefer the innermost currently-shown modal dialog over the earliest-opened window: an
-            // error box raised from code running inside an already-modal dialog must appear over
-            // that dialog, not behind it against the (input-blocked, likely out-of-view) main
-            // window -- which reads as a silent hang. See Application.ModalStack.
-            var parent = owner ?? Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
-            var form = new MessageBoxForm (caption, text, buttons, icon, defaultButton, options);
+            // Before the form exists: on a backend that cannot block (the browser) nothing should reach
+            // the screen for a call that is about to fail (issue #406).
+            BlockingModal.ThrowIfUnsupported ("MessageBox.Show", "MessageBox.ShowAsync");
+
+            var (parent, form) = Prepare (owner, text, caption, buttons, icon, defaultButton, options);
 
             // With no open form this used to Show () and answer OK without waiting -- so a MessageBox
             // put up before Application.Run (a startup error, a "continue?" prompt) was answered for
             // the user. ShowDialog () is modal with or without an owner now.
             return parent is not null ? form.ShowDialog (parent) : form.ShowDialog ();
+        }
+
+        // What Show and ShowAsync share: the owner the box is shown against and the box itself.
+        private static (Form? Parent, MessageBoxForm Form) Prepare (Form? owner, string text, string caption, MessageBoxButtons buttons,
+            MessageBoxIcon icon, MessageBoxDefaultButton defaultButton, MessageBoxOptions options)
+        {
+            // Prefer the innermost currently-shown modal dialog over the earliest-opened window: an
+            // error box raised from code running inside an already-modal dialog must appear over
+            // that dialog, not behind it against the (input-blocked, likely out-of-view) main
+            // window -- which reads as a silent hang. See Application.ModalStack.
+            var parent = owner ?? Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
+
+            return (parent, new MessageBoxForm (caption, text, buttons, icon, defaultButton, options));
         }
 
         // The long Show overloads. Only the arguments this layer can act on change anything: the help
