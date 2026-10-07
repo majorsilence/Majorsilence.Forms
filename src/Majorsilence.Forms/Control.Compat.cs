@@ -537,6 +537,16 @@ namespace Majorsilence.Forms
         /// <summary>Causes all validation in the control hierarchy to occur. Always returns true in Majorsilence.Forms.</summary>
         public bool Validate () => Validate (checkAutoValidate: false);
 
+        // Whether ValidateChildren recurses into this control's children. Upstream is
+        // GetStyle (ControlStyles.ContainerControl), which ScrollableControl and GroupBox set and
+        // TabControl overrides to true (Control.cs ShouldPerformContainerValidation). Here only
+        // UserControl carries the style, and setting it on Panel would also make every panel a
+        // focus-managing container, so the upstream holders are named instead. SplitContainer is a
+        // ContainerControl upstream and a plain Control here.
+        internal virtual bool ShouldPerformContainerValidation ()
+            => GetStyle (ControlStyles.ContainerControl)
+                || this is ScrollableControl or GroupBox or TabControl or SplitContainer;
+
         /// <summary>Runs this control's validation cycle, returning false when a handler cancelled it.</summary>
         /// <remarks>
         /// Both of these used to return true without raising anything, which made

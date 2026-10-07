@@ -50,15 +50,16 @@ public class UnraisedEventBaselineTests
     {
         var scanned = StubSurfaceScanner.ScanUnraisedEvents (typeof (Control).Assembly.Location);
 
-        // Control.ChangeUICues and Control.RegionChanged: each has an OnXxx that is declared, reads
-        // the field, and is called by nothing in the assembly.
+        // CommonDialog.HelpRequest and DataGridView.RowUnshared: each has an OnXxx that is declared,
+        // reads the field, and is called by nothing in the assembly.
         //
-        // ClientSizeChanged used to be the second example here, and was the better one -- its raise
-        // was commented out in the file. W6.1 then wired it, which is exactly what this gate exists to
-        // provoke, so the example had to be replaced. An example is a live claim about the code: when
-        // the code is fixed the example expires, and a test that pins one has to expect that.
-        Assert.Contains ("Majorsilence.Forms.Control.ChangeUICues", scanned.Select (Name));
-        Assert.Contains ("Majorsilence.Forms.Control.DpiChangedAfterParent", scanned.Select (Name));
+        // ClientSizeChanged used to be an example here, and was the better one -- its raise was
+        // commented out in the file. W6.1 then wired it, and #344 wired the next two (ChangeUICues,
+        // DpiChangedAfterParent), which is exactly what this gate exists to provoke, so the examples had
+        // to be replaced. An example is a live claim about the code: when the code is fixed the example
+        // expires, and a test that pins one has to expect that.
+        Assert.Contains ("Majorsilence.Forms.CommonDialog.HelpRequest", scanned.Select (Name));
+        Assert.Contains ("Majorsilence.Forms.DataGridView.RowUnshared", scanned.Select (Name));
 
         // And the other direction, which is what stops the rule being "flag everything with a raiser":
         // ListView.GroupTaskLinkClick has the same shape and its raiser IS called (from the cell-click

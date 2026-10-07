@@ -598,6 +598,11 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void RenderFrame (SkiaSharp.SKCanvas canvas, int physW, int physH, double scaling)
         {
+            // Every backend reaches here with the window's current scale, so this is where a move to a
+            // monitor of another scale is first seen -- ahead of the frame, so handlers that rescale
+            // fonts or cached art do it before anything is drawn.
+            CheckDpiChanged ();
+
             var skInfo = new SkiaSharp.SKImageInfo (physW, physH, SkiaSharp.SKColorType.Bgra8888, SkiaSharp.SKAlphaType.Premul);
 
             // Adapter and border widths are in LOGICAL pixels; canvas draws in PHYSICAL pixels.
@@ -646,18 +651,33 @@ namespace Majorsilence.Forms
             canvas.DrawBorder (new System.Drawing.Rectangle (0, 0, physW, physH), CurrentStyle);
 
             using (e.LogicalSpace ()) {
+                // The client area is the origin and the clip, as upstream's WM_PAINT DC is for a Form
+                // (EVT-38): (0, 0) is inside the border and below a caption this library draws, so a
+                // watermark or grid drawn in Paint lines up with the controls rather than sliding
+                // under the title bar. Translated by the device offset the children are composited at
+                // (ControlAdapter.ChildPaintOffset plus the content root's own), so the two agree at
+                // any scale.
+                var client = ContentRoot;
+                var client_x = physBorderLeft + (ReferenceEquals (client, adapter) ? 0 : client.ScaledLeft);
+                var client_y = physBorderTop + (ReferenceEquals (client, adapter) ? 0 : client.ScaledTop);
+
+                canvas.Translate ((float) (client_x / scaling), (float) (client_y / scaling));
+                canvas.ClipRect (new SkiaSharp.SKRect (0, 0, client.Width, client.Height));
+
+                // WinForms' Form derives from Control, so a Form.Paint handler runs immediately after
+                // OnPaint and before the child controls are drawn. WindowBase is not a Control, so the
+                // Paint event it declares has to be raised by hand here, mirroring Control.RaisePaint:
+                // only when the base OnPaint was reached, since upstream that is what invokes it (EVT-20).
+                // Without this, `form.Paint += handler` compiles and silently never fires.
+                //
+                // Drawing here survives: the client area's own background pass below is a no-op, because
+                // Control.OnPaintBackground returns early for ControlAdapter, so nothing repaints over
+                // this before the children go down on top.
+                e.PaintEventRequested = false;
                 OnPaint (e);
 
-            // WinForms' Form derives from Control, so a Form.Paint handler runs immediately after
-            // OnPaint and before the child controls are drawn. WindowBase is not a Control, so the
-            // Paint event it declares has to be raised by hand here -- mirroring Control.RaisePaint,
-            // which invokes Paint straight after OnPaint. Without this, `form.Paint += handler`
-            // compiles and silently never fires.
-            //
-            // Drawing here survives: the client area's own background pass below is a no-op, because
-            // Control.OnPaintBackground returns early for ControlAdapter, so nothing repaints over
-            // this before the children go down on top.
-            Paint?.Invoke (this, e);
+                if (e.PaintEventRequested)
+                    Paint?.Invoke (this, e);
             }
 
             // Clip canvas to the inner client area (excludes borders).
@@ -673,6 +693,40 @@ namespace Majorsilence.Forms
 
             canvas.Flush ();
         }
+
+        // The scale the controls last heard about; zero until the first frame establishes one.
+        private double dpi_scaling;
+
+        /// <summary>
+        /// Tells the window and its controls the DPI has changed, when <see cref="Scaling"/> differs from
+        /// what they last heard (EVT-32).
+        /// </summary>
+        /// <remarks>
+        /// The order is Windows' for a per-monitor-v2 window: WM_DPICHANGED_BEFOREPARENT to the child
+        /// tree bottom-up, WM_DPICHANGED to the form, then WM_DPICHANGED_AFTERPARENT top-down. The
+        /// backends report no change themselves, so this compares on each frame and when
+        /// <see cref="Application.UiScale"/> is set.
+        /// </remarks>
+        internal void CheckDpiChanged ()
+        {
+            var previous = dpi_scaling;
+            var current = Scaling;
+            dpi_scaling = current;
+
+            if (previous == 0 || previous == current)
+                return;
+
+            foreach (var child in adapter.Controls.GetAllControls ().ToArray ())
+                child.RaiseDpiChangedBeforeParent ();
+
+            OnWindowDpiChanged ((int) (previous * 96), (int) (current * 96));
+
+            foreach (var child in adapter.Controls.GetAllControls ().ToArray ())
+                child.RaiseDpiChangedAfterParent ();
+        }
+
+        // Form raises its DpiChanged event from here; a bare window has none.
+        private protected virtual void OnWindowDpiChanged (int deviceDpiOld, int deviceDpiNew) { }
 
         /// <summary>
         /// Gives the root adapter the window's own client bounds and lays the child controls out against
@@ -970,8 +1024,16 @@ namespace Majorsilence.Forms
         /// children repaint with the window here regardless.</summary>
         public void Invalidate (bool invalidateChildren) => Invalidate ();
 
-        /// <summary>Forces the window to repaint. Mirrors WinForms Control.Refresh.</summary>
-        public void Refresh () => Invalidate ();
+        /// <summary>Forces the window and every control on it to repaint, painting the controls before
+        /// this returns. Mirrors WinForms Control.Refresh.</summary>
+        /// <remarks>Upstream is <c>Invalidate (true); Update ();</c> (Control.cs Refresh); see
+        /// <see cref="Update"/> for what is synchronous here.</remarks>
+        public void Refresh ()
+        {
+            Invalidate ();
+            adapter.Invalidate (true);
+            Update ();
+        }
 
         // Validate lives with the rest of the validation members below. It used to `return true` here
         // without raising anything, so a form that gated a Save button on Validate () always saved.
@@ -1895,6 +1957,19 @@ namespace Majorsilence.Forms
             // The adapter is the root control, and it forwards into this window at the end of its own
             // chain -- so starting there covers the no-focus case as well.
             var start = adapter.SelectedControl ?? adapter;
+
+            // PreviewKeyDown comes first and can claim the key outright (EVT-08). Upstream's
+            // PreProcessControlMessageInternal raises it ahead of ProcessCmdKey and, when a handler sets
+            // IsInputKey, dispatches the key without running any of the chain -- the documented way to
+            // let a control have Tab, Enter or the arrows. A hosted form previews in its own window.
+            if (start is not FormHost) {
+                var preview = new PreviewKeyDownEventArgs (keys);
+                start.RaisePreviewKeyDown (preview);
+
+                if (preview.IsInputKey)
+                    return false;
+            }
+
             return start.PreProcessKeyMessage (keys);
         }
 
@@ -2067,7 +2142,9 @@ namespace Majorsilence.Forms
         protected virtual void OnMinimumSizeChanged (EventArgs e) => MinimumSizeChanged?.Invoke (this, e);
 
         /// <summary>Paints the Form.</summary>
-        protected internal virtual void OnPaint (PaintEventArgs e) { }
+        /// <remarks>Raises <see cref="Paint"/> once it returns: an override that does not call base
+        /// suppresses the handlers, as upstream.</remarks>
+        protected internal virtual void OnPaint (PaintEventArgs e) => e.PaintEventRequested = true;
 
         /// <summary>Paints the Form's background.</summary>
         protected internal virtual void OnPaintBackground (PaintEventArgs e)
@@ -2100,11 +2177,22 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Forces the window to repaint any invalidated regions immediately. Majorsilence.Forms repaints
-        /// on the backend's own tick rather than synchronously, so this is an <see cref="Invalidate()"/>
-        /// -- the paint happens on the next tick instead of before this call returns.
+        /// Paints every invalidated control on the window before returning, raising their
+        /// <c>Paint</c> events.
         /// </summary>
-        public void Update () => Invalidate ();
+        /// <remarks>
+        /// Upstream's UpdateWindow paints synchronously (Control.cs Update). This used to be an
+        /// <see cref="Invalidate()"/> (EVT-18), so <c>form.Refresh ()</c> inside a long loop painted
+        /// nothing until the loop returned. The controls now paint into their surfaces here, as
+        /// <see cref="Control.Update"/> does. The window's own <see cref="Paint"/> event and putting
+        /// the result on screen remain the backend's next frame: the window draws straight into a
+        /// surface the backend hands it, and no backend can present synchronously.
+        /// </remarks>
+        public void Update ()
+        {
+            adapter.UpdateDirtyDescendants ();
+            Invalidate ();
+        }
 
         /// <summary>Sets the specified <see cref="ControlStyles"/> flag on the window's root adapter.</summary>
         /// <remarks>

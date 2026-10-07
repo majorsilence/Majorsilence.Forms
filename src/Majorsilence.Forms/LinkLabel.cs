@@ -461,6 +461,10 @@ namespace Majorsilence.Forms
         protected override void OnPaint (PaintEventArgs e)
         {
             RenderManager.Render (this, e);
+
+            // Label's OnPaint would draw the text a second time, so the handlers are asked for directly,
+            // as upstream LinkLabel.OnPaint does with RaisePaintEvent (EVT-20).
+            e.PaintEventRequested = true;
         }
 
         /// <inheritdoc/>

@@ -1333,6 +1333,7 @@ namespace Majorsilence.Forms
             edit_control.KeyDown -= EditTextBox_KeyDown;
             edit_control.LostFocus -= EditTextBox_LostFocus;
             edit_control.TextChanged -= EditTextBox_TextChanged;
+            ReclaimFocusFromEditor ();
             Controls.Remove (edit_control);
             edit_control.Dispose ();
             edit_control = null;
@@ -1382,6 +1383,15 @@ namespace Majorsilence.Forms
             SetCurrentCellDirty (true);
         }
 
+        // The grid takes focus back before its editing control leaves, as upstream's
+        // DataGridViewCell.DetachEditingControl does. Otherwise removing the focused editor sends focus
+        // to whatever control is next on the form (EVT-21) rather than to the grid being edited.
+        private void ReclaimFocusFromEditor ()
+        {
+            if (edit_control is { ContainsFocus: true } && !Focused)
+                Focus ();
+        }
+
         // Handle lost focus during editing.
         private void EditTextBox_LostFocus (object? sender, EventArgs e)
         {
@@ -1400,6 +1410,7 @@ namespace Majorsilence.Forms
             edit_control.KeyDown -= EditTextBox_KeyDown;
             edit_control.LostFocus -= EditTextBox_LostFocus;
             edit_control.TextChanged -= EditTextBox_TextChanged;
+            ReclaimFocusFromEditor ();
             Controls.Remove (edit_control);
             edit_control.Dispose ();
             edit_control = null;
@@ -2631,8 +2642,12 @@ namespace Majorsilence.Forms
         protected override void OnLostFocus (EventArgs e)
         {
             // WinForms validates the current row as the grid loses focus, before the control-level
-            // Validating/Validated cycle the base class runs.
-            ValidateRow (selected_row_index);
+            // Validating/Validated cycle the base class runs. Not when the focus went to the grid's own
+            // editing control: that is the edit starting, and validating here would end it again.
+            // Upstream's row validation runs from Leave, which focus moving to a child does not raise.
+            if (!ContainsFocus)
+                ValidateRow (selected_row_index);
+
             base.OnLostFocus (e);
         }
 

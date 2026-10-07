@@ -7,9 +7,6 @@
 # most of these have a trigger point that already exists in the framework.
 # Regenerate with MAJORSILENCE_WRITE_UNRAISED_EVENT_BASELINE=1.
 Majorsilence.Forms.CommonDialog.HelpRequest    -- native dialogs; no help button to click
-Majorsilence.Forms.Control.ChangeUICues    -- Win32 UI cues (WM_UPDATEUISTATE); no equivalent state
-Majorsilence.Forms.Control.DpiChangedAfterParent    -- no DPI-change path; the headless scale is fixed for the process
-Majorsilence.Forms.Control.DpiChangedBeforeParent    -- no DPI-change path; the headless scale is fixed for the process
 Majorsilence.Forms.Control.QueryAccessibilityHelp    -- accessibility infrastructure; no accessible-object tree
 Majorsilence.Forms.Control.Scroll    -- not an upstream Control member; ScrollableControl.Scroll is the one that fires
 Majorsilence.Forms.DataGrid.BackButtonClick    -- upstream ships this family as binary-compat stubs; it raises nothing either
@@ -47,7 +44,6 @@ Majorsilence.Forms.DataGridView.RowUnshared    -- rows are never shared here; th
 Majorsilence.Forms.Design.DesignerActionUIService.DesignerActionListsChanged    -- design-time service; there is no designer host
 Majorsilence.Forms.FolderBrowserDialog.HelpRequest    -- native dialogs; no help button to click
 Majorsilence.Forms.FontDialog.Apply    -- native dialog; no Apply button to click
-Majorsilence.Forms.Form.DpiChanged    -- no DPI-change path; the headless scale is fixed for the process
 Majorsilence.Forms.Form.InputLanguageChanged    -- no input-language switching path
 Majorsilence.Forms.Form.InputLanguageChanging    -- no input-language switching path
 Majorsilence.Forms.ImageList.RecreateHandle    -- Win32 handle lifecycle; images are managed objects here

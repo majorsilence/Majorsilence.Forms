@@ -301,20 +301,8 @@ namespace Majorsilence.Forms.Tests
             Assert.Contains ("OnMouseHover", control.Calls);
         }
 
-        [Fact]
-        public void KeyDown_is_preceded_by_PreviewKeyDown ()
-        {
-            using var control = new HookControl ();
-
-            var order = new List<string> ();
-            control.PreviewKeyDown += (s, e) => order.Add ("PreviewKeyDown:" + e.KeyCode);
-            control.KeyDown += (s, e) => order.Add ("KeyDown:" + e.KeyCode);
-
-            control.RaiseKeyDown (new KeyEventArgs (Keys.A));
-
-            Assert.Equal (new[] { "PreviewKeyDown:A", "KeyDown:A" }, order);
-            Assert.Equal (new[] { "OnPreviewKeyDown", "OnKeyDown" }, control.Calls);
-        }
+        // KeyDown_is_preceded_by_PreviewKeyDown moved to EventsGapTests (EVT-08): PreviewKeyDown is
+        // raised by the window's pre-processing step now, so it needs a shown form to drive it.
 
         [Fact]
         public void Click_routes_through_OnMouseClick ()

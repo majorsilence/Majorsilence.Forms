@@ -1331,6 +1331,14 @@ namespace Majorsilence.Forms
     /// <summary>Provides data for the dpi changed event.</summary>
     public class DpiChangedEventArgs : CancelEventArgs
     {
+        // Upstream builds these from WM_DPICHANGED and has no public constructor either.
+        internal DpiChangedEventArgs (int deviceDpiOld, int deviceDpiNew, Rectangle suggestedRectangle)
+        {
+            DeviceDpiOld = deviceDpiOld;
+            DeviceDpiNew = deviceDpiNew;
+            SuggestedRectangle = suggestedRectangle;
+        }
+
         /// <summary>Gets the device dpi old.</summary>
         public int DeviceDpiOld { get; }
         /// <summary>Gets the device dpi new.</summary>
@@ -1894,24 +1902,29 @@ namespace Majorsilence.Forms
         public Rectangle ConnectedArea { get; }
     }
 
-    /// <summary>Provides data for the u i cues event.</summary>
+    /// <summary>Provides data for the <see cref="Control.ChangeUICues"/> event.</summary>
+    /// <remarks>The constructor used to drop its argument, so every property read false whatever
+    /// changed; the flags are now read from it as upstream's UICuesEventArgs does.</remarks>
     public class UICuesEventArgs : EventArgs
     {
+        private readonly UICues uicues;
+
         /// <summary>Initializes a new instance of the <see cref="UICuesEventArgs"/> class.</summary>
         public UICuesEventArgs (UICues uicues)
         {
+            this.uicues = uicues;
         }
 
-        /// <summary>Gets the show focus.</summary>
-        public bool ShowFocus { get; }
-        /// <summary>Gets the show keyboard.</summary>
-        public bool ShowKeyboard { get; }
-        /// <summary>Gets the change focus.</summary>
-        public bool ChangeFocus { get; }
-        /// <summary>Gets the change keyboard.</summary>
-        public bool ChangeKeyboard { get; }
-        /// <summary>Gets the changed.</summary>
-        public UICues Changed { get; }
+        /// <summary>Gets whether focus rectangles are shown after the change.</summary>
+        public bool ShowFocus => (uicues & UICues.ShowFocus) != 0;
+        /// <summary>Gets whether keyboard cues are underlined after the change.</summary>
+        public bool ShowKeyboard => (uicues & UICues.ShowKeyboard) != 0;
+        /// <summary>Gets whether the state of the focus cues has changed.</summary>
+        public bool ChangeFocus => (uicues & UICues.ChangeFocus) != 0;
+        /// <summary>Gets whether the state of the keyboard cues has changed.</summary>
+        public bool ChangeKeyboard => (uicues & UICues.ChangeKeyboard) != 0;
+        /// <summary>Gets which cues changed.</summary>
+        public UICues Changed => uicues & UICues.Changed;
     }
 
     /// <summary>Provides data for the up down event.</summary>

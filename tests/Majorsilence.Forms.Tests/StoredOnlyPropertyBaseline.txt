@@ -263,7 +263,6 @@ Majorsilence.Forms.PageSetupDialog.EnableMetric    -- framework-written (outboun
 Majorsilence.Forms.PageSetupDialog.MinMargins    -- framework-written (outbound state)
 Majorsilence.Forms.PageSetupDialog.ShowHelp    -- framework-written (outbound state)
 Majorsilence.Forms.PageSetupDialog.ShowNetwork    -- framework-written (outbound state)
-Majorsilence.Forms.PreviewKeyDownEventArgs.IsInputKey    -- needs PreviewKeyDown ahead of dialog-key processing; today it runs after
 Majorsilence.Forms.PrintDialog.AllowCurrentPage    -- framework-written (outbound state)
 Majorsilence.Forms.PrintDialog.AllowPrintToFile    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.PrintDialog.AllowSelection    -- native picker option; not forwarded to the backend dialog (needs a backend capability)

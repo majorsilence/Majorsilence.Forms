@@ -209,7 +209,8 @@ leaving control's `Leave`/`LostFocus`/`Validating`/`Validated`.
   received `KeyDown`.
 - **Tests today:** none.
 
-### EVT-08 — `Control.RaiseKeyDown` ignores `PreviewKeyDownEventArgs.IsInputKey` and raises PreviewKeyDown in the wrong place — Cat A — P2 — High
+### EVT-08 — `Control.RaiseKeyDown` ignores `PreviewKeyDownEventArgs.IsInputKey` and raises PreviewKeyDown in the wrong place — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied, #344):** the window's pre-processing step (`WindowBase.PreProcessKey`) raises `PreviewKeyDown` on the focused control (the root adapter, i.e. the form, when nothing has focus) ahead of `ProcessCmdKey`, and a handler that sets `IsInputKey` skips the whole chain so the key reaches `KeyDown` -- upstream's `PreProcessControlMessageInternal`. `RaiseKeyDown` no longer raises it, so a dialog key is now previewed too. Tests: `EventsGapTests.EVT08_*` (the old direct-call ordering test moved there, driven through the window).
 - **Ours:** `OnPreviewKeyDown (new PreviewKeyDownEventArgs (e.KeyData));` is called inline and the args
   object is discarded — `IsInputKey` set by a handler has no effect
   (`src/Majorsilence.Forms/Control.cs:1834-1836`). It also runs *after* the form-level Enter/Escape
@@ -393,7 +394,8 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
 - **Tests today:** none. (The behaviour is documented in the XML comment on `Control.MouseHover`, so
   this is a known divergence — it is listed because the "fires on every move" half is not documented.)
 
-### EVT-16 — `MouseDown` always reports `Clicks == 1` — Cat A — P2 — High
+### EVT-16 — `MouseDown` always reports `Clicks == 1` — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Already fixed** by #402 (CTL-04): the press asks `WindowBase.CompletesDoubleClick` and the second `MouseDown` reports `Clicks == 2`. Test: `ControlBaseGapTests.CTL04_the_second_MouseDown_of_a_double_click_has_Clicks_2`.
 - **Ours:** `HandlePointerPressed` hard-codes the click count:
   `new MouseEventArgs (button, 1, lx, ly, ...)` (`src/Majorsilence.Forms/WindowBase.cs:1075`). Only the
   *release* path computes a real count (`BuildMouseClickArgs`,
@@ -410,6 +412,7 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
 - **Tests today:** none.
 
 ### EVT-17 — `PaintEventArgs.ClipRectangle` is always the whole control; `Invalidate(Rectangle)` does not narrow it — Cat C — P2 — High
+- **Still open (2026-10-06, #344):** narrowing the clip is not safe yet. `Control.Invalidate ()` passes `Bounds` (parent coordinates) as its rectangle, and the library's own `Invalidate (rect)` callers (`ListView`, `MenuBase`, `Ribbon`) pass item bounds in the device units those controls lay out in; clipping a repaint to either would leave stale pixels, at scale 2 especially. Needs those callers audited to client logical units first, then a per-control accumulated damage rectangle and a full repaint whenever the back buffer is recreated. The impact is performance only.
 - **Ours:** `Invalidate (Rectangle)` sets a single boolean (`States.IsDirty`) and forwards the
   rectangle only to the window, then raises `Invalidated` with it
   (`src/Majorsilence.Forms/Control.cs:941-951`). The paint pass builds
@@ -430,7 +433,8 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
   10, 10, 5, 5))` then render; assert the recorded rect is not the full bounds.
 - **Tests today:** none.
 
-### EVT-18 — `Control.Refresh` / `Control.Update` are asynchronous — Cat A — P1 — High
+### EVT-18 — `Control.Refresh` / `Control.Update` are asynchronous — Cat A — P1 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** `Control.Update`/`Refresh` were already made synchronous by #402 (CTL-21). The rest, #344: `Control.Invalidate (true)` now dirties every descendant (upstream's RDW_ALLCHILDREN), so `Refresh` on a container repaints its children instead of compositing their cached surfaces; and the window's `Update` paints every dirty control in its tree before returning, with `Refresh` = invalidate everything + `Update`. Still on the next frame: the form's own `Paint` event and presenting the pixels -- the window draws straight into the surface a backend hands it, and no backend presents synchronously. Tests: `EventsGapTests.EVT18_*`.
 - **Ours:** `public virtual void Refresh () => Invalidate ();`
   (`src/Majorsilence.Forms/Control.Compat.cs:31`) and `public void Update () => Invalidate ();`
   (`src/Majorsilence.Forms/Control.Compat.cs:450`); the same on the window
@@ -475,7 +479,8 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
   its bounds; assert the `Click` counter is 0 and `MouseUp` fired.
 - **Tests today:** none.
 
-### EVT-20 — `Paint` event is raised outside `OnPaint`, so overriding `OnPaint` without calling base no longer suppresses it — Cat A — P2 — High
+### EVT-20 — `Paint` event is raised outside `OnPaint`, so overriding `OnPaint` without calling base no longer suppresses it — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied, #344):** `Control.OnPaint` (and the window's `OnPaint`) mark the args, and the `Paint` handlers run after `OnPaint` returns only if the base was reached -- so an override that skips base suppresses them, as upstream. `InvokePaint` raises the target's handlers too, as upstream's does. `LinkLabel` (which, like upstream's, cannot call `Label`'s base) asks for them directly. **Not done -- the ordering half:** handlers still run after the whole `OnPaint`, not at the point the override calls base. Moving the invoke into `Control.OnPaint` would put them under the drawing of nearly every library control, which call base first; the faithful fix is to move base last in ~45 overrides (including `ScrollableControl`, `TabControl`, `SplitContainer`), each of which must chain. For stock controls the result already matches upstream (handlers on top). Tests: `EventsGapTests.EVT20_*`.
 - **Ours:** `RaisePaint` calls `OnPaint (e)` and then, separately, `Paint?.Invoke (this, e)`
   (`src/Majorsilence.Forms/Control.cs:2182-2192`); `Control.OnPaint` is deliberately empty
   (`src/Majorsilence.Forms/Control.cs:1406-1413`).
@@ -495,7 +500,8 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
   render; assert the handler did not run.
 - **Tests today:** none.
 
-### EVT-21 — Removing the focused control leaves it as `ControlAdapter.SelectedControl` — Cat B — P2 — High
+### EVT-21 — Removing the focused control leaves it as `ControlAdapter.SelectedControl` — Cat B — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied, #344):** `ControlCollection.RemoveCore` calls `ControlAdapter.AfterControlRemoved`, which, when the removed control holds focus, raises Leave up the old chain and LostFocus, then selects the next control in its container (or the form), or leaves nothing focused -- upstream's `ContainerControl.AfterControlRemoved`. The removed control is not validated. Knock-ons in `DataGridView`: ending an edit hands focus to the grid before the editor leaves (upstream `DataGridViewCell.DetachEditingControl`); the grid's `LostFocus` no longer validates the row when focus moved into its own editor (that ended every edit the moment it began, masked until now by the stale focus); and a click on a current check-box cell no longer opens a text editor over it. `W6ControlFeaturesTests.ShowEditingIcon_*` now renders the grid in place (moving it to another form ends the edit). Tests: `EventsGapTests.EVT21_*`.
 - **Ours:** `ControlCollection.RemoveCore` detaches the control and raises `ControlRemoved`, but never
   reassigns focus; the code carries the upstream call commented out as a TODO:
   `// ContainerControl needs to see it needs to find a new ActiveControl. TODO` /
@@ -621,7 +627,8 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
   assert it fired.
 - **Tests today:** none.
 
-### EVT-28 — `Control.ChangeUICues` / `Form.ShowFocusCues` — Cat D — P2 — High
+### EVT-28 — `Control.ChangeUICues` / `Form.ShowFocusCues` — Cat D — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied, #344):** `Form.ShowFocusCues` and `ShowKeyboardCues` raise `ChangeUICues` on every control of the form (implicit chrome included) when what is drawn changes, then repaint each -- upstream's `WmUpdateUIState`. `UICuesEventArgs` used to discard its constructor argument, so every flag read false; it now reports them as upstream. Tests: `EventsGapTests.EVT28_*`.
 - **Ours:** `ChangeUICues` is real with an `OnChangeUICues` raiser
   (`src/Majorsilence.Forms/Control.Events.cs`, the `ChangeUICues` block) and no caller. Meanwhile the
   framework **does** change focus-cue state: `Control.RaiseKeyDown` sets `f.ShowFocusCues = true` when
@@ -650,6 +657,7 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
 - **Tests today:** none.
 
 ### EVT-30 — `ScrollableControl.Scroll` / `ScrollBar.Scroll` use the wrong delegate type — Cat E — P2 — High
+- **Still open (2026-10-06, #344):** retyping the events is a public API change in `ScrollableControl`/`ScrollBar`, files another branch has unpushed changes in; left for that branch or a follow-up so the two do not collide.
 - **Ours:** `public new event EventHandler<ScrollEventArgs>? Scroll;`
   (`src/Majorsilence.Forms/ScrollableControl.cs:330` and `src/Majorsilence.Forms/ScrollBar.cs:93`) —
   and they hide `Control.Scroll`, which is declared as the correct `ScrollEventHandler` but with empty
@@ -686,7 +694,8 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
   `DragEnter` then `DragDrop` fired with the payload.
 - **Tests today:** none.
 
-### EVT-32 — `Control.DpiChangedBeforeParent` / `DpiChangedAfterParent` — Cat D — P2 — Medium
+### EVT-32 — `Control.DpiChangedBeforeParent` / `DpiChangedAfterParent` — Cat D — P2 — Medium — **CLOSED (2026-10-06)**
+- **Fix (applied, #344):** `WindowBase.CheckDpiChanged` compares the window's scale with the last one its controls heard, at the top of every frame (the point every backend reports its current scale) and when `Application.UiScale` is set. On a change it raises `DpiChangedBeforeParent` bottom-up, `Form.DpiChanged` (with old/new DPI), then `DpiChangedAfterParent` top-down -- Windows' order for a per-monitor-v2 window. `DpiChangedEventArgs` gained the internal constructor it lacked. Tests: `EventsGapTests.EVT32_*`.
 - **Ours:** real events with real `On*` raisers and no caller
   (`src/Majorsilence.Forms/Control.Events.cs`, the `DpiChanged*` block plus
   `OnDpiChangedAfterParent`/`OnDpiChangedBeforeParent`).
@@ -703,6 +712,7 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
 - **Tests today:** none.
 
 ### EVT-33 — `Control.QueryAccessibilityHelp` and `Control.BindingContextChanged` — Cat D — P2 — High
+- **Still open (2026-10-06, #344):** the `QueryAccessibilityHelp` half needs an accessible-object tree surfaced to a platform layer; there is still nothing to raise it from.
 - **`BindingContextChanged` half — CLOSED 2026-09-15 (W6.1).** Field-backed, raised from the
   `BindingContext` setter. See `control.md`'s `CTL-29` for the remaining cascade (`AssignParent`/
   `CreateControl`) this finding's "Fix" line did not call out.
@@ -718,7 +728,8 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
 - **Tests today:** `ControlExtensibilityHookTests.BindingContext_setter_*` (see `binding.md` for the
   binding-runtime side, which still does not subscribe to the event).
 
-### EVT-34 — `Control.OnLocationChanged` raises `LocationChanged` before `Move` — Cat A — P2 — High
+### EVT-34 — `Control.OnLocationChanged` raises `LocationChanged` before `Move` — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied, #344):** `OnLocationChanged` raises `Move` first, then `LocationChanged`, as upstream. Test: `EventsGapTests.EVT34_Move_is_raised_before_LocationChanged`.
 - **Ours:** `(Events[s_locationChangedEvent] as EventHandler)?.Invoke (this, e); OnMove (e);`
   (`src/Majorsilence.Forms/Control.cs:1286-1293`).
 - **Upstream:** `protected virtual void OnLocationChanged(EventArgs e) { OnMove(e); if (Events[s_locationEvent] is EventHandler eh) eh(this, e); }`
@@ -749,7 +760,8 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
   assert `uc.ValidateChildren ()` returns false.
 - **Tests today:** none.
 
-### EVT-36 — `ValidateChildrenCore` does not recurse and short-circuits on the first cancel — Cat A — P2 — High
+### EVT-36 — `ValidateChildrenCore` does not recurse and short-circuits on the first cancel — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied, #344):** `ValidateChildrenCore` is upstream's `PerformContainerValidation`: it recurses into nested containers unless `ImmediateChildren` is set, keeps going after a failure, and skips by the `Selectable` style rather than `CanSelect`. Which children are containers is upstream's `ShouldPerformContainerValidation` (the `ContainerControl` style, which `ScrollableControl`/`GroupBox` set and `TabControl` overrides); here only `UserControl` carries the style and setting it on `Panel` would also make panels focus-managing containers, so the holders are named. Tests: `EventsGapTests.EVT36_*`.
 - **Ours:** a flat `foreach` over the *immediate* children that returns `false` at the first
   `!child.Validate ()` (`src/Majorsilence.Forms/OverloadParity.More.cs:24-40`).
   `ValidationConstraints.ImmediateChildren` is not honoured (it is the only constraint the loop
@@ -800,7 +812,8 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
   in its `Paint` handler; assert the bottom-right device pixel of the back buffer is filled.
 - **Tests today:** none at a scaling other than 1.
 
-### EVT-38 — `WindowBase.Paint` (`Form.Paint`) origin is the window frame, not the client area — Cat A — P2 — High
+### EVT-38 — `WindowBase.Paint` (`Form.Paint`) origin is the window frame, not the client area — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied, #344):** `RenderFrame` translates the canvas to the client area (border, then the content root's offset -- below the caption the library draws) and clips to it before the form's `OnPaint`/`Paint`, so `(0, 0)` is the client origin and `ClipRectangle` is client-relative. `OnPaintBackground` still runs in frame coordinates: the default paints the whole window behind the border and caption. Test: `EventsGapTests.EVT38_Form_Paint_draws_from_the_client_origin`.
 - **Ours:** `RenderFrame` builds one `PaintEventArgs` over the whole physical window surface
   (`new SKImageInfo (physW, physH, ...)`), paints the background and border, calls `OnPaint (e)` and
   raises `Paint?.Invoke (this, e)` — and only *afterwards* clips the canvas to the client rectangle

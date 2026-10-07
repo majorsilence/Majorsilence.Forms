@@ -197,9 +197,13 @@ public partial class Control
     protected virtual void OnMouseCaptureChanged (EventArgs e) => (Events[s_mouseCaptureChangedEvent] as EventHandler)?.Invoke (this, e);
 
     /// <summary>
-    /// Raises the <see cref="PreviewKeyDown"/> event, called just before <see cref="OnKeyDown"/>.
+    /// Raises the <see cref="PreviewKeyDown"/> event, called for a key-down before the dialog keys are
+    /// processed; a handler that sets <see cref="PreviewKeyDownEventArgs.IsInputKey"/> keeps the key.
     /// </summary>
     protected virtual void OnPreviewKeyDown (PreviewKeyDownEventArgs e) => (Events[s_previewKeyDownEvent] as PreviewKeyDownEventHandler)?.Invoke (this, e);
+
+    // The window's pre-processing step raises it on the focused control (WindowBase.PreProcessKey).
+    internal void RaisePreviewKeyDown (PreviewKeyDownEventArgs e) => OnPreviewKeyDown (e);
 
     #endregion
 
