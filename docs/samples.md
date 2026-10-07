@@ -138,10 +138,26 @@ reports each as RETURNED, THREW or HUNG (one page load per check, since a hang w
 dotnet publish samples/Gallery.Wasm -c Release -o out
 node samples/Gallery.Wasm/tools/modal-check.mjs out/wwwroot            # all checks
 node samples/Gallery.Wasm/tools/modal-check.mjs out/wwwroot a11y       # just one
+node samples/Gallery.Wasm/tools/modal-check.mjs out/wwwroot --expect   # pass/fail, as CI runs it
 ```
 
-`CHROME` points it at a browser elsewhere, `MF_CHECK_SCREENSHOTS=<dir>` saves what each page showed, and
-`MF_CHECK_VERBOSE=1` echoes the whole console. What the checks found is in
+Without `--expect` it only reports (exit 0 whatever happened), which is what you want when measuring a
+platform change. `--expect` compares each check with the `expected` table at the top of the script --
+the blocking calls THROW `PlatformNotSupportedException` naming their async form, the awaited calls
+RETURN (`OK`, `Cancel`, `OK`), neither leaves a dialog open or the owner disabled, the accessibility DOM
+mirrors the check form's controls with the expected roles and ARIA attributes, nothing HANGs and the
+page throws nothing -- prints a `MISMATCH` line for each difference and exits 1 if there is any (2 if
+it could not run at all). `--report=<file>` writes every result as JSON. When the platform moves and a
+blocking call starts to work, that table is what changes.
+
+CI runs `--expect` in the `wasm` job of `.github/workflows/dotnet.yml`, after the boot smoke test and
+the bundle upload, against the Chrome preinstalled on the ubuntu runner; on a failure it uploads the
+log, the report and a screenshot per check as the `gallery-wasm-modal-check` artifact.
+
+`CHROME` points it at a browser elsewhere, `MF_CHECK_CHROME_ARGS` adds Chrome flags (CI passes
+`--no-sandbox`), `MF_CHECK_TIMEOUT_MS` is how long a check may take before it counts as HUNG (default
+20000), `MF_CHECK_SCREENSHOTS=<dir>` saves what each page showed, and `MF_CHECK_VERBOSE=1` echoes the
+whole console. What the checks found is in
 [Browser threading](backends.md#browser-threading). The head also references the browser-blocking-call
 analyzer, so a blocking call added to it fails the Release build (`MFB001`-`MFB003`).
 
