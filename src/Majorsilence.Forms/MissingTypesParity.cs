@@ -873,13 +873,29 @@ namespace Majorsilence.Forms
         private ControlBindingsCollection? data_bindings;
 
         /// <summary>Gets or sets the binding context for this component.</summary>
+        /// <remarks>Setting a different context raises <see cref="BindingContextChanged"/>, which moves
+        /// the component's bindings onto the new context's managers, as upstream's setter does.</remarks>
         public BindingContext? BindingContext {
             get => binding_context ??= new BindingContext ();
-            set => binding_context = value;
+            set {
+                if (Equals (binding_context, value))
+                    return;
+
+                binding_context = value;
+                OnBindingContextChanged (EventArgs.Empty);
+            }
         }
 
         /// <summary>Gets the data bindings for this component.</summary>
-        public ControlBindingsCollection DataBindings => data_bindings ??= new ControlBindingsCollection (null!);
+        /// <remarks>Built over this component, as upstream (BindableComponent.cs). It was built over
+        /// <c>null!</c>, so the first <c>DataBindings.Add</c> on any BindableComponent subclass threw a
+        /// NullReferenceException from the attach (BND-25).</remarks>
+        public ControlBindingsCollection DataBindings => data_bindings ??= new ControlBindingsCollection (this);
+
+        // For OnBindingContextChanged: upstream re-homes only bindings that exist, and only once a
+        // context has been set or read -- asking DataBindings would create the collection for nothing.
+        internal ControlBindingsCollection? DataBindingsIfCreated => data_bindings;
+        internal BindingContext? BindingContextIfCreated => binding_context;
     }
 
     /// <summary>Marks a control as dockable by the designer.</summary>

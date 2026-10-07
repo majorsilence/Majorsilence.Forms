@@ -32,6 +32,40 @@ namespace Majorsilence.Forms
         // two-way binding on a text box turns one keystroke into an unbounded ping-pong.
         private bool syncing;
 
+        /// <summary>Initializes a new Binding with an explicit update mode and the value shown when the
+        /// source holds null or <see cref="DBNull"/>.</summary>
+        /// <remarks>Upstream's 6/7/8-argument constructors (Binding.cs). Only the matching
+        /// <c>DataBindings.Add</c> overloads existed, so <c>new Binding (..., nullValue, formatString,
+        /// formatInfo)</c> -- the shape a hand-written binding factory uses -- did not compile (BND-33).</remarks>
+        public Binding (string propertyName, object? dataSource, string? dataMember, bool formattingEnabled,
+            DataSourceUpdateMode dataSourceUpdateMode, object? nullValue)
+            : this (propertyName, dataSource, dataMember, formattingEnabled, dataSourceUpdateMode, nullValue,
+                string.Empty, null)
+        {
+        }
+
+        /// <summary>Initializes a new Binding with an update mode, a null value and a format string.</summary>
+        /// <inheritdoc cref="Binding(string,object,string,bool,DataSourceUpdateMode,object)" path="/remarks"/>
+        public Binding (string propertyName, object? dataSource, string? dataMember, bool formattingEnabled,
+            DataSourceUpdateMode dataSourceUpdateMode, object? nullValue, string formatString)
+            : this (propertyName, dataSource, dataMember, formattingEnabled, dataSourceUpdateMode, nullValue,
+                formatString, null)
+        {
+        }
+
+        /// <summary>Initializes a new Binding with an update mode, a null value, a format string and a
+        /// format provider.</summary>
+        /// <inheritdoc cref="Binding(string,object,string,bool,DataSourceUpdateMode,object)" path="/remarks"/>
+        public Binding (string propertyName, object? dataSource, string? dataMember, bool formattingEnabled,
+            DataSourceUpdateMode dataSourceUpdateMode, object? nullValue, string formatString,
+            IFormatProvider? formatInfo)
+            : this (propertyName, dataSource, dataMember, formattingEnabled, dataSourceUpdateMode)
+        {
+            NullValue = nullValue;
+            FormatString = formatString ?? string.Empty;
+            FormatInfo = formatInfo;
+        }
+
         /// <summary>Raised so a handler can change how the source value is shown in the control.</summary>
         public event ConvertEventHandler? Format;
 
@@ -528,11 +562,33 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void InsertItem (int index, Binding item)
         {
-            base.InsertItem (index, item);
+            Guard.ThrowIfNull (item);
+            CheckDuplicates (item);
 
             // Every Add overload funnels through here, including Add(Binding) called directly, so this is
-            // the one place a binding can be made live from.
+            // the one place a binding can be made live from. Attached BEFORE it joins, as upstream
+            // (ControlBindingsCollection.AddCore: "important to set prop first for error checking"): a
+            // binding whose property does not resolve throws, and must not be left in the collection.
             item.Attach (Control);
+            base.InsertItem (index, item);
+        }
+
+        // Upstream's CheckDuplicates (ControlBindingsCollection.cs): one binding per target property.
+        // Without it a form whose Bind() runs twice stacked a second binding on the same property, both
+        // wrote back, and the last one silently won (BND-17). Ordinal, as upstream's InvariantCulture
+        // comparison: "Text" and "text" are not duplicates there either.
+        private void CheckDuplicates (Binding binding)
+        {
+            foreach (var current in this) {
+                if (ReferenceEquals (current, binding))
+                    throw new ArgumentException ("This binding is already in the collection.", nameof (binding));
+
+                if (!string.IsNullOrEmpty (current.PropertyName)
+                    && string.Equals (binding.PropertyName, current.PropertyName, StringComparison.Ordinal))
+                    throw new ArgumentException (
+                        $"This causes two bindings in the collection to bind to the same property ('{binding.PropertyName}').",
+                        nameof (binding));
+            }
         }
 
         /// <inheritdoc/>

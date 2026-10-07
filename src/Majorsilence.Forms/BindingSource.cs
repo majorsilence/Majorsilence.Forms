@@ -753,9 +753,24 @@ namespace Majorsilence.Forms
         /// element type can be constructed. Setting it overrides that, and
         /// <see cref="ResetAllowNew"/> takes the override away again. It used to be a stored true.
         /// </remarks>
+        /// <exception cref="InvalidOperationException">Set to true over a list that can never add an
+        /// item (read-only or fixed-size, and not an <see cref="IBindingList"/>).</exception>
         public bool AllowNew {
             get => allow_new ?? AllowNewImplied (checkConstructor: true);
-            set => allow_new = value;
+            set {
+                // Upstream's setter (BindingSource.cs AllowNew): an unchanged explicit value is not a
+                // change, an impossible true is refused rather than failing later in AddNew, and the
+                // change is announced as a list reset -- the signal a grid uses to add or drop its new
+                // row (BND-22). It was a plain store, so AllowNew = false left the grid's add row up.
+                if (allow_new == value)
+                    return;
+
+                if (value && _list is not IBindingList && (_list.IsReadOnly || _list.IsFixedSize))
+                    throw new InvalidOperationException ("AllowNew cannot be set to true on a read-only or fixed-size list.");
+
+                allow_new = value;
+                OnListChanged (new ListChangedEventArgs (ListChangedType.Reset, -1));
+            }
         }
 
         private bool? allow_new;
@@ -779,10 +794,34 @@ namespace Majorsilence.Forms
             return type is null || type == typeof (object) || type.IsValueType || type.GetConstructor (Type.EmptyTypes) is not null;
         }
 
-        /// <summary>Returns whether the list allows edits. Stub in Majorsilence.Forms.</summary>
-        public bool AllowEdit { get; set; } = true;
+        /// <summary>Gets whether the items of the list can be edited.</summary>
+        /// <remarks>
+        /// What the list implies, as upstream (BindingSource.cs AllowEdit): an
+        /// <see cref="IBindingList"/> answers for itself, any other list allows edits unless it is
+        /// read-only. It was a stored <c>true</c>, so a grid over a read-only collection offered edits
+        /// the list then refused (BND-22). Upstream has no setter; the one kept here for source
+        /// compatibility overrides the implied answer.
+        /// </remarks>
+        public bool AllowEdit {
+            get => allow_edit ?? (_list is IBindingList list ? list.AllowEdit : !_list.IsReadOnly);
+            set => allow_edit = value;
+        }
 
-        /// <summary>Returns whether the list allows items to be removed. Stub in Majorsilence.Forms.</summary>
-        public bool AllowRemove { get; set; } = true;
+        private bool? allow_edit;
+
+        /// <summary>Gets whether items can be removed from the list.</summary>
+        /// <remarks>
+        /// What the list implies, as upstream (BindingSource.cs AllowRemove): an
+        /// <see cref="IBindingList"/> answers for itself, any other list allows removal unless it is
+        /// read-only or fixed-size -- an array cannot shrink. It was a stored <c>true</c>, so a bound
+        /// navigator's Delete stayed enabled over an array and <see cref="RemoveCurrent"/> threw from
+        /// the list (BND-22). The setter is kept for source compatibility and overrides the answer.
+        /// </remarks>
+        public bool AllowRemove {
+            get => allow_remove ?? (_list is IBindingList list ? list.AllowRemove : !_list.IsReadOnly && !_list.IsFixedSize);
+            set => allow_remove = value;
+        }
+
+        private bool? allow_remove;
     }
 }

@@ -765,13 +765,29 @@ namespace Majorsilence.Forms
 
         private BindingContext? binding_context;
 
+        // The context an UNPARENTED control without one of its own hands out. Upstream answers null
+        // there (Control.cs BindingContextInternal) and binds nothing until the control is parented;
+        // this library binds as soon as a binding is added, so an unparented control needs somewhere
+        // to resolve its managers. It is deliberately NOT the control's own context (BND-15): storing
+        // it as one made every control built in designer order -- DataBindings.Add, THEN
+        // Controls.Add -- keep a private context forever, so two boxes bound to one table never moved
+        // together and neither followed the form. Once the control has a parent this is ignored, and
+        // the bindings that used it move to the inherited context (see UpdateBindings).
+        private BindingContext? implicit_binding_context;
+
         /// <summary>
         /// Gets or sets the BindingContext for the control. Mirrors WinForms Control.BindingContext:
         /// inherited from the parent chain when not set locally, so controls on one form share
         /// binding-manager position state.
         /// </summary>
+        /// <remarks>
+        /// A control with neither a context of its own nor a parent answers with a provisional context
+        /// rather than upstream's null, so a binding added before the control is parented works at
+        /// once. The provisional context is not the control's own: parenting the control moves its
+        /// bindings into the parent's context, as upstream's <c>UpdateBindings</c> does.
+        /// </remarks>
         public virtual BindingContext BindingContext {
-            get => binding_context ?? Parent?.BindingContext ?? (binding_context = new BindingContext ());
+            get => binding_context ?? Parent?.BindingContext ?? (implicit_binding_context ??= new BindingContext ());
             set {
                 if (ReferenceEquals (binding_context, value))
                     return;
@@ -787,6 +803,42 @@ namespace Majorsilence.Forms
         BindingContext? IBindableComponent.BindingContext {
             get => BindingContext;
             set => BindingContext = value ?? new BindingContext ();
+        }
+
+        // Whether BindingContext answers with a real context rather than the provisional one.
+        internal bool HasInheritedOrOwnBindingContext => binding_context is not null || Parent is not null;
+
+        // Upstream's Control.UpdateBindings (Control.cs, called from OnBindingContextChanged): every
+        // binding moves to the manager the control's CURRENT context holds for its source. Only an
+        // own or inherited context counts -- a control just taken off its parent keeps the managers it
+        // had rather than snapping back to a fresh provisional context and showing the first row.
+        internal virtual void UpdateBindings ()
+        {
+            if (!HasInheritedOrOwnBindingContext)
+                return;
+
+            if (_dataBindings is not { Count: > 0 } bindings)
+                return;
+
+            var context = BindingContext;
+
+            foreach (var binding in bindings.ToArray ())
+                BindingContext.UpdateBinding (context, binding);
+        }
+
+        // The not-yet-created half of a parent change. Upstream only re-homes once a control is
+        // created, because only then does it bind at all; here a binding is live from the moment it is
+        // added, so designer-order code (bind, then parent, then show) has to re-home at parenting
+        // time. Without raising BindingContextChanged: upstream does not raise it for an uncreated
+        // control either (Control.cs AssignParent), and CreateControl raises it later.
+        internal void UpdateBindingsInTree ()
+        {
+            UpdateBindings ();
+
+            foreach (var child in Controls.GetAllControls ().ToArray ()) {
+                if (child.binding_context is null)
+                    child.UpdateBindingsInTree ();
+            }
         }
 
         /// <summary>Gets the Form that the control is on, if any.</summary>

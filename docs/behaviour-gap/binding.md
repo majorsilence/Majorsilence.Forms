@@ -157,7 +157,8 @@ BND-33, BND-34, BND-35.
 - **Test:** `var p = new PlainPerson{Name="Ada"}; bs.DataSource = new List<PlainPerson>{p}; box.DataBindings.Add("Text", bs, "Name"); p.Name = "Grace"; bs.ResetCurrentItem(); Assert.Equal("Grace", box.Text);`
 - **Tests today:** none.
 
-### BND-15 — `Control.BindingContext` auto-creates a private context and never re-homes bindings when parented — Cat A — P1 — High
+### BND-15 — `Control.BindingContext` auto-creates a private context and never re-homes bindings when parented — Cat A — P1 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** an unparented control resolves through a provisional context that is no longer stored as its own (`Control.Compat.cs` `implicit_binding_context`); parenting re-homes every binding into the inherited context -- through `OnBindingContextChanged` (now calling `UpdateBindings`, as upstream's `Control.cs`) for a created control, and through `UpdateBindingsInTree` (no event, as upstream) for one not yet created, which is the designer's order; the form's root `ControlAdapter` now hands out the window's own `BindingContext`, so `form.BindingContext[list]` IS the manager the form's controls bind through. Setting `BindingContext` re-homes too. `UpdateBinding` already used `BindingPath` (BND-28). Divergence kept on purpose: upstream answers null for an unparented control and binds nothing until it is parented and created; here a binding works at once. Not done: `Form.BindingContext = x` (in `Form.cs`, held by the form agent) does not notify the root adapter, so the form's controls only move on their next re-home. Tests: `BindingContextRehomingTests`.
 - **Ours:** getter is `binding_context ?? Parent?.BindingContext ?? (binding_context = new BindingContext())` (`src/Majorsilence.Forms/Control.Compat.cs:494-497`): an unparented control mints its own. `Binding.Attach` captures that manager once (`src/Majorsilence.Forms/BindingRuntime.cs:60`); setting `BindingContext` or `Parent` later does not re-resolve. `BindingContextChanged` itself now fires from the `BindingContext` setter (W6.1, 2026-09-15, `CTL-29`/`EVT-33`'s setter half), but nothing subscribes to it to re-home a binding, and it still does not cascade from `AssignParent`/handle-creation the way upstream's does — so this finding's core complaint (re-homing never happens) is unchanged. `BindingContext.UpdateBinding` only swaps the property and uses `BindingMember` where `Attach` uses `BindingPath`, so it lands on a different key (`src/Majorsilence.Forms/TailParity.Two.cs:142-148` vs `BindingRuntime.cs:60`).
 - **Upstream:** `BindingContextInternal` is own-or-parent's, **null** when unparented (`Control.cs:1033-1050`); `OnParentBindingContextChanged` → `OnBindingContextChanged` → `UpdateBindings` re-homes every binding into the form's context (`Control.cs:6740-6752, 7007-7013, 10932`); `UpdateBinding` moves the binding between managers' `Bindings` (`BindingContext.cs:345-364`).
 - **Impact:** designer code calls `textBox1.DataBindings.Add("Text", ds.Customers, "Name")` *before* `Controls.Add(textBox1)`. Every control bound to a plain `DataTable`/`List<T>` therefore gets its own `CurrencyManager`: two text boxes bound to the same table do not move together, and neither follows a grid bound to that table. (Sources that are a `BindingSource` escape because it hands out its own manager.)
@@ -173,7 +174,8 @@ BND-33, BND-34, BND-35.
 - **Test:** `box.DataBindings.Add("Text", list, "Name"); Assert.Equal(1, box.BindingContext[list].Bindings.Count);`
 - **Tests today:** none.
 
-### BND-17 — `ControlBindingsCollection.Add` ignores `DefaultDataSourceUpdateMode`, allows duplicates and null sources — Cat A — P1 — Medium
+### BND-17 — `ControlBindingsCollection.Add` ignores `DefaultDataSourceUpdateMode`, allows duplicates and null sources — Cat A — P1 — Medium — **CLOSED (2026-10-06)**
+- **Fix (applied):** `DefaultDataSourceUpdateMode` was already honoured by the short `Add` (W6.2 sweep). `ControlBindingsCollection.InsertItem` now runs upstream's `CheckDuplicates` (ordinal, as upstream's invariant comparison) and attaches BEFORE inserting, so a binding whose property does not resolve is not left in the collection; the long `Add` overload throws `ArgumentNullException` for a null source. Not done: the 3/4-argument `Add` lives in `WinFormsCompat.cs` (held by the form agent) and still accepts a null source -- it needs the same `Guard.ThrowIfNull (dataSource)`. `Add (Binding)` with a null source stays legal, as upstream. Tests: `BindingContextRehomingTests`.
 - **Ours:** the 3/4-arg `Add` builds a `Binding` whose mode is the constant `OnValidation` (`src/Majorsilence.Forms/WinFormsCompat.cs:158, 263-268`); `DefaultDataSourceUpdateMode` is a stored auto-property (`:281`); `InsertItem` never checks for an existing binding on the same property (`src/Majorsilence.Forms/BindingRuntime.cs:342-349`); `dataSource` may be null.
 - **Upstream:** short `Add` overloads pass `DefaultDataSourceUpdateMode` (`ControlBindingsCollection.cs:60-84`); `AddCore`/`CheckDuplicates` throw `ArgumentException` for a second binding to the same property (`:169-203`); `ArgumentNullException.ThrowIfNull(dataSource)` (`:147`).
 - **Impact:** `DataBindings.DefaultDataSourceUpdateMode = OnPropertyChanged` (the usual "make it live" line) has no effect; a re-run `Bind()` silently stacks a second binding and both write, last wins.
@@ -213,7 +215,8 @@ BND-33, BND-34, BND-35.
 - **Test:** `bs.Position = 99; Assert.Equal(1, bs.Position); Assert.Same(list[1], bs.Current); bs.Position = -1; Assert.Equal(0, bs.Position);`
 - **Tests today:** BindingSourceTests `MoveNext_Invoke_AdvancesAndClamps` (through Move*, not the setter).
 
-### BND-22 — `BindingSource.AllowNew`/`AllowEdit`/`AllowRemove` are constant `true`; `ResetAllowNew` no-op — Cat A — P2 — High
+### BND-22 — `BindingSource.AllowNew`/`AllowEdit`/`AllowRemove` are constant `true`; `ResetAllowNew` no-op — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** `AllowNew` was already computed (W6 mechanisms); its setter now short-circuits an unchanged explicit value, throws `InvalidOperationException` for `true` over a read-only/fixed-size non-`IBindingList`, and raises `ListChanged(Reset)` (upstream `BindingSource.cs AllowNew`). `AllowEdit`/`AllowRemove` derive from the list as upstream (`IBindingList` answers, else `!IsReadOnly` / `!IsReadOnly && !IsFixedSize`); their setters are kept for source compatibility and override. Tests: `BindingContextRehomingTests`.
 - **Ours:** auto-properties initialised to `true` (`src/Majorsilence.Forms/BindingSource.cs:607-614`); `AllowNew` setter raises nothing (`src/Majorsilence.Forms/AppMenuBindingParity.cs:444`).
 - **Upstream:** derived from the list — `IBindingList.AllowNew`, else `!IsReadOnly && !IsFixedSize && has default ctor`; `AllowRemove` likewise; enumerable snapshots report `false`; setting `AllowNew` fires `ListChanged(Reset)` and throws on a read-only list (`BindingSource.cs:105-133, 1642-1674`).
 - **Impact:** a grid/navigator over an array or a read-only list shows an add row / enabled Add; `AddNew` then throws `NotSupportedException` from the list. Setting `AllowNew = false` does not remove the grid's new row because no reset is raised.
@@ -229,7 +232,8 @@ BND-33, BND-34, BND-35.
 - **Test:** `var b = box.DataBindings.Add("Text", p, "Name"); b.ControlUpdateMode = Never; p.Name = "X"; b.ReadValue(); Assert.Equal("X", box.Text);`
 - **Tests today:** none.
 
-### BND-24 — `Binding.DataSourceNullValue` defaults to `null` (upstream `DBNull.Value`) and empty text → null even with `FormattingEnabled == false` — Cat E — P2 — High
+### BND-24 — `Binding.DataSourceNullValue` defaults to `null` (upstream `DBNull.Value`) and empty text → null even with `FormattingEnabled == false` — Cat E — P2 — High — **CLOSED (2026-10-06)**
+- **Already fixed** by W4.4 (BND-13/24): `DataSourceNullValue` defaults to `DBNull.Value` (`TailParity.cs`), and `TryWriteValue` writes `""` into a string member and substitutes `DataSourceNullValue` only when `FormattingEnabled` (`BindingRuntime.cs`).
 - **Ours:** `public object? DataSourceNullValue { get; set; }` (`src/Majorsilence.Forms/TailParity.cs:257`); `WriteValue` maps `""` to it unconditionally (`src/Majorsilence.Forms/BindingRuntime.cs:136-139`).
 - **Upstream:** default `DBNull.Value` for value types / null for reference types (`Formatter.cs:538-543`); the `""` → null mapping only exists on the `FormattingEnabled` path and only when the text equals `NullValue` (`Binding.cs:706-735`, `Formatter.cs:289-292, 397-410`); a legacy binding writes `""` to a string property.
 - **Impact:** clearing a bound text box writes `null` into a `string` property that upstream would set to `""` — a `NOT NULL` column then fails on save; code that reads `DataSourceNullValue` gets null instead of `DBNull`.
@@ -237,7 +241,8 @@ BND-33, BND-34, BND-35.
 - **Test:** `box.DataBindings.Add("Text", p, "Name"); box.Text = ""; box.DataBindings[0].WriteValue(); Assert.Equal("", p.Name);`
 - **Tests today:** BindingRuntimeTests `NullValue_stands_in_for_a_null_source_value` (read side only).
 
-### BND-25 — `BindableComponent.DataBindings` is built over a null component → NRE on first `Add` — Cat A — P2 — High
+### BND-25 — `BindableComponent.DataBindings` is built over a null component → NRE on first `Add` — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** `BindableComponent.DataBindings` is built over `this`, as upstream; its `BindingContext` setter now compares, stores and raises `OnBindingContextChanged`, which re-homes the bindings first (upstream `BindableComponent.cs`). Tests: `BindingContextRehomingTests`.
 - **Ours:** `data_bindings ??= new ControlBindingsCollection (null!)` (`src/Majorsilence.Forms/MissingTypesParity.cs:844`); `Attach(null)` dereferences `component.GetType()` (`src/Majorsilence.Forms/BindingRuntime.cs:44-51`).
 - **Upstream:** `new ControlBindingsCollection(this)` (`BindableComponent.cs:77-78`).
 - **Impact:** any user type deriving `BindableComponent` (the upstream base for bindable non-controls) crashes on `DataBindings.Add`.
@@ -245,7 +250,8 @@ BND-33, BND-34, BND-35.
 - **Test:** `new MyBindable().DataBindings.Add("Tag", p, "Name")` does not throw.
 - **Tests today:** none.
 
-### BND-26 — `ListBox`/`ComboBox` do not share a `CurrencyManager` through `BindingContext` for plain sources — Cat A — P2 — Medium
+### BND-26 — `ListBox`/`ComboBox` do not share a `CurrencyManager` through `BindingContext` for plain sources — Cat A — P2 — Medium — **CLOSED (2026-10-06)**
+- **Fix (applied):** `ListSourceTracker.Attach` takes the control's `BindingContext` and follows `context[dataSource, ""]`'s `CurrencyManager` for any list source (a `BindingSource` still hands out its own); `ListBox`/`ComboBox` re-resolve it on a context change (`UpdateBindings` override, upstream's `ListControl.OnBindingContextChanged` -> `SetDataConnection`), carrying a selection made before parenting into the shared manager, else showing its current item. Path is `""`, not `DisplayMember`'s `BindingPath` -- dotted display members are not supported by the list controls here anyway. Tests: `BindingContextRehomingTests` (plus `DataGridViewComboBoxColumnTests.The_editor_opens_on_the_cells_current_value`, which caught the selection-carry case).
 - **Ours:** `ListSourceTracker.Attach` only tracks position when the source is an `ICurrencyManagerProvider` (`src/Majorsilence.Forms/DataSourceBinding.cs:76-83`); a `DataTable`/`List<T>` source has no manager at all.
 - **Upstream:** `SetDataConnection` takes `BindingContext[newDataSource, displayMember.BindingPath]` and follows its `PositionChanged`/`ItemChanged` (`ListControl.cs:672-750, 394-420`).
 - **Impact:** `listBox.DataSource = table; textBox.DataBindings.Add("Text", table, "Name")` — selecting in the list does not move the text box (works only if both go through a `BindingSource`).
@@ -253,7 +259,8 @@ BND-33, BND-34, BND-35.
 - **Test:** same as BND-15 with a `ListBox` and a `TextBox` over one `List<Person>`.
 - **Tests today:** ListControlDataSourceTrackingTests (BindingSource path only).
 
-### BND-27 — `ListControl.FormattingEnabled`/`FormatString`/`FormatInfo`/`Format` are stored-only — Cat C — P2 — High
+### BND-27 — `ListControl.FormattingEnabled`/`FormatString`/`FormatInfo`/`Format` are stored-only — Cat C — P2 — High — **CLOSED (2026-10-06)**
+- **Already fixed** by LST-27: `ListControl.GetItemText` raises `Format` and applies `FormatString`/`FormatInfo` when `FormattingEnabled` (`WinFormsBaseControls.cs`).
 - **Ours:** auto-properties and an event with no raiser (`src/Majorsilence.Forms/WinFormsBaseControls.cs:84-133`; `src/Majorsilence.Forms/ListBox.cs:671`; `src/Majorsilence.Forms/ComboBox.cs:144`); `GetItemText` goes straight to `DataSourceBinding.DisplayText` (`ListBox.cs:229-233`).
 - **Upstream:** `GetItemText` raises `Format` and applies `FormatString`/`FormatInfo` when `FormattingEnabled` (`ListControl.cs:537` and surrounding).
 - **Impact:** a combo of dates/decimals shows raw `ToString()`; `comboBox.Format += (s,e) => e.Value = …` (the standard "display Last, First" trick) never runs.
@@ -291,22 +298,26 @@ BND-33, BND-34, BND-35.
 - **Tests today:** none.
 
 ### BND-32 — `Binding.NullValue`/`FormatString`/`FormatInfo`/`FormattingEnabled`/`ControlUpdateMode` setters do not re-push — Cat C — P3 — High
+- **Still open (2026-10-06, #340):** `NullValue`/`FormatString`/`FormatInfo` are auto-properties in `WinFormsCompat.cs`, held by a parallel change; the fix is a backing field per setter plus `if (IsBinding) PushValue ();` (and the same for `FormattingEnabled`/`ControlUpdateMode` in `TailParity.cs`), done together so the five setters agree.
 - **Ours:** plain setters (`src/Majorsilence.Forms/WinFormsCompat.cs:142, 161, 164`; `src/Majorsilence.Forms/TailParity.cs:251-254`).
 - **Upstream:** each setter calls `PushData()` when `IsBinding` (`Binding.cs:296-421`).
 - **Fix:** call `ReadValue()` in each setter when attached.
 - **Tests today:** none.
 
-### BND-33 — `Binding` ctor overloads with `nullValue`/`formatString`/`formatInfo` missing — Cat E — P3 — High
+### BND-33 — `Binding` ctor overloads with `nullValue`/`formatString`/`formatInfo` missing — Cat E — P3 — High — **CLOSED (2026-10-06)**
+- **Fix (applied):** the 6/7/8-argument `Binding` constructors exist (`BindingRuntime.cs`), forwarding to the 5-argument one and setting `NullValue`/`FormatString`/`FormatInfo`, as upstream `Binding.cs`. Tests: `BindingContextRehomingTests`.
 - **Ours:** only the 4-arg (defaulted) and 5-arg ctors (`src/Majorsilence.Forms/WinFormsCompat.cs:115-130`); `ControlBindingsCollection.Add` has the long overloads (`src/Majorsilence.Forms/OverloadParity.cs:317-345`) but `new Binding(…, nullValue, formatString, formatInfo)` does not compile.
 - **Upstream:** 6/7/8-arg ctors (`Binding.cs:99-160`).
 - **Fix:** add the three ctors forwarding to the property setters.
 
-### BND-34 — `BindingSource.ApplySort(ListSortDescriptionCollection)` does not record `Sort`; `Filter` setter raises no `ListChanged` on a non-view list — Cat A — P3 — High
+### BND-34 — `BindingSource.ApplySort(ListSortDescriptionCollection)` does not record `Sort`; `Filter` setter raises no `ListChanged` on a non-view list — Cat A — P3 — High — **CLOSED (2026-10-06)**
+- **Not a divergence -- the finding misread upstream.** Upstream's `ApplySort(ListSortDescriptionCollection)` only forwards to the `IBindingListView` and never sets `_sort` (`BindingSource.cs` ApplySort), and the `Filter` setter only forwards to a filtering view (`InnerListFilter`) with no `ListChanged` on a plain list. The behaviour here already matches. (The single-property `ApplySort` here does record `Sort`, which upstream does not; left as an existing, harmless extra.)
 - **Ours:** `src/Majorsilence.Forms/AppMenuBindingParity.cs:399-405`; `src/Majorsilence.Forms/BindingSource.cs:214-222`.
 - **Upstream:** `ApplySort` sets `_sort` from the descriptions (`BindingSource.cs:~1000-1010`).
 - **Fix:** build the expression string and `RecordSortExpression`.
 
-### BND-35 — `ListBox.SelectedValue` setter leaves the selection unchanged when the value is not found — Cat A — P3 — Medium
+### BND-35 — `ListBox.SelectedValue` setter leaves the selection unchanged when the value is not found — Cat A — P3 — Medium — **CLOSED (2026-10-06)**
+- **Already fixed** by LST-29: both `ListBox.SelectedValue` and `ComboBox.SelectedValue` set `SelectedIndex = -1` on a miss.
 - **Ours:** loop falls through without assigning (`src/Majorsilence.Forms/ListBox.cs:621-640`; same shape in `ComboBox.cs:475-495`).
 - **Upstream:** `SelectedIndex = DataManager.Find(...)` → `-1` deselects (`ListControl.cs:354-386`).
 - **Fix:** set `SelectedIndex = -1` after the loop.
