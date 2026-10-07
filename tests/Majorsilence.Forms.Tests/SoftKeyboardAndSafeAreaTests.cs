@@ -239,8 +239,9 @@ public class SoftKeyboardAndSafeAreaTests
 
         form.HandleInputPaneChanged (new Rectangle (0, 300, 300, 300));
 
-        // The viewport now ends where the keyboard begins, and the field sits inside it.
-        var top = last.Top + panel.AutoScrollPosition.Y;
+        // The viewport now ends where the keyboard begins, and the field sits inside it. A scrolled panel moves its children,
+        // so Top is already where the field is drawn; adding the scroll offset again put the field in content coordinates.
+        var top = last.Top;
         Assert.True (top + last.Height <= panel.ClientSize.Height, "the field should be above the keyboard");
         Assert.True (top >= 0);
     }

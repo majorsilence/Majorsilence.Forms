@@ -529,7 +529,9 @@ namespace Majorsilence.Forms
             if (scroller is null)
                 return;
 
-            // target's position relative to the scroller's content origin.
+            // target's position in the scroller's client area as it is drawn now. A scrolled ScrollableControl moves its
+            // children by the scroll offset (as WinForms does), so each Top already includes it: this is where the
+            // field is on screen, not where it sits in the content.
             var top = 0;
             var left = 0;
             for (Control? c = target; c is not null && !ReferenceEquals (c, scroller); c = c.Parent) {
@@ -552,7 +554,10 @@ namespace Majorsilence.Forms
             var offsetY = -current.Y;
             var offsetX = -current.X;
 
-            var visibleTop = top - offsetY;
+            // Taking the offset off a second time read a visible field as further above the viewport the further the
+            // panel was scrolled, so focusing it scrolled the content back up -- and a tap whose press focused a
+            // control released over a different one.
+            var visibleTop = top;
             var visibleBottom = visibleTop + target.Height;
 
             if (visibleBottom + margin.Height > viewportBottom)
@@ -562,7 +567,7 @@ namespace Majorsilence.Forms
 
             // The horizontal axis was simply not handled: a wide form scrolled sideways left the
             // focused field off to the right however far down the panel had scrolled to reach it.
-            var visibleLeft = left - offsetX;
+            var visibleLeft = left;
             var visibleRight = visibleLeft + target.Width;
 
             if (visibleRight + margin.Width > viewport.Width)
