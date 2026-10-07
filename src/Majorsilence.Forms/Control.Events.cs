@@ -529,15 +529,28 @@ public partial class Control
         remove => Events.RemoveHandler (s_previewKeyDownEvent, value);
     }
 
-    /// <summary>Raised when the control is added to a container control. Stub in Majorsilence.Forms.</summary>
+    /// <summary>Raised when the focus or keyboard user-interface cues change.</summary>
+    /// <remarks>
+    /// Raised on every control of a form when the form starts showing focus rectangles (the first Tab)
+    /// or access-key underlines (the first Alt) -- upstream's WM_UPDATEUISTATE, which reaches each
+    /// window (Control.cs WmUpdateUIState). It had a raiser and no caller (EVT-28), so an owner-drawn
+    /// control deciding from it whether to draw its focus rectangle never heard the switch.
+    /// </remarks>
     public event UICuesEventHandler? ChangeUICues;
 
     /// <summary>Raises the ChangeUICues event.</summary>
-    /// <remarks>
-    /// Majorsilence.Forms never changes keyboard/focus cue state on its own, so nothing raises this
-    /// internally; it exists because ported control libraries override it and wire handlers to it.
-    /// </remarks>
     protected virtual void OnChangeUICues (UICuesEventArgs e) => ChangeUICues?.Invoke (this, e);
+
+    // Raised on this control and every descendant, each repainting as upstream's WmUpdateUIState does
+    // with Invalidate (true): what they draw for focus or access keys has just changed.
+    internal void RaiseChangeUICues (UICuesEventArgs e)
+    {
+        OnChangeUICues (e);
+        Invalidate ();
+
+        foreach (var child in Controls.GetAllControls ().ToArray ())
+            child.RaiseChangeUICues (e);
+    }
 
     /// <summary>Raised when the user asks for help on the control.</summary>
     /// <remarks>
@@ -573,16 +586,34 @@ public partial class Control
 
     /// <summary>Raised when the DPI scaling of the control changes.</summary>
     /// <remarks>
-    /// A real event now, for the same reason as <see cref="HelpRequested"/>: empty accessors let a
-    /// handler attach and then silently drop it. Nothing in this layer raises it yet -- there is no
-    /// per-backend DPI-change detection wired up -- but <see cref="OnDpiChangedAfterParent"/> is public
-    /// enough to call, which is what let a WinForms control ported as-is (its own override of the
-    /// hook) keep compiling instead of failing with CS0115.
+    /// Raised on every control of a window whose scaling changes -- moved to a monitor of another
+    /// scale, or <see cref="Application.UiScale"/> set -- after the form's own <c>DpiChanged</c>
+    /// (EVT-32). It used to have nothing raising it.
     /// </remarks>
     public event EventHandler? DpiChangedAfterParent;
 
+    // A window changing DPI tells its controls as Windows does with WM_DPICHANGED_BEFOREPARENT, which
+    // walks the child tree bottom-up, and WM_DPICHANGED_AFTERPARENT, which walks it top-down -- one
+    // either side of the form's own DpiChanged (WindowBase.CheckDpiChanged).
+    internal void RaiseDpiChangedBeforeParent ()
+    {
+        foreach (var child in Controls.GetAllControls ().ToArray ())
+            child.RaiseDpiChangedBeforeParent ();
+
+        OnDpiChangedBeforeParent (EventArgs.Empty);
+    }
+
+    internal void RaiseDpiChangedAfterParent ()
+    {
+        OnDpiChangedAfterParent (EventArgs.Empty);
+
+        foreach (var child in Controls.GetAllControls ().ToArray ())
+            child.RaiseDpiChangedAfterParent ();
+    }
+
     /// <summary>Raised before the DPI scaling of the control changes.</summary>
-    /// <remarks>Real for the same reason as <see cref="DpiChangedAfterParent"/>; see its remarks.</remarks>
+    /// <remarks>Raised on every control of a window whose scaling changes, before the form's own
+    /// <c>DpiChanged</c>; see <see cref="DpiChangedAfterParent"/>.</remarks>
     public event EventHandler? DpiChangedBeforeParent;
 
     /// <summary>Raises the <see cref="DpiChangedAfterParent"/> event.</summary>

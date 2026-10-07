@@ -590,6 +590,9 @@ public partial class Control
                 // it is still parented. Covers Clear() and RemoveAt() too, which both route through here.
                 (item as FormHost)?.DetachChild ();
 
+                // Found before detaching: afterwards the control no longer leads to its window.
+                var adapter = Owner.FindAdapter ();
+
                 item.AssignParent (null);
 
                 LayoutTransaction.DoLayout (Owner, item, PropertyNames.Parent);
@@ -599,9 +602,9 @@ public partial class Control
                 // on screen until something else happened to invalidate the owner (#370). WinForms repaints the parent when a child leaves.
                 Owner.Invalidate ();
 
-                // ContainerControl needs to see it needs to find a new ActiveControl. TODO
-                //if (Owner.GetContainerControl () is ContainerControl cc)
-                //    cc.AfterControlRemoved (value, Owner);
+                // Focus cannot stay on a control that has left the window (EVT-21); upstream's
+                // ContainerControl.AfterControlRemoved, which the adapter stands in for here.
+                adapter?.AfterControlRemoved (item, Owner);
 
                 return true;
             }

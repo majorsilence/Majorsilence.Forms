@@ -45,6 +45,11 @@ namespace Majorsilence.Forms
         // The canvas matrix this paint started with: the surface's own device-pixel space.
         private readonly SKMatrix device_matrix;
 
+        // Set by the base OnPaint (Control's or the window's). The Paint event is raised only when it
+        // was reached, so an override that does not call base suppresses the handlers, as upstream,
+        // where the base OnPaint is what invokes them (EVT-20).
+        internal bool PaintEventRequested;
+
         // ── Logical and device painting (EVT-37, CTL-10) ───────────────────────────────────────────
         //
         // Application paint code -- an OnPaint override, a Paint handler, OnPaintBackground -- draws in

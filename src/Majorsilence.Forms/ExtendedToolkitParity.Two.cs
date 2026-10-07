@@ -16,7 +16,9 @@ namespace Majorsilence.Forms
         protected void InvokePaint (Control c, PaintEventArgs e)
         {
             Guard.ThrowIfNull (c);
-            c.OnPaint (e);
+
+            // Upstream's c.OnPaint raises c's Paint handlers too; here that takes the helper.
+            c.OnPaintAndHandlers (e);
         }
 
         /// <summary>Asks another control to paint its background onto the supplied surface.</summary>

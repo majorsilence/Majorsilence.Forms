@@ -1086,9 +1086,50 @@ namespace Majorsilence.Forms
         /// </summary>
         public void Invalidate () => Invalidate (Bounds);
 
-        /// <summary>Marks the control as needing to be redrawn. Mirrors WinForms
-        /// Invalidate(bool invalidateChildren); children repaint with the control here regardless.</summary>
-        public void Invalidate (bool invalidateChildren) => Invalidate (Bounds);
+        /// <summary>Marks the control, and when <paramref name="invalidateChildren"/> is true every
+        /// descendant as well, as needing to be redrawn.</summary>
+        /// <remarks>
+        /// Upstream passes RDW_ALLCHILDREN for true (Control.cs Invalidate(bool)), so each child raises
+        /// its own Paint. Here an undirtied child is composited from the surface it painted last time,
+        /// so the children are dirtied explicitly -- which is what makes <see cref="Refresh"/> repaint
+        /// them, as it does upstream.
+        /// </remarks>
+        public void Invalidate (bool invalidateChildren)
+        {
+            if (invalidateChildren && Created)
+                foreach (var child in Controls.GetAllControls ())
+                    child.MarkDirtyDeep ();
+
+            Invalidate (Bounds);
+        }
+
+        // Dirties this control and its descendants without raising Invalidated: upstream raises that
+        // once, on the control Invalidate was called on.
+        private void MarkDirtyDeep ()
+        {
+            if (!Created)
+                return;
+
+            SetState (States.IsDirty, true);
+
+            foreach (var child in Controls.GetAllControls ())
+                child.MarkDirtyDeep ();
+        }
+
+        /// <summary>
+        /// Paints every dirty control in this subtree now, the synchronous half of a window's
+        /// Update. A dirty control paints its own dirty descendants with it.
+        /// </summary>
+        internal void UpdateDirtyDescendants ()
+        {
+            // Implicit children too: a form's client area and title bar are the adapter's.
+            foreach (var child in Controls.GetAllControls ().ToArray ()) {
+                if (child.GetState (States.IsDirty))
+                    child.Update ();
+                else
+                    child.UpdateDirtyDescendants ();
+            }
+        }
 
         /// <summary>
         /// Marks the specified portion of the control as needing to be redrawn.
@@ -1530,8 +1571,10 @@ namespace Majorsilence.Forms
         /// </summary>
         protected virtual void OnLocationChanged (EventArgs e)
         {
-            (Events[s_locationChangedEvent] as EventHandler)?.Invoke (this, e);
+            // Move first, then LocationChanged (upstream Control.cs OnLocationChanged, EVT-34): code that
+            // repositions a satellite in Move and recomputes from it in LocationChanged depends on it.
             OnMove (e);
+            (Events[s_locationChangedEvent] as EventHandler)?.Invoke (this, e);
         }
 
         /// <summary>Raises the Move event (WinForms fires Move together with LocationChanged).</summary>
@@ -1736,11 +1779,17 @@ namespace Majorsilence.Forms
         /// <param name="e">A PaintEventArgs that contains the event data.</param>
         protected virtual void OnPaint (PaintEventArgs e)
         {
-            // Deliberately empty, matching WinForms. Child controls are NOT painted here -- see
-            // PaintChildren, which RaisePaint calls afterwards. In WinForms every child is its own
-            // HWND and repaints itself, so a derived control can override OnPaint and skip base
-            // without its children disappearing; that idiom is common in ported custom-control
-            // code, so the child pass must live outside anything user code can suppress.
+            // Upstream this is where the Paint event is invoked (Control.cs OnPaint), so an override
+            // that skips base suppresses the handlers. Here RaisePaint invokes them once OnPaint has
+            // returned, and only if this was reached (EVT-20). Invoking them right here instead would
+            // put them under the library controls' own drawing, which nearly all call base first.
+            e.PaintEventRequested = true;
+
+            // Child controls are NOT painted here -- see PaintChildren, which RaisePaint calls
+            // afterwards. In WinForms every child is its own HWND and repaints itself, so a derived
+            // control can override OnPaint and skip base without its children disappearing; that
+            // idiom is common in ported custom-control code, so the child pass must live outside
+            // anything user code can suppress.
         }
 
         /// <summary>
@@ -2243,8 +2292,9 @@ namespace Majorsilence.Forms
                 return;
             }
 
+            // PreviewKeyDown is not raised here: it belongs to the pre-processing step, ahead of the
+            // dialog keys (WindowBase.PreProcessKey), where a handler's IsInputKey can still matter.
             if (Enabled) {
-                OnPreviewKeyDown (new PreviewKeyDownEventArgs (e.KeyData));
                 OnKeyDown (e);
 
                 // F1 is WM_HELP: HelpRequested walks up the parents until one handles it, then the
@@ -2737,10 +2787,8 @@ namespace Majorsilence.Forms
 
             // Application paint code draws in logical units (EVT-37); the scope also takes back any
             // transform or clip it leaves on the canvas before the children are composited.
-            using (e.LogicalSpace ()) {
-                OnPaint (e);
-                Paint?.Invoke (this, e);
-            }
+            using (e.LogicalSpace ())
+                OnPaintAndHandlers (e);
 
             PaintChildren (e);
 
@@ -2750,6 +2798,16 @@ namespace Majorsilence.Forms
             // them -- which is why ErrorProvider's icon needs this hook and not that event
             // (finding SMP-51). Internal because it is a framework seam, not a WinForms member.
             PaintAdorners?.Invoke (this, e);
+        }
+
+        // OnPaint, then the Paint handlers if the base OnPaint was reached (EVT-20; see Control.OnPaint).
+        internal void OnPaintAndHandlers (PaintEventArgs e)
+        {
+            e.PaintEventRequested = false;
+            OnPaint (e);
+
+            if (e.PaintEventRequested)
+                Paint?.Invoke (this, e);
         }
 
         /// <summary>

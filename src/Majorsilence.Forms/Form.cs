@@ -653,14 +653,17 @@ namespace Majorsilence.Forms
         /// <summary>Raised when the DPI the form is displayed at changes.</summary>
         /// <remarks>
         /// Typed with the args WinForms uses, so a handler can read the old and new DPI -- the two numbers
-        /// a form needs to rescale anything it sized itself. Declared and raisable but not raised: the
-        /// backend does not notify this layer when a window moves between monitors of different scale.
-        /// Its accessors used to be empty, which additionally meant handlers were silently discarded.
+        /// a form needs to rescale anything it sized itself. Raised when the window's scaling changes:
+        /// the window is drawn at a new scale (moved to another monitor) or <see cref="Application.UiScale"/>
+        /// is set. It was declared and never raised (EVT-32).
         /// </remarks>
         public event EventHandler<DpiChangedEventArgs>? DpiChanged;
 
         /// <summary>Raises the <see cref="DpiChanged"/> event.</summary>
         protected virtual void OnDpiChanged (DpiChangedEventArgs e) => DpiChanged?.Invoke (this, e);
+
+        private protected override void OnWindowDpiChanged (int deviceDpiOld, int deviceDpiNew)
+            => OnDpiChanged (new DpiChangedEventArgs (deviceDpiOld, deviceDpiNew, Bounds));
 
 #pragma warning disable CS0067
         /// <summary>Raised when the input language changes. Stub in Majorsilence.Forms.</summary>
@@ -1178,6 +1181,9 @@ namespace Majorsilence.Forms
             internal set {
                 if (show_focus_cues != value) {
                     show_focus_cues = value;
+
+                    // Upstream's WM_UPDATEUISTATE reaches every control (EVT-28).
+                    adapter.RaiseChangeUICues (new UICuesEventArgs (UICues.ChangeFocus | (value ? UICues.ShowFocus : UICues.None)));
                     Invalidate ();
                 }
             }
@@ -1194,7 +1200,14 @@ namespace Majorsilence.Forms
             get => keyboard_cues_shown || !SystemFonts.HasDefaultFontOverride || (MdiParent?.ShowKeyboardCues ?? false);
             internal set {
                 if (keyboard_cues_shown != value) {
+                    var shown_before = ShowKeyboardCues;
                     keyboard_cues_shown = value;
+
+                    // Only when what is drawn changes: with no default font chosen the underline is
+                    // always shown, and pressing Alt changes nothing a control could react to.
+                    if (ShowKeyboardCues != shown_before)
+                        adapter.RaiseChangeUICues (new UICuesEventArgs (UICues.ChangeKeyboard | (ShowKeyboardCues ? UICues.ShowKeyboard : UICues.None)));
+
                     Invalidate ();
                 }
             }

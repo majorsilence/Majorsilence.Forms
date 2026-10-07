@@ -459,12 +459,14 @@ public class W6ControlFeaturesTests
 
             Assert.True (grid.BeginEdit (true));
 
-            using (var editing = PaintSurface.RenderOnForm (grid))
+            // Rendered where it stands: moving the grid onto another form takes the focus out of its
+            // editor, which ends the edit (EVT-21).
+            using (var editing = PaintSurface.Render (grid))
                 Assert.Equal (ink, editing.GetPixel (box.Right - 1, box.Top));
 
             grid.ShowEditingIcon = false;
 
-            using (var plain = PaintSurface.RenderOnForm (grid))
+            using (var plain = PaintSurface.Render (grid))
                 Assert.NotEqual (ink, plain.GetPixel (box.Right - 1, box.Top));
         }
     }

@@ -22,22 +22,36 @@ namespace Majorsilence.Forms
         // Form derives from WindowBase and UserControl from Panel, so neither is a ContainerControl;
         // they each declare the overload and call this rather than carrying a second copy of the rule.
         internal static bool ValidateChildrenCore (Control.ControlCollection children, ValidationConstraints validationConstraints)
+            => !PerformContainerValidation (children, validationConstraints);
+
+        // Upstream Control.PerformContainerValidation (EVT-36). Two things the flat loop here had wrong:
+        // it recurses into every nested container unless ImmediateChildren is asked for -- on a normal
+        // form the fields sit in a GroupBox or Panel, and the loop validated nothing -- and it keeps
+        // going after a failure, so every Validating handler runs and every error is shown at once.
+        // Returns whether anything failed.
+        private static bool PerformContainerValidation (Control.ControlCollection children, ValidationConstraints validationConstraints)
         {
-            foreach (var child in children) {
-                if (validationConstraints.HasFlag (ValidationConstraints.Enabled) && !child.Enabled)
-                    continue;
-                if (validationConstraints.HasFlag (ValidationConstraints.Visible) && !child.Visible)
-                    continue;
-                if (validationConstraints.HasFlag (ValidationConstraints.TabStop) && !child.TabStop)
-                    continue;
-                if (validationConstraints.HasFlag (ValidationConstraints.Selectable) && !child.CanSelect)
+            var failed = false;
+
+            foreach (var child in children.ToArray ()) {
+                if ((validationConstraints & ValidationConstraints.ImmediateChildren) != ValidationConstraints.ImmediateChildren
+                    && child.ShouldPerformContainerValidation ()
+                    && PerformContainerValidation (child.Controls, validationConstraints))
+                    failed = true;
+
+                // The style, not CanSelect: upstream skips a control that can never take focus, not one
+                // that is merely hidden or disabled right now (Visible and Enabled have flags of their own).
+                if ((validationConstraints.HasFlag (ValidationConstraints.Selectable) && !child.GetStyle (ControlStyles.Selectable))
+                    || (validationConstraints.HasFlag (ValidationConstraints.Enabled) && !child.Enabled)
+                    || (validationConstraints.HasFlag (ValidationConstraints.Visible) && !child.Visible)
+                    || (validationConstraints.HasFlag (ValidationConstraints.TabStop) && !child.TabStop))
                     continue;
 
                 if (!child.Validate ())
-                    return false;
+                    failed = true;
             }
 
-            return true;
+            return failed;
         }
     }
 

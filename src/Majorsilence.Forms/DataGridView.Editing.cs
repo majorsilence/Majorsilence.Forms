@@ -230,6 +230,12 @@ namespace Majorsilence.Forms
             if (!EditModeAllows (DataGridViewEditTrigger.Click) || !IsCellEditable (rowIndex, columnIndex))
                 return;
 
+            // A check box cell is edited by the click itself (the toggle); upstream it has no editing
+            // control to show. Opening the text editor over it used to go unnoticed only because the
+            // grid's LostFocus, raised as the editor took focus, ended the edit straight away.
+            if (Columns[columnIndex] is DataGridViewCheckBoxColumn || Columns[columnIndex].DisplaysAsCheckBox)
+                return;
+
             BeginEdit (rowIndex, columnIndex);
         }
 

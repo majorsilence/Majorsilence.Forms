@@ -254,6 +254,50 @@ namespace Majorsilence.Forms
             return ParentForm is Form form ? form.AutoValidate : AutoValidate.EnablePreventFocusChange;
         }
 
+        /// <summary>
+        /// Moves focus off a control that has just been removed from this window, when it or one of its
+        /// descendants held it.
+        /// </summary>
+        /// <remarks>
+        /// Upstream's <c>ControlCollection.Remove</c> calls <c>ContainerControl.AfterControlRemoved</c>,
+        /// which selects the next control in the container, or clears the active control when there is
+        /// none (ContainerControl.cs AfterControlRemoved). Nothing did here (EVT-21), so keystrokes kept
+        /// routing to the detached control, and the next control clicked raised Leave and Validating on
+        /// it. The removed control is not validated: it is leaving the form, and a cancel could only
+        /// keep focus on something no longer in the window.
+        /// </remarks>
+        internal void AfterControlRemoved (Control removed, Control oldParent)
+        {
+            var focused = selected_control;
+
+            if (focused is null || !(ReferenceEquals (focused, removed) || removed.Contains (focused)))
+                return;
+
+            selected_control = null;
+            focused.MarkDeselected ();
+
+            // Leave up the whole old chain -- the detached branch, then from its old parent to this root --
+            // so the Enter walk of whatever takes focus next starts from nothing and stays balanced.
+            for (var c = focused; c is not null; c = c.Parent)
+                c.RaiseLeaveOnly ();
+
+            for (Control? c = oldParent; c is not null; c = c.Parent)
+                c.RaiseLeaveOnly ();
+
+            focused.RaiseLostFocusOnly ();
+
+            // A form tearing down its controls has nowhere to send focus.
+            if (!oldParent.GetAnyDisposingInHierarchy () && ParentForm is { IsDisposed: false }) {
+                var container = oldParent.GetContainerControl () as Control ?? this;
+
+                if (!container.SelectNextControl (null, true, true, true, true) && !ReferenceEquals (container, this))
+                    SelectNextControl (null, true, true, true, true);
+            }
+
+            if (selected_control is null)
+                SelectedControlChanged?.Invoke (this, null);
+        }
+
         // The deepest control that contains both, or null when they share only this adapter.
         private static Control? CommonAncestor (Control? first, Control? second)
         {

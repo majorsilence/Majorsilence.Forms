@@ -170,6 +170,7 @@ namespace Majorsilence.Forms
 
                 // Every cached size in every open window was computed against the old factor.
                 foreach (var form in OpenForms.ToArray ()) {
+                    form.CheckDpiChanged ();
                     form.PerformLayout ();
                     form.Invalidate ();
                 }
