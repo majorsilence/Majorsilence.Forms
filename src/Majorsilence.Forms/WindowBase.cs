@@ -145,13 +145,25 @@ namespace Majorsilence.Forms
             if (Application.ActivePopupWindow == this)
                 Application.ActivePopupWindow = null;
 
-            OnClosed (EventArgs.Empty);
+            // Disposing is not closing: upstream raises Closed and FormClosed from WmClose only, and
+            // Dispose destroys the handle without one (Form.cs Dispose). A form built, filled and
+            // thrown away -- or disposed by a `using` -- ran FormClosed handlers that persist state
+            // and detach services, for a close that never happened (FRM-29).
+            var closed_by_dispose = disposing_without_close;
+
+            if (!closed_by_dispose)
+                OnClosed (EventArgs.Empty);
+
+            // What the library itself hangs off a window's going -- Application.Run's loop, the
+            // ApplicationContext's main form, a popup's parent -- follows the window, closed or
+            // disposed, as upstream's follows HandleDestroyed.
+            WindowGone?.Invoke (this, EventArgs.Empty);
 
             // WinForms raises FormClosed after the form has closed, for every close path -- programmatic
             // Close(), the window's close button, MDI child removal -- not just dialogs. Fire it once here
             // (FormClosing already fired before the close via OnClosing/OnBackendClosing) so ordinary forms
             // get FormClosed too, in FormClosing-then-FormClosed order.
-            (this as Form)?.RaiseFormClosed ();
+            (this as Form)?.RaiseFormClosed (raise_event: !closed_by_dispose);
 
             // An active window loses activation as it goes: upstream's DestroyWindow sends the closing
             // form WM_ACTIVATE (WA_INACTIVE) after FormClosed and before WM_DESTROY, so Deactivate falls
@@ -162,6 +174,9 @@ namespace Majorsilence.Forms
                 OnDeactivate (EventArgs.Empty);
                 OnLostFocus (EventArgs.Empty);
             }
+
+            // A closed window holds no activation. Whatever the platform activates next reports itself.
+            ForgetActivation ();
 
             // After FormClosed, so ShowDialog returns to its caller only once the form is fully closed.
             (this as Form)?.CompleteClose ();
@@ -205,6 +220,16 @@ namespace Majorsilence.Forms
         // re-raise Closing/FormClosing: WinForms raises FormClosing exactly once per close.
         private bool _closingHandled;
 
+        // Set while Dispose takes the window down, so the closed sequence knows no close happened.
+        private bool disposing_without_close;
+
+        /// <summary>
+        /// Raised when the window goes, whether it was closed or disposed: the library's own hook for
+        /// what upstream ties to the handle's destruction. <see cref="Closed"/> is the user's event and is
+        /// not raised by a plain Dispose.
+        /// </summary>
+        internal event EventHandler? WindowGone;
+
         /// <summary>Called by the backend when the window is about to close. Returns true to cancel.</summary>
         internal bool OnBackendClosing ()
         {
@@ -232,10 +257,44 @@ namespace Majorsilence.Forms
         /// </summary>
         internal bool IsActive { get; private set; }
 
+        // The form that most recently took activation, for Form.ActiveForm (FRM-11). Upstream asks
+        // Win32 for the foreground window (Form.cs: `FromHandle (GetForegroundWindow ()) as Form`);
+        // the nearest thing a backend reports is the order of its Activated callbacks. The newest
+        // OPENED form, which is what ActiveForm returned, stops being the active one the moment the
+        // user clicks back to the main window -- and every command routed through ActiveForm then went
+        // to the tool window. IsActive alone cannot answer either: a backend need not deactivate the
+        // previous window (headless never does), so several can claim it at once.
+        private static Form? active_form;
+
+        /// <summary>The form that holds activation, or null when none of this application's does.</summary>
+        internal static Form? ActiveFormWindow => active_form;
+
+        private void NoteActivated ()
+        {
+            if (this is Form form)
+                active_form = form;
+        }
+
+        // Activation that leaves for one of this application's own popups -- a menu or a drop-down --
+        // has not left the form: on Windows those never take the foreground, so upstream's ActiveForm
+        // still names the form while one is open. Only a real loss of activation clears it.
+        private void NoteDeactivated ()
+        {
+            if (ReferenceEquals (active_form, this) && Application.ActivePopupWindow is null)
+                active_form = null;
+        }
+
+        private void ForgetActivation ()
+        {
+            if (ReferenceEquals (active_form, this))
+                active_form = null;
+        }
+
         /// <summary>Called by the backend when the window is activated.</summary>
         internal void OnBackendActivated ()
         {
             IsActive = true;
+            NoteActivated ();
 
             // Mid-show (or before it): held back until after Load and VisibleChanged (EVT-10).
             if (in_show_bookkeeping || !visible) {
@@ -316,6 +375,7 @@ namespace Majorsilence.Forms
                 return;
 
             IsActive = false;
+            NoteDeactivated ();
 
             // Don't dismiss synchronously: showing a popup deactivates its parent (and a submenu
             // deactivates its parent popup). See Application.ScheduleClosePopupsOnDeactivate.
@@ -389,6 +449,8 @@ namespace Majorsilence.Forms
                 if (this is Form f)
                     Application.OpenForms.Remove (f);
 
+                ForgetActivation ();
+
                 if (Application.ActivePopupWindow == this)
                     Application.ActivePopupWindow = null;
 
@@ -408,6 +470,7 @@ namespace Majorsilence.Forms
 
                 if (!wasDisposed && Backend is not null) {
                     _closingHandled = true;
+                    disposing_without_close = true;
 
                     try {
                         Backend.Close ();
@@ -416,6 +479,7 @@ namespace Majorsilence.Forms
                         // failure -- and throwing out of Dispose would strand the rest of the teardown.
                     } finally {
                         _closingHandled = false;
+                        disposing_without_close = false;
                     }
                 }
             }
@@ -480,8 +544,12 @@ namespace Majorsilence.Forms
             if (newX != location.X || newY != location.Y)
                 Location = new System.Drawing.Point (newX, newY);
 
-            if (newWidth != size.Width || newHeight != size.Height)
+            if (newWidth != size.Width || newHeight != size.Height) {
                 Backend.Size = new System.Drawing.Size (newWidth, newHeight);
+
+                // Synchronously, as upstream's UpdateBounds (see Form.Size, FRM-37).
+                SyncAdapterBounds ();
+            }
         }
 
         /// <summary>Raised when <see cref="Enabled"/> changes. Mirrors WinForms Control.EnabledChanged (modal dialogs toggle their owner through this property).</summary>
@@ -766,6 +834,7 @@ namespace Majorsilence.Forms
                 return;
 
             adapter.SetBounds (borderLeft, borderTop, logicalW, logicalH);
+            OnGeometryChanged ();
             adapter.PerformLayout ();
 
             // The adapter's pass places the chrome and the client area; the controls the application
@@ -1290,7 +1359,16 @@ namespace Majorsilence.Forms
         protected virtual void OnLocationChanged (EventArgs e) => LocationChanged?.Invoke (this, e);
 
         /// <summary>Called by the backend when the OS window is moved.</summary>
-        internal void OnBackendMoved () => OnMove (EventArgs.Empty);
+        internal void OnBackendMoved ()
+        {
+            OnGeometryChanged ();
+            OnMove (EventArgs.Empty);
+        }
+
+        // The window's size or position changed, by the program or the platform. Form keeps its
+        // RestoreBounds from it; internal so an override of OnResize/OnMove that skips base cannot
+        // starve it.
+        internal virtual void OnGeometryChanged () { }
 
         /// <summary>Raised when the window's client size changes. Mirrors WinForms Form.SizeChanged.
         /// Raised from the layout pipeline whenever the client area takes a new size.</summary>
@@ -2329,6 +2407,17 @@ namespace Majorsilence.Forms
         /// </remarks>
         public double DesktopScaling => Backend.Scaling;
 
+        /// <summary>
+        /// The window's rectangle on the desktop, in the desktop pixels <see cref="Location"/> and
+        /// <see cref="Screen"/> use. <see cref="Size"/> is logical, so it is scaled by the display
+        /// factor -- not by <see cref="Application.UiScale"/>, as the desktop does not zoom with the app.
+        /// </summary>
+        internal System.Drawing.Rectangle ScreenBounds => new System.Drawing.Rectangle (
+            Backend.Location,
+            new System.Drawing.Size (
+                (int) Math.Round (Backend.ClientSize.Width * DesktopScaling),
+                (int) Math.Round (Backend.ClientSize.Height * DesktopScaling)));
+
         internal void SetCursor (Cursor cursor) => current_cursor = cursor;
 
         // The control the pointer last entered, so a change to its cursor while the pointer is over it
@@ -2591,8 +2680,10 @@ namespace Majorsilence.Forms
             // real event still fires and reconfirms this when it eventually arrives. A window shown
             // without activation is the exception: it never becomes active, so assuming it did would
             // make the window it appeared over look deactivated to the app.
-            if (activated)
+            if (activated) {
                 IsActive = true;
+                NoteActivated ();
+            }
 
             if (pending_activation) {
                 pending_activation = false;

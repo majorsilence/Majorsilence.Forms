@@ -310,9 +310,15 @@ namespace Majorsilence.Forms.Headless
         /// <inheritdoc/>
         public void ClearClipboard () => _clipboard = string.Empty;
 
+        /// <summary>
+        /// Test seam: the displays <see cref="GetScreens"/> reports instead of the single fixed one, so a
+        /// test can place a window on a second monitor. Null restores the default.
+        /// </summary>
+        internal ScreenInfo[]? Screens { get; set; }
+
         /// <inheritdoc/>
         public ScreenInfo[] GetScreens ()
-            => new[] {
+            => Screens ?? new[] {
                 new ScreenInfo (
                     "Headless",
                     new System.Drawing.Rectangle (0, 0, 1920, 1080),

@@ -555,13 +555,14 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void CenterToScreen_Invoke_SetsStartPosition ()
+        public void CenterToScreen_Invoke_LeavesStartPositionAlone ()
         {
+            // It moves the window (FRM-20, FormGapTests); upstream never touches StartPosition.
             using var control = new Form ();
 
             control.CenterToScreen ();
 
-            Assert.Equal (FormStartPosition.CenterScreen, control.StartPosition);
+            Assert.Equal (FormStartPosition.WindowsDefaultLocation, control.StartPosition);
         }
 
         [Fact]

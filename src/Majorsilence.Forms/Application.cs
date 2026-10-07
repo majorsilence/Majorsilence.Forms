@@ -336,7 +336,9 @@ namespace Majorsilence.Forms
         /// <param name="closable">The window to track.</param>
         public static void Run (WindowBase closable)
         {
-            closable.Closed += (s, e) => Exit ();
+            // On the window going, closed or disposed: upstream's ApplicationContext ends the loop on
+            // the main form's HandleDestroyed, which a Dispose without Close also raises.
+            closable.WindowGone += (s, e) => Exit ();
             RunCore ();
         }
 
@@ -462,17 +464,18 @@ namespace Majorsilence.Forms
         public static VisualStyleState VisualStyleState { get; set; } = VisualStyleState.ClientAndNonClientAreasEnabled;
 
         /// <summary>Gets the product name associated with this application.</summary>
-        public static string? ProductName =>
-            System.Reflection.Assembly.GetEntryAssembly ()
-                ?.GetCustomAttribute<System.Reflection.AssemblyProductAttribute> ()
-                ?.Product;
+        /// <remarks>
+        /// The entry assembly's <c>AssemblyProduct</c>, else -- as upstream (Application.cs) -- the last
+        /// segment of the entry point's namespace, else the entry point's type name. It used to stop at
+        /// the attribute, so an assembly without one had no product name and
+        /// <see cref="UserAppDataPath"/> collapsed to the bare roaming folder (FRM-35). Upstream's
+        /// Win32 version-resource step is skipped: it reads the same attributes on a .NET assembly.
+        /// </remarks>
+        public static string? ProductName => ProductNameOf (Assembly.GetEntryAssembly ());
 
         /// <summary>Gets the product version associated with this application.</summary>
-        public static string? ProductVersion =>
-            System.Reflection.Assembly.GetEntryAssembly ()
-                ?.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute> ()
-                ?.InformationalVersion
-            ?? System.Reflection.Assembly.GetEntryAssembly ()?.GetName ().Version?.ToString ();
+        /// <remarks>The entry assembly's informational version, else its assembly version, else "1.0.0.0" as upstream.</remarks>
+        public static string? ProductVersion => ProductVersionOf (Assembly.GetEntryAssembly ());
 
         private static ApplicationInfo? application_info;
 
@@ -486,31 +489,92 @@ namespace Majorsilence.Forms
             application_info ??= new ApplicationInfo(System.Reflection.Assembly.GetEntryAssembly());
 
         /// <summary>Gets the company name associated with this application.</summary>
-        public static string? CompanyName =>
-            System.Reflection.Assembly.GetEntryAssembly ()
-                ?.GetCustomAttribute<System.Reflection.AssemblyCompanyAttribute> ()
-                ?.Company;
+        /// <remarks>
+        /// The entry assembly's <c>AssemblyCompany</c>, else -- as upstream -- the first segment of the
+        /// entry point's namespace, else <see cref="ProductName"/>.
+        /// </remarks>
+        public static string? CompanyName => CompanyNameOf (Assembly.GetEntryAssembly ());
 
-        /// <summary>Gets the common application data path for all users.</summary>
+        /// <summary>Gets the common application data path for all users, creating it if it does not exist.</summary>
+        /// <remarks><c>&lt;common data&gt;/&lt;CompanyName&gt;/&lt;ProductName&gt;/&lt;ProductVersion&gt;</c>, as upstream's GetDataPath.</remarks>
         public static string CommonAppDataPath =>
-            System.IO.Path.Combine (
-                Environment.GetFolderPath (Environment.SpecialFolder.CommonApplicationData),
-                CompanyName ?? string.Empty,
-                ProductName ?? string.Empty);
+            DataPathOf (Environment.GetFolderPath (Environment.SpecialFolder.CommonApplicationData), Assembly.GetEntryAssembly ());
 
-        /// <summary>Gets the user-specific application data path.</summary>
+        /// <summary>Gets the user-specific application data path, creating it if it does not exist.</summary>
+        /// <remarks><c>&lt;roaming data&gt;/&lt;CompanyName&gt;/&lt;ProductName&gt;/&lt;ProductVersion&gt;</c>, as upstream's GetDataPath.</remarks>
         public static string UserAppDataPath =>
-            System.IO.Path.Combine (
-                Environment.GetFolderPath (Environment.SpecialFolder.ApplicationData),
-                CompanyName ?? string.Empty,
-                ProductName ?? string.Empty);
+            DataPathOf (Environment.GetFolderPath (Environment.SpecialFolder.ApplicationData), Assembly.GetEntryAssembly ());
 
-        /// <summary>Gets the local user-specific application data path.</summary>
+        /// <summary>Gets the local user-specific application data path, creating it if it does not exist.</summary>
+        /// <remarks><c>&lt;local data&gt;/&lt;CompanyName&gt;/&lt;ProductName&gt;/&lt;ProductVersion&gt;</c>, as upstream's GetDataPath.</remarks>
         public static string LocalUserAppDataPath =>
-            System.IO.Path.Combine (
-                Environment.GetFolderPath (Environment.SpecialFolder.LocalApplicationData),
-                CompanyName ?? string.Empty,
-                ProductName ?? string.Empty);
+            DataPathOf (Environment.GetFolderPath (Environment.SpecialFolder.LocalApplicationData), Assembly.GetEntryAssembly ());
+
+        // Upstream's GetAppMainType: the type declaring the entry point.
+        private static Type? MainTypeOf (Assembly? entry) => entry?.EntryPoint?.ReflectedType;
+
+        internal static string? ProductNameOf (Assembly? entry, Type? mainType = null)
+        {
+            var name = entry?.GetCustomAttribute<AssemblyProductAttribute> ()?.Product;
+
+            if (!string.IsNullOrEmpty (name))
+                return name;
+
+            if ((mainType ?? MainTypeOf (entry)) is not { } type)
+                return name;
+
+            var ns = type.Namespace;
+
+            if (string.IsNullOrEmpty (ns))
+                return type.Name;
+
+            var last_dot = ns!.LastIndexOf ('.');
+            return last_dot != -1 && last_dot < ns.Length - 1 ? ns.Substring (last_dot + 1) : ns;
+        }
+
+        internal static string? CompanyNameOf (Assembly? entry, Type? mainType = null)
+        {
+            var name = entry?.GetCustomAttribute<AssemblyCompanyAttribute> ()?.Company;
+
+            if (!string.IsNullOrEmpty (name))
+                return name;
+
+            if ((mainType ?? MainTypeOf (entry)) is not { } type)
+                return name;
+
+            var ns = type.Namespace;
+
+            if (string.IsNullOrEmpty (ns))
+                return ProductNameOf (entry, type);
+
+            var first_dot = ns!.IndexOf ('.');
+            return first_dot != -1 ? ns.Substring (0, first_dot) : ns;
+        }
+
+        internal static string ProductVersionOf (Assembly? entry)
+        {
+            var version = entry?.GetCustomAttribute<AssemblyInformationalVersionAttribute> ()?.InformationalVersion;
+
+            if (string.IsNullOrEmpty (version))
+                version = entry?.GetName ().Version?.ToString ();
+
+            return string.IsNullOrEmpty (version) ? "1.0.0.0" : version!;
+        }
+
+        // Upstream's GetDataPath: base/Company/Product/Version, created if missing -- settings code
+        // writes straight into it. The version segment was missing, so every version of an app shared
+        // one folder where upstream gives each its own, and nothing created the folder.
+        internal static string DataPathOf (string basePath, Assembly? entry, Type? mainType = null)
+        {
+            var path = System.IO.Path.Combine (
+                basePath,
+                CompanyNameOf (entry, mainType) ?? string.Empty,
+                ProductNameOf (entry, mainType) ?? string.Empty,
+                ProductVersionOf (entry));
+
+            System.IO.Directory.CreateDirectory (path);
+            return path;
+        }
 
         /// <summary>Processes all messages currently in the message queue.</summary>
         public static void DoEvents () => Platform.Backend.DoEvents ();

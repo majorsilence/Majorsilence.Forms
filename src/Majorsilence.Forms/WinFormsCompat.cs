@@ -971,10 +971,14 @@ namespace Majorsilence.Forms
             MessageBoxIcon icon, MessageBoxDefaultButton defaultButton, MessageBoxOptions options)
             => ShowCore (OwnerForm (owner), text, caption, buttons, icon, defaultButton, options);
 
-        // See the no-owner overload for why ActiveModalForm is preferred when the passed owner does
-        // not itself resolve to a Form.
+        // A control owner means its form, as upstream, where any IWin32Window owner's window is the
+        // dialog's owner (MessageBox.cs). It used to fall through to the first open form, so a message
+        // box raised from a UserControl in a tool window was owned by -- and centred over, and disabled
+        // -- the main window instead (FRM-27). See the no-owner overload for why ActiveModalForm is
+        // preferred when the passed owner resolves to no form at all.
         private static Form? OwnerForm (IWin32Window? owner)
-            => owner as Form ?? Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
+            => owner as Form ?? (owner as Control)?.FindForm ()
+                ?? Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
 
         /// <inheritdoc cref="Show(IWin32Window,string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
         public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons,
@@ -5150,18 +5154,20 @@ namespace Majorsilence.Forms
         public ApplicationContext (Form mainForm) { MainForm = mainForm; }
 
         /// <summary>
-        /// Gets or sets the Form to use as context for this thread. Setting it wires the previous
-        /// form's <see cref="WindowBase.Closed"/> off and the new form's on, so closing MainForm raises
+        /// Gets or sets the Form to use as context for this thread. Setting it stops watching the
+        /// previous form and starts watching the new one, so closing or disposing MainForm raises
         /// <see cref="OnMainFormClosed"/> the same way real WinForms reacts to MainForm's HandleDestroyed.
         /// </summary>
         public Form? MainForm {
             get => _mainForm;
             set {
+                // WindowGone rather than Closed: upstream listens for the main form's HandleDestroyed
+                // (ApplicationContext.cs), which disposing it without closing raises as well.
                 if (_mainForm is not null)
-                    _mainForm.Closed -= OnMainFormClosed;
+                    _mainForm.WindowGone -= OnMainFormClosed;
                 _mainForm = value;
                 if (_mainForm is not null)
-                    _mainForm.Closed += OnMainFormClosed;
+                    _mainForm.WindowGone += OnMainFormClosed;
             }
         }
 
