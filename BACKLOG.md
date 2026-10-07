@@ -634,8 +634,16 @@ backend's `CanRunModalLoop` back on for the browser if a nested loop then works 
 
 Left over from the same work:
 
-- **Android and iOS are unmeasured.** Their `RunModalLoop` is still Avalonia's `Dispatcher.PushFrame`
-  and `CanRunModalLoop` reports true; whether a nested frame runs there has not been tried on a device.
+- **Android and iOS: measured, refused like the browser.** The Gallery.Wasm check, linked into
+  `samples/Gallery.Android` and `samples/Gallery.iOS` (`tools/modal-check.sh` in each), found Avalonia's
+  `Dispatcher.PushFrame` throwing a message-less `PlatformNotSupportedException` at once on an Android 15
+  (API 35) emulator and an iOS 26.5 simulator (Avalonia 12.1.1, .NET 10, Debug builds) -- after the
+  message box or native file picker was already on screen, never a hang. Their `CanRunModalLoop` is now
+  false, so the blocking calls refuse up front; the async forms work on both. Results and versions are in
+  [`docs/backends.md`](docs/backends.md#blocking-modal-calls-on-android-and-ios). Still open: re-run on
+  a physical device and in a Release/AOT build (iOS device builds are always AOT), and on Android's CoreCLR
+  runtime; re-check if Avalonia's Android or iOS dispatcher gains nested-frame support. The MFB analyzer
+  is browser-only, so blocking calls in mobile code are not flagged at build time.
 - **Accessibility DOM (browser):** popups (combo box drop-downs, menu drop-downs, tooltips) are not
   mirrored, value changes are not announced through a live region, and nothing has been tried with a
   real screen reader -- it was verified by reading the DOM in headless Chrome. Seen once while building

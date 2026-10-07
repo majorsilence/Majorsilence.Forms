@@ -328,7 +328,7 @@ namespace Majorsilence.Forms.Headless
 
         /// <summary>
         /// Whether <see cref="RunModalLoop"/> may block. True by default; a test sets it false to stand in
-        /// for a backend that cannot block its UI thread (the browser), so the blocking modal APIs' refusal
+        /// for a backend that cannot block its UI thread (the browser, Android, iOS), so the blocking modal APIs' refusal
         /// and their async twins can be exercised without a browser.
         /// </summary>
         public bool CanRunModalLoop { get; set; } = true;

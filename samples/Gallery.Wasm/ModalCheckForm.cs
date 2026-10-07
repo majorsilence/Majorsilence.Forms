@@ -2,23 +2,34 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Majorsilence.Forms;
+// The Android head's implicit usings bring Android.App and Android.Widget in, which have their own.
+using Application = Majorsilence.Forms.Application;
+using Button = Majorsilence.Forms.Button;
+using CheckBox = Majorsilence.Forms.CheckBox;
 
-namespace Gallery.Wasm
+namespace Gallery.Checks
 {
     /// <summary>
-    /// A browser-head check for the blocking WinForms modal patterns (issue #406). Open the published
-    /// gallery with <c>?check=&lt;name&gt;</c> and this form runs that one check instead of the gallery,
-    /// writing <c>MFCHECK</c> lines to the browser console:
+    /// A head check for the blocking WinForms modal patterns (issue #406), shared by the browser, Android
+    /// and iOS heads (the mobile heads link this file). Started with a check name -- <c>?check=&lt;name&gt;</c>
+    /// in the browser, an intent extra on Android, an environment variable on iOS; see docs/samples.md --
+    /// this form runs that one check instead of the gallery, writing <c>MFCHECK</c> lines to the browser
+    /// console, logcat (tag <c>MFCHECK</c>) or the app's stdout:
     ///
     /// <list type="bullet">
     /// <item><c>START</c> just before the call, so a call that never returns is visible as a START
-    /// with nothing after it -- a hang blocks the tab's only thread, so the page cannot report it
-    /// itself; <c>tools/modal-check.mjs</c> reports it as a timeout.</item>
+    /// with nothing after it -- in the browser a hang blocks the tab's only thread, so the page cannot
+    /// report it itself; <c>tools/modal-check.mjs</c> reports it as a timeout.</item>
     /// <item><c>RETURNED</c> with the result when the call comes back.</item>
     /// <item><c>THREW</c> with the exception type and message when it fails.</item>
+    /// <item><c>HUNG</c>, on a platform with threads, from a watchdog when the call has not come back
+    /// after <see cref="HangSeconds"/>, with how often the UI thread's timers ran meanwhile: none means
+    /// the thread is stuck; some means a nested loop is running but nothing closed the dialog.</item>
+    /// <item><c>PUMPED</c> after the call, the same count over the whole call -- a blocking call that
+    /// returned with a non-zero count ran a nested loop that kept the UI alive.</item>
     /// </list>
     ///
-    /// One check per page load, because a hang would stop every check after it. Each blocking check
+    /// One check per launch, because a hang would stop every check after it. Each blocking check
     /// arms a timer that answers the dialog after half a second, so on a platform where the nested
     /// loop runs the call comes back on its own with no one clicking anything.
     /// </summary>
@@ -35,7 +46,7 @@ namespace Gallery.Wasm
 
             Controls.Add (new Label {
                 Name = "status",
-                Text = "Running check '" + check + "'. Results go to the browser console (MFCHECK lines).",
+                Text = "Running check '" + check + "'. Results go to the console or device log (MFCHECK lines).",
                 Left = 12, Top = 12, Width = 600, Height = 40,
             });
 
@@ -132,30 +143,89 @@ namespace Gallery.Wasm
             }
         }
 
+        // THREW, then where it came from: the innermost frames say whether the framework's own check or
+        // the platform's dispatcher refused.
+        private static void LogThrew (Exception ex)
+        {
+            Log ("THREW", ex.GetType ().FullName + ": " + ex.Message);
+
+            var frames = (ex.StackTrace ?? string.Empty).Split ('\n', StringSplitOptions.RemoveEmptyEntries);
+            Log ("STACK", string.Join (" | ", frames.Take (4).Select (f => f.Trim ())));
+        }
+
+        /// <summary>How long a call may take before the watchdog reports it as HUNG.</summary>
+        internal const int HangSeconds = 10;
+
         private void Measure (Func<string> call)
         {
-            Log ("START", check);
+            using var watch = new Watch (check);
 
             try {
                 Log ("RETURNED", call ());
             } catch (Exception ex) {
-                Log ("THREW", ex.GetType ().FullName + ": " + ex.Message);
+                LogThrew (ex);
             }
 
+            watch.Finish ();
             LogLeftovers ();
         }
 
         private async Task MeasureAsync (Func<Task<string>> call)
         {
-            Log ("START", check);
+            using var watch = new Watch (check);
 
             try {
                 Log ("RETURNED", await call ());
             } catch (Exception ex) {
-                Log ("THREW", ex.GetType ().FullName + ": " + ex.Message);
+                LogThrew (ex);
             }
 
+            watch.Finish ();
             LogLeftovers ();
+        }
+
+        /// <summary>
+        /// Logs START, then watches the call from both sides: a UI-thread timer counts how often the UI
+        /// thread ran while the call was in progress (it can only tick if a loop is pumping), and a
+        /// thread-pool watchdog reports HUNG if the call has not finished after <see cref="HangSeconds"/>.
+        /// </summary>
+        /// <remarks>
+        /// The watchdog needs a second thread, so it does nothing in the browser -- there a hang stops the
+        /// one thread it would run on, and the harness reports the missing outcome instead.
+        /// </remarks>
+        private sealed class Watch : IDisposable
+        {
+            private readonly Majorsilence.Forms.Timer pump = new () { Interval = 100 };
+            private readonly System.Threading.Timer? watchdog;
+            private int ticks;
+            private int finished;
+
+            public Watch (string check)
+            {
+                pump.Tick += (_, _) => System.Threading.Interlocked.Increment (ref ticks);
+                pump.Start ();
+                Log ("START", check);
+
+                if (!OperatingSystem.IsBrowser ())
+                    watchdog = new System.Threading.Timer (_ => {
+                        if (System.Threading.Volatile.Read (ref finished) == 0)
+                            Log ("HUNG", check + ": no return after " + HangSeconds + "s, ui ticks during the wait=" + System.Threading.Volatile.Read (ref ticks));
+                    }, null, HangSeconds * 1000, System.Threading.Timeout.Infinite);
+            }
+
+            public void Finish ()
+            {
+                System.Threading.Volatile.Write (ref finished, 1);
+                Log ("PUMPED", "ui ticks during the call=" + System.Threading.Volatile.Read (ref ticks));
+            }
+
+            public void Dispose ()
+            {
+                System.Threading.Volatile.Write (ref finished, 1);
+                watchdog?.Dispose ();
+                pump.Stop ();
+                pump.Dispose ();
+            }
         }
 
         // What a failed call left behind: a dialog still open, or this form still disabled, is a UI the
@@ -192,6 +262,16 @@ namespace Gallery.Wasm
             Controls.Add (new Button { Name = "disabledButton", Text = "Unavailable", Enabled = false, Left = 120, Top = 60, Width = 120 });
         }
 
-        private static void Log (string what, string detail) => Console.WriteLine ("MFCHECK " + what + " " + detail);
+        // On Android the line goes to logcat under its own tag, so `adb logcat -s MFCHECK` finds it;
+        // everywhere else (the browser console, the iOS app's stdout) the console is the log.
+        private static void Log (string what, string detail)
+        {
+            var line = "MFCHECK " + what + " " + detail;
+#if ANDROID
+            global::Android.Util.Log.Info ("MFCHECK", line);
+#else
+            Console.WriteLine (line);
+#endif
+        }
     }
 }

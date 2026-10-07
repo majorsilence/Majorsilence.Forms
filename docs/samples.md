@@ -161,6 +161,25 @@ whole console. What the checks found is in
 [Browser threading](backends.md#browser-threading). The head also references the browser-blocking-call
 analyzer, so a blocking call added to it fails the Release build (`MFB001`-`MFB003`).
 
+The same form is linked into the Android and iOS heads, which run one check instead of the gallery when
+launched with a `check` intent extra (Android) or `MF_CHECK` in the environment (iOS). There, a
+watchdog thread logs `HUNG` if a call has not come back after 10 s, and a `PUMPED` line says how often
+the UI thread's timers ran during the call. Each head's `tools/modal-check.sh` runs the modal checks
+against an emulator or simulator that is already running and summarises them:
+
+```bash
+# Android: a running emulator, adb on PATH
+dotnet build samples/Gallery.Android -t:Install -p:EnableAndroidTarget=true
+samples/Gallery.Android/tools/modal-check.sh                     # MFCHECK lines are in logcat, tag MFCHECK
+
+# iOS: a booted simulator
+dotnet build samples/Gallery.iOS -p:EnableIOSTarget=true -p:RuntimeIdentifier=iossimulator-arm64
+xcrun simctl install booted samples/Gallery.iOS/bin/Debug/net10.0-ios/iossimulator-arm64/Gallery.iOS.app
+samples/Gallery.iOS/tools/modal-check.sh showdialog messagebox   # MFCHECK lines are on the app's stdout
+```
+
+Results: [Blocking modal calls on Android and iOS](backends.md#blocking-modal-calls-on-android-and-ios).
+
 There's no separate WASM package: `Majorsilence.Forms.Avalonia` multi-targets `net10.0-browser`
 alongside its desktop TFMs, and startup is async and host-driven rather than a blocking
 `Application.Run` (`samples/Gallery.Wasm/Program.cs` is a one-liner over

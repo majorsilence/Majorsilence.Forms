@@ -361,9 +361,9 @@ Activity's Looper, the OS run loop) drives the UI from then on, and `RunCore` mu
 - **`ShowDialog` isn't OS-modal**, because there is no modal window concept. It still *behaves*
   modally: the parent-disable that makes it modal lives above the seam, in `Form.ShowDialogAsync`.
   **In the browser the blocking `ShowDialog` does not work at all** -- it throws, and
-  `ShowDialogAsync` is the call to make; see [Browser threading](#browser-threading). On Android and
-  iOS the blocking wait (`RunModalLoop`, Avalonia's `Dispatcher.PushFrame`) is unchanged and has not
-  been measured on a device.
+  `ShowDialogAsync` is the call to make; see [Browser threading](#browser-threading). **Nor does it
+  on Android or iOS** -- measured, Avalonia's dispatcher cannot push a nested frame there either; see
+  [Blocking modal calls on Android and iOS](#blocking-modal-calls-on-android-and-ios).
 - **No WebView.** `AvaloniaWebViewHandle.cs` is excluded from the compile for every single-view TFM
   and the backend's WebView members report unsupported, so compat controls that need one —
   `RadPdfViewer`, `RadRichTextEditor` — fall back to their plain-viewer/`RichTextBox` paths. Browser/
@@ -427,7 +427,8 @@ Avalonia.Browser 12.1.1:
 
 So a nested loop cannot run here, and the blocking calls now fail *clearly* instead of obscurely. The
 seam for this is `IModalLoopSupport.CanRunModalLoop` (an optional `IPlatformBackend` capability; the
-Avalonia backend reports `false` on its `net10.0-browser` row only). Every blocking modal entry point
+Avalonia backend reports `false` on its `net10.0-browser` row, and -- for their own reason -- on
+`net10.0-android` and `net10.0-ios`; see [below](#blocking-modal-calls-on-android-and-ios)). Every blocking modal entry point
 checks it before it shows anything, so a refused call leaves no dialog on screen, nothing on the modal
 stack and no owner disabled; `RunModalLoop` itself also throws the same explanation for a direct caller.
 
@@ -513,7 +514,44 @@ a different question.
 - **The CoreCLR browser runtime**, and **WASM threading** becoming supported rather than experimental.
 
 When any of these lands, re-run the Gallery.Wasm check: if a nested loop works, the Avalonia backend's
-`CanRunModalLoop` is the one switch to turn back on.
+`CanRunModalLoop` is the one switch to turn back on for the browser.
+
+### Blocking modal calls on Android and iOS
+
+The same rule holds on the Avalonia backend's Android and iOS rows, for a different reason: the browser
+has no thread of its own to block, while on Android and iOS Avalonia's dispatcher does not support a
+nested frame (`Dispatcher.PushFrame`). Use the [async forms](#browser-threading) there too.
+
+**What happens, measured.** The browser check (`ModalCheckForm.cs`) is linked into `samples/Gallery.Android`
+and `samples/Gallery.iOS`, which run it in place of the gallery when launched with a check name
+(`tools/modal-check.sh` in each head; see [`samples.md`](samples.md#gallerywasm)). On the mobile heads
+it adds a thread-pool watchdog that would log `HUNG` after 10 s, and a UI-thread timer that counts
+whether the UI kept running during the call. Debug builds, Avalonia 12.1.1, .NET 10 (SDK 10.0.108;
+android workload 36.1.69, ios workload 26.5.10284):
+
+- **Android:** emulator, Android 15 (API 35), arm64 Google APIs image; Mono runtime.
+- **iOS:** iPhone 17 Pro simulator, iOS 26.5, Xcode 26.6 (built with `-p:ValidateXcodeVersion=false`,
+  since this .NET for iOS asks for Xcode 26.5).
+
+Both platforms gave the same results:
+
+| Call | Before | Now |
+|---|---|---|
+| `Form.ShowDialog` | Threw a message-less `PlatformNotSupportedException` from `Dispatcher.PushFrame` (via `AvaloniaPlatformBackend.RunModalLoop`), at once. It did not hang; the UI-thread timer never ticked. | Throws `PlatformNotSupportedException` naming `Form.ShowDialogAsync`, before the dialog is shown. |
+| `MessageBox.Show` | The same exception -- and the message box stayed open (two open forms after the throw). | Throws naming `MessageBox.ShowAsync`; nothing is left open. |
+| `OpenFileDialog.ShowDialog` | The same exception, after the native picker was already on screen: Android's document picker and iOS's document browser both stayed up over the app. | Throws naming `FileDialog.ShowDialogAsync`; no picker is opened. |
+| `TaskDialog.ShowDialog` | The same exception from `PushFrame`. | Throws naming `TaskDialog.ShowDialogAsync`. |
+| `Form.ShowDialogAsync`, `MessageBox.ShowAsync`, `TaskDialog.ShowDialogAsync` | Work: the task completes with the result once the dialog is answered. | Unchanged. |
+
+So the Avalonia backend reports `CanRunModalLoop = false` on its `net10.0-android` and `net10.0-ios`
+rows as well as `net10.0-browser`, and the refusal's message gives the mobile reason and points here.
+
+**Not measured:** a physical device of either kind; Release builds, AOT (iOS device builds are always
+AOT) and Android's CoreCLR runtime; a picker actually used to choose a file (the check only asks whether
+the blocking wrapper can run). The refusal came from Avalonia's dispatcher, which is the same code in
+those builds, so they are not expected to differ -- but they have not been run. The browser-blocking-call analyzer
+(`MFB001`-`MFB003`) is still browser-only, so a blocking call in Android or iOS code is not flagged at
+build time; it fails at run time with the message above.
 
 ### Accessibility DOM (browser)
 

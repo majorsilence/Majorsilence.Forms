@@ -39,6 +39,10 @@ namespace Gallery.Android
         // OnNewIntent below, not a fresh OnCreate) reaches LocalNotifications.Tapped either way.
         protected override void OnCreate (Bundle? savedInstanceState)
         {
+            // Read before base.OnCreate, which is what asks GalleryAvaloniaApp's MainViewFactory for the
+            // content: `adb shell am start -n com.majorsilence.gallery/<activity> -e check showdialog`
+            // runs that blocking-modal check (issue #406) instead of the gallery.
+            GalleryAvaloniaApp.Check = Intent?.GetStringExtra ("check");
             base.OnCreate (savedInstanceState);
             BackRequested += (_, e) => e.Handled = MSFormsBackends.AvaloniaPlatformBackend.RaiseBackRequested ();
             MSFormsBackends.AvaloniaPlatformBackend.RegisterAndroidActivity (this);
