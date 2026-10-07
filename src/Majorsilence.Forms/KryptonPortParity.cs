@@ -71,8 +71,29 @@ namespace Majorsilence.Forms
         /// </remarks>
         protected virtual void OnDoubleClick (EventArgs e) { }
 
-        /// <summary>Raises the <see cref="BindingContextChanged"/> event.</summary>
-        protected virtual void OnBindingContextChanged (EventArgs e) => BindingContextChanged?.Invoke (this, e);
+        /// <summary>Raises the <see cref="BindingContextChanged"/> event, and tells every child.</summary>
+        /// <remarks>
+        /// A child without a context of its own inherits this one, so its effective context just changed
+        /// too: upstream passes the change down through <see cref="OnParentBindingContextChanged"/>
+        /// (Control.cs OnBindingContextChanged). Without it a control whose context was inherited never
+        /// heard that it changed (CTL-29).
+        /// </remarks>
+        protected virtual void OnBindingContextChanged (EventArgs e)
+        {
+            BindingContextChanged?.Invoke (this, e);
+
+            foreach (var child in Controls.GetAllControls ().ToArray ())
+                child.OnParentBindingContextChanged (e);
+        }
+
+        /// <summary>Called when the parent's <see cref="BindingContext"/> changes.</summary>
+        /// <remarks>Raises <see cref="BindingContextChanged"/> unless this control has a context of its
+        /// own, which the parent's change does not affect -- upstream's rule.</remarks>
+        protected virtual void OnParentBindingContextChanged (EventArgs e)
+        {
+            if (binding_context is null)
+                OnBindingContextChanged (e);
+        }
 
         /// <summary>Raises the <see cref="StyleChanged"/> event.</summary>
         /// <remarks>Called by <see cref="UpdateStyles"/> as of W6 mechanisms, upstream's programmatic

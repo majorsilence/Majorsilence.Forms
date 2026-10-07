@@ -29,8 +29,8 @@ public partial class Control
         UseWaitCursor = 0x00000400,
         Disposed = 0x00000800,
         Disposing = 0x00001000,
-        //MouseEnterPending       = 0x00002000,
-        //TrackingMouseEvent      = 0x00004000,
+        HandleCreated = 0x00002000,   // Majorsilence.Forms addition (CTL-20): reused MouseEnterPending's bit
+        RecreatingHandle = 0x00004000,   // Majorsilence.Forms addition (CTL-20): reused TrackingMouseEvent's bit
         //ThreadMarshalPending    = 0x00008000,
         //SizeLockedByOS          = 0x00010000,
         CausesValidation = 0x00020000,

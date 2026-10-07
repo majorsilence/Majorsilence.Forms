@@ -327,12 +327,14 @@ namespace Majorsilence.Forms
         /// <summary>Gets the bounds of the Window.</summary>
         public System.Drawing.Rectangle Bounds => new System.Drawing.Rectangle (Location, Size);
 
+        // Whether a press or release at this point falls within the double-click time and distance of the
+        // last click. Read-only, so the press can ask without consuming the click the release records.
+        private bool CompletesDoubleClick (System.Drawing.Point point)
+            => DateTime.Now.Subtract (last_click_time).TotalMilliseconds < DOUBLE_CLICK_TIME && PointInDoubleClickRange (point);
+
         private MouseEventArgs BuildMouseClickArgs (MouseButtons buttons, System.Drawing.Point point, Keys keyData)
         {
-            var click_count = 1;
-
-            if (DateTime.Now.Subtract (last_click_time).TotalMilliseconds < DOUBLE_CLICK_TIME && PointInDoubleClickRange (point))
-                click_count = 2;
+            var click_count = CompletesDoubleClick (point) ? 2 : 1;
 
             var e = new MouseEventArgs (buttons, click_count, point.X, point.Y, System.Drawing.Point.Empty, keyData: keyData);
 
@@ -1442,7 +1444,10 @@ namespace Majorsilence.Forms
             if (Resizeable && HandleMouseDown (x, y))
                 return;
 
-            var ev = new MouseEventArgs (button, 1, lx, ly, System.Drawing.Point.Empty, keyData: keys);
+            // The second press of a double-click is a MouseDown with Clicks == 2, the press-time way to
+            // detect one: upstream WM_LBUTTONDBLCLK calls WmMouseDown (ref m, button, 2) (Control.cs WndProc).
+            var clicks = CompletesDoubleClick (new System.Drawing.Point (lx, ly)) ? 2 : 1;
+            var ev = new MouseEventArgs (button, clicks, lx, ly, System.Drawing.Point.Empty, keyData: keys);
             // Only a press the window dispatches starts a press its release can end (EVT-19).
             Control.BeginPress ();
             adapter.RaiseMouseDown (ev);

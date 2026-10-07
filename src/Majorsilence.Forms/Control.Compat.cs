@@ -42,7 +42,13 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Forces the control to invalidate and immediately repaint.
         /// </summary>
-        public virtual void Refresh () => Invalidate ();
+        /// <remarks>Upstream: <c>Invalidate (true); Update ();</c> (Control.cs Refresh) -- see
+        /// <see cref="Update"/> for what "immediately" can mean here.</remarks>
+        public virtual void Refresh ()
+        {
+            Invalidate (true);
+            Update ();
+        }
 
         /// <summary>
         /// Sets input focus to the control. Returns true if focus was successfully set.
@@ -249,25 +255,94 @@ namespace Majorsilence.Forms
         /// Executes the specified delegate asynchronously on the thread that owns the control.
         /// WinForms compat overload accepting Delegate.
         /// </summary>
-        public IAsyncResult BeginInvoke (Delegate method)
-        {
-            if (method is Action a) BeginInvoke (a);
-            else if (method is MethodInvoker mi) BeginInvoke ((Action)(() => mi ()));
-            else Platform.Backend.Post (() => method.DynamicInvoke ());
-            return new System.Threading.Tasks.Task (() => { });
-        }
+        /// <returns>
+        /// A result that completes when the delegate has run; pass it to <see cref="EndInvoke"/> for the
+        /// delegate's return value.
+        /// </returns>
+        public IAsyncResult BeginInvoke (Delegate method) => BeginInvoke (method, Array.Empty<object?> ());
 
         /// <summary>
         /// Executes the specified delegate asynchronously with args on the thread that owns the control.
         /// </summary>
+        /// <returns>
+        /// A result that completes when the delegate has run; pass it to <see cref="EndInvoke"/> for the
+        /// delegate's return value.
+        /// </returns>
+        /// <remarks>
+        /// The result used to be a Task that was never started (CTL-19), so <c>IsCompleted</c> stayed
+        /// false and <c>AsyncWaitHandle.WaitOne ()</c> hung forever. Upstream returns a ThreadMethodEntry
+        /// that completes when the callback runs and carries its return value or exception
+        /// (Control.cs MarshaledInvoke / InvokeMarshaledCallback); a TaskCompletionSource is that here.
+        /// </remarks>
         public IAsyncResult BeginInvoke (Delegate method, params object?[] args)
         {
-            Platform.Backend.Post (() => method.DynamicInvoke (args));
-            return new System.Threading.Tasks.Task (() => { });
+            Guard.ThrowIfNull (method);
+
+            var completion = new System.Threading.Tasks.TaskCompletionSource<object?> (
+                System.Threading.Tasks.TaskCreationOptions.RunContinuationsAsynchronously);
+
+            Platform.Backend.Post (() => {
+                try {
+                    completion.SetResult (InvokeDelegate (method, args));
+                } catch (Exception ex) {
+                    // Kept for EndInvoke, and still thrown into the loop, which reports it through
+                    // Application.ThreadException as upstream reports an asynchronous callback's failure.
+                    completion.SetException (ex);
+                    throw;
+                }
+            });
+
+            return completion.Task;
         }
 
-        /// <summary>Waits for a pending asynchronous call to complete. Stub in Majorsilence.Forms.</summary>
-        public object? EndInvoke (IAsyncResult asyncResult) => null;
+        // Calls the common delegate shapes directly, so their exceptions are not wrapped in a
+        // TargetInvocationException the way DynamicInvoke wraps them.
+        private static object? InvokeDelegate (Delegate method, object?[]? args)
+        {
+            switch (method) {
+                case Action action when args is null || args.Length == 0:
+                    action ();
+                    return null;
+                case MethodInvoker invoker when args is null || args.Length == 0:
+                    invoker ();
+                    return null;
+            }
+
+            try {
+                return method.DynamicInvoke (args);
+            } catch (System.Reflection.TargetInvocationException ex) when (ex.InnerException is not null) {
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture (ex.InnerException).Throw ();
+                throw;   // unreachable: Throw () always throws
+            }
+        }
+
+        /// <summary>
+        /// Waits for the asynchronous call started by <see cref="BeginInvoke(Delegate, object[])"/> and
+        /// returns the delegate's return value, rethrowing its exception if it threw.
+        /// </summary>
+        /// <remarks>
+        /// Called on the UI thread before the call has run, it runs pending posted work until it has --
+        /// upstream EndInvoke likewise runs the marshaled callbacks itself on the owning thread rather
+        /// than deadlock waiting for them (Control.cs EndInvoke).
+        /// </remarks>
+        public object? EndInvoke (IAsyncResult asyncResult)
+        {
+            Guard.ThrowIfNull (asyncResult);
+
+            if (asyncResult is not System.Threading.Tasks.Task<object?> task)
+                throw new ArgumentException ("The IAsyncResult was not returned by BeginInvoke on a Control.", nameof (asyncResult));
+
+            if (!task.IsCompleted && Platform.Backend.CheckAccess ()) {
+                while (!task.IsCompleted) {
+                    Application.DoEvents ();
+
+                    if (!task.IsCompleted)
+                        ((IAsyncResult) task).AsyncWaitHandle.WaitOne (1);
+                }
+            }
+
+            return task.GetAwaiter ().GetResult ();
+        }
 
         /// <summary>
         /// Executes the specified delegate synchronously on the thread that owns the control.
@@ -335,24 +410,52 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets whether the control has been created (this library's equivalent of the handle).</summary>
+        /// <summary>Gets whether the control has a handle (this library's equivalent: it has gone live).</summary>
         /// <remarks>
-        /// Answers from <see cref="Created"/> -- the moment <see cref="CreateControl"/> runs and
-        /// <c>HandleCreated</c> is raised -- rather than the constant true it used to be. The constant was
-        /// not harmless: WinForms code standardly writes <c>if (IsHandleCreated)</c> as its "am I fully
-        /// initialized yet?" guard inside layout paths, and answering true inside a constructor sent such
-        /// code into members its constructor had not assigned yet.
+        /// Set when <see cref="CreateHandle"/> runs -- from <see cref="CreateControl"/>, or earlier by
+        /// reading <see cref="Handle"/> -- and <c>HandleCreated</c> is raised, rather than the constant true
+        /// it used to be. The constant was not harmless: WinForms code standardly writes
+        /// <c>if (IsHandleCreated)</c> as its "am I fully initialized yet?" guard inside layout paths, and
+        /// answering true inside a constructor sent such code into members its constructor had not
+        /// assigned yet.
         /// </remarks>
-        public bool IsHandleCreated => Created;
+        public bool IsHandleCreated => GetState (States.HandleCreated);
 
         /// <summary>Always returns false in Majorsilence.Forms — right-to-left mirroring is not supported.</summary>
         public bool IsMirrored => false;
 
-        /// <summary>Returns a platform handle (always IntPtr.Zero in Majorsilence.Forms).</summary>
-        public IntPtr Handle => IntPtr.Zero;
+        /// <summary>Gets the control's window handle: always <see cref="IntPtr.Zero"/>, after creating the handle.</summary>
+        /// <remarks>
+        /// There is no per-control OS window, and a control handle is never faked (see
+        /// docs/native-interop.md: a made-up value passed on to native code can hit someone else's
+        /// window). Reading it still has upstream's side effect -- the getter creates the handle when
+        /// there is none (Control.cs Handle) -- because <c>_ = control.Handle;</c> is the WinForms idiom
+        /// for making <see cref="IsHandleCreated"/> true and raising <c>HandleCreated</c> early, typically
+        /// so a later <c>BeginInvoke</c> guarded by it runs (CTL-20).
+        /// </remarks>
+        public IntPtr Handle {
+            get {
+                if (!IsHandleCreated)
+                    CreateHandle ();
 
-        /// <summary>Forces the creation of the control handle. Stub in Majorsilence.Forms — handle is always ready.</summary>
-        protected virtual void CreateHandle () { }
+                return IntPtr.Zero;
+            }
+        }
+
+        /// <summary>Creates the control's handle: marks it created and raises <c>HandleCreated</c>.</summary>
+        /// <remarks>
+        /// Does not create the control (<see cref="Created"/> and <c>OnCreateControl</c> come from
+        /// <see cref="CreateControl"/>), as upstream's CreateHandle does not. An override that does not
+        /// call the base gets no <c>HandleCreated</c>, as upstream.
+        /// </remarks>
+        protected virtual void CreateHandle ()
+        {
+            if (IsHandleCreated || GetState (States.Disposed))
+                return;
+
+            SetState (States.HandleCreated, true);
+            OnHandleCreated (EventArgs.Empty);
+        }
 
         /// <summary>Reapplies the control's styles: raises <see cref="StyleChanged"/> and repaints.</summary>
         /// <remarks>Real as of W6 mechanisms. The <see cref="ControlStyles"/> flags take effect the
@@ -496,8 +599,42 @@ namespace Majorsilence.Forms
             return Form.RunModal (session.Completion);
         }
 
-        /// <summary>Forces the control and its children to repaint.</summary>
-        public void Update () => Invalidate ();
+        /// <summary>Paints the control's invalidated area now, before returning.</summary>
+        /// <remarks>
+        /// Upstream's UpdateWindow raises Paint synchronously (Control.cs Update). This used to be an
+        /// <see cref="Invalidate()"/> (CTL-21), so a Paint handler ran only on the backend's next frame
+        /// and anything reading the control's pixels straight after -- <c>label.Text = ...;
+        /// label.Refresh ();</c> then <see cref="DrawToBitmap"/> -- saw the old ones. Now a dirty,
+        /// created control paints into its surface here, raising <c>Paint</c> before this returns.
+        /// Putting that surface on screen is still the window's next frame: no backend can present
+        /// synchronously, so a UI thread blocked in a loop does not show it until it returns.
+        /// </remarks>
+        public void Update ()
+        {
+            if (this is ControlAdapter || !Created || !GetState (States.IsDirty) || !Visible || Width <= 0 || Height <= 0)
+                return;
+
+            if (FindWindow () is null)
+                return;
+
+            var size = ScaledSize;
+            var info = new SKImageInfo (size.Width, size.Height, SKImageInfo.PlatformColorType, SKAlphaType.Premul);
+
+            using (var canvas = new SKCanvas (GetBackBuffer ())) {
+                var args = new PaintEventArgs (info, canvas, Scaling);
+
+                RaisePaintBackground (args);
+                RaisePaint (args);
+
+                canvas.Flush ();
+            }
+
+            // Every ancestor composites this surface into its own, and would otherwise reuse a copy
+            // taken before this paint: a dirty descendant is what made them repaint until now
+            // (NeedsPaint), so they are marked in its place.
+            for (var p = parent; p is not null; p = p.parent)
+                p.SetState (States.IsDirty, true);
+        }
 
         /// <summary>Scales the control and its children by the specified horizontal and vertical scaling factors.</summary>
         public void Scale (float dx, float dy) => Scale (new System.Drawing.SizeF (dx, dy));
@@ -585,7 +722,8 @@ namespace Majorsilence.Forms
         /// <summary>Returns the child control at the specified client coordinates, or null.
         /// WinForms z-order: index 0 is topmost, so the first match wins.</summary>
         public Control? GetChildAtPoint (System.Drawing.Point pt)
-            => Controls.GetAllControls ().FirstOrDefault (c => c.Visible && c.Bounds.Contains (pt));
+            => Controls.GetAllControls ().FirstOrDefault (c => c.Visible && c.Bounds.Contains (pt)
+                && c.RegionContains (new System.Drawing.Point (pt.X - c.Left, pt.Y - c.Top)));
 
         /// <summary>Gets the current mouse cursor position in screen coordinates (alias for Cursor.Position).</summary>
         public static System.Drawing.Point MousePosition => Cursor.Position;
@@ -645,10 +783,20 @@ namespace Majorsilence.Forms
         public Form? ParentForm => FindForm ();
 
         /// <summary>Gets the top-level control in the parent chain of this control.</summary>
+        /// <remarks>
+        /// Upstream returns the first control in the chain for which <see cref="GetTopLevel"/> is true
+        /// (Control.cs TopLevelControl). This walked to the root unconditionally, so a control shown
+        /// with <see cref="SetTopLevel"/> -- hosted in a popup window here -- answered with the popup's
+        /// internal root instead of itself (CTL-25). A Form is not a <see cref="Control"/> in this
+        /// library, so for a control on a form the chain still ends at the form's root control.
+        /// </remarks>
         public Control? TopLevelControl {
             get {
                 var ctrl = (Control)this;
-                while (ctrl.Parent != null) ctrl = ctrl.Parent;
+
+                while (!ctrl.GetTopLevel () && ctrl.Parent is { } up)
+                    ctrl = up;
+
                 return ctrl;
             }
         }
@@ -893,7 +1041,14 @@ namespace Majorsilence.Forms
         // Notifies on change; the event was declared and raised by nothing (W6.1).
         private Majorsilence.Forms.Drawing.Region? region;
 
-        /// <summary>Gets or sets the window region associated with the control. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the region, in the control's own coordinates, it paints and is hit in.</summary>
+        /// <remarks>
+        /// Upstream applies it with SetWindowRgn, which clips both painting and hit-testing
+        /// (Control.cs Region). It used to be stored only (CTL-23), so a rounded or elliptical button
+        /// built from a GraphicsPath drew as a rectangle and took clicks in its corners. Now the parent
+        /// clips the control's surface to it when compositing (<see cref="PaintChildren"/>), and a point
+        /// outside it falls through to whatever is underneath.
+        /// </remarks>
         public Majorsilence.Forms.Drawing.Region? Region {
             get => region;
             set {
@@ -902,8 +1057,12 @@ namespace Majorsilence.Forms
 
                 region = value;
                 OnRegionChanged (EventArgs.Empty);
+                Invalidate ();
             }
         }
+
+        // Whether a point in this control's own coordinates is inside its Region (everywhere, without one).
+        internal bool RegionContains (Point local) => region is null || region.IsVisible (local);
 
         /// <summary>Gets whether this control is currently in design mode. Always false in Majorsilence.Forms.</summary>
         public new bool DesignMode => false;

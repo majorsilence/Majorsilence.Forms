@@ -110,8 +110,26 @@ namespace Majorsilence.Forms
     public partial class Control
     {
         /// <summary>Recreates the control's underlying handle.</summary>
-        /// <inheritdoc cref="WindowBase.RecreateHandle"/>
-        protected void RecreateHandle () { }
+        /// <remarks>
+        /// There are no style bits to re-apply, but code calls this so that its own
+        /// <c>OnHandleDestroyed</c>/<c>OnHandleCreated</c> overrides rebuild native-side state, so
+        /// those run (CTL-20): <see cref="DestroyHandle"/> then <see cref="CreateHandle"/> with
+        /// <see cref="RecreatingHandle"/> true, as upstream's RecreateHandleCore does (Control.cs).
+        /// A control without a handle has nothing to recreate.
+        /// </remarks>
+        protected void RecreateHandle ()
+        {
+            if (!IsHandleCreated)
+                return;
+
+            SetState (States.RecreatingHandle, true);
+            try {
+                DestroyHandle ();
+                CreateHandle ();
+            } finally {
+                SetState (States.RecreatingHandle, false);
+            }
+        }
 
         /// <summary>Raises the <see cref="HelpRequested"/> event.</summary>
         /// <inheritdoc cref="WindowBase.OnHelpRequested"/>

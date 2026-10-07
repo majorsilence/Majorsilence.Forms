@@ -449,14 +449,18 @@ namespace Majorsilence.Forms
                 if (vscrollbar.Visible)
                     ScrollWindow (0, -scroll_position.Y);
 
-                scroll_position.X = 0;
+                // .Y (CTL-12): this read .X, a copy of the branch above, so every layout with a
+                // horizontal bar and no vertical one zeroed the horizontal offset while the children
+                // stayed shifted -- the next scroll then moved them by the whole value again.
+                scroll_position.Y = 0;
             }
 
             SuspendLayout ();
 
             var sizegrip_visible = hscroll_visible && vscroll_visible;
 
-            hscrollbar.SetBounds (0, client.Height - bar_size, sizegrip_visible ? Bounds.Width - bar_size : Bounds.Height, bar_size);
+            // The bar spans the WIDTH (CTL-12: it took the control's height when there was no size grip).
+            hscrollbar.SetBounds (0, client.Height - bar_size, sizegrip_visible ? Bounds.Width - bar_size : Bounds.Width, bar_size);
             hscrollbar.Visible = hscroll_visible;
 
             vscrollbar.SetBounds (client.Width - bar_size, 0, bar_size, sizegrip_visible ? Bounds.Height - bar_size : Bounds.Height);

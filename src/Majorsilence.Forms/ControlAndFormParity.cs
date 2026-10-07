@@ -63,9 +63,8 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets whether the control's handle is being recreated.</summary>
-        /// <remarks>Always false: handles are not recreated here, because there is no HWND whose style
-        /// bits would require it.</remarks>
-        public bool RecreatingHandle => false;
+        /// <remarks>True only while <see cref="RecreateHandle"/> runs its destroy/create pair.</remarks>
+        public bool RecreatingHandle => GetState (States.RecreatingHandle);
 
         /// <summary>Gets the company name from the entry assembly's metadata.</summary>
         public string CompanyName => AssemblyMetadata<AssemblyCompanyAttribute> (a => a.Company);

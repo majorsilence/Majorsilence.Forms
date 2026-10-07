@@ -2062,8 +2062,10 @@ namespace Majorsilence.Forms
         {
             var firstShow = !shown;
 
-            if (firstShow)
+            if (firstShow) {
                 MarkHandleCreated ();
+                adapter.CreateControl ();   // the form's controls go live here, as in ShowBookkeeping (CTL-05)
+            }
 
             load ();
             visible = true;

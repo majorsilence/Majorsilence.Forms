@@ -62,7 +62,12 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
   focused. Assert `tb.GetContainerControl()` is the form/adapter, not null.
 - **Tests today:** none (grep `GetContainerControl` in tests = 0).
 
-### CTL-03 — `Control.SetStyle(ControlStyles.Selectable)` vs `CanSelect` — Cat A — P1 — High
+### CTL-03 — `Control.SetStyle(ControlStyles.Selectable)` vs `CanSelect` — Cat A — P1 — High — **CLOSED (2026-10-06)**
+- **Fix (applied, #341):** one flag. `ControlBehaviors.Selectable` is no longer stored separately: `SetControlBehavior`/
+  `GetControlBehavior` route that bit to `ControlStyles.Selectable`, and `CanSelect` reads `GetStyle (Selectable)` before
+  the visible/enabled chain, as upstream's `CanSelectCore`. `SetStyle (Selectable, false)` in a ported constructor makes
+  the control unfocusable (and a click on it leaves focus where it was); `SetStyle (Selectable, true)` makes a Panel
+  focusable. The enum member stays for source compatibility. Tests: `ControlBaseGapTests.CTL03_*`.
 - **Ours:** `SetStyle`/`GetStyle` write `control_styles` (`src/Majorsilence.Forms/Control.Compat.cs:13,114-124`), but
   `CanSelect` reads `behaviors.HasFlag(ControlBehaviors.Selectable)` (`Control.cs:159-174`), a separate enum only
   settable via the non-WinForms `SetControlBehavior`. `RaiseMouseDown` calls `Select()` for every enabled control hit
@@ -80,7 +85,12 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
   and `c.Focus()` returns false.
 - **Tests today:** none.
 
-### CTL-04 — `Control` Click/DoubleClick sequence and `MouseEventArgs.Clicks` — Cat A — P1 — High
+### CTL-04 — `Control` Click/DoubleClick sequence and `MouseEventArgs.Clicks` — Cat A — P1 — High — **CLOSED (2026-10-06)**
+- **Fix (applied, #341):** the Click-vs-DoubleClick half was already fixed by EVT-01 (`DoubleClickExclusiveTests`).
+  The rest: the second press of a double-click is a `MouseDown` with `Clicks == 2`, as upstream's
+  `WM_LBUTTONDBLCLK -> WmMouseDown (m, button, 2)`; the press asks the same time/distance test the release uses
+  (`WindowBase.CompletesDoubleClick`). This also lets TextBox's existing double-click word selection (TXT-24) fire on
+  the real pointer path. Test: `ControlBaseGapTests.CTL04_the_second_MouseDown_of_a_double_click_has_Clicks_2`.
 - **Ours:** `WindowBase.HandlePointerReleased` builds `Clicks` only for the release, raises `RaiseDoubleClick` when
   `Clicks > 1`, then **always** `RaiseClick` and `RaiseMouseUp` (`src/Majorsilence.Forms/WindowBase.cs:1079-1098`,
   `:189-202`). `HandlePointerPressed` hard-codes `Clicks = 1` (`WindowBase.cs:1076`). Order on a double-click:
@@ -98,7 +108,15 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
   Click count 1, DoubleClick count 1, and the second MouseDown's `e.Clicks == 2`.
 - **Tests today:** ControlExtensibilityHookTests (DoubleClick routes to OnMouseDoubleClick — hook-level only).
 
-### CTL-05 — `Control.CreateControl` / `HandleCreated` / `UserControl.Load` timing — Cat A — P1 — High
+### CTL-05 — `Control.CreateControl` / `HandleCreated` / `UserControl.Load` timing — Cat A — P1 — High — **CLOSED (2026-10-06)**
+- **Fix (applied, #341):** `ControlCollection.Insert` creates the child only when the owner is already `Created`
+  (upstream `ControlCollection.Add`); `CreateControl` returns for a control hidden by its own or an ancestor's
+  `Visible` flag (upstream `CreateControl (false)`); `OnVisibleChanged` creates a control on its way to visible only
+  under a created parent. A form's controls are therefore created at first `Show` (or `form.CreateControl ()`) -- the
+  hosted show path (MDI child, form in a `Controls` collection) now creates them too -- and a
+  control on a hidden page when the page is first shown. `UserControlLoadTests` was rewritten: it pinned the old
+  eager timing. Three tests that drove input into, or repainted, a form that was never shown now call
+  `form.CreateControl ()` first, as a real form would be shown.
 - **Ours:** `ControlCollection.Insert` calls `item.CreateControl()` whenever `item.Visible`
   (`src/Majorsilence.Forms/ControlCollection.cs:477-481`); `ControlAdapter.Visible => ParentForm != null` is always
   true (`ControlAdapter.cs:69-72`), so any control added to a Form — shown or not — is Created immediately, raising
@@ -122,7 +140,10 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
   asserts LoadCount==1 right after `Controls.Add` on an unshown Form); FormHandleCreatedTests;
   ControlExtensibilityHookTests.CreateControl_raises_OnHandleCreated_once.
 
-### CTL-06 — `Control.UseWaitCursor` — Cat A — P1 — High
+### CTL-06 — `Control.UseWaitCursor` — Cat A — P1 — High — **CLOSED (2026-10-06)**
+- **Already fixed** by SVC-13 (2026-10-01): `UseWaitCursor` is the state flag `Cursor` reads, cascades to the
+  children and refreshes the cursor under the pointer (`Control.Compat.cs`; test
+  `CursorAndFileDialogTests.UseWaitCursor_reaches_the_children_and_the_cursor_under_the_pointer`).
 - **Ours:** `public bool UseWaitCursor { get; set; }` auto-property (`src/Majorsilence.Forms/Control.Compat.cs:304`),
   while `Cursor`'s getter checks `GetState(States.UseWaitCursor)` (`Control.cs:419-423`), a flag nothing ever sets.
   `WindowBase.UseWaitCursor` forwards to the adapter's copy (`WindowBase.cs:1873-1876`), so `Form.UseWaitCursor` is dead
@@ -209,7 +230,10 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
   visible with `Maximum >= 20`.
 - **Tests today:** PanelTests / FormControlParityTests / TailParityTests (default-value and round-trip only).
 
-### CTL-12 — `ScrollableControl.Recalculate` copy/paste faults — Cat A — P1 — High
+### CTL-12 — `ScrollableControl.Recalculate` copy/paste faults — Cat A — P1 — High — **CLOSED (2026-10-06)**
+- **Fix (applied, #341):** both faults were still present. The "no vertical bar" branch zeroes `scroll_position.Y`,
+  not `.X`, and the horizontal bar spans `Bounds.Width` without a size grip. Tests:
+  `ControlBaseGapTests.CTL12_*`.
 - **Ours:** in the "vertical bar not needed" branch `scroll_position.X = 0;` should be `.Y`
   (`src/Majorsilence.Forms/ScrollableControl.cs:304-309`, compare `:292-297`): every layout pass with a visible
   horizontal bar and no vertical bar zeroes the horizontal position bookkeeping while the children stay shifted, so the
@@ -240,6 +264,12 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
 - **Tests today:** ScrollableControlTests.DisplayRectangle (padding only).
 
 ### CTL-14 — `Control.Visible` with no parent, and `VisibleChanged` on Add/Remove — Cat A — P2 — High
+- **Left open (#341):** the one-line getter change (`parent is null || parent.Visible`) breaks only five tests, but
+  it makes every unparented control `CanSelect`, and `Select ()` on a control with no window then takes focus
+  directly and keeps it after the control is parented -- a second focused control the adapter does not know about
+  (`UserControlTests.ActiveControl_Set_GetReturnsExpected` shows it). It needs the unparented focus path (and
+  CTL-07's `ActiveControl`) decided first. The double VisibleChanged on Add was already fixed by EVT-13; Add/Remove
+  still raise one each.
 - **Ours:** getter returns `parent?.Visible ?? false` (`src/Majorsilence.Forms/Control.cs:2673-2680`), so a brand-new or
   just-removed control reports `Visible == false`. Because of that, `AssignParent` sees false→true on Add and raises
   `OnVisibleChanged`, then `Insert`'s `finally` raises it **again** (`ControlCollection.cs:477-481`, `Control.cs:104-111`);
@@ -256,7 +286,9 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
   2) and `form.Controls.Remove(b)` (expect 0).
 - **Tests today:** ControlTests.OnParentVisibleChanged_* (cascade shape only, not counts).
 
-### CTL-15 — `Control.Parent` setter — Cat A — P2 — High
+### CTL-15 — `Control.Parent` setter — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied, #341):** the setter's trailing `OnParentChanged` is gone; `Controls.Add` -> `AssignParent` raises it
+  once, as upstream's `ParentInternal` setter. Test: `ControlBaseGapTests.CTL15_setting_Parent_raises_ParentChanged_once`.
 - **Ours:** `value.Controls.Add(this); OnParentChanged(EventArgs.Empty);` (`src/Majorsilence.Forms/Control.cs:1683-1702`)
   — but `Add → Insert → AssignParent` already raised `OnParentChanged` (`Control.cs:96`), so it fires twice.
 - **Upstream:** `ParentInternal` setter only calls `value.Controls.Add(this)` (`Control.cs:2701-2725`).
@@ -266,7 +298,12 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
 - **Test:** count ParentChanged across `c.Parent = panel` → 1.
 - **Tests today:** none (grep `ParentChanged` in tests = 0).
 
-### CTL-16 — `Control.Dispose(bool)` / `Disposing` — Cat A — P2 — High
+### CTL-16 — `Control.Dispose(bool)` / `Disposing` — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied, #341):** `Dispose (true)` sets `States.Disposing` (with layout suspended) for the whole teardown,
+  `base.Dispose` (and so the `Disposed` event) included, then clears it and sets `States.Disposed`, as upstream. Each
+  child's unparenting now hits `AssignParent`'s `GetAnyDisposingInHierarchy` return, so no VisibleChanged/
+  ParentVisibleChanged/layout storm runs against the half-disposed parent. `IsDisposed` still reads its own field.
+  Tests: `ControlBaseGapTests.CTL16_*`.
 - **Ours:** never sets `States.Disposing` (`src/Majorsilence.Forms/Control.cs:2697-2740`), so `Disposing` is always
   false and `GetAnyDisposingInHierarchy()` never short-circuits `AssignParent`; disposing a parent therefore runs
   `parent.Controls.Remove(this)` for each child → `OnParentChanged`, `OnVisibleChanged`, `OnParentVisibleChanged` cascade,
@@ -304,7 +341,12 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
   without MinimumSize → 60.
 - **Tests today:** none for Panel preferred size.
 
-### CTL-19 — `Control.BeginInvoke(Delegate)` / `EndInvoke` — Cat A — P2 — High
+### CTL-19 — `Control.BeginInvoke(Delegate)` / `EndInvoke` — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied, #341):** `BeginInvoke (Delegate[, args])` returns a `TaskCompletionSource<object?>` task completed
+  by the posted call with its return value or exception (the exception is still thrown into the loop, which reports
+  it through `Application.ThreadException` as before). `EndInvoke` returns the value or rethrows; on the UI thread it
+  runs pending posted work until the call has run, as upstream's EndInvoke does. `BeginInvoke (Action)` keeps its
+  existing `void` signature. Tests: `ControlBaseGapTests.CTL19_*`.
 - **Ours:** returns `new System.Threading.Tasks.Task(() => { })`, a task that is never started
   (`src/Majorsilence.Forms/Control.Compat.cs:236-253`); `EndInvoke => null` (`:256`).
 - **Upstream:** returns a `ThreadMethodEntry` whose `IsCompleted`/`AsyncWaitHandle` complete when the callback runs;
@@ -317,7 +359,13 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
   Assert.Equal(42, c.EndInvoke(ar))`.
 - **Tests today:** none.
 
-### CTL-20 — `Control.Handle` / `CreateHandle` / `RecreateHandle` — Cat B — P2 — High
+### CTL-20 — `Control.Handle` / `CreateHandle` / `RecreateHandle` — Cat B — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied, #341):** a handle state of its own (`States.HandleCreated`), separate from `Created`.
+  `CreateHandle ()` sets it and raises `HandleCreated` once; `CreateControl` goes through it; reading `Handle` creates
+  it, so `_ = control.Handle;` makes `IsHandleCreated` true and fires `HandleCreated` early as in WinForms (without
+  `OnCreateControl`/`Load`, as upstream). `RecreateHandle ()` runs `DestroyHandle ()` + `CreateHandle ()` with
+  `RecreatingHandle` true. **Deliberate deviation:** the value of `Handle` stays `IntPtr.Zero` -- the native-interop
+  policy is that a control handle is never faked (`docs/native-interop.md`). Tests: `ControlBaseGapTests.CTL20_*`.
 - **Ours:** `Handle => IntPtr.Zero`, `CreateHandle() { }`, `RecreateHandle() { }` (`src/Majorsilence.Forms/Control.Compat.cs:320-323`,
   `KryptonPortParity.Two.cs:81`); `IWin32Window.Handle` also Zero (`Control.cs:16`).
 - **Upstream:** reading `Handle` creates the handle (`Control.cs:2201-2214`) — the idiom `var _ = Handle;` /
@@ -332,7 +380,12 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
 - **Test:** `var c = new Control(); _ = c.Handle; Assert.True(c.IsHandleCreated)`; HandleCreated count 1.
 - **Tests today:** KryptonPortParityTests/TailParityTests (Handle exists), none for creation side-effect.
 
-### CTL-21 — `Control.Refresh` / `Update` — Cat A — P2 — High
+### CTL-21 — `Control.Refresh` / `Update` — Cat A — P2 — High — **PARTIALLY CLOSED (2026-10-06)**
+- **Fix (applied, #341):** `Update ()` paints a dirty, created control into its surface before returning (raising
+  `Paint`), and marks its ancestors so the next frame composites the new pixels; `Refresh ()` is upstream's
+  `Invalidate (true); Update ();`. **Still open:** putting it on screen is the window's next frame -- no backend
+  exposes a synchronous present, so a UI thread blocked in a loop still shows nothing until it returns. That needs an
+  `IWindowBackend` "render now" member on every backend. Tests: `ControlBaseGapTests.CTL21_*`.
 - **Ours:** both `=> Invalidate()` (`src/Majorsilence.Forms/Control.Compat.cs:31`, `:450`); nothing paints until the
   backend's next frame.
 - **Upstream:** `Update()` → `UpdateWindow` paints synchronously; `Refresh()` = `Invalidate(true) + Update()`
@@ -344,7 +397,10 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
 - **Test:** hook `Paint`, set Text, call `Refresh()` → Paint count incremented synchronously (no `DoEvents`).
 - **Tests today:** none.
 
-### CTL-22 — `Control.Cursor` setter — Cat A — P2 — High
+### CTL-22 — `Control.Cursor` setter — Cat A — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied, #341):** the `Cursor` and `OverrideCursor` setters call `WindowBase.RefreshHoverCursor`, which
+  re-reads the hovered control's cursor (the one SVC-13 added), so a cursor set under the pointer shows at once.
+  Test: `ControlBaseGapTests.CTL22_setting_Cursor_under_the_pointer_shows_it_at_once`.
 - **Ours:** stores and raises `CursorChanged`; the cursor is only pushed to the window in `OnMouseEnter`
   (`src/Majorsilence.Forms/Control.cs:419-438`, `:1310`).
 - **Upstream:** setter sends WM_SETCURSOR immediately when the pointer is inside the control or it has capture
@@ -356,7 +412,11 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
 - **Test:** headless form, move pointer into control, set `Cursor = Cursors.Wait`, assert `form.current_cursor` is Wait.
 - **Tests today:** CursorTests / ControlExtensibilityHookTests (ResetCursor) — none for live application.
 
-### CTL-23 — `Control.Region` / `RegionChanged` — Cat C/D — P2 — High
+### CTL-23 — `Control.Region` / `RegionChanged` — Cat C/D — P2 — High — **CLOSED (2026-10-06)**
+- **Fix (applied, #341):** the setter (made to raise `RegionChanged` in W6.1) also invalidates; the parent clips the
+  child's surface to the region when compositing (`PaintChildren`, the same boundary-path scaling `WindowBase` uses
+  for a form region), and `FindVisibleChildAt`/`GetChildAtPoint` skip a child whose region does not contain the point.
+  Test: `ControlBaseGapTests.CTL23_Region_clips_the_paint_and_the_hit_test`.
 - **Ours:** `Region { get; set; }` auto-property (`src/Majorsilence.Forms/Control.Compat.cs:621`); `OnRegionChanged`
   exists (`ControlAndFormParity.cs:401`) but is never called; painting and hit-testing ignore it.
 - **Upstream:** setter applies `SetWindowRgn` (clips painting and hit-testing) and raises `OnRegionChanged`
@@ -380,7 +440,12 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
 - **Test:** AutoScroll panel with overflow → `Assert.True(VScroll)` via a test subclass.
 - **Tests today:** none.
 
-### CTL-25 — `Control.TopLevelControl` — Cat A — P2 — High
+### CTL-25 — `Control.TopLevelControl` — Cat A — P2 — High — **PARTIALLY CLOSED (2026-10-06)**
+- **Fix (applied, #341):** the walk stops at the first control with `GetTopLevel ()`, as upstream, so a control shown
+  through `SetTopLevel (true)` (hosted in a popup window) is its children's `TopLevelControl` instead of the popup's
+  internal root. **Still open:** for a control on a form the answer is still the form's internal root control --
+  `Form` is not a `Control` in this library, so the property's type cannot return it. Test:
+  `ControlBaseGapTests.CTL25_a_top_level_control_is_its_childrens_TopLevelControl`.
 - **Ours:** walks to the parentless root and returns it — the internal `ControlAdapter`
   (`src/Majorsilence.Forms/Control.Compat.cs:511-517`).
 - **Upstream:** returns the first control with `GetTopLevel()` — the Form (`Control.cs:3276-3290`).
@@ -390,7 +455,11 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
 - **Test:** `form.Controls.Add(c); Assert.Same(form, c.TopLevelControl)` (or `FindForm()` equivalence).
 - **Tests today:** TopLevelControlTests (covers `SetTopLevel` hosting, not this property).
 
-### CTL-26 — `Control.RaiseClick` right-click with a context menu; focus on any button — Cat A — P2 — Medium
+### CTL-26 — `Control.RaiseClick` right-click with a context menu; focus on any button — Cat A — P2 — Medium — **CLOSED (2026-10-06)**
+- **Fix (applied, #341):** a right release over a control with a context menu opens the menu and then raises
+  `Click`/`MouseClick` like any other release (upstream sends WM_CONTEXTMENU, then clicks). A press focuses only for the
+  left button (`Control.TakesFocusOnPress`, upstream's `WmMouseDown` rule); `TextBoxBase`, `ListView` and `TreeView`
+  also focus on a right press, as their native windows do. Tests: `ControlBaseGapTests.CTL26_*`.
 - **Ours:** with `ContextMenu != null` a right-button release shows the menu and returns before `OnClick`/`OnMouseClick`
   (`src/Majorsilence.Forms/Control.cs:1767-1770`); `RaiseMouseDown` calls `Select()` for every button (`:1911`).
 - **Upstream:** the menu is opened from WM_CONTEXTMENU independently; Click/MouseClick still fire for the right button
@@ -402,7 +471,10 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
   previously focused control still `Focused`.
 - **Tests today:** MenuClickReproTests (menu opens), none for the swallowed click.
 
-### CTL-27 — `UserControl` click on empty area moves focus to the container — Cat A — P2 — Medium
+### CTL-27 — `UserControl` click on empty area moves focus to the container — Cat A — P2 — Medium — **CLOSED (2026-10-06)**
+- **Fix (applied, #341):** `UserControl` overrides `TakesFocusOnPress` to focus only when focus is not already inside
+  it -- upstream's `if (!FocusInside ()) Focus ();`. Test:
+  `ControlBaseGapTests.CTL27_clicking_blank_space_in_a_UserControl_keeps_its_child_focused`.
 - **Ours:** `UserControl` sets `Selectable` and inherits `RaiseMouseDown → Select()` (`src/Majorsilence.Forms/UserControl.cs:17`,
   `Control.cs:1911`), so clicking its background deselects the child that had focus.
 - **Upstream:** `UserControl.OnMouseDown` only calls `Focus()` when `!FocusInside()` (`UserControl.cs:292-299`).
@@ -429,7 +501,11 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
   handler → recorded, and `KeyDown` not raised.
 - **Tests today:** none.
 
-### CTL-29 — `Control.BindingContextChanged` / `OnBindingContextChanged` — Cat D — P2 — High — **PARTIALLY CLOSED 2026-09-15 (W6.1)**
+### CTL-29 — `Control.BindingContextChanged` / `OnBindingContextChanged` — Cat D — P2 — High — **CLOSED (2026-10-06)** (partially closed 2026-09-15, W6.1)
+- **Fix (applied, #341):** the rest. `OnBindingContextChanged` passes the change to every child through the new
+  `OnParentBindingContextChanged`, which raises it for a child without a context of its own; `AssignParent` raises it
+  for a created control without its own context; `CreateControl` raises it for one created ahead of its parent --
+  all upstream's rules. Tests: `ControlBaseGapTests.CTL29_*`.
 - **Was:** event is `add { } remove { }` (`src/Majorsilence.Forms/Control.Events.cs:591`); `OnBindingContextChanged` is
   an empty virtual nothing calls (`KryptonPortParity.cs:76`); `BindingContext` setter stores only
   (`Control.Compat.cs:495-498`).
