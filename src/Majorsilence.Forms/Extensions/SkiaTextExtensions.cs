@@ -88,8 +88,10 @@ namespace Majorsilence.Forms
         /// Draws a string of text, interpreting WinForms mnemonic prefixes, resolving the font and
         /// colour from the control (matching the control-based <see cref="DrawText(SKCanvas, string, Rectangle, Control, ContentAlignment, int, int, SKColor?, int?, bool)"/> overload).
         /// </summary>
+        /// <remarks>The access key is underlined only while the control's form shows keyboard cues
+        /// (<see cref="Control.ShowKeyboardCues"/>).</remarks>
         public static void DrawMnemonicText (this SKCanvas canvas, string text, Rectangle bounds, Control control, ContentAlignment alignment, int? maxLines = null, bool ellipsis = false)
-            => canvas.DrawMnemonicText (text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, control.Enabled ? control.GetEffectiveForegroundColor () : Theme.ForegroundDisabledColor, alignment, maxLines, ellipsis);
+            => canvas.DrawMnemonicText (text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, control.Enabled ? control.GetEffectiveForegroundColor () : Theme.ForegroundDisabledColor, alignment, maxLines, ellipsis, control.ShowKeyboardCues);
 
         /// <summary>
         /// Draws a string of text, interpreting WinForms mnemonic prefixes: an ampersand marks the
@@ -97,11 +99,19 @@ namespace Majorsilence.Forms
         /// literal ampersand.
         /// </summary>
         public static void DrawMnemonicText (this SKCanvas canvas, string text, SKTypeface font, int fontSize, Rectangle bounds, SKColor color, ContentAlignment alignment, int? maxLines = null, bool ellipsis = false)
+            => canvas.DrawMnemonicText (text, font, fontSize, bounds, color, alignment, maxLines, ellipsis, underline: true);
+
+        // As above; with underline false the access key is drawn like the rest of the text, as upstream
+        // draws it while keyboard cues are hidden. The ampersands are still interpreted.
+        internal static void DrawMnemonicText (this SKCanvas canvas, string text, SKTypeface font, int fontSize, Rectangle bounds, SKColor color, ContentAlignment alignment, int? maxLines, bool ellipsis, bool underline)
         {
             if (string.IsNullOrWhiteSpace (text))
                 return;
 
             var display = Mnemonics.Parse (text, out var mnemonicIndex);
+
+            if (!underline)
+                mnemonicIndex = -1;
 
             if (string.IsNullOrEmpty (display))
                 return;

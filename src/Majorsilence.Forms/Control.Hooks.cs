@@ -422,9 +422,14 @@ public partial class Control
 
         var scaled = GetScaledBounds (Bounds, factor, specified);
 
-        // Padding and Margin live in the same pixel space as Bounds, so they move with them.
-        Padding = ScalePadding (Padding, factor);
-        Margin = ScalePadding (Margin, factor);
+        // Padding and Margin live in the same pixel space as Bounds, so they move with them -- except
+        // under a legacy AutoScaleBaseSize scale, which upstream runs through Scale (float, float) and
+        // ScaleCore: that moves and resizes and leaves both alone. Scaled there, ReportDesigner's menu
+        // bar padding went from 6,2 to 8,3 and the bar came out 2px taller than under WinForms.
+        if (!InLegacyAutoScale) {
+            Padding = ScalePadding (Padding, factor);
+            Margin = ScalePadding (Margin, factor);
+        }
 
         // Anchored children hold their distances to each edge in recorded anchor info. Scaling the
         // bounds without scaling that leaves them snapping back to 96-DPI distances -- which is why
@@ -450,6 +455,10 @@ public partial class Control
         if (!max.IsEmpty)
             MaximumSize = ScaleSize (max, factor);
     }
+
+    /// <summary>Set by Form while it applies a legacy AutoScaleBaseSize scale (see ScaleControl).</summary>
+    [System.ThreadStatic]
+    internal static bool InLegacyAutoScale;
 
     private static Padding ScalePadding (Padding padding, SizeF factor)
         => new Padding (

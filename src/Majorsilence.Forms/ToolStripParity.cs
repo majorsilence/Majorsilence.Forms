@@ -862,7 +862,7 @@ namespace Majorsilence.Forms
 
         // ToolStripItemAlignment.Right pins to the trailing edge: the right of a horizontal strip, the
         // bottom of a vertical one. Sizes are kept; only the position moves.
-        private static void PinTrailing (List<MenuItem> main, Rectangle area, bool vertical)
+        private protected static void PinTrailing (List<MenuItem> main, Rectangle area, bool vertical)
         {
             var trailing = main.OfType<ToolStripItem> ().Where (i => i.Alignment == ToolStripItemAlignment.Right).ToList ();
             var edge = vertical ? area.Bottom : area.Right;

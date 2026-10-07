@@ -107,7 +107,7 @@ namespace Majorsilence.Forms.Renderers
             if (StripRendererBridge.Text (control, item, item.Text, bounds, font_color, e) is { } tp) {
                 bounds = tp.rect;
                 font_color = tp.colour;
-                e.Canvas.DrawMnemonicText (tp.text, Theme.UIFont, font_size, bounds, font_color, ContentAlignment.MiddleLeft);
+                e.Canvas.DrawMnemonicText (tp.text, Theme.UIFont, font_size, bounds, font_color, ContentAlignment.MiddleLeft, maxLines: null, ellipsis: false, underline: control.ShowKeyboardCues);
             }
 
             // Shortcut text, right-aligned in the gutter the submenu arrow also uses. Drawn only when

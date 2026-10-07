@@ -2982,6 +2982,15 @@ namespace Majorsilence.Forms
         protected internal virtual bool ShowFocusCues => FindForm ()?.ShowFocusCues == true;
 
         /// <summary>
+        /// Gets whether access keys are underlined: until the user presses Alt, upstream draws
+        /// "&amp;File" as "File". Protected-internal for the same reason as <see cref="ShowFocusCues"/>.
+        /// </summary>
+        /// <remarks>An app that has not chosen a font keeps the theme's look, with the underline always
+        /// shown (see <see cref="Form.ShowKeyboardCues"/>).</remarks>
+        protected internal virtual bool ShowKeyboardCues
+            => FindForm () is { } form ? form.ShowKeyboardCues : !SystemFonts.HasDefaultFontOverride;
+
+        /// <summary>
         /// Gets or sets the unscaled size of the control.
         /// </summary>
         public Size Size {
@@ -3118,6 +3127,9 @@ namespace Majorsilence.Forms
         }
 
         private Majorsilence.Forms.Drawing.Font? _font;
+
+        /// <summary>Whether this control was given a font of its own, rather than inheriting one.</summary>
+        internal bool HasOwnFont => _font is not null;
 
         /// <summary>
         /// Gets or sets the font (WinForms compatibility property; use Theme or Style for full control).

@@ -46,7 +46,7 @@ namespace Majorsilence.Forms.Renderers
                 // A GroupBox caption interprets the '&' mnemonic prefix.
                 e.Canvas.DrawMnemonicText (control.Text, font, font_size, text_bounds,
                     control.Enabled ? control.GetEffectiveForegroundColor () : Theme.ForegroundDisabledColor,
-                    ContentAlignment.MiddleLeft, maxLines: 1);
+                    ContentAlignment.MiddleLeft, maxLines: 1, ellipsis: false, underline: control.ShowKeyboardCues);
             }
         }
     }
