@@ -634,9 +634,6 @@ Left over from the same work:
 
 - **Android and iOS are unmeasured.** Their `RunModalLoop` is still Avalonia's `Dispatcher.PushFrame`
   and `CanRunModalLoop` reports true; whether a nested frame runs there has not been tried on a device.
-- **`FileDialog.ShowDialogAsync` does not raise `FileOk`.** The blocking `ShowDialogSync` raises it
-  after the pick (and turns a cancelled `FileOk` into Cancel); the awaitable path returns the picker's
-  answer directly. Now that the awaitable path is the only one in the browser, it should do the same.
 - **The Gallery.Wasm check is not in CI.** The `wasm` job publishes the bundle; running
   `tools/modal-check.mjs` against it would keep the measurements above honest.
 - **Accessibility DOM (browser):** popups (combo box drop-downs, menu drop-downs, tooltips) are not
