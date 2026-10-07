@@ -47,6 +47,13 @@ namespace Majorsilence.Forms
         /// Draws a string of text.
         /// </summary>
         public static void DrawText (this SKCanvas canvas, string text, SKTypeface font, int fontSize, Rectangle bounds, SKColor color, ContentAlignment alignment, int selectionStart = -1, int selectionEnd = -1, SKColor? selectionColor = null, int? maxLines = null, bool ellipsis = false)
+            => DrawText (canvas, text, font, fontSize, bounds, color, alignment, selectionStart, selectionEnd, selectionColor, maxLines, ellipsis, paintOptions: null);
+
+        /// <summary>
+        /// Draws a string of text with caller-chosen glyph rasterisation; null means the library default.
+        /// <c>Graphics.TextRenderingHint</c> reaches the text through here (GFX-08).
+        /// </summary>
+        internal static void DrawText (SKCanvas canvas, string text, SKTypeface font, int fontSize, Rectangle bounds, SKColor color, ContentAlignment alignment, int selectionStart, int selectionEnd, SKColor? selectionColor, int? maxLines, bool ellipsis, TextPaintOptions? paintOptions)
         {
             if (string.IsNullOrWhiteSpace (text))
                 return;
@@ -61,7 +68,8 @@ namespace Majorsilence.Forms
             // control's real (short) height here silently produced completely invisible text. The
             // canvas.Clip(bounds) call below still constrains what's actually visible to bounds, so
             // nothing paints outside the control regardless.
-            var tb = TextMeasurer.CreateTextBlock (text, font, fontSize, new Size (bounds.Width, int.MaxValue), TextMeasurer.GetTextAlign (alignment), color, maxLines, ellipsis);
+            var tb = TextMeasurer.CreateTextBlock (text, font, fontSize, new Size (bounds.Width, int.MaxValue), TextMeasurer.GetTextAlign (alignment), color, maxLines, ellipsis,
+                rasterisation: paintOptions is null ? -1 : ((int)paintOptions.Edging << 4) | (int)paintOptions.Hinting);
             var location = bounds.Location;
             var vertical = TextMeasurer.GetVerticalAlign (alignment);
 
@@ -75,7 +83,7 @@ namespace Majorsilence.Forms
                     SelectionColor = selectionColor ?? Theme.TextSelectionBackgroundColor
                 };
             } else {
-                options = _defaultPaintOptions;
+                options = paintOptions ?? _defaultPaintOptions;
             }
 
             canvas.Save ();

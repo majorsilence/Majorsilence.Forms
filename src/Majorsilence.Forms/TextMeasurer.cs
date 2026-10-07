@@ -28,22 +28,27 @@ namespace Majorsilence.Forms
             uint Color,            // SKColor.Value
             int MaxLines,          // -1 represents null
             bool Ellipsis,
-            int MnemonicIndex);
+            int MnemonicIndex,
+            int Rasterisation);    // -1 for the default; see CreateTextBlock
 
         // Paint-safe TextBlock cache. TextBlock layout is idempotent; Paint() is read-only.
         // Reusing cached instances eliminates repeated RichTextKit layout on every frame.
         private static readonly Dictionary<TextBlockKey, TextBlock> _textBlockCache = new (capacity: 512);
         private const int TBCacheLimit = 2000;
 
-        internal static TextBlock CreateTextBlock (string text, SKTypeface font, int fontSize, Size maxSize, TextAlignment alignment = TextAlignment.Auto, SKColor color = new SKColor (), int? maxLines = null, bool ellipsis = false, int mnemonicIndex = -1)
+        internal static TextBlock CreateTextBlock (string text, SKTypeface font, int fontSize, Size maxSize, TextAlignment alignment = TextAlignment.Auto, SKColor color = new SKColor (), int? maxLines = null, bool ellipsis = false, int mnemonicIndex = -1, int rasterisation = -1)
         {
+            // rasterisation keys the cache only. RichTextKit builds each run's SKTextBlob on the FIRST
+            // paint, with that paint's edging and hinting, and reuses it for every later paint -- so a
+            // block shared between an aliased and an antialiased draw of the same text rendered with
+            // whichever came first (Graphics.TextRenderingHint, GFX-08).
             if (maxLines == 1) {
                 text = text.Replace ("\n\r", "»");
                 text = text.Replace ("\n", "»");
                 text = text.Replace ("\r", "»");
             }
 
-            var key = new TextBlockKey (text, font, fontSize, maxSize.Width, maxSize.Height, alignment, (uint)color, maxLines ?? -1, ellipsis, mnemonicIndex);
+            var key = new TextBlockKey (text, font, fontSize, maxSize.Width, maxSize.Height, alignment, (uint)color, maxLines ?? -1, ellipsis, mnemonicIndex, rasterisation);
 
             if (_textBlockCache.TryGetValue (key, out var cached))
                 return cached;

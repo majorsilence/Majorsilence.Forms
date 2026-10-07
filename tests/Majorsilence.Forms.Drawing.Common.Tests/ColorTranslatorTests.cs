@@ -55,7 +55,7 @@ public class ColorTranslatorTests
     }
 
     // 8-char hex is #AARRGGBB (alpha first), matching System.Drawing.ColorTranslator -- the type this
-    // class replaces -- and round-tripping with ToHtml, which emits #AARRGGBB for non-opaque colors.
+    // class replaces. (ToHtml never emits this form: like upstream it drops alpha -- GFX-40.)
     // The original Reporting test asserted the CSS #RRGGBBAA order against its own Color type; that
     // convention was dropped along with that type when the drawing projects were consolidated.
     [Theory]

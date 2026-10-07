@@ -36,8 +36,15 @@ namespace Majorsilence.Forms
             {
                 // Whether the colour IS SystemColors.Control decides more than a shade: the lighter and
                 // darker paths short-circuit to the exact ControlLight/ControlDark values for it, which
-                // is why Light (SystemColors.Control) is DARKER than Control in WinForms.
+                // is why Light (SystemColors.Control) is DARKER than Control in WinForms. Upstream tests
+                // identity (ControlPaint.HLSColor.cs: ToKnownColor), so a real KnownColor.Control -- one
+                // a designer file or resx deserialised -- qualifies whatever its channels. The ARGB clause
+                // stands in for identity while SystemColors returns anonymous colours (GFX-39, open).
+                // (By name: netstandard2.0 has no KnownColor, and a known colour's name is its member's.)
                 is_system_colors_control = color.ToArgb () == SystemColors.Control.ToArgb ();
+#if !NETSTANDARD2_0
+                is_system_colors_control |= color.IsSystemColor && color.Name == "Control";
+#endif
 
                 int r = color.R, g = color.G, b = color.B;
                 var max = Math.Max (Math.Max (r, g), b);
