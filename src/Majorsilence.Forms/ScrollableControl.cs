@@ -134,14 +134,22 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Gets or sets the current scroll position. Following WinForms semantics the value returned
-        /// is expressed as negative offsets; the setter accepts either sign.
+        /// Gets or sets the current scroll position. As in WinForms the getter answers negative offsets
+        /// while the setter takes the positive distance to scroll to: assigning <c>(0, 100)</c> scrolls
+        /// down 100, and a negative component clamps to the start.
         /// </summary>
+        /// <remarks>
+        /// That asymmetry is upstream's (Scrolling/ScrollableControl.cs, AutoScrollPosition, which hands
+        /// <c>-value</c> to <c>SetDisplayRectLocation</c> and clamps there), and it is why WinForms code
+        /// restores a saved position as <c>new Point (-saved.X, -saved.Y)</c>. This setter used to take
+        /// <c>Math.Abs</c>, so assigning the getter's own value back scrolled where Windows does not, and
+        /// code compensating for the quirk scrolled the wrong way (LAY-33).
+        /// </remarks>
         public Point AutoScrollPosition {
             get => new Point (-scroll_position.X, -scroll_position.Y);
             set {
-                var x = Math.Abs (value.X);
-                var y = Math.Abs (value.Y);
+                var x = value.X;
+                var y = value.Y;
 
                 if (hscrollbar.Visible)
                     hscrollbar.Value = Math.Max (hscrollbar.Minimum, Math.Min (x, hscrollbar.Maximum));
@@ -168,10 +176,8 @@ namespace Majorsilence.Forms
             // This control owns the gesture now; don't let it also bubble to an outer scrollable.
             e.Handled = true;
 
-            // AutoScrollPosition's getter returns WinForms-style negative offsets; its setter takes
-            // the (unsigned) magnitude and clamps to the scrollbar range itself -- but only after an
-            // internal Math.Abs(), which would silently flip a magnitude that went negative back to
-            // positive instead of clamping to zero. Clamp to zero here first to avoid that.
+            // AutoScrollPosition's getter returns WinForms-style negative offsets; its setter takes the
+            // positive distance and clamps to the scrollbar range itself.
             var current = AutoScrollPosition;
             var x = Math.Max (0, -current.X - e.Delta.X);
             var y = Math.Max (0, -current.Y - e.Delta.Y);

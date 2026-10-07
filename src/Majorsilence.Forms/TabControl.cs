@@ -367,10 +367,17 @@ namespace Majorsilence.Forms
         public int RowCount => tab_strip.RowCount;
 
         /// <summary>Gets the bounding rectangle of a tab at the specified index, in this control's coordinates.</summary>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="index"/> is negative, or not less than the number of tabs.</exception>
         public System.Drawing.Rectangle GetTabRect (int index)
         {
-            if (index < 0 || index >= tab_strip.Tabs.Count)
-                return new System.Drawing.Rectangle (index * 100, 0, 100, 25);
+            // LAY-18: an out-of-range index used to come back as a made-up 100x25 box, so an owner-draw
+            // or hit-test loop that overran the tab count drew in the wrong place instead of failing at
+            // the cause. Upstream (Controls/TabControl/TabControl.cs, GetTabRect) throws for both ends.
+            if (index < 0)
+                throw new ArgumentOutOfRangeException (nameof (index), index, string.Format (Majorsilence.Forms.Layout.SR.InvalidLowBoundArgumentEx, nameof (index), index, 0));
+
+            if (index >= tab_strip.Tabs.Count)
+                throw new ArgumentOutOfRangeException (nameof (index), index, $"'{nameof (index)}' must be less than {tab_strip.Tabs.Count}.");
 
             // Tab bounds are relative to the strip, but WinForms' GetTabRect answers in the
             // TabControl's own coordinates. Identity while the strip sits at the top -- and the whole
@@ -456,9 +463,24 @@ namespace Majorsilence.Forms
         /// <summary>Removes all tab pages from the TabControl.</summary>
         public void RemoveAll () => TabPages.Clear ();
 
-        /// <summary>Returns the tab page at the specified client point, or null. Stub in Majorsilence.Forms.</summary>
-        public TabPage? HitTest (System.Drawing.Point point) =>
-            TabPages.FirstOrDefault (tp => tp.Bounds.Contains (point));
+        /// <summary>Returns the tab page whose tab header is at the specified client point, or null.</summary>
+        /// <remarks>
+        /// The answer is the header under the point, as <c>TCM_HITTEST</c> gives it on Windows: a point in
+        /// the page body hits nothing. This tested the pages' own bounds, so every body point "hit" the
+        /// first page and no header point hit anything -- a right-click-a-tab menu picked the wrong page
+        /// or none (LAY-20). A tab scrolled out of a single-row strip is outside the strip and is not hit.
+        /// </remarks>
+        public TabPage? HitTest (System.Drawing.Point point)
+        {
+            if (!tab_strip.Bounds.Contains (point))
+                return null;
+
+            for (var i = 0; i < tab_strip.Tabs.Count; i++)
+                if (GetTabRect (i).Contains (point))
+                    return GetPageFromTab (tab_strip.Tabs[i]);
+
+            return null;
+        }
 
         // Raised by the strip before it commits a selection change, so the Deselecting/Deselected pair
         // runs while SelectedTab/SelectedIndex still report the page being LEFT. Returning false vetoes

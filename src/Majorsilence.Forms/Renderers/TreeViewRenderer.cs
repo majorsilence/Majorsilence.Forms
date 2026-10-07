@@ -291,7 +291,7 @@ namespace Majorsilence.Forms.Renderers
         protected virtual Rectangle GetImageBounds (TreeView control, TreeNode item, PaintEventArgs e)
             => ImageBoundsFor (control, item);
 
-        private Rectangle ImageBoundsFor (TreeView control, TreeNode item)
+        internal Rectangle ImageBoundsFor (TreeView control, TreeNode item)
         {
             if (!control.ShowItemImages || ResolveImage (control, item, item == control.SelectedItem) is null)
                 return Rectangle.Empty;
@@ -343,5 +343,11 @@ namespace Majorsilence.Forms.Renderers
         /// Gets if the item should draw a dropdown glyph.
         /// </summary>
         protected virtual bool GetShouldDrawDropdownGlyph (TreeView control, TreeNode item) => control.ShowDropdownGlyph && (item.HasChildren || (control.VirtualMode && item.items == null));
+
+        // TreeView.HitTest classifies a point by the same regions the paint pass draws (LAY-39); these
+        // expose the protected hooks to it without widening the renderer's public surface.
+        internal bool ShowsGlyphFor (TreeView control, TreeNode item) => GetShouldDrawDropdownGlyph (control, item);
+
+        internal int IndentStartFor (TreeView control, TreeNode item) => GetIndentStart (control, item);
     }
 }

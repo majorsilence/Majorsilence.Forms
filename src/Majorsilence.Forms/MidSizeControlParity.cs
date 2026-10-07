@@ -620,7 +620,7 @@ namespace Majorsilence.Forms
         private ControlBindingsCollection? data_bindings;
 
         /// <summary>Gets the padding between the dialog's docked edges and its contents.</summary>
-        public ScrollableControl.DockPaddingEdges DockPadding { get; } = new ScrollableControl.DockPaddingEdges ();
+        public ScrollableControl.DockPaddingEdges DockPadding { get; } = new ScrollableControl.DockPaddingEdges (0, 0, 0, 0);
 
         // WinForms redeclares these on this dialog purely to hide them from the designer; they are
         // never raised there either, because the dialog is not meant to be re-styled. The ones that now
@@ -699,25 +699,125 @@ namespace Majorsilence.Forms
     public partial class ScrollableControl
     {
         /// <summary>The padding between a container's docked edges and its contents.</summary>
-        public class DockPaddingEdges
+        /// <remarks>
+        /// A view of the owner's <see cref="Control.Padding"/>, as upstream's is
+        /// (Scrolling/ScrollableControl.DockPaddingEdgesConverter.cs): designer code from older Visual Studio
+        /// versions writes <c>panel1.DockPadding.All = 5</c>, and that has to inset the docked children.
+        /// This was a detached bag of four integers nothing read, so the children sat flush against the
+        /// edge (LAY-31). A copy made through <see cref="ICloneable"/> is detached and keeps its own values.
+        /// </remarks>
+        public class DockPaddingEdges : ICloneable
         {
-            /// <summary>Gets or sets the padding on every edge at once.</summary>
+            private readonly ScrollableControl? owner;
+            private int left;
+            private int right;
+            private int top;
+            private int bottom;
+
+            internal DockPaddingEdges (ScrollableControl owner)
+            {
+                this.owner = owner;
+            }
+
+            internal DockPaddingEdges (int left, int right, int top, int bottom)
+            {
+                this.left = left;
+                this.right = right;
+                this.top = top;
+                this.bottom = bottom;
+            }
+
+            /// <summary>Gets or sets the padding on every edge at once; 0 when the edges differ.</summary>
             public int All {
-                get => Top;
-                set => Left = Top = Right = Bottom = value;
+                get {
+                    if (owner is null)
+                        return left == right && top == bottom && left == top ? left : 0;
+
+                    // Padding answers -1 when its edges disagree. Upstream remaps that to 0 for
+                    // compatibility, unless every edge really is -1.
+                    var padding = owner.Padding;
+
+                    if (padding.All == -1 && (padding.Left != -1 || padding.Top != -1 || padding.Right != -1 || padding.Bottom != -1))
+                        return 0;
+
+                    return padding.All;
+                }
+                set {
+                    if (owner is null)
+                        left = top = right = bottom = value;
+                    else
+                        owner.Padding = new Padding (value);
+                }
             }
 
             /// <summary>Gets or sets the padding on the left edge.</summary>
-            public int Left { get; set; }
+            public int Left {
+                get => owner is null ? left : owner.Padding.Left;
+                set {
+                    if (owner is null) {
+                        left = value;
+                    } else {
+                        var padding = owner.Padding;
+                        padding.Left = value;
+                        owner.Padding = padding;
+                    }
+                }
+            }
 
             /// <summary>Gets or sets the padding on the top edge.</summary>
-            public int Top { get; set; }
+            public int Top {
+                get => owner is null ? top : owner.Padding.Top;
+                set {
+                    if (owner is null) {
+                        top = value;
+                    } else {
+                        var padding = owner.Padding;
+                        padding.Top = value;
+                        owner.Padding = padding;
+                    }
+                }
+            }
 
             /// <summary>Gets or sets the padding on the right edge.</summary>
-            public int Right { get; set; }
+            public int Right {
+                get => owner is null ? right : owner.Padding.Right;
+                set {
+                    if (owner is null) {
+                        right = value;
+                    } else {
+                        var padding = owner.Padding;
+                        padding.Right = value;
+                        owner.Padding = padding;
+                    }
+                }
+            }
 
             /// <summary>Gets or sets the padding on the bottom edge.</summary>
-            public int Bottom { get; set; }
+            public int Bottom {
+                get => owner is null ? bottom : owner.Padding.Bottom;
+                set {
+                    if (owner is null) {
+                        bottom = value;
+                    } else {
+                        var padding = owner.Padding;
+                        padding.Bottom = value;
+                        owner.Padding = padding;
+                    }
+                }
+            }
+
+            /// <inheritdoc/>
+            public override bool Equals (object? obj)
+                => obj is DockPaddingEdges edges
+                    && Left == edges.Left && Top == edges.Top && Right == edges.Right && Bottom == edges.Bottom;
+
+            /// <inheritdoc/>
+            public override int GetHashCode () => HashCode.Combine (Left, Top, Right, Bottom);
+
+            /// <inheritdoc/>
+            public override string ToString () => $"{{Left={Left},Top={Top},Right={Right},Bottom={Bottom}}}";
+
+            object ICloneable.Clone () => new DockPaddingEdges (Left, Right, Top, Bottom);
         }
     }
 }

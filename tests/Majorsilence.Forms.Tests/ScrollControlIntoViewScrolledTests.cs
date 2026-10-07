@@ -28,7 +28,8 @@ namespace Majorsilence.Forms.Tests
             form.Controls.Add (panel);
             form.Show ();
             HeadlessRenderer.CapturePng (form, 360, 400);
-            panel.AutoScrollPosition = new Point (0, -scrollTo);
+            // The setter takes the positive distance, as upstream's does (LAY-33).
+            panel.AutoScrollPosition = new Point (0, scrollTo);
             HeadlessRenderer.CapturePng (form, 360, 400);
             return (form, panel, boxes);
         }
@@ -83,7 +84,7 @@ namespace Majorsilence.Forms.Tests
             combo.Items.Add ("b");
             panel.Controls.Add (combo);
             HeadlessRenderer.CapturePng (form, 360, 400);
-            panel.AutoScrollPosition = new Point (0, -100000);
+            panel.AutoScrollPosition = new Point (0, 100000);
             HeadlessRenderer.CapturePng (form, 360, 400);
 
             int x = combo.Width / 2, y = combo.Height / 2;

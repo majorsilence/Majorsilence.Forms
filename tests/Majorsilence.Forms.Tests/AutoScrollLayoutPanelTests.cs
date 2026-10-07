@@ -83,7 +83,8 @@ public class AutoScrollLayoutPanelTests
         var first = flow.Controls[0];
         var top = first.Top;
 
-        flow.AutoScrollPosition = new Point (0, -300);
+        // The setter takes the positive distance, as WinForms' does (LAY-33).
+        flow.AutoScrollPosition = new Point (0, 300);
         HeadlessRenderer.CapturePng (form);
 
         Assert.Equal (top - 300, first.Top);

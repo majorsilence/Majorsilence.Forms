@@ -782,8 +782,11 @@ namespace Majorsilence.Forms
 
     public partial class ScrollableControl
     {
+        private DockPaddingEdges? dock_padding;
+
         /// <summary>Gets the padding between the control's docked edges and its contents.</summary>
-        public DockPaddingEdges DockPadding { get; } = new ();
+        /// <remarks>Reads and writes this control's <see cref="Control.Padding"/> (LAY-31).</remarks>
+        public DockPaddingEdges DockPadding => dock_padding ??= new DockPaddingEdges (this);
     }
 
     public partial class TabPage

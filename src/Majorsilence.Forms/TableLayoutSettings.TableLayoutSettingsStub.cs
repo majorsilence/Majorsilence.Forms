@@ -17,7 +17,6 @@ public sealed partial class TableLayoutSettings
         {
         }
 
-#if DESIGN_TIME
         /// <summary>
         ///  Applies settings from the stub into a full-fledged TableLayoutSettings.
         ///
@@ -28,7 +27,7 @@ public sealed partial class TableLayoutSettings
         internal void ApplySettings (TableLayoutSettings settings)
         {
             // apply row,column,rowspan,colspan
-            var containerInfo = TableLayout.GetContainerInfo (settings.Owner);
+            var containerInfo = Layout.TableLayout.GetContainerInfo (settings.Owner);
 
             if (containerInfo.Container is Control appliedControl && _controlsInfo is not null) {
                 // we store the control names, look up the controls
@@ -41,12 +40,9 @@ public sealed partial class TableLayoutSettings
                     // because the Name property is shadowed at design time
                     foreach (Control tableControl in appliedControl.Controls) {
                         if (tableControl is not null) {
-                            string? name = null;
-
-                            var prop = TypeDescriptor.GetProperties (tableControl)["Name"];
-
-                            if (prop is not null && prop.PropertyType == typeof (string))
-                                name = prop.GetValue (tableControl) as string;
+                            // Upstream reads Name through a PropertyDescriptor because a designer
+                            // shadows it; there is no designer here, and that lookup is not trim-safe.
+                            var name = tableControl.Name;
 
                             if (WindowsFormsUtils.SafeCompareStrings (name, controlName as string, /* ignoreCase = */ false)) {
                                 settings.SetRow (tableControl, controlInfo.Row);
@@ -68,7 +64,6 @@ public sealed partial class TableLayoutSettings
             _columnStyles = null;
             _rowStyles = null;
         }
-#endif
 
         public TableLayoutColumnStyleCollection ColumnStyles => _columnStyles ??= [];
 

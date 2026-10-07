@@ -296,9 +296,6 @@ Majorsilence.Forms.RichTextBox.SelectionTabs    -- paragraph geometry: the text 
 Majorsilence.Forms.SaveFileDialog.CheckWriteAccess    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.SaveFileDialog.ExpandedMode    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
 Majorsilence.Forms.ScrollBar.ScaleScrollBarForDpiChange    -- Win32 handle/window-class detail; no equivalent here
-Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Bottom    -- framework-written (outbound state)
-Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Left    -- framework-written (outbound state)
-Majorsilence.Forms.ScrollableControl+DockPaddingEdges.Right    -- framework-written (outbound state)
 Majorsilence.Forms.SplitContainer.AutoScrollMargin    -- upstream's SplitContainer answers false from AutoScroll whatever is assigned, so the container never scrolls; the panels do, through their own
 Majorsilence.Forms.SplitContainer.AutoScrollMinSize    -- see AutoScrollMargin: the container does not scroll
 Majorsilence.Forms.SplitContainer.AutoScrollPosition    -- see AutoScrollMargin: the container does not scroll

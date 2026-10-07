@@ -1041,10 +1041,11 @@ internal partial class TableLayout : LayoutEngine
         var isContainerRTL = false;
         var displayRect = Rectangle.Truncate (displayRectF);
 
-        if (containerInfo.Container is Control) {
-            var control = containerInfo.Container as Control;
-            //isContainerRTL = control.RightToLeft == RightToLeft.Yes;  TODO: RTL
-        }
+        // LAY-23: this assignment was commented out, so a RightToLeft table laid its columns out left to
+        // right. The mirrored column walk below was already ported (upstream Layout/TableLayout.cs,
+        // SetElementBounds).
+        if (containerInfo.Container is Control containerAsControl)
+            isContainerRTL = containerAsControl.RightToLeft == RightToLeft.Yes;
 
         var childrenInfo = containerInfo.ChildrenInfo;
         var startX = isContainerRTL ? displayRectF.Right : displayRectF.X;

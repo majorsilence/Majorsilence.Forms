@@ -37,14 +37,15 @@ public partial class TableLayoutPanel : Panel, IExtenderProvider
     internal override IEnumerable<Control> LayoutChildren => Controls.GetAllControls (false);
 
     /// <summary>
-    /// Gets the layout settings associated with this TableLayoutPanel.
+    /// Gets the layout settings associated with this TableLayoutPanel, or applies a detached settings object
+    /// produced by <see cref="TableLayoutSettingsTypeConverter"/> (a localized form's .resx grid).
     /// </summary>
+    /// <exception cref="NotSupportedException">The value is not a detached settings object from the converter.</exception>
     [Browsable (false)]
     [EditorBrowsable (EditorBrowsableState.Never)]
     [DesignerSerializationVisibility (DesignerSerializationVisibility.Hidden)]
     public TableLayoutSettings LayoutSettings {
         get => _tableLayoutSettings;
-#if DESIGN_TIME
         set {
             if (value is not null && value.IsStub) {
                 // WINRES only scenario.
@@ -58,7 +59,6 @@ public partial class TableLayoutPanel : Panel, IExtenderProvider
                 throw new NotSupportedException (SR.TableLayoutSettingSettingsIsNotSupported);
             }
         }
-#endif
     }
 
     //[Browsable(false)]
@@ -303,6 +303,16 @@ public partial class TableLayoutPanel : Panel, IExtenderProvider
         return rh;
     }
     #endregion
+
+    /// <inheritdoc/>
+    /// <remarks>Lays the grid out again, since a right-to-left table mirrors its columns (LAY-23). Upstream
+    /// gets the same re-layout from the handle recreation <c>Control.OnRightToLeftChanged</c> performs;
+    /// there is no handle to recreate here.</remarks>
+    protected override void OnRightToLeftChanged (EventArgs e)
+    {
+        base.OnRightToLeftChanged (e);
+        PerformLayout ();
+    }
 
     #region PaintCode
     // LAY-22: the OnLayout override that invalidates, and the whole of OnPaintBackground, were
