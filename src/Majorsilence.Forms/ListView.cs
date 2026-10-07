@@ -423,6 +423,11 @@ namespace Majorsilence.Forms
         private Point drag_origin;
         private bool item_drag_raised;
 
+        // The native list view takes focus on a right press too (WM_RBUTTONDOWN), so a
+        // context menu opened on it acts on it (CTL-26; see Control.TakesFocusOnPress).
+        internal override bool TakesFocusOnPress (MouseButtons button)
+            => button is MouseButtons.Left or MouseButtons.Right;
+
         /// <inheritdoc/>
         protected override void OnMouseDown (MouseEventArgs e)
         {

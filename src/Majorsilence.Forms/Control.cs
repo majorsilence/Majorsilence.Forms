@@ -25,7 +25,9 @@ namespace Majorsilence.Forms
         private Control? parent;
         private States _state = States.Visible | States.Enabled | States.TabStop | States.CausesValidation | States.IsDirty;
         private ExtendedStates _extendedState;
-        private ControlBehaviors behaviors = ControlBehaviors.Selectable | ControlBehaviors.ReceivesMouseEvents;
+        // Selectable is NOT kept here: it lives in control_styles as ControlStyles.Selectable, so the
+        // WinForms SetStyle and this library's SetControlBehavior write one flag (CTL-03).
+        private ControlBehaviors behaviors = ControlBehaviors.ReceivesMouseEvents;
 
         private int _x;
         private int _y;
@@ -109,15 +111,11 @@ namespace Majorsilence.Forms
             if (old_visible != new_visible && !(!old_visible && new_visible && parent is null))
                 OnVisibleChanged (EventArgs.Empty);
 
-            //    if (Properties.GetObject (s_bindingManagerProperty) is null && Created) {
-            //        // We do not want to call our parent's BindingContext property here.
-            //        // We have no idea if us or any of our children are using data binding,
-            //        // and invoking the property would just create the binding manager, which
-            //        // we don't need.  We just blindly notify that the binding manager has
-            //        // changed, and if anyone cares, they will do the comparison at that time.
-            //        //
-            //        OnBindingContextChanged (EventArgs.Empty);
-            //    }
+            // A control with no context of its own now inherits a different one (CTL-29). Upstream
+            // (Control.cs AssignParent) notifies without reading the parent's BindingContext, which
+            // would create a binding manager nobody may need; anyone who cares compares then.
+            if (binding_context is null && Created)
+                OnBindingContextChanged (EventArgs.Empty);
 
             if (Parent is not null)
                 Parent.LayoutEngine.InitLayout (this, BoundsSpecified.All);
@@ -173,7 +171,9 @@ namespace Majorsilence.Forms
         /// </summary>
         public bool CanSelect {
             get {
-                if (!behaviors.HasFlag (ControlBehaviors.Selectable))
+                // Upstream CanSelectCore: the Selectable style, then the visible/enabled chain
+                // (Control.cs). A port that turns the style off in its constructor is not focusable.
+                if (!GetStyle (ControlStyles.Selectable))
                     return false;
 
                 var parent = (Control?)this;
@@ -404,15 +404,20 @@ namespace Majorsilence.Forms
         /// </summary>
         public void CreateControl ()
         {
-            // Don't run this more than once
-            if (Created)
+            // Don't run this more than once, and leave a hidden control for later: upstream
+            // CreateControl (false) returns for !Visible, which is what makes a UserControl on an
+            // unselected TabPage load lazily (Control.cs). OnVisibleChanged creates it when it is shown.
+            if (Created || !IsVisibleInTree)
                 return;
 
             SetState (States.Created, true);
 
             // Majorsilence.Forms has no HWND, but this is the equivalent moment: the control has
             // just gone live, which is what WinForms code hooking HandleCreated is waiting for.
-            OnHandleCreated (EventArgs.Empty);
+            // Through CreateHandle, as upstream, so a handle already forced by reading Handle is not
+            // announced twice (Control.cs CreateControl (bool)).
+            if (!IsHandleCreated)
+                CreateHandle ();
 
             // Create an array copy in case the collection changes
             foreach (var child in Controls.GetAllControls ().ToArray ())
@@ -421,6 +426,25 @@ namespace Majorsilence.Forms
             OnCreateControl ();
 
             PerformDeferredLayout ();
+
+            // Created ahead of its parent, a control without its own context has just become live
+            // with an inherited one: upstream's public CreateControl notifies for exactly this case.
+            if (binding_context is null && parent is { Created: false })
+                OnBindingContextChanged (EventArgs.Empty);
+        }
+
+        // This control's own Visible flag and every ancestor's -- upstream's Visible, which treats an
+        // unparented control as visible. The Visible property here reports a parentless control as
+        // hidden, so creation cannot ask it: an unparented panel would never create its children.
+        private bool IsVisibleInTree {
+            get {
+                for (var c = this; c is not null; c = c.parent) {
+                    if (!c.GetState (States.Visible))
+                        return false;
+                }
+
+                return true;
+            }
         }
 
         /// <summary>
@@ -536,6 +560,11 @@ namespace Majorsilence.Forms
                 if (old_cursor != value) {
                     Properties.SetObject (s_cursorProperty, value);
                     OnCursorChanged (EventArgs.Empty);
+
+                    // Shown now if the pointer is over this control or a child inheriting from it, as
+                    // upstream's setter sends WM_SETCURSOR when the pointer is inside (Control.cs Cursor).
+                    // It used to wait for the pointer to leave and re-enter (CTL-22).
+                    FindForm ()?.RefreshHoverCursor ();
                 }
             }
         }
@@ -556,6 +585,7 @@ namespace Majorsilence.Forms
                 if (override_cursor != value) {
                     override_cursor = value;
                     OnCursorChanged (EventArgs.Empty);
+                    FindForm ()?.RefreshHoverCursor ();   // see Cursor's setter (CTL-22)
                 }
             }
         }
@@ -802,7 +832,13 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets behavior flag value.
         /// </summary>
-        protected internal bool GetControlBehavior (ControlBehaviors behavior) => behaviors.HasFlag (behavior);
+        protected internal bool GetControlBehavior (ControlBehaviors behavior)
+        {
+            if ((behavior & ControlBehaviors.Selectable) != 0 && !GetStyle (ControlStyles.Selectable))
+                return false;
+
+            return (behaviors & (behavior & ~ControlBehaviors.Selectable)) == (behavior & ~ControlBehaviors.Selectable);
+        }
 
         /// <summary>
         ///  Retrieves the current value of the specified bit in the control's state2.
@@ -1741,7 +1777,33 @@ namespace Majorsilence.Forms
                     }
                 }
 
-                e.Canvas.DrawBitmap (buffer, offset.X + control.ScaledLeft, offset.Y + control.ScaledTop);
+                var left = offset.X + control.ScaledLeft;
+                var top = offset.Y + control.ScaledTop;
+
+                // A child's Region clips what of its surface reaches this one -- upstream's SetWindowRgn
+                // (CTL-23). The region is logical and in the child's coordinates; the canvas is device.
+                if (control.Region is { } shape) {
+                    var sk_region = shape.GetSKRegion ();
+
+                    e.Canvas.Save ();
+
+                    if (sk_region.IsEmpty) {
+                        // Skia treats an empty path as no clip at all; an empty region shows nothing.
+                        e.Canvas.ClipRect (SKRect.Empty);
+                    } else {
+                        using var path = sk_region.GetBoundaryPath ();
+                        var scale = (float) Scaling;
+                        path.Transform (SKMatrix.CreateScale (scale, scale));
+                        path.Offset (left, top);
+                        e.Canvas.ClipPath (path, SKClipOperation.Intersect, antialias: true);
+                    }
+
+                    e.Canvas.DrawBitmap (buffer, left, top);
+                    e.Canvas.Restore ();
+                    continue;
+                }
+
+                e.Canvas.DrawBitmap (buffer, left, top);
             }
         }
 
@@ -1974,7 +2036,11 @@ namespace Majorsilence.Forms
             // Visible in its constructor, before anything has parented it, would otherwise fire
             // OnCreateControl with no form to find and NullReference inside perfectly ordinary code.
             // Attaching later still creates it: ControlCollection.Add does that after AssignParent.
-            if (Parent is not null)
+            // Only into a parent that is itself live, and only on the way to visible (CTL-05): upstream
+            // SetVisibleCore creates the handle when `value && ParentInternal?.Created`, so a control
+            // on a form that has not been shown yet stays uncreated until the form's own creation
+            // reaches it.
+            if (IsVisibleInTree && Parent is { Created: true })
                 CreateControl ();
 
             (Events[s_visibleChangedEvent] as EventHandler)?.Invoke (this, e);
@@ -2026,9 +2092,10 @@ namespace Majorsilence.Forms
                     return;
                 }
 
+                // Add -> Insert -> AssignParent raises ParentChanged; raising it again here fired every
+                // handler twice per `ctl.Parent = x` (CTL-15). Upstream's ParentInternal setter only
+                // calls Controls.Add (Control.cs).
                 value.Controls.Add (this);
-
-                OnParentChanged (EventArgs.Empty);
             }
         }
 
@@ -2092,13 +2159,13 @@ namespace Majorsilence.Forms
             if (!Enabled)
                 return;
 
-            // A right-click over a control with a context menu opens the menu instead of counting as a
-            // click, so this runs before either event. It lives here rather than in OnClick now that
-            // OnClick takes EventArgs and has no button to test.
-            if (e.Button == MouseButtons.Right && ContextMenu != null) {
+            // A right-click over a control with a context menu opens the menu first, and is STILL a
+            // click: upstream WmMouseUp sends WM_CONTEXTMENU and then raises Click/MouseClick for the
+            // right button like any other (Control.cs). Returning here swallowed MouseClick for every
+            // control with a ContextMenuStrip, so `if (e.Button == MouseButtons.Right)` handlers never
+            // ran (CTL-26). The menu opens without blocking, so the click follows it.
+            if (e.Button == MouseButtons.Right && ContextMenu != null)
                 ContextMenu.Show (this, e.Location);   // client coordinates now: see TSM-03
-                return;
-            }
 
             // A control that raises its own click -- Krypton's buttons route mouse-up through a view
             // controller and call OnClick themselves -- turns the standard raise OFF with
@@ -2264,7 +2331,9 @@ namespace Majorsilence.Forms
                     Application.ClosePopups (false, true);
 
                 if (Enabled) {
-                    Select ();
+                    if (TakesFocusOnPress (e.Button))
+                        Select ();
+
                     Capture = true;
                     if (tracking_press)
                         press_target = this;
@@ -2276,6 +2345,16 @@ namespace Majorsilence.Forms
                 }
             }
         }
+
+        /// <summary>
+        /// Whether a press of <paramref name="button"/> focuses this control. Upstream focuses on a LEFT
+        /// press only (WmMouseDown: <c>button == MouseButtons.Left &amp;&amp; GetStyle (Selectable)</c>);
+        /// any button used to, so right-clicking a label or button to open its menu stole focus from
+        /// the text box being edited and ran its Leave/Validating (CTL-26). Controls whose native
+        /// counterpart also takes focus on a right press -- the edit, list view and tree view windows --
+        /// override this.
+        /// </summary>
+        internal virtual bool TakesFocusOnPress (MouseButtons button) => button == MouseButtons.Left;
 
         // The control the current press landed on, until its release. A click is a press and a release
         // on the SAME control: upstream WmMouseUp fires Click only when the control has MousePressed --
@@ -2890,6 +2969,13 @@ namespace Majorsilence.Forms
         /// </summary>
         protected internal void SetControlBehavior (ControlBehaviors behavior, bool value = true)
         {
+            // Selectable is the same flag as ControlStyles.Selectable (CTL-03): two stores for one
+            // concept meant SetStyle (Selectable, false) on a ported control changed nothing.
+            if ((behavior & ControlBehaviors.Selectable) != 0) {
+                SetStyle (ControlStyles.Selectable, value);
+                behavior &= ~ControlBehaviors.Selectable;
+            }
+
             if (value)
                 behaviors |= behavior;
             else
@@ -3273,10 +3359,38 @@ namespace Majorsilence.Forms
                 hover_timer = null;
             }
 
+            // Upstream sets Disposing for the whole teardown and Disposed at its end (Control.cs
+            // Dispose). It was never set here (CTL-16), so `if (Disposing) return;` guards could not
+            // see a teardown, and AssignParent's GetAnyDisposingInHierarchy check -- which stops each
+            // child's unparenting from raising VisibleChanged and laying out the half-disposed parent --
+            // never fired.
+            var tearing_down = disposing && !disposedValue && !GetState (States.Disposing);
+
+            if (tearing_down) {
+                SetState (States.Disposing, true);
+                SuspendLayout ();
+            }
+
+            try {
+                DisposeCore (disposing);
+
+                // Inside the teardown, as upstream: a Disposed handler still sees Disposing.
+                base.Dispose (disposing);
+            } finally {
+                if (tearing_down) {
+                    ResumeLayout (false);
+                    SetState (States.Disposing, false);
+                    SetState (States.Disposed, true);
+                }
+            }
+        }
+
+        private void DisposeCore (bool disposing)
+        {
             if (!disposedValue) {
                 // Only on an explicit Dispose -- never from the finalizer, where running user
                 // handlers is not safe. Mirrors WinForms' handle teardown notification.
-                if (disposing && GetState (States.Created))
+                if (disposing && IsHandleCreated)
                     DestroyHandle ();
 
                 FreeBackBuffer ();
@@ -3312,8 +3426,6 @@ namespace Majorsilence.Forms
                 disposedValue = true;
                 _isDisposed = true;
             }
-
-            base.Dispose (disposing);
         }
 
         /// <summary>

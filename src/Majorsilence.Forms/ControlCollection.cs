@@ -353,7 +353,9 @@ public partial class Control
 
             for (var i = 0; i < control_list.Count; i++) {
                 var c = control_list[i];
-                if (c.Visible && c.GetControlBehavior (ControlBehaviors.ReceivesMouseEvents) && c.Bounds.Contains (location))
+                // Outside a child's Region the point belongs to what is underneath (CTL-23).
+                if (c.Visible && c.GetControlBehavior (ControlBehaviors.ReceivesMouseEvents) && c.Bounds.Contains (location)
+                    && c.RegionContains (new Point (location.X - c.Left, location.Y - c.Top)))
                     return c;
             }
 
@@ -480,7 +482,12 @@ public partial class Control
                     // gave every Controls.Add a second, unconditional VisibleChanged (EVT-13), so a
                     // control that loads data or starts a timer on VisibleChanged did it twice, at
                     // construction time.
-                    if (item.Visible)
+                    //
+                    // And only into an owner that is already live (CTL-05): upstream
+                    // ControlCollection.Add creates the child only when `Owner` has States.Created
+                    // (Control.ControlCollection.cs). Creating on any Add raised HandleCreated and
+                    // UserControl.Load in the middle of InitializeComponent, before the form was shown.
+                    if (Owner.Created)
                         item.CreateControl ();
                 }
 

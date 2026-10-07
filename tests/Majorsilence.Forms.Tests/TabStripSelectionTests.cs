@@ -20,6 +20,9 @@ namespace Majorsilence.Forms.Tests
             tabs.TabPages.Add (new TabPage { Text = "Second" });
             tabs.TabPages.Add (new TabPage { Text = "Third" });
             form.Controls.Add (tabs);
+            // Created, as a shown form's controls are: a TabControl announces selection changes only
+            // once it is created, and adding it to an unshown form no longer creates it (CTL-05).
+            form.CreateControl ();
             HeadlessRenderer.CapturePng (form, 400, 300);
             return (form, tabs);
         }

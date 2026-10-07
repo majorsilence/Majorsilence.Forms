@@ -84,6 +84,7 @@ public class ToolStripTests
         var label = new ToolStripStatusLabel { Text = "Ln 1, Col 1" };
         strip.Items.Add (label);
         form.Controls.Add (strip);
+        form.CreateControl ();   // an unshown form's controls are not created, so they do not invalidate (CTL-05)
 
         var before = HeadlessRenderer.CapturePng (form, 400, 200);
 

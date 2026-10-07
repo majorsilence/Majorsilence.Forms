@@ -24,6 +24,11 @@ namespace Majorsilence.Forms
             SetStyle (ControlStyles.ContainerControl, true);
         }
 
+        // Upstream UserControl.OnMouseDown focuses the control only when focus is not already inside
+        // it (`if (!FocusInside ()) Focus ();`), for any button. Clicking blank space in a UserControl
+        // used to take focus from its own focused child and run that child's Leave/Validating (CTL-27).
+        internal override bool TakesFocusOnPress (MouseButtons button) => !ContainsFocus;
+
         // AutoSizeMode is inherited from Panel (same Get/SetAutoSizeMode mechanism).
 
         private AutoScaleMode _autoScaleMode = AutoScaleMode.Font;

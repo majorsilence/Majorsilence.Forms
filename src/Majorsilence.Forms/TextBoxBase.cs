@@ -53,6 +53,11 @@ namespace Majorsilence.Forms
             }
         }
 
+        // The native edit control takes focus on a right press too (its WM_CONTEXTMENU handler focuses it), so a
+        // context menu opened on it acts on it (CTL-26; see Control.TakesFocusOnPress).
+        internal override bool TakesFocusOnPress (MouseButtons button)
+            => button is MouseButtons.Left or MouseButtons.Right;
+
         /// <summary>
         /// Claims the keys a text box edits with, so the pre-processing chain does not treat them as
         /// navigation.

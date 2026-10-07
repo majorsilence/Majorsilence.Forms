@@ -32,6 +32,7 @@ FromChildHandle/1
 IsAncestorSiteInDesignMode
 OnDockChanged/1
 OnParentBackColorChanged/1
+OnParentBindingContextChanged/1
 OnParentChanged/1
 OnParentEnabledChanged/1
 OnParentFontChanged/1

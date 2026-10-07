@@ -25,7 +25,7 @@ That is why these return what they do:
 
 | Member | Value | Why |
 |---|---|---|
-| `Control.Handle` | `IntPtr.Zero` | There is no per-control OS window to report. Same for `ImageList.Handle`, `TreeNode.Handle`, `Cursor.Handle`, `TaskDialog.Handle`. |
+| `Control.Handle` | `IntPtr.Zero` | There is no per-control OS window to report. Reading it still has upstream's side effect -- it creates the control's handle state, so `IsHandleCreated` becomes true and `HandleCreated` fires, which is what `_ = control.Handle;` is written for. Same value for `ImageList.Handle`, `TreeNode.Handle`, `Cursor.Handle`, `TaskDialog.Handle`. |
 | `WindowBase.Handle` | An opaque nonzero token (`GetHashCode() \| 1`) | **Not an `HWND`.** WinForms code routinely reads `.Handle` to force handle creation before `Invoke`; returning zero breaks that idiom. This value is meaningful only inside managed code. |
 | `WindowBase.PlatformHandle` | The real native handle, or `IntPtr.Zero` | The genuine article, via `IWindowBackend.TryGetPlatformHandle()`. Implemented by the Avalonia backend (`HWND` on Windows, `NSWindow` on macOS, `XID` on X11). Currently **zero on Uno and Headless** — see [Known gaps](#known-gaps). |
 
