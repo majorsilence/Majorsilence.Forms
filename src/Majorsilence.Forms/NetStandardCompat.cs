@@ -313,11 +313,13 @@ namespace Majorsilence.Forms
         // The netstandard2.0 build never runs on these — it targets the desktop backends — so a
         // conservative false keeps behavior identical there.
         public static bool IsMobileOrBrowser () => false;
+        public static bool IsBrowser () => false;
 #else
         public static bool IsWindows () => OperatingSystem.IsWindows ();
         public static bool IsLinux () => OperatingSystem.IsLinux ();
         public static bool IsMacOS () => OperatingSystem.IsMacOS ();
         public static bool IsMobileOrBrowser () => OperatingSystem.IsAndroid () || OperatingSystem.IsIOS () || OperatingSystem.IsBrowser ();
+        public static bool IsBrowser () => OperatingSystem.IsBrowser ();
 #endif
     }
 }

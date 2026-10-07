@@ -50,6 +50,9 @@
     <!-- Reuse the full ControlGallery MainForm/panels to render the whole gallery on Avalonia-on-iOS. -->
     <ProjectReference Include="..\ControlGallery\ControlGallery.csproj" />
     <PackageReference Include="Avalonia.iOS" />
+    <!-- The blocking-modal head check (issue #406), shared with the browser head; the app runs it
+         instead of the gallery when launched with MF_CHECK set. See docs/samples.md. -->
+    <Compile Include="..\Gallery.Wasm\ModalCheckForm.cs" Link="ModalCheckForm.cs" />
   </ItemGroup>
 
   <!-- .NET for iOS runs ILLink ("Optimizing assemblies for size") during a plain Release `dotnet build`,

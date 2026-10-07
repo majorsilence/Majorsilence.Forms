@@ -53,7 +53,7 @@ const expected = {
         activeDescendant: "nameBox",
         nodes: [
             { role: "region", "aria-label": "Modal check: a11y", "data-mf-automation-id": null },
-            { "data-mf-automation-id": "status", role: null, text: "Running check 'a11y'. Results go to the browser console (MFCHECK lines)." },
+            { "data-mf-automation-id": "status", role: null, text: "Running check 'a11y'. Results go to the console or device log (MFCHECK lines)." },
             { "data-mf-automation-id": "okButton", role: "button", text: "OK", "aria-disabled": null },
             { "data-mf-automation-id": "agree", role: "checkbox", "aria-checked": "true", text: "I agree" },
             { "data-mf-automation-id": "nameBox", role: "textbox", "aria-label": "Customer name", text: "Ada" },
