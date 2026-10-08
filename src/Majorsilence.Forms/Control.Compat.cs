@@ -53,9 +53,17 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Sets input focus to the control. Returns true if focus was successfully set.
         /// </summary>
+        /// <remarks>
+        /// Only a control that <see cref="CanFocus"/> -- one whose handle exists -- takes focus, as
+        /// upstream's <c>FocusInternal</c> (Control.cs) calls <c>SetFocus</c> only then. A control on a
+        /// form that has not been shown is not created yet, so this returns false there; use
+        /// <see cref="Select ()"/> or <c>ActiveControl</c> to choose the control that gets focus on show.
+        /// </remarks>
         public bool Focus ()
         {
-            Select ();
+            if (CanFocus)
+                Select ();
+
             return Focused;
         }
 
@@ -471,7 +479,13 @@ namespace Majorsilence.Forms
         public bool ContainsFocus => Focused || Controls.Any (c => c.ContainsFocus);
 
         /// <summary>Gets whether the control can receive focus.</summary>
-        public bool CanFocus => Visible && Enabled && CanSelect;
+        /// <remarks>
+        /// Requires a created handle, as upstream's <c>CanFocus</c> (Control.cs:
+        /// <c>IsHandleCreated &amp;&amp; IsWindowVisible &amp;&amp; IsWindowEnabled</c>). Without it an
+        /// unparented control -- which is <see cref="Visible"/>, as upstream -- could take focus that
+        /// no window tracks (CTL-14).
+        /// </remarks>
+        public bool CanFocus => IsHandleCreated && Visible && Enabled && CanSelect;
 
         /// <summary>Gets whether the caller must use Invoke to call the control (always false on UI thread).</summary>
         public bool InvokeRequired => !Platform.Backend.CheckAccess ();

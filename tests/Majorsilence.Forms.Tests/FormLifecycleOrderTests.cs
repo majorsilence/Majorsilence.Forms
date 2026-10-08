@@ -82,8 +82,10 @@ public class FormLifecycleOrderTests
     }
 
     [Fact]
-    public void Adding_a_child_raises_its_VisibleChanged_once ()
+    public void Adding_a_child_raises_no_VisibleChanged ()
     {
+        // Was "once" (EVT-13 removed the second raise); CTL-14 removed the first. An unparented
+        // control is already visible, so upstream's AssignParent sees no change and raises nothing.
         HeadlessRenderer.Use ();
         using var form = new Form ();
         var child = new Button ();
@@ -91,6 +93,6 @@ public class FormLifecycleOrderTests
 
         form.Controls.Add (child);
 
-        Assert.Equal (1, recorder.Count ("VisibleChanged"));
+        Assert.Equal (0, recorder.Count ("VisibleChanged"));
     }
 }

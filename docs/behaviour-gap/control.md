@@ -263,8 +263,19 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
 - **Test:** Panel 100×100, `AutoScrollMinSize = (300, 0)`, child Dock=Fill → child.Width == 300 after layout.
 - **Tests today:** ScrollableControlTests.DisplayRectangle (padding only).
 
-### CTL-14 — `Control.Visible` with no parent, and `VisibleChanged` on Add/Remove — Cat A — P2 — High
-- **Left open (#341):** the one-line getter change (`parent is null || parent.Visible`) breaks only five tests, but
+### CTL-14 — `Control.Visible` with no parent, and `VisibleChanged` on Add/Remove — Cat A — P2 — High — **CLOSED (2026-10-08)**
+- **Fix (applied, #341):** matches upstream, by the user's decision. `Visible` is
+  `GetState (Visible) && (parent is null || parent.Visible)`, so `new Button ().Visible` is true, and a plain
+  `Controls.Add`/`Remove` raises no `VisibleChanged` (`AssignParent`'s existing removal guard now keeps leaving a
+  hidden parent quiet; `Insert`'s explicit raise was already gone with EVT-13). The focus side effect is closed the
+  way upstream closes it: `CanFocus` requires `IsHandleCreated` (upstream `IsHandleCreated && IsWindowVisible &&
+  IsWindowEnabled`), `Focus ()` selects only when `CanFocus` (upstream `FocusInternal`), and `Select ()` with no
+  window does nothing instead of taking focus directly (upstream `Select` goes through `GetContainerControl ()` and
+  does nothing without one; `UserControl.ActiveControl` still records the value). So `Focus ()` on a control of a
+  form that has not been shown returns false; `Select ()`/`ActiveControl` there still choose the control. Tests:
+  `ControlBaseGapTests.CTL14_*`; `PanelTests.Ctor_Default`, `FormLifecycleOrderTests.Adding_a_child_raises_no_VisibleChanged`
+  and two `ControlTests.OnParentVisibleChanged_*` tests were changed to upstream's answer.
+- **Was left open (#341):** the one-line getter change (`parent is null || parent.Visible`) breaks only five tests, but
   it makes every unparented control `CanSelect`, and `Select ()` on a control with no window then takes focus
   directly and keeps it after the control is parented -- a second focused control the adapter does not know about
   (`UserControlTests.ActiveControl_Set_GetReturnsExpected` shows it). It needs the unparented focus path (and
@@ -440,7 +451,11 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
 - **Test:** AutoScroll panel with overflow → `Assert.True(VScroll)` via a test subclass.
 - **Tests today:** none.
 
-### CTL-25 — `Control.TopLevelControl` — Cat A — P2 — High — **PARTIALLY CLOSED (2026-10-06)**
+### CTL-25 — `Control.TopLevelControl` — Cat A — P2 — High — **PARTIALLY CLOSED (2026-10-06)** — **CLOSED (2026-10-08, by design)**
+- **Won't fix (by design):** `TopLevelControl` can't return a Form because `Form` is a window, not a `Control`. The
+  user decided (2026-10-08) not to match upstream here: "A form is a window and a control is a control." It follows
+  the 2026-08-14 Krypton-port decision to keep `Form : WindowBase`, so a control on a form keeps answering the
+  form's internal root control; use `FindForm ()` for the form. No code change.
 - **Fix (applied, #341):** the walk stops at the first control with `GetTopLevel ()`, as upstream, so a control shown
   through `SetTopLevel (true)` (hosted in a popup window) is its children's `TopLevelControl` instead of the popup's
   internal root. **Still open:** for a control on a form the answer is still the form's internal root control --
@@ -586,7 +601,7 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
 - **"Created" means "parented", not "shown".** `ControlAdapter.Visible` is unconditionally true, so Add ⇒ CreateControl
   ⇒ HandleCreated/Load during InitializeComponent, and hidden children are created too (CTL-05). A test currently pins
   this.
-- **Unparented `Visible` is false.** Drives double VisibleChanged on Add, spurious VisibleChanged on Remove and a
+- **Unparented `Visible` is false.** (Fixed with CTL-14, 2026-10-08.) Drives double VisibleChanged on Add, spurious VisibleChanged on Remove and a
   storm during Dispose (CTL-14, CTL-16); also why `SetTopLevel` had to read the raw state flag.
 - **Notification raised twice / from two places.** Parent setter + AssignParent (CTL-15); Insert's explicit
   OnVisibleChanged + AssignParent (CTL-14). Sweep: any `On*Changed(EventArgs.Empty)` call that follows a call which

@@ -39,8 +39,7 @@ namespace Majorsilence.Forms
             else if (GetState (States.Visible))
                 // The STATE flag, not the Visible getter: controls default to visible, so the common
                 // sequence `SetTopLevel(true); Visible = true;` makes the assignment a no-op transition
-                // -- this call here is what actually shows the window. The getter also reads false for
-                // any parentless control, which a not-yet-hosted top-level control always is.
+                // -- this call here is what actually shows the window.
                 UpdateTopLevelHost (true);
         }
 

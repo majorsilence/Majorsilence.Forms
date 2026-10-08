@@ -38,10 +38,8 @@ namespace Majorsilence.Forms.Tests
             Assert.False (control.TabStop);
             Assert.Empty (control.Text);
 
-            // NOTE: Unlike WinForms (where Visible reflects the intended visibility bit regardless of
-            // attachment), Majorsilence.Forms's Visible walks the parent chain (parent?.Visible ?? false), so
-            // a parentless control reports false. This is intentional MF behavior, not a gap.
-            Assert.False (control.Visible);
+            // An unparented control is visible, as upstream's PanelTests.Ctor_Default asserts (CTL-14).
+            Assert.True (control.Visible);
         }
 
         [Theory]
