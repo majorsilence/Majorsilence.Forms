@@ -224,7 +224,7 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Tests today:** none.
 
 ### SMP-16 — `Label.FlatStyle` / `Label.UseCompatibleTextRendering` / `LiveSetting` stored only — Cat C — P2 — High
-- **Status (2026-10-02):** `FlatStyle` is already consumed (`Label.ApplyBorder`, with the border); `UseCompatibleTextRendering` is a one-pipeline no-op. **Still open:** `LiveSetting`, which needs a UIA LiveRegionChanged raised from the automation peer on `TextChanged` -- automation work, not this area's.
+- **Status (2026-10-02):** `FlatStyle` is already consumed (`Label.ApplyBorder`, with the border); `UseCompatibleTextRendering` is a one-pipeline no-op. `LiveSetting` (and `ToolStripStatusLabel.LiveSetting`) is consumed by the browser's accessibility DOM, which announces a live label's text changes through an ARIA live region (#406 follow-up). **Still open:** the same on desktop backends, which needs a UIA LiveRegionChanged from an automation peer they do not have.
 - **Ours:** `Label.FlatStyle` auto-property (`src/Majorsilence.Forms/Label.cs:380`); `UseCompatibleTextRendering` and `LiveSetting` auto-properties in `src/Majorsilence.Forms/TailParity.Two.cs:165-168`.
 - **Upstream:** `FlatStyle` combines with `BorderStyle` to select `Popup`/`System` border rendering (`Controls/Labels/Label.cs:285-300`); `LiveSetting` drives the UIA LiveRegion announcement.
 - **Impact:** Cosmetic once SMP-15 is fixed (FlatStyle only matters when a border exists); `LiveSetting` means screen readers never announce label changes.

@@ -379,6 +379,40 @@ jobs:
           path: samples/Gallery.Wasm/bin/Release/net10.0-browser/publish/wwwroot
           if-no-files-found: error
 
+      # The browser-head checks (samples/Gallery.Wasm/ModalCheckForm.cs, issue #406) against the same
+      # bundle: each blocking modal call must THROW naming its async form, each awaited one must RETURN,
+      # the accessibility DOM must mirror the check form's controls, popups and live-region announcements
+      # step by step, the rendering checks' screenshots must show what they ask for (owner drawn, dialog
+      # frame whole, OK click answers), and nothing may hang. --expect
+      # compares every check with the table at the top of modal-check.mjs and exits non-zero on any
+      # difference. It drives the google-chrome preinstalled on the ubuntu runner over the DevTools
+      # protocol (no npm packages; it serves the bundle itself on 127.0.0.1). --no-sandbox because
+      # Ubuntu 24.04's AppArmor userns restriction can refuse Chrome's sandbox on a throwaway runner.
+      # Runs after the bundle upload so a failure still leaves the bundle to download and reproduce.
+      - name: Browser-head checks (headless Chrome)
+        timeout-minutes: 15
+        shell: bash
+        env:
+          CHROME: /usr/bin/google-chrome
+          MF_CHECK_CHROME_ARGS: --no-sandbox
+          MF_CHECK_TIMEOUT_MS: "60000"
+          MF_CHECK_SCREENSHOTS: ${{ runner.temp }}/modal-check/screenshots
+        run: |
+          mkdir -p "$RUNNER_TEMP/modal-check"
+          "$CHROME" --version
+          node samples/Gallery.Wasm/tools/modal-check.mjs \
+            samples/Gallery.Wasm/bin/Release/net10.0-browser/publish/wwwroot \
+            --expect --report="$RUNNER_TEMP/modal-check/report.json" \
+            2>&1 | tee "$RUNNER_TEMP/modal-check/modal-check.log"
+
+      - name: Upload browser-head check report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery-wasm-modal-check
+          path: ${{ runner.temp }}/modal-check
+          if-no-files-found: warn
+
   # NativeAOT smoke.
   #
   # IsAotCompatible on core + Drawing.Common + Avalonia + Headless makes the Release build fail on a

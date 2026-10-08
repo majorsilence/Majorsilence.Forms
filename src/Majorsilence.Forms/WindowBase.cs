@@ -755,10 +755,15 @@ namespace Majorsilence.Forms
                     Paint?.Invoke (this, e);
             }
 
-            // Clip canvas to the inner client area (excludes borders).
+            // Clip canvas to the inner client area (excludes borders). SKRect's right and bottom are
+            // exclusive, so the inner area ends at physW - physBorderRight. It used to end one pixel
+            // further, which with a one-pixel border excluded nothing on those two sides: the adapter is
+            // laid out at the window's full size from the top-left border inward, so anything filling the
+            // client area -- a docked panel, a message box's button strip -- painted over the right and
+            // bottom frame while the left and top stayed, and the frame looked cut off on two sides.
             canvas.ClipRect (new SkiaSharp.SKRect (
                 physBorderLeft, physBorderTop,
-                physW - physBorderRight + 1, physH - physBorderBottom + 1));
+                physW - physBorderRight, physH - physBorderBottom));
 
             adapter.RaisePaintBackground (e);
             adapter.RaisePaint (e);

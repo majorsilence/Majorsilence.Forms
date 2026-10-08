@@ -901,7 +901,14 @@ namespace Majorsilence.Forms
         private AccessibleObject? _accessibilityObject;
 
         /// <summary>Gets the AccessibleObject assigned to the control.</summary>
-        public AccessibleObject AccessibilityObject => _accessibilityObject ??= CreateAccessibilityInstance ();
+        public AccessibleObject AccessibilityObject => _accessibilityObject ??= BindAccessibilityObject (CreateAccessibilityInstance ());
+
+        // Ties the object to this control so RaiseLiveRegionChanged knows whose text to announce.
+        private AccessibleObject BindAccessibilityObject (AccessibleObject accessible)
+        {
+            accessible.LiveOwner ??= this;
+            return accessible;
+        }
 
         /// <summary>Creates the accessibility object for this control. Override to return a custom implementation.</summary>
         protected virtual AccessibleObject CreateAccessibilityInstance () => new AccessibleObject ();

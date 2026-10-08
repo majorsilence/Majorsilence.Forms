@@ -33,6 +33,10 @@ namespace Majorsilence.Forms
         /// <summary>The glyph the dialog shows, or null for <see cref="MessageBoxIcon.None"/>.</summary>
         internal MessageGlyph? Glyph => icon_box.Glyph;
 
+        /// <summary>The label that shows the message, which the browser's accessibility DOM points
+        /// <c>aria-describedby</c> at.</summary>
+        internal Label MessageLabel => label;
+
         /// <summary>
         /// Initializes a new instance of the MessageBoxForm class.
         /// </summary>

@@ -13,10 +13,22 @@ const style = `
 .mf-a11y-root, .mf-a11y-root * { color: transparent; background: transparent; pointer-events: none; user-select: none; -webkit-user-select: none; }
 .mf-a11y-root [data-mf-type] { position: absolute; box-sizing: border-box; margin: 0; padding: 0; border: 0; overflow: hidden; white-space: pre; font: 12px/1 sans-serif; }
 .mf-a11y-text { position: static; }
+.mf-a11y-root > [data-mf-type], .mf-a11y-root [data-mf-popup] { overflow: visible; }
+.mf-a11y-live { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: normal; }
 `;
+
+// How long a polite announcement waits for the UI to settle (a newer one with the same key replaces
+// it), the longest it is held back while changes keep coming, and how long the same text for the same
+// key is not repeated.
+const politeQuietMs = 250;
+const politeMaxWaitMs = 1000;
+const repeatWindowMs = 1000;
 
 let root = null;
 let host = null;
+let live = null;
+let polite = null;
+let assertive = null;
 const elements = new Map();
 
 export function attach(hostId) {
@@ -39,6 +51,25 @@ export function attach(hostId) {
         root = document.createElement("div");
         root.className = "mf-a11y-root";
         host.appendChild(root);
+    }
+
+    // The live regions exist from the start: a reader only announces changes to a region it already
+    // knows. They stay the root's last child, after every window element (see upsert's placement).
+    live = root.querySelector(":scope > .mf-a11y-live");
+    if (!live) {
+        live = document.createElement("div");
+        live.className = "mf-a11y-live";
+        polite = document.createElement("div");
+        polite.setAttribute("aria-live", "polite");
+        polite.setAttribute("data-mf-live", "polite");
+        assertive = document.createElement("div");
+        assertive.setAttribute("aria-live", "assertive");
+        assertive.setAttribute("data-mf-live", "assertive");
+        live.append(polite, assertive);
+        root.appendChild(live);
+    } else {
+        polite = live.querySelector('[data-mf-live="polite"]');
+        assertive = live.querySelector('[data-mf-live="assertive"]');
     }
 
     return true;
@@ -118,6 +149,62 @@ export function apply(json) {
             upsert(op);
         }
     }
+}
+
+const recent = new Map();     // key + text -> when it was last said
+const pending = new Map();    // polite key -> text, oldest first
+let pendingSince = 0;
+let politeTimer = 0;
+let oneOff = 0;
+
+// Replaces a region's content in a later task: clearing first makes a repeat of the same text a change
+// the reader hears again.
+function speak(region, texts) {
+    if (!region) return;
+    region.replaceChildren();
+    setTimeout(() => {
+        for (const t of texts) {
+            const line = document.createElement("div");
+            line.textContent = t;
+            region.appendChild(line);
+        }
+    }, 30);
+}
+
+function flushPolite() {
+    politeTimer = 0;
+    pendingSince = 0;
+    const texts = [...pending.values()];
+    pending.clear();
+    if (texts.length) speak(polite, texts);
+}
+
+export function announce(text, isAssertive, key) {
+    if (!root || !text) return;
+
+    const now = performance.now();
+    const k = key ?? ("once-" + (++oneOff));
+    const said = k + "\u0000" + text;
+    const last = recent.get(said);
+
+    if (last !== undefined && now - last < repeatWindowMs) return;
+    recent.set(said, now);
+    if (recent.size > 200) {
+        for (const [s, t] of recent) if (now - t >= repeatWindowMs) recent.delete(s);
+    }
+
+    if (isAssertive) {
+        pending.delete(k);
+        speak(assertive, [text]);
+        return;
+    }
+
+    // Debounced: a value stepping on every key repeat is said once, when it settles.
+    pending.delete(k);
+    pending.set(k, text);
+    if (!pendingSince) pendingSince = now;
+    clearTimeout(politeTimer);
+    politeTimer = setTimeout(flushPolite, now - pendingSince >= politeMaxWaitMs ? 0 : politeQuietMs);
 }
 
 export function setActive(id) {
