@@ -337,8 +337,18 @@ namespace Majorsilence.Forms.Automation
             // yet when the mirror reads it (a tool tip's read 0 x 0 in the browser).
             var bounds = new Rectangle (popup.Location, popup.Size);
 
-            if (parent is not null)
-                bounds.Offset (-parent_window.Bounds.X, -parent_window.Bounds.Y);
+            // The popup's Location is a desktop position (PointToScreen's space: the client origin plus
+            // device pixels), the element's coordinates are logical and relative to the client area.
+            if (parent is not null) {
+                var origin = parent_window.ClientOriginOnScreen;
+                var scale = parent_window.DesktopScaling;
+                // Plus the adapter's own position: the tree's coordinates start from it, and
+                // PointToScreen measures from the window, as BuildTree's origin does not.
+                var tree_origin = parent_window.adapter.Bounds.Location;
+                bounds.Location = new Point (
+                    (int)Math.Round ((popup.Location.X - origin.X) / scale) + tree_origin.X,
+                    (int)Math.Round ((popup.Location.Y - origin.Y) / scale) + tree_origin.Y);
+            }
 
             var index = parent is null ? rootIndex++ : nodes.Count (n => n.ParentId == parent.Id);
             var id = IdOf (root.Source, parent?.Id, index, used);
