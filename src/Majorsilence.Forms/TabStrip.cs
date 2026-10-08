@@ -201,7 +201,7 @@ namespace Majorsilence.Forms
             // SizeMode.Fixed, which is how upstream's TCS_FIXEDWIDTH reads the same two values.
             var item_size = owner?.ItemSize ?? Size.Empty;
             var size_mode = owner?.SizeMode ?? TabSizeMode.Normal;
-            var extra_height = 2 * (owner?.Padding.Y ?? 0);
+            var extra_height = 2 * (owner?.EffectiveTabPadding.Y ?? 0);
             var natural_height = DefaultSize.Height;
 
             // A TabControl laid out for WinForms' tab height (~21px for Segoe UI 9pt) and used for its
@@ -213,6 +213,11 @@ namespace Majorsilence.Forms
 
             var row_height = (item_size.Height > 0 ? item_size.Height : natural_height) + extra_height;
 
+            // Upstream's themed tabs (TabControl.UsesUpstreamTabs) are as tall as their font plus the
+            // vertical tab padding: 20px for Segoe UI 9pt, measured from WinForms.
+            if (owner is { UsesUpstreamTabs: true } && item_size.Height <= 0)
+                row_height = owner.Font.Height + extra_height - 2;
+
             if (owner is { Alignment: TabAlignment.Left or TabAlignment.Right }) {
                 LayoutTabsVertically (row_height, item_size, size_mode);
                 return;
@@ -222,7 +227,7 @@ namespace Majorsilence.Forms
             // coordinates, but ClientRectangle is device-scaled and rowHeight was being scaled up too --
             // so on a 2x display tabs got device-sized rows and a logical width, and a click aimed at one
             // tab landed on another. Identity at scaling 1.
-            var avail = Math.Max (60, DeviceToLogicalUnits (DeviceClientRectangle.Width));
+            var avail = Math.Max (60, DeviceToLogicalUnits (DeviceClientRectangle.Width) - 2 * TabOrigin);
 
             // A single row (Multiline = false, upstream's default) never wraps: the overflow scrolls
             // behind the arrow band instead (W6 mechanisms). An owner-less strip keeps wrapping.
@@ -264,12 +269,12 @@ namespace Majorsilence.Forms
                 if (i > 0 && rows[i] != rows[i - 1])
                     offset = 0;
 
-                Tabs[i].SetBounds (offset, rows[i] * row_height, widths[i], row_height);
+                Tabs[i].SetBounds (TabOrigin + offset, TabOrigin + rows[i] * row_height, widths[i], row_height);
                 offset += widths[i];
             }
 
             // Grow (or shrink) the strip to fit every row; no-op while the row count is stable.
-            var desired = RowCount * row_height;
+            var desired = RowCount * row_height + 2 * TabOrigin;
             if (Height != desired)
                 ResizeKeepingDockedEdge (Width, desired);
         }
@@ -325,16 +330,20 @@ namespace Majorsilence.Forms
                 scroll_offset = Math.Max (0, Math.Min (scroll_offset, total - (available - ScrollArrowBandWidth)));
             }
 
-            var offset = -scroll_offset;
+            var offset = TabOrigin - scroll_offset;
 
             for (var i = 0; i < Tabs.Count; i++) {
-                Tabs[i].SetBounds (offset, 0, widths[i], rowHeight);
+                Tabs[i].SetBounds (offset, TabOrigin, widths[i], rowHeight);
                 offset += widths[i];
             }
 
-            if (Height != rowHeight)
-                ResizeKeepingDockedEdge (Width, rowHeight);
+            if (Height != rowHeight + 2 * TabOrigin)
+                ResizeKeepingDockedEdge (Width, rowHeight + 2 * TabOrigin);
         }
+
+        // Upstream's themed tabs start 2px in from the strip's corner, and the strip is 2px taller
+        // below them, where the page frame's top edge runs (TabControl.UsesUpstreamTabs).
+        private int TabOrigin => OwnerTabControl is { UsesUpstreamTabs: true } ? TabControl.UpstreamTabOrigin : 0;
 
         // Alignment = Left/Right: one column of full-width tabs, and the strip takes the width of the
         // widest of them (docked to a side, the layout engine keeps whatever width the strip asks for).

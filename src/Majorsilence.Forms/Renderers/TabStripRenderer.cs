@@ -31,11 +31,95 @@ namespace Majorsilence.Forms.Renderers
                 return;
             }
 
+            if (owner is { UsesUpstreamTabs: true }) {
+                RenderUpstream (control, e);
+                e.Canvas.Restore ();
+                RenderScrollArrows (control, arrow_band, e);
+                return;
+            }
+
             foreach (var item in control.Tabs)
                 RenderItem (control, item, e);
 
             e.Canvas.Restore ();
             RenderScrollArrows (control, arrow_band, e);
+        }
+
+        // Upstream's themed tabs (TabControl.UsesUpstreamTabs), as WinForms draws them under the
+        // Windows 11 theme: the page frame's top edge runs along the bottom of the strip, each tab is a
+        // pale bordered box standing on it, and the selected tab is raised, wider by 2px each side and
+        // open into the page. Drawn back to front so the selected tab covers its neighbours' edges.
+        private static void RenderUpstream (TabStrip control, PaintEventArgs e)
+        {
+            var scale = (float) e.Scaling;
+            var width = control.ScaledWidth;
+            var frame_top = (control.Height - TabControl.UpstreamTabOrigin) * scale;
+
+            using var paint = new SkiaSharp.SKPaint { IsAntialias = false };
+
+            // The frame's top edge, its sides, and the light band between it and the page.
+            paint.Color = TabControl.UpstreamSelectedTabFill;
+            e.Canvas.DrawRect (new SkiaSharp.SKRect (0, frame_top, width, control.ScaledHeight), paint);
+            paint.Color = TabControl.UpstreamTabBorder;
+            e.Canvas.DrawRect (new SkiaSharp.SKRect (0, frame_top, width, frame_top + scale), paint);
+            e.Canvas.DrawRect (new SkiaSharp.SKRect (0, frame_top, scale, control.ScaledHeight), paint);
+            e.Canvas.DrawRect (new SkiaSharp.SKRect (width - scale, frame_top, width, control.ScaledHeight), paint);
+
+            TabStripItem? selected = null;
+
+            foreach (var item in control.Tabs) {
+                if (item.Selected) {
+                    selected = item;
+                    continue;
+                }
+
+                var b = control.LogicalToDeviceUnits (item.Bounds);
+                DrawUpstreamTab (e, paint, new SkiaSharp.SKRect (b.Left, b.Top, b.Right, frame_top + scale), TabControl.UpstreamTabFill, scale, closed: true);
+                DrawUpstreamCaption (control, item, b, e);
+            }
+
+            if (selected is not null) {
+                var b = control.LogicalToDeviceUnits (selected.Bounds);
+                var raise = TabControl.UpstreamTabOrigin * scale;
+                DrawUpstreamTab (e, paint, new SkiaSharp.SKRect (b.Left - raise, b.Top - raise, b.Right + raise, frame_top + 2 * scale),
+                    TabControl.UpstreamSelectedTabFill, scale, closed: false);
+                DrawUpstreamCaption (control, selected, b, e);
+
+                if (control.Selected && control.ShowFocusCues)
+                    e.Canvas.DrawFocusRectangle (Rectangle.Inflate (b, -e.LogicalToDeviceUnits (2), -e.LogicalToDeviceUnits (2)), e.LogicalToDeviceUnits (1));
+            }
+        }
+
+        // A tab box: filled, outlined on the left, top and right. An unselected tab's bottom is the frame
+        // edge it stands on; the selected tab's is open, so it runs into the page.
+        private static void DrawUpstreamTab (PaintEventArgs e, SkiaSharp.SKPaint paint, SkiaSharp.SKRect box, SkiaSharp.SKColor fill, float scale, bool closed)
+        {
+            paint.Color = fill;
+            e.Canvas.DrawRect (box, paint);
+
+            paint.Color = TabControl.UpstreamTabBorder;
+            e.Canvas.DrawRect (new SkiaSharp.SKRect (box.Left, box.Top, box.Right, box.Top + scale), paint);
+            e.Canvas.DrawRect (new SkiaSharp.SKRect (box.Left, box.Top, box.Left + scale, box.Bottom - (closed ? 0 : scale)), paint);
+            e.Canvas.DrawRect (new SkiaSharp.SKRect (box.Right - scale, box.Top, box.Right, box.Bottom - (closed ? 0 : scale)), paint);
+        }
+
+        private static void DrawUpstreamCaption (TabStrip control, TabStripItem item, Rectangle bounds, PaintEventArgs e)
+        {
+            var colour = !item.Enabled || !control.Enabled ? Theme.ForegroundDisabledColor : control.GetEffectiveForegroundColor ();
+            var font_size = control.LogicalToDeviceUnits (control.GetEffectiveFontSize ());
+
+            var text_bounds = bounds;
+
+            if (item.Image is { } image) {
+                var size = new Size (control.LogicalToDeviceUnits (item.ImageSize.Width), control.LogicalToDeviceUnits (item.ImageSize.Height));
+                var left = bounds.Left + control.LogicalToDeviceUnits (control.OwnerTabControl?.EffectiveTabPadding.X ?? 0);
+                var image_bounds = new Rectangle (left, bounds.Top + ((bounds.Height - size.Height) / 2), size.Width, size.Height);
+
+                e.Canvas.DrawBitmap (image, image_bounds, !item.Enabled || !control.Enabled);
+                text_bounds = Rectangle.FromLTRB (image_bounds.Right + control.LogicalToDeviceUnits (TabStripItem.IMAGE_TEXT_GAP), bounds.Top, bounds.Right, bounds.Bottom);
+            }
+
+            e.Canvas.DrawText (item.Text, control.GetEffectiveFont (), font_size, text_bounds, colour, ContentAlignment.MiddleCenter, maxLines: 1);
         }
 
         /// <summary>Draws the scroll arrows of an overflowing single-row strip (W6 mechanisms).</summary>
