@@ -57,7 +57,7 @@ namespace Majorsilence.Forms
             });
         }
 
-        private static IDataObject ToDataObject (AvDragEventArgs e)
+        private static DataObject ToDataObject (AvDragEventArgs e)
         {
             var result = new DataObject ();
 
