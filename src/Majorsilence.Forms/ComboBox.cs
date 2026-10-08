@@ -421,7 +421,7 @@ namespace Majorsilence.Forms
                     if (FindWindow () is not WindowBase window)
                         throw new InvalidOperationException ("Cannot drop down a ComboBox that is not parented to a window");
 
-                    popup ??= new PopupWindow (window);
+                    popup ??= new PopupWindow (window) { AccessibleOwner = this };
 
                     popup.Controls.Add (popup_listbox);
                     popup.Size = ComputePopupSize ();

@@ -360,10 +360,15 @@ Activity's Looper, the OS run loop) drives the UI from then on, and `RunCore` mu
   (`document.title`) and the Android task label can both carry it.
 - **`ShowDialog` isn't OS-modal**, because there is no modal window concept. It still *behaves*
   modally: the parent-disable that makes it modal lives above the seam, in `Form.ShowDialogAsync`.
+  Every window after the first is an absolutely positioned child of the first one's view, so the root
+  is disabled with a flag of its own rather than Avalonia's inherited `IsEnabled` (which would disable
+  the dialog with it), and it ignores input that started in another window's view. A secondary window
+  has no caption and opens at the view's top-left: `Screen` reports no screens there, so
+  `CenterParent`/`CenterScreen` have nothing to centre on.
   **In the browser the blocking `ShowDialog` does not work at all** -- it throws, and
-  `ShowDialogAsync` is the call to make; see [Browser threading](#browser-threading). On Android and
-  iOS the blocking wait (`RunModalLoop`, Avalonia's `Dispatcher.PushFrame`) is unchanged and has not
-  been measured on a device.
+  `ShowDialogAsync` is the call to make; see [Browser threading](#browser-threading). **Nor does it
+  on Android or iOS** -- measured, Avalonia's dispatcher cannot push a nested frame there either; see
+  [Blocking modal calls on Android and iOS](#blocking-modal-calls-on-android-and-ios).
 - **No WebView.** `AvaloniaWebViewHandle.cs` is excluded from the compile for every single-view TFM
   and the backend's WebView members report unsupported, so compat controls that need one —
   `RadPdfViewer`, `RadRichTextEditor` — fall back to their plain-viewer/`RichTextBox` paths. Browser/
@@ -427,7 +432,8 @@ Avalonia.Browser 12.1.1:
 
 So a nested loop cannot run here, and the blocking calls now fail *clearly* instead of obscurely. The
 seam for this is `IModalLoopSupport.CanRunModalLoop` (an optional `IPlatformBackend` capability; the
-Avalonia backend reports `false` on its `net10.0-browser` row only). Every blocking modal entry point
+Avalonia backend reports `false` on its `net10.0-browser` row, and -- for their own reason -- on
+`net10.0-android` and `net10.0-ios`; see [below](#blocking-modal-calls-on-android-and-ios)). Every blocking modal entry point
 checks it before it shows anything, so a refused call leaves no dialog on screen, nothing on the modal
 stack and no owner disabled; `RunModalLoop` itself also throws the same explanation for a direct caller.
 
@@ -513,7 +519,44 @@ a different question.
 - **The CoreCLR browser runtime**, and **WASM threading** becoming supported rather than experimental.
 
 When any of these lands, re-run the Gallery.Wasm check: if a nested loop works, the Avalonia backend's
-`CanRunModalLoop` is the one switch to turn back on.
+`CanRunModalLoop` is the one switch to turn back on for the browser.
+
+### Blocking modal calls on Android and iOS
+
+The same rule holds on the Avalonia backend's Android and iOS rows, for a different reason: the browser
+has no thread of its own to block, while on Android and iOS Avalonia's dispatcher does not support a
+nested frame (`Dispatcher.PushFrame`). Use the [async forms](#browser-threading) there too.
+
+**What happens, measured.** The browser check (`ModalCheckForm.cs`) is linked into `samples/Gallery.Android`
+and `samples/Gallery.iOS`, which run it in place of the gallery when launched with a check name
+(`tools/modal-check.sh` in each head; see [`samples.md`](samples.md#gallerywasm)). On the mobile heads
+it adds a thread-pool watchdog that would log `HUNG` after 10 s, and a UI-thread timer that counts
+whether the UI kept running during the call. Debug builds, Avalonia 12.1.1, .NET 10 (SDK 10.0.108;
+android workload 36.1.69, ios workload 26.5.10284):
+
+- **Android:** emulator, Android 15 (API 35), arm64 Google APIs image; Mono runtime.
+- **iOS:** iPhone 17 Pro simulator, iOS 26.5, Xcode 26.6 (built with `-p:ValidateXcodeVersion=false`,
+  since this .NET for iOS asks for Xcode 26.5).
+
+Both platforms gave the same results:
+
+| Call | Before | Now |
+|---|---|---|
+| `Form.ShowDialog` | Threw a message-less `PlatformNotSupportedException` from `Dispatcher.PushFrame` (via `AvaloniaPlatformBackend.RunModalLoop`), at once. It did not hang; the UI-thread timer never ticked. | Throws `PlatformNotSupportedException` naming `Form.ShowDialogAsync`, before the dialog is shown. |
+| `MessageBox.Show` | The same exception -- and the message box stayed open (two open forms after the throw). | Throws naming `MessageBox.ShowAsync`; nothing is left open. |
+| `OpenFileDialog.ShowDialog` | The same exception, after the native picker was already on screen: Android's document picker and iOS's document browser both stayed up over the app. | Throws naming `FileDialog.ShowDialogAsync`; no picker is opened. |
+| `TaskDialog.ShowDialog` | The same exception from `PushFrame`. | Throws naming `TaskDialog.ShowDialogAsync`. |
+| `Form.ShowDialogAsync`, `MessageBox.ShowAsync`, `TaskDialog.ShowDialogAsync` | Work: the task completes with the result once the dialog is answered. | Unchanged. |
+
+So the Avalonia backend reports `CanRunModalLoop = false` on its `net10.0-android` and `net10.0-ios`
+rows as well as `net10.0-browser`, and the refusal's message gives the mobile reason and points here.
+
+**Not measured:** a physical device of either kind; Release builds, AOT (iOS device builds are always
+AOT) and Android's CoreCLR runtime; a picker actually used to choose a file (the check only asks whether
+the blocking wrapper can run). The refusal came from Avalonia's dispatcher, which is the same code in
+those builds, so they are not expected to differ -- but they have not been run. The browser-blocking-call analyzer
+(`MFB001`-`MFB003`) is still browser-only, so a blocking call in Android or iOS code is not flagged at
+build time; it fails at run time with the message above.
 
 ### Accessibility DOM (browser)
 
@@ -537,7 +580,8 @@ test can find, a screen reader can find too.
   create/update/remove operations. It is host-neutral and unit-tested (`AriaDomTests`).
 - `AriaDomMirror` re-reads the tree after a window paints, at most every 100 ms, and sends only what
   changed: anything a reader would notice changing -- text, visibility, bounds, enabled state, focus,
-  controls coming and going -- repaints, and an idle UI costs nothing.
+  controls coming and going -- repaints, and an idle UI costs nothing. A popup opening or closing and a
+  form joining or leaving `Application.OpenForms` also schedule a sync, since those need not repaint.
 - `BrowserAccessibility.cs` (Avalonia backend, `net10.0-browser` row only) carries the operations to
   `BrowserAccessibility.js` through `[JSImport]`. The script is embedded in the assembly and loaded from a
   `data:` URL, so a head project needs no extra file.
@@ -555,31 +599,88 @@ test can find, a screen reader can find too.
 ```
 
 - **Roles** follow the control (or an explicit `AccessibleRole`): `button`, `checkbox`, `radio`,
-  `textbox`, `combobox`, `listbox`/`option`, `tablist`/`tab`/`tabpanel`, `menubar`/`menuitem`, `toolbar`,
-  `status`, `tree`, `slider`, `spinbutton`, `progressbar`, `link`, `img`, `group` (named groups only). A
-  form is a named `region`; a modal dialog is `role="dialog" aria-modal="true"`.
+  `textbox`, `combobox`, `listbox`/`option`, `tablist`/`tab`/`tabpanel`, `menubar`/`menu`/`menuitem`/
+  `menuitemcheckbox`, `toolbar`, `status`, `tree`, `slider`, `spinbutton`, `progressbar`, `link`, `img`,
+  `group` (named groups only), `tooltip`. A form is a named `region`; a modal dialog is
+  `role="dialog" aria-modal="true"`, and a message box `role="alertdialog"` with `aria-describedby`
+  pointing at its message. A tool strip item takes its strip's meaning: a menu item in a menu or menu
+  bar, a `button` on a toolbar (`aria-pressed` when it checks), plain text on a status bar.
 - **Names** come from `AccessibleName`, else the text without its mnemonic `&`. A role that ARIA names
   from content (button, checkbox, option, menu item, …) and plain labels carry it as text, which is also
   what find-in-page and text locators match; other roles use `aria-label`. A designer identifier
   (`button1`) is never read out as a name -- it is `data-mf-automation-id`.
-- **States:** `aria-checked` (`mixed` for an indeterminate check box), `aria-selected`, `aria-disabled`,
-  `aria-expanded`, `aria-multiline`; custom-painted controls' `IAutomationStateProvider` state appears as
-  `data-mf-state-*`.
+- **States:** `aria-checked` (`mixed` for an indeterminate check box; also a checkable menu item's),
+  `aria-selected`, `aria-disabled`, `aria-expanded`, `aria-haspopup`, `aria-pressed`, `aria-multiline`,
+  `aria-valuenow`/`-min`/`-max`/`-text` for sliders and spin boxes; custom-painted controls'
+  `IAutomationStateProvider` state appears as `data-mf-state-*`.
 - **Focus:** the host element (which Avalonia keeps focused) gets `role="application"`, if it has no role
-  of its own, and `aria-activedescendant` pointing at the focused control's element.
+  of its own, and `aria-activedescendant` pointing at the focused control's element -- or, while a menu
+  or a combo box's list is open, at its highlighted item, and for a focused list box at its selected
+  option.
 - **Privacy:** a password box's text never reaches the page; its name does.
 - **Bounds:** each element is absolutely positioned over the control it mirrors, in CSS pixels, so
   find-in-page highlights land on the right place.
+
+**Popups.** Combo box lists, menu and context-menu drop-downs, date-picker calendars and tool tips are
+`PopupWindow`s -- separate windows on the desktop backends, absolutely positioned overlays in the
+browser -- and each shown one is mirrored inside the element of the window it was opened for (so a
+drop-down of a modal dialog is inside the `aria-modal` dialog), positioned where it is drawn, and
+removed when it closes. Each is a `<div data-mf-popup="listbox|menu|tooltip|other">` around:
+
+- a combo box's list: `role="listbox"` named after the combo box, with its options; the combo box gets
+  `aria-expanded="true"` and `aria-controls` pointing at the list;
+- a menu drop-down or context menu: `role="menu"` named after the item it hangs off, with
+  `menuitem`/`menuitemcheckbox`/`separator` items; an item with a submenu has `aria-haspopup="menu"` and
+  `aria-expanded`, and `aria-controls` while it is open. A closed submenu is not in the DOM (the
+  automation tree nests it under its item; ARIA has no menu item inside a menu item), and an open one is
+  mirrored inside the menu it opened from;
+- a tool tip: the div itself is `role="tooltip"` with the tip's text, and the control it is for gets
+  `aria-describedby` pointing at it.
+
+**Live region.** After the last window element the mirror keeps two visually hidden regions,
+`aria-live="polite"` and `aria-live="assertive"` (`[data-mf-live]`). What they say, from
+`AriaDom.Announcements` and the explicit APIs:
+
+| Change | Said | How |
+|---|---|---|
+| A `Label` or `ToolStripStatusLabel` with `LiveSetting` `Polite`/`Assertive` changes its text | the new text | that politeness |
+| Anything on a status bar (`StatusStrip`, `StatusBar`) changes its text | the new text | polite |
+| A modal dialog opens | its title | polite |
+| A message box opens | "title. message" | assertive for an error or warning icon, else polite |
+| The focused combo box, slider or spin box changes value while focus stays on it | the new value | polite |
+| `AccessibilityObject.RaiseAutomationNotification (kind, processing, text)` | the text | assertive for `ImportantAll`/`ImportantMostRecent`; the "most recent" kinds replace one not yet spoken |
+| `AccessibilityObject.RaiseLiveRegionChanged ()` on a live label | its text | its politeness |
+
+This follows the ARIA practice of announcing only what a reader would not otherwise hear: nothing on
+the first sync (a page that just loaded), nothing for focus arriving on a control (the reader announces
+the control, value and all), nothing while the user types into an editable combo box (the reader echoes
+typing), nothing for a label whose `LiveSetting` is `Off` (upstream's default -- a ticking clock would
+never stop talking), and a text only when it changes. The status element itself is `aria-live="off"`, so
+its implicit politeness does not say a change a second time. In the page, polite announcements wait
+250 ms for the UI to settle (at most 1 s), a newer one with the same key replacing the older; the same
+text for the same control is not repeated within a second; an assertive one is said at once.
+`RaiseLiveRegionChanged` after setting a live label's text, as code written for .NET Framework does, is
+one announcement, not two.
+
+`RaiseAutomationNotification` and `RaiseLiveRegionChanged` return true when the mirror took the
+announcement, and false -- as before, and as upstream does without an automation client -- everywhere
+else, including on desktop backends: there is still no UI Automation bridge for them.
 
 **For test tools.** Locate by role and name, or by `[data-mf-automation-id=…]`. The elements are
 `pointer-events: none` -- input still belongs to the canvas -- so click at the element's bounding box
 (Playwright: `locator.boundingBox ()` then `page.mouse.click`) rather than with a DOM click.
 
-**Limits, today.** Popups (an open combo box drop-down, menu drop-downs, tooltips) are not forms and are
-not mirrored. Value changes are reflected in the DOM but not announced through a live region. Grids and
-list views expose what the automation tree does, which is not their rows. Nothing here has been tried
-with a real screen reader yet; it was verified by reading the DOM in headless Chrome
-(`samples/Gallery.Wasm`, `?check=a11y`).
+**Limits, today.** Grids and list views expose what the automation tree does, which is not their rows. A
+form hidden with `Hide` (rather than closed) leaves the mirror only at the next repaint. Arrow keys in an
+editable combo box are not announced (indistinguishable from typing). Popups hosting arbitrary controls
+(`Control.TopLevel`, a date picker's calendar) are mirrored as generic containers of whatever the
+automation tree has. **Nothing here has been tried with a real screen reader**; it was verified by
+reading the DOM and recording what the live regions said in headless Chrome (`samples/Gallery.Wasm`,
+`?check=a11y`: `tools/modal-check.mjs` reads the page after each step, lists the live region output as
+`LIVE` lines and flags any `aria-controls`/`-describedby`/`-activedescendant` that names a missing
+element; with `--expect`, as CI runs it, each step's roles, states, references and announcements are
+compared with the script's `expected` table). Whether VoiceOver, NVDA or JAWS actually speak these as intended -- in particular inside
+`role="application"` and through `aria-activedescendant` -- is untested.
 
 **Opting out.** Set the `Majorsilence.Forms.Browser.DisableAccessibilityDom` AppContext switch, for
 example in the head's project file:
@@ -589,6 +690,11 @@ example in the head's project file:
   <RuntimeHostConfigurationOption Include="Majorsilence.Forms.Browser.DisableAccessibilityDom" Value="true" />
 </ItemGroup>
 ```
+
+`Majorsilence.Forms.Browser.DisableLiveAnnouncements` turns off only the live region (the DOM mirror stays,
+and `RaiseAutomationNotification` returns false again). Per control, announcements follow the WinForms
+API: a label is announced only with a `LiveSetting`, and a status bar stops being one -- and being
+announced -- with an explicit `AccessibleRole` other than `StatusBar`.
 
 A page whose Content-Security-Policy does not allow `data:` scripts refuses the module; the app runs
 unmirrored and logs why to the console.

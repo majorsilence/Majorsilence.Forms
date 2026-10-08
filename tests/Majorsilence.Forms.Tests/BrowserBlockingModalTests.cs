@@ -16,8 +16,12 @@ namespace Majorsilence.Forms.Tests;
 // refuse up front with a message naming the async alternative, and every modal API has an awaitable
 // form that works without a nested loop.
 //
-// The headless backend stands in for the browser by reporting CanRunModalLoop = false; the refusal is
-// decided above the seam, so this is the same code path the browser takes.
+// Android and iOS (Avalonia backend) were measured the same way with the check linked into their sample
+// heads: PushFrame throws there too, after the dialog is shown, so they report CanRunModalLoop = false
+// as well.
+//
+// The headless backend stands in for all three by reporting CanRunModalLoop = false; the refusal is
+// decided above the seam, so this is the same code path they take.
 public sealed class BrowserBlockingModalTests : IDisposable
 {
     // A regression that stops a dialog's task completing fails the test instead of hanging the run.
@@ -51,7 +55,7 @@ public sealed class BrowserBlockingModalTests : IDisposable
     {
         var ex = Assert.Throws<PlatformNotSupportedException> (call);
         Assert.Contains (alternative, ex.Message);
-        Assert.Contains ("Browser threading", ex.Message);
+        Assert.Contains ("docs/backends.md", ex.Message);
         return ex;
     }
 
@@ -141,6 +145,34 @@ public sealed class BrowserBlockingModalTests : IDisposable
         AssertRefused (() => VbInteraction.InputBox ("prompt"), "Form.ShowDialogAsync");
 
         AssertNothingLeftOpen (owner);
+    }
+
+    [Fact]
+    public void The_refusal_explains_the_browser_and_the_mobile_reason_differently ()
+    {
+        var browser = BlockingModal.Message ("Form.ShowDialog", "Form.ShowDialogAsync", browser: true);
+        var mobile = BlockingModal.Message ("Form.ShowDialog", "Form.ShowDialogAsync", browser: false);
+
+        // Each names the call to make instead and the docs section that explains its own reason.
+        Assert.Contains ("Form.ShowDialogAsync", browser);
+        Assert.Contains ("page's only thread", browser);
+        Assert.Contains ("\"Browser threading\" in docs/backends.md", browser);
+
+        Assert.Contains ("Form.ShowDialogAsync", mobile);
+        Assert.Contains ("nested message loop", mobile);
+        Assert.DoesNotContain ("browser", mobile);
+        Assert.Contains ("\"Blocking modal calls on Android and iOS\" in docs/backends.md", mobile);
+    }
+
+    [Fact]
+    public void Off_the_browser_a_refusal_gives_the_mobile_reason ()
+    {
+        // The test host is not a browser, so this is the text an Android or iOS app sees.
+        using var dialog = new Form ();
+
+        var ex = AssertRefused (() => dialog.ShowDialog (), "Form.ShowDialogAsync");
+
+        Assert.Contains ("Android and iOS", ex.Message);
     }
 
     [Fact]

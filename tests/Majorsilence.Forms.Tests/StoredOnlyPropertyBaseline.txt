@@ -221,7 +221,6 @@ Majorsilence.Forms.HtmlElementEventArgs.BubbleEvent    -- no browser engine; the
 Majorsilence.Forms.HtmlElementEventArgs.ReturnValue    -- no browser engine; the control is a placeholder
 Majorsilence.Forms.ImageList.ColorDepth    -- Win32 handle/window-class detail; no equivalent here
 Majorsilence.Forms.ImageList.Tag    -- user-data slot; upstream reads it nowhere either
-Majorsilence.Forms.Label.LiveSetting    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.Label.UseCompatibleTextRendering    -- GDI/visual-styles rendering switch; one text and theme pipeline here
 Majorsilence.Forms.LinkLabel+Link.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.ListView.UseCompatibleStateImageBehavior    -- .NET 1.1 state-image behaviour switch; neither behaviour is implemented (W6.2 ListView slice)
@@ -310,7 +309,6 @@ Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextAlign    -- framework-wr
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextFont    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextFormat    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripManager.VisualStylesEnabled    -- Win32 handle/window-class detail; no equivalent here
-Majorsilence.Forms.ToolStripStatusLabel.LiveSetting    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.ToolTip.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.UpDownBase.ChangingText    -- framework-written (outbound state)
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.Class    -- framework-written (outbound state)

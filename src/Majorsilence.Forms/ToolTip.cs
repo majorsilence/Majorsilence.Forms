@@ -486,6 +486,7 @@ namespace Majorsilence.Forms
 
                 associated_control = control;
                 associated_window = window as IWin32Window;
+                popup.AccessibleOwner = control;
 
                 // StripAmpersands drops the mnemonic marker a caller copied from a button's Text;
                 // ToolTipTitle heads the tip on its own line (W6.2 sweep).

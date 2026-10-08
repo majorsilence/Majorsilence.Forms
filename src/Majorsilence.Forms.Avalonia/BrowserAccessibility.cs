@@ -20,12 +20,14 @@ namespace Majorsilence.Forms
     /// from the framework's own automation tree (<see cref="AriaDomMirror"/>, host-neutral and unit-tested),
     /// and this class only carries its changes to <c>BrowserAccessibility.js</c>.
     ///
-    /// Off with the <c>Majorsilence.Forms.Browser.DisableAccessibilityDom</c> AppContext switch.
+    /// Off with the <c>Majorsilence.Forms.Browser.DisableAccessibilityDom</c> AppContext switch; the live
+    /// region alone is off with <c>Majorsilence.Forms.Browser.DisableLiveAnnouncements</c>.
     /// </remarks>
     internal static partial class BrowserAccessibility
     {
         private const string ModuleName = "majorsilence-forms-a11y";
         internal const string DisableSwitch = "Majorsilence.Forms.Browser.DisableAccessibilityDom";
+        internal const string DisableAnnouncementsSwitch = "Majorsilence.Forms.Browser.DisableLiveAnnouncements";
 
         private static AriaDomMirror? mirror;
 
@@ -37,6 +39,9 @@ namespace Majorsilence.Forms
 
         [JSImport ("setActive", ModuleName)]
         private static partial void SetActive (string? elementId);
+
+        [JSImport ("announce", ModuleName)]
+        private static partial void AnnounceText (string text, bool assertive, string? key);
 
         /// <summary>Loads the script and starts mirroring. Never throws: an app whose page refuses the
         /// script (a Content-Security-Policy without <c>data:</c> in script-src) still runs, unmirrored.</summary>
@@ -53,7 +58,8 @@ namespace Majorsilence.Forms
                     return;
                 }
 
-                mirror = new AriaDomMirror (new Sink ());
+                var announce = !(AppContext.TryGetSwitch (DisableAnnouncementsSwitch, out var quiet) && quiet);
+                mirror = new AriaDomMirror (new Sink (), announce: announce);
                 mirror.RequestSync ();
             } catch (Exception ex) {
                 Console.Error.WriteLine ($"[Majorsilence.Forms] accessibility DOM not started: {ex.Message}");
@@ -77,6 +83,8 @@ namespace Majorsilence.Forms
             public void Apply (string opsJson) => BrowserAccessibility.Apply (opsJson);
 
             public void SetActiveDescendant (string? elementId) => SetActive (elementId);
+
+            public void Announce (string text, bool assertive, string? key) => AnnounceText (text, assertive, key);
         }
     }
 }

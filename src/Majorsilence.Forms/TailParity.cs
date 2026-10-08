@@ -920,7 +920,11 @@ namespace Majorsilence.Forms
         public event CancelEventHandler? FileOk;
 
         /// <summary>Raises the <see cref="FileOk"/> event.</summary>
-        protected void OnFileOk (CancelEventArgs e) => FileOk?.Invoke (this, e);
+        protected void OnFileOk (CancelEventArgs e)
+        {
+            file_ok_raised = true;
+            FileOk?.Invoke (this, e);
+        }
     }
 
     public partial class FolderBrowserDialog

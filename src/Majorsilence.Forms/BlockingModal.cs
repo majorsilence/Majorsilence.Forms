@@ -33,9 +33,22 @@ namespace Majorsilence.Forms
         }
 
         internal static string Message (string api, string asyncAlternative) =>
+            Message (api, asyncAlternative, OperatingSystemCompat.IsBrowser ());
+
+        /// <summary>
+        /// The refusal's text. Why the loop cannot run differs: in the browser .NET has no thread of its own
+        /// to block; on Android and iOS (measured with the Avalonia backend, issue #406) the platform's
+        /// dispatcher cannot run a nested frame. <paramref name="browser"/> picks which is explained.
+        /// </summary>
+        internal static string Message (string api, string asyncAlternative, bool browser) =>
             $"{api} blocks until the dialog is closed, and the {Platform.Backend.Name} backend on this platform cannot block: " +
-            "in the browser, .NET runs on the page's only thread, so a call that does not return also stops the events " +
-            $"that would close the dialog. Use {asyncAlternative} and await it instead. " +
-            "See \"Browser threading\" in docs/backends.md.";
+            (browser
+                ? "in the browser, .NET runs on the page's only thread, so a call that does not return also stops the events " +
+                  "that would close the dialog. "
+                : "the UI thread here cannot run a nested message loop to keep the dialog working while the call waits. ") +
+            $"Use {asyncAlternative} and await it instead. " +
+            (browser
+                ? "See \"Browser threading\" in docs/backends.md."
+                : "See \"Blocking modal calls on Android and iOS\" in docs/backends.md.");
     }
 }

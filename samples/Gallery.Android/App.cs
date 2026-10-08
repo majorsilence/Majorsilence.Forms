@@ -340,6 +340,12 @@ namespace Gallery.Android
     // desktop App.cs uses for IClassicDesktopStyleApplicationLifetime.
     public sealed class GalleryAvaloniaApp : Avalonia.Application
     {
+        /// <summary>
+        /// The blocking-modal check to run instead of the gallery (Gallery.Checks.ModalCheckForm, issue
+        /// #406), from MainActivity's "check" intent extra; null runs the gallery.
+        /// </summary>
+        internal static string? Check;
+
         public override void OnFrameworkInitializationCompleted ()
         {
             // Android's IActivityApplicationLifetime.MainViewFactory is invoked lazily by
@@ -350,6 +356,11 @@ namespace Gallery.Android
                     // MainForm.Show() constructs MajorsilenceFormsSingleViewHost, whose constructor
                     // registers itself as ISingleViewApplicationLifetime.MainView -- read it back rather
                     // than reaching into the (internal, cross-assembly-inaccessible) host type directly.
+                    if (Check is { } check) {
+                        MSForms.Application.RunAndroid (() => new Gallery.Checks.ModalCheckForm (check));
+                        return ((ISingleViewApplicationLifetime) ApplicationLifetime!).MainView!;
+                    }
+
                     MSForms.Application.RunAndroid (() => {
                         var form = new MainForm ();
                         // Register item F10: the single-view root host's own Activated/Deactivate --
