@@ -21,7 +21,7 @@ public class ImageListPanel : Panel
             Width = 200,
         });
 
-        comboBox.Items.AddRange (image_list_16.Images.Keys.ToArray ());
+        comboBox.Items.AddRange (image_list_16.Images.Keys.Cast<string> ().ToArray ());
         comboBox.SelectedIndex = 0;
 
         // Create controls to ensure they display images correctly

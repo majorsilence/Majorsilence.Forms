@@ -182,14 +182,14 @@ namespace Majorsilence.Forms.Renderers
                 : null;
 
             if (key is not null)
-                return images.ContainsKey (key) ? images[key] : null;
+                return images.GetBitmap (key);
 
             var index = isSelected && item.SelectedImageIndex >= 0 ? item.SelectedImageIndex
                 : item.ImageIndex >= 0 ? item.ImageIndex
                 : isSelected && control.SelectedImageIndex >= 0 ? control.SelectedImageIndex
                 : control.ImageIndex;
 
-            return index >= 0 && index < images.Count ? images[index] : null;
+            return index >= 0 && index < images.Count ? images.GetBitmap (index) : null;
         }
 
         /// <summary>

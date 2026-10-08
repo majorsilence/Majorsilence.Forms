@@ -669,12 +669,12 @@ public class W6ControlFeaturesTests
     {
         using var plain = new ImageList ();
         plain.Images.Add (HalfRedHalfMagenta ());
-        Assert.Equal (255, plain.Images[0].GetPixel (12, 8).Alpha);
+        Assert.Equal (255, plain.Images.GetBitmap (0).GetPixel (12, 8).Alpha);
 
         using var keyed = new ImageList { TransparentColor = Color.Magenta };
         keyed.Images.Add (HalfRedHalfMagenta ());
-        Assert.Equal (0, keyed.Images[0].GetPixel (12, 8).Alpha);
-        Assert.Equal (SKColors.Red, keyed.Images[0].GetPixel (3, 8));
+        Assert.Equal (0, keyed.Images.GetBitmap (0).GetPixel (12, 8).Alpha);
+        Assert.Equal (SKColors.Red, keyed.Images.GetBitmap (0).GetPixel (3, 8));
     }
 
     private static ToolStripButton ImagedItem (out Form form, out ToolStrip strip, int stripHeight = 30)

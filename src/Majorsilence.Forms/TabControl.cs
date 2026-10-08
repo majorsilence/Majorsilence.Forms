@@ -199,9 +199,9 @@ namespace Majorsilence.Forms
 
             // Key wins over index when both are set, the order upstream's TCITEM resolution uses.
             if (page.ImageKey.HasValue ())
-                return images.ContainsKey (page.ImageKey) ? images[page.ImageKey] : null;
+                return images.GetBitmap (page.ImageKey);
 
-            return page.ImageIndex >= 0 && page.ImageIndex < images.Count ? images[page.ImageIndex] : null;
+            return page.ImageIndex >= 0 && page.ImageIndex < images.Count ? images.GetBitmap (page.ImageIndex) : null;
         }
 
         /// <summary>Gets or sets whether more than one row of tabs can be displayed.</summary>

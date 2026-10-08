@@ -1411,7 +1411,7 @@ namespace Majorsilence.Forms
                 if (index < 0 && image_key.Length > 0)
                     index = list.Images.IndexOfKey (image_key);
 
-                return index >= 0 && index < list.Images.Count ? list.Images[index] : null;
+                return index >= 0 && index < list.Images.Count ? list.Images.GetBitmap (index) : null;
             }
         }
 

@@ -89,10 +89,10 @@ namespace Majorsilence.Forms
                 var index = images.Images.IndexOfKey (button.ImageKey);
 
                 if (index >= 0)
-                    return images.Images[index];
+                    return images.Images.GetBitmap (index);
             }
 
-            return button.ImageIndex >= 0 && button.ImageIndex < images.Images.Count ? images.Images[button.ImageIndex] : null;
+            return button.ImageIndex >= 0 && button.ImageIndex < images.Images.Count ? images.Images.GetBitmap (button.ImageIndex) : null;
         }
 
         internal void RaiseButtonClick (ToolBarButton button) => OnButtonClick (new ToolBarButtonClickEventArgs (button));

@@ -21,9 +21,9 @@ namespace Majorsilence.Forms.Drawing
         /// Wraps an <see cref="SKBitmap"/> as an <see cref="Image"/>.
         /// </summary>
         /// <remarks>
-        /// A few collections here are typed in terms of the underlying Skia bitmap where WinForms types
-        /// them as <c>Image</c> — <c>ImageList.Images</c> most visibly — so ported code assigning an entry
-        /// to an <c>Image</c> had nothing to convert through. The wrapper takes ownership of
+        /// A few APIs here are typed in terms of the underlying Skia bitmap where WinForms types them as
+        /// <c>Image</c>, so ported code assigning one to an <c>Image</c> had nothing to convert through.
+        /// (<c>ImageList.Images</c> was the most visible until SMP-55 gave it upstream's <c>Image</c> indexer.) The wrapper takes ownership of
         /// <paramref name="bitmap"/>, exactly as the internal constructor it forwards to does.
         /// </remarks>
         public static implicit operator Image? (SKBitmap? bitmap) => bitmap is null ? null : new Bitmap (bitmap);
