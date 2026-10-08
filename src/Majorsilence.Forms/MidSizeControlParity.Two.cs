@@ -61,16 +61,34 @@ namespace Majorsilence.Forms
             return -1;
         }
 
+        // The control or tool strip item this object describes, when it describes one: what a live
+        // region change reads the text and LiveSetting of. Set by the owner's AccessibilityObject getter
+        // (and the ToolStripItem/Control accessible object constructors), so a subclass returned from
+        // CreateAccessibilityInstance has it too.
+        internal object? LiveOwner { get; set; }
+
         /// <summary>Asks the accessibility client to announce the given text.</summary>
-        /// <remarks>False, and nothing is announced. UI Automation notifications need a platform
-        /// automation provider, which the backends do not expose; returning false is how upstream
-        /// reports that the notification was not delivered, so a caller that checks behaves
+        /// <remarks>Delivered on the browser target, where the accessibility DOM next to the canvas speaks
+        /// it through an ARIA live region: <see cref="AutomationNotificationProcessing.ImportantAll"/> and
+        /// <see cref="AutomationNotificationProcessing.ImportantMostRecent"/> assertively, the rest
+        /// politely, and the "most recent" kinds replacing a not-yet-spoken notification from the same
+        /// object. Everywhere else it returns false and nothing is announced: UI Automation notifications
+        /// need a platform automation provider, which the other backends do not expose, and false is how
+        /// upstream reports that the notification was not delivered, so a caller that checks behaves
         /// correctly.</remarks>
         public bool RaiseAutomationNotification (AutomationNotificationKind notificationKind,
-            AutomationNotificationProcessing notificationProcessing, string? notificationText) => false;
+            AutomationNotificationProcessing notificationProcessing, string? notificationText)
+            => Automation.LiveAnnouncer.Notify (LiveOwner, notificationProcessing, notificationText);
 
-        /// <inheritdoc cref="RaiseAutomationNotification"/>
-        public virtual bool RaiseLiveRegionChanged () => false;
+        /// <summary>Tells the accessibility client that the owner's text, a live region, changed.</summary>
+        /// <remarks>Delivered on the browser target for a <see cref="Label"/> or
+        /// <see cref="ToolStripStatusLabel"/> whose <c>LiveSetting</c> is not
+        /// <see cref="AutomationLiveSetting.Off"/>: its text is announced, assertively for
+        /// <see cref="AutomationLiveSetting.Assertive"/>. Such a label's text changes are announced without
+        /// this call too, as upstream raises the event itself on <c>TextChanged</c>; calling it after
+        /// setting the text, as code written for .NET Framework does, does not announce twice. False
+        /// otherwise, and nothing is announced.</remarks>
+        public virtual bool RaiseLiveRegionChanged () => Automation.LiveAnnouncer.LiveRegionChanged (LiveOwner);
     }
 
     /// <summary>The kind of change a UI Automation notification describes.</summary>

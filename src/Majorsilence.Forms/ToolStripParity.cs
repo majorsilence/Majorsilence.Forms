@@ -477,7 +477,11 @@ namespace Majorsilence.Forms
     public class ToolStripItemAccessibleObject : AccessibleObject
     {
         /// <summary>Initializes a new instance for the given item.</summary>
-        public ToolStripItemAccessibleObject (ToolStripItem ownerItem) => Owner = ownerItem;
+        public ToolStripItemAccessibleObject (ToolStripItem ownerItem)
+        {
+            Owner = ownerItem;
+            LiveOwner = ownerItem;
+        }
 
         /// <summary>Gets the item this object describes.</summary>
         public ToolStripItem Owner { get; }

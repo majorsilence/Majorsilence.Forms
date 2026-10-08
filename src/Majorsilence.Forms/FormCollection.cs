@@ -63,11 +63,24 @@ public class FormCollection : IReadOnlyCollection<Form>
     /// </summary>
     internal void Add (Form form)
     {
+        bool added;
+
         lock (CollectionSyncRoot) {
-            if (!inner_list.Contains (form))
+            added = !inner_list.Contains (form);
+            if (added)
                 inner_list.Add (form);
         }
+
+        if (added)
+            Changed?.Invoke ();
     }
+
+    /// <summary>
+    /// Raised after a form joins or leaves the collection. A form closing need not repaint anything
+    /// (the browser draws no frame for it), so the accessibility DOM, which otherwise follows painting,
+    /// listens here too.
+    /// </summary>
+    internal event Action? Changed;
 
     /// <summary>
     ///  Used internally to check if a Form is in the FormCollection
@@ -100,8 +113,13 @@ public class FormCollection : IReadOnlyCollection<Form>
     /// </summary>
     internal void Remove (Form form)
     {
+        bool removed;
+
         lock (CollectionSyncRoot)
-            inner_list.Remove (form);
+            removed = inner_list.Remove (form);
+
+        if (removed)
+            Changed?.Invoke ();
     }
 
     IEnumerator IEnumerable.GetEnumerator () => GetEnumerator ();

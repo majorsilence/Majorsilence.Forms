@@ -580,7 +580,8 @@ test can find, a screen reader can find too.
   create/update/remove operations. It is host-neutral and unit-tested (`AriaDomTests`).
 - `AriaDomMirror` re-reads the tree after a window paints, at most every 100 ms, and sends only what
   changed: anything a reader would notice changing -- text, visibility, bounds, enabled state, focus,
-  controls coming and going -- repaints, and an idle UI costs nothing.
+  controls coming and going -- repaints, and an idle UI costs nothing. A popup opening or closing and a
+  form joining or leaving `Application.OpenForms` also schedule a sync, since those need not repaint.
 - `BrowserAccessibility.cs` (Avalonia backend, `net10.0-browser` row only) carries the operations to
   `BrowserAccessibility.js` through `[JSImport]`. The script is embedded in the assembly and loaded from a
   `data:` URL, so a head project needs no extra file.
@@ -598,31 +599,88 @@ test can find, a screen reader can find too.
 ```
 
 - **Roles** follow the control (or an explicit `AccessibleRole`): `button`, `checkbox`, `radio`,
-  `textbox`, `combobox`, `listbox`/`option`, `tablist`/`tab`/`tabpanel`, `menubar`/`menuitem`, `toolbar`,
-  `status`, `tree`, `slider`, `spinbutton`, `progressbar`, `link`, `img`, `group` (named groups only). A
-  form is a named `region`; a modal dialog is `role="dialog" aria-modal="true"`.
+  `textbox`, `combobox`, `listbox`/`option`, `tablist`/`tab`/`tabpanel`, `menubar`/`menu`/`menuitem`/
+  `menuitemcheckbox`, `toolbar`, `status`, `tree`, `slider`, `spinbutton`, `progressbar`, `link`, `img`,
+  `group` (named groups only), `tooltip`. A form is a named `region`; a modal dialog is
+  `role="dialog" aria-modal="true"`, and a message box `role="alertdialog"` with `aria-describedby`
+  pointing at its message. A tool strip item takes its strip's meaning: a menu item in a menu or menu
+  bar, a `button` on a toolbar (`aria-pressed` when it checks), plain text on a status bar.
 - **Names** come from `AccessibleName`, else the text without its mnemonic `&`. A role that ARIA names
   from content (button, checkbox, option, menu item, …) and plain labels carry it as text, which is also
   what find-in-page and text locators match; other roles use `aria-label`. A designer identifier
   (`button1`) is never read out as a name -- it is `data-mf-automation-id`.
-- **States:** `aria-checked` (`mixed` for an indeterminate check box), `aria-selected`, `aria-disabled`,
-  `aria-expanded`, `aria-multiline`; custom-painted controls' `IAutomationStateProvider` state appears as
-  `data-mf-state-*`.
+- **States:** `aria-checked` (`mixed` for an indeterminate check box; also a checkable menu item's),
+  `aria-selected`, `aria-disabled`, `aria-expanded`, `aria-haspopup`, `aria-pressed`, `aria-multiline`,
+  `aria-valuenow`/`-min`/`-max`/`-text` for sliders and spin boxes; custom-painted controls'
+  `IAutomationStateProvider` state appears as `data-mf-state-*`.
 - **Focus:** the host element (which Avalonia keeps focused) gets `role="application"`, if it has no role
-  of its own, and `aria-activedescendant` pointing at the focused control's element.
+  of its own, and `aria-activedescendant` pointing at the focused control's element -- or, while a menu
+  or a combo box's list is open, at its highlighted item, and for a focused list box at its selected
+  option.
 - **Privacy:** a password box's text never reaches the page; its name does.
 - **Bounds:** each element is absolutely positioned over the control it mirrors, in CSS pixels, so
   find-in-page highlights land on the right place.
+
+**Popups.** Combo box lists, menu and context-menu drop-downs, date-picker calendars and tool tips are
+`PopupWindow`s -- separate windows on the desktop backends, absolutely positioned overlays in the
+browser -- and each shown one is mirrored inside the element of the window it was opened for (so a
+drop-down of a modal dialog is inside the `aria-modal` dialog), positioned where it is drawn, and
+removed when it closes. Each is a `<div data-mf-popup="listbox|menu|tooltip|other">` around:
+
+- a combo box's list: `role="listbox"` named after the combo box, with its options; the combo box gets
+  `aria-expanded="true"` and `aria-controls` pointing at the list;
+- a menu drop-down or context menu: `role="menu"` named after the item it hangs off, with
+  `menuitem`/`menuitemcheckbox`/`separator` items; an item with a submenu has `aria-haspopup="menu"` and
+  `aria-expanded`, and `aria-controls` while it is open. A closed submenu is not in the DOM (the
+  automation tree nests it under its item; ARIA has no menu item inside a menu item), and an open one is
+  mirrored inside the menu it opened from;
+- a tool tip: the div itself is `role="tooltip"` with the tip's text, and the control it is for gets
+  `aria-describedby` pointing at it.
+
+**Live region.** After the last window element the mirror keeps two visually hidden regions,
+`aria-live="polite"` and `aria-live="assertive"` (`[data-mf-live]`). What they say, from
+`AriaDom.Announcements` and the explicit APIs:
+
+| Change | Said | How |
+|---|---|---|
+| A `Label` or `ToolStripStatusLabel` with `LiveSetting` `Polite`/`Assertive` changes its text | the new text | that politeness |
+| Anything on a status bar (`StatusStrip`, `StatusBar`) changes its text | the new text | polite |
+| A modal dialog opens | its title | polite |
+| A message box opens | "title. message" | assertive for an error or warning icon, else polite |
+| The focused combo box, slider or spin box changes value while focus stays on it | the new value | polite |
+| `AccessibilityObject.RaiseAutomationNotification (kind, processing, text)` | the text | assertive for `ImportantAll`/`ImportantMostRecent`; the "most recent" kinds replace one not yet spoken |
+| `AccessibilityObject.RaiseLiveRegionChanged ()` on a live label | its text | its politeness |
+
+This follows the ARIA practice of announcing only what a reader would not otherwise hear: nothing on
+the first sync (a page that just loaded), nothing for focus arriving on a control (the reader announces
+the control, value and all), nothing while the user types into an editable combo box (the reader echoes
+typing), nothing for a label whose `LiveSetting` is `Off` (upstream's default -- a ticking clock would
+never stop talking), and a text only when it changes. The status element itself is `aria-live="off"`, so
+its implicit politeness does not say a change a second time. In the page, polite announcements wait
+250 ms for the UI to settle (at most 1 s), a newer one with the same key replacing the older; the same
+text for the same control is not repeated within a second; an assertive one is said at once.
+`RaiseLiveRegionChanged` after setting a live label's text, as code written for .NET Framework does, is
+one announcement, not two.
+
+`RaiseAutomationNotification` and `RaiseLiveRegionChanged` return true when the mirror took the
+announcement, and false -- as before, and as upstream does without an automation client -- everywhere
+else, including on desktop backends: there is still no UI Automation bridge for them.
 
 **For test tools.** Locate by role and name, or by `[data-mf-automation-id=…]`. The elements are
 `pointer-events: none` -- input still belongs to the canvas -- so click at the element's bounding box
 (Playwright: `locator.boundingBox ()` then `page.mouse.click`) rather than with a DOM click.
 
-**Limits, today.** Popups (an open combo box drop-down, menu drop-downs, tooltips) are not forms and are
-not mirrored. Value changes are reflected in the DOM but not announced through a live region. Grids and
-list views expose what the automation tree does, which is not their rows. Nothing here has been tried
-with a real screen reader yet; it was verified by reading the DOM in headless Chrome
-(`samples/Gallery.Wasm`, `?check=a11y`).
+**Limits, today.** Grids and list views expose what the automation tree does, which is not their rows. A
+form hidden with `Hide` (rather than closed) leaves the mirror only at the next repaint. Arrow keys in an
+editable combo box are not announced (indistinguishable from typing). Popups hosting arbitrary controls
+(`Control.TopLevel`, a date picker's calendar) are mirrored as generic containers of whatever the
+automation tree has. **Nothing here has been tried with a real screen reader**; it was verified by
+reading the DOM and recording what the live regions said in headless Chrome (`samples/Gallery.Wasm`,
+`?check=a11y`: `tools/modal-check.mjs` reads the page after each step, lists the live region output as
+`LIVE` lines and flags any `aria-controls`/`-describedby`/`-activedescendant` that names a missing
+element; with `--expect`, as CI runs it, each step's roles, states, references and announcements are
+compared with the script's `expected` table). Whether VoiceOver, NVDA or JAWS actually speak these as intended -- in particular inside
+`role="application"` and through `aria-activedescendant` -- is untested.
 
 **Opting out.** Set the `Majorsilence.Forms.Browser.DisableAccessibilityDom` AppContext switch, for
 example in the head's project file:
@@ -632,6 +690,11 @@ example in the head's project file:
   <RuntimeHostConfigurationOption Include="Majorsilence.Forms.Browser.DisableAccessibilityDom" Value="true" />
 </ItemGroup>
 ```
+
+`Majorsilence.Forms.Browser.DisableLiveAnnouncements` turns off only the live region (the DOM mirror stays,
+and `RaiseAutomationNotification` returns false again). Per control, announcements follow the WinForms
+API: a label is announced only with a `LiveSetting`, and a status bar stops being one -- and being
+announced -- with an explicit `AccessibleRole` other than `StatusBar`.
 
 A page whose Content-Security-Policy does not allow `data:` scripts refuses the module; the app runs
 unmirrored and logs why to the console.

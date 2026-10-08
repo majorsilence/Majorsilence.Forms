@@ -152,7 +152,10 @@ Without `--expect` it only reports (exit 0 whatever happened), which is what you
 platform change. `--expect` compares each check with the `expected` table at the top of the script --
 the blocking calls THROW `PlatformNotSupportedException` naming their async form, the awaited calls
 RETURN (`OK`, `Cancel`, `OK`), neither leaves a dialog open or the owner disabled, the accessibility DOM
-mirrors the check form's controls with the expected roles and ARIA attributes, every rendering check's
+mirrors the check form's controls with the expected roles and ARIA attributes -- and, after each of the
+`a11y` check's steps (a combo box list, a menu and submenu, a tool tip, a status bar and live label, a
+notification, a message box, each opened and closed), the popups' roles and links, the focus, exactly
+the expected live-region announcements and no ARIA reference to a missing element -- every rendering check's
 `SNAP` matches the screenshot and its click answers the dialog, nothing HANGs and the page throws
 nothing -- prints a `MISMATCH` line for each difference and exits 1 if there is any (2 if
 it could not run at all). `--report=<file>` writes every result as JSON. When the platform moves and a

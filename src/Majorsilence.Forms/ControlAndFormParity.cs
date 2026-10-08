@@ -426,7 +426,11 @@ namespace Majorsilence.Forms
         public class ControlAccessibleObject : AccessibleObject
         {
             /// <summary>Initializes a new instance of the <see cref="ControlAccessibleObject"/> class.</summary>
-            public ControlAccessibleObject (Control ownerControl) => Owner = ownerControl;
+            public ControlAccessibleObject (Control ownerControl)
+            {
+                Owner = ownerControl;
+                LiveOwner = ownerControl;
+            }
 
             /// <summary>Gets the control this object describes.</summary>
             public Control Owner { get; }
