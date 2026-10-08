@@ -1663,6 +1663,51 @@ namespace Majorsilence.Forms
             adapter.RaiseClick (ev);
         }
 
+        // ── Drags from outside the application (files from Finder/Explorer, text from another app) ──
+        // The backend calls these with the operating system's drag-over, drop and leave, in device
+        // pixels like the pointer entry points; targets see DragEnter/DragOver/DragDrop/DragLeave as
+        // they do for an in-process DoDragDrop (DragDropSession.BeginExternal).
+
+        /// <summary>
+        /// An operating-system drag entered or moved over the window. Returns the effect the control
+        /// under the pointer accepts, for the backend to report back (None shows the no-drop cursor).
+        /// </summary>
+        internal DragDropEffects HandleExternalDragOver (IDataObject data, DragDropEffects allowedEffects, int x, int y, Keys keys)
+        {
+            TrackModifierKeys (keys);
+            try {
+                var session = DragDropSession.Active is { IsExternal: true } active ? active : DragDropSession.BeginExternal (this, data, allowedEffects);
+                session.Track (this, new System.Drawing.Point (DeviceToLogical (x), DeviceToLogical (y)), MouseButtons.Left, keys);
+                return ReferenceEquals (DragDropSession.Active, session) ? session.CurrentEffect : DragDropEffects.None;
+            } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
+                return DragDropEffects.None;
+            }
+        }
+
+        /// <summary>An operating-system drag was dropped on the window. Returns the effect of the drop.</summary>
+        internal DragDropEffects HandleExternalDrop (IDataObject data, DragDropEffects allowedEffects, int x, int y, Keys keys)
+        {
+            TrackModifierKeys (keys);
+            try {
+                // A drop with no drag-over before it (some platforms skip it) starts the session here.
+                var session = DragDropSession.Active is { IsExternal: true } active ? active : DragDropSession.BeginExternal (this, data, allowedEffects);
+                session.Release (this, new System.Drawing.Point (DeviceToLogical (x), DeviceToLogical (y)), keys);
+                return session.Result ?? DragDropEffects.None;
+            } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
+                return DragDropEffects.None;
+            }
+        }
+
+        /// <summary>An operating-system drag left the window, or was cancelled.</summary>
+        internal void HandleExternalDragLeave ()
+        {
+            try {
+                if (DragDropSession.Active is { IsExternal: true } session)
+                    session.Leave ();
+            } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
+            }
+        }
+
         // The exception boundary (W6 mechanisms): an exception escaping an event handler is reported
         // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal void HandlePointerMoved (MouseButtons buttons, int x, int y, Keys keys)

@@ -16,7 +16,13 @@ namespace Majorsilence.Forms
     /// asks <c>QueryContinueDrag</c> with <see cref="DragAction.Drop"/> and raises <c>DragDrop</c>; Escape
     /// asks with <see cref="DragAction.Cancel"/>. The effect the target left in the drop's args is the
     /// session's result, which <see cref="Control.DoDragDrop(object, DragDropEffects)"/> returns once the nested loop it runs sees
-    /// the session complete. Drags stay inside the process and the window: there is no OLE source.
+    /// the session complete. Drags started here stay inside the process and the window: there is no OLE
+    /// source.
+    ///
+    /// A drag that comes from outside the application -- files from Finder or Explorer, text from another
+    /// app -- runs as an <i>external</i> session (<see cref="BeginExternal"/>): the backend feeds it the
+    /// operating system's drag-over, drop and leave, and the same targets see the same DragEnter /
+    /// DragOver / DragDrop / DragLeave sequence. It has no source, so no GiveFeedback or QueryContinueDrag.
     /// </remarks>
     internal sealed class DragDropSession
     {
@@ -52,6 +58,12 @@ namespace Majorsilence.Forms
         /// <summary>Completes with the effect of the drop, or <see cref="DragDropEffects.None"/>.</summary>
         internal Task<DragDropEffects> Completion => completion.Task;
 
+        /// <summary>True for a drag that came from outside the application (<see cref="BeginExternal"/>).</summary>
+        internal bool IsExternal => source_control is null && source_item is null;
+
+        /// <summary>The effect the current target accepts, which the backend reports to the operating system.</summary>
+        internal DragDropEffects CurrentEffect => effect;
+
         /// <summary>The finished session's effect, or null while it is still running.</summary>
         internal DragDropEffects? Result
             // Spelled out rather than IsCompletedSuccessfully, which netstandard2.0 does not have.
@@ -78,6 +90,26 @@ namespace Majorsilence.Forms
 
             return session;
         }
+
+        /// <summary>
+        /// Starts a session for a drag that entered <paramref name="host"/> from outside the application.
+        /// The backend then calls <see cref="Track"/> for each drag-over, <see cref="Release"/> for the drop
+        /// and <see cref="Leave"/> when the drag leaves the window or is cancelled.
+        /// </summary>
+        internal static DragDropSession BeginExternal (WindowBase host, IDataObject data, DragDropEffects allowedEffects)
+        {
+            Guard.ThrowIfNull (host);
+            Guard.ThrowIfNull (data);
+
+            Active?.Finish (DragDropEffects.None);
+
+            var session = new DragDropSession (null, null, data, allowedEffects) { window = host };
+            Active = session;
+            return session;
+        }
+
+        /// <summary>The external drag left the window (or the operating system cancelled it).</summary>
+        internal void Leave () => Cancel ();
 
         // Anything that is not already a data object is wrapped as upstream wraps it: under its type
         // name, and for a string under the Text format too, so both `GetDataPresent (typeof (string))`
@@ -268,6 +300,10 @@ namespace Majorsilence.Forms
 
         private void GiveFeedback ()
         {
+            // An external drag's cursor belongs to the operating system's drag, not to this window.
+            if (IsExternal)
+                return;
+
             var feedback = new GiveFeedbackEventArgs (effect, true);
 
             if (source_item is not null)
