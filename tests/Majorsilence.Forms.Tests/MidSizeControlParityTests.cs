@@ -151,12 +151,19 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void SingleMonthSize_divides_the_control_by_its_dimensions ()
+        public void SingleMonthSize_is_one_month_and_the_control_grows_to_fit_the_dimensions ()
         {
+            // Upstream (MonthCalendar.cs): SingleMonthSize is MCM_GETMINREQRECT, a month at the font,
+            // and SetCalendarDimensions resizes the control to fit (AdjustSize). This used to pin the
+            // reverse -- the control's size divided by the dimensions (#349).
             using var calendar = new MonthCalendar { Size = new Size (200, 160) };
+            var month = calendar.SingleMonthSize;
+
             calendar.SetCalendarDimensions (2, 2);
 
-            Assert.Equal (new Size (100, 80), calendar.SingleMonthSize);
+            Assert.Equal (month, calendar.SingleMonthSize);
+            Assert.True (calendar.Width >= 2 * month.Width, $"{calendar.Size} for two months of {month}");
+            Assert.True (calendar.Height > month.Height, $"{calendar.Size} for two rows of {month}");
         }
 
         [Fact]

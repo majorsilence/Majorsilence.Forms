@@ -244,7 +244,7 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void ShowWeekNumbers_adds_a_leading_column_and_narrows_the_day_columns ()
+        public void ShowWeekNumbers_adds_a_leading_column_and_widens_the_control ()
         {
             using var plain = Calendar ();
             using var numbered = Calendar (c => c.ShowWeekNumbers = true);
@@ -252,9 +252,13 @@ namespace Majorsilence.Forms.Tests
             Assert.True (plain.GetWeekNumberBounds (0).IsEmpty);
             Assert.False (numbered.GetWeekNumberBounds (0).IsEmpty);
 
-            // Eight columns instead of seven: the day grid starts one cell in and each cell is narrower.
+            // Eight columns instead of seven: the day grid starts one cell in. The control grows by the
+            // column rather than narrowing the days, as upstream's setter calls AdjustSize (SMP-46's
+            // follow-up); it used to squeeze eight columns into the old width.
             Assert.True (numbered.Geometry.Grid.Left > plain.Geometry.Grid.Left);
-            Assert.True (numbered.Geometry.CellWidth < plain.Geometry.CellWidth);
+            Assert.True (numbered.Width > plain.Width);
+            Assert.True (Math.Abs (numbered.Geometry.CellWidth - plain.Geometry.CellWidth) <= 1,
+                         $"day columns {numbered.Geometry.CellWidth} vs {plain.Geometry.CellWidth}");
             Assert.Equal (numbered.Geometry.CellWidth, numbered.Geometry.Grid.Left - numbered.Geometry.WeekNumberColumn.Left);
 
             using var bitmap = Render (numbered);

@@ -232,7 +232,29 @@ namespace Majorsilence.Forms.Automation
             foreach (var popup in popups)
                 AddPopup (nodes, popup, ref index);
 
+            LinkInlineLists (nodes);
+
             return nodes;
+        }
+
+        // A Simple combo box's list is always showing, inside the combo box rather than in a popup, so
+        // it is mirrored as the combo box's child. It is still the listbox the combobox controls, and
+        // the combobox is expanded: ARIA's aria-expanded says whether the element it controls is
+        // displayed, and this one always is (upstream's UIA provider likewise reports the simple
+        // combo's child list box as its list, ComboBox.ComboBoxChildListUiaProvider).
+        private static void LinkInlineLists (List<AriaNode> nodes)
+        {
+            foreach (var combo in nodes.Where (n => n.Source is ComboBox { IsSimple: true }).ToList ()) {
+                var list = nodes.FirstOrDefault (n => n.ParentId == combo.Id && n.Role == "listbox");
+
+                if (list is null)
+                    continue;
+
+                Link (nodes, combo.Source, new[] {
+                    new KeyValuePair<string, string> ("aria-controls", list.ElementId),
+                    new KeyValuePair<string, string> ("aria-expanded", "true"),
+                }, list);
+            }
         }
 
         /// <summary>
@@ -488,8 +510,10 @@ namespace Majorsilence.Forms.Automation
             case "option":
                 var selected = parent.Value is { Length: > 0 } value && value == e.Name;
                 attributes["aria-selected"] = selected ? "true" : "false";
-                // In a combo box's open list the selected option is where the arrow keys are.
-                active = selected && context.Popup == PopupKind.ComboList;
+                // In a combo box's open list the selected option is where the arrow keys are -- and in
+                // a Simple combo box's always-visible list, while the combo box has the keyboard.
+                active = selected && (context.Popup == PopupKind.ComboList
+                    || parent.Source is ListBox { Parent: ComboBox { IsSimple: true, HasKeyboardFocus: true } });
                 break;
             case "slider" when e.Source is TrackBar track:
                 attributes["aria-valuemin"] = Number (track.Minimum);

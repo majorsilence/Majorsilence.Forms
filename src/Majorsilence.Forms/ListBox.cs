@@ -1071,7 +1071,7 @@ namespace Majorsilence.Forms
         // to whole items, plus the band again -- never below one item, so a list cannot vanish. Left
         // alone under variable owner draw (no single item height) and when docked to fill an edge
         // (the container's height is not this control's to shorten).
-        private int IntegralHeightFor (int height)
+        internal int IntegralHeightFor (int height)
         {
             if (!integral_height || draw_mode == DrawMode.OwnerDrawVariable || Dock is DockStyle.Fill or DockStyle.Left or DockStyle.Right)
                 return height;

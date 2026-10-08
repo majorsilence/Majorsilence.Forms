@@ -126,10 +126,10 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the number of months to display at once, as columns by rows.</summary>
-        /// <remarks>The months tile the client area, one block each (SMP-46); the control is not resized
-        /// to make room, so each month gets <see cref="SingleMonthSize"/>. Setting it goes through
-        /// <see cref="SetCalendarDimensions(int, int)"/>, as upstream's setter does, so the same
-        /// validation and twelve-month cap apply.</remarks>
+        /// <remarks>The control is resized to fit them, each <see cref="SingleMonthSize"/> with a gap
+        /// between, as upstream's is; and resizing the control changes them, to as many months as fit
+        /// (SMP-46). Setting it goes through <see cref="SetCalendarDimensions(int, int)"/>, as upstream's
+        /// setter does, so the same validation and twelve-month cap apply.</remarks>
         public Size CalendarDimensions {
             get => calendar_dimensions;
             set {
@@ -154,12 +154,37 @@ namespace Majorsilence.Forms
         public Day FirstDayOfWeek { get; set; } = Day.Default;
 
         /// <summary>Gets or sets whether a leading week-number column is shown.</summary>
-        public bool ShowWeekNumbers { get; set; }
+        /// <remarks>The control grows by the column rather than narrowing the days, as upstream's
+        /// setter calls <c>AdjustSize</c>.</remarks>
+        public bool ShowWeekNumbers {
+            get => show_week_numbers;
+            set {
+                if (show_week_numbers == value)
+                    return;
+
+                show_week_numbers = value;
+                AdjustSize ();
+            }
+        }
+
+        private bool show_week_numbers;
 
         /// <summary>Gets or sets whether today's date is shown in a strip at the foot.</summary>
         /// <remarks>The doc comments on this and <see cref="ShowTodayCircle"/> were the wrong way round
-        /// before W5.20c: neither was read by anything, so nothing contradicted them.</remarks>
-        public bool ShowToday { get; set; } = true;
+        /// before W5.20c: neither was read by anything, so nothing contradicted them. The control is
+        /// resized for the strip, as upstream's setter calls <c>AdjustSize</c>.</remarks>
+        public bool ShowToday {
+            get => show_today;
+            set {
+                if (show_today == value)
+                    return;
+
+                show_today = value;
+                AdjustSize ();
+            }
+        }
+
+        private bool show_today = true;
 
         /// <summary>Gets or sets whether today's date is outlined in the grid.</summary>
         public bool ShowTodayCircle { get; set; } = true;
@@ -328,7 +353,25 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        protected override Size DefaultSize => new Size (220, 162);
+        /// <remarks>One month at the current font, as upstream's <c>DefaultSize</c> is
+        /// <c>GetMinReqRect ()</c>. It was a fixed 220x162.</remarks>
+        protected override Size DefaultSize => MinimumSizeFor (1, 1);
+
+        /// <inheritdoc/>
+        /// <remarks>A new font changes how big a month is, so the control is resized to fit its months
+        /// again, as upstream's <c>OnFontChanged</c> calls <c>AdjustSize</c>.</remarks>
+        protected override void OnFontChanged (EventArgs e)
+        {
+            base.OnFontChanged (e);
+            AdjustSize ();
+        }
+
+        // Auto-scaling must not turn a bigger box into more months: upstream's SetBoundsCore leaves the
+        // dimensions alone while scaling is in progress, and the font change that comes with the scale
+        // re-fits the control.
+        internal override bool IsFixedWidthForScaling => true;
+
+        internal override bool IsFixedHeightForScaling => true;
 
         /// <summary>
         /// The default <see cref="ControlStyle"/> for all <see cref="MonthCalendar"/> instances. Gives the type

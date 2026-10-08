@@ -16,9 +16,10 @@ namespace Majorsilence.Forms.Renderers
     /// <c>HitTest</c> and the mouse handlers read too, so a cell is clickable exactly where it is
     /// drawn.
     /// <para>
-    /// <c>CalendarDimensions</c> greater than 1x1 tiles one block per month across the client area,
-    /// each laid out by <c>MonthCalendar.GetMonthGeometry</c> (SMP-46): a title per month, the scroll
-    /// arrows only at the two ends of the top row, and one "Today" strip under them all.
+    /// <c>CalendarDimensions</c> greater than 1x1 draws one block per month, each laid out by
+    /// <c>MonthCalendar.GetMonthGeometry</c> (SMP-46): a title per month, the scroll arrows only at the
+    /// two ends of the top row, and one "Today" strip under them all. The control is sized to fit
+    /// them, as upstream's is.
     /// </para>
     /// </remarks>
     public class MonthCalendarRenderer : Renderer<MonthCalendar>
@@ -136,7 +137,7 @@ namespace Majorsilence.Forms.Renderers
             if (geometry.TodayBand.IsEmpty)
                 return;
 
-            e.Canvas.DrawText ($"Today: {control.TodayDate.ToShortDateString ()}", font, fontSize,
+            e.Canvas.DrawText (control.TodayCaption, font, fontSize,
                                geometry.TodayBand, foreground, ContentAlignment.MiddleCenter, maxLines: 1);
         }
 

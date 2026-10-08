@@ -11,7 +11,7 @@ namespace Majorsilence.Forms
     public partial class ComboBox : ListControl
     {
         private PopupWindow? popup;
-        private readonly ListBox popup_listbox;
+        private readonly PopupList popup_listbox;
         private readonly ComboBoxEdit edit;
         private bool suppress_popup_close;
         // Guards the two-way sync between the edit region's text and this control's Text. Either side
@@ -161,6 +161,46 @@ namespace Majorsilence.Forms
             // event and the format settings all belong to the combo, so the combo answers (LST-27).
             public override string GetItemText (object? item) => owner.GetItemText (item);
 
+            // Hosted inside a Simple combo, the list is part of the combo rather than a stop of its
+            // own: the native simple combo keeps the focus in its edit control while the list is
+            // clicked (ComboBox/ComboBox.cs reaches the list only through ChildWndProc). In the popup
+            // it is selectable as before.
+            internal void SetHostedInline (bool inline)
+            {
+                SetStyle (ControlStyles.Selectable, !inline);
+                TabStop = !inline;
+            }
+
+            // The list's own mouse and keys are the user's: a click or an arrow in the visible list of
+            // a Simple combo commits (CBN_SELENDOK) exactly as a pick from the drop-down does, and only
+            // an open drop-down used to count as the user's (see ListBox_SelectedIndexChanged).
+            private void AsUser (Action action)
+            {
+                var was = owner.user_selecting;
+                owner.user_selecting = true;
+
+                try {
+                    action ();
+                } finally {
+                    owner.user_selecting = was;
+                }
+            }
+
+            /// <inheritdoc/>
+            protected override void OnMouseDown (MouseEventArgs e)
+            {
+                if (owner.IsSimple && e.Button == MouseButtons.Left)
+                    owner.FocusEditRegion ();
+
+                AsUser (() => base.OnMouseDown (e));
+            }
+
+            /// <inheritdoc/>
+            protected override void OnMouseUp (MouseEventArgs e) => AsUser (() => base.OnMouseUp (e));
+
+            /// <inheritdoc/>
+            protected override void OnKeyDown (KeyEventArgs e) => AsUser (() => base.OnKeyDown (e));
+
             // ComboBox.ObjectCollection spelled in full deliberately. Unqualified, `ObjectCollection`
             // binds to the one inherited from ListBox -- a base class is searched before the enclosing
             // class -- so this silently built the wrong type and the cast in ComboBox.Items threw.
@@ -219,12 +259,22 @@ namespace Majorsilence.Forms
                 if (drop_down_style == value)
                     return;
 
+                var was_simple = IsSimple;
+
+                // A Simple combo has no drop-down, so one that is open closes before its list moves.
+                if (value == ComboBoxStyle.Simple)
+                    DroppedDown = false;
+
                 drop_down_style = value;
 
                 // DropDownList is the one style with no text region. Showing or hiding the child is
                 // the whole difference between a combo you can type into and one you cannot -- which
                 // is why the two styles used to look and behave identically (LST-07).
                 edit.Visible = IsEditable;
+
+                if (IsSimple != was_simple)
+                    MoveListForStyle (was_simple);
+
                 PerformLayout ();
 
                 DropDownStyleChanged?.Invoke (this, EventArgs.Empty);
@@ -233,6 +283,108 @@ namespace Majorsilence.Forms
         }
 
         private ComboBoxStyle drop_down_style = ComboBoxStyle.DropDown;
+
+        /// <summary>Whether the list is always showing, under the edit region, inside the control.</summary>
+        internal bool IsSimple => drop_down_style == ComboBoxStyle.Simple;
+
+        // Upstream's DefaultSimpleStyleHeight, and its _requestedHeight: the height a Simple combo is
+        // given when it becomes Simple, updated by every height set while it is Simple
+        // (ComboBox/ComboBox.cs, SetBoundsCore and OnHandleCreated). Logical pixels.
+        private const int DefaultSimpleStyleHeight = 150;
+        private int requested_height = DefaultSimpleStyleHeight;
+
+        // The height the control had before it became Simple, given back when it stops being Simple.
+        // Upstream's native combo forces its own one-line height there instead; this control's
+        // other styles are freely sized, so the height the application chose is the one to restore.
+        private int height_before_simple = -1;
+
+        // Moves the list -- the one holding the items -- between the drop-down popup and this control.
+        // The items ARE that list's items, so a Simple combo cannot have a second list of its own; its
+        // list is this one, hosted as an implicit child under the edit region, as upstream's simple
+        // combo hosts the native list box as a child window (ComboBox/ComboBox.cs, OnHandleCreated:
+        // "If it's a simple dropdown list, the first HWND is the list box").
+        private void MoveListForStyle (bool wasSimple)
+        {
+            if (IsSimple) {
+                popup_listbox.Parent?.Controls.Remove (popup_listbox);
+
+                popup_listbox.Dock = DockStyle.None;
+                popup_listbox.SelectItemOnMouseUp = false;
+                popup_listbox.ShowHover = false;
+                popup_listbox.SetHostedInline (true);
+
+                Controls.AddImplicitControl (popup_listbox);
+
+                if (Created)
+                    popup_listbox.CreateControl ();
+
+                height_before_simple = Height;
+                Height = requested_height;
+            } else if (wasSimple) {
+                Controls.RemoveImplicitControl (popup_listbox);
+
+                // What the drop-down needs: filling the popup, and a pick on release, so the release
+                // does not leak to whatever is under a popup that closed on the press.
+                popup_listbox.SetHostedInline (false);
+                popup_listbox.Dock = DockStyle.Fill;
+                popup_listbox.SelectItemOnMouseUp = true;
+                popup_listbox.ShowHover = true;
+
+                Height = height_before_simple > 0 ? height_before_simple : DefaultSize.Height;
+            }
+        }
+
+        /// <summary>Whether the keyboard is on this combo: on the control itself or in its edit region.</summary>
+        /// <remarks><see cref="Control.ContainsFocus"/> does not see the edit region, which is an implicit child.</remarks>
+        internal bool HasKeyboardFocus => Focused || edit.Focused || popup_listbox.Focused;
+
+        // A click in a Simple combo's list leaves the caret where it was, in the edit region.
+        private void FocusEditRegion ()
+        {
+            if (!edit.Focused && edit.CanFocus)
+                edit.Focus ();
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>While the style is <see cref="ComboBoxStyle.Simple"/> a height set here is
+        /// remembered as the height to use whenever the combo becomes Simple again, as upstream's
+        /// <c>SetBoundsCore</c> keeps <c>_requestedHeight</c>; and with <see cref="IntegralHeight"/>
+        /// the list is snapped to whole items and the control with it, as the native simple combo
+        /// sizes itself unless <c>CBS_NOINTEGRALHEIGHT</c> is set.</remarks>
+        protected override void SetBoundsCore (int x, int y, int width, int height, BoundsSpecified specified)
+        {
+            if (IsSimple) {
+                if ((specified & BoundsSpecified.Height) != BoundsSpecified.None)
+                    requested_height = height;
+
+                height = SimpleHeightFor (height);
+            }
+
+            base.SetBoundsCore (x, y, width, height, specified);
+        }
+
+        // The edit band of a Simple combo: one line, as tall as the other styles' preferred height.
+        // Logical, measured from the control's top edge.
+        private int SimpleEditBandHeight => PreferredSingleLineHeight;
+
+        // The list overlaps the band's bottom pixel so its top border is the line under the edit
+        // region rather than a second line beneath the combo's own.
+        private int SimpleListTop => SimpleEditBandHeight - 1;
+
+        // A requested Simple height, adjusted so the list shows whole items when IntegralHeight asks.
+        private int SimpleHeightFor (int height)
+        {
+            var list_height = Math.Max (0, height - SimpleListTop);
+
+            if (IntegralHeight)
+                list_height = popup_listbox.IntegralHeightFor (list_height);
+
+            return SimpleListTop + list_height;
+        }
+
+        /// <summary>The visible list of a Simple combo, in LOGICAL units relative to the control.</summary>
+        internal Rectangle SimpleListLogicalBounds
+            => new Rectangle (0, SimpleListTop, Width, Math.Max (0, Height - SimpleListTop));
 
         /// <summary>Raised when the drop-down portion is shown.</summary>
         /// <remarks>The counterpart of <see cref="DropDownClosed"/>. <see cref="DropDownOpened"/> is
@@ -260,6 +412,17 @@ namespace Majorsilence.Forms
         internal Rectangle EditAreaDeviceBounds {
             get {
                 var area = PaddedClientRectangle;
+
+                // A Simple combo has no drop-down button, and its text region is the one-line band at
+                // the top: the list is under it.
+                if (IsSimple) {
+                    var inset = DeviceClientRectangle.Top + LogicalToDeviceUnits (Padding.Bottom);
+                    var bottom = LogicalToDeviceUnits (SimpleListTop) - inset;
+                    area.Height = Math.Max (0, Math.Min (area.Bottom, bottom) - area.Top);
+
+                    return area;
+                }
+
                 area.Width -= LogicalToDeviceUnits (DropDownGlyphWidth);
 
                 return area;
@@ -287,10 +450,21 @@ namespace Majorsilence.Forms
             base.OnLayout (e);
 
             edit.Bounds = EditAreaLogicalBounds;
+
+            if (IsSimple)
+                popup_listbox.Bounds = SimpleListLogicalBounds;
         }
 
-        /// <summary>Gets the height one line of the combo box needs at the current font.</summary>
+        /// <summary>Gets the height the combo box needs at the current font.</summary>
+        /// <remarks>One line for the drop-down styles. For <see cref="ComboBoxStyle.Simple"/> it is the
+        /// edit line plus a row per item, as upstream's <c>PreferredHeight</c> counts
+        /// <c>Items.Count + 1</c> lines for a simple combo.</remarks>
         public int PreferredHeight
+            => IsSimple
+                ? SimpleListTop + (Math.Max (1, Items.Count) * popup_listbox.ItemHeight) + 2
+                : PreferredSingleLineHeight;
+
+        private int PreferredSingleLineHeight
             => TextMeasurer.LogicalLineHeight (this) + Padding.Top + Padding.Bottom + 6;
 
         /// <summary>Gets the height of the item at the specified index.</summary>
@@ -415,13 +589,15 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets whether the drop down portion of the ComboBox is currently shown.
         /// </summary>
+        /// <remarks>Always false for <see cref="ComboBoxStyle.Simple"/>, whose list is never dropped: it
+        /// is showing all the time inside the control, and setting this opens nothing.</remarks>
         public bool DroppedDown {
-            get => popup?.Visible == true;
+            get => !IsSimple && popup?.Visible == true;
             set {
                 if (DroppedDown && !value) {
                     popup?.Hide ();
                     OnDropDownClosed (EventArgs.Empty);
-                } else if (!DroppedDown && value) {
+                } else if (!DroppedDown && value && !IsSimple) {
                     if (FindWindow () is not WindowBase window)
                         throw new InvalidOperationException ("Cannot drop down a ComboBox that is not parented to a window");
 
@@ -833,8 +1009,28 @@ namespace Majorsilence.Forms
             set => edit.MaxLength = value;
         }
 
-        /// <summary>Gets or sets whether the height of the ComboBox is limited to prevent partial items. Stub in Majorsilence.Forms.</summary>
-        public bool IntegralHeight { get; set; } = true;
+        /// <summary>Gets or sets whether the height of the ComboBox is limited to prevent partial items.</summary>
+        /// <remarks>Applies to the always-visible list of a <see cref="ComboBoxStyle.Simple"/> combo:
+        /// the control's height is snapped so the list shows whole items, re-applied to the requested
+        /// height whenever this changes, as upstream re-creates the handle and re-applies
+        /// <c>_requestedHeight</c>. The drop-down list is always a whole number of rows.</remarks>
+        public bool IntegralHeight {
+            get => integral_height;
+            set {
+                if (integral_height == value)
+                    return;
+
+                integral_height = value;
+                popup_listbox.IntegralHeight = value;
+
+                // Straight to the core: Height = requested_height is skipped when the bounds have not
+                // changed, and the point is to re-snap from the height the application asked for.
+                if (IsSimple)
+                    SetBoundsCore (Left, Top, Width, requested_height, BoundsSpecified.Height);
+            }
+        }
+
+        private bool integral_height = true;
 
         /// <summary>Selects a range of text in the editable portion of the ComboBox.</summary>
         public void Select (int start, int length) { SelectionStart = start; SelectionLength = length; }
