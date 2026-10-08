@@ -110,26 +110,122 @@ public class ImageMetadataAndFrameTests
         Assert.Equal (before, bitmap.GetPixel (0, 0));
     }
 
-    [Fact]
-    public void ImageAnimator_advances_frames_and_raises_its_handler ()
+    /// <summary>
+    /// Replaces the animator's timer and clock for one test, so time moves only when the test says:
+    /// <see cref="Tick"/> advances the clock and fires the timer callback the animator registered.
+    /// </summary>
+    private sealed class ManualAnimationClock : IDisposable
     {
+        private readonly Func<long> savedClock = ImageAnimator.Clock;
+        private readonly Func<Action, IDisposable> savedFactory = ImageAnimator.TimerFactory;
+        private readonly Action<Action>? savedDispatcher = ImageAnimator.UIThreadDispatcher;
+        private long now;
+
+        public ManualAnimationClock (Action<Action>? dispatcher = null)
+        {
+            ImageAnimator.Clock = () => now;
+            ImageAnimator.TimerFactory = callback => {
+                Callback = callback;
+                Started++;
+                return new Stopper (this);
+            };
+            ImageAnimator.UIThreadDispatcher = dispatcher;
+        }
+
+        public Action? Callback { get; private set; }
+
+        public int Started { get; private set; }
+
+        public int Stopped { get; private set; }
+
+        public void Tick (long milliseconds)
+        {
+            now += milliseconds;
+            Callback?.Invoke ();
+        }
+
+        public void Dispose ()
+        {
+            ImageAnimator.Clock = savedClock;
+            ImageAnimator.TimerFactory = savedFactory;
+            ImageAnimator.UIThreadDispatcher = savedDispatcher;
+        }
+
+        private sealed class Stopper (ManualAnimationClock owner) : IDisposable
+        {
+            public void Dispose ()
+            {
+                owner.Stopped++;
+                owner.Callback = null;
+            }
+        }
+    }
+
+    // GFX-36: Animate never advanced anything by itself -- frames moved only when a caller pumped
+    // UpdateFrames, and nothing in the framework did. Upstream's timer moves the animation on by elapsed
+    // time against each frame's delay, raises the handler, and UpdateFrames (from paint) selects the frame.
+    [Fact]
+    public void ImageAnimator_advances_on_its_own_timer_at_the_frame_delay ()
+    {
+        using var clock = new ManualAnimationClock ();
         using var image = Image.FromBytes (TwoFrameGif ());
-        Assert.True (ImageAnimator.CanAnimate (image));
+        var bitmap = (Bitmap)image;
+        var first = bitmap.GetPixel (0, 0);
+
+        var raised = 0;
+        EventHandler handler = (_, _) => raised++;
+        ImageAnimator.Animate (image, handler);
+        Assert.Equal (1, clock.Started);
+
+        // Each frame of the GIF is shown for 100 ms.
+        clock.Tick (60);
+        Assert.Equal (0, raised);
+
+        clock.Tick (60);
+        Assert.Equal (1, raised);
+
+        // The handler announces the frame; the image changes when UpdateFrames selects it, not before.
+        Assert.Equal (first, bitmap.GetPixel (0, 0));
+        ImageAnimator.UpdateFrames (image);
+        Assert.NotEqual (first, bitmap.GetPixel (0, 0));
+
+        // Nothing pending: a second UpdateFrames leaves it alone.
+        Assert.False (ImageAnimator.ApplyPendingFrame (image));
+
+        // Past the end it loops back to the first frame.
+        clock.Tick (100);
+        Assert.Equal (2, raised);
+        ImageAnimator.UpdateFrames ();
+        Assert.Equal (first, bitmap.GetPixel (0, 0));
+
+        ImageAnimator.StopAnimate (image, handler);
+        Assert.Equal (1, clock.Stopped);   // the last image stopping stops the timer
+        clock.Tick (500);
+        Assert.Equal (2, raised);
+    }
+
+    [Fact]
+    public void ImageAnimator_posts_its_ticks_through_the_UI_thread_dispatcher ()
+    {
+        var posted = new List<Action> ();
+        using var clock = new ManualAnimationClock (posted.Add);
+        using var image = Image.FromBytes (TwoFrameGif ());
 
         var raised = 0;
         EventHandler handler = (_, _) => raised++;
         ImageAnimator.Animate (image, handler);
 
-        var bitmap = (Bitmap)image;
-        var before = bitmap.GetPixel (0, 0);
-        ImageAnimator.UpdateFrames (image);
+        clock.Tick (150);
+        Assert.Equal (0, raised);           // not run on the timer thread
+        Assert.Single (posted);
 
+        clock.Tick (10);
+        Assert.Single (posted);             // one tick queued at a time
+
+        posted[0] ();
         Assert.Equal (1, raised);
-        Assert.NotEqual (before, bitmap.GetPixel (0, 0));
 
         ImageAnimator.StopAnimate (image, handler);
-        ImageAnimator.UpdateFrames (image);
-        Assert.Equal (1, raised);   // no longer animating
     }
 
     [Fact]

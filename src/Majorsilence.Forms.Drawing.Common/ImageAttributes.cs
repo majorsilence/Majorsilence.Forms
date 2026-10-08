@@ -463,10 +463,26 @@ namespace Majorsilence.Forms.Drawing.Imaging
         }
 
         /// <summary>
-        /// Gets or sets the wrap mode used when the source rectangle extends past the image. Stored
-        /// and round-tripped; the SkiaSharp draw path always clamps to the source rectangle.
+        /// Gets or sets the wrap mode used when the source rectangle extends past the image: the tiling
+        /// modes repeat (or mirror) the image across the excess, and <see cref="WrapMode.Clamp"/> fills it
+        /// with <see cref="ClampColor"/>.
         /// </summary>
         public WrapMode WrapMode { get; set; } = WrapMode.Clamp;
+
+        // GFX-43: GDI+ applies the wrap mode per axis -- TileFlipX mirrors across X and repeats down Y.
+        // Clamp maps to Decal (transparent outside the image); the image draw fills the clamp colour
+        // into the excess itself.
+        internal SKShaderTileMode TileModeX => WrapMode switch {
+            WrapMode.Tile or WrapMode.TileFlipY => SKShaderTileMode.Repeat,
+            WrapMode.TileFlipX or WrapMode.TileFlipXY => SKShaderTileMode.Mirror,
+            _ => SKShaderTileMode.Decal,
+        };
+
+        internal SKShaderTileMode TileModeY => WrapMode switch {
+            WrapMode.Tile or WrapMode.TileFlipX => SKShaderTileMode.Repeat,
+            WrapMode.TileFlipY or WrapMode.TileFlipXY => SKShaderTileMode.Mirror,
+            _ => SKShaderTileMode.Decal,
+        };
 
         /// <summary>Sets the wrap mode used when the source rectangle extends past the image.</summary>
         public void SetWrapMode (WrapMode mode) => WrapMode = mode;
@@ -485,7 +501,10 @@ namespace Majorsilence.Forms.Drawing.Imaging
             ClampColor = color;
         }
 
-        /// <summary>Gets the clamp color set by <see cref="SetWrapMode(WrapMode, Color)"/>.</summary>
+        /// <summary>
+        /// Gets the clamp color set by <see cref="SetWrapMode(WrapMode, Color)"/>: what a
+        /// <see cref="WrapMode.Clamp"/> draw shows where the source rectangle runs past the image.
+        /// </summary>
         public Color ClampColor { get; private set; } = Color.Transparent;
 
         /// <summary>Gets whether any adjustment at all has been configured.</summary>

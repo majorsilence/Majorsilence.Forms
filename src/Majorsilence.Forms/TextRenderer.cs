@@ -118,7 +118,8 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="DrawText(Majorsilence.Forms.Drawing.IDeviceContext,string,Majorsilence.Forms.Drawing.Font,Rectangle,System.Drawing.Color)"/>
         public static void DrawText (Majorsilence.Forms.Drawing.IDeviceContext dc, string text, Majorsilence.Forms.Drawing.Font font, Rectangle bounds, System.Drawing.Color foreColor, System.Drawing.Color backColor, TextFormatFlags flags)
         {
-            if (dc is not Graphics g || font is null)
+            var g = GraphicsOf (dc);
+            if (font is null)
                 return;
 
             if (!backColor.IsEmpty && backColor != System.Drawing.Color.Transparent) {
@@ -182,6 +183,33 @@ namespace Majorsilence.Forms
                 g.DrawMnemonicUnderline (display, mnemonic, font, brush, origin, clip ?? box);
         }
 
+        /// <summary>The graphics a device context draws through.</summary>
+        /// <remarks>
+        /// GFX-29: anything but a <see cref="Graphics"/> used to draw nothing, with no error -- so a
+        /// wrapper implementing <see cref="Majorsilence.Forms.Drawing.IDeviceContext"/> (how Krypton and
+        /// several commercial suites interpose on painting) got invisible text, and so did
+        /// <see cref="ControlPaint.DrawStringDisabled(Majorsilence.Forms.Drawing.IDeviceContext, string, Majorsilence.Forms.Drawing.Font, System.Drawing.Color, Rectangle, TextFormatFlags)"/>
+        /// through it. Upstream asks the context for an HDC and throws <c>InvalidOperationException</c>
+        /// ("Null HDC") when there is none (<c>DeviceContextHdcScope.cs</c>); here the context hands
+        /// over its graphics through <see cref="Majorsilence.Forms.Drawing.IGraphicsDeviceContext"/>,
+        /// and one that cannot is the same error rather than a silent no-op.
+        /// </remarks>
+        private static Graphics GraphicsOf (Majorsilence.Forms.Drawing.IDeviceContext dc)
+        {
+            Guard.ThrowIfNull (dc);
+
+            if (dc is Graphics graphics)
+                return graphics;
+
+            if (dc is Majorsilence.Forms.Drawing.IGraphicsDeviceContext provider)
+                return provider.GetGraphics ()
+                    ?? throw new InvalidOperationException ($"The device context {dc.GetType ().Name} returned no Graphics to draw through.");
+
+            throw new InvalidOperationException (
+                $"TextRenderer cannot draw on {dc.GetType ().Name}: a device context reaches a canvas only by being a Graphics " +
+                $"or by implementing {nameof (Majorsilence.Forms.Drawing.IGraphicsDeviceContext)}, as there is no HDC behind a Skia canvas.");
+        }
+
         private const string Ellipsis = "...";
 
         /// <summary>
@@ -191,7 +219,7 @@ namespace Majorsilence.Forms
         /// </summary>
         internal static string PathEllipsize (Graphics g, string text, Majorsilence.Forms.Drawing.Font font, int width)
         {
-            if (width <= 0 || g.MeasureString (text, font).Width <= width)
+            if (width <= 0 || g.MeasureRun (text, font).Width <= width)
                 return text;
 
             var separator = Math.Max (text.LastIndexOf ('\\'), text.LastIndexOf ('/'));
@@ -202,7 +230,7 @@ namespace Majorsilence.Forms
             int low = 0, high = separator;
             while (low < high) {
                 var mid = (low + high + 1) / 2;
-                if (g.MeasureString (Shortened (text, mid, separator), font).Width <= width)
+                if (g.MeasureRun (Shortened (text, mid, separator), font).Width <= width)
                     low = mid;
                 else
                     high = mid - 1;

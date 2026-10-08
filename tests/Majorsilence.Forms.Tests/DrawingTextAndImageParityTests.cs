@@ -11,8 +11,8 @@ using MFD = Majorsilence.Forms.Drawing;
 namespace Majorsilence.Forms.Tests;
 
 // The drawing-layer findings of #343 that are not about state or colour: text measurement and
-// drawing (GFX-14, -19, -20, -28, -37), image placement (GFX-10, -21, -22), paths and regions
-// (GFX-41, -42, -45), ImageAttributes (GFX-43) and icons (GFX-33, -34, -35).
+// drawing (GFX-14, -19, -20, -28, -29, -37), image placement (GFX-10, -21, -22), paths and regions
+// (GFX-41, -42, -45), ImageAttributes (GFX-43, wrap mode included) and icons (GFX-33, -34, -35).
 [Collection ("Headless")]
 public class DrawingTextAndImageParityTests
 {
@@ -201,6 +201,51 @@ public class DrawingTextAndImageParityTests
         Assert.Equal (single.Height, unwrapped.Height);
         Assert.Equal (single.Width, unwrapped.Width);
         Assert.Equal (single.Height, unwrappedByWidth.Height);
+    }
+
+    [Fact]
+    public void MeasureString_leaves_out_trailing_spaces_unless_asked ()
+    {
+        using var font = NewFont ();
+        using var bitmap = new MFD.Bitmap (10, 10);
+        using var g = MFD.Graphics.FromImage (bitmap);
+        using var trailing = new MFD.StringFormat (MFD.StringFormatFlags.MeasureTrailingSpaces);
+
+        var word = g.MeasureString ("Name:", font);
+        var spaced = g.MeasureString ("Name:   ", font);
+
+        // GDI+ excludes the spaces that end a line by default, for every overload ...
+        Assert.Equal (word, spaced);
+        Assert.Equal (word, g.MeasureString ("Name:   ", font, new MFD.StringFormat ()));
+        Assert.Equal (word.Width, g.MeasureString ("Name:   \nab", font).Width);
+
+        // ... and counts them only under MeasureTrailingSpaces.
+        Assert.True (g.MeasureString ("Name:   ", font, trailing).Width > word.Width);
+
+        // A run of only spaces is a line with no width.
+        var blank = g.MeasureString ("    ", font);
+        Assert.Equal (0f, blank.Width);
+        Assert.Equal (word.Height, blank.Height);
+        Assert.True (g.MeasureString ("    ", font, trailing).Width > 0);
+    }
+
+    [Fact]
+    public void Counted_trailing_spaces_stop_at_the_layout_width_unless_NoClip ()
+    {
+        using var font = NewFont ();
+        using var bitmap = new MFD.Bitmap (10, 10);
+        using var g = MFD.Graphics.FromImage (bitmap);
+
+        var text = "ab" + new string (' ', 30);
+        var word = g.MeasureString ("ab", font).Width;
+        var area = new SizeF (word + 4, 100);
+
+        using var clipped = new MFD.StringFormat (MFD.StringFormatFlags.MeasureTrailingSpaces | MFD.StringFormatFlags.NoWrap);
+        using var unclipped = new MFD.StringFormat (MFD.StringFormatFlags.MeasureTrailingSpaces | MFD.StringFormatFlags.NoWrap | MFD.StringFormatFlags.NoClip);
+
+        // "Trailing spaces that extend outside the layout rectangle are not included" while clipping.
+        Assert.Equal (area.Width, g.MeasureString (text, font, area, clipped).Width);
+        Assert.True (g.MeasureString (text, font, area, unclipped).Width > area.Width);
     }
 
     // --- GFX-37 ---
@@ -486,6 +531,129 @@ public class DrawingTextAndImageParityTests
 
         Assert.Equal (Color.FromArgb (255, 0, 0).ToArgb (), target.GetPixel (1, 1).ToArgb ());
         Assert.Equal (0.5f, ((ImageAttributes)attributes.Clone ()).Threshold);
+    }
+
+    // Two by two: red, blue over lime, yellow.
+    private static MFD.Bitmap Quad ()
+    {
+        var b = new MFD.Bitmap (2, 2);
+        b.SetPixel (0, 0, Color.Red);
+        b.SetPixel (1, 0, Color.Blue);
+        b.SetPixel (0, 1, Color.Lime);
+        b.SetPixel (1, 1, Color.Yellow);
+        return b;
+    }
+
+    private static MFD.Bitmap DrawOversized (WrapMode mode, Color? clamp = null)
+    {
+        using var source = Quad ();
+        using var attributes = new ImageAttributes ();
+        if (clamp is { } c)
+            attributes.SetWrapMode (mode, c);
+        else
+            attributes.SetWrapMode (mode);
+
+        var target = Solid (4, 4, Color.White);
+        using var g = MFD.Graphics.FromImage (target);
+        g.InterpolationMode = InterpolationMode.NearestNeighbor;
+
+        // A source rectangle twice the image's size, drawn one source pixel to one destination pixel.
+        g.DrawImage (source, new Rectangle (0, 0, 4, 4), 0, 0, 4, 4, MFD.GraphicsUnit.Pixel, attributes);
+        return target;
+    }
+
+    [Theory]
+    // mode, then the pixels at (2,0), (0,2), (0,3), (3,3)
+    [InlineData (WrapMode.Tile, "Blue,Red,Red,Lime,Yellow")]
+    [InlineData (WrapMode.TileFlipX, "Blue,Blue,Red,Lime,Lime")]
+    [InlineData (WrapMode.TileFlipY, "Blue,Red,Lime,Red,Blue")]
+    [InlineData (WrapMode.TileFlipXY, "Blue,Blue,Lime,Red,Red")]
+    public void SetWrapMode_tiles_an_oversized_source_rectangle_per_axis (WrapMode mode, string expected)
+    {
+        using var target = DrawOversized (mode);
+        var names = expected.Split (',');
+
+        Assert.Equal (Color.FromName (names[0]).ToArgb (), target.GetPixel (1, 0).ToArgb ());   // the image itself
+        Assert.Equal (Color.FromName (names[1]).ToArgb (), target.GetPixel (2, 0).ToArgb ());
+        Assert.Equal (Color.FromName (names[2]).ToArgb (), target.GetPixel (0, 2).ToArgb ());
+        Assert.Equal (Color.FromName (names[3]).ToArgb (), target.GetPixel (0, 3).ToArgb ());
+        Assert.Equal (Color.FromName (names[4]).ToArgb (), target.GetPixel (3, 3).ToArgb ());
+    }
+
+    [Fact]
+    public void SetWrapMode_Clamp_fills_past_the_image_with_the_clamp_color ()
+    {
+        using var colored = DrawOversized (WrapMode.Clamp, Color.Black);
+        Assert.Equal (Color.Red.ToArgb (), colored.GetPixel (0, 0).ToArgb ());
+        Assert.Equal (Color.Black.ToArgb (), colored.GetPixel (3, 0).ToArgb ());
+        Assert.Equal (Color.Black.ToArgb (), colored.GetPixel (0, 3).ToArgb ());
+
+        // The default clamp colour is transparent: what was there shows through.
+        using var plain = DrawOversized (WrapMode.Clamp);
+        Assert.Equal (Color.Yellow.ToArgb (), plain.GetPixel (1, 1).ToArgb ());
+        Assert.Equal (Color.White.ToArgb (), plain.GetPixel (3, 3).ToArgb ());
+    }
+
+    // --- GFX-29 ---
+
+    private sealed class WrappingContext (MFD.Graphics graphics) : MFD.IGraphicsDeviceContext
+    {
+        public MFD.Graphics? GetGraphics () => graphics;
+        public IntPtr GetHdc () => IntPtr.Zero;
+        public void ReleaseHdc () { }
+        public void Dispose () { }
+    }
+
+    private sealed class BareContext : MFD.IDeviceContext
+    {
+        public IntPtr GetHdc () => IntPtr.Zero;
+        public void ReleaseHdc () { }
+        public void Dispose () { }
+    }
+
+    [Fact]
+    public void TextRenderer_draws_through_a_device_context_that_hands_over_its_graphics ()
+    {
+        Majorsilence.Forms.Headless.HeadlessRenderer.Use ();
+        using var font = NewFont (12);
+        var box = new Rectangle (2, 2, 116, 26);
+
+        using var direct = Solid (120, 30, Color.White);
+        using (var g = MFD.Graphics.FromImage (direct))
+            TextRenderer.DrawText (g, "Wrapped", font, box, Color.Black);
+
+        using var wrapped = Solid (120, 30, Color.White);
+        using (var g = MFD.Graphics.FromImage (wrapped))
+            TextRenderer.DrawText (new WrappingContext (g), "Wrapped", font, box, Color.Black);
+
+        Assert.True (Ink (direct).Right >= 0, "the direct draw should leave ink");
+        Assert.Equal (Ink (direct), Ink (wrapped));
+
+        // ControlPaint.DrawStringDisabled goes through TextRenderer, so it reaches the canvas too.
+        using var disabled = Solid (120, 30, Color.White);
+        using (var g = MFD.Graphics.FromImage (disabled))
+            ControlPaint.DrawStringDisabled (new WrappingContext (g), "Wrapped", font, Color.Gray, box, TextFormatFlags.Left);
+        Assert.True (Changed (disabled), "DrawStringDisabled drew nothing through the wrapper");
+    }
+
+    [Fact]
+    public void TextRenderer_refuses_a_device_context_it_cannot_draw_on ()
+    {
+        using var font = NewFont ();
+        var box = new Rectangle (0, 0, 50, 20);
+
+        // Upstream throws for a context with no HDC; drawing nothing without a word was the bug.
+        Assert.Throws<InvalidOperationException> (() => TextRenderer.DrawText (new BareContext (), "x", font, box, Color.Black));
+        Assert.Throws<ArgumentNullException> (() => TextRenderer.DrawText (null!, "x", font, box, Color.Black));
+    }
+
+    private static bool Changed (MFD.Bitmap bitmap)
+    {
+        for (var y = 0; y < bitmap.Height; y++)
+            for (var x = 0; x < bitmap.Width; x++)
+                if (bitmap.GetPixel (x, y).ToArgb () != Color.White.ToArgb ())
+                    return true;
+        return false;
     }
 
     // --- GFX-33 / GFX-34 / GFX-35 ---

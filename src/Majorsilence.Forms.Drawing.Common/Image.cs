@@ -88,6 +88,18 @@ namespace Majorsilence.Forms.Drawing
         private int frameCount = 1;
 
         /// <summary>
+        /// Each frame's display time in milliseconds, as the file stores it (a GIF's delay, which may be
+        /// zero), or null for a single-frame image. Read by <see cref="ImageAnimator"/>.
+        /// </summary>
+        internal int[]? FrameDurations { get; private set; }
+
+        /// <summary>
+        /// How many times the animation repeats after its first play, as Skia reports the file's loop
+        /// count: -1 for forever, 0 when the file says nothing (or once).
+        /// </summary>
+        internal int RepetitionCount { get; private set; }
+
+        /// <summary>
         /// Records the encoded bytes an image was decoded from, keeping them only if they will still be
         /// useful: a multi-frame image needs them to select another frame, and any image with metadata
         /// needs them to answer property queries.
@@ -100,6 +112,10 @@ namespace Majorsilence.Forms.Drawing
             try {
                 using var codec = SKCodec.Create (new SKMemoryStream (data));
                 frameCount = Math.Max (1, codec?.FrameCount ?? 1);
+                if (codec is not null && frameCount > 1) {
+                    FrameDurations = Array.ConvertAll (codec.FrameInfo, f => f.Duration);
+                    RepetitionCount = codec.RepetitionCount;
+                }
 
                 // The container the bytes came in, as GDI+ reports it: a loaded JPEG's RawFormat is Jpeg,
                 // which is what image.Save (path, image.RawFormat) relies on to round-trip. It stayed Png.
@@ -357,6 +373,8 @@ namespace Majorsilence.Forms.Drawing
             copy.pixelFormat = pixelFormat;
             copy.encodedSource = encodedSource;
             copy.frameCount = frameCount;
+            copy.FrameDurations = FrameDurations;
+            copy.RepetitionCount = RepetitionCount;
             copy.propertyItems = propertyItems?.Select (p => new PropertyItem { Id = p.Id, Len = p.Len, Type = p.Type, Value = (byte[]?)p.Value?.Clone () }).ToList ();
             return copy;
         }
