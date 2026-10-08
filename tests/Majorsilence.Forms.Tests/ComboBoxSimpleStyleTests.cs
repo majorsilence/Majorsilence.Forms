@@ -261,7 +261,10 @@ namespace Majorsilence.Forms.Tests
                 var list = List (combo);
                 var item = list.ItemHeight;
 
-                // A height between two whole rows.
+                // A height between two whole rows. Set a different one first: the height the control
+                // snaps to from its default can equal the target at some fonts, and a set that changes
+                // nothing is skipped (as upstream's SetBounds skips it), so the request would not be kept.
+                combo.Height = 300;
                 combo.Height = 120 + (item / 2);
 
                 var chrome = list.Height - list.DeviceToLogicalUnits (list.DeviceClientRectangle.Height);

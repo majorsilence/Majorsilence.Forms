@@ -246,8 +246,9 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void ShowWeekNumbers_adds_a_leading_column_and_widens_the_control ()
         {
-            using var plain = Calendar ();
-            using var numbered = Calendar (c => c.ShowWeekNumbers = true);
+            // Without the "Today:" strip, whose caption can set the width at a wide font and hide the column.
+            using var plain = Calendar (c => c.ShowToday = false);
+            using var numbered = Calendar (c => { c.ShowToday = false; c.ShowWeekNumbers = true; });
 
             Assert.True (plain.GetWeekNumberBounds (0).IsEmpty);
             Assert.False (numbered.GetWeekNumberBounds (0).IsEmpty);
