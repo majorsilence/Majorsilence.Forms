@@ -944,7 +944,7 @@ namespace Majorsilence.Forms.Automation
             if (setting == AutomationLiveSetting.Off)
                 return false;
 
-            var observed = owner is Control control && AutomationObserver.NotifyLiveRegionChanged (control);
+            var observed = owner is not null && AutomationObserver.NotifyLiveRegionChanged (owner);
 
             // The same text the mirror computes for the label's node, so this and the mirror noticing the
             // text change are recognised as one announcement rather than spoken twice.

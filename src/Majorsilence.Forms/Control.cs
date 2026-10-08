@@ -409,7 +409,29 @@ namespace Majorsilence.Forms
         /// the created state allows us to avoid some stuff like layouts if the controls
         /// aren't actually being used yet.
         /// </summary>
+        /// <remarks>
+        /// A control without a <see cref="BindingContext"/> of its own that has a parent and was not yet
+        /// created raises <see cref="BindingContextChanged"/> afterwards: it has just gone live with an
+        /// inherited context. That is upstream's public <c>CreateControl</c> (Control.cs), and it is how
+        /// a control added to a form that is already showing -- <c>ControlCollection.Add</c> creates it --
+        /// hears its context. Children created as part of their parent's creation do not raise it,
+        /// as upstream's internal <c>CreateControl (bool)</c> does not.
+        /// </remarks>
         public void CreateControl ()
+        {
+            var was_created = Created;
+
+            CreateControlCore ();
+
+            // CTL-29. Upstream does not read the parent's BindingContext here, which would create a
+            // binding manager nobody may need; anyone who cares compares when told.
+            if (binding_context is null && parent is not null && !was_created)
+                OnBindingContextChanged (EventArgs.Empty);
+        }
+
+        // Upstream's internal CreateControl (bool): the creation itself, without the public method's
+        // BindingContextChanged.
+        private void CreateControlCore ()
         {
             // Don't run this more than once, and leave a hidden control for later: upstream
             // CreateControl (false) returns for !Visible, which is what makes a UserControl on an
@@ -428,16 +450,11 @@ namespace Majorsilence.Forms
 
             // Create an array copy in case the collection changes
             foreach (var child in Controls.GetAllControls ().ToArray ())
-                child.CreateControl ();
+                child.CreateControlCore ();
 
             OnCreateControl ();
 
             PerformDeferredLayout ();
-
-            // Created ahead of its parent, a control without its own context has just become live
-            // with an inherited one: upstream's public CreateControl notifies for exactly this case.
-            if (binding_context is null && parent is { Created: false })
-                OnBindingContextChanged (EventArgs.Empty);
         }
 
         // This control's own Visible flag and every ancestor's -- the same answer as the Visible

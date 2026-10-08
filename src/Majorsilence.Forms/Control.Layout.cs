@@ -272,7 +272,7 @@ public partial class Control
     /// here rather than from a shared container base, so neither carries the style by default.
     /// </para>
     /// </remarks>
-    private static bool IsFocusManagingContainerControl (Control ctl)
+    internal static bool IsFocusManagingContainerControl (Control ctl)
         => ctl is IContainerControl
             || ctl.GetStyle (ControlStyles.ContainerControl);
 

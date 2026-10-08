@@ -279,9 +279,34 @@ namespace Majorsilence.Forms
         /// is a field that <c>UpdateFocusedControl</c> keeps in step, not a live search. It matters for
         /// the ordinary designer case of assigning <c>ActiveControl</c> before the container is on a
         /// shown form, where focus cannot move yet and a purely derived getter would answer null.
+        /// <para>
+        /// When focus sits inside a nested container -- a text box in a <see cref="UserControl"/> on the
+        /// form -- the answer is that nested container, not the text box: upstream's
+        /// <c>UpdateFocusedControl</c> walks up the focus path and sets each container's
+        /// <c>_activeControl</c> to the step below it (ContainerControl.cs), so a form's
+        /// <c>ActiveControl</c> is the user control, and the user control's is the text box. Code that
+        /// wants the leaf follows the chain, as upstream's own <c>InnerMostActiveContainerControl</c> does.
+        /// </para>
+        /// <para>A stored control that has since left the container is not reported, as upstream's
+        /// <c>AfterControlRemoved</c> clears it.</para>
         /// </remarks>
         internal static Control? ActiveControlOf (Control container, Control? stored)
-            => FocusedDescendantOf (container) ?? stored;
+            => ActiveStepOf (container, FocusedDescendantOf (container))
+                ?? (stored is not null && container.Contains (stored) ? ActiveStepOf (container, stored) : null);
+
+        // The control directly answerable for `leaf` within `container`'s focus scope: the outermost
+        // focus-managing container between the two, else the leaf itself.
+        private static Control? ActiveStepOf (Control container, Control? leaf)
+        {
+            var step = leaf;
+
+            for (var c = leaf?.Parent; c is not null && !ReferenceEquals (c, container); c = c.Parent) {
+                if (Control.IsFocusManagingContainerControl (c))
+                    step = c;
+            }
+
+            return step;
+        }
 
         private static Control? FocusedDescendantOf (Control container)
         {

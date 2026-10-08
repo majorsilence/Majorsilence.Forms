@@ -531,6 +531,15 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
   `OnParentBindingContextChanged`, which raises it for a child without a context of its own; `AssignParent` raises it
   for a created control without its own context; `CreateControl` raises it for one created ahead of its parent --
   all upstream's rules. Tests: `ControlBaseGapTests.CTL29_*`.
+- **Fix (applied, 2026-10-08, #341):** the last case. The 2026-10-06 `CreateControl` rule ("raise when the parent is
+  not created yet") was narrower than upstream's, which raises from the *public* `CreateControl` for any control with a
+  parent, no context of its own and not yet created (Control.cs `CreateControl ()`), while a parent's creation of its
+  children goes through the internal `CreateControl (bool)` and raises nothing. So a control added to a form that was
+  already showing -- the "just became part of a created window" case below -- never heard its context. `CreateControl`
+  now has upstream's shape: the public method raises, children are created through `CreateControlCore`. Like
+  upstream's `ControlCollection.Add`, `Add` creates the new child only when it is visible, so a hidden one hears the
+  change when it is shown (`OnVisibleChanged` creates it) rather than on `Add`. Tests:
+  `WindowLeftoverGapTests.CTL29_*` (3).
 - **Was:** event is `add { } remove { }` (`src/Majorsilence.Forms/Control.Events.cs:591`); `OnBindingContextChanged` is
   an empty virtual nothing calls (`KryptonPortParity.cs:76`); `BindingContext` setter stores only
   (`Control.Compat.cs:495-498`).
@@ -542,7 +551,7 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
   null && Parent is not null`, and cascade to children without a local context in `AssignParent`.
 - **Done:** the event is field-backed, `OnBindingContextChanged` invokes it, and the `BindingContext` setter raises
   it on a real value change (a `ReferenceEquals` guard — matches the getter's own reference-based caching).
-- **Still open:** the `CreateControl`/`AssignParent` cascade — an unparented control whose *inherited* context
+- **Was open (closed by the two fixes above):** the `CreateControl`/`AssignParent` cascade — an unparented control whose *inherited* context
   changes because it was reparented, or because it just became part of a created window, does not raise. That
   needs this framework's nearest equivalent of "handle created" pinned down first (`Control` here has no window
   handle of its own — see `docs/native-interop.md`), which is a bigger question than this sweep's "wire the

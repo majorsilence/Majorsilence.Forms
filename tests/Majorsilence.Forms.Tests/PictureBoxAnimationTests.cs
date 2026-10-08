@@ -132,12 +132,12 @@ public sealed class PictureBoxAnimationTests : IDisposable
         Elapse (100);
         Assert.Equal (SKColors.Red, Center (box));   // and loops
 
-        // A disposed form leaves its controls undisposed here, so the box notices at its next frame
-        // change and stops; with nothing left animating the timer stops too.
+        // Disposing the form disposes its controls, as upstream's Control.Dispose does, and a disposed
+        // box stops animating at once -- not at its next frame change. With nothing left animating the
+        // timer stops too.
         form.Dispose ();
-        Elapse (100);
+        Assert.True (box.IsDisposed);
         Assert.False (ImageAnimator.IsTimerRunning);
-        box.Dispose ();
     }
 
     [Fact]

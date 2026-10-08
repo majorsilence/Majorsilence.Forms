@@ -17,7 +17,13 @@ namespace Majorsilence.Forms
 
         private DateTime last_click_time;
         private System.Drawing.Point last_click_point;
+        // The cursor being shown: the hovered control's (SetCursor, RefreshHoverCursor) or the window's own.
         private Cursor? current_cursor;
+        // The window's own Cursor property. Kept apart from current_cursor because hovering a control
+        // wrote that control's cursor over it, so form.Cursor read back whatever the pointer was over, and
+        // over the empty client area -- whose cursor came from the root adapter, which had no parent to
+        // inherit from -- the arrow replaced the form's cursor on the next mouse move or Cursor.Show.
+        private Cursor? window_cursor;
         internal bool shown;
 
         // True when this window is embedded inside another UI toolkit (see HostedSurface) rather than
@@ -489,6 +495,15 @@ namespace Majorsilence.Forms
                         disposing_without_close = false;
                     }
                 }
+
+                // Upstream's Control.Dispose disposes every child after destroying the handle, and a
+                // Form is a Control. The adapter is the root this window's controls hang from, so
+                // disposing it takes them all down: their Disposed handlers run, their timers and
+                // animations stop, and a control that held a resource released it. Left alone, a
+                // disposed form's controls lived on -- an animated PictureBox kept its animator running
+                // until its next frame noticed the window had gone (#424).
+                if (!wasDisposed)
+                    adapter.Dispose ();
             }
 
             base.Dispose (disposing);
@@ -605,16 +620,26 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets or sets the cursor shown over the window. Mirrors WinForms Form.Cursor.</summary>
+        /// <remarks>Inherited by every control on the window that has no cursor of its own, as a Form's
+        /// children inherit it upstream, where the form is their parent control.</remarks>
         public Cursor? Cursor {
-            get => current_cursor;
+            get => window_cursor;
             set {
-                if (current_cursor == value)
+                if (window_cursor == value)
                     return;
 
-                current_cursor = value;
+                window_cursor = value;
 
-                if (override_cursor is null)
-                    ApplyBackendCursor (value?.CursorType ?? Backends.CursorType.Arrow);
+                // Over a control, what shows is that control's cursor, which now inherits this one
+                // unless it has its own; anywhere else, this one.
+                if (HoveredControl is { } hovered && hovered.FindForm () == this) {
+                    RefreshHoverCursor ();
+                } else {
+                    current_cursor = value;
+
+                    if (override_cursor is null)
+                        ApplyBackendCursor (value?.CursorType ?? Backends.CursorType.Arrow);
+                }
 
                 cursor_changed?.Invoke (this, EventArgs.Empty);
             }
@@ -753,6 +778,8 @@ namespace Majorsilence.Forms
 
                 if (e.PaintEventRequested)
                     Paint?.Invoke (this, e);
+
+                PaintSizeGrip (e);
             }
 
             // Clip canvas to the inner client area (excludes borders). SKRect's right and bottom are
@@ -975,7 +1002,9 @@ namespace Majorsilence.Forms
                 SyncAdapterBounds ();
             }
 
-            var focused = (this as Form)?.ActiveControl ?? adapter.SelectedControl;
+            // The control holding focus, not Form.ActiveControl: that names a nested container rather
+            // than the field inside it.
+            var focused = adapter.SelectedControl;
             if (focused is null)
                 return;
 
@@ -1019,7 +1048,9 @@ namespace Majorsilence.Forms
         /// </summary>
         internal System.Drawing.Rectangle? TryGetCaretRectangleLogical ()
         {
-            var focused = (this as Form)?.ActiveControl ?? adapter.SelectedControl;
+            // The control holding focus, not Form.ActiveControl: that names a nested container rather
+            // than the field inside it.
+            var focused = adapter.SelectedControl;
             if (focused is not TextBox tb)
                 return null;
 
@@ -1033,6 +1064,9 @@ namespace Majorsilence.Forms
         }
 
         internal virtual bool HandleMouseDown (int x, int y) => false;
+
+        // The form's size grip (Form.SizeGripStyle), drawn in the client area's logical space after Paint.
+        internal virtual void PaintSizeGrip (PaintEventArgs e) { }
 
         // The end of a size or move drag the window itself started; Form raises ResizeEnd here.
         internal virtual void EndSizeMove () { }
@@ -3119,7 +3153,30 @@ namespace Majorsilence.Forms
         private AccessibleObject? accessibility_object;
 
         /// <summary>Creates the accessible object for this window.</summary>
-        protected virtual AccessibleObject CreateAccessibilityInstance () => new AccessibleObject ();
+        /// <remarks>The default answers <see cref="AccessibleObject.Help"/> and
+        /// <see cref="AccessibleObject.GetHelpTopic"/> from <see cref="QueryAccessibilityHelp"/>, as a Form's
+        /// does upstream, where it is a <c>ControlAccessibleObject</c>.</remarks>
+        protected virtual AccessibleObject CreateAccessibilityInstance () => new WindowAccessibleObject (this);
+
+        // Upstream's Form is a Control, so its accessible object is a ControlAccessibleObject whose Help
+        // and GetHelpTopic raise QueryAccessibilityHelp (Control.ControlAccessibleObject). A window is not
+        // a Control here, so the same two members live on this one.
+        private sealed class WindowAccessibleObject (WindowBase owner) : AccessibleObject
+        {
+            public override string? Help
+                => owner.QueryAccessibilityHelpFromHandlers () is { } args ? args.HelpString : base.Help;
+
+            public override int GetHelpTopic (out string? fileName)
+            {
+                if (owner.QueryAccessibilityHelpFromHandlers () is not { } args)
+                    return base.GetHelpTopic (out fileName);
+
+                fileName = args.HelpNamespace;
+                int.TryParse (args.HelpKeyword, System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out var topic);
+                return topic;
+            }
+        }
 
         /// <summary>Notifies accessibility clients of a change. A no-op, as on Control.</summary>
         public void AccessibilityNotifyClients (AccessibleEvents accEvent, int childID)
@@ -3134,12 +3191,23 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets whether the window is visible to accessibility clients.</summary>
         public bool IsAccessible { get; set; } = true;
 
-#pragma warning disable CS0067
         /// <summary>Raised when an accessibility client requests help for the window.</summary>
-        /// <remarks>Never raised, as on Control: there is no accessibility client to ask. Present because
-        /// designer code binds it.</remarks>
+        /// <remarks>Raised by the window's accessible object when its <see cref="AccessibleObject.Help"/> or
+        /// <see cref="AccessibleObject.GetHelpTopic"/> is read -- the automation tree's root
+        /// <see cref="Automation.AutomationElement.HelpText"/>, which the UI Automation bridge reports as the
+        /// window's HelpText -- as upstream's Form raises it through its <c>ControlAccessibleObject</c>.</remarks>
         public event QueryAccessibilityHelpEventHandler? QueryAccessibilityHelp;
-#pragma warning restore CS0067
+
+        // Asks the QueryAccessibilityHelp handlers, or null when there are none (see Control's).
+        internal QueryAccessibilityHelpEventArgs? QueryAccessibilityHelpFromHandlers ()
+        {
+            if (QueryAccessibilityHelp is not { } handler)
+                return null;
+
+            var args = new QueryAccessibilityHelpEventArgs ();
+            handler (this, args);
+            return args;
+        }
 
         // The adapter forwards its layout pass to this window only once the window has been shown (see
         // ControlAdapter.OnLayout, which explains why). An explicit PerformLayout/ResumeLayout from the

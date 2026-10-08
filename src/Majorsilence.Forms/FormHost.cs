@@ -144,6 +144,13 @@ namespace Majorsilence.Forms
             if (disposing) {
                 content_buffer?.Dispose ();
                 content_buffer = null;
+
+                // Upstream the hosted form IS the child control, so disposing its container -- the
+                // form it sits on, say -- disposes it too. Before base.Dispose detaches it (DetachChild),
+                // so it is still hosted while it goes, and not left in Application.OpenForms as an
+                // ordinary top-level form once the window it lived in has gone.
+                if (ChildForm.PanelHost == this && !ChildForm.IsDisposed)
+                    ChildForm.Dispose ();
             }
 
             base.Dispose (disposing);

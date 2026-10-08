@@ -95,9 +95,11 @@ namespace Majorsilence.Forms.Automation
         private bool help_text_read;
 
         /// <summary>
-        /// The control's help text: its accessible object's <see cref="AccessibleObject.Help"/>, which raises
-        /// <see cref="Control.QueryAccessibilityHelp"/> -- or null. What the UI Automation bridge reports as
-        /// HelpText and the browser accessibility DOM as <c>aria-description</c>.
+        /// The element's help text: its accessible object's <see cref="AccessibleObject.Help"/>, which raises
+        /// <see cref="Control.QueryAccessibilityHelp"/> for a control, <see cref="ToolStripItem.QueryAccessibilityHelp"/>
+        /// for a menu or tool strip item, and <see cref="WindowBase.QueryAccessibilityHelp"/> for the window
+        /// root -- or null. What the UI Automation bridge reports as HelpText and the browser accessibility
+        /// DOM as <c>aria-description</c>.
         /// </summary>
         /// <remarks>Read when first asked for, not when the snapshot is built, and then kept: upstream raises
         /// the event when a client asks for help, so building a tree to find one element does not raise it
@@ -105,7 +107,14 @@ namespace Majorsilence.Forms.Automation
         public string? HelpText {
             get {
                 if (!help_text_read) {
-                    help_text = Source is Control control ? control.AccessibilityObject.Help : null;
+                    help_text = Source switch {
+                        // The root's source is the adapter standing in for the window; the window is
+                        // what a client addresses, so its accessible object answers.
+                        ControlAdapter adapter => adapter.ParentForm.AccessibilityObject.Help,
+                        Control control => control.AccessibilityObject.Help,
+                        ToolStripItem item => item.AccessibilityObject.Help,
+                        _ => null,
+                    };
                     help_text_read = true;
                 }
 

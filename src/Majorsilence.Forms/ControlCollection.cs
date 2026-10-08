@@ -487,7 +487,12 @@ public partial class Control
                     // ControlCollection.Add creates the child only when `Owner` has States.Created
                     // (Control.ControlCollection.cs). Creating on any Add raised HandleCreated and
                     // UserControl.Load in the middle of InitializeComponent, before the form was shown.
-                    if (Owner.Created)
+                    //
+                    // And only a visible one, as upstream (`if (value.Visible) value.CreateControl ()`):
+                    // CreateControl would skip a hidden control's creation anyway, but its public form
+                    // also tells an uncreated control its inherited BindingContext changed (CTL-29), which
+                    // a hidden control hears when it is shown instead.
+                    if (Owner.Created && item.Visible)
                         item.CreateControl ();
                 }
 
