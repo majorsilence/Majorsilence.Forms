@@ -257,7 +257,10 @@ namespace Majorsilence.Forms.Tests
             // column rather than narrowing the days, as upstream's setter calls AdjustSize (SMP-46's
             // follow-up); it used to squeeze eight columns into the old width.
             Assert.True (numbered.Geometry.Grid.Left > plain.Geometry.Grid.Left);
-            Assert.True (numbered.Width > plain.Width);
+            // Never narrower, and exactly what its months need. Not necessarily wider: when the title is
+            // the widest part of a month (a wide font) it already leaves room for the extra column.
+            Assert.True (numbered.Width >= plain.Width);
+            Assert.Equal (numbered.MinimumSizeFor (1, 1).Width, numbered.Width);
             // Not that the day columns keep their width: when the title is the widest part of the month
             // (a wide font) the seven-column control is wider than its days need, so its cells are too.
             Assert.Equal (numbered.Geometry.CellWidth, numbered.Geometry.Grid.Left - numbered.Geometry.WeekNumberColumn.Left);
