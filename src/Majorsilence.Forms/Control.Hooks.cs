@@ -468,6 +468,12 @@ public partial class Control
             MaximumSize = ScaleSize (max, factor);
     }
 
+    /// <summary>Whether scaling leaves this control's width alone (upstream's ControlStyles.FixedWidth).</summary>
+    internal bool KeepsWidthWhenScaled => GetStyle (ControlStyles.FixedWidth) || IsFixedWidthForScaling;
+
+    /// <summary>Whether scaling leaves this control's height alone (upstream's ControlStyles.FixedHeight).</summary>
+    internal bool KeepsHeightWhenScaled => GetStyle (ControlStyles.FixedHeight) || IsFixedHeightForScaling;
+
     /// <summary>Set by Form while it applies a legacy AutoScaleBaseSize scale (see ScaleControl).</summary>
     [System.ThreadStatic]
     internal static bool InLegacyAutoScale;

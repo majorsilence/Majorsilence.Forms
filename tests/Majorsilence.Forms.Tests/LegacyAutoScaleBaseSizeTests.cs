@@ -214,6 +214,61 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void Controls_hosted_in_a_tool_strip_scale_with_it ()
+        {
+            // Upstream's hosted controls are the strip's children and scale with it, along each axis their
+            // size is not their content's. Here the host re-applied its unscaled size on every layout:
+            // ReportDesigner's expression box stayed 250px wide where WinForms makes it 320.
+            HeadlessRenderer.Use ();
+
+            var form = new Form {
+                FormBorderStyle = FormBorderStyle.None,
+                ClientSize = new Size (900, 200),
+                Font = new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 11f),
+            };
+            var strip = new ToolStrip ();
+            var box = new ToolStripTextBox { Size = new Size (250, 38) };
+            var panel = new Panel { Size = new Size (100, 30) };
+            var host = new ToolStripControlHost (panel) { Size = new Size (100, 30) };
+            var auto = new Panel { AutoSize = true, Size = new Size (60, 20) };
+            var auto_host = new ToolStripControlHost (auto) { Size = new Size (60, 20) };
+            strip.Items.AddRange (new ToolStripItem[] { box, host, auto_host });
+            form.Controls.Add (strip);
+            form.AutoScaleBaseSize = new Size (5, 13);
+
+            form.Show ();
+            var factor = form.ClientSize.Width / 900f;
+            HeadlessRenderer.CapturePng (form, form.ClientSize.Width, form.ClientSize.Height);   // lays the strip out
+
+            using (form) {
+                Assert.True (Math.Abs (box.TextBox.Width / 250f - factor) < 0.02f, $"text box {box.TextBox.Width}px for a {factor} scale");
+                Assert.True (Math.Abs (panel.Width / 100f - factor) < 0.02f, $"panel {panel.Width}px for a {factor} scale");
+                Assert.True (panel.Height > 30, "a hosted control's height scales too");
+                Assert.Equal (60, auto.Width);   // an AutoSize control is as big as its content
+            }
+        }
+
+        [Fact]
+        public void A_tool_strip_text_box_is_as_tall_as_its_font_makes_it ()
+        {
+            // Upstream's hosted text box is AutoSize: a set height (the resx's 38) does not stretch it.
+            HeadlessRenderer.Use ();
+
+            using var form = new Form { FormBorderStyle = FormBorderStyle.None, ClientSize = new Size (600, 100) };
+            // Tall enough for the font on any platform (it measures 42px on Windows): the strip clamps
+            // its hosted control, and this test is about the text box not being stretched to 38.
+            var strip = new ToolStrip { AutoSize = false, Height = 60 };
+            var box = new ToolStripTextBox { Size = new Size (250, 38) };
+            strip.Items.Add (box);
+            form.Controls.Add (strip);
+            form.Show ();
+            HeadlessRenderer.CapturePng (form, 600, 100);
+
+            Assert.Equal (box.TextBox.PreferredHeight, box.TextBox.Height);
+            Assert.Equal (250, box.TextBox.Width);
+        }
+
+        [Fact]
         public void A_dialog_without_a_recorded_base_size_is_left_alone ()
         {
             var (form, button) = Dialog (null);
