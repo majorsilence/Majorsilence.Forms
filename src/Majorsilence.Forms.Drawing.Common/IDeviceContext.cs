@@ -24,6 +24,11 @@ namespace Majorsilence.Forms.Drawing
     /// is the truthful answer rather than a thrown exception, because callers overwhelmingly pass the
     /// handle straight back to a P/Invoke that is itself absent on this platform.
     /// </para>
+    /// <para>
+    /// Because there is no HDC, a wrapper that implements this interface over a <c>Graphics</c> also
+    /// implements <c>Majorsilence.Forms.Drawing.IGraphicsDeviceContext</c> (in Majorsilence.Forms) to
+    /// hand that graphics over; <c>TextRenderer</c> refuses any other kind of device context.
+    /// </para>
     /// </remarks>
     public interface IDeviceContext : IDisposable
     {
