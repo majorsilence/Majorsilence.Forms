@@ -281,7 +281,7 @@ namespace Majorsilence.Forms
         protected override bool ProcessCmdKey (ref Message msg, Keys keyData)
         {
             // Alt, alone or with a key, is what reveals the access keys upstream.
-            if ((keyData & Keys.Alt) == Keys.Alt || (keyData & Keys.KeyCode) == Keys.Menu)
+            if ((keyData & Keys.Alt) == Keys.Alt || IsAltKey (keyData))
                 ShowKeyboardCues = true;
 
             return KeyboardShortcuts.TryInvokeMenuShortcut (this, keyData)
@@ -289,19 +289,12 @@ namespace Majorsilence.Forms
                 || base.ProcessCmdKey (ref msg, keyData);
         }
 
-        // F10 and a bare Alt put the selection on the menu bar, which is how menu mode is entered from
-        // the keyboard; from there MenuBase.HandleNavigationKey owns the arrows, Enter and Escape
-        // (finding TSM-13). Alt+letter is a different mechanism and goes through ProcessDialogChar.
+        // F10 puts the selection on the menu bar, which is how menu mode is entered from the keyboard;
+        // from there MenuBase.HandleNavigationKey owns the arrows, Enter and Escape (finding TSM-13).
+        // A bare Alt does the same when it is released (WindowBase.HandleKeyUpCore), not here on its
+        // key-down. Alt+letter is a different mechanism and goes through ProcessDialogChar.
         private bool TryEnterMenuMode (Keys keyData)
-        {
-            var pressed = keyData & Keys.KeyCode;
-            var bare_alt = pressed == Keys.Menu && (keyData & (Keys.Control | Keys.Shift)) == Keys.None;
-
-            if (pressed != Keys.F10 && !bare_alt)
-                return false;
-
-            return KeyboardShortcuts.TryEnterMenuMode (this);
-        }
+            => (keyData & Keys.KeyCode) == Keys.F10 && KeyboardShortcuts.TryEnterMenuMode (this);
 
         /// <summary>
         /// Offers an access key (Alt+letter) to the form's menus and then to its controls.

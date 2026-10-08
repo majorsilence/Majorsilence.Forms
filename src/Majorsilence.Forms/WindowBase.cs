@@ -2084,6 +2084,11 @@ namespace Majorsilence.Forms
             if (Filtered (WindowMessages.WM_KEYDOWN, (System.IntPtr)(int)(keys & Keys.KeyCode), System.IntPtr.Zero))
                 return true;
 
+            // A bare Alt toggles menu mode when it is RELEASED with no other key pressed in between, as
+            // upstream's does (see HandleKeyUpCore); Alt+letter is a mnemonic instead. The auto-repeat of
+            // a held Alt keeps the tap alive.
+            alt_tapped = IsAltKey (keys);
+
             // An open menu owns the keyboard, which is what upstream's ModalMenuFilter arranges: with a
             // menu on screen, Escape closes it and the arrows walk it, whatever holds focus underneath.
             // Nothing routed keys to a menu at all before, so keyboard-only operation was impossible
@@ -2094,8 +2099,10 @@ namespace Majorsilence.Forms
             // on another window has no claim on these keys. Without the check, a stale or foreign
             // active menu swallowed Escape here -- which is what took Form.CancelButton out under
             // MF_FORCE_CUSTOM_CHROME, where the test ordering leaves one set.
+            // Its own drop-down's popup counts as its window too: a drop-down is shown in a popup window
+            // of its own, which can hold the keyboard while it is open, and keys typed there reached nothing.
             if (Application.ActiveMenu is { } active
-                && ReferenceEquals (active.FindWindow (), this)
+                && (ReferenceEquals (active.FindWindow (), this) || (this is PopupWindow && ReferenceEquals (Application.ActivePopupWindow, this)))
                 && active.HandleNavigationKey (keys))
                 return true;
 
@@ -2160,10 +2167,33 @@ namespace Majorsilence.Forms
             }
         }
 
+        // Set by an Alt key-down, cleared by any other key: whether releasing Alt toggles menu mode.
+        private bool alt_tapped;
+
+        // The Alt key itself: a backend reports the left or right key (LMenu, RMenu) where the tests and
+        // upstream's WM_SYSKEYDOWN speak of Menu, and only Menu was recognised.
+        internal static bool IsAltKey (Keys keys) => (keys & Keys.KeyCode) is Keys.Menu or Keys.LMenu or Keys.RMenu;
+
         private bool HandleKeyUpCore (Keys keys)
         {
             if (Filtered (WindowMessages.WM_KEYUP, (System.IntPtr)(int)(keys & Keys.KeyCode), System.IntPtr.Zero))
                 return true;
+
+            // Alt released with nothing pressed while it was down: enter menu mode, or leave it if a menu
+            // of this window is already active. Entering on the key-DOWN, as this used to, selected (and so
+            // opened) the File menu before the letter of an Alt+T arrived, and the T was then looked for
+            // among File's items: a real keyboard could not open any menu but File by its access key.
+            if (IsAltKey (keys) && alt_tapped) {
+                alt_tapped = false;
+
+                if (Application.ActiveMenu is { } active && ReferenceEquals (active.FindWindow (), this)) {
+                    active.Deactivate ();
+                    return true;
+                }
+
+                if (this is Form form && KeyboardShortcuts.TryEnterMenuMode (form))
+                    return true;
+            }
 
             var ku_e = new KeyEventArgs (keys);
 

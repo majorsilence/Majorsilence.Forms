@@ -1819,7 +1819,9 @@ namespace Majorsilence.Forms
                 var buffer = control.GetBackBuffer ();
 
                 if (control.NeedsPaint) {
-                    using (var canvas = new SKCanvas (buffer)) {
+                    using (var buffer_canvas = BufferCanvas.Open (buffer)) {
+                        var canvas = buffer_canvas.Canvas;
+
                         // start drawing
                         var args = new PaintEventArgs (info, canvas, Scaling);
 

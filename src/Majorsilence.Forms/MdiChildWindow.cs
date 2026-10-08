@@ -93,9 +93,9 @@ namespace Majorsilence.Forms
             if (ChromeMerged) {
                 if (w > 0 && h > 0) {
                     EnsureContentBuffer (w, h);
-                    using (var canvas = new SKCanvas (content_buffer)) {
-                        ChildForm.RenderFrame (canvas, w, h, scaling);
-                        canvas.Flush ();
+                    using (var buffer_canvas = BufferCanvas.Open (content_buffer!)) {
+                        ChildForm.RenderFrame (buffer_canvas.Canvas, w, h, scaling);
+                        buffer_canvas.Canvas.Flush ();
                     }
                     e.Canvas.DrawBitmap (content_buffer, 0, 0);
                 }
@@ -154,9 +154,9 @@ namespace Majorsilence.Forms
                 var ch = h - caption - 2 * border;
                 if (cw > 0 && ch > 0) {
                     EnsureContentBuffer (cw, ch);
-                    using (var canvas = new SKCanvas (content_buffer)) {
-                        ChildForm.RenderFrame (canvas, cw, ch, scaling);
-                        canvas.Flush ();
+                    using (var buffer_canvas = BufferCanvas.Open (content_buffer!)) {
+                        ChildForm.RenderFrame (buffer_canvas.Canvas, cw, ch, scaling);
+                        buffer_canvas.Canvas.Flush ();
                     }
                     e.Canvas.DrawBitmap (content_buffer, border, caption + border);
                 }

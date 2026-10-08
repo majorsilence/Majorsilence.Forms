@@ -96,10 +96,125 @@ namespace Majorsilence.Forms.Tests
             using var _form = form;
 
             try {
-                // Keys.Menu is the Alt key itself, as opposed to the Alt modifier bit.
-                HeadlessRenderer.KeyDown (form, Keys.Menu);
+                // Keys.Menu is the Alt key itself, as opposed to the Alt modifier bit. Upstream enters
+                // menu mode when it is released, not pressed.
+                HeadlessRenderer.KeyDown (form, Keys.Menu | Keys.Alt);
+                Assert.Null (strip.SelectedItem);
+
+                HeadlessRenderer.KeyUp (form, Keys.Menu);
 
                 Assert.Same (file, strip.SelectedItem);
+            } finally {
+                form.Close ();
+            }
+        }
+
+        [Fact]
+        public void Alt_and_a_letter_as_a_keyboard_sends_them_opens_that_menu ()
+        {
+            // A real keyboard sends Alt down, then the letter with Alt held, then the releases. Menu mode
+            // used to start on the Alt key-down, which opened File before the letter arrived, and the
+            // letter was then looked for among File's items: only File could be opened by its access key.
+            var (form, strip, file, edit) = Barred ();
+            using var _form = form;
+
+            try {
+                HeadlessRenderer.KeyDown (form, Keys.Menu | Keys.Alt);
+                HeadlessRenderer.KeyDown (form, Keys.E | Keys.Alt);
+                HeadlessRenderer.KeyUp (form, Keys.E | Keys.Alt);
+                HeadlessRenderer.KeyUp (form, Keys.Menu);
+
+                Assert.Same (edit, strip.SelectedItem);
+                Assert.True (edit.IsDropDownOpened);
+                Assert.False (file.IsDropDownOpened);
+            } finally {
+                form.Close ();
+            }
+        }
+
+        [Fact]
+        public void Alt_and_a_letter_matches_only_the_menus_on_the_bar ()
+        {
+            // Upstream offers an access key to the strip's top-level items. Every item of every drop-down
+            // was searched here, depth first, so in ReportDesigner Alt+T found Edit > Cu&t before
+            // &Tools: it ran Cut instead of opening the Tools menu.
+            var (form, strip, _, edit) = Barred ();
+            using var _form = form;
+            var cut = new ToolStripMenuItem { Text = "Cu&t" };
+            var cut_clicks = 0;
+            cut.Click += (_, _) => cut_clicks++;
+            edit.DropDownItems.Add (cut);
+            var tools = new ToolStripMenuItem { Text = "&Tools" };
+            tools.DropDownItems.Add (new ToolStripMenuItem { Text = "&Options" });
+            strip.Items.Add (tools);
+
+            try {
+                HeadlessRenderer.KeyDown (form, Keys.T | Keys.Alt);
+
+                Assert.Equal (0, cut_clicks);
+                Assert.Same (tools, strip.SelectedItem);
+                Assert.True (tools.IsDropDownOpened);
+            } finally {
+                form.Close ();
+            }
+        }
+
+        [Fact]
+        public void An_access_key_in_an_open_menu_clicks_its_item ()
+        {
+            // Alt+F then S is how a keyboard user saves. Letters in an open menu reached nothing.
+            var (form, strip, file, _) = Barred ();
+            using var _form = form;
+            var save = (ToolStripMenuItem) file.DropDownItems[1];
+            var clicks = 0;
+            save.Click += (_, _) => clicks++;
+
+            try {
+                HeadlessRenderer.KeyDown (form, Keys.F | Keys.Alt);
+                Assert.True (file.IsDropDownOpened);
+
+                HeadlessRenderer.KeyDown (form, Keys.S);
+
+                Assert.Equal (1, clicks);
+                Assert.False (file.IsDropDownOpened);
+            } finally {
+                form.Close ();
+            }
+        }
+
+        [Fact]
+        public void The_left_Alt_key_enters_menu_mode_when_released ()
+        {
+            // A real keyboard's Alt arrives as LMenu (or RMenu), not Menu: only Menu was recognised,
+            // so a bare Alt never reached the menu bar outside the tests.
+            var (form, strip, file, _) = Barred ();
+            using var _form = form;
+
+            try {
+                HeadlessRenderer.KeyDown (form, Keys.LMenu | Keys.Alt);
+                HeadlessRenderer.KeyUp (form, Keys.LMenu);
+
+                Assert.Same (file, strip.SelectedItem);
+            } finally {
+                form.Close ();
+            }
+        }
+
+        [Fact]
+        public void A_second_Alt_tap_leaves_menu_mode ()
+        {
+            var (form, strip, _, _) = Barred ();
+            using var _form = form;
+
+            try {
+                HeadlessRenderer.KeyDown (form, Keys.Menu | Keys.Alt);
+                HeadlessRenderer.KeyUp (form, Keys.Menu);
+                Assert.NotNull (strip.SelectedItem);
+
+                HeadlessRenderer.KeyDown (form, Keys.Menu | Keys.Alt);
+                HeadlessRenderer.KeyUp (form, Keys.Menu);
+
+                Assert.False (strip.IsActivated);
             } finally {
                 form.Close ();
             }

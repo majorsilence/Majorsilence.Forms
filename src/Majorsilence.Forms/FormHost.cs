@@ -66,9 +66,9 @@ namespace Majorsilence.Forms
             // an isolated buffer rather than straight onto the shared one.
             EnsureContentBuffer (w, h);
 
-            using (var canvas = new SKCanvas (content_buffer)) {
-                ChildForm.RenderFrame (canvas, w, h, e.Scaling);
-                canvas.Flush ();
+            using (var buffer_canvas = BufferCanvas.Open (content_buffer!)) {
+                ChildForm.RenderFrame (buffer_canvas.Canvas, w, h, e.Scaling);
+                buffer_canvas.Canvas.Flush ();
             }
 
             e.Canvas.DrawBitmap (content_buffer, 0, 0);
