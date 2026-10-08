@@ -42,6 +42,10 @@ namespace Majorsilence.Forms.Renderers
                     text_area, Theme.ForegroundDisabledColor, ContentAlignment.MiddleLeft, maxLines: 1);
             }
 
+            // A Simple combo has nothing to drop down: its list is the child under the edit region.
+            if (control.IsSimple)
+                return;
+
             // Draw the drop down glyph
             var button_bounds = GetDropDownButtonArea (control, e);
 

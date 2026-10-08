@@ -81,15 +81,156 @@ namespace Majorsilence.Forms
             }
         }
 
+        // Upstream's InsertWidthSize, InsertHeightSize and LogicalExtraPadding (MonthCalendar.cs): the
+        // gap between two months across and down, and the "fudge factor" GetMinReqRect adds to both
+        // dimensions of the whole control. Logical pixels.
+        private const int MonthGapWidth = 6;
+        private const int MonthGapHeight = 6;
+        private const int ExtraPadding = 2;
+
+        // A band -- the title, the day header, one week row, the "Today:" strip -- is a line of the
+        // font plus 4, the constant upstream's GetMinReqRect gives the today string's height (from
+        // comctl32's month calendar).
+        private int BandHeight => TextMeasurer.LogicalLineHeight (this) + 4;
+
+        // A day column is the widest of what goes in one -- a two-digit day, a day-of-week abbreviation,
+        // a week number -- plus a four-pixel margin either side.
+        private int DayColumnWidth {
+            get {
+                var widest = TextMeasurer.MeasureText ("00", this).Width;
+
+                foreach (var name in System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.ShortestDayNames)
+                    widest = Math.Max (widest, TextMeasurer.MeasureText (name, this).Width);
+
+                return DeviceToLogicalUnits ((int)Math.Ceiling (widest)) + 8;
+            }
+        }
+
+        /// <summary>One month in LOGICAL pixels at the current font: a title, a day header and six
+        /// weeks of day columns (plus the week-number column), and the "Today:" strip when it is shown
+        /// -- what upstream reads from <c>MCM_GETMINREQRECT</c>.</summary>
+        internal Size MeasureSingleMonth ()
+        {
+            var band = BandHeight;
+            var columns = ShowWeekNumbers ? DaysPerWeek + 1 : DaysPerWeek;
+            var width = columns * DayColumnWidth;
+
+            // The title has to fit between its two scroll arrows, each a band wide.
+            var title = DeviceToLogicalUnits ((int)Math.Ceiling (TextMeasurer.MeasureText (TitleCaptionOf (new DateTime (2000, 9, 1)), this).Width));
+            width = Math.Max (width, title + (4 * band));
+
+            return new Size (width, ((2 + WeeksShown) * band) + (ShowToday ? band : 0));
+        }
+
+        /// <summary>The size the control needs for <paramref name="columns"/> by <paramref name="rows"/>
+        /// months, in LOGICAL pixels: upstream's <c>GetMinReqRect</c>.</summary>
+        /// <remarks>Each month is <see cref="SingleMonthSize"/>, the months are six pixels apart either
+        /// way, the "Today:" strip runs once under them all, the width is never less than the today
+        /// string needs, and two pixels of padding go on both dimensions.</remarks>
+        internal Size MinimumSizeFor (int columns, int rows)
+        {
+            var single = MeasureSingleMonth ();
+            var today = ShowToday ? BandHeight : 0;
+            var calendar_height = single.Height - today;
+
+            var width = ((single.Width + MonthGapWidth) * columns) - MonthGapWidth;
+            var height = ((calendar_height + MonthGapHeight) * rows) - MonthGapHeight + today;
+
+            if (ShowToday)
+                width = Math.Max (width, DeviceToLogicalUnits ((int)Math.Ceiling (TextMeasurer.MeasureText (TodayCaption, this).Width)) + (2 * BandHeight));
+
+            return new Size (width + ExtraPadding + ChromeSize.Width, height + ExtraPadding + ChromeSize.Height);
+        }
+
+        // The border, which the bounds include and the client area does not.
+        private Size ChromeSize {
+            get {
+                var client = DeviceClientRectangle;
+
+                return new Size (Math.Max (0, Width - DeviceToLogicalUnits (client.Width)),
+                                 Math.Max (0, Height - DeviceToLogicalUnits (client.Height)));
+            }
+        }
+
+        /// <summary>The text of the "Today:" strip.</summary>
+        internal string TodayCaption => $"Today: {TodayDate.ToShortDateString ()}";
+
+        // Upstream's AdjustSize: the control is exactly as big as its months need.
+        private void AdjustSize ()
+        {
+            var size = MinimumSizeFor (MonthLayout.Width, MonthLayout.Height);
+
+            adjusting_size = true;
+
+            try {
+                Size = size;
+            } finally {
+                adjusting_size = false;
+            }
+
+            Invalidate ();
+        }
+
+        // Set while AdjustSize applies the size the current dimensions need, which SetBoundsCore must
+        // take as it is rather than read back into dimensions.
+        private bool adjusting_size;
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// As upstream's: a changed width or height is turned into the number of months that fit -- the
+        /// columns from the width, the rows from the height -- and the control is sized to exactly that
+        /// many months (<c>MonthCalendar.SetBoundsCore</c>, <c>GetPreferredWidth</c>,
+        /// <c>GetPreferredHeight</c>). So making the control bigger shows more months, and it is never a
+        /// size that would cut one off. The twelve-month cap holds, as the native control's does.
+        /// </remarks>
+        protected override void SetBoundsCore (int x, int y, int width, int height, BoundsSpecified specified)
+        {
+            if (!adjusting_size) {
+                var single = MeasureSingleMonth ();
+                var today = ShowToday ? BandHeight : 0;
+                var calendar_height = single.Height - today;
+                var chrome = ChromeSize;
+                var columns = MonthLayout.Width;
+                var rows = MonthLayout.Height;
+
+                if (width != Width)
+                    columns = Math.Max (1, (width - ExtraPadding - chrome.Width) / Math.Max (1, single.Width));
+
+                if (height != Height)
+                    rows = Math.Max (1, (height - chrome.Height - today + MonthGapHeight) / Math.Max (1, calendar_height + MonthGapHeight));
+
+                // The native control never shows more than twelve; the dimension that changed gives way.
+                if (columns * rows > 12) {
+                    if (columns != MonthLayout.Width)
+                        columns = Math.Max (1, 12 / rows);
+                    else
+                        rows = Math.Max (1, 12 / columns);
+                }
+
+                calendar_dimensions = new Size (columns, rows);
+
+                var size = MinimumSizeFor (columns, rows);
+
+                if (width != Width)
+                    width = size.Width;
+
+                if (height != Height)
+                    height = size.Height;
+            }
+
+            base.SetBoundsCore (x, y, width, height, specified);
+        }
+
         /// <summary>Gets the device-pixel bands of the month at <paramref name="index"/> (row-major,
         /// from the top left) when <see cref="CalendarDimensions"/> shows several (SMP-46).</summary>
         /// <remarks>
-        /// The months tile the client area: equal columns across, and equal bands down -- a title, a
-        /// day-of-week header and six weeks per row of months, plus one "Today:" band across the foot.
-        /// Upstream lays the months out the same way (one title per month, the scroll arrows only at the
-        /// two ends of the top row, the today link once under them all; <c>MonthCalendar.cs</c> and the
-        /// comctl32 month-calendar it hosts). With a 1x1 layout every rectangle is exactly what the
-        /// single-month geometry was, so nothing about the default control moved.
+        /// As upstream lays the months out: blocks of <see cref="SingleMonthSize"/> six pixels apart
+        /// either way, inside a one-pixel margin, each with its own title, day-of-week header and six
+        /// weeks; the scroll arrows only at the two ends of the top row, the today link once under them
+        /// all (<c>MonthCalendar.cs</c>, <c>GetMinReqRect</c>, and the comctl32 month-calendar it hosts).
+        /// The control is sized to fit its months (see <see cref="SetBoundsCore"/>), so the blocks are
+        /// the client area divided by the dimensions; a control squeezed by its container shrinks the
+        /// blocks rather than dropping months.
         /// </remarks>
         internal MonthCalendarGeometry GetMonthGeometry (int index)
         {
@@ -98,19 +239,24 @@ namespace Majorsilence.Forms
             var month_column = index % layout.Width;
             var month_row = index / layout.Width;
 
-            // One band each for the title and the day-of-week header, six for the week rows, per row of
-            // months, and -- when ShowToday -- one more for the "Today:" strip at the foot. Equal bands
-            // is what makes a cell's height independent of ShowWeekNumbers and of the month.
-            var bands = (layout.Height * (2 + WeeksShown)) + (ShowToday ? 1 : 0);
-            var cell_height = Math.Max (1, client.Height / bands);
-            var columns = ShowWeekNumbers ? DaysPerWeek + 1 : DaysPerWeek;
+            var margin = LogicalToDeviceUnits (ExtraPadding / 2);
+            var inner = Rectangle.Inflate (client, -margin, -margin);
+            var gap_width = LogicalToDeviceUnits (MonthGapWidth);
+            var gap_height = LogicalToDeviceUnits (MonthGapHeight);
+            var today_height = ShowToday ? LogicalToDeviceUnits (BandHeight) : 0;
 
-            // Blocks partition the width by integer division, so the last one reaches the right edge.
-            var block_left = client.Left + (month_column * client.Width / layout.Width);
-            var block_right = client.Left + ((month_column + 1) * client.Width / layout.Width);
-            var block_width = block_right - block_left;
-            var block_top = client.Top + (month_row * (2 + WeeksShown) * cell_height);
-            var cell_width = Math.Max (1, (client.Width / layout.Width) / columns);
+            // Equal bands per month -- a title, a day header, six weeks -- so a cell's height is the same
+            // whatever the month and ShowWeekNumbers.
+            var block_width = Math.Max (1, (inner.Width - (gap_width * (layout.Width - 1))) / layout.Width);
+            var months_height = Math.Max (1, inner.Height - today_height - (gap_height * (layout.Height - 1)));
+            var cell_height = Math.Max (1, months_height / layout.Height / (2 + WeeksShown));
+            var block_height = cell_height * (2 + WeeksShown);
+            var columns = ShowWeekNumbers ? DaysPerWeek + 1 : DaysPerWeek;
+            var cell_width = Math.Max (1, block_width / columns);
+
+            var block_left = inner.Left + (month_column * (block_width + gap_width));
+            var block_right = block_left + block_width;
+            var block_top = inner.Top + (month_row * (block_height + gap_height));
 
             // An eighth of a month's width each, matching the arrow bands HitTest reported before
             // SMP-42, so the two scroll buttons stay where callers already found them.
@@ -121,7 +267,7 @@ namespace Majorsilence.Forms
             var grid_height = cell_height * WeeksShown;
             var days_left = block_left + (ShowWeekNumbers ? cell_width : 0);
             var days_width = cell_width * DaysPerWeek;
-            var months_bottom = client.Top + (layout.Height * (2 + WeeksShown) * cell_height);
+            var months_bottom = inner.Top + (layout.Height * block_height) + ((layout.Height - 1) * gap_height);
             var month = AddMonths (DisplayMonth, index);
 
             return new MonthCalendarGeometry {
@@ -133,7 +279,7 @@ namespace Majorsilence.Forms
                 // between two months on screen those days are already drawn by the neighbour.
                 ShowsLeadingDays = index == 0,
                 ShowsTrailingDays = index == MonthsShown - 1,
-                Block = new Rectangle (block_left, block_top, block_width, (2 + WeeksShown) * cell_height),
+                Block = new Rectangle (block_left, block_top, block_width, block_height),
                 Title = new Rectangle (block_left, block_top, block_width, cell_height),
                 ArrowWidth = arrow_width,
                 PrevButton = index == 0
@@ -148,7 +294,7 @@ namespace Majorsilence.Forms
                     : Rectangle.Empty,
                 Grid = new Rectangle (days_left, grid_top, days_width, grid_height),
                 TodayBand = ShowToday
-                    ? new Rectangle (client.Left, months_bottom, client.Width, Math.Max (0, client.Bottom - months_bottom))
+                    ? new Rectangle (inner.Left, months_bottom, inner.Width, Math.Max (0, inner.Bottom - months_bottom))
                     : Rectangle.Empty,
                 CellWidth = cell_width,
                 CellHeight = cell_height,

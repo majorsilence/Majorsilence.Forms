@@ -13,8 +13,12 @@ namespace Majorsilence.Forms.Tests
     // counted several months -- so the control reported months it never drew, and none of their days
     // could be clicked. The months now tile the client area, one block each, as upstream's do.
     //
-    // Relational assertions only: blocks abut, a date's cell is inside its month's block, a click on
-    // that cell is that date. No pixel rectangles are hard-coded.
+    // Relational assertions only: blocks sit upstream's six pixels apart, a date's cell is inside its
+    // month's block, a click on that cell is that date. No pixel rectangles are hard-coded.
+    //
+    // The follow-up (#349): upstream sizes the control to fit CalendarDimensions -- SingleMonthSize per
+    // month, a gap between, the today strip once -- and a resize changes the dimensions; this divided
+    // whatever client area the control had. The sizing tests are at the end.
     [Collection ("Headless")]
     public class MonthCalendarMultiMonthTests
     {
@@ -93,7 +97,8 @@ namespace Majorsilence.Forms.Tests
 
             Assert.Equal (new DateTime (2026, 3, 1), first.Month);
             Assert.Equal (April, second.Month);
-            Assert.Equal (first.Block.Right, second.Block.Left);
+            // Six pixels apart, upstream's InsertWidthSize.
+            Assert.Equal (first.Block.Right + calendar.LogicalToDeviceUnits (6), second.Block.Left);
             Assert.Equal (first.Block.Top, second.Block.Top);
             Assert.True (first.Grid.Right <= second.Block.Left, "the first month's grid stops at its block");
 
@@ -181,13 +186,14 @@ namespace Majorsilence.Forms.Tests
             var bottom_left = calendar.GetMonthGeometry (2);
             var bottom_right = calendar.GetMonthGeometry (3);
 
-            Assert.Equal (top_left.Block.Bottom, bottom_left.Block.Top);
+            Assert.Equal (top_left.Block.Bottom + calendar.LogicalToDeviceUnits (6), bottom_left.Block.Top);
             Assert.Equal (top_left.Block.Left, bottom_left.Block.Left);
             Assert.Equal (new DateTime (2026, 5, 1), bottom_left.Month);
             Assert.True (bottom_left.Title.Height > 0 && bottom_left.Title.Top == bottom_left.Block.Top);
 
             Assert.Equal (bottom_left.Block.Bottom, calendar.Geometry.TodayBand.Top);
-            Assert.Equal (calendar.DeviceClientRectangle.Width, calendar.Geometry.TodayBand.Width);
+            Assert.Equal (top_left.Block.Left, calendar.Geometry.TodayBand.Left);
+            Assert.True (calendar.Geometry.TodayBand.Right >= bottom_right.Block.Right);
 
             // Only the ends of the run of months show the neighbouring months' days.
             Assert.True (top_left.ShowsLeadingDays && !top_left.ShowsTrailingDays);
@@ -196,16 +202,17 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void One_month_lays_out_across_the_whole_control_as_before ()
+        public void One_month_lays_out_across_the_whole_control_inside_upstreams_margin ()
         {
-            // A guard, not a regression test: the 1x1 layout was already this; it pins that tiling did
-            // not move the default control.
+            // A guard, not a regression test: one month spans the control, inside the one-pixel margin
+            // that is half of upstream's two-pixel ExtraPadding.
             using var calendar = Calendar (1, 1);
             var geometry = calendar.Geometry;
             var client = calendar.DeviceClientRectangle;
+            var margin = calendar.LogicalToDeviceUnits (1);
 
-            Assert.Equal (client.Width, geometry.Title.Width);
-            Assert.Equal (client.Right, geometry.NextButton.Right);
+            Assert.Equal (client.Left + margin, geometry.Title.Left);
+            Assert.Equal (client.Right - margin, geometry.NextButton.Right);
             Assert.True (geometry.ShowsLeadingDays && geometry.ShowsTrailingDays);
         }
 
@@ -218,6 +225,131 @@ namespace Majorsilence.Forms.Tests
             Assert.True (calendar.CalendarDimensions.Width * calendar.CalendarDimensions.Height <= 12);
 
             Assert.Throws<ArgumentOutOfRangeException> (() => calendar.CalendarDimensions = new Size (0, 2));
+        }
+    
+        // One month's height without the today strip, which runs once under all the months.
+        private static int CalendarHeightOfOneMonth (MonthCalendar calendar)
+        {
+            var show = calendar.ShowToday;
+            calendar.ShowToday = false;
+            var height = calendar.SingleMonthSize.Height;
+            calendar.ShowToday = show;
+
+            return height;
+        }
+
+        [Fact]
+        public void SingleMonthSize_is_a_month_at_the_font_not_the_bounds_divided_up ()
+        {
+            HeadlessRenderer.Use ();
+            using var calendar = new MonthCalendar ();
+            var one = calendar.SingleMonthSize;
+
+            calendar.SetCalendarDimensions (3, 2);
+
+            Assert.Equal (one, calendar.SingleMonthSize);
+            Assert.True (one.Width > 0 && one.Height > 0);
+
+            // A bigger font is a bigger month, and the control is re-fitted to it (upstream's
+            // OnFontChanged calls AdjustSize).
+            var before = calendar.Size;
+            calendar.Font = new Font (calendar.Font.FontFamily, calendar.Font.Size * 2);
+            Assert.True (calendar.SingleMonthSize.Width > one.Width && calendar.SingleMonthSize.Height > one.Height);
+            Assert.True (calendar.Width > before.Width && calendar.Height > before.Height, $"{calendar.Size} after {before}");
+        }
+
+        [Fact]
+        public void Setting_the_dimensions_sizes_the_control_to_fit_the_months ()
+        {
+            HeadlessRenderer.Use ();
+            using var calendar = new MonthCalendar ();
+            var month = calendar.SingleMonthSize;
+            var calendar_height = CalendarHeightOfOneMonth (calendar);
+
+            calendar.SetCalendarDimensions (1, 1);
+            var one = calendar.Size;
+
+            calendar.SetCalendarDimensions (3, 1);
+            var three = calendar.Size;
+
+            calendar.SetCalendarDimensions (3, 2);
+            var three_by_two = calendar.Size;
+
+            // Upstream's GetMinReqRect: each further month adds a month and a six-pixel gap.
+            Assert.Equal (2 * (month.Width + 6), three.Width - one.Width);
+            Assert.Equal (one.Height, three.Height);
+            Assert.Equal (calendar_height + 6, three_by_two.Height - three.Height);
+
+            // ...and every month is drawn whole inside it.
+            var last = calendar.GetMonthGeometry (5);
+            Assert.True (calendar.DeviceClientRectangle.Contains (last.Block));
+            Assert.True (last.CellHeight * 8 <= calendar.LogicalToDeviceUnits (calendar_height));
+        }
+
+        [Fact]
+        public void The_default_size_is_one_month ()
+        {
+            HeadlessRenderer.Use ();
+            using var calendar = new MonthCalendar ();
+            var size = calendar.Size;
+
+            // The one-month size is what a 1x1 calendar comes back to after visiting another size.
+            calendar.SetCalendarDimensions (2, 1);
+            calendar.SetCalendarDimensions (1, 1);
+
+            Assert.Equal (size, calendar.Size);
+            Assert.True (size.Width >= calendar.SingleMonthSize.Width && size.Width <= calendar.SingleMonthSize.Width + 4);
+        }
+
+        [Fact]
+        public void Resizing_the_control_changes_the_dimensions_to_the_months_that_fit ()
+        {
+            HeadlessRenderer.Use ();
+            using var calendar = new MonthCalendar ();
+            var month = calendar.SingleMonthSize;
+            var one = calendar.Size;
+
+            // Room for two across and a bit: two columns, and the width snaps to exactly two months.
+            calendar.Width = one.Width + month.Width + 20;
+            Assert.Equal (new Size (2, 1), calendar.CalendarDimensions);
+            Assert.Equal (one.Width + month.Width + 6, calendar.Width);
+
+            // Taller by a month: two rows.
+            calendar.Height = one.Height + CalendarHeightOfOneMonth (calendar) + 10;
+            Assert.Equal (new Size (2, 2), calendar.CalendarDimensions);
+
+            // Too small for even one: one month, never none.
+            calendar.Size = new Size (10, 10);
+            Assert.Equal (new Size (1, 1), calendar.CalendarDimensions);
+            Assert.Equal (one, calendar.Size);
+        }
+
+        [Fact]
+        public void A_resize_never_shows_more_than_twelve_months ()
+        {
+            HeadlessRenderer.Use ();
+            using var calendar = new MonthCalendar ();
+            var month = calendar.SingleMonthSize;
+
+            calendar.SetCalendarDimensions (1, 3);
+            calendar.Width = 10 * (month.Width + 6);
+
+            Assert.True (calendar.CalendarDimensions.Width * calendar.CalendarDimensions.Height <= 12,
+                         calendar.CalendarDimensions.ToString ());
+            Assert.Equal (3, calendar.CalendarDimensions.Height);
+        }
+
+        [Fact]
+        public void ShowToday_resizes_the_control_for_the_strip ()
+        {
+            HeadlessRenderer.Use ();
+            using var calendar = new MonthCalendar ();
+            var with = calendar.Height;
+
+            calendar.ShowToday = false;
+
+            Assert.True (calendar.Height < with);
+            Assert.True (calendar.Geometry.TodayBand.IsEmpty);
         }
     }
 }

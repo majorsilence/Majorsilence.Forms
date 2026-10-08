@@ -142,21 +142,29 @@ namespace Majorsilence.Forms.Tests
         {
             using var calendar = new MonthCalendar { Size = new Size (200, 160) };
 
+            // The control sizes itself to whole months at the font, so its width is not the 200 asked for.
             Assert.Equal (MonthCalendar.HitArea.PrevMonthButton, calendar.HitTest (1, 1).HitArea);
-            Assert.Equal (MonthCalendar.HitArea.NextMonthButton, calendar.HitTest (199, 1).HitArea);
+            Assert.Equal (MonthCalendar.HitArea.NextMonthButton, calendar.HitTest (calendar.Width - 2, 1).HitArea);
             // The middle of the band is the caption -- month, year, or the space between them,
             // depending on the month's name; SimpleControlGapTests pins which part is which (SMP-43).
-            Assert.Contains (calendar.HitTest (100, 1).HitArea,
+            Assert.Contains (calendar.HitTest (calendar.Width / 2, 1).HitArea,
                 new[] { MonthCalendar.HitArea.TitleMonth, MonthCalendar.HitArea.TitleYear, MonthCalendar.HitArea.TitleBackground });
         }
 
         [Fact]
-        public void SingleMonthSize_divides_the_control_by_its_dimensions ()
+        public void SingleMonthSize_is_one_month_and_the_control_grows_to_fit_the_dimensions ()
         {
+            // Upstream (MonthCalendar.cs): SingleMonthSize is MCM_GETMINREQRECT, a month at the font,
+            // and SetCalendarDimensions resizes the control to fit (AdjustSize). This used to pin the
+            // reverse -- the control's size divided by the dimensions (#349).
             using var calendar = new MonthCalendar { Size = new Size (200, 160) };
+            var month = calendar.SingleMonthSize;
+
             calendar.SetCalendarDimensions (2, 2);
 
-            Assert.Equal (new Size (100, 80), calendar.SingleMonthSize);
+            Assert.Equal (month, calendar.SingleMonthSize);
+            Assert.True (calendar.Width >= 2 * month.Width, $"{calendar.Size} for two months of {month}");
+            Assert.True (calendar.Height > month.Height, $"{calendar.Size} for two rows of {month}");
         }
 
         [Fact]

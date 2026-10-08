@@ -33,15 +33,14 @@ namespace Majorsilence.Forms
         /// <remarks>Zero means "one screen", which is what WinForms uses as the default.</remarks>
         public int ScrollChange { get; set; }
 
-        /// <summary>Gets the size of one month within the control.</summary>
-        public Size SingleMonthSize {
-            get {
-                var dimensions = CalendarDimensions;
-                var columns = Math.Max (1, dimensions.Width);
-                var rows = Math.Max (1, dimensions.Height);
-                return new Size (Math.Max (1, Width / columns), Math.Max (1, Height / rows));
-            }
-        }
+        /// <summary>Gets the size one month needs at the current font, in pixels.</summary>
+        /// <remarks>As upstream's, which asks the native control (<c>MCM_GETMINREQRECT</c>): a title,
+        /// a day-of-week header and six weeks wide enough for every day column and the title, plus the
+        /// "Today:" strip while <see cref="ShowToday"/> is set. The control is sized from it, times
+        /// <see cref="CalendarDimensions"/> plus the gaps between the months (SMP-46). It used to be the
+        /// control's size divided by the dimensions, which made it an answer about the bounds rather
+        /// than about a month.</remarks>
+        public Size SingleMonthSize => MeasureSingleMonth ();
 
         /// <summary>Gets or sets whether the control lays out right to left when RightToLeft is set.</summary>
         public virtual bool RightToLeftLayout {
@@ -76,8 +75,12 @@ namespace Majorsilence.Forms
                     y--;
             }
 
-            calendar_dimensions = new Size (x, y);
-            Invalidate ();
+            // Upstream resizes the control to fit the months (AdjustSize), rather than dividing the
+            // area it already has between them.
+            if (calendar_dimensions.Width != x || calendar_dimensions.Height != y) {
+                calendar_dimensions = new Size (x, y);
+                AdjustSize ();
+            }
         }
 
         /// <summary>Adds a date that is drawn bold every year on that month and day.</summary>

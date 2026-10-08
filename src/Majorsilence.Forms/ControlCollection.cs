@@ -163,6 +163,21 @@ public partial class Control
             return item;
         }
 
+        // The reverse of AddImplicitControl, for the one implicit child that moves between hosts: a
+        // Simple combo box shows its list inside itself, every other style in its drop-down popup, and
+        // the list is the same control either way because it holds the combo's items (LST-07).
+        internal bool RemoveImplicitControl (Control item)
+        {
+            if (!implicit_control_list.Remove (item))
+                return false;
+
+            item.ImplicitControl = false;
+            item.SetParentInternal (null);
+            Owner.Invalidate ();
+
+            return true;
+        }
+
         /// <summary>
         /// Adds multiple child controls to this control. This suspends layouts until all
         /// controls are adding, which is more efficient than adding controls individually.

@@ -119,8 +119,10 @@ namespace Majorsilence.Forms
             var rows = Math.Max (1, Math.Min (suggestions.Count, MaxDropDownItems));
             suggest_popup.Size = new Size (Width, rows * suggest_list.ItemHeight + 2);
 
+            // Under the edit region, which for a Simple combo is the top band, not the foot of the
+            // control: the shell's window hangs off the edit control, over the simple combo's list.
             if (!suggest_popup.Visible)
-                suggest_popup.Show (this, 1, Height);
+                suggest_popup.Show (this, 1, IsSimple ? SimpleEditBandHeight : Height);
         }
 
         private void CloseSuggestions ()
