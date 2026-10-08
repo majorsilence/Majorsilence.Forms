@@ -103,9 +103,15 @@ namespace Majorsilence.Forms.Renderers
             // application owner-draw code, where the logical box is the contract.
             var bounds = control.LogicalToDeviceUnits (item.Bounds);
 
+            // A tab lights up under the pointer only when its TabControl opts in with HotTrack, which
+            // defaults to false -- upstream sets TCS_HOTTRACK only then (Controls/TabControl/TabControl.cs,
+            // CreateParams), and comctl32 draws no hot tab without it. A strip with no owning TabControl
+            // has no such property and keeps tracking hover.
+            var hot = item.Hovered && item.Enabled && (control.OwnerTabControl is not { } tab_control || tab_control.HotTrack);
+
             // The part style for this tab's state: hover wins over selected (a hovered selected tab still
             // lights up), then the plain item style. A part with no background leaves the strip showing.
-            var item_style = item.Hovered && item.Enabled ? TabStrip.DefaultItemHoverStyle
+            var item_style = hot ? TabStrip.DefaultItemHoverStyle
                 : item.Selected ? TabStrip.DefaultSelectedItemStyle
                 : TabStrip.DefaultItemStyle;
 
@@ -142,7 +148,7 @@ namespace Majorsilence.Forms.Renderers
                 : item_style.TryGetForegroundColor () ?? control.GetEffectiveForegroundColor ();
 
             // TabControl.HotTrack: the hovered tab's text takes the hot-track colour (W6).
-            if (item.Hovered && item.Enabled && control.OwnerTabControl is { HotTrack: true })
+            if (hot && control.OwnerTabControl is not null)
                 font_color = SystemColors.HotTrack.ToSKColor ();
             var font = control.GetEffectiveFont ();
             var font_size = control.LogicalToDeviceUnits (control.GetEffectiveFontSize ());

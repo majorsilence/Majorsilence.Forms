@@ -155,7 +155,8 @@ namespace ThemeStudio
             menu.Items.Add ("Disabled").Enabled = false;
 
             body.Controls.Add (new Label { Text = "TabControl / TabStrip", Left = 16, Top = 12, Width = 300 });
-            var tabs = body.Controls.Add (new TabControl { Left = 16, Top = 36, Width = 360, Height = 160 });
+            // HotTrack on, so the TabStrip::item:hover part being edited shows under the pointer.
+            var tabs = body.Controls.Add (new TabControl { Left = 16, Top = 36, Width = 360, Height = 160, HotTrack = true });
             tabs.TabPages.Add ("General").Controls.Add (new Label { Text = "A tab page is a Panel.", Left = 8, Top = 8, Width = 300 });
             tabs.TabPages.Add ("Advanced");
             tabs.TabPages.Add ("About");
