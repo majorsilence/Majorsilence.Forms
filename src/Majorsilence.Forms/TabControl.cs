@@ -283,6 +283,8 @@ namespace Majorsilence.Forms
         public new System.Drawing.Point Padding {
             get => tab_padding;
             set {
+                tab_padding_set = true;
+
                 if (tab_padding == value)
                     return;
 
@@ -292,6 +294,7 @@ namespace Majorsilence.Forms
         }
 
         private System.Drawing.Point tab_padding;
+        private bool tab_padding_set;
 
         // The strip measures its tabs from the owner's ItemSize/SizeMode/Padding, so a change to any of
         // them has to re-run the strip's own layout, not just the container's.

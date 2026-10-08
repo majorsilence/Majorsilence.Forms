@@ -62,7 +62,13 @@ namespace Majorsilence.Forms
 
             // TabControl.Padding insets every tab on top of the strip's own Padding; it was stored
             // and never read (LAY-15).
-            var owner_padding = Parent?.OwnerTabControl?.Padding.X ?? 0;
+            var owner = Parent?.OwnerTabControl;
+            var owner_padding = owner?.EffectiveTabPadding.X ?? 0;
+
+            // Upstream's themed tab (TabControl.UsesUpstreamTabs) is its caption and the tab padding
+            // only: General is 52px wide in Segoe UI 9pt. The strip's own 14px item padding made it 71.
+            if (owner is { UsesUpstreamTabs: true })
+                return new Size ((int) Math.Ceiling (TextMeasurer.MeasureText (Text, font, font_size).Width) + image_extent + (2 * ScaleToDevice (owner_padding)), Bounds.Height);
 
             return new Size (text_size + padding + image_extent + (2 * ScaleToDevice (owner_padding)), Bounds.Height);
         }
