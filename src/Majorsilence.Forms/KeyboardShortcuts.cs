@@ -90,7 +90,10 @@ namespace Majorsilence.Forms
 
         internal static bool TryInvokeMnemonic (Form form, char charCode)
         {
-            foreach (var item in MenuItemsOf (form)) {
+            // The strips' own items only, as upstream's ToolStrip.ProcessMnemonic offers it: an open
+            // drop-down takes its letters through MenuBase.HandleNavigationKey. Searching every drop-down
+            // too, depth first, found ReportDesigner's Edit > Cu&t before &Tools, so Alt+T ran Cut.
+            foreach (var item in MenusOf (form).SelectMany (menu => menu.RootItems.Cast<MenuItem> ())) {
                 if (!IsEnabledAndVisible (item) || !Control.IsMnemonic (charCode, item.Text ?? string.Empty))
                     continue;
 

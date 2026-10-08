@@ -669,6 +669,30 @@ namespace Majorsilence.Forms
                     return true;
             }
 
+            // An access key in the open menu activates its item, as upstream's ToolStripDropDown
+            // ProcessMnemonic does, with or without Alt held: Alt+T then O opens Tools > Options.
+            // Letters fell through to nothing here, so an open menu could only be walked with the arrows.
+            if ((keys & Keys.Control) == Keys.None && Control.MnemonicCharacterOf (keys) is var character and not '\0') {
+                foreach (MenuItem item in open.RootItems) {
+                    if (!item.Visible || !item.Enabled || !Control.IsMnemonic (character, item.Text ?? string.Empty))
+                        continue;
+
+                    if (item.HasItems) {
+                        open.SelectItemFromKeyboard (item);
+
+                        if (!item.IsDropDownOpened)
+                            item.ShowDropDown ();
+
+                        item.OpenDropDown?.MoveSelection (null, 1);
+                        return true;
+                    }
+
+                    Application.ClosePopups (reason: ToolStripDropDownCloseReason.ItemClicked);
+                    item.PerformClick ();
+                    return true;
+                }
+            }
+
             return false;
         }
 

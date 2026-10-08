@@ -1061,7 +1061,7 @@ namespace Majorsilence.Forms
 
         // The printable character an Alt-modified key stands for. Letters and digits only: those are
         // what an ampersand can mark in a caption.
-        private static char MnemonicCharacterOf (Keys keyData)
+        internal static char MnemonicCharacterOf (Keys keyData)
         {
             var code = keyData & Keys.KeyCode;
 
