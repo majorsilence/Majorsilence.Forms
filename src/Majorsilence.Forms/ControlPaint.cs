@@ -60,6 +60,11 @@ namespace Majorsilence.Forms
         /// </summary>
         public static void DrawCheckBox (PaintEventArgs e, Rectangle rectangle, CheckState state, bool disabled = false)
         {
+            if (UsesUpstreamGlyphs) {
+                DrawUpstreamCheckBox (e, rectangle, state, disabled);
+                return;
+            }
+
             var color = disabled ? Theme.ForegroundDisabledColor
                             : state == CheckState.Checked && !disabled ? Theme.AccentColor
                             : Theme.BorderLowColor;
@@ -154,6 +159,11 @@ namespace Majorsilence.Forms
         /// </summary>
         public static void DrawRadioButton (PaintEventArgs e, Point origin, CheckState state, bool disabled = false)
         {
+            if (UsesUpstreamGlyphs) {
+                DrawUpstreamRadioButton (e, origin, state, disabled);
+                return;
+            }
+
             // Sized for the 13px GDI-parity glyph box (see RadioButtonRenderer.GlyphSize).
             var outer_radius = e.LogicalToDeviceUnits (6);
             var inner_radius = e.LogicalToDeviceUnits (3);
@@ -165,6 +175,95 @@ namespace Majorsilence.Forms
 
             if (state == CheckState.Checked)
                 e.Canvas.FillCircle (origin.X, origin.Y, inner_radius, disabled ? Theme.ForegroundDisabledColor : Theme.AccentColor2);
+        }
+
+        // ── Upstream's glyphs ──────────────────────────────────────────────────────
+        //
+        // A ported WinForms app (one that chose its font with Application.SetDefaultFont) gets the check
+        // box and radio button WinForms draws under the Windows 11 theme, colours measured from it: a
+        // rounded box or circle, outlined and pale when clear, filled with the accent and marked in white
+        // when set. The theme's square-in-a-square read as a different control beside WinForms'.
+        // Apps that have not chosen a font keep the theme's glyphs.
+
+        private static readonly SKColor UpstreamAccent = new SKColor (0x00, 0x5F, 0xB8);
+        private static readonly SKColor UpstreamOutline = new SKColor (0x62, 0x62, 0x62);
+        private static readonly SKColor UpstreamClearFill = new SKColor (0xF3, 0xF3, 0xF3);
+        private static readonly SKColor UpstreamDisabled = new SKColor (0xA0, 0xA0, 0xA0);
+
+        internal static bool UsesUpstreamGlyphs => SystemFonts.HasDefaultFontOverride;
+
+        private static void DrawUpstreamCheckBox (PaintEventArgs e, Rectangle rectangle, CheckState state, bool disabled)
+        {
+            var scale = (float) e.Scaling;
+            var box = new SKRect (rectangle.X, rectangle.Y, rectangle.Right, rectangle.Bottom);
+            var radius = 3f * scale;
+
+            using var paint = new SKPaint { IsAntialias = true };
+
+            if (state == CheckState.Unchecked) {
+                paint.Color = UpstreamClearFill;
+                e.Canvas.DrawRoundRect (box, radius, radius, paint);
+
+                // The outline inside the box, on pixel centres, so a 1px line stays crisp.
+                var half = 0.5f * scale;
+                paint.Style = SKPaintStyle.Stroke;
+                paint.StrokeWidth = scale;
+                paint.Color = disabled ? UpstreamDisabled : UpstreamOutline;
+                e.Canvas.DrawRoundRect (new SKRect (box.Left + half, box.Top + half, box.Right - half, box.Bottom - half), radius - half, radius - half, paint);
+                return;
+            }
+
+            paint.Color = disabled ? UpstreamDisabled : UpstreamAccent;
+            e.Canvas.DrawRoundRect (box, radius, radius, paint);
+
+            paint.Color = SKColors.White;
+            paint.Style = SKPaintStyle.Stroke;
+            paint.StrokeWidth = 1.2f * scale;
+            paint.StrokeCap = SKStrokeCap.Round;
+            paint.StrokeJoin = SKStrokeJoin.Round;
+
+            float X (float logical) => box.Left + logical * scale;
+            float Y (float logical) => box.Top + logical * scale;
+
+            if (state == CheckState.Indeterminate) {
+                e.Canvas.DrawLine (X (3.5f), Y (6.5f), X (9.5f), Y (6.5f), paint);
+                return;
+            }
+
+            using var tick = new SKPath ();
+            tick.MoveTo (X (3.5f), Y (6.5f));
+            tick.LineTo (X (5.5f), Y (8.5f));
+            tick.LineTo (X (9.5f), Y (4.5f));
+            e.Canvas.DrawPath (tick, paint);
+        }
+
+        private static void DrawUpstreamRadioButton (PaintEventArgs e, Point origin, CheckState state, bool disabled)
+        {
+            // origin is the centre pixel of the 13px glyph box; the circle is centred on that pixel's
+            // middle so its 13px span is symmetric.
+            var scale = (float) e.Scaling;
+            var cx = origin.X + 0.5f * scale;
+            var cy = origin.Y + 0.5f * scale;
+            var radius = 6.5f * scale;
+
+            using var paint = new SKPaint { IsAntialias = true };
+
+            if (state == CheckState.Checked) {
+                paint.Color = disabled ? UpstreamDisabled : UpstreamAccent;
+                e.Canvas.DrawCircle (cx, cy, radius, paint);
+
+                paint.Color = SKColors.White;
+                e.Canvas.DrawCircle (cx, cy, 2.75f * scale, paint);
+                return;
+            }
+
+            paint.Color = UpstreamClearFill;
+            e.Canvas.DrawCircle (cx, cy, radius, paint);
+
+            paint.Style = SKPaintStyle.Stroke;
+            paint.StrokeWidth = scale;
+            paint.Color = disabled ? UpstreamDisabled : UpstreamOutline;
+            e.Canvas.DrawCircle (cx, cy, radius - 0.5f * scale, paint);
         }
 
         // --- WinForms compatibility overloads taking Majorsilence.Forms.Drawing.Graphics ---
