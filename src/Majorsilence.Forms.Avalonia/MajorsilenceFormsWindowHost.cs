@@ -105,6 +105,7 @@ namespace Majorsilence.Forms
             Deactivated += (_, _) => _owner.OnBackendDeactivated ();
 
             AvaloniaGestureWiring.Attach (this, _owner, () => RenderScaling);
+            AvaloniaDropWiring.Attach (this, _owner, () => RenderScaling);
         }
 
         private void OnWindowClosing (object? sender, WindowClosingEventArgs e)
