@@ -20,9 +20,10 @@ namespace Majorsilence.Forms.Backends
     /// <see cref="NotifyIcon.ContextMenuStrip"/> is converted to a <see cref="NativeMenu"/> (rebuilt
     /// when Avalonia asks, raising the strip's Opening first) and each item's click is forwarded to
     /// <see cref="MenuItem.PerformClick"/>.</item>
-    /// <item>No pointer movement and no balloon API: ShowBalloonTip posts a native notification
-    /// through <c>osascript</c> on macOS and <c>notify-send</c> on Linux, and reports failure on
-    /// Windows (use the WinForms or WPF host for shell balloons).</item>
+    /// <item>No pointer movement and no balloon API: ShowBalloonTip reports failure on every platform, so
+    /// <see cref="NotifyIcon"/> writes its trace warning (use the WinForms or WPF host for shell balloons).
+    /// It does not shell out to a notification utility: a UI library starting processes surprises
+    /// sandboxed apps (Mac App Store, Flatpak) and puts caller text on a command line.</item>
     /// <item>On Linux the icon appears only where a StatusNotifier host runs (KDE, most other desktops;
     /// GNOME needs the AppIndicator extension). Avalonia cannot tell, so neither can this.</item>
     /// </list>
@@ -154,50 +155,8 @@ namespace Majorsilence.Forms.Backends
             _owner.HandleTrayMouseUp (MouseButtons.Left, System.Drawing.Point.Empty);
         }
 
-        public bool ShowBalloonTip (int timeout, string title, string text, ToolTipIcon icon)
-        {
-            ProcessStartInfo info;
-
-            if (OperatingSystem.IsMacOS ()) {
-                info = new ProcessStartInfo ("osascript");
-                info.ArgumentList.Add ("-e");
-                info.ArgumentList.Add ($"display notification {AppleScriptString (text)} with title {AppleScriptString (title)}");
-            } else if (OperatingSystem.IsLinux ()) {
-                info = new ProcessStartInfo ("notify-send");
-                if (timeout > 0) {
-                    info.ArgumentList.Add ("-t");
-                    info.ArgumentList.Add (timeout.ToString (System.Globalization.CultureInfo.InvariantCulture));
-                }
-                info.ArgumentList.Add ("-i");
-                info.ArgumentList.Add (icon switch {
-                    ToolTipIcon.Error => "dialog-error",
-                    ToolTipIcon.Warning => "dialog-warning",
-                    _ => "dialog-information",
-                });
-                info.ArgumentList.Add (title.Length == 0 ? " " : title);
-                info.ArgumentList.Add (text);
-            } else {
-                return false;
-            }
-
-            info.UseShellExecute = false;
-            info.CreateNoWindow = true;
-
-            try {
-                using var process = Process.Start (info);
-
-                if (process is null)
-                    return false;
-            } catch (System.ComponentModel.Win32Exception) {
-                return false;   // the utility is not installed
-            }
-
-            _owner.HandleBalloonTipShown ();
-            return true;
-        }
-
-        private static string AppleScriptString (string value)
-            => "\"" + value.Replace ("\\", "\\\\").Replace ("\"", "\\\"") + "\"";
+        // Avalonia has no notification API; see the class remarks for why this does not start a process.
+        public bool ShowBalloonTip (int timeout, string title, string text, ToolTipIcon icon) => false;
 
         public void Dispose ()
         {
