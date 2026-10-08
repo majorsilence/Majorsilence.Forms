@@ -579,10 +579,8 @@ public partial class Control
         remove => Events.RemoveHandler (s_mouseDoubleClickEvent, value);
     }
 
-#pragma warning disable CS0067
-    /// <summary>Raised when the user scrolls the control. Stub in Majorsilence.Forms.</summary>
-    public event ScrollEventHandler? Scroll;
-#pragma warning restore CS0067
+    // No Control.Scroll: upstream declares Scroll on ScrollableControl, ScrollBar and DataGridView only
+    // (TrackBar's is an EventHandler). A stub here swallowed handlers on every other control (EVT-30).
 
     /// <summary>Raised when the DPI scaling of the control changes.</summary>
     /// <remarks>

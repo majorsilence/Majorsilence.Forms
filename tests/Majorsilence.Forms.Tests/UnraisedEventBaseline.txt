@@ -8,7 +8,6 @@
 # Regenerate with MAJORSILENCE_WRITE_UNRAISED_EVENT_BASELINE=1.
 Majorsilence.Forms.CommonDialog.HelpRequest    -- native dialogs; no help button to click
 Majorsilence.Forms.Control.QueryAccessibilityHelp    -- accessibility infrastructure; no accessible-object tree
-Majorsilence.Forms.Control.Scroll    -- not an upstream Control member; ScrollableControl.Scroll is the one that fires
 Majorsilence.Forms.DataGrid.BackButtonClick    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGrid.BackgroundColorChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either
 Majorsilence.Forms.DataGrid.BorderStyleChanged    -- upstream ships this family as binary-compat stubs; it raises nothing either

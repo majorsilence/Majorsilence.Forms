@@ -2842,24 +2842,15 @@ namespace Majorsilence.Forms
                     var col = GetColumnAtLocation (LogicalToDeviceUnits (e.Location));
 
                     if (col >= 0) {
-                        // A header click is how a column gets selected from the UI, and the only way in
-                        // ColumnHeaderSelect -- where clicking a cell selects the cell instead.
-                        if (SelectionIsColumnBased)
+                        // A header press is how a column gets selected from the UI, and the only way in
+                        // ColumnHeaderSelect -- where clicking a cell selects the cell instead. Upstream
+                        // selects on the press too (OnColumnHeaderMouseDown), unless Alt starts a reorder.
+                        if (SelectionIsColumnBased && !(AllowUserToOrderColumns && (e.Modifiers & Keys.Alt) == Keys.Alt))
                             SelectFromPointer (-1, col, e.Modifiers);
 
-                        // SortMode is the gate, not just this library's Sortable: a Programmatic column
-                        // is one the app sorts itself in the click handler, and sorting it here too
-                        // sorted it twice (DGV-17).
-                        if (CanSortByHeaderClick (Columns[col]))
-                            OnColumnHeaderClick (col);
-
-                        // Raised AFTER the sort, as upstream's OnColumnHeaderMouseClick does: the standard
-                        // handler reads grid.SortOrder here, and raising first showed it the previous
-                        // order (the ordering trap DGV-16 records). Fires for every header click
-                        // (WinForms uses rowIndex -1 for header cells), not just sortable columns.
-                        OnColumnHeaderMouseClick (new DataGridViewCellMouseEventArgs (col, -1,
-                            e.Location.X - DeviceToLogicalUnits (GetColumnDeviceLeft (col)),
-                            e.Location.Y - DeviceToLogicalUnits (client.Top), e));
+                        // The sort and ColumnHeaderMouseClick wait for the release (EndHeaderPress), where
+                        // upstream raises them: the press may yet become a reorder drag (DGV-23).
+                        BeginHeaderPress (col, e.Location, e.Modifiers);
                     }
 
                     return;
@@ -2916,6 +2907,13 @@ namespace Majorsilence.Forms
             base.OnMouseMove (e);
             RouteHeaderMouseMove (e);
             RaiseCellMouseMove (e);
+
+            // A header press that has travelled past the drag threshold is a reorder (DGV-23); while one
+            // is tracking, the pointer moves the feedback and nothing else.
+            if (IsRelocatingColumn || TryBeginColumnRelocation (e.Location)) {
+                MoveColumnRelocation (LogicalToDeviceUnits (e.Location.X));
+                return;
+            }
 
             if (is_resizing_column) {
                 // Device on both sides (RC-8): the start x and the width were device, the delta was not.
@@ -3007,6 +3005,11 @@ namespace Majorsilence.Forms
         protected override void OnMouseUp (MouseEventArgs e)
         {
             RouteHeaderMouseUp (e);
+
+            // Ahead of MouseUp, where upstream's click comes (Control raises MouseClick before MouseUp).
+            if (e.Button.HasFlag (MouseButtons.Left))
+                EndHeaderPress (e);
+
             base.OnMouseUp (e);
 
             // A resize drag is not a click: releasing after one must not toggle a check box or run a
@@ -3690,11 +3693,11 @@ namespace Majorsilence.Forms
 
         /// <summary>Raised after the grid scrolls, by the user or by code, in either direction.</summary>
         /// <remarks>
-        /// Declared here because upstream declares it on <c>DataGridView</c>; the base <c>Control.Scroll</c>
-        /// is not an upstream member and nothing raises it. Nothing raised this one either, and
+        /// Declared here because upstream declares it on <c>DataGridView</c> (Control has none). Nothing
+        /// raised it once, and
         /// <c>OnScroll</c> was an empty seam, so two grids kept in step through it never moved (DGV-34).
         /// </remarks>
-        public new event ScrollEventHandler? Scroll;
+        public event ScrollEventHandler? Scroll;
 
         /// <summary>Raises the <see cref="Scroll"/> event.</summary>
         protected virtual void OnScroll (ScrollEventArgs e) => Scroll?.Invoke (this, e);
@@ -3719,6 +3722,13 @@ namespace Majorsilence.Forms
             var type = gesture ?? (Math.Abs (newValue - oldValue) <= small
                 ? (newValue > oldValue ? ScrollEventType.SmallIncrement : ScrollEventType.SmallDecrement)
                 : (newValue > oldValue ? ScrollEventType.LargeIncrement : ScrollEventType.LargeDecrement));
+
+            // A horizontal position is reported in the logical pixels HorizontalScrollingOffset answers in
+            // (RC-8); the bar and the geometry work in device pixels.
+            if (orientation == ScrollOrientation.HorizontalScroll) {
+                oldValue = DeviceToLogicalUnits (oldValue);
+                newValue = DeviceToLogicalUnits (newValue);
+            }
 
             OnScroll (new ScrollEventArgs (type, oldValue, newValue, orientation));
         }
@@ -3766,9 +3776,9 @@ namespace Majorsilence.Forms
             var band = ScrollingBandWidth ();
 
             if (left < horizontal_scroll_offset)
-                HorizontalScrollingOffset = left;
+                HorizontalScrollingOffsetDevice = left;
             else if (left + width > horizontal_scroll_offset + band)
-                HorizontalScrollingOffset = Math.Min (left, left + width - band);
+                HorizontalScrollingOffsetDevice = Math.Min (left, left + width - band);
         }
 
         // The device width of the region the scrolling columns move through -- what UpdateScrollBars
@@ -4007,8 +4017,21 @@ namespace Majorsilence.Forms
 
         private ScrollBars scroll_bars = ScrollBars.Both;
 
-        /// <summary>Gets or sets the horizontal scrolling offset in pixels. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the horizontal scrolling offset in pixels.</summary>
+        /// <remarks>
+        /// In logical pixels, like every public size and offset (RC-8). It answered the grid's device
+        /// offset, so at a display scale of 2 it read double what upstream's does for the same scroll, and an
+        /// assigned value scrolled half as far. The grid's own geometry uses
+        /// <see cref="HorizontalScrollingOffsetDevice"/>.
+        /// </remarks>
         public int HorizontalScrollingOffset {
+            get => DeviceToLogicalUnits (horizontal_scroll_offset);
+            set => HorizontalScrollingOffsetDevice = LogicalToDeviceUnits (Math.Max (0, value));
+        }
+
+        // The offset in DEVICE pixels, which the column geometry, the horizontal bar and ScrollIntoView all
+        // work in.
+        internal int HorizontalScrollingOffsetDevice {
             get => horizontal_scroll_offset;
             set {
                 // RC-6 again, and the second twin of this exact kind after ListBox's
@@ -4075,7 +4098,7 @@ namespace Majorsilence.Forms
                     x += LogicalToDeviceUnits (Columns[i].Width);
                 }
 
-                HorizontalScrollingOffset = x;
+                HorizontalScrollingOffsetDevice = x;
             }
         }
 

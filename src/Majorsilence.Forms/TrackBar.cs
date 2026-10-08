@@ -340,7 +340,7 @@ namespace Majorsilence.Forms
         /// <see cref="ValueChanged"/> only, as upstream does, so a handler here can drive a linked
         /// control without the two feeding each other.
         /// </summary>
-        public new event EventHandler? Scroll;
+        public event EventHandler? Scroll;
 
         /// <summary>
         /// Occurs when the <see cref="Value"/> property changes.

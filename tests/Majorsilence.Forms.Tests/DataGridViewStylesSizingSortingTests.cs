@@ -23,8 +23,13 @@ namespace Majorsilence.Forms.Tests
     {
         private sealed class ClickableGrid : DataGridView
         {
+            // A press and a release: the header click sorts on the release, as upstream's does, so a
+            // press alone (which this helper was) no longer sorts (DGV-23).
             internal void ClickAt (int x, int y)
-                => OnMouseDown (new MouseEventArgs (MouseButtons.Left, 1, x, y, Point.Empty));
+            {
+                OnMouseDown (new MouseEventArgs (MouseButtons.Left, 1, x, y, Point.Empty));
+                OnMouseUp (new MouseEventArgs (MouseButtons.Left, 1, x, y, Point.Empty));
+            }
         }
 
         private static ClickableGrid Grid (out Form form, int rows = 3, int columns = 2, int width = 400)
