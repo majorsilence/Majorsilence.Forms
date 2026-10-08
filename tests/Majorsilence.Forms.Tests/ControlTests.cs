@@ -293,20 +293,25 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void OnParentVisibleChanged_CascadesThroughMultipleLevels_WhenAncestorRemovedFromParent ()
+        public void OnParentVisibleChanged_CascadesThroughMultipleLevels_WhenAncestorAddedToHiddenParent ()
         {
+            // Was "...WhenAncestorRemovedFromParent": removal used to hide the subtree, but an unparented
+            // control is visible (CTL-14, upstream's Visible getter), so removal changes nothing. Joining
+            // a hidden parent is the Add/Remove that does hide it, and upstream's AssignParent raises
+            // VisibleChanged for that.
             using var form = new Form ();
+            var hidden = new Panel { Visible = false };
             var panelA = new Panel ();
             var panelB = new Panel ();
             var leaf = new VisibleChangeRecordingControl ();
 
+            form.Controls.Add (hidden);
             panelB.Controls.Add (leaf);
             panelA.Controls.Add (panelB);
-            form.Controls.Add (panelA);
 
             var baseline = leaf.VisibleChangedCount;
 
-            form.Controls.Remove (panelA);
+            hidden.Controls.Add (panelA);
 
             Assert.False (leaf.Visible);
             Assert.True (leaf.VisibleChangedCount > baseline);
@@ -336,26 +341,28 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void OnParentVisibleChanged_CascadesBackOnReshow_WhenAncestorReAddedToParent ()
+        public void OnParentVisibleChanged_CascadesBackOnReshow_WhenHiddenParentShown ()
         {
+            // Was "...WhenAncestorReAddedToParent", which relied on removal hiding the subtree (see
+            // above). The subtree is now hidden by its parent and shown again by it.
             using var form = new Form ();
+            var hidden = new Panel { Visible = false };
             var panelA = new Panel ();
             var panelB = new Panel ();
             var leaf = new VisibleChangeRecordingControl ();
 
+            form.Controls.Add (hidden);
             panelB.Controls.Add (leaf);
             panelA.Controls.Add (panelB);
-            form.Controls.Add (panelA);
-
-            form.Controls.Remove (panelA);
+            hidden.Controls.Add (panelA);
             Assert.False (leaf.Visible);
 
-            var countWhileRemoved = leaf.VisibleChangedCount;
+            var countWhileHidden = leaf.VisibleChangedCount;
 
-            form.Controls.Add (panelA);
+            hidden.Visible = true;
 
             Assert.True (leaf.Visible);
-            Assert.True (leaf.VisibleChangedCount > countWhileRemoved);
+            Assert.True (leaf.VisibleChangedCount > countWhileHidden);
         }
 
         [Fact]
