@@ -65,8 +65,12 @@ namespace Majorsilence.Forms
         }
 
         // Group header bands occupy a line each, so the scrollbar counts them: a grouped list that
-        // counted only items could not scroll far enough to reach its last row.
-        internal int LineCount => (Items.Count + ItemsPerLine - 1) / Math.Max (1, ItemsPerLine) + GroupBandCount;
+        // counted only items could not scroll far enough to reach its last row. Grouped, each group's
+        // items start a fresh line and a collapsed group's take none, so the count comes from the same
+        // walk the layout does (GroupedLineCount) rather than from the item total.
+        internal int LineCount => IsGrouped
+            ? GroupedLineCount ()
+            : (Items.Count + ItemsPerLine - 1) / Math.Max (1, ItemsPerLine);
 
         /// <summary>The number of whole lines that fit in the item area.</summary>
         internal int VisibleLineCount => Math.Max (1, ItemArea.Height / Math.Max (1, ScaledLineHeight));
@@ -302,6 +306,14 @@ namespace Majorsilence.Forms
 
         private void LayoutTiles (Rectangle bounds)
         {
+            group_bands.Clear ();
+            item_lines.Clear ();
+
+            if (IsGrouped) {
+                LayoutTilesGrouped (bounds);
+                return;
+            }
+
             var item_width = ScaledTileSize;
             var item_height = ScaledTileHeight;
             var item_margin = LogicalToDeviceUnits (6);
@@ -1266,7 +1278,10 @@ namespace Majorsilence.Forms
 
             UpdateVerticalScrollBar ();
 
-            var line = index / Math.Max (1, ItemsPerLine);
+            // Grouped, an item's line depends on the bands and partial lines before it, which only the
+            // layout knows; it records them as it goes.
+            LayoutItems ();
+            var line = item_lines.TryGetValue (Items[index], out var laid) ? laid : index / Math.Max (1, ItemsPerLine);
             var visible = VisibleLineCount;
             var target = top_index;
 

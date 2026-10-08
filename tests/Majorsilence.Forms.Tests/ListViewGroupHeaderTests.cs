@@ -101,12 +101,15 @@ namespace Majorsilence.Forms.Tests
                 Assert.DoesNotContain (view.GroupBands, b => b.IsFooter);
 
                 // The invariant that matters, and the one the band count alone does not test: the
-                // scrollbar reads LineCount, the rows come from LayoutRowsGrouped, and the two count
-                // bands through different code. A GroupBandCount that still counted the collapsed
-                // group's footer would leave the list one line longer than it draws -- a blank line
-                // you can scroll to. The layout's own `continue` hides that from the band count, so it
-                // has to be asserted here.
-                Assert.Equal (view.Items.Count + view.GroupBands.Count, view.LineCount);
+                // scrollbar reads LineCount, the rows come from LayoutRowsGrouped, and the two must
+                // count the same lines. A count that still included the collapsed group's footer would
+                // leave the list one line longer than it draws -- a blank line you can scroll to. The
+                // layout's own `continue` hides that from the band count, so it has to be asserted
+                // here. Only items actually laid out count: a collapsed group's take no line (LST-46's
+                // tile pass corrected this from Items.Count, which had the same blank-tail defect).
+                var laid_out = view.Items.Cast<ListViewItem> ().Count (i => !i.DeviceBounds.IsEmpty);
+                Assert.True (laid_out < view.Items.Count, "the collapsed group's items are not laid out");
+                Assert.Equal (laid_out + view.GroupBands.Count, view.LineCount);
             }
         }
 

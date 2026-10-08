@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -77,17 +78,42 @@ namespace Majorsilence.Forms
                 yield return (null, ungrouped);
         }
 
-        // The number of lines grouping adds: one per band. Kept separate so LineCount stays readable
-        // and so the scrollbar counts what the layout actually places.
-        //
-        // A group with a Footer places a SECOND band, so this is not simply the group count -- and it
-        // has to agree with LayoutRowsGrouped exactly or the scrollbar and the rows disagree about how
-        // far the list runs. Both read HasFooter, which is the single place the rule lives.
-        internal int GroupBandCount
-            => IsGrouped
-                ? GroupRuns ().Where (run => run.Group is not null)
-                    .Sum (run => 1 + (HasFooter (run.Group!) ? 1 : 0))
-                : 0;
+        // The lines a grouped list lays out: per group a header band, its items in whole lines (a
+        // group always starts a fresh line, so a part-filled tile line is a line), and a footer band
+        // when it has one; a collapsed group's items take none. It has to agree with LayoutRowsGrouped
+        // and LayoutTilesGrouped exactly or the scrollbar and the layout disagree about how far the
+        // list runs -- which is what counting collapsed items as lines did (a blank tail you could
+        // scroll into). All three read HasFooter and FlowsInGroup, the single places those rules live.
+        internal int GroupedLineCount ()
+        {
+            var per_line = Math.Max (1, ItemsPerLine);
+            var lines = 0;
+
+            foreach (var (group, items) in GroupRuns ()) {
+                if (group is not null) {
+                    lines++;
+
+                    if (group.CollapsedState == ListViewGroupCollapsedState.Collapsed)
+                        continue;
+                }
+
+                var flowing = items.Count (FlowsInGroup);
+
+                lines += (flowing + per_line - 1) / per_line;
+
+                if (group is not null && HasFooter (group))
+                    lines++;
+            }
+
+            return lines;
+        }
+
+        // An item placed by ListViewItem.Position (tile views, AutoArrange off) sits where it was put
+        // and takes no slot in the flow, grouped or not (W6 mechanisms).
+        private bool FlowsInGroup (ListViewItem item) => IsRowView || AutoArrange || item.PlacedPosition is null;
+
+        // The line each item was laid out on, for EnsureVisible: grouped, that is not index / per-line.
+        private readonly Dictionary<ListViewItem, int> item_lines = new ();
 
         // A collapsed group shows no footer: the footer belongs to the items, and they are not there.
         private static bool HasFooter (ListViewGroup group)
@@ -144,6 +170,7 @@ namespace Majorsilence.Forms
             var y = bounds.Top - top_index * row_height;
 
             group_bands.Clear ();
+            item_lines.Clear ();
 
             // Not grouped: lay the items out in order, exactly as before this existed. Checked here
             // rather than at the call site so there is one place that decides, and so a list whose
@@ -178,6 +205,7 @@ namespace Majorsilence.Forms
                 }
 
                 foreach (var item in items) {
+                    item_lines[item] = (y - bounds.Top) / row_height + top_index;
                     item.SetBounds (bounds.Left, y, bounds.Width, row_height);
                     LayoutSubItems (item);
 
@@ -187,6 +215,72 @@ namespace Majorsilence.Forms
                 if (group is not null && HasFooter (group)) {
                     group_bands.Add (new GroupBand (group, new Rectangle (bounds.Left, y, bounds.Width, row_height), isFooter: true));
                     y += row_height;
+                }
+            }
+        }
+
+        // The tile views grouped (LST-46's remainder). Upstream groups LargeIcon and Tile as it groups
+        // Details: a header over each group's tiles, which start on a fresh line. Each band takes a
+        // whole tile line, so the scrolling arithmetic -- top_index, ScaledLineHeight, VisibleLineCount
+        // -- still steps by one uniform line, the same simplification the row views make; the band is
+        // drawn one text row tall at the FOOT of its line, next to the tiles it heads, so the rest of the
+        // line reads as the gap between two groups. A footer band sits at the HEAD of its line, under
+        // its group's tiles, for the same reason.
+        private void LayoutTilesGrouped (Rectangle bounds)
+        {
+            var item_width = ScaledTileSize;
+            var item_height = ScaledTileHeight;
+            var item_margin = LogicalToDeviceUnits (6);
+            var stride = item_height + item_margin;
+            var band_height = Math.Min (ScaledRowHeight, stride);
+            var origin = bounds.Top - top_index * stride;
+            var y = origin;
+
+            foreach (var (group, items) in GroupRuns ()) {
+                if (group is not null) {
+                    group_bands.Add (new GroupBand (group, new Rectangle (bounds.Left, y + stride - band_height, bounds.Width, band_height)));
+                    y += stride;
+
+                    if (group.CollapsedState == ListViewGroupCollapsedState.Collapsed) {
+                        // Laid out nowhere, as in the row views: an empty rectangle is neither drawn
+                        // nor hit.
+                        foreach (var item in items)
+                            item.SetBounds (0, 0, 0, 0);
+
+                        continue;
+                    }
+                }
+
+                var x = bounds.Left;
+                var line_open = false;
+
+                foreach (var item in items) {
+                    if (!FlowsInGroup (item) && item.PlacedPosition is { } placed) {
+                        item.SetBounds (LogicalToDeviceUnits (placed.X), LogicalToDeviceUnits (placed.Y) - top_index * stride, item_width, item_height);
+                        continue;
+                    }
+
+                    // Against the right edge, as the ungrouped flow wraps; the first tile on a line
+                    // always goes there, however narrow the list.
+                    if (line_open && x + item_width > bounds.Right) {
+                        x = bounds.Left;
+                        y += stride;
+                    }
+
+                    item_lines[item] = (y - origin) / stride;
+                    item.SetBounds (x, y, item_width, item_height);
+                    x += item_width + item_margin;
+                    line_open = true;
+                }
+
+                // A group's last line is a line even when it is part-filled: the next group starts
+                // below it.
+                if (line_open)
+                    y += stride;
+
+                if (group is not null && HasFooter (group)) {
+                    group_bands.Add (new GroupBand (group, new Rectangle (bounds.Left, y, bounds.Width, band_height), isFooter: true));
+                    y += stride;
                 }
             }
         }

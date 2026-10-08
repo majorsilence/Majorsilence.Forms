@@ -76,7 +76,7 @@ namespace Majorsilence.Forms
                     y--;
             }
 
-            CalendarDimensions = new Size (x, y);
+            calendar_dimensions = new Size (x, y);
             Invalidate ();
         }
 
@@ -164,37 +164,58 @@ namespace Majorsilence.Forms
             if (!DeviceClientRectangle.Contains (device))
                 return new HitTestInfo (point, HitArea.Nowhere, DateTime.MinValue);
 
-            var geometry = Geometry;
+            // The arrows belong to the control, not to one month: the previous arrow is on the first
+            // month and the next arrow on the last month of the top row (SMP-46).
+            var arrows = Geometry;
 
-            // The title band carries the month name in the middle and the two scroll arrows at the
-            // ends, which is why the arrows are tested before the title itself.
-            if (geometry.PrevButton.Contains (device))
+            if (arrows.PrevButton.Contains (device))
                 return new HitTestInfo (point, HitArea.PrevMonthButton, DateTime.MinValue);
-            if (geometry.NextButton.Contains (device))
+            if (arrows.NextButton.Contains (device))
                 return new HitTestInfo (point, HitArea.NextMonthButton, DateTime.MinValue);
+
+            if (arrows.TodayBand.Contains (device))
+                return new HitTestInfo (point, HitArea.TodayLink, TodayDate);
+
+            for (var index = 0; index < MonthsShown; index++) {
+                var geometry = GetMonthGeometry (index);
+
+                if (geometry.Block.Contains (device))
+                    return HitTestMonth (point, device, geometry);
+            }
+
+            // Inside the control but on none of the bands: the few pixels integer division leaves at
+            // the right and bottom edges of the grid.
+            return new HitTestInfo (point, HitArea.CalendarBackground, DateTime.MinValue);
+        }
+
+        // One month's block: its title, day header, week numbers and day cells.
+        private HitTestInfo HitTestMonth (Point point, Point device, MonthCalendarGeometry geometry)
+        {
             if (geometry.Title.Contains (device))
                 return new HitTestInfo (point, TitleAreaAt (device.X, geometry), DateTime.MinValue);
-
-            if (geometry.TodayBand.Contains (device))
-                return new HitTestInfo (point, HitArea.TodayLink, TodayDate);
 
             if (geometry.DayHeader.Contains (device)) {
                 var column = Math.Min ((device.X - geometry.DayHeader.Left) / geometry.CellWidth, 6);
 
-                return new HitTestInfo (point, HitArea.DayOfWeek, GetDateAt (0, column));
+                return new HitTestInfo (point, HitArea.DayOfWeek, GetDateAt (geometry, 0, column));
             }
 
             if (geometry.WeekNumberColumn.Contains (device)) {
                 var week = Math.Min ((device.Y - geometry.WeekNumberColumn.Top) / geometry.CellHeight, 5);
 
-                return new HitTestInfo (point, HitArea.WeekNumbers, GetDateAt (week, 0));
+                return new HitTestInfo (point, HitArea.WeekNumbers, GetDateAt (geometry, week, 0));
             }
 
             if (geometry.Grid.Contains (device)) {
                 var column = (device.X - geometry.Grid.Left) / geometry.CellWidth;
                 var week = (device.Y - geometry.Grid.Top) / geometry.CellHeight;
-                var date = GetDateAt (week, column);
-                var displayed = DisplayMonth;
+                var date = GetDateAt (geometry, week, column);
+                var displayed = geometry.Month;
+
+                // An adjacent month's day between two months on screen is not drawn, so there is
+                // nothing there to click (SMP-46).
+                if (!IsDrawn (geometry, date))
+                    return new HitTestInfo (point, HitArea.CalendarBackground, DateTime.MinValue);
 
                 // The leading and trailing days belong to the neighbouring months and say so, because
                 // clicking one both selects that date and pages the view -- callers need to tell them
@@ -206,18 +227,21 @@ namespace Majorsilence.Forms
                 return new HitTestInfo (point, area, date);
             }
 
-            // Inside the control but on none of the bands: the few pixels integer division leaves at
-            // the right and bottom edges of the grid.
             return new HitTestInfo (point, HitArea.CalendarBackground, DateTime.MinValue);
         }
 
         // The title caption: the renderer draws exactly this string, centred in exactly this area, so
         // the month and year runs HitTest finds are where the user sees them.
-        internal string TitleCaption => DisplayMonth.ToString ("MMMM yyyy", System.Globalization.CultureInfo.CurrentCulture);
+        internal string TitleCaption => TitleCaptionOf (DisplayMonth);
 
+        internal static string TitleCaptionOf (DateTime month)
+            => month.ToString ("MMMM yyyy", System.Globalization.CultureInfo.CurrentCulture);
+
+        // Inset by the arrow width on both sides on every month, arrows or not, so every month's
+        // caption is centred the same way (SMP-46).
         internal static Rectangle TitleTextArea (MonthCalendarGeometry geometry)
-            => new Rectangle (geometry.PrevButton.Right, geometry.Title.Top,
-                              Math.Max (0, geometry.NextButton.Left - geometry.PrevButton.Right),
+            => new Rectangle (geometry.Title.Left + geometry.ArrowWidth, geometry.Title.Top,
+                              Math.Max (0, geometry.Title.Width - (2 * geometry.ArrowWidth)),
                               geometry.Title.Height);
 
         // SMP-43's remainder: the native control answers MCHT_TITLEMONTH over the month name,
@@ -229,9 +253,9 @@ namespace Majorsilence.Forms
             var area = TitleTextArea (geometry);
             var font = GetEffectiveFont ();
             var size = LogicalToDeviceUnits (GetEffectiveFontSize ());
-            var caption = TitleCaption;
-            var year = DisplayMonth.ToString ("yyyy", System.Globalization.CultureInfo.CurrentCulture);
-            var month = DisplayMonth.ToString ("MMMM", System.Globalization.CultureInfo.CurrentCulture);
+            var caption = TitleCaptionOf (geometry.Month);
+            var year = geometry.Month.ToString ("yyyy", System.Globalization.CultureInfo.CurrentCulture);
+            var month = geometry.Month.ToString ("MMMM", System.Globalization.CultureInfo.CurrentCulture);
 
             var caption_width = TextMeasurer.MeasureText (caption, font, size).Width;
             var left = area.Left + (area.Width - caption_width) / 2f;

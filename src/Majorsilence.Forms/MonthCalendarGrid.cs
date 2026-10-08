@@ -52,85 +52,133 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets the date drawn in the very first grid cell, which is on or before the first
         /// of <see cref="DisplayMonth"/> depending on <see cref="FirstDayOfWeek"/>.</summary>
-        internal DateTime FirstDisplayedCellDate {
-            get {
-                var first = DisplayMonth;
-                var offset = ((int)first.DayOfWeek - (int)FirstDayOfWeekAsDayOfWeek + DaysPerWeek) % DaysPerWeek;
+        internal DateTime FirstDisplayedCellDate => FirstCellDateOf (DisplayMonth);
 
-                // A calendar showing January of the first supported year has no earlier days to pad
-                // with; clamping here rather than letting AddDays throw keeps the grid drawable at the
-                // very bottom of the range.
-                return first.AddDays (-Math.Min (offset, (first - DateTime.MinValue).Days));
-            }
+        // The date in the first cell of the grid for the month starting on `first`.
+        private DateTime FirstCellDateOf (DateTime first)
+        {
+            var offset = ((int)first.DayOfWeek - (int)FirstDayOfWeekAsDayOfWeek + DaysPerWeek) % DaysPerWeek;
+
+            // A calendar showing January of the first supported year has no earlier days to pad
+            // with; clamping here rather than letting AddDays throw keeps the grid drawable at the
+            // very bottom of the range.
+            return first.AddDays (-Math.Min (offset, (first - DateTime.MinValue).Days));
         }
 
-        /// <summary>Gets the device-pixel bands the control is laid out in.</summary>
+        /// <summary>Gets the columns and rows of months the control lays out (SMP-46).</summary>
+        internal Size MonthLayout
+            => new Size (Math.Max (1, CalendarDimensions.Width), Math.Max (1, CalendarDimensions.Height));
+
+        /// <summary>Gets the device-pixel bands of the first (top-left) month, with the control's
+        /// next-month arrow, which sits at the right of the top row of months.</summary>
+        /// <remarks>With one month, which is the default, this is the whole control's layout.</remarks>
         internal MonthCalendarGeometry Geometry {
             get {
-                var client = DeviceClientRectangle;
+                var first = GetMonthGeometry (0);
+                var last_in_row = GetMonthGeometry (MonthLayout.Width - 1);
 
-                // One band each for the title and the day-of-week header, six for the week rows, and
-                // -- when ShowToday -- one more for the "Today:" strip at the foot. Equal bands is
-                // what makes a cell's height independent of ShowWeekNumbers and of the month.
-                var bands = 2 + WeeksShown + (ShowToday ? 1 : 0);
-                var cell_height = Math.Max (1, client.Height / bands);
-                var columns = ShowWeekNumbers ? DaysPerWeek + 1 : DaysPerWeek;
-                var cell_width = Math.Max (1, client.Width / columns);
-
-                // An eighth of the width each, matching the arrow bands HitTest reported before this
-                // slice, so the two scroll buttons stay where callers already found them.
-                var arrow_width = Math.Max (1, client.Width / 8);
-
-                var header_top = client.Top + cell_height;
-                var grid_top = header_top + cell_height;
-                var grid_height = cell_height * WeeksShown;
-                var days_left = client.Left + (ShowWeekNumbers ? cell_width : 0);
-                var days_width = cell_width * DaysPerWeek;
-
-                return new MonthCalendarGeometry {
-                    Title = new Rectangle (client.Left, client.Top, client.Width, cell_height),
-                    PrevButton = new Rectangle (client.Left, client.Top, arrow_width, cell_height),
-                    NextButton = new Rectangle (client.Right - arrow_width, client.Top, arrow_width, cell_height),
-                    DayHeader = new Rectangle (days_left, header_top, days_width, cell_height),
-                    WeekNumberColumn = ShowWeekNumbers
-                        ? new Rectangle (client.Left, grid_top, cell_width, grid_height)
-                        : Rectangle.Empty,
-                    Grid = new Rectangle (days_left, grid_top, days_width, grid_height),
-                    TodayBand = ShowToday
-                        ? new Rectangle (client.Left, grid_top + grid_height, client.Width,
-                                         Math.Max (0, client.Bottom - (grid_top + grid_height)))
-                        : Rectangle.Empty,
-                    CellWidth = cell_width,
-                    CellHeight = cell_height,
-                };
+                return first.WithNextButton (last_in_row.NextButton);
             }
         }
 
-        /// <summary>Gets the device-pixel bounds of one grid cell.</summary>
-        internal Rectangle GetCellBounds (int week, int column)
+        /// <summary>Gets the device-pixel bands of the month at <paramref name="index"/> (row-major,
+        /// from the top left) when <see cref="CalendarDimensions"/> shows several (SMP-46).</summary>
+        /// <remarks>
+        /// The months tile the client area: equal columns across, and equal bands down -- a title, a
+        /// day-of-week header and six weeks per row of months, plus one "Today:" band across the foot.
+        /// Upstream lays the months out the same way (one title per month, the scroll arrows only at the
+        /// two ends of the top row, the today link once under them all; <c>MonthCalendar.cs</c> and the
+        /// comctl32 month-calendar it hosts). With a 1x1 layout every rectangle is exactly what the
+        /// single-month geometry was, so nothing about the default control moved.
+        /// </remarks>
+        internal MonthCalendarGeometry GetMonthGeometry (int index)
         {
-            var geometry = Geometry;
+            var client = DeviceClientRectangle;
+            var layout = MonthLayout;
+            var month_column = index % layout.Width;
+            var month_row = index / layout.Width;
 
-            return new Rectangle (geometry.Grid.Left + (column * geometry.CellWidth),
-                                  geometry.Grid.Top + (week * geometry.CellHeight),
-                                  geometry.CellWidth, geometry.CellHeight);
+            // One band each for the title and the day-of-week header, six for the week rows, per row of
+            // months, and -- when ShowToday -- one more for the "Today:" strip at the foot. Equal bands
+            // is what makes a cell's height independent of ShowWeekNumbers and of the month.
+            var bands = (layout.Height * (2 + WeeksShown)) + (ShowToday ? 1 : 0);
+            var cell_height = Math.Max (1, client.Height / bands);
+            var columns = ShowWeekNumbers ? DaysPerWeek + 1 : DaysPerWeek;
+
+            // Blocks partition the width by integer division, so the last one reaches the right edge.
+            var block_left = client.Left + (month_column * client.Width / layout.Width);
+            var block_right = client.Left + ((month_column + 1) * client.Width / layout.Width);
+            var block_width = block_right - block_left;
+            var block_top = client.Top + (month_row * (2 + WeeksShown) * cell_height);
+            var cell_width = Math.Max (1, (client.Width / layout.Width) / columns);
+
+            // An eighth of a month's width each, matching the arrow bands HitTest reported before
+            // SMP-42, so the two scroll buttons stay where callers already found them.
+            var arrow_width = Math.Max (1, block_width / 8);
+
+            var header_top = block_top + cell_height;
+            var grid_top = header_top + cell_height;
+            var grid_height = cell_height * WeeksShown;
+            var days_left = block_left + (ShowWeekNumbers ? cell_width : 0);
+            var days_width = cell_width * DaysPerWeek;
+            var months_bottom = client.Top + (layout.Height * (2 + WeeksShown) * cell_height);
+            var month = AddMonths (DisplayMonth, index);
+
+            return new MonthCalendarGeometry {
+                Index = index,
+                Month = month,
+                FirstCellDate = FirstCellDateOf (month),
+
+                // Only the first month shows the days before it and only the last the days after it:
+                // between two months on screen those days are already drawn by the neighbour.
+                ShowsLeadingDays = index == 0,
+                ShowsTrailingDays = index == MonthsShown - 1,
+                Block = new Rectangle (block_left, block_top, block_width, (2 + WeeksShown) * cell_height),
+                Title = new Rectangle (block_left, block_top, block_width, cell_height),
+                ArrowWidth = arrow_width,
+                PrevButton = index == 0
+                    ? new Rectangle (block_left, block_top, arrow_width, cell_height)
+                    : Rectangle.Empty,
+                NextButton = month_row == 0 && month_column == layout.Width - 1
+                    ? new Rectangle (block_right - arrow_width, block_top, arrow_width, cell_height)
+                    : Rectangle.Empty,
+                DayHeader = new Rectangle (days_left, header_top, days_width, cell_height),
+                WeekNumberColumn = ShowWeekNumbers
+                    ? new Rectangle (block_left, grid_top, cell_width, grid_height)
+                    : Rectangle.Empty,
+                Grid = new Rectangle (days_left, grid_top, days_width, grid_height),
+                TodayBand = ShowToday
+                    ? new Rectangle (client.Left, months_bottom, client.Width, Math.Max (0, client.Bottom - months_bottom))
+                    : Rectangle.Empty,
+                CellWidth = cell_width,
+                CellHeight = cell_height,
+            };
         }
 
-        /// <summary>Gets the device-pixel bounds of one day-of-week header cell.</summary>
-        internal Rectangle GetDayHeaderBounds (int column)
-        {
-            var geometry = Geometry;
+        /// <summary>Gets the device-pixel bounds of one grid cell of the first month.</summary>
+        internal Rectangle GetCellBounds (int week, int column) => GetCellBounds (Geometry, week, column);
 
-            return new Rectangle (geometry.DayHeader.Left + (column * geometry.CellWidth),
-                                  geometry.DayHeader.Top, geometry.CellWidth, geometry.CellHeight);
-        }
+        /// <summary>Gets the device-pixel bounds of one grid cell of the given month.</summary>
+        internal static Rectangle GetCellBounds (MonthCalendarGeometry geometry, int week, int column)
+            => new Rectangle (geometry.Grid.Left + (column * geometry.CellWidth),
+                              geometry.Grid.Top + (week * geometry.CellHeight),
+                              geometry.CellWidth, geometry.CellHeight);
+
+        /// <summary>Gets the device-pixel bounds of one day-of-week header cell of the first month.</summary>
+        internal Rectangle GetDayHeaderBounds (int column) => GetDayHeaderBounds (Geometry, column);
+
+        /// <summary>Gets the device-pixel bounds of one day-of-week header cell of the given month.</summary>
+        internal static Rectangle GetDayHeaderBounds (MonthCalendarGeometry geometry, int column)
+            => new Rectangle (geometry.DayHeader.Left + (column * geometry.CellWidth),
+                              geometry.DayHeader.Top, geometry.CellWidth, geometry.CellHeight);
 
         /// <summary>Gets the device-pixel bounds of one week-number cell, or an empty rectangle when
         /// <see cref="ShowWeekNumbers"/> is false.</summary>
-        internal Rectangle GetWeekNumberBounds (int week)
-        {
-            var geometry = Geometry;
+        internal Rectangle GetWeekNumberBounds (int week) => GetWeekNumberBounds (Geometry, week);
 
+        /// <inheritdoc cref="GetWeekNumberBounds(int)"/>
+        internal static Rectangle GetWeekNumberBounds (MonthCalendarGeometry geometry, int week)
+        {
             if (geometry.WeekNumberColumn.IsEmpty)
                 return Rectangle.Empty;
 
@@ -140,20 +188,42 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Gets the device-pixel bounds of the cell <paramref name="date"/> is drawn in, or
-        /// an empty rectangle when it is not on the grid at all.</summary>
+        /// an empty rectangle when it is not on screen at all.</summary>
+        /// <remarks>With several months, a date is in its own month's block; a leading or trailing day
+        /// is only drawn in the first or last block (SMP-46).</remarks>
         internal Rectangle GetDateCellBounds (DateTime date)
         {
-            var index = (int)(date.Date - FirstDisplayedCellDate).TotalDays;
+            for (var index = 0; index < MonthsShown; index++) {
+                var geometry = GetMonthGeometry (index);
+                var cell = (int)(date.Date - geometry.FirstCellDate).TotalDays;
 
-            return index < 0 || index >= WeeksShown * DaysPerWeek
-                ? Rectangle.Empty
-                : GetCellBounds (index / DaysPerWeek, index % DaysPerWeek);
+                if (cell >= 0 && cell < WeeksShown * DaysPerWeek && IsDrawn (geometry, date))
+                    return GetCellBounds (geometry, cell / DaysPerWeek, cell % DaysPerWeek);
+            }
+
+            return Rectangle.Empty;
+        }
+
+        /// <summary>Gets whether a block draws <paramref name="date"/>: always for a day of its own
+        /// month, and for an adjacent month's day only at the ends of the run of months.</summary>
+        internal static bool IsDrawn (MonthCalendarGeometry geometry, DateTime date)
+        {
+            var month = geometry.Month;
+
+            if (date.Year == month.Year && date.Month == month.Month)
+                return true;
+
+            return date < month ? geometry.ShowsLeadingDays : geometry.ShowsTrailingDays;
         }
 
         /// <summary>Gets the date drawn at grid position (<paramref name="week"/>,
-        /// <paramref name="column"/>).</summary>
+        /// <paramref name="column"/>) of the first month.</summary>
         internal DateTime GetDateAt (int week, int column)
             => FirstDisplayedCellDate.AddDays ((week * DaysPerWeek) + column);
+
+        /// <summary>Gets the date at a grid position of the given month.</summary>
+        internal static DateTime GetDateAt (MonthCalendarGeometry geometry, int week, int column)
+            => geometry.FirstCellDate.AddDays ((week * DaysPerWeek) + column);
 
         /// <summary>Moves the displayed month(s) back or forward without changing the selection.</summary>
         /// <param name="direction">-1 for the previous screen of months, 1 for the next.</param>
@@ -397,13 +467,39 @@ namespace Majorsilence.Forms
     /// by the mouse handlers, so what is drawn and what is clickable cannot drift apart (SMP-42).</remarks>
     internal readonly struct MonthCalendarGeometry
     {
+        /// <summary>Which month this is, counting row-major from the top left (SMP-46).</summary>
+        internal int Index { get; init; }
+
+        /// <summary>The first day of the month drawn in this block.</summary>
+        internal DateTime Month { get; init; }
+
+        /// <summary>The date in this block's first grid cell.</summary>
+        internal DateTime FirstCellDate { get; init; }
+
+        /// <summary>Whether this block draws the previous month's days that pad its first week.</summary>
+        internal bool ShowsLeadingDays { get; init; }
+
+        /// <summary>Whether this block draws the next month's days that pad its last weeks.</summary>
+        internal bool ShowsTrailingDays { get; init; }
+
+        /// <summary>The whole block this month occupies: title, day header and grid.</summary>
+        internal Rectangle Block { get; init; }
+
+        /// <summary>The width of a scroll-arrow band, which the caption is inset by on both sides.</summary>
+        internal int ArrowWidth { get; init; }
+
+        /// <summary>Returns a copy whose next-month arrow is <paramref name="next"/>.</summary>
+        internal MonthCalendarGeometry WithNextButton (Rectangle next) => this with { NextButton = next };
+
         /// <summary>The whole title band, scroll arrows included.</summary>
         internal Rectangle Title { get; init; }
 
-        /// <summary>The previous-month arrow, at the left of the title band.</summary>
+        /// <summary>The previous-month arrow, at the left of the first month's title band; empty on
+        /// every other month.</summary>
         internal Rectangle PrevButton { get; init; }
 
-        /// <summary>The next-month arrow, at the right of the title band.</summary>
+        /// <summary>The next-month arrow, at the right of the last title band of the top row of months;
+        /// empty on every other month.</summary>
         internal Rectangle NextButton { get; init; }
 
         /// <summary>The row of day-of-week abbreviations.</summary>

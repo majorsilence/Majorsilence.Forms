@@ -583,7 +583,13 @@ namespace Majorsilence.Forms
         private ToolStripRenderer? renderer;
 
         /// <summary>Gets the rows of strips in this panel.</summary>
-        public ToolStripPanelRow[] Rows => rows.ToArray ();
+        /// <remarks>Only rows that hold a strip: a row its last strip leaves is removed, as upstream's is.</remarks>
+        public ToolStripPanelRow[] Rows {
+            get {
+                SyncRows ();
+                return rows.ToArray ();
+            }
+        }
 
         private readonly List<ToolStripPanelRow> rows = [];
 
@@ -633,37 +639,104 @@ namespace Majorsilence.Forms
         /// <summary>Raised when <see cref="Renderer"/> changes.</summary>
         public event EventHandler? RendererChanged;
 
-        /// <summary>Adds a strip to the panel.</summary>
+        /// <summary>Adds a strip to the panel, on a new row after the last.</summary>
         public void Join (ToolStrip toolStripToDrag) => Join (toolStripToDrag, rows.Count);
 
-        /// <inheritdoc cref="Join(ToolStrip)"/>
+        /// <summary>Adds a strip to the given row of the panel, before the strips already on it; a row
+        /// index past the last row puts it on a new row at the end.</summary>
+        /// <remarks>Upstream turns the row into a drop point at its leading edge -- the row's
+        /// <c>DragBounds</c>, or the panel's past the last row -- and joins there
+        /// (<c>ToolStripPanel.Join(ToolStrip, int)</c>, <c>ToolStripPanelRow.HorizontalRowManager.JoinRow</c>),
+        /// so the strip lands at the front of that row, beside the strips already on it (TSM-36).</remarks>
         public void Join (ToolStrip toolStripToDrag, int row)
         {
             Guard.ThrowIfNull (toolStripToDrag);
             Guard.ThrowIfNegative (row);
 
-            while (rows.Count <= row)
-                rows.Add (new ToolStripPanelRow (this));
-
-            // Off whatever row it was on first: joining is a MOVE, and leaving the strip on both rows
-            // made the panel report it in the earlier one for ever (found wiring the rafting drag, W6).
-            foreach (var existing in rows)
-                existing.Controls.Remove (toolStripToDrag);
-
-            rows[row].Controls.Add (toolStripToDrag);
-
-            if (!Controls.Contains (toolStripToDrag))
-                Controls.Add (toolStripToDrag);
+            SyncRows ();
+            JoinRow (toolStripToDrag, row < rows.Count ? rows[row] : null, 0);
         }
 
         /// <inheritdoc cref="Join(ToolStrip)"/>
         public void Join (ToolStrip toolStripToDrag, Point location) => Join (toolStripToDrag, location.X, location.Y);
 
-        /// <inheritdoc cref="Join(ToolStrip)"/>
+        /// <summary>Adds a strip to the panel at a client point: onto the row under the point, among its
+        /// strips by position along the row, or onto a new row at the end when no row is there.</summary>
         public void Join (ToolStrip toolStripToDrag, int x, int y)
         {
-            var row = PointToRow (new Point (x, y));
-            Join (toolStripToDrag, row is null ? rows.Count : Array.IndexOf (Rows, row));
+            Guard.ThrowIfNull (toolStripToDrag);
+
+            var target = PointToRow (new Point (x, y));
+            var along = Orientation == Orientation.Horizontal ? x : y;
+
+            // Before the first strip that starts at or after the point, as upstream's JoinRow walks its
+            // cells (ToolStripPanelRow.HorizontalRowManager.cs).
+            var index = target is null ? 0 : target.Controls.FindIndex (strip =>
+                (Orientation == Orientation.Horizontal ? strip.Left : strip.Top) >= along);
+
+            JoinRow (toolStripToDrag, target, index < 0 ? int.MaxValue : index);
+        }
+
+        // Moves the strip onto the row (a new one at the end when null) at the given place in it. Joining
+        // is a MOVE: leaving the strip on both rows made the panel report it in the earlier one for ever
+        // (found wiring the rafting drag, W6).
+        private void JoinRow (ToolStrip strip, ToolStripPanelRow? target, int index)
+        {
+            var current = rows.FirstOrDefault (r => r.Controls.Contains (strip));
+
+            if (current is not null && ReferenceEquals (current, target) && current.Controls.Count == 1)
+                return;
+
+            if (current is not null) {
+                current.Controls.Remove (strip);
+
+                // A row its last strip leaves goes, as upstream's LeaveRow removes it.
+                if (current.Controls.Count == 0 && !ReferenceEquals (current, target))
+                    rows.Remove (current);
+            }
+
+            if (target is null) {
+                target = new ToolStripPanelRow (this);
+                rows.Add (target);
+            }
+
+            target.Controls.Insert (Math.Min (index, target.Controls.Count), strip);
+
+            if (!Controls.Contains (strip))
+                Controls.Add (strip);
+
+            PerformLayout ();
+        }
+
+        /// <summary>
+        /// Puts strips back on the rows they were saved on, in row order, rows renumbered from the top.
+        /// Used by <see cref="ToolStripManager.LoadSettings(Form, string)"/>; strips that share a saved
+        /// row share a row again, in the order given.
+        /// </summary>
+        internal void RestoreRows (IEnumerable<(ToolStrip Strip, int Row)> placements)
+        {
+            var list = placements.ToList ();
+
+            foreach (var (strip, _) in list)
+                foreach (var row in rows)
+                    row.Controls.Remove (strip);
+
+            rows.RemoveAll (row => row.Controls.Count == 0);
+
+            var insertAt = 0;
+
+            foreach (var group in list.GroupBy (p => p.Row).OrderBy (g => g.Key)) {
+                var row = new ToolStripPanelRow (this);
+                row.Controls.AddRange (group.Select (p => p.Strip));
+                rows.Insert (Math.Min (Math.Max (insertAt, group.Key), rows.Count), row);
+                insertAt = rows.IndexOf (row) + 1;
+            }
+
+            foreach (var (strip, _) in list)
+                if (!Controls.Contains (strip))
+                    Controls.Add (strip);
+
+            PerformLayout ();
         }
 
         /// <summary>Returns the row at the given client point, or null.</summary>
@@ -766,8 +839,8 @@ namespace Majorsilence.Forms
         /// <remarks>
         /// Real as of W6 mechanisms. Every named strip under the form is recorded and
         /// <see cref="LoadSettings(Form, string)"/> puts it back, so a user's arrangement survives a
-        /// restart. For a strip in a <see cref="ToolStripPanel"/> that is the panel and its order in
-        /// it, because the panel's rows lay the strips out from that order; for a strip anywhere else
+        /// restart. For a strip in a <see cref="ToolStripPanel"/> that is the panel and the row it is on
+        /// (strips sharing a row come back side by side, in their order along it); for a strip anywhere else
         /// it is the location and size; visibility is kept either way. The store is a text file in
         /// <see cref="Application.UserAppDataPath"/>, where upstream's user settings live too. A strip
         /// with no <see cref="Control.Name"/> cannot be matched on the way back and is skipped, as
@@ -785,7 +858,8 @@ namespace Majorsilence.Forms
                     continue;
 
                 var panel = strip.Parent as ToolStripPanel;
-                var order = panel is null ? -1 : panel.Controls.IndexOf (strip);
+                // The row, not the Controls index: the panel lays strips out from its rows (TSM-36).
+                var order = panel is null ? -1 : panel.RowIndexOf (strip);
 
                 lines.Add (string.Join ("\t", key, strip.Name, panel?.Name ?? string.Empty, Invariant (order),
                     Invariant (strip.Left), Invariant (strip.Top), Invariant (strip.Width), Invariant (strip.Height),
@@ -826,6 +900,12 @@ namespace Majorsilence.Forms
                 if (panel.Name.Length > 0 && !panels.ContainsKey (panel.Name))
                     panels[panel.Name] = panel;
 
+            var placements = new Dictionary<ToolStripPanel, List<(ToolStrip Strip, int Row, int Along)>> ();
+
+            // Applied after the rows are restored, so a strip saved hidden is still placed on its row
+            // first rather than keeping wherever the user's rearrangement left it.
+            var visibility = new List<(ToolStrip Strip, bool Visible)> ();
+
             foreach (var line in ReadStore ()) {
                 var parts = line.Split ('\t');
 
@@ -837,22 +917,27 @@ namespace Majorsilence.Forms
                     continue;
 
                 if (parts[2].Length > 0 && panels.TryGetValue (parts[2], out var panel)) {
-                    // Back into the panel it was in, at the place in its order it had: the panel's rows
-                    // follow that order, so this is what puts the strip back on its row.
-                    if (!ReferenceEquals (strip.Parent, panel))
-                        panel.Join (strip);
+                    // Back onto the row it was on, once every line is read: restoring one strip at a time
+                    // would join a strip to whatever row happens to hold that index meanwhile.
+                    if (!placements.TryGetValue (panel, out var list))
+                        placements[panel] = list = [];
 
-                    if (order >= 0)
-                        panel.Controls.SetChildIndex (strip, Math.Min (order, panel.Controls.Count - 1));
-
-                    panel.PerformLayout ();
-                } else {
-                    strip.Location = new Point (left, top);
-                    strip.Size = new Size (width, height);
+                    list.Add ((strip, Math.Max (0, order), panel.Orientation == Orientation.Horizontal ? left : top));
+                    visibility.Add ((strip, parts[8] == "1"));
+                    continue;
                 }
+
+                strip.Location = new Point (left, top);
+                strip.Size = new Size (width, height);
 
                 strip.Visible = parts[8] == "1";
             }
+
+            foreach (var pair in placements)
+                pair.Key.RestoreRows (pair.Value.OrderBy (p => p.Row).ThenBy (p => p.Along).Select (p => (p.Strip, p.Row)));
+
+            foreach (var (strip, visible) in visibility)
+                strip.Visible = visible;
         }
 
         /// <summary>The file the strip layouts are kept in. Settable so a test can point it elsewhere.</summary>

@@ -125,11 +125,20 @@ namespace Majorsilence.Forms
             }
         }
 
-        /// <summary>Gets or sets the number of months to display at once.</summary>
-        /// <remarks>Read by <see cref="GetDisplayRange"/> and by the scroll step, but only ONE month is
-        /// drawn: <c>MonthCalendarRenderer</c> paints a single month across the whole client area
-        /// whatever this says. Multi-month layout is the deferred half of W5.20c (SMP-46).</remarks>
-        public Size CalendarDimensions { get; set; } = new Size (1, 1);
+        /// <summary>Gets or sets the number of months to display at once, as columns by rows.</summary>
+        /// <remarks>The months tile the client area, one block each (SMP-46); the control is not resized
+        /// to make room, so each month gets <see cref="SingleMonthSize"/>. Setting it goes through
+        /// <see cref="SetCalendarDimensions(int, int)"/>, as upstream's setter does, so the same
+        /// validation and twelve-month cap apply.</remarks>
+        public Size CalendarDimensions {
+            get => calendar_dimensions;
+            set {
+                if (calendar_dimensions != value)
+                    SetCalendarDimensions (value.Width, value.Height);
+            }
+        }
+
+        private Size calendar_dimensions = new Size (1, 1);
 
         /// <summary>Gets or sets the maximum number of days that can be selected.</summary>
         public int MaxSelectionCount {

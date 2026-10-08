@@ -163,9 +163,16 @@ namespace Majorsilence.Forms.Tests
             panel.Join (first, 0);
             panel.Join (second, 2);
 
-            Assert.Equal (3, panel.Rows.Length);       // rows are created up to the requested index
-            Assert.Contains (second, panel.Rows[2].Controls);
-            Assert.Empty (panel.Rows[1].Controls);
+            // A row index past the last row is a new row at the end, as upstream turns it into a drop
+            // point below the rows; no empty rows are made up to it (TSM-36 corrected this test).
+            Assert.Equal (2, panel.Rows.Length);
+            Assert.Contains (second, panel.Rows[1].Controls);
+
+            // An existing row index joins that row, at its front.
+            using var third = new ToolStrip ();
+            panel.Join (third, 0);
+            Assert.Equal (2, panel.Rows.Length);
+            Assert.Equal (new[] { third, first }, panel.Rows[0].Controls);
         }
 
         [Fact]
