@@ -218,6 +218,8 @@ ScrollBar::arrow            { background-color: #2c2c30; color: #9aa0ab; }
   the renderer tracks hover: `Menu::item`, `ToolBar::item`, `MenuDropDown::item`, `TabStrip::item`.
   `ToolBar::item:hover` also covers a checked (toggled) item. The hover style layers on the part's own,
   so `Menu::item { color }` carries into the hovered item.
+- A tab inside a `TabControl` paints `TabStrip::item:hover` only while `TabControl.HotTrack` is `true`;
+  it defaults to `false`, as in WinForms, so a theme's hover rule shows only in tab controls that opt in.
 - Per-control values still win over a part rule where the control exposes one (`grid.ColumnHeadersDefaultCellStyle`,
   `tree.Style.SelectedItemBackgroundColor`), the same way `button.Style.BackgroundColor` wins over a `Button` rule.
 - Selectors without parts (`Button`, `TextBox`, ...) reject `::`; the error lists the controls that have them.
@@ -279,7 +281,7 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `--control-mid-high-color` | color | `ControlMidHighColor` | A slightly darker surface. | ScrollBar track (ScrollBar background), TrackBar. Telerik: RadGridView. |
 | `--control-high-color` | color | `ControlHighColor` | A dark control surface. Not read by the built-in renderers; available to custom controls and VisualStyleRenderer. | Custom controls. Telerik: RadToggleSwitch. |
 | `--control-very-high-color` | color | `ControlVeryHighColor` | The darkest control surface. Not read by the built-in renderers; available to custom controls. | Custom controls. Telerik: RadGridView. |
-| `--control-highlight-low-color` | color | `ControlHighlightLowColor` | The hover highlight for items inside a control. | Hovered Menu, ToolBar, Ribbon and MenuDropDown items, hovered ListBox/ListView rows, selected DataGridView rows, MonthCalendar hover. |
+| `--control-highlight-low-color` | color | `ControlHighlightLowColor` | The hover highlight for items inside a control. | Hovered Menu, ToolBar, Ribbon and MenuDropDown items, hovered TabStrip tabs (TabControl.HotTrack), hovered ListBox/ListView rows, selected DataGridView rows, MonthCalendar hover. |
 | `--control-highlight-mid-color` | color | `ControlHighlightMidColor` | The pressed / selected item highlight. | Selected Ribbon item, ScrollBar and NumericUpDown arrow glyphs, MonthCalendar. |
 | `--control-highlight-high-color` | color | `ControlHighlightHighColor` | The strongest item highlight. Not read by the built-in renderers; available to custom controls. | Custom controls. |
 | `--foreground-color` | color | `ForegroundColor` | The default text colour. | Every control's text unless a rule or the control sets its own; menu, toolbar, grid, tree and title bar text. Telerik: RadGridView, RadToggleSwitch, RadPageView. |
@@ -430,7 +432,7 @@ A rule for the selector these follow styles their background and border; the con
 | `MenuDropDown::item` | yes | `background-color`, `color` | A drop-down item: background and text colour; :hover is the hovered or open item. |
 | `ScrollBar::thumb` | no | `background-color`, `border-color`, `border-width`, `border-radius` | The draggable grip: fill, outline (border-color, border-width) and corner radius. |
 | `ScrollBar::arrow` | no | `background-color`, `border-color`, `color` | The two arrow buttons: fill, outline and the arrow glyph colour (color). |
-| `TabStrip::item` | yes | `background-color`, `color` | A tab: optional background and the caption colour; :hover is the hovered tab (default --control-low-color). |
+| `TabStrip::item` | yes | `background-color`, `color` | A tab: optional background and the caption colour; :hover is the hovered tab, painted only when TabControl.HotTrack is set (default --control-highlight-low-color). |
 | `TabStrip::selected` | no | `background-color`, `color`, `border-bottom-color`, `border-bottom-width` | The selected tab: optional background, caption colour, and the accent underline (border-bottom-color, border-bottom-width; default --accent-color-2, 3px). |
 | `ToolBar::item` | yes | `background-color`, `color` | A tool bar item: text colour and optional background; :hover is the hovered, open or checked item. |
 | `TreeView::selection` | no | `background-color`, `color` | The selected node's background and, when set, its text colour. |

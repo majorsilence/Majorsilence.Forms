@@ -48,9 +48,15 @@ namespace Majorsilence.Forms
         /// <summary>The default style of a tab: an optional background and the caption colour (unset = the strip's ambient text colour).</summary>
         public static readonly ControlStyle DefaultItemStyle = new ControlStyle (null, _ => { });
 
-        /// <summary>The default style of a hovered tab. CSS: <c>TabStrip::item:hover</c>.</summary>
+        /// <summary>
+        /// The default style of a hovered tab. CSS: <c>TabStrip::item:hover</c>. A tab inside a
+        /// <see cref="TabControl"/> uses it only while <see cref="TabControl.HotTrack"/> is set.
+        /// </summary>
+        // The item-hover token Menu, MenuDropDown and ToolBar items already use. ControlLowColor (the
+        // previous default) equals BackgroundColor in the Dark and PointOfSale themes, so a hovered tab
+        // there painted exactly like the strip behind it (LST-61).
         public static readonly ControlStyle DefaultItemHoverStyle = new ControlStyle (DefaultItemStyle,
-            (style) => style.BackgroundColor = Theme.ControlLowColor);
+            (style) => style.BackgroundColor = Theme.ControlHighlightLowColor);
 
         /// <summary>
         /// The default style of the selected tab; <c>Border.Bottom</c> is the accent underline (colour and
