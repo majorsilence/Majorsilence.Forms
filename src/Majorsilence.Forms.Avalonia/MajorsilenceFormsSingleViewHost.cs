@@ -1064,6 +1064,10 @@ namespace Majorsilence.Forms
 
         void IWindowBackend.SetCursor (CursorType cursor) => Cursor = MapCursor (cursor);
 
+        // The browser, Android and iOS heads: a touch screen has no pointer image to replace, and the browser
+        // canvas takes only CSS cursor names, so a cursor loaded from .cur/.ico data shows the arrow (SVC-38).
+        void IWindowBackend.SetCustomCursor (SKBitmap image, System.Drawing.Point hotSpot) => Cursor = MapCursor (CursorType.Arrow);
+
         // Avalonia's handler casts the args to this exact type; a bare RoutedEventArgs throws InvalidCastException out
         // of the event route (it was swallowed in SetTextInputActive, which is why the keyboard came up only
         // when Avalonia's own focus change happened to ask for it).

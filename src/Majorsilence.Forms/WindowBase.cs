@@ -2531,8 +2531,24 @@ namespace Majorsilence.Forms
         // Every cursor this window shows goes through here, so Cursor.Hide wins over all of them: upstream's
         // ShowCursor counter hides whatever SetCursor last chose (Input/Cursor.cs), and the choice comes
         // back with Cursor.Show (SVC-38).
+        //
+        // A cursor loaded from .cur/.ico data arrives as its id (Cursor.CursorType) like any other, and is
+        // resolved to its image only here, so every path above shows it without knowing about images. Once
+        // the loading cursor is disposed the id resolves to nothing and the window shows the arrow.
         internal void ApplyBackendCursor (Backends.CursorType cursor)
-            => Backend?.SetCursor (Majorsilence.Forms.Cursor.IsHidden ? Backends.CursorType.None : cursor);
+        {
+            if (Backend is not { } backend)
+                return;
+
+            if (Majorsilence.Forms.Cursor.IsHidden)
+                backend.SetCursor (Backends.CursorType.None);
+            else if (!Majorsilence.Forms.Cursor.IsCustom (cursor))
+                backend.SetCursor (cursor);
+            else if (Majorsilence.Forms.Cursor.CustomImage (cursor, out var hotSpot) is { } image)
+                backend.SetCustomCursor (image, hotSpot);
+            else
+                backend.SetCursor (Backends.CursorType.Arrow);
+        }
 
         // Cursor.Hide/Show flipped: show this window's cursor again, hidden or not.
         internal void ReapplyCursor ()

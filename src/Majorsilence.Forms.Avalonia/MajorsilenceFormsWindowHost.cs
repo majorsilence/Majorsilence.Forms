@@ -511,6 +511,9 @@ namespace Majorsilence.Forms
 
         void Backends.IWindowBackend.SetCursor (Backends.CursorType cursor) => Cursor = MapCursor (cursor);
 
+        void Backends.IWindowBackend.SetCustomCursor (SkiaSharp.SKBitmap image, System.Drawing.Point hotSpot)
+            => Cursor = AvaloniaCustomCursor.From (image, hotSpot);
+
         // ── File/folder pickers ──────────────────────────────────────────────────
         private static Avalonia.Platform.Storage.FilePickerFileType[] MapFilters (System.Collections.Generic.IReadOnlyList<Backends.FileDialogFilter> filters)
             => filters.Select (f => new Avalonia.Platform.Storage.FilePickerFileType (f.Name) {

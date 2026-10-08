@@ -48,6 +48,26 @@ namespace Majorsilence.Forms.WinForms
                 target.Cursor = ToCursor (cursor);
         }
 
+        // One native cursor per loaded image: the core hands the same SKBitmap back each time that cursor
+        // is shown, which is every mouse move over its control.
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<SkiaSharp.SKBitmap, WF.Cursor> custom_cursors
+            = new System.Runtime.CompilerServices.ConditionalWeakTable<SkiaSharp.SKBitmap, WF.Cursor> ();
+
+        /// <summary>
+        /// Shows a cursor loaded from .cur/.ico data over <paramref name="target"/> (SVC-38), through the real
+        /// <c>WF.Cursor (Stream)</c>: the image is written back as a one-frame .cur with its hotspot. Undoes
+        /// this backend's <c>WF.Cursor.Hide</c> first, as any visible cursor does in <see cref="ApplyCursor"/>.
+        /// </summary>
+        internal static void ApplyCustomCursor (WF.Control target, SkiaSharp.SKBitmap image, System.Drawing.Point hotSpot)
+        {
+            if (cursor_hidden) {
+                WF.Cursor.Show ();
+                cursor_hidden = false;
+            }
+
+            target.Cursor = custom_cursors.GetValue (image, i => new WF.Cursor (new System.IO.MemoryStream (CursorFile.Encode (i, hotSpot))));
+        }
+
         /// <summary>Maps a backend-neutral cursor to the corresponding WinForms cursor.</summary>
         internal static WF.Cursor ToCursor (CursorType cursor) => cursor switch {
             CursorType.AppStarting => WF.Cursors.AppStarting,

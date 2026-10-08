@@ -550,34 +550,6 @@ namespace Majorsilence.Forms
         internal void RaiseCurrentItemChanged () => CurrentItemChanged?.Invoke (this, EventArgs.Empty);
     }
 
-    public partial class Cursor
-    {
-        /// <summary>Gets or sets arbitrary data associated with this cursor.</summary>
-        public object? Tag { get; set; }
-
-        /// <summary>Gets the point within the cursor image that tracks the pointer.</summary>
-        public Point HotSpot { get; internal set; }
-
-        /// <summary>Gets the size of the cursor image.</summary>
-        public Size Size => new Size (32, 32);
-
-        /// <summary>Gets the Win32 handle for the cursor.</summary>
-        /// <remarks>Zero: the backends set the pointer through their own API rather than an HCURSOR,
-        /// which is also why <see cref="CopyHandle"/> has nothing to copy.</remarks>
-        public IntPtr Handle => IntPtr.Zero;
-
-        /// <inheritdoc cref="Handle"/>
-        public IntPtr CopyHandle () => IntPtr.Zero;
-
-        /// <summary>Draws the cursor image inside the given rectangle.</summary>
-        /// <remarks>The backends own the pointer image and do not hand back a bitmap for it, so there
-        /// is nothing to draw; a caller compositing a drag image should draw its own.</remarks>
-        public void Draw (Graphics g, Rectangle targetRect) { }
-
-        /// <inheritdoc cref="Draw"/>
-        public void DrawStretched (Graphics g, Rectangle targetRect) { }
-    }
-
     public partial class ToolStripPanel
     {
         private ToolStripRenderer? renderer;

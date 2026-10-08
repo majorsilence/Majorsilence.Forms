@@ -364,6 +364,9 @@ namespace Majorsilence.Forms
 
         void IWindowBackend.SetCursor (CursorType cursor) => Cursor = MapCursor (cursor);
 
+        void IWindowBackend.SetCustomCursor (SKBitmap image, System.Drawing.Point hotSpot)
+            => Cursor = AvaloniaCustomCursor.From (image, hotSpot);
+
         // Cursor property is Avalonia.Input.Cursor (aliased AvCursor below to avoid the Majorsilence.Forms.Cursor collision).
 
         void IWindowBackend.SetIcon (byte[]? iconPng) { /* host owns the window icon */ }

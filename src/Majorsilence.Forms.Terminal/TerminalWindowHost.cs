@@ -97,6 +97,10 @@ namespace Majorsilence.Forms.Terminal
         // The terminal draws no window chrome; a Form's own self-drawn title bar is all there is.
         public void SetSystemDecorations (bool useSystemDecorations) { }
         public void SetCursor (CursorType cursor) { }
+
+        // A terminal has no pointer image to replace, so a cursor loaded from .cur/.ico data changes nothing,
+        // as the standard cursors do not (SVC-38).
+        public void SetCustomCursor (SkiaSharp.SKBitmap image, System.Drawing.Point hotSpot) { }
         public void SetIcon (byte[]? iconPng) { }
         public Size MinimumSize { set { } }
         public Size MaximumSize { set { } }

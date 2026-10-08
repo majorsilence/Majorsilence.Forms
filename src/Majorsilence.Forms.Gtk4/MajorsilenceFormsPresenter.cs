@@ -102,6 +102,7 @@ namespace Majorsilence.Forms.Gtk4
         bool IWindowBackend.Topmost { get; set; }
         void IWindowBackend.SetSystemDecorations (bool useSystemDecorations) { }
         void IWindowBackend.SetCursor (CursorType cursor) => _surface.Widget.SetCursorFromName (Gtk4KeyInterop.ToCursorName (cursor));
+        void IWindowBackend.SetCustomCursor (SkiaSharp.SKBitmap image, Point hotSpot) => _surface.Widget.SetCursor (Gtk4CustomCursor.From (image, hotSpot));
         void IWindowBackend.SetIcon (byte[]? iconPng) { }
         Size IWindowBackend.MinimumSize { set { } }
         Size IWindowBackend.MaximumSize { set { } }

@@ -51,6 +51,17 @@ namespace Majorsilence.Forms.Backends
         void SetSystemDecorations (bool useSystemDecorations);
         /// <summary>Sets the mouse cursor (a backend-neutral <see cref="CursorType"/>), or the default when null.</summary>
         void SetCursor (CursorType cursor);
+        /// <summary>
+        /// Sets the mouse cursor to an image loaded from .cur/.ico data (<c>new Cursor (stream)</c>), with the
+        /// pixel within it that tracks the pointer. The same <paramref name="image"/> instance comes back each
+        /// time the same cursor is shown, so a backend can cache the native cursor it builds against it; the
+        /// image must not be modified or disposed. A backend with no bitmap cursor shows the arrow.
+        /// </summary>
+#if NETSTANDARD2_0
+        void SetCustomCursor (SkiaSharp.SKBitmap image, Point hotSpot);
+#else
+        void SetCustomCursor (SkiaSharp.SKBitmap image, Point hotSpot) => SetCursor (CursorType.Arrow);
+#endif
         /// <summary>Sets the window icon from PNG bytes, or clears it when null.</summary>
         void SetIcon (byte[]? iconPng);
         /// <summary>Sets the minimum window size in logical pixels (empty = no minimum).</summary>

@@ -282,13 +282,15 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void A_cursor_reports_that_it_has_no_Win32_handle ()
+        public void A_cursors_handle_identifies_it_without_being_a_Win32_handle ()
         {
-            // The backends set the pointer through their own API rather than an HCURSOR.
+            // The backends set the pointer through their own API rather than an HCURSOR, but each cursor
+            // still has a handle of its own, as upstream's equality needs (SVC-38).
             using var cursor = Cursors.Default;
 
-            Assert.Equal (IntPtr.Zero, cursor.Handle);
-            Assert.Equal (IntPtr.Zero, cursor.CopyHandle ());
+            Assert.NotEqual (IntPtr.Zero, cursor.Handle);
+            Assert.Equal (cursor.Handle, cursor.CopyHandle ());
+            Assert.NotEqual (Cursors.IBeam.Handle, cursor.Handle);
         }
 
         [Fact]

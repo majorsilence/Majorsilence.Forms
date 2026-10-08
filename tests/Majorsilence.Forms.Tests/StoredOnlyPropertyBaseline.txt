@@ -80,8 +80,7 @@ Majorsilence.Forms.CreateParams.Width    -- Win32 handle/window-class detail; no
 Majorsilence.Forms.CreateParams.X    -- Win32 handle/window-class detail; no equivalent here
 Majorsilence.Forms.CreateParams.Y    -- Win32 handle/window-class detail; no equivalent here
 Majorsilence.Forms.CurrencyManager.List    -- framework-written (outbound state)
-Majorsilence.Forms.Cursor.Clip    -- cursor clipping and hot-spots belong to the OS cursor
-Majorsilence.Forms.Cursor.HotSpot    -- cursor clipping and hot-spots belong to the OS cursor
+Majorsilence.Forms.Cursor.Clip    -- cursor clipping belongs to the OS cursor
 Majorsilence.Forms.Cursor.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.DataGrid.AllowSorting    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
 Majorsilence.Forms.DataGrid.CaptionFont    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
