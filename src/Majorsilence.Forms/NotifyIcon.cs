@@ -174,9 +174,8 @@ namespace Majorsilence.Forms
         /// <remarks>
         /// As upstream, nothing is shown while the icon is not in the tray. The WinForms and WPF hosts
         /// show the shell balloon (a toast on Windows 10+) and raise the <c>BalloonTip*</c> events from
-        /// it. The Avalonia backend posts a native notification on macOS and Linux and raises only
-        /// <see cref="BalloonTipShown"/>: the notification's click and close never come back to the
-        /// process. Where nothing can be shown a <see cref="System.Diagnostics.Trace"/> warning says so.
+        /// it. Avalonia has no notification API, so there (and on GTK 4, browser, mobile and terminal)
+        /// nothing is shown and a <see cref="System.Diagnostics.Trace"/> warning says so.
         /// </remarks>
         public void ShowBalloonTip (int timeout, string tipTitle, string tipText, ToolTipIcon tipIcon)
         {
