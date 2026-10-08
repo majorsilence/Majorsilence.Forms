@@ -106,6 +106,8 @@ namespace Majorsilence.Forms.Uno
             CursorType.SizeWestEast or CursorType.LeftSide or CursorType.RightSide => InputSystemCursorShape.SizeWestEast,
             CursorType.TopLeftCorner or CursorType.BottomRightCorner => InputSystemCursorShape.SizeNorthwestSoutheast,
             CursorType.TopRightCorner or CursorType.BottomLeftCorner => InputSystemCursorShape.SizeNortheastSouthwest,
+            // WinUI's InputSystemCursorShape has no hidden shape, so Cursor.Hide shows the arrow here.
+            CursorType.None => InputSystemCursorShape.Arrow,
             _ => InputSystemCursorShape.Arrow
         };
     }

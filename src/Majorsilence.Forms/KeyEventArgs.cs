@@ -13,9 +13,6 @@ namespace Majorsilence.Forms
         public KeyEventArgs (Keys keyData)
         {
             KeyData = keyData;
-
-            // Keep the static Control.ModifierKeys current for WinForms-compatible callers.
-            Majorsilence.Forms.Control.ModifierKeys = keyData & Keys.Modifiers;
         }
 
         /// <summary>Gets a value indicating whether the ALT key was pressed.</summary>

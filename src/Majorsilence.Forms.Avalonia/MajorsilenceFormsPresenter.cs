@@ -549,6 +549,7 @@ namespace Majorsilence.Forms
                 CursorType.DragCopy => StandardCursorType.DragCopy,
                 CursorType.DragLink => StandardCursorType.DragLink,
                 CursorType.DragMove => StandardCursorType.DragMove,
+                CursorType.None => StandardCursorType.None,
                 _ => StandardCursorType.Arrow
             };
 

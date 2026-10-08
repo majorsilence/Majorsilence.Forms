@@ -891,14 +891,14 @@ namespace Majorsilence.Forms
             var element = GetElementAtLocation (x, y);
 
             switch (element) {
-                case WindowElement.TopBorder:         Backend.SetCursor (Cursors.TopSide.CursorType);         return true;
-                case WindowElement.RightBorder:       Backend.SetCursor (Cursors.RightSide.CursorType);       return true;
-                case WindowElement.BottomBorder:      Backend.SetCursor (Cursors.BottomSide.CursorType);      return true;
-                case WindowElement.LeftBorder:        Backend.SetCursor (Cursors.LeftSide.CursorType);        return true;
-                case WindowElement.TopLeftCorner:     Backend.SetCursor (Cursors.TopLeftCorner.CursorType);   return true;
-                case WindowElement.TopRightCorner:    Backend.SetCursor (Cursors.TopRightCorner.CursorType);  return true;
-                case WindowElement.BottomLeftCorner:  Backend.SetCursor (Cursors.BottomLeftCorner.CursorType); return true;
-                case WindowElement.BottomRightCorner: Backend.SetCursor (Cursors.BottomRightCorner.CursorType); return true;
+                case WindowElement.TopBorder:         ApplyBackendCursor (Cursors.TopSide.CursorType);         return true;
+                case WindowElement.RightBorder:       ApplyBackendCursor (Cursors.RightSide.CursorType);       return true;
+                case WindowElement.BottomBorder:      ApplyBackendCursor (Cursors.BottomSide.CursorType);      return true;
+                case WindowElement.LeftBorder:        ApplyBackendCursor (Cursors.LeftSide.CursorType);        return true;
+                case WindowElement.TopLeftCorner:     ApplyBackendCursor (Cursors.TopLeftCorner.CursorType);   return true;
+                case WindowElement.TopRightCorner:    ApplyBackendCursor (Cursors.TopRightCorner.CursorType);  return true;
+                case WindowElement.BottomLeftCorner:  ApplyBackendCursor (Cursors.BottomLeftCorner.CursorType); return true;
+                case WindowElement.BottomRightCorner: ApplyBackendCursor (Cursors.BottomRightCorner.CursorType); return true;
             }
 
             return base.HandleMouseMove (x, y);
@@ -1449,9 +1449,18 @@ namespace Majorsilence.Forms
         /// binding managers are cached per (dataSource, dataMember) pair so all lookups on the form
         /// share position state.
         /// </summary>
+        /// <remarks>Setting it moves the bindings of the form and of every control that inherits the
+        /// form's context onto the new context's managers, and raises <c>BindingContextChanged</c>, as
+        /// upstream's <c>Control.BindingContext</c> setter does.</remarks>
         public BindingContext BindingContext {
             get => binding_context ??= new BindingContext ();
-            set => binding_context = value;
+            set {
+                if (ReferenceEquals (binding_context, value))
+                    return;
+
+                binding_context = value;
+                OnWindowBindingContextChanged ();
+            }
         }
 
         /// <inheritdoc/>
@@ -2200,6 +2209,46 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         internal override Control ContentRoot => client_area;
 
+        /// <summary>Gets the size the form would need to show all of its client-area content.</summary>
+        /// <remarks>
+        /// Upstream's <c>ContainerControl.GetPreferredSizeCore</c>: the layout engine's preferred size for
+        /// the children, plus <c>Padding</c>, plus the non-client frame (<c>SizeFromClientSize</c>). The
+        /// frame here is the caption the library draws (<see cref="ClientSize"/> already leaves it out);
+        /// the root adapter spans the caption too, which is why it cannot be asked instead (FRM-38).
+        /// </remarks>
+        public override System.Drawing.Size GetPreferredSize (System.Drawing.Size proposedSize)
+        {
+            var caption = new System.Drawing.Size (0, NonClientCaptionHeight);
+            var proposed = proposedSize == System.Drawing.Size.Empty
+                ? proposedSize
+                : new System.Drawing.Size (Math.Max (1, proposedSize.Width), Math.Max (1, proposedSize.Height - caption.Height));
+
+            return client_area.GetPreferredSize (proposed) + caption;
+        }
+
+        private bool applying_auto_size;
+
+        // Upstream Form.OnLayout (Form.cs): an AutoSize form becomes the larger of its preferred size and
+        // its current size (GrowOnly), or exactly its preferred size (GrowAndShrink). Run from the client
+        // area's layout pass, which is the form's own pass upstream -- a child added, moved or resized
+        // lays the client area out. A maximized or minimized window keeps its size, as Win32 does.
+        internal void ApplyAutoSize ()
+        {
+            if (!AutoSize || applying_auto_size || IsDisposed || WindowState != FormWindowState.Normal)
+                return;
+
+            applying_auto_size = true;
+
+            try {
+                var preferred = PreferredSize;
+                Size = AutoSizeMode == AutoSizeMode.GrowAndShrink
+                    ? preferred
+                    : LayoutUtils.UnionSizes (preferred, Size);
+            } finally {
+                applying_auto_size = false;
+            }
+        }
+
         /// <summary>
         /// The form's client region: a fill-docked container holding everything the application puts
         /// on the form.
@@ -2233,6 +2282,18 @@ namespace Majorsilence.Forms
 
             /// <inheritdoc/>
             internal override bool IsAutomationTransparent => true;
+
+            // Upstream's ContainerControl.GetPreferredSizeCore without the border term: the client area
+            // has no frame of its own, so the children's preferred extent plus Padding is the whole answer.
+            internal override System.Drawing.Size GetPreferredSizeCore (System.Drawing.Size proposedSize)
+                => LayoutEngine.GetPreferredSize (this, proposedSize - Padding.Size) + Padding.Size;
+
+            // This pass IS the form's layout upstream, where Form.OnLayout auto-sizes before laying out.
+            protected override void OnLayout (LayoutEventArgs e)
+            {
+                base.OnLayout (e);
+                _owner.ApplyAutoSize ();
+            }
 
             /// <summary>
             /// The base <see cref="ScrollableControl"/> rectangle, further deflated by the window's

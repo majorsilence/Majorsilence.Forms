@@ -19,8 +19,8 @@ namespace Majorsilence.Forms.Tests;
 public class KeyboardChainTests
 {
     // Records and matches on the key CODE, deliberately dropping modifiers. Control.ModifierKeys is
-    // static mutable state that every KeyEventArgs and MouseEventArgs constructor writes
-    // (Control.Compat.cs:20), so a test running in parallel can leave Control or Shift set and any
+    // static mutable state that every input event through WindowBase writes (SVC-10), so a test
+    // running in parallel can leave Control or Shift set and any
     // assertion made against the full keyData becomes order-dependent. That is the same class of
     // global-state flakiness BACKLOG.md records for Application.OpenForms.
     private sealed class ChainForm : Form

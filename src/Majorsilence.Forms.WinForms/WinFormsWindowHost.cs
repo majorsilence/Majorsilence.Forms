@@ -198,7 +198,7 @@ namespace Majorsilence.Forms.WinForms
             _form.MaximizeBox = _canResize;
         }
 
-        public void SetCursor (CursorType cursor) => _skia.Cursor = WinFormsKeyInterop.ToCursor (cursor);
+        public void SetCursor (CursorType cursor) => WinFormsKeyInterop.ApplyCursor (_skia, cursor);
 
         public void SetIcon (byte[]? iconPng)
         {

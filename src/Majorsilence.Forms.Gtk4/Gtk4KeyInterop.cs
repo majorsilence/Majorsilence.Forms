@@ -115,6 +115,8 @@ namespace Majorsilence.Forms.Gtk4
             CursorType.TopRightCorner or CursorType.BottomLeftCorner => "nesw-resize",
             CursorType.DragCopy => "copy",
             CursorType.DragLink => "alias",
+            // GDK's cursor names are the CSS ones, and CSS "none" hides the pointer (Cursor.Hide).
+            CursorType.None => "none",
             _ => "default",
         };
 

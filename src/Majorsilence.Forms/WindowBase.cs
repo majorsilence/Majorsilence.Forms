@@ -392,6 +392,13 @@ namespace Majorsilence.Forms
         private bool CompletesDoubleClick (System.Drawing.Point point)
             => DateTime.Now.Subtract (last_click_time).TotalMilliseconds < DOUBLE_CLICK_TIME && PointInDoubleClickRange (point);
 
+        // Control.ModifierKeys is the keyboard state of the last real input event, recorded here where
+        // the backend hands that event in. Upstream reads GetKeyState live (Control.cs ModifierKeys); no
+        // backend exposes a live query, so the input handlers are the nearest equivalent. Constructing
+        // a KeyEventArgs/MouseEventArgs (to call OnKeyDown by hand, say) no longer touches it (SVC-10).
+        // Pointer-exit is left out: its callers (FormHost) do not carry the real modifiers.
+        private static void TrackModifierKeys (Keys keys) => Control.ModifierKeys = keys & Keys.Modifiers;
+
         private MouseEventArgs BuildMouseClickArgs (MouseButtons buttons, System.Drawing.Point point, Keys keyData)
         {
             var click_count = CompletesDoubleClick (point) ? 2 : 1;
@@ -607,7 +614,7 @@ namespace Majorsilence.Forms
                 current_cursor = value;
 
                 if (override_cursor is null)
-                    Backend?.SetCursor (value?.CursorType ?? Backends.CursorType.Arrow);
+                    ApplyBackendCursor (value?.CursorType ?? Backends.CursorType.Arrow);
 
                 cursor_changed?.Invoke (this, EventArgs.Empty);
             }
@@ -625,7 +632,7 @@ namespace Majorsilence.Forms
             get => override_cursor;
             set {
                 override_cursor = value;
-                Backend?.SetCursor ((value ?? current_cursor)?.CursorType ?? Backends.CursorType.Arrow);
+                ApplyBackendCursor ((value ?? current_cursor)?.CursorType ?? Backends.CursorType.Arrow);
             }
         }
 
@@ -1027,12 +1034,12 @@ namespace Majorsilence.Forms
 
         // The drag-and-drop session's cursor feedback: the backend cursor, not a control's Cursor
         // property, so nothing an application set is disturbed.
-        internal void SetDragCursor (Cursor cursor) => Backend.SetCursor (cursor.CursorType);
+        internal void SetDragCursor (Cursor cursor) => ApplyBackendCursor (cursor.CursorType);
 
         internal virtual bool HandleMouseMove (int x, int y)
         {
             // WM_SETCURSOR: the move puts the control's own cursor back, ending a Cursor.Current override.
-            Backend.SetCursor (current_cursor?.CursorType ?? Backends.CursorType.Arrow);
+            ApplyBackendCursor (current_cursor?.CursorType ?? Backends.CursorType.Arrow);
             Majorsilence.Forms.Cursor.Track (current_cursor);
             return false;
         }
@@ -1565,6 +1572,7 @@ namespace Majorsilence.Forms
         // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal void HandlePointerPressed (MouseButtons button, int x, int y, Keys keys)
         {
+            TrackModifierKeys (keys);
             try {
                 HandlePointerPressedCore (button, x, y, keys);
             } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
@@ -1605,6 +1613,7 @@ namespace Majorsilence.Forms
         // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal void HandlePointerReleased (MouseButtons button, int x, int y, Keys keys)
         {
+            TrackModifierKeys (keys);
             try {
                 Control.BeginRelease ();
                 HandlePointerReleasedCore (button, x, y, keys);
@@ -1658,6 +1667,7 @@ namespace Majorsilence.Forms
         // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal void HandlePointerMoved (MouseButtons buttons, int x, int y, Keys keys)
         {
+            TrackModifierKeys (keys);
             try {
                 HandlePointerMovedCore (buttons, x, y, keys);
             } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
@@ -1698,6 +1708,7 @@ namespace Majorsilence.Forms
         // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal void HandlePointerWheel (MouseButtons buttons, int x, int y, System.Drawing.Point delta, Keys keys)
         {
+            TrackModifierKeys (keys);
             try {
                 HandlePointerWheelCore (buttons, x, y, delta, keys);
             } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
@@ -2064,6 +2075,7 @@ namespace Majorsilence.Forms
         // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal bool HandleKeyDown (Keys keys)
         {
+            TrackModifierKeys (keys);
             try {
                 return HandleKeyDownCore (keys);
             } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
@@ -2153,6 +2165,7 @@ namespace Majorsilence.Forms
         // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal bool HandleKeyUp (Keys keys)
         {
+            TrackModifierKeys (keys);
             try {
                 return HandleKeyUpCore (keys);
             } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
@@ -2433,7 +2446,17 @@ namespace Majorsilence.Forms
         internal Control? HoveredControl { get; set; }
 
         // Shows a cursor on this window now, without changing what any control is set to (Cursor.Current).
-        internal void ShowCursor (Cursor cursor) => Backend?.SetCursor (cursor.CursorType);
+        internal void ShowCursor (Cursor cursor) => ApplyBackendCursor (cursor.CursorType);
+
+        // Every cursor this window shows goes through here, so Cursor.Hide wins over all of them: upstream's
+        // ShowCursor counter hides whatever SetCursor last chose (Input/Cursor.cs), and the choice comes
+        // back with Cursor.Show (SVC-38).
+        internal void ApplyBackendCursor (Backends.CursorType cursor)
+            => Backend?.SetCursor (Majorsilence.Forms.Cursor.IsHidden ? Backends.CursorType.None : cursor);
+
+        // Cursor.Hide/Show flipped: show this window's cursor again, hidden or not.
+        internal void ReapplyCursor ()
+            => ApplyBackendCursor ((override_cursor ?? current_cursor)?.CursorType ?? Backends.CursorType.Arrow);
 
         // Re-reads the hovered control's cursor and shows it: called when a control's cursor changes while
         // the pointer may be over it.
@@ -2445,7 +2468,7 @@ namespace Majorsilence.Forms
             current_cursor = hovered.Cursor;
 
             if (override_cursor is null)
-                Backend?.SetCursor (current_cursor.CursorType);
+                ApplyBackendCursor (current_cursor.CursorType);
 
             Majorsilence.Forms.Cursor.Track (current_cursor);
         }
@@ -2869,7 +2892,9 @@ namespace Majorsilence.Forms
         public bool HasChildren => ContentRoot.HasChildren;
 
         /// <summary>Gets the size the window's contents would like to be.</summary>
-        public System.Drawing.Size PreferredSize => adapter.PreferredSize;
+        /// <remarks>Answers <see cref="GetPreferredSize"/> with no constraint, as upstream's
+        /// <c>Control.PreferredSize</c> does, so a window that measures its content (Form) answers here too.</remarks>
+        public System.Drawing.Size PreferredSize => GetPreferredSize (System.Drawing.Size.Empty);
 
         /// <summary>Gets the size the window's contents would like to be within the given bounds.</summary>
         public virtual System.Drawing.Size GetPreferredSize (System.Drawing.Size proposedSize)
@@ -2956,10 +2981,30 @@ namespace Majorsilence.Forms
         // property that would shadow it and then disagree with it.
         internal virtual BindingContext? BindingContextCore {
             get => binding_context ??= new BindingContext ();
-            set => binding_context = value;
+            set {
+                if (ReferenceEquals (binding_context, value))
+                    return;
+
+                binding_context = value;
+                OnWindowBindingContextChanged ();
+            }
         }
 
         private BindingContext? binding_context;
+
+        // The window's context was replaced. Upstream the form is a Control, so its BindingContext setter
+        // raises OnBindingContextChanged, which re-homes the form's own bindings (UpdateBindings) and
+        // passes the change to every child (Control.cs). Here the form's bindings are the window's and its
+        // children hang off the root adapter, so both halves are driven from here.
+        internal void OnWindowBindingContextChanged ()
+        {
+            if (data_bindings is { Count: > 0 } bindings && BindingContextCore is { } context) {
+                foreach (var binding in bindings.ToArray ())
+                    Majorsilence.Forms.BindingContext.UpdateBinding (context, binding);
+            }
+
+            adapter.RaiseBindingContextChanged ();
+        }
 
         BindingContext? IBindableComponent.BindingContext {
             get => BindingContextCore;
@@ -3137,7 +3182,9 @@ namespace Majorsilence.Forms
 
         private bool auto_size;
 
-        /// <summary>Gets or sets whether the window automatically sizes itself to fit its content. Stub.</summary>
+        /// <summary>Gets or sets whether the window automatically sizes itself to fit its content.</summary>
+        /// <remarks>A <see cref="Form"/> sizes itself to its client-area content as its layout runs, by
+        /// <see cref="Form.AutoSizeMode"/>; other windows store the value.</remarks>
         public bool AutoSize {
             get => auto_size;
             set {

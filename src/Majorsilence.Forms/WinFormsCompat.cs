@@ -139,7 +139,24 @@ namespace Majorsilence.Forms
         public BindingMemberInfo BindingMemberInfo { get; }
 
         /// <summary>Gets or sets the format string applied to the value shown in the control.</summary>
-        public string FormatString { get; set; } = string.Empty;
+        /// <remarks>Changing it on a live binding re-shows the value through the new format, as
+        /// upstream's setter does (<c>PushData</c>, Binding.cs); null is stored as empty.</remarks>
+        public string FormatString {
+            get => format_string;
+            set {
+                value ??= string.Empty;
+
+                if (value == format_string)
+                    return;
+
+                format_string = value;
+
+                if (IsBinding)
+                    PushValue ();
+            }
+        }
+
+        private string format_string = string.Empty;
 
         /// <summary>Gets or sets when the data source is updated from the bound control.</summary>
         /// <remarks>Changing this on a live binding re-subscribes it: the mode decides WHICH event on the
@@ -158,10 +175,40 @@ namespace Majorsilence.Forms
         private DataSourceUpdateMode data_source_update_mode = DataSourceUpdateMode.OnValidation;
 
         /// <summary>Gets or sets the value substituted when the data source holds DBNull.</summary>
-        public object? NullValue { get; set; }
+        /// <remarks>Changing it on a live binding whose source value is null re-shows the new
+        /// substitute, as upstream's setter does (Binding.cs); a non-null source value is left alone.</remarks>
+        public object? NullValue {
+            get => null_value;
+            set {
+                if (Equals (null_value, value))
+                    return;
+
+                null_value = value;
+
+                if (IsBinding && SourceHoldsNull ())
+                    PushValue ();
+            }
+        }
+
+        private object? null_value;
 
         /// <summary>Gets or sets the culture used when formatting the bound value.</summary>
-        public IFormatProvider? FormatInfo { get; set; }
+        /// <remarks>Changing it on a live binding re-shows the value in the new culture, as upstream's
+        /// setter does (<c>PushData</c>, Binding.cs).</remarks>
+        public IFormatProvider? FormatInfo {
+            get => format_info;
+            set {
+                if (format_info == value)
+                    return;
+
+                format_info = value;
+
+                if (IsBinding)
+                    PushValue ();
+            }
+        }
+
+        private IFormatProvider? format_info;
 
         // Format/Parse, ReadValue/WriteValue and the whole live-binding mechanism are in
         // BindingRuntime.cs. They used to be discarding stubs (`add { } remove { } }`, empty WriteValue),
@@ -263,8 +310,13 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Adds a new binding to the collection.</summary>
+        /// <exception cref="ArgumentNullException"><paramref name="dataSource"/> is null.</exception>
         public Binding Add (string propertyName, object? dataSource, string? dataMember, bool formattingEnabled = false)
         {
+            // Every upstream Add overload ends in the long one's ArgumentNullException.ThrowIfNull
+            // (dataSource) (ControlBindingsCollection.cs); the long overload here already throws (BND-17).
+            Guard.ThrowIfNull (dataSource);
+
             var binding = new Binding (propertyName, dataSource, dataMember, formattingEnabled) {
                 // The collection's default applies to a binding added without a mode of its own (W6.2 sweep).
                 DataSourceUpdateMode = DefaultDataSourceUpdateMode,

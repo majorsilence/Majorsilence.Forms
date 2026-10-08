@@ -205,7 +205,6 @@ Majorsilence.Forms.Form.AccessibleDescription    -- accessibility metadata; no a
 Majorsilence.Forms.Form.AccessibleName    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.Form.AllowTransparency    -- needs a backend window capability (per-pixel transparency / shadow)
 Majorsilence.Forms.Form.AutoScale    -- legacy .NET 1.x autoscale; AutoScaleMode/Dimensions are the live path
-Majorsilence.Forms.Form.AutoSizeMode    -- a top-level window has no parent to size or anchor against; AutoSize is a stub
 Majorsilence.Forms.Form.FormScreenCaptureMode    -- Win32 handle/window-class detail; no equivalent here
 Majorsilence.Forms.Form.MdiChildrenMinimizedAnchorBottom    -- MDI child minimisation is not modelled; the window list is real as of W6 mechanisms
 Majorsilence.Forms.Form.Modal    -- framework-written (outbound state)

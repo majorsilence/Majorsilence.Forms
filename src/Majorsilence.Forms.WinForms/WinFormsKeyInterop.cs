@@ -21,6 +21,33 @@ namespace Majorsilence.Forms.WinForms
         /// <summary>The Majorsilence.Forms modifier keys currently held down, from the WinForms keyboard state.</summary>
         internal static MF.Keys CurrentModifiers () => (MF.Keys) (int) WF.Control.ModifierKeys;
 
+        // Whether this backend has hidden the pointer with WF.Cursor.Hide. One flag for the process, not
+        // one per window: every window is handed CursorType.None while MF.Cursor.Hide is in effect, so
+        // at most one WF.Cursor.Hide is ever outstanding and the first visible cursor undoes it.
+        private static bool cursor_hidden;
+
+        /// <summary>
+        /// Shows <paramref name="cursor"/> over <paramref name="target"/>. WinForms has no hidden cursor
+        /// object, so <see cref="CursorType.None"/> goes through <c>WF.Cursor.Hide</c>/<c>Show</c> (the
+        /// ShowCursor counter upstream's <c>Cursor.Hide</c> uses), kept balanced by a single flag.
+        /// </summary>
+        internal static void ApplyCursor (WF.Control target, CursorType cursor)
+        {
+            var hide = cursor == CursorType.None;
+
+            if (hide != cursor_hidden) {
+                if (hide)
+                    WF.Cursor.Hide ();
+                else
+                    WF.Cursor.Show ();
+
+                cursor_hidden = hide;
+            }
+
+            if (!hide)
+                target.Cursor = ToCursor (cursor);
+        }
+
         /// <summary>Maps a backend-neutral cursor to the corresponding WinForms cursor.</summary>
         internal static WF.Cursor ToCursor (CursorType cursor) => cursor switch {
             CursorType.AppStarting => WF.Cursors.AppStarting,

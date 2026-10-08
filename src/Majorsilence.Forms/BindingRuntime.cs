@@ -178,6 +178,18 @@ namespace Majorsilence.Forms
             ReportCompletion (BindingCompleteContext.ControlUpdate, exception: null);
         }
 
+        // Whether the source currently shows the control its null representation: an emptied list, or a
+        // member holding null/DBNull. Upstream's NullValue setter re-pushes only then (Formatter.IsNullData).
+        private bool SourceHoldsNull ()
+        {
+            var source = CurrentSource ();
+
+            if (source is null)
+                return BindingManagerBase is { Count: 0 };
+
+            return SourceProperty (source) is { } member && member.GetValue (source) is null or DBNull;
+        }
+
         // The event-driven push: respects ControlUpdateMode, where the public ReadValue does not.
         internal void PushValue ()
         {

@@ -16,8 +16,6 @@ Majorsilence.Forms.ControlPaint.DrawReversibleLine/3
 Majorsilence.Forms.ControlPaint.FillReversibleRectangle/2
 Majorsilence.Forms.Cursor.Draw/2
 Majorsilence.Forms.Cursor.DrawStretched/2
-Majorsilence.Forms.Cursor.Hide/0
-Majorsilence.Forms.Cursor.Show/0
 Majorsilence.Forms.DataGrid.Collapse/1
 Majorsilence.Forms.DataGrid.Expand/1
 Majorsilence.Forms.DataGrid.NavigateBack/0
