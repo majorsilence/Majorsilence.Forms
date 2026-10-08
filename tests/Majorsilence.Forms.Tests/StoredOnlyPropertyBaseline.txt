@@ -66,7 +66,6 @@ Majorsilence.Forms.Control.CheckForIllegalCrossThreadCalls    -- Win32 handle/wi
 Majorsilence.Forms.Control.DoubleBuffered    -- every surface is double-buffered by the Skia pipeline; nothing to switch
 Majorsilence.Forms.Control.HScroll    -- framework-written (outbound state)
 Majorsilence.Forms.Control.IsAccessible    -- accessibility metadata; no accessible-object tree
-Majorsilence.Forms.Control.UseVisualStyleBackColor    -- GDI/visual-styles rendering switch; one text and theme pipeline here
 Majorsilence.Forms.Control.VScroll    -- framework-written (outbound state)
 Majorsilence.Forms.ControlBindingsCollection.BindableComponent    -- framework-written (outbound state)
 Majorsilence.Forms.CreateParams.Caption    -- Win32 handle/window-class detail; no equivalent here

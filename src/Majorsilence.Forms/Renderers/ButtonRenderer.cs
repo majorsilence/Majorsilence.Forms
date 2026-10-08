@@ -62,6 +62,16 @@ namespace Majorsilence.Forms.Renderers
                 alignment = ToTopRow (alignment);
             }
 
+            // Upstream's themed button keeps its text colour on hover; the theme's hover style turns it
+            // white for the accent-filled face, which the upstream face (Button.PaintsUpstreamLook) is not.
+            if (control.PaintsUpstreamLook) {
+                var colour = !control.Enabled ? Theme.ForegroundDisabledColor
+                    : control.Style.ForegroundColor ?? control.Parent?.GetEffectiveForegroundColor () ?? Theme.ForegroundColor;
+
+                e.Canvas.DrawMnemonicText (control.Text, font, font_size, bounds, colour, alignment, null, control.AutoEllipsis, control.ShowKeyboardCues);
+                return;
+            }
+
             e.Canvas.DrawMnemonicText (control.Text, bounds, control, alignment, maxLines: null, ellipsis: control.AutoEllipsis);
         }
 

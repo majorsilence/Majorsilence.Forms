@@ -191,7 +191,7 @@ namespace Majorsilence.Forms
             }
         }
 
-        private void PaintBackgroundImage (PaintEventArgs e)
+        private protected void PaintBackgroundImage (PaintEventArgs e)
         {
             var image = background_image;
 
