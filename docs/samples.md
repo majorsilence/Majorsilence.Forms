@@ -129,10 +129,17 @@ is built from a separate repo.
 **The browser-head checks** (`ModalCheckForm.cs`, issue #406). Open the published bundle with
 `?check=<name>` and the page runs one check instead of the gallery, writing `MFCHECK` lines to the
 browser console: the blocking modal calls (`showdialog`, `messagebox`, `commondialog`, `taskdialog`),
-their awaitable forms (`showdialogasync`, `messageboxasync`, `taskdialogasync`), and `a11y`, a form for
-reading the [accessibility DOM](backends.md#accessibility-dom-browser). `tools/modal-check.mjs` runs them
-all in headless Chrome -- Node 22+ and a local Chrome/Chromium, nothing installed, nothing fetched -- and
-reports each as RETURNED, THREW or HUNG (one page load per check, since a hang would stop the rest):
+their awaitable forms (`showdialogasync`, `messageboxasync`, `taskdialogasync`), `a11y`, a form for
+reading the [accessibility DOM](backends.md#accessibility-dom-browser), and four rendering checks:
+`timeradd` (controls added from a `Timer.Tick` after the form is up reach the canvas and the
+accessibility DOM) and `dialogvisual`, `messageboxvisual`, `owneddialogvisual` (while an awaited dialog is
+open its owner -- the root form, or a second top-level form -- is still drawn behind it, its frame is
+drawn whole, and a click on its OK button answers it). `tools/modal-check.mjs` runs them all in headless
+Chrome -- Node 22+ and a local Chrome/Chromium, nothing installed, nothing fetched -- and reports each as
+RETURNED, THREW or HUNG (one page load per check, since a hang would stop the rest). A rendering check
+logs a `SNAP` line saying what the screen should show; the script screenshots the page then, reads the
+pixels, clicks the dialog's OK button, and prints what matched (`snap ok`) and what did not
+(`snap FAIL`):
 
 ```bash
 dotnet publish samples/Gallery.Wasm -c Release -o out
@@ -145,8 +152,9 @@ Without `--expect` it only reports (exit 0 whatever happened), which is what you
 platform change. `--expect` compares each check with the `expected` table at the top of the script --
 the blocking calls THROW `PlatformNotSupportedException` naming their async form, the awaited calls
 RETURN (`OK`, `Cancel`, `OK`), neither leaves a dialog open or the owner disabled, the accessibility DOM
-mirrors the check form's controls with the expected roles and ARIA attributes, nothing HANGs and the
-page throws nothing -- prints a `MISMATCH` line for each difference and exits 1 if there is any (2 if
+mirrors the check form's controls with the expected roles and ARIA attributes, every rendering check's
+`SNAP` matches the screenshot and its click answers the dialog, nothing HANGs and the page throws
+nothing -- prints a `MISMATCH` line for each difference and exits 1 if there is any (2 if
 it could not run at all). `--report=<file>` writes every result as JSON. When the platform moves and a
 blocking call starts to work, that table is what changes.
 
@@ -165,7 +173,8 @@ The same form is linked into the Android and iOS heads, which run one check inst
 launched with a `check` intent extra (Android) or `MF_CHECK` in the environment (iOS). There, a
 watchdog thread logs `HUNG` if a call has not come back after 10 s, and a `PUMPED` line says how often
 the UI thread's timers ran during the call. Each head's `tools/modal-check.sh` runs the modal checks
-against an emulator or simulator that is already running and summarises them:
+against an emulator or simulator that is already running and summarises them (`a11y` and the rendering
+checks read the browser's DOM and screenshots, so only the browser harness runs them):
 
 ```bash
 # Android: a running emulator, adb on PATH

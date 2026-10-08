@@ -501,6 +501,16 @@ public partial class Control
             LayoutTransaction.DoLayout (Owner, item, PropertyNames.Parent);
             Owner.OnControlAdded (new ControlEventArgs (item));
 
+            // A child added to a live window is dirty, but nothing told the window it has something to
+            // paint. Upstream needs no call here -- the new child is its own HWND and Windows sends it
+            // WM_PAINT. A backend that polls for dirty controls every frame (the desktop Avalonia window)
+            // hid the gap; one that paints only when asked (the browser/mobile single view, an embedded
+            // presenter) left the control off screen, and out of the browser's accessibility DOM, until
+            // something unrelated repainted -- seen with controls added from a Timer.Tick. The window
+            // only, not Owner.Invalidate (): no Invalidated event is raised for an add upstream either.
+            if (Owner.Created && item.Visible)
+                Owner.FindWindow ()?.Invalidate ();
+
             return;
         }
 

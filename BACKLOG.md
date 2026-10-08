@@ -646,6 +646,20 @@ Left over from the same work:
   is browser-only, so blocking calls in mobile code are not flagged at build time.
 - **Accessibility DOM (browser):** popups (combo box drop-downs, menu drop-downs, tooltips) are not
   mirrored, value changes are not announced through a live region, and nothing has been tried with a
-  real screen reader -- it was verified by reading the DOM in headless Chrome. Seen once while building
-  the check, not investigated: controls added to an already-shown form from a `Timer.Tick` did not
-  appear in the canvas (or the mirror) until something else repainted.
+  real screen reader -- it was verified by reading the DOM in headless Chrome.
+- **Fixed: rendering of late controls and of dialogs (`?check=timeradd`, `dialogvisual`,
+  `messageboxvisual`, `owneddialogvisual`).** A control added to a shown form never told its window to
+  repaint -- not specific to `Timer.Tick`; the desktop Avalonia window polls for dirty controls every
+  frame and hid it, the single view and the embedded presenter do not. On the single view a secondary
+  window's size was read back from Avalonia layout that had not run yet, so a form sized one dimension
+  at a time came out 0 wide (an owner that was not drawn) or laid out at another size than its view;
+  the owner's `IsEnabled` disabled the dialog inside it, so no dialog could be clicked; and on every
+  backend a client area filled to its edges painted over the right and bottom frame.
+- **Single-view secondary windows have no caption and open at the top-left.** `Form` hides its title
+  bar on every single-view window, which is right for the root but leaves a dialog with no title and no
+  way to tell it from content; and `AvaloniaPlatformBackend.GetScreens` returns nothing there, so
+  `CenterParent`/`CenterScreen` do not move it. Giving the single view one screen (the root view) needs
+  `Location`, `PointToScreen` and `DesktopScaling` to agree on one unit first: today `Location` is the
+  view's logical pixels, `PointToScreen` is whatever the Avalonia platform's `TopLevel.PointToScreen`
+  returns, and `ScreenBounds` scales the size by the render scaling -- equal only at a device pixel
+  ratio of 1, which is all the headless-Chrome check covers. Measure on a HiDPI browser and on Android.

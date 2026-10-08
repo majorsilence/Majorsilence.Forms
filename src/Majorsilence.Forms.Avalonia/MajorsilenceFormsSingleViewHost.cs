@@ -498,6 +498,11 @@ namespace Majorsilence.Forms
                     var canvas = lease.SkCanvas;
                     canvas.Save ();
                     canvas.Scale (_inverseScale, _inverseScale);
+                    // A picture's cull rect does not clip its playback, and a window's scene can draw past
+                    // its own size (WindowBase lays the client area out from the border inward). A raster
+                    // surface of the window's size drops that; here it would land on whatever window is
+                    // beside this one, so clip to the window as the raster backends do.
+                    canvas.ClipRect (_picture.Picture.CullRect);
                     canvas.DrawPicture (_picture.Picture);
                     canvas.Restore ();
                 }
@@ -508,6 +513,11 @@ namespace Majorsilence.Forms
 
         protected override void OnPointerPressed (AvPointerPressedEventArgs e)
         {
+            if (!AcceptsInput (e)) {
+                base.OnPointerPressed (e);
+                return;
+            }
+
             Focus ();
 
             var pos = e.GetPosition (this);
@@ -598,6 +608,11 @@ namespace Majorsilence.Forms
 
         protected override void OnPointerReleased (AvPointerReleasedEventArgs e)
         {
+            if (!AcceptsInput (e)) {
+                base.OnPointerReleased (e);
+                return;
+            }
+
             var pos = e.GetPosition (this);
 
             // A synthesised scroll already cancelled the press (SynthesiseTouchScroll), so the real
@@ -627,6 +642,11 @@ namespace Majorsilence.Forms
 
         protected override void OnPointerCaptureLost (PointerCaptureLostEventArgs e)
         {
+            if (!AcceptsInput (e)) {
+                base.OnPointerCaptureLost (e);
+                return;
+            }
+
             // Capture loss mid-scroll is ambiguous: on Android it is mostly the digitizer dropping and
             // re-acquiring contact within one swipe, not a real lift -- so keep the gesture alive for
             // the full bridge window to catch the re-press.
@@ -713,6 +733,11 @@ namespace Majorsilence.Forms
 
         protected override void OnPointerMoved (AvPointerEventArgs e)
         {
+            if (!AcceptsInput (e)) {
+                base.OnPointerMoved (e);
+                return;
+            }
+
             var pos = e.GetPosition (this);
 
             // Forward the move as a mouse move only when it is NOT a touch scroll -- otherwise a swipe
@@ -857,6 +882,11 @@ namespace Majorsilence.Forms
 
         protected override void OnPointerWheelChanged (AvPointerWheelChangedEventArgs e)
         {
+            if (!AcceptsInput (e)) {
+                base.OnPointerWheelChanged (e);
+                return;
+            }
+
             var pos = e.GetPosition (this);
             var props = e.GetCurrentPoint (this).Properties;
             _owner.HandlePointerWheel (
@@ -869,6 +899,11 @@ namespace Majorsilence.Forms
 
         protected override void OnPointerExited (AvPointerEventArgs e)
         {
+            if (!AcceptsInput (e)) {
+                base.OnPointerExited (e);
+                return;
+            }
+
             var pos = e.GetPosition (this);
             var props = e.GetCurrentPoint (this).Properties;
             _owner.HandlePointerExited (
@@ -880,6 +915,11 @@ namespace Majorsilence.Forms
 
         protected override void OnKeyDown (AvKeyEventArgs e)
         {
+            if (!AcceptsInput (e)) {
+                base.OnKeyDown (e);
+                return;
+            }
+
             if (_owner.HandleKeyDown (AvaloniaKeyInterop.AddModifiers (AvaloniaKeyInterop.ToFormsKey (e.Key), e.KeyModifiers)))
                 e.Handled = true;
             base.OnKeyDown (e);
@@ -887,6 +927,11 @@ namespace Majorsilence.Forms
 
         protected override void OnKeyUp (AvKeyEventArgs e)
         {
+            if (!AcceptsInput (e)) {
+                base.OnKeyUp (e);
+                return;
+            }
+
             if (_owner.HandleKeyUp (AvaloniaKeyInterop.AddModifiers (AvaloniaKeyInterop.ToFormsKey (e.Key), e.KeyModifiers)))
                 e.Handled = true;
             base.OnKeyUp (e);
@@ -894,6 +939,11 @@ namespace Majorsilence.Forms
 
         protected override void OnTextInput (AvTextInputEventArgs e)
         {
+            if (!AcceptsInput (e)) {
+                base.OnTextInput (e);
+                return;
+            }
+
             if (_owner.HandleTextInput (e.Text ?? string.Empty))
                 e.Handled = true;
             base.OnTextInput (e);
@@ -935,8 +985,13 @@ namespace Majorsilence.Forms
             }
         }
 
+        // The root's size is whatever the view gives it. Any other window's is the size it was given:
+        // Bounds only catches up at Avalonia's next layout pass, so reading it back answered 0x0 for a
+        // window just created. Form.Width = w is Size = (w, Size.Height), so `Width = 300; Height = 160`
+        // came out as 0x160 -- an invisible form -- and a dialog laid out at one size was drawn into a
+        // canvas of another, losing its right and bottom frame.
         System.Drawing.Size IWindowBackend.ClientSize
-            => new System.Drawing.Size ((int)Bounds.Width, (int)Bounds.Height);
+            => _isRoot ? new System.Drawing.Size ((int)Bounds.Width, (int)Bounds.Height) : _size;
 
         double IWindowBackend.Scaling => Scale <= 0 ? 1 : Scale;
 
@@ -967,9 +1022,38 @@ namespace Majorsilence.Forms
         // Single-view (browser/mobile): one surface, nothing to activate. Stored only.
         bool IWindowBackend.ShowActivated { get; set; } = true;
 
+        // Not Avalonia's IsEnabled on the root: every other window is a child of the root's Canvas, and
+        // IsEnabled is inherited, so disabling the owner for a modal dialog disabled the dialog with it
+        // and nothing in it could be clicked. The root keeps its own flag instead (AcceptsInput).
         bool IWindowBackend.Enabled {
-            get => IsEnabled;
-            set => IsEnabled = value;
+            get => _isRoot ? _rootEnabled : IsEnabled;
+            set {
+                if (_isRoot)
+                    _rootEnabled = value;
+                else
+                    IsEnabled = value;
+            }
+        }
+
+        private bool _rootEnabled = true;
+
+        // Whether this host should act on an input event. The other windows' hosts sit inside the root's
+        // Canvas, so their pointer and key events bubble up through it; the root acted on those too,
+        // handing a click on a dialog or a second form to whatever root control lay underneath (and
+        // taking focus away from the window that was clicked). The root answers only events that started
+        // in its own scene, and none while it is disabled.
+        private bool AcceptsInput (Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            if (!_isRoot)
+                return true;
+            if (!_rootEnabled)
+                return false;
+
+            for (var v = e.Source as Visual; v is not null; v = v.GetVisualParent ())
+                if (v is MajorsilenceFormsSingleViewHost host)
+                    return ReferenceEquals (host, this);
+
+            return true;
         }
 
         string IWindowBackend.Title { set { /* no browser tab/window title support yet */ } }
