@@ -190,6 +190,10 @@ namespace Majorsilence.Forms
             popup?.Close ();
             popup = null;
 
+            suggest_popup?.Close ();
+            suggest_popup = null;
+            suggest_list?.Dispose ();
+
             popup_listbox.Dispose ();
         }
 
@@ -421,6 +425,9 @@ namespace Majorsilence.Forms
                     if (FindWindow () is not WindowBase window)
                         throw new InvalidOperationException ("Cannot drop down a ComboBox that is not parented to a window");
 
+                    // The suggestions and the drop-down are never open together (LST-07).
+                    CloseSuggestions ();
+
                     popup ??= new PopupWindow (window) { AccessibleOwner = this };
 
                     popup.Controls.Add (popup_listbox);
@@ -530,6 +537,10 @@ namespace Majorsilence.Forms
         // drop-down toggle, handled on key up, so it is not navigation.
         internal void NavigateList (KeyEventArgs e)
         {
+            // An open suggestion list has the arrow keys, Enter and Escape before the drop-down does.
+            if (HandleSuggestionKey (e))
+                return;
+
             if (e.Alt || e.Handled)
                 return;
 
@@ -594,6 +605,7 @@ namespace Majorsilence.Forms
             base.OnDeselected (e);
 
             DroppedDown = false;
+            CloseSuggestions ();
         }
 
         /// <summary>
@@ -630,6 +642,9 @@ namespace Majorsilence.Forms
         protected override void OnKeyDown (KeyEventArgs e)
         {
             base.OnKeyDown (e);
+
+            if (HandleSuggestionKey (e))
+                return;
 
             // Editing keys only. Up/Down/Enter/Escape stay with the LIST -- they are acted on in
             // OnKeyUp below -- which is why this cannot simply forward everything.
@@ -877,9 +892,12 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets or sets the auto-complete mode.</summary>
         /// <remarks><see cref="AutoCompleteMode.Append"/> and the append half of
-        /// <see cref="AutoCompleteMode.SuggestAppend"/> complete inline as you type. The filtered
-        /// drop-down of <see cref="AutoCompleteMode.Suggest"/> is not implemented -- see
-        /// <see cref="CompleteTypedText"/> for why it cannot be, as this control is built.</remarks>
+        /// <see cref="AutoCompleteMode.SuggestAppend"/> complete inline as you type.
+        /// <see cref="AutoCompleteMode.Suggest"/> and the suggest half of
+        /// <see cref="AutoCompleteMode.SuggestAppend"/> show the matching entries in a suggestion list
+        /// under the control, separate from the drop-down and from <see cref="Items"/>, as upstream's
+        /// shell auto-complete window is; Up/Down walk it, Enter or a click takes an entry, Escape
+        /// closes it.</remarks>
         public AutoCompleteMode AutoCompleteMode { get; set; } = AutoCompleteMode.None;
 
         /// <summary>Gets or sets the source of auto-complete strings.</summary>
@@ -893,10 +911,8 @@ namespace Majorsilence.Forms
         // replaces it -- AutoCompleteMode.Append. Called from the edit region the moment a character
         // lands, not from its TextChanged, so a programmatic assignment never triggers completion.
         //
-        // Suggest's filtered drop-down is absent by construction, not by omission: this control's items
-        // ARE the popup ListBox's items (see the Items property), so narrowing what the popup shows
-        // would mean deleting the combo's own items and putting them back. That needs a separate
-        // presentation list, which is its own change.
+        // Suggest's filtered list is not the drop-down: this control's items ARE the popup ListBox's
+        // items, so it has a popup and presentation list of its own (ComboBox.Suggest.cs).
         private void CompleteTypedText ()
         {
             if (AutoCompleteMode != AutoCompleteMode.Append && AutoCompleteMode != AutoCompleteMode.SuggestAppend)
@@ -1069,6 +1085,10 @@ namespace Majorsilence.Forms
             } finally {
                 syncing_edit_text = false;
             }
+
+            // Typing, deleting and pasting all refilter, as the shell's suggestion window does;
+            // assigning Text from code never gets here, so it never pops the list (LST-07).
+            UpdateSuggestions ();
         }
 
         /// <summary>Gets or sets the drawing mode for the elements of the ComboBox.</summary>

@@ -8,29 +8,61 @@ namespace Majorsilence.Forms
 {
     // Row layout for ToolStripPanel, plus the two sizing rules it depends on.
     //
-    // Real WinForms hosts every strip added to a ToolStripPanel on its own ToolStripPanelRow,
-    // stacked across the panel's minor axis, and ignores the child's Dock while doing it. That is
-    // what makes the classic "menu bar on top, toolbar underneath" arrangement work when a menu and
-    // a toolbar are both added to the same edge panel of a ToolStripContainer.
+    // Real WinForms hosts every strip added to a ToolStripPanel on a ToolStripPanelRow, stacks the rows
+    // across the panel's minor axis, and ignores the child's Dock while doing it. That is what makes the
+    // classic "menu bar on top, toolbar underneath" arrangement work when a menu and a toolbar are both
+    // added to the same edge panel of a ToolStripContainer.
     //
     // Without row layout the edge panel was a plain docked Panel: the first child to claim the edge
     // won, the other collapsed to nothing, and only one strip was ever visible. Found via a migrated
     // app whose module windows put a MainMenu and a toolbar in TopToolStripPanel and rendered only
     // the toolbar, squashed to menu height.
+    //
+    // The rows are the model (TSM-36). A row holds as many strips as were joined to it, laid side by
+    // side along it, as upstream's ToolStripPanelRow.HorizontalRowManager lays its cells; a strip that
+    // arrives through Controls.Add rather than Join gets a row of its own, which is what the designer's
+    // one-strip-per-location code produces upstream. Before, the layout ignored the rows altogether and
+    // stacked Controls in order, so Join (strip, row) recorded a row nothing read.
     public partial class ToolStripPanel
     {
         // Re-entrancy guard: positioning children dirties layout, which can call back into
         // OnLayout. One arrangement pass per layout is enough.
         private bool _inRowLayout;
 
-        // The row the i-th strip sits on: one per strip, created as strips arrive, so Rows, RowMargin
-        // and each row's Margin describe the layout that is actually done (W6 mechanisms).
-        private ToolStripPanelRow RowFor (int index)
+        // Brings the rows in line with Controls: a strip that left the panel leaves its row, a row left
+        // empty goes (upstream's ToolStripPanelRow.OnControlRemoved removes it), and a strip that arrived
+        // through Controls.Add gets a row of its own. Run lazily, because ControlCollection lays the
+        // panel out before it raises ControlAdded, so an event hook would be too late for the first pass.
+        private void SyncRows ()
         {
-            while (rows.Count <= index)
-                rows.Add (new ToolStripPanelRow (this));
+            foreach (var row in rows)
+                row.Controls.RemoveAll (strip => !ReferenceEquals (strip.Parent, this));
 
-            return rows[index];
+            rows.RemoveAll (row => row.Controls.Count == 0);
+
+            var unrowed = Controls.OfType<ToolStrip> ().Where (strip => !rows.Any (row => row.Controls.Contains (strip))).ToList ();
+
+            // Menu bars rank above toolbars regardless of the order they were added, matching where a
+            // menu sits in every WinForms window. Insertion order is not usable on its own: a container
+            // that creates its own toolbar up front (ToolStripContainer subclasses typically do) has it in
+            // Controls before the designer adds the menu, which would put the menu underneath. So a menu
+            // takes a new row after the menus already at the top, and anything else goes at the bottom;
+            // stable within each group, so several toolbars keep their order.
+            foreach (var strip in unrowed.OrderBy (s => s is Menu ? 0 : 1)) {
+                var row = new ToolStripPanelRow (this);
+                row.Controls.Add (strip);
+
+                if (strip is Menu) {
+                    var index = 0;
+
+                    while (index < rows.Count && rows[index].Controls.Any (s => s is Menu))
+                        index++;
+
+                    rows.Insert (index, row);
+                } else {
+                    rows.Add (row);
+                }
+            }
         }
 
         /// <inheritdoc/>
@@ -49,28 +81,29 @@ namespace Majorsilence.Forms
             base.OnPaintBackground (e);
         }
 
-        private List<Control> RowChildren ()
+        // ParticipatesInLayout, not Visible: Visible walks the parent chain and reports false for anything
+        // not yet on a shown form (a parentless control returns false outright), which would skip row
+        // layout during InitializeComponent -- exactly when designer-built module windows are assembled.
+        // This is the same predicate the layout engine itself uses.
+        private static bool Participates (Control child) => ((IArrangedElement)child).ParticipatesInLayout;
+
+        // The lines the panel lays out, in order: each row's participating strips, then anything that is
+        // not a ToolStrip (a legacy ToolBar, say) on a line of its own, as every child had before. A row
+        // whose strips are all hidden takes no space but keeps its place, as upstream's does.
+        private List<(ToolStripPanelRow? Row, List<Control> Children)> Lines ()
         {
-            var children = new List<Control> ();
+            SyncRows ();
 
-            foreach (Control child in Controls) {
-                // ParticipatesInLayout, not Visible: Visible walks the parent chain and reports
-                // false for anything not yet on a shown form (a parentless control returns false
-                // outright), which would skip row layout during InitializeComponent -- exactly when
-                // designer-built module windows are assembled. This is the same predicate the
-                // layout engine itself uses.
-                if (((IArrangedElement)child).ParticipatesInLayout)
-                    children.Add (child);
-            }
+            var lines = new List<(ToolStripPanelRow?, List<Control>)> ();
 
-            // Menu bars rank above toolbars regardless of the order they were added, matching where
-            // a menu sits in every WinForms window. Insertion order is not usable on its own: a
-            // container that creates its own toolbar up front (ToolStripContainer subclasses
-            // typically do) has it in Controls before the designer adds the menu, which would put
-            // the menu underneath. Stable within each group, so several toolbars keep their order.
-            return children
-                .OrderBy (c => c is Menu ? 0 : 1)
-                .ToList ();
+            foreach (var row in rows)
+                lines.Add ((row, row.Controls.Where (Participates).Cast<Control> ().ToList ()));
+
+            foreach (Control child in Controls)
+                if (child is not ToolStrip && Participates (child))
+                    lines.Add ((null, new List<Control> { child }));
+
+            return lines;
         }
 
         // A row is as thick as the strip wants to be. Ask the strip itself: ToolBar reports a
@@ -94,28 +127,41 @@ namespace Majorsilence.Forms
             return preferred;
         }
 
+        // Stretch: a strip that asks for it spans the row; one that does not keeps its preferred extent,
+        // as upstream's ToolStrip (Stretch false) does in a panel while a MenuStrip (Stretch true) spans
+        // it (W6 mechanisms).
+        private static bool Stretched (Control child) => child is not ToolStrip { Stretch: false };
+
         internal override Size GetPreferredSizeCore (Size proposedSize)
         {
-            var children = RowChildren ();
+            var lines = Lines ().Where (line => line.Children.Count > 0).ToList ();
 
             // Matches a childless Panel so an unpopulated edge panel still collapses to nothing.
-            if (children.Count == 0)
+            if (lines.Count == 0)
                 return Size.Empty;
 
             var horizontal = Orientation == Orientation.Horizontal;
             var across = 0;   // summed along the stacking axis
             var along = 0;    // widest/tallest row
 
-            for (var i = 0; i < children.Count; i++) {
-                var size = RowPreferredSize (children[i], proposedSize);
-                var margin = RowFor (i).Margin;
+            foreach (var (row, children) in lines) {
+                var margin = row?.Margin ?? Padding.Empty;
+                var thickness = 0;
+                var length = 0;
+
+                foreach (var child in children) {
+                    var size = RowPreferredSize (child, proposedSize);
+
+                    thickness = Math.Max (thickness, horizontal ? size.Height : size.Width);
+                    length += horizontal ? size.Width : size.Height;
+                }
 
                 if (horizontal) {
-                    across += size.Height + margin.Vertical;
-                    along = Math.Max (along, size.Width + margin.Horizontal);
+                    across += thickness + margin.Vertical;
+                    along = Math.Max (along, length + margin.Horizontal);
                 } else {
-                    across += size.Width + margin.Horizontal;
-                    along = Math.Max (along, size.Height + margin.Vertical);
+                    across += thickness + margin.Horizontal;
+                    along = Math.Max (along, length + margin.Vertical);
                 }
             }
 
@@ -135,14 +181,14 @@ namespace Majorsilence.Forms
             if (_inRowLayout)
                 return;
 
-            var children = RowChildren ();
-
-            if (children.Count == 0)
-                return;
-
             _inRowLayout = true;
 
             try {
+                var lines = Lines ();
+
+                if (lines.Count == 0)
+                    return;
+
                 var area = DeviceClientRectangle;
 
                 area = new Rectangle (
@@ -159,29 +205,50 @@ namespace Majorsilence.Forms
                 var horizontal = Orientation == Orientation.Horizontal;
                 var offset = horizontal ? area.Top : area.Left;
 
-                for (var i = 0; i < children.Count; i++) {
-                    var child = children[i];
-                    var row = RowFor (i);
-                    var margin = row.Margin;
-                    var size = RowPreferredSize (child, area.Size);
+                foreach (var (row, children) in lines) {
+                    var margin = row?.Margin ?? Padding.Empty;
 
-                    // Stretch: a strip that asks for it spans the row; one that does not keeps its
-                    // preferred extent, as upstream's ToolStrip (Stretch false) does in a panel while a
-                    // MenuStrip (Stretch true) spans it (W6 mechanisms).
-                    var stretched = child is not ToolStrip { Stretch: false };
+                    if (children.Count == 0) {
+                        // Every strip on it is hidden: the row keeps its place in Rows but takes no space.
+                        if (row is not null)
+                            row.Bounds = horizontal ? new Rectangle (area.Left, offset, area.Width, 0) : new Rectangle (offset, area.Top, 0, area.Height);
+
+                        continue;
+                    }
+
+                    var sizes = children.Select (child => RowPreferredSize (child, area.Size)).ToList ();
+                    var thickness = sizes.Max (size => horizontal ? size.Height : size.Width);
+                    var start = horizontal ? area.Left + margin.Left : area.Top + margin.Top;
+                    var end = horizontal ? area.Right - margin.Right : area.Bottom - margin.Bottom;
+                    var position = start;
+
+                    for (var i = 0; i < children.Count; i++) {
+                        var child = children[i];
+                        var available = Math.Max (0, end - position);
+                        var content = horizontal ? ContentExtent (child).Width : ContentExtent (child).Height;
+
+                        // The last strip on a row may stretch to its end; one before it keeps its content
+                        // extent so the strips after it still have somewhere to go.
+                        var extent = Stretched (child) && i == children.Count - 1 ? available : Math.Min (content, available);
+
+                        if (horizontal)
+                            child.SetBounds (position, offset + margin.Top, extent, sizes[i].Height);
+                        else
+                            child.SetBounds (offset + margin.Left, position, sizes[i].Width, extent);
+
+                        position += extent;
+                    }
 
                     if (horizontal) {
-                        var width = stretched ? area.Width - margin.Horizontal : Math.Min (ContentExtent (child).Width, area.Width - margin.Horizontal);
+                        if (row is not null)
+                            row.Bounds = new Rectangle (area.Left, offset, area.Width, thickness + margin.Vertical);
 
-                        child.SetBounds (area.Left + margin.Left, offset + margin.Top, Math.Max (0, width), size.Height);
-                        row.Bounds = new Rectangle (area.Left, offset, area.Width, size.Height + margin.Vertical);
-                        offset += size.Height + margin.Vertical;
+                        offset += thickness + margin.Vertical;
                     } else {
-                        var height = stretched ? area.Height - margin.Vertical : Math.Min (ContentExtent (child).Height, area.Height - margin.Vertical);
+                        if (row is not null)
+                            row.Bounds = new Rectangle (offset, area.Top, thickness + margin.Horizontal, area.Height);
 
-                        child.SetBounds (offset + margin.Left, area.Top + margin.Top, size.Width, Math.Max (0, height));
-                        row.Bounds = new Rectangle (offset, area.Top, size.Width + margin.Horizontal, area.Height);
-                        offset += size.Width + margin.Horizontal;
+                        offset += thickness + margin.Horizontal;
                     }
                 }
             } finally {

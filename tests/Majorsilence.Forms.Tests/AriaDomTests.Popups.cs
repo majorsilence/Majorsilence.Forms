@@ -216,6 +216,34 @@ public partial class AriaDomTests
     }
 
     [Fact]
+    public void A_combo_box_suggestion_list_is_a_listbox_the_combo_box_controls_not_a_tooltip ()
+    {
+        // The suggestion popup (LST-07) shows without activating, as a tool tip does, so the keyboard
+        // stays in the edit box. Showing without activating used to be what made a popup a tooltip here:
+        // the list was announced as one run of text describing nothing, with no link to its combo box.
+        using var form = new Form { Text = "Order", Width = 400, Height = 300 };
+        var combo = new ComboBox { Name = "fruit", AccessibleName = "Fruit", Left = 80, Top = 40, Width = 150 };
+        combo.Items.AddRange (new object[] { "apple", "apricot", "banana" });
+        combo.AutoCompleteSource = AutoCompleteSource.ListItems;
+        combo.AutoCompleteMode = AutoCompleteMode.Suggest;
+        form.Controls.Add (combo);
+        form.Show ();
+
+        foreach (var c in "ap")
+            combo.RaiseKeyPress (new KeyPressEventArgs (c));
+        Assert.True (combo.SuggestionsShown);
+
+        var nodes = BuildWithPopups (form);
+
+        Assert.DoesNotContain (nodes, n => n.Role == "tooltip");
+        var popup = Assert.Single (nodes, n => n["data-mf-popup"] == "listbox");
+        var list = Assert.Single (nodes, n => n.ParentId == popup.Id);
+        Assert.Equal ("listbox", list.Role);
+        Assert.Equal (new[] { "apple", "apricot" }, nodes.Where (n => n.ParentId == list.Id).Select (o => o.Text));
+        Assert.Equal (list.ElementId, NodeOf (nodes, combo)["aria-controls"]);
+    }
+
+    [Fact]
     public void A_tool_tip_is_a_tooltip_that_describes_its_control ()
     {
         using var form = new Form { Text = "Tips", Width = 400, Height = 300 };

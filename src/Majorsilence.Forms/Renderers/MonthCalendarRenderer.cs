@@ -16,9 +16,9 @@ namespace Majorsilence.Forms.Renderers
     /// <c>HitTest</c> and the mouse handlers read too, so a cell is clickable exactly where it is
     /// drawn.
     /// <para>
-    /// <c>CalendarDimensions</c> greater than 1x1 is deliberately not drawn yet: one month is painted
-    /// across the whole client area whatever the dimensions say. See the W5.20c entry in
-    /// <c>docs/behaviour-gap-plan.md</c>.
+    /// <c>CalendarDimensions</c> greater than 1x1 tiles one block per month across the client area,
+    /// each laid out by <c>MonthCalendar.GetMonthGeometry</c> (SMP-46): a title per month, the scroll
+    /// arrows only at the two ends of the top row, and one "Today" strip under them all.
     /// </para>
     /// </remarks>
     public class MonthCalendarRenderer : Renderer<MonthCalendar>
@@ -26,16 +26,20 @@ namespace Majorsilence.Forms.Renderers
         /// <inheritdoc/>
         protected override void Render (MonthCalendar control, PaintEventArgs e)
         {
-            var geometry = control.Geometry;
             var font = control.GetEffectiveFont ();
             var font_size = control.LogicalToDeviceUnits (control.GetEffectiveFontSize ());
             var foreground = control.Enabled ? control.GetEffectiveForegroundColor () : Theme.ForegroundDisabledColor;
 
-            RenderTitle (control, e, geometry, font, font_size);
-            RenderDayHeader (control, e, geometry, font, font_size, foreground);
-            RenderWeekNumbers (control, e, geometry, font, font_size);
-            RenderDays (control, e, geometry, font, font_size, foreground);
-            RenderTodayBand (control, e, geometry, font, font_size, foreground);
+            for (var index = 0; index < control.MonthsShown; index++) {
+                var geometry = control.GetMonthGeometry (index);
+
+                RenderTitle (control, e, geometry, font, font_size);
+                RenderDayHeader (control, e, geometry, font, font_size, foreground);
+                RenderWeekNumbers (control, e, geometry, font, font_size);
+                RenderDays (control, e, geometry, font, font_size, foreground);
+            }
+
+            RenderTodayBand (control, e, control.Geometry, font, font_size, foreground);
         }
 
         private static void RenderTitle (MonthCalendar control, PaintEventArgs e, MonthCalendarGeometry geometry, SKTypeface font, int fontSize)
@@ -43,7 +47,7 @@ namespace Majorsilence.Forms.Renderers
             e.Canvas.FillRectangle (geometry.Title, Resolve (control.TitleBackColor, Theme.ControlHighlightLowColor));
 
             // Shared with HitTest, which finds the month and year runs inside this same caption.
-            var caption = control.TitleCaption;
+            var caption = MonthCalendar.TitleCaptionOf (geometry.Month);
             var text_area = MonthCalendar.TitleTextArea (geometry);
 
             e.Canvas.DrawText (caption, font, fontSize, text_area,
@@ -52,8 +56,11 @@ namespace Majorsilence.Forms.Renderers
 
             var arrow_colour = Resolve (control.TitleForeColor, Theme.ForegroundColorOnAccent);
 
-            ControlPaint.DrawArrowGlyph (e, Glyph (geometry.PrevButton, e), arrow_colour, ArrowDirection.Left);
-            ControlPaint.DrawArrowGlyph (e, Glyph (geometry.NextButton, e), arrow_colour, ArrowDirection.Right);
+            if (!geometry.PrevButton.IsEmpty)
+                ControlPaint.DrawArrowGlyph (e, Glyph (geometry.PrevButton, e), arrow_colour, ArrowDirection.Left);
+
+            if (!geometry.NextButton.IsEmpty)
+                ControlPaint.DrawArrowGlyph (e, Glyph (geometry.NextButton, e), arrow_colour, ArrowDirection.Right);
         }
 
         private static void RenderDayHeader (MonthCalendar control, PaintEventArgs e, MonthCalendarGeometry geometry, SKTypeface font, int fontSize, SKColor foreground)
@@ -65,7 +72,7 @@ namespace Majorsilence.Forms.Renderers
             // MonthCalendar.FirstDisplayedCellDate pads the grid with, so column n always carries the
             // same weekday in both.
             for (var column = 0; column < 7; column++)
-                e.Canvas.DrawText (names[(first + column) % 7], font, fontSize, control.GetDayHeaderBounds (column),
+                e.Canvas.DrawText (names[(first + column) % 7], font, fontSize, MonthCalendar.GetDayHeaderBounds (geometry, column),
                                    foreground, ContentAlignment.MiddleCenter, maxLines: 1);
 
             e.Canvas.DrawLine (geometry.DayHeader.Left, geometry.DayHeader.Bottom,
@@ -80,12 +87,12 @@ namespace Majorsilence.Forms.Renderers
             var calendar = CultureInfo.CurrentCulture.Calendar;
 
             for (var week = 0; week < 6; week++) {
-                var number = calendar.GetWeekOfYear (control.GetDateAt (week, 0),
+                var number = calendar.GetWeekOfYear (MonthCalendar.GetDateAt (geometry, week, 0),
                                                      CalendarWeekRule.FirstFourDayWeek,
                                                      control.FirstDayOfWeekAsDayOfWeek);
 
                 e.Canvas.DrawText (number.ToString (CultureInfo.CurrentCulture), font, fontSize,
-                                   control.GetWeekNumberBounds (week), Theme.ForegroundDisabledColor,
+                                   MonthCalendar.GetWeekNumberBounds (geometry, week), Theme.ForegroundDisabledColor,
                                    ContentAlignment.MiddleCenter, maxLines: 1);
             }
 
@@ -95,7 +102,7 @@ namespace Majorsilence.Forms.Renderers
 
         private static void RenderDays (MonthCalendar control, PaintEventArgs e, MonthCalendarGeometry geometry, SKTypeface font, int fontSize, SKColor foreground)
         {
-            var displayed = control.DisplayMonth;
+            var displayed = geometry.Month;
             var trailing = Resolve (control.TrailingForeColor, Theme.ForegroundDisabledColor);
             var selection_start = control.SelectionStart.Date;
             var selection_end = control.SelectionEnd.Date;
@@ -103,9 +110,13 @@ namespace Majorsilence.Forms.Renderers
 
             for (var week = 0; week < 6; week++) {
                 for (var column = 0; column < 7; column++) {
-                    var date = control.GetDateAt (week, column);
-                    var cell = control.GetCellBounds (week, column);
+                    var date = MonthCalendar.GetDateAt (geometry, week, column);
+                    var cell = MonthCalendar.GetCellBounds (geometry, week, column);
                     var in_month = date.Year == displayed.Year && date.Month == displayed.Month;
+
+                    // Between two months on screen, the neighbour draws these days (SMP-46).
+                    if (!MonthCalendar.IsDrawn (geometry, date))
+                        continue;
 
                     if (date >= selection_start && date <= selection_end)
                         e.Canvas.FillRectangle (cell, Theme.ControlHighlightMidColor);

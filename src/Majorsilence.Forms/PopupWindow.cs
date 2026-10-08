@@ -17,8 +17,12 @@ namespace Majorsilence.Forms
         /// <summary>The window this popup was opened for.</summary>
         internal WindowBase ParentWindow => parent_form;
 
-        /// <summary>Whether this popup is a tool tip: the one kind that shows without activating.</summary>
-        internal bool IsToolTip => !activates;
+        /// <summary>
+        /// Whether this popup is a tool tip, which the browser's accessibility DOM reads as one piece of
+        /// text describing its owner. Set by <see cref="ToolTip"/>; not implied by showing without
+        /// activating, which a combo box's suggestion list (a listbox) does too.
+        /// </summary>
+        internal bool IsToolTip { get; init; }
 
         /// <summary>
         /// What the popup was opened for -- the combo box, date picker or tool-tipped control -- so the
@@ -143,7 +147,8 @@ namespace Majorsilence.Forms
             Show (parent_form.PointToScreen (new System.Drawing.Point (pos.X + x, pos.Y + y)));
         }
 
-        // A popup that shows without activating: a tool tip. Not registered as ActivePopupWindow either,
+        // A popup that shows without activating: a tool tip, or a combo box's suggestion list, which must
+        // leave the keyboard in the edit box. Not registered as ActivePopupWindow either,
         // which would otherwise replace an open menu or drop-down with a tip and have it close that
         // popup on the next click.
         internal PopupWindow (WindowBase parentForm, bool activates) : this (parentForm)

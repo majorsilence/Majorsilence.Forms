@@ -139,7 +139,11 @@ public class W6LayoutAndRaftingTests
             Assert.Same (first, panel.DraggingStrip);
 
             Assert.True (panel.EndRaft (new Point (4, row.Bounds.Top + (row.Bounds.Height / 2))));
-            Assert.Equal (1, panel.RowIndexOf (first));
+
+            // Dropped on second's row, first joins it: the row it left is gone and the two share one
+            // (TSM-36; before, every strip had a row to itself and this asserted index 1).
+            Assert.Single (panel.Rows);
+            Assert.Equal (panel.RowIndexOf (second), panel.RowIndexOf (first));
             Assert.Null (panel.DraggingStrip);
         }
     }
@@ -147,7 +151,7 @@ public class W6LayoutAndRaftingTests
     [Fact]
     public void A_locked_panel_refuses_the_drag_but_still_takes_a_Join ()
     {
-        var panel = Panel (out var form, out var first, out _);
+        var panel = Panel (out var form, out var first, out var second);
 
         using (form) {
             panel.Locked = true;
@@ -161,7 +165,7 @@ public class W6LayoutAndRaftingTests
 
             // Join is the programmatic path and, as upstream, is not subject to the lock.
             panel.Join (first, 1);
-            Assert.Equal (1, panel.RowIndexOf (first));
+            Assert.Equal (panel.RowIndexOf (second), panel.RowIndexOf (first));
         }
     }
 

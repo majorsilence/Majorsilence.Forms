@@ -478,8 +478,9 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `Assert.Throws<ArgumentOutOfRangeException>(() => cal.SelectionStart = new DateTime(1200,1,1));`
 - **Tests today:** none.
 
-### SMP-46 — `MonthCalendar` display/appearance properties stored only — Cat C — P2 — High — **PARTLY DONE (2026-09-04, W5.20c)**
-- **Still open (2026-10-02):** `CalendarDimensions` > 1x1 -- drawing several months is a layout change across the geometry, the renderer, hit-testing and selection, not a property hook-up.
+### SMP-46 — `MonthCalendar` display/appearance properties stored only — Cat C — P2 — High — **CLOSED (2026-10-08)**
+- **Fix (applied):** `CalendarDimensions` > 1x1 is drawn. The renderer could tile, because every consumer already read one geometry: `MonthCalendarGrid.GetMonthGeometry (index)` now lays out one block per month (equal columns across; a title, day header and six weeks per row of months; one today band under them all), and the renderer, `HitTest` and the mouse handlers loop over the blocks. As upstream: a title per month, the previous arrow on the first month and the next arrow on the last of the top row, and the adjacent months' padding days only before the first month and after the last (between two months they are blank and hit as `CalendarBackground`). With 1x1 every rectangle is what it was. The `CalendarDimensions` setter now goes through `SetCalendarDimensions`, as upstream's does, so it validates and caps at twelve. Not done: upstream resizes the control to fit the months; here the client area is divided (`SingleMonthSize` already said so, and a test pins it). Tests: `MonthCalendarMultiMonthTests` (7).
+- **Was open (2026-10-02):** `CalendarDimensions` > 1x1 -- drawing several months is a layout change across the geometry, the renderer, hit-testing and selection, not a property hook-up.
 - **Ours:** `CalendarDimensions`, `FirstDayOfWeek`, `ShowWeekNumbers`, `ShowToday`, `ShowTodayCircle`, `TitleForeColor`, `TitleBackColor`, `TrailingForeColor` are auto-properties, six of them doc-commented "Stub in Majorsilence.Forms" (`src/Majorsilence.Forms/MonthCalendar.cs:113-176`). `SetCalendarDimensions` stores and invalidates (`src/Majorsilence.Forms/MidSizeControlParity.cs:62-77`) but nothing draws multiple months.
 - **Upstream:** all of these change the rendered calendar.
 - **Impact:** Follows directly from SMP-42 — listed separately because each is an independent designer-set property that a fixer will need to wire. `FirstDayOfWeek` in particular *is* consumed by `GetDisplayRange`, so the padded range is computed for a layout that is never drawn.
@@ -528,7 +529,8 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** `ep.SetError(txt, "Required");` then render the parent and assert non-background pixels appear immediately to the right of `txt.Bounds`.
 - **Tests today:** none.
 
-### SMP-52 — `ErrorProvider.ContainerControl` is typed `Component` and there is no `ErrorProvider(ContainerControl)` ctor — Cat E — P2 — High
+### SMP-52 — `ErrorProvider.ContainerControl` is typed `Component` and there is no `ErrorProvider(ContainerControl)` ctor — Cat E — P2 — High — **CLOSED (2026-10-08, by design)**
+- **Won't fix (by design):** `Form` is a window, not a `Control` (user decision 2026-10-08; also the 2026-08-14 Krypton-port decision to keep `Form : WindowBase`). Behaviour that depends on `Form : ContainerControl` stays different.
 - **Still open (2026-10-02):** typing it `ContainerControl` needs `Form` to be a `ContainerControl`, which it is not here (`Form` and `Control` sit on separate branches) -- a hierarchy decision, not a member fix.
 - **Ours:** `public Component? ContainerControl { get; set; }` with a comment explaining that `Form` and `Control` sit on separate branches here (`src/Majorsilence.Forms/ErrorProvider.cs:75-81`); the only ctors are `()` and `(IContainer)` (`ErrorProvider.cs:30-38`).
 - **Upstream:** `public ContainerControl? ContainerControl { get; set; }` plus `public ErrorProvider(ContainerControl parentControl)`, and the setter re-hosts the error windows and hooks the container's binding context.

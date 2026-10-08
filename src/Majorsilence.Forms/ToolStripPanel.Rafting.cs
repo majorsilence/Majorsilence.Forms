@@ -54,9 +54,9 @@ namespace Majorsilence.Forms
             if (index == current)
                 return false;
 
-            // Join takes the strip off the row it was on.
-            Join (strip, index);
-            PerformLayout ();
+            // Join takes the strip off the row it was on, and puts it among the target row's strips by
+            // where along the row it was dropped (TSM-36).
+            Join (strip, panelPoint);
             return true;
         }
 
