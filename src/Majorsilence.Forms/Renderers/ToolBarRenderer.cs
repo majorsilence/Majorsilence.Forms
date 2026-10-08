@@ -169,7 +169,7 @@ namespace Majorsilence.Forms.Renderers
 
             // ImageTransparentColor (W6 mechanisms): the keyed colour is drawn transparent.
             if (image != null && strip_item is { ImageTransparentColor: { IsEmpty: false } key })
-                image = ColorKeyedBitmaps.Apply (image, new SkiaSharp.SKColor (key.R, key.G, key.B, key.A));
+                image = ColorKeyedBitmaps.Apply (image, key.ToSKColor ());
 
             var image_align = strip_item?.ImageAlign ?? ContentAlignment.MiddleCenter;
 

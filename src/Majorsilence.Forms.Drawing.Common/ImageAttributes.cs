@@ -295,8 +295,9 @@ namespace Majorsilence.Forms.Drawing.Imaging
         /// <inheritdoc cref="SetColorKey(Color, Color)"/>
         public void SetColorKey (Color colorLow, Color colorHigh, ColorAdjustType type)
         {
-            colorKeyLow = colorLow;
-            colorKeyHigh = colorHigh;
+            // Matched against pixels, so a system colour is keyed by the value it was painted with.
+            colorKeyLow = SystemColorPalette.Resolve (colorLow);
+            colorKeyHigh = SystemColorPalette.Resolve (colorHigh);
             hasColorKey = true;
         }
 
@@ -434,7 +435,7 @@ namespace Majorsilence.Forms.Drawing.Imaging
 
                 if (remapTable is not null) {
                     foreach (var map in remapTable) {
-                        if (map.OldColor.ToArgb () == color.ToArgb ()) {
+                        if (SystemColorPalette.Resolve (map.OldColor).ToArgb () == color.ToArgb ()) {
                             color = map.NewColor;
                             break;
                         }
@@ -599,7 +600,7 @@ namespace Majorsilence.Forms.Drawing.Imaging
                 foreach (var map in remapTable) {
                     if (map is null)
                         continue;
-                    remap[Key (map.OldColor)] = new SKColor (map.NewColor.R, map.NewColor.G, map.NewColor.B, map.NewColor.A);
+                    remap[Key (SystemColorPalette.Resolve (map.OldColor))] = SystemColorPalette.ToSKColor (map.NewColor);
                 }
             }
 

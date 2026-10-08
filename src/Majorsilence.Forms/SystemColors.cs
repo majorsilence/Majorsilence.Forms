@@ -6,115 +6,153 @@ using System.Drawing;
 namespace Majorsilence.Forms
 {
     /// <summary>
-    /// WinForms compatibility: provides system color constants mapped to Majorsilence.Forms theme colors.
-    /// Colors are approximations; exact values depend on the active theme.
+    /// WinForms compatibility: the system colors. Each member is the real known color
+    /// (<c>Color.FromKnownColor (KnownColor.X)</c>), as in System.Drawing, so
+    /// <c>Color.IsSystemColor</c> is true, <see cref="Color.Name"/> is the member's name,
+    /// <c>ToKnownColor ()</c> round-trips, and the value equals a <c>KnownColor</c> a designer file or
+    /// resx deserialised.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This library paints a system color with its own palette -- the light Windows 10 defaults
+    /// (<see cref="Control"/> is 240,240,240, <see cref="Highlight"/> 0,120,215) -- on every platform.
+    /// The palette is applied when a color is drawn, so anything handed to a control, pen, brush or
+    /// <see cref="Graphics"/> paints those values.
+    /// </para>
+    /// <para>
+    /// Caveat: a known color's <see cref="Color.R"/>/<see cref="Color.G"/>/<see cref="Color.B"/>
+    /// (and <see cref="Color.ToArgb"/>) come from the .NET runtime, not from this library. On Windows
+    /// they are the live OS colors; elsewhere they are the runtime's built-in table, the Windows XP
+    /// palette (<see cref="Control"/> reads 236,233,216). Application code that does its own arithmetic
+    /// on a system color's channels -- or builds <c>Color.FromArgb (alpha, SystemColors.X)</c>, which
+    /// drops the identity -- gets those values, not the ones painted. Compare system colors by
+    /// identity (<c>==</c>, <c>ToKnownColor ()</c>), not by <c>ToArgb ()</c>.
+    /// </para>
+    /// <para>
+    /// <see cref="AlternateRow"/> and <see cref="ButtonText"/> are this library's own extensions, not
+    /// members of System.Drawing's <c>SystemColors</c>. There is no known color for them to be, so they
+    /// are plain colors (<c>IsSystemColor</c> is false) and are not resolved through the palette.
+    /// </para>
+    /// </remarks>
     public static class SystemColors
     {
+        // Color.FromName returns the real known color for a system color's name (it is
+        // Color.FromKnownColor through the BCL's name table), and unlike KnownColor it exists on
+        // netstandard2.0. Cached: the lookup is a dictionary hit and these are read on every paint.
+        private static Color Known (string name) => Color.FromName (name);
+
         /// <summary>Gets the face color of a 3-D element.</summary>
-        public static Color ButtonFace => Color.FromArgb (240, 240, 240);
+        public static Color ButtonFace { get; } = Known ("ButtonFace");
 
         /// <summary>Gets the highlight color of a 3-D element.</summary>
-        public static Color ButtonHighlight => Color.White;
+        public static Color ButtonHighlight { get; } = Known ("ButtonHighlight");
 
         /// <summary>Gets the shadow color of a 3-D element.</summary>
-        public static Color ButtonShadow => Color.FromArgb (160, 160, 160);
+        public static Color ButtonShadow { get; } = Known ("ButtonShadow");
 
         /// <summary>Gets the color of a window background.</summary>
-        public static Color Window => Color.White;
+        public static Color Window { get; } = Known ("Window");
 
         /// <summary>Gets the color of the text in a window.</summary>
-        public static Color WindowText => Color.Black;
+        public static Color WindowText { get; } = Known ("WindowText");
 
         /// <summary>Gets the color of a control.</summary>
-        public static Color Control => Color.FromArgb (240, 240, 240);
+        public static Color Control { get; } = Known ("Control");
 
         /// <summary>Gets the color of text in a control.</summary>
-        public static Color ControlText => Color.Black;
+        public static Color ControlText { get; } = Known ("ControlText");
 
         /// <summary>Gets the dark shadow for 3-D elements.</summary>
-        public static Color ControlDark => Color.FromArgb (160, 160, 160);
+        public static Color ControlDark { get; } = Known ("ControlDark");
 
         /// <summary>Gets the very dark shadow for 3-D elements.</summary>
-        public static Color ControlDarkDark => Color.FromArgb (105, 105, 105);
+        public static Color ControlDarkDark { get; } = Known ("ControlDarkDark");
 
         /// <summary>Gets the light color for 3-D elements.</summary>
-        public static Color ControlLight => Color.FromArgb (227, 227, 227);
+        public static Color ControlLight { get; } = Known ("ControlLight");
 
         /// <summary>Gets the very light color for 3-D elements.</summary>
-        public static Color ControlLightLight => Color.White;
+        public static Color ControlLightLight { get; } = Known ("ControlLightLight");
 
         /// <summary>Gets the color of highlighted text background.</summary>
-        public static Color Highlight => Color.FromArgb (0, 120, 215);
+        public static Color Highlight { get; } = Known ("Highlight");
 
         /// <summary>Gets the color of highlighted text.</summary>
-        public static Color HighlightText => Color.White;
+        public static Color HighlightText { get; } = Known ("HighlightText");
 
         /// <summary>Gets the color of a menu background.</summary>
-        public static Color Menu => Color.FromArgb (240, 240, 240);
+        public static Color Menu { get; } = Known ("Menu");
 
         /// <summary>Gets the color of menu text.</summary>
-        public static Color MenuText => Color.Black;
+        public static Color MenuText { get; } = Known ("MenuText");
 
         /// <summary>Gets the color of the active title bar.</summary>
-        public static Color ActiveCaption => Color.FromArgb (0, 120, 215);
+        public static Color ActiveCaption { get; } = Known ("ActiveCaption");
 
         /// <summary>Gets the color of text in the active title bar.</summary>
-        public static Color ActiveCaptionText => Color.White;
+        public static Color ActiveCaptionText { get; } = Known ("ActiveCaptionText");
 
         /// <summary>Gets the color of the inactive title bar.</summary>
-        public static Color InactiveCaption => Color.FromArgb (191, 205, 219);
+        public static Color InactiveCaption { get; } = Known ("InactiveCaption");
 
         /// <summary>Gets the color of text in the inactive title bar.</summary>
-        public static Color InactiveCaptionText => Color.FromArgb (67, 78, 84);
+        public static Color InactiveCaptionText { get; } = Known ("InactiveCaptionText");
 
         /// <summary>Gets the color of an active border.</summary>
-        public static Color ActiveBorder => Color.FromArgb (180, 180, 180);
+        public static Color ActiveBorder { get; } = Known ("ActiveBorder");
 
         /// <summary>Gets the color of an inactive border.</summary>
-        public static Color InactiveBorder => Color.FromArgb (244, 247, 252);
+        public static Color InactiveBorder { get; } = Known ("InactiveBorder");
 
         /// <summary>Gets the color of the desktop.</summary>
-        public static Color Desktop => Color.Black;
+        public static Color Desktop { get; } = Known ("Desktop");
 
         /// <summary>Gets the color of a tooltip background.</summary>
-        public static Color Info => Color.FromArgb (255, 255, 225);
+        public static Color Info { get; } = Known ("Info");
 
         /// <summary>Gets the color of tooltip text.</summary>
-        public static Color InfoText => Color.Black;
+        public static Color InfoText { get; } = Known ("InfoText");
 
         /// <summary>Gets the color of grayed (disabled) text.</summary>
-        public static Color GrayText => Color.FromArgb (109, 109, 109);
+        public static Color GrayText { get; } = Known ("GrayText");
 
         /// <summary>Gets the color of the application workspace.</summary>
-        public static Color AppWorkspace => Color.FromArgb (171, 171, 171);
+        public static Color AppWorkspace { get; } = Known ("AppWorkspace");
 
         /// <summary>Gets the scrollbar gray area.</summary>
-        public static Color ScrollBar => Color.FromArgb (200, 200, 200);
+        public static Color ScrollBar { get; } = Known ("ScrollBar");
 
         /// <summary>Gets the color of the hot-tracking item.</summary>
-        public static Color HotTrack => Color.FromArgb (0, 102, 204);
+        public static Color HotTrack { get; } = Known ("HotTrack");
 
         /// <summary>Gets the color of highlighted menu item background.</summary>
-        public static Color MenuHighlight => Color.FromArgb (0, 120, 215);
+        public static Color MenuHighlight { get; } = Known ("MenuHighlight");
 
         /// <summary>Gets the lighter end of the active title bar's gradient.</summary>
-        public static Color GradientActiveCaption => Color.FromArgb (185, 209, 234);
+        public static Color GradientActiveCaption { get; } = Known ("GradientActiveCaption");
 
         /// <summary>Gets the lighter end of the inactive title bar's gradient.</summary>
-        public static Color GradientInactiveCaption => Color.FromArgb (215, 228, 242);
+        public static Color GradientInactiveCaption { get; } = Known ("GradientInactiveCaption");
 
         /// <summary>Gets the color used to shade alternate rows in a ListView.</summary>
-        public static Color AlternateRow => Color.FromArgb (240, 248, 255);
+        /// <remarks>
+        /// A Majorsilence.Forms extension, not part of System.Drawing's <c>SystemColors</c>: a plain
+        /// 240,248,255, not a system color.
+        /// </remarks>
+        public static Color AlternateRow { get; } = Color.FromArgb (240, 248, 255);
 
         /// <summary>Gets the border color of the active window.</summary>
-        public static Color WindowFrame => Color.FromArgb (100, 100, 100);
+        public static Color WindowFrame { get; } = Known ("WindowFrame");
 
         /// <summary>Gets the text color of a button control.</summary>
-        public static Color ButtonText => Color.Black;
+        /// <remarks>
+        /// A Majorsilence.Forms extension, not part of System.Drawing's <c>SystemColors</c> (whose button
+        /// text is <see cref="ControlText"/>): plain black, not a system color.
+        /// </remarks>
+        public static Color ButtonText { get; } = Color.Black;
 
         /// <summary>Gets the color used to highlight a menu item when the menu item is selected.</summary>
-        public static Color MenuBar => Color.FromArgb (240, 240, 240);
+        public static Color MenuBar { get; } = Known ("MenuBar");
     }
 
     /// <summary>

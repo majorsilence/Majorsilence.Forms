@@ -39,7 +39,7 @@ public partial class ImageList : Component
         if (key.IsEmpty || key.A == 0)
             return bitmap;
 
-        var keyed = ColorKeyedBitmaps.Apply (bitmap, new SKColor (key.R, key.G, key.B, key.A));
+        var keyed = ColorKeyedBitmaps.Apply (bitmap, key.ToSKColor ());
 
         // Apply returns a cached copy tied to the source; the collection owns what it stores.
         return ReferenceEquals (keyed, bitmap) ? bitmap : keyed.Copy ();

@@ -2808,7 +2808,7 @@ namespace Majorsilence.Forms.Telerik
             }
         }
 
-        private static SKColor ToSK (Color c) => new SKColor (c.R, c.G, c.B, c.A);
+        private static SKColor ToSK (Color c) => c.ToSKColor ();
 
         // Builds a Telerik cell-event-args from row/column indices, reading the underlying grid.
         private GridViewCellEventArgs BuildCellArgs (int columnIndex, int rowIndex)

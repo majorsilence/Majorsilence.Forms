@@ -595,8 +595,8 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Sets the color of the specified pixel.</summary>
         /// <remarks>A format without alpha stores the colour opaque, as GDI+ does for 24bpp RGB.</remarks>
         public void SetPixel (int x, int y, System.Drawing.Color color)
-            => backing?.SetPixel (x, y, new SKColor (color.R, color.G, color.B,
-                backing.AlphaType == SKAlphaType.Opaque ? (byte)255 : color.A));
+            => backing?.SetPixel (x, y, SystemColorPalette.ToSKColor (color)
+                .WithAlpha (backing.AlphaType == SKAlphaType.Opaque ? (byte)255 : color.A));
 
         /// <summary>
         /// Makes the default transparent color transparent for this image.
@@ -626,6 +626,9 @@ namespace Majorsilence.Forms.Drawing
         {
             if (backing is null || backing.Width == 0 || backing.Height == 0)
                 return;
+
+            // Matched against pixels, so a system colour is keyed by the value it was painted with.
+            transparentColor = SystemColorPalette.Resolve (transparentColor);
 
             // GDI+ does this on a 32bpp ARGB copy, so a source decoded without an alpha channel still
             // ends up transparent instead of silently keeping its key colour.

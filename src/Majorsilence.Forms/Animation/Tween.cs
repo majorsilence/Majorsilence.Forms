@@ -78,8 +78,12 @@ namespace Majorsilence.Forms.Animation
         /// not wrap around.
         /// </summary>
         public static Tween<Color> Of (Color from, Color to, TimeSpan duration, EasingFunction? easing = null)
-            => new (from, to, duration, static (a, b, t) => Color.FromArgb (
-                Channel (a.A, b.A, t), Channel (a.R, b.R, t), Channel (a.G, b.G, t), Channel (a.B, b.B, t)), easing);
+            => new (from, to, duration, static (a, b, t) => Lerp (
+                Majorsilence.Forms.Drawing.SystemColorPalette.Resolve (a), Majorsilence.Forms.Drawing.SystemColorPalette.Resolve (b), t), easing);
+
+        // A system colour is tweened from the value it is painted with, not the runtime's channels for it.
+        private static Color Lerp (Color a, Color b, float t) => Color.FromArgb (
+            Channel (a.A, b.A, t), Channel (a.R, b.R, t), Channel (a.G, b.G, t), Channel (a.B, b.B, t));
 
         private static int Channel (byte from, byte to, float t)
         {

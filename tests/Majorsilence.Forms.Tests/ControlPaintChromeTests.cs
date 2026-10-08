@@ -52,7 +52,7 @@ namespace Majorsilence.Forms.Tests
         // background" is true everywhere and says nothing about the glyph.
         private static int CountOf (SKBitmap bitmap, Color colour)
         {
-            var target = new SKColor (colour.R, colour.G, colour.B);
+            var target = colour.ToSKColor ().WithAlpha (255);
             var count = 0;
 
             for (var x = 0; x < bitmap.Width; x++)

@@ -1049,8 +1049,36 @@ namespace Majorsilence.Forms.Drawing
             }
 
             RestoreClipBaseline ();
-            _canvas.ClipRegion (region.GetSKRegion (), SKClipOperation.Intersect);
+            ClipToRegion (region, SKClipOperation.Intersect);
             SetClipShadow (region);
+        }
+
+        /// <summary>Applies <paramref name="region"/> to the canvas clip under <paramref name="op"/>.</summary>
+        /// <remarks>
+        /// GFX-44: by the region's float shape, not its integer scanlines, so a fractional region masks
+        /// exactly the pixels its edges cover; and without antialiasing, as a GDI+ region clip has hard
+        /// edges. <c>ClipPath</c> also goes through the current transform as GDI+'s world-coordinate
+        /// region does, where <c>ClipRegion</c> took device pixels. Empty and infinite are spelled out:
+        /// Skia does not treat an empty path as "clip everything".
+        /// </remarks>
+        private void ClipToRegion (Majorsilence.Forms.Drawing.Region region, SKClipOperation op)
+        {
+            if (_canvas is null)
+                return;
+
+            if (region.IsInfinite ()) {
+                if (op == SKClipOperation.Difference)
+                    _canvas.ClipRect (SKRect.Empty);
+                return;
+            }
+
+            if (region.IsEmpty ()) {
+                if (op == SKClipOperation.Intersect)
+                    _canvas.ClipRect (SKRect.Empty);
+                return;
+            }
+
+            _canvas.ClipPath (region.GetSKPath (), op, antialias: false);
         }
 
         /// <summary>Sets the clipping region to the given rectangle, replacing any current clip.</summary>
@@ -1168,8 +1196,18 @@ namespace Majorsilence.Forms.Drawing
             if (_canvas is null || brush is null || region is null)
                 return;
 
-            using var paint = RentFillPaint (brush);
-            _canvas.DrawRegion (region.GetSKRegion (), paint);
+            if (region.IsEmpty ())
+                return;
+
+            // The float shape, aliased like a region clip (GFX-44); an infinite region fills everything.
+            using var handle = RentFillPaint (brush);
+            SKPaint paint = handle;
+            paint.IsAntialias = false;     // a pooled paint is re-armed on every rent
+
+            if (region.IsInfinite ())
+                _canvas.DrawPaint (paint);
+            else
+                _canvas.DrawPath (region.GetSKPath (), paint);
         }
 
         /// <summary>Draws a closed cardinal spline through the specified points.</summary>
@@ -1702,7 +1740,7 @@ namespace Majorsilence.Forms.Drawing
                 return;
 
             ArmClipBaseline ();
-            _canvas.ClipRegion (region.GetSKRegion (), SKClipOperation.Intersect);
+            ClipToRegion (region, SKClipOperation.Intersect);
 
             var narrowed = CurrentClipRegion ();
             narrowed.Intersect (region);
@@ -1886,7 +1924,7 @@ namespace Majorsilence.Forms.Drawing
                 return;
 
             ArmClipBaseline ();
-            _canvas.ClipRegion (region.GetSKRegion (), SKClipOperation.Difference);
+            ClipToRegion (region, SKClipOperation.Difference);
 
             var narrowed = CurrentClipRegion ();
             narrowed.Exclude (region);
@@ -1985,7 +2023,7 @@ namespace Majorsilence.Forms.Drawing
         public void CopyFromScreen (int sourceX, int sourceY, int destinationX, int destinationY,
             Size blockRegionSize, Majorsilence.Forms.Drawing.CopyPixelOperation copyPixelOperation) { }
 
-        private static SKColor ToSKColor (System.Drawing.Color c) => new SKColor (c.R, c.G, c.B, c.A);
+        private static SKColor ToSKColor (System.Drawing.Color c) => Majorsilence.Forms.Drawing.SystemColorPalette.ToSKColor (c);
 
         /// <summary>
         /// Builds a fill <see cref="SKPaint"/> from a brush, honouring its actual type: a solid colour,
@@ -3050,7 +3088,10 @@ namespace Majorsilence.Forms.Drawing
             if (_canvas is null)
                 return;
 
-            // The dots are the XOR of the two colours, which is what makes them visible against either.
+            // The dots are the XOR of the two colours, which is what makes them visible against either --
+            // the colours as painted, so a system colour XORs with this library's palette value.
+            foreColor = Majorsilence.Forms.Drawing.SystemColorPalette.Resolve (foreColor);
+            backColor = Majorsilence.Forms.Drawing.SystemColorPalette.Resolve (backColor);
             var colour = new SKColor (
                 (byte)(foreColor.R ^ backColor.R),
                 (byte)(foreColor.G ^ backColor.G),
@@ -3377,9 +3418,9 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Sets the clipping region to an existing region, replacing any current clip.</summary>
         /// <remarks>
         /// GFX-13: the region used to be applied as its bounding rectangle, which is how clipping to a
-        /// rounded-rectangle or elliptical region came out square-cornered. <c>SKRegion</c>, which
-        /// <see cref="Majorsilence.Forms.Drawing.Region"/> is built on and already hands to
-        /// <see cref="FillRegion"/>, clips for real.
+        /// rounded-rectangle or elliptical region came out square-cornered. GFX-44: it clips by the
+        /// region's float shape now, not the integer scanlines it used to be quantised to, so a region
+        /// built from a fractional rectangle or a scaled path masks the pixels its edges actually cover.
         /// </remarks>
 #pragma warning disable CA1416
         public void SetClip (Majorsilence.Forms.Drawing.Region region)

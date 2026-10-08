@@ -186,13 +186,13 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the background color as a <see cref="System.Drawing.Color"/>. WinForms compatibility.</summary>
         public System.Drawing.Color BackColor {
             get => BackgroundColor is { } c ? System.Drawing.Color.FromArgb (c.Alpha, c.Red, c.Green, c.Blue) : System.Drawing.Color.Empty;
-            set => BackgroundColor = value.IsEmpty ? null : new SKColor (value.R, value.G, value.B, value.A);
+            set => BackgroundColor = value.IsEmpty ? null : value.ToSKColor ();
         }
 
         /// <summary>Gets or sets the foreground color as a <see cref="System.Drawing.Color"/>. WinForms compatibility.</summary>
         public System.Drawing.Color ForeColor {
             get => ForegroundColor is { } c ? System.Drawing.Color.FromArgb (c.Alpha, c.Red, c.Green, c.Blue) : System.Drawing.Color.Empty;
-            set => ForegroundColor = value.IsEmpty ? null : new SKColor (value.R, value.G, value.B, value.A);
+            set => ForegroundColor = value.IsEmpty ? null : value.ToSKColor ();
         }
 
         /// <summary>Gets or sets the selection background color. WinForms compatibility stub (stored, not rendered).</summary>
