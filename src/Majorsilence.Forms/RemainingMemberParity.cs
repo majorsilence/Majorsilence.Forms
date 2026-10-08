@@ -568,6 +568,21 @@ namespace Majorsilence.Forms
     {
         /// <summary>Gets or sets how assistive technology is notified when the label's text changes.</summary>
         public AutomationLiveSetting LiveSetting { get; set; } = AutomationLiveSetting.Off;
+
+        /// <summary>Raises <see cref="ToolStripItem.TextChanged"/>, then announces the new text when the
+        /// label is a live region.</summary>
+        /// <remarks>Upstream <c>ToolStripStatusLabel.OnTextChanged</c>. The announcement takes the label's
+        /// one path (<see cref="AccessibleObject.RaiseLiveRegionChanged"/>): every
+        /// <see cref="Automation.AutomationObserver"/> of the strip's window -- the Windows UI Automation
+        /// bridge raises UIA's LiveRegionChanged from it -- and the browser accessibility DOM's live
+        /// region. Before, only the browser heard a status label, through its own diff of the text.</remarks>
+        protected override void OnTextChanged (EventArgs e)
+        {
+            base.OnTextChanged (e);
+
+            if (LiveSetting != AutomationLiveSetting.Off)
+                AccessibilityObject.RaiseLiveRegionChanged ();
+        }
     }
 
     public partial class ImageListStreamer

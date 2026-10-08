@@ -504,11 +504,9 @@ namespace Majorsilence.Forms
             public override void DoDefaultAction () => OwnerItem.PerformClick ();
 
             /// <inheritdoc/>
-            public override int GetHelpTopic (out string? fileName)
-            {
-                fileName = null;
-                return -1;
-            }
+            /// <remarks>Asks the item's <see cref="ToolStripItem.QueryAccessibilityHelp"/> handlers, as the
+            /// base does; this used to answer -1 whatever they said.</remarks>
+            public override int GetHelpTopic (out string? fileName) => base.GetHelpTopic (out fileName);
 
             /// <inheritdoc/>
             public override AccessibleObject? Navigate (AccessibleNavigation navdir) => null;

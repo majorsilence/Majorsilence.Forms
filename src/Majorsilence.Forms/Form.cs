@@ -95,6 +95,13 @@ namespace Majorsilence.Forms
             client_area.MouseMove += (s, e) => OnMouseMove (e);
             client_area.MouseClick += (s, e) => OnMouseClick (e);
             client_area.MouseLeave += (s, e) => Leave?.Invoke (this, e);
+
+            // ActiveControl remembers the last control to hold focus, as upstream's _activeControl does
+            // (ContainerControl.UpdateFocusedControl), so it still answers while nothing is focused.
+            adapter.SelectedControlChanged += (_, focused) => {
+                if (focused is not null)
+                    active_control = focused;
+            };
         }
 
         /// <summary>
@@ -845,6 +852,9 @@ namespace Majorsilence.Forms
 
         private WindowElement GetElementAtLocation (int x, int y)
         {
+            if (IsOverSizeGrip (x, y))
+                return WindowElement.BottomRightCorner;
+
             var left = false;
             var right = false;
 
@@ -1552,15 +1562,70 @@ namespace Majorsilence.Forms
             set => Backend.Topmost = value;
         }
 
-        /// <summary>Gets or sets the size-grip style for the form (stub).</summary>
+        /// <summary>Gets or sets whether the form draws a size grip in the bottom-right corner of its client area.</summary>
+        /// <remarks>
+        /// As upstream: only a sizable form (<see cref="FormBorderStyle.Sizable"/> or
+        /// <see cref="FormBorderStyle.SizableToolWindow"/>) has one; <see cref="SizeGripStyle.Show"/> always
+        /// draws it, <see cref="SizeGripStyle.Hide"/> never does, and <see cref="SizeGripStyle.Auto"/> draws
+        /// it while the form is shown modally. The grip is painted after the form's <c>Paint</c> handlers
+        /// and under its controls, and pressing it starts a bottom-right resize.
+        /// </remarks>
         public SizeGripStyle SizeGripStyle {
             get => size_grip_style;
             set {
                 SourceGenerated.EnumValidator.Validate (value);
+
+                if (size_grip_style == value)
+                    return;
+
                 size_grip_style = value;
+                Invalidate ();
             }
         }
         private SizeGripStyle size_grip_style = SizeGripStyle.Auto;
+
+        // Upstream Form.SizeGripSize, in logical pixels.
+        private const int SIZE_GRIP_SIZE = 16;
+
+        // Upstream Form.UpdateRenderSizeGrip: the border style decides whether a grip is possible at all,
+        // then SizeGripStyle (Auto = while modal).
+        internal bool RendersSizeGrip
+            => form_border_style is FormBorderStyle.Sizable or FormBorderStyle.SizableToolWindow
+                && size_grip_style switch {
+                    SizeGripStyle.Show => true,
+                    SizeGripStyle.Hide => false,
+                    _ => Modal,
+                };
+
+        // Upstream draws the grip in Form.OnPaint after base.OnPaint (the Paint handlers), in the client
+        // area's bottom-right corner; RenderFrame calls this at that point, with the canvas at the client
+        // origin. Not an OnPaint override, so a subclass overriding OnPaint without calling base still
+        // gets it here -- a small difference kept rather than adding an override to the public surface.
+        internal override void PaintSizeGrip (PaintEventArgs e)
+        {
+            if (!RendersSizeGrip)
+                return;
+
+            var size = client_area.Size;
+            ControlPaint.DrawSizeGrip (e.Graphics, BackColor,
+                size.Width - SIZE_GRIP_SIZE, size.Height - SIZE_GRIP_SIZE, SIZE_GRIP_SIZE, SIZE_GRIP_SIZE);
+        }
+
+        // Upstream WmNCHitTest answers HTBOTTOMRIGHT over the grip, unless the client area is too short to
+        // hold all of it (it would then overlap the caption). x and y are device pixels in window space.
+        private bool IsOverSizeGrip (int x, int y)
+        {
+            if (!RendersSizeGrip || client_area.Height < SIZE_GRIP_SIZE)
+                return false;
+
+            var scaling = Scaling > 0 ? Scaling : 1;
+            var border = Style.Border;
+            var lx = x / scaling - border.Left.GetWidth () - client_area.Left;
+            var ly = y / scaling - border.Top.GetWidth () - client_area.Top;
+
+            return lx >= client_area.Width - SIZE_GRIP_SIZE && lx < client_area.Width
+                && ly >= client_area.Height - SIZE_GRIP_SIZE && ly < client_area.Height;
+        }
 
         /// <summary>Gets or sets the form opacity (0.0 = transparent, 1.0 = opaque). Values are clamped to the range [0, 1].</summary>
         public double Opacity {
@@ -1707,10 +1772,20 @@ namespace Majorsilence.Forms
             WindowState = requested_mdi_state;
         }
 
+        private Control? active_control;
+
         /// <summary>Gets or sets the active control on the form.</summary>
+        /// <remarks>
+        /// The getter reports where focus is, the setter moves it there -- the same path as
+        /// <see cref="ContainerControl.ActiveControl"/>, which upstream's Form inherits. It used to answer
+        /// <c>GetNextControl (null, true)</c>, the first control in tab order whatever had focus (FRM-10),
+        /// so an Edit menu's <c>if (ActiveControl is TextBoxBase tb) tb.Copy ()</c> copied from the wrong
+        /// box. With focus inside a nested container (a <see cref="UserControl"/>), the answer is that
+        /// container, as upstream; its own <c>ActiveControl</c> names the control inside it.
+        /// </remarks>
         public Control? ActiveControl {
-            get => adapter.GetNextControl (null, true);
-            set => value?.Select ();
+            get => ContainerFocus.ActiveControlOf (client_area, active_control);
+            set => ContainerFocus.SetActiveControl (client_area, value, ref active_control);
         }
 
         /// <summary>
@@ -1885,7 +1960,15 @@ namespace Majorsilence.Forms
         // Notifies on change; the event was declared and raised by nothing (W6.1).
         private System.Drawing.Rectangle maximized_bounds;
 
-        /// <summary>Gets or sets the bounds the form uses when maximized. Stored but not enforced in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the bounds the form uses when maximized, in screen coordinates.</summary>
+        /// <remarks>
+        /// Handed to the backend as a maximize hint, as upstream hands it to the window manager through
+        /// <c>WM_GETMINMAXINFO</c>; the form still reports <see cref="FormWindowState.Maximized"/>. Honoured
+        /// where the platform has such a hint -- the WinForms host. Avalonia, GTK 4, WPF and Uno windows
+        /// have none, so there a maximized form fills the work area and this value is only stored
+        /// (see <see cref="Backends.IMaximizedBoundsBackend"/>). An MDI child ignores it, as upstream's
+        /// MDI client maximizes its children to the client area. Empty (the default) means no hint.
+        /// </remarks>
         public System.Drawing.Rectangle MaximizedBounds {
             get => maximized_bounds;
             set {
@@ -1893,6 +1976,7 @@ namespace Majorsilence.Forms
                     return;
 
                 maximized_bounds = value;
+                (Backend as Backends.IMaximizedBoundsBackend)?.SetMaximizedBounds (value);
                 MaximizedBoundsChanged?.Invoke (this, EventArgs.Empty);
             }
         }

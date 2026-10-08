@@ -253,14 +253,6 @@ namespace Majorsilence.Forms
             if (IsDisposed)
                 return;
 
-            // Upstream stops through Dispose when the form disposes its controls. Disposing a window
-            // here does not dispose its controls (WindowBase.Dispose), so a box left on a disposed form
-            // would animate for ever; the first frame change after the window has gone stops it.
-            if (FindForm () is { IsDisposed: true }) {
-                StopAnimate ();
-                return;
-            }
-
             if (InvokeRequired) {
                 BeginInvoke (new EventHandler (OnFrameChanged), sender, e);
                 return;

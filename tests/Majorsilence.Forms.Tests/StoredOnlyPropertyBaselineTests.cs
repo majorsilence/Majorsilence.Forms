@@ -64,11 +64,12 @@ public class StoredOnlyPropertyBaselineTests
         static string? Find (System.Collections.Generic.List<string> lines, string name)
             => lines.FirstOrDefault (l => l.Split (" --", StringSplitOptions.None)[0].Trim () == name);
 
-        // Genuinely outbound: the framework assigns Modal so an application can read it back, and
-        // nothing else reads the field. Wiring one of these is how a working property gets broken.
-        var modal = Find (scanned, "Majorsilence.Forms.Form.Modal");
-        Assert.NotNull (modal);
-        Assert.Contains ("framework-written", modal);
+        // Genuinely outbound: the framework assigns IsInitialized (EndInit) so an application can read
+        // it back, and nothing else reads the field. Wiring one of these is how a working property gets
+        // broken. (Form.Modal was the example until SizeGripStyle.Auto started reading it.)
+        var outbound = Find (scanned, "Majorsilence.Forms.BindingSource.IsInitialized");
+        Assert.NotNull (outbound);
+        Assert.Contains ("framework-written", outbound);
 
         // Merely initialised: `public bool UseCompatibleStateImageBehavior { get; set; } = true;` is
         // written by ListView's constructor and by nothing else. That is a stub, not outbound state.

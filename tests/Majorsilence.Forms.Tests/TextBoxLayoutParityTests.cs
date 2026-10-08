@@ -21,9 +21,11 @@ namespace Majorsilence.Forms.Tests
             HeadlessRenderer.CapturePng (form);
             HeadlessRenderer.CapturePng (form);
 
+            // A copy: disposing the form disposes the text box with it, as upstream, and its back buffer
+            // with the text box.
             var buffer = typeof (Control).GetMethod ("GetBackBuffer",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
-            return (SkiaSharp.SKBitmap) buffer.Invoke (textBox, null)!;
+            return ((SkiaSharp.SKBitmap) buffer.Invoke (textBox, null)!).Copy ();
         }
 
         // Bounding box of pixels brighter than the (dark) background, or null when nothing was drawn.

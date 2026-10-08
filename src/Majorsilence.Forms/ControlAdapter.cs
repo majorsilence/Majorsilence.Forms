@@ -26,6 +26,12 @@ namespace Majorsilence.Forms
 
         public new WindowBase ParentForm { get; }
 
+        // The top of every control's Cursor inheritance chain on this window. Upstream the form is the
+        // root control, so a control without a cursor of its own -- the client area included -- shows the
+        // form's. Here the chain ended at this adapter, which has no parent, so it answered the arrow and
+        // the pointer over a form's empty client area lost the form's cursor.
+        protected override Cursor DefaultCursor => ParentForm.Cursor ?? base.DefaultCursor;
+
         /// <summary>The window's binding context: the adapter is the root its children inherit from.</summary>
         /// <remarks>
         /// Upstream the form IS the root control, so a child's inherited context is the form's. Here the

@@ -18,7 +18,7 @@ namespace Majorsilence.Forms.WinForms
     /// Popups (menus, combo dropdowns, tooltips) are borderless, non-activating tool windows —
     /// real OS windows, exactly like the Avalonia backend's popups.
     /// </summary>
-    internal sealed class WinFormsWindowHost : IWindowBackend, INativeControlHostBackend, IDisposable
+    internal sealed class WinFormsWindowHost : IWindowBackend, INativeControlHostBackend, IMaximizedBoundsBackend, IDisposable
     {
         private readonly MF.WindowBase _owner;
         private readonly bool _isPopup;
@@ -260,6 +260,10 @@ namespace Majorsilence.Forms.WinForms
             set => _form.Opacity = value;
         }
 
+        // The native form answers WM_GETMINMAXINFO from its own MaximizedBounds, which is exactly the hint
+        // MF.Form.MaximizedBounds is (upstream Form.WmGetMinMaxInfoHelper). Same units as Location.
+        public void SetMaximizedBounds (Rectangle bounds) => _form.SetMaximizedBounds (bounds);
+
         // MF.FormWindowState and WF.FormWindowState are the same enum values (Normal/Minimized/Maximized).
         public MF.FormWindowState WindowState {
             get => (MF.FormWindowState) (int) _form.WindowState;
@@ -408,6 +412,9 @@ namespace Majorsilence.Forms.WinForms
             internal bool ShowWithoutActivationFlag { get; set; }
 
             protected override bool ShowWithoutActivation => ShowWithoutActivationFlag;
+
+            // WF.Form.MaximizedBounds is protected; this is the host's way in.
+            internal void SetMaximizedBounds (Rectangle bounds) => MaximizedBounds = bounds;
 
             protected override WF.CreateParams CreateParams {
                 get {

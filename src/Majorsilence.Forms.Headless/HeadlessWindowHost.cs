@@ -11,7 +11,7 @@ namespace Majorsilence.Forms.Headless
     /// offscreen SkiaSharp surface. Geometry/appearance are plain in-memory state; input and
     /// chrome operations are no-ops. Mirrors the structure a real (Uno/Avalonia) window host follows.
     /// </summary>
-    internal sealed class HeadlessWindowHost : IWindowBackend
+    internal sealed class HeadlessWindowHost : IWindowBackend, IMaximizedBoundsBackend
     {
         private readonly WindowBase _owner;
         private Size _size = new (800, 600);
@@ -111,6 +111,11 @@ namespace Majorsilence.Forms.Headless
         public double Opacity { get; set; } = 1.0;
         public FormWindowState WindowState { get; set; } = FormWindowState.Normal;
         public bool Enabled { get; set; } = true;
+
+        // The maximize hint the window was last given (Form.MaximizedBounds). Headless has no window
+        // manager to apply it; this exists so a test can assert the form handed it over.
+        public Rectangle MaximizedBounds { get; private set; }
+        public void SetMaximizedBounds (Rectangle bounds) => MaximizedBounds = bounds;
 
         // ── Coordinate conversion ──
         //

@@ -308,6 +308,23 @@ namespace Majorsilence.Forms
             return new Rectangle (button.X + (button.Width - size) / 2, button.Y + (button.Height - size) / 2, size, size);
         }
 
+        /// <inheritdoc/>
+        /// <remarks>Disposes the hosted child form with its frame, as upstream's MDI client disposes its
+        /// child forms (they are its child controls) when the parent form is disposed. Otherwise a disposed
+        /// MDI parent left its children in <see cref="Application.OpenForms"/>.</remarks>
+        protected override void Dispose (bool disposing)
+        {
+            if (disposing) {
+                if (ChildForm.MdiHost == this && !ChildForm.IsDisposed)
+                    ChildForm.Dispose ();
+
+                content_buffer?.Dispose ();
+                content_buffer = null;
+            }
+
+            base.Dispose (disposing);
+        }
+
         private void EnsureContentBuffer (int w, int h)
         {
             if (content_buffer is null || content_buffer.Width != w || content_buffer.Height != h) {

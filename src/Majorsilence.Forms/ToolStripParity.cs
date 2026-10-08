@@ -138,7 +138,22 @@ namespace Majorsilence.Forms
         internal void RaiseQueryContinueDrag (QueryContinueDragEventArgs e) => QueryContinueDrag?.Invoke (this, e);
 
         /// <summary>Occurs when an accessibility client requests help.</summary>
+        /// <remarks>Raised by the item's accessible object when its <see cref="AccessibleObject.Help"/> or
+        /// <see cref="AccessibleObject.GetHelpTopic"/> is read -- by the automation tree's
+        /// <see cref="Automation.AutomationElement.HelpText"/>, which the UI Automation bridge reports as
+        /// HelpText -- as upstream's <c>ToolStripItemAccessibleObject</c> raises it.</remarks>
         public event QueryAccessibilityHelpEventHandler? QueryAccessibilityHelp;
+
+        // Asks the QueryAccessibilityHelp handlers, or null when there are none (see Control's).
+        internal QueryAccessibilityHelpEventArgs? QueryAccessibilityHelpFromHandlers ()
+        {
+            if (QueryAccessibilityHelp is not { } handler)
+                return null;
+
+            var args = new QueryAccessibilityHelpEventArgs ();
+            handler (this, args);
+            return args;
+        }
 
         /// <summary>Occurs when <see cref="Command"/> changes.</summary>
         public event EventHandler? CommandChanged;
@@ -497,6 +512,28 @@ namespace Majorsilence.Forms
 
         /// <summary>Gets the description of the item's default action.</summary>
         public override string? DefaultAction => Owner.AccessibleDefaultActionDescription;
+
+        /// <summary>Gets the help text: what a <see cref="ToolStripItem.QueryAccessibilityHelp"/> handler supplies.</summary>
+        /// <remarks>Raises the owner's event and returns its <see cref="QueryAccessibilityHelpEventArgs.HelpString"/>;
+        /// with no handler, the base help (upstream <c>ToolStripItemAccessibleObject.Help</c>).</remarks>
+        public override string? Help
+            => Owner.QueryAccessibilityHelpFromHandlers () is { } args ? args.HelpString : base.Help;
+
+        /// <summary>Gets the help topic: what a <see cref="ToolStripItem.QueryAccessibilityHelp"/> handler supplies.</summary>
+        /// <remarks>The file is the handler's <see cref="QueryAccessibilityHelpEventArgs.HelpNamespace"/> and
+        /// the topic its <see cref="QueryAccessibilityHelpEventArgs.HelpKeyword"/> parsed as an integer, 0 when
+        /// it is not one; with no handler, the base topic (upstream
+        /// <c>ToolStripItemAccessibleObject.GetHelpTopic</c>).</remarks>
+        public override int GetHelpTopic (out string? fileName)
+        {
+            if (Owner.QueryAccessibilityHelpFromHandlers () is not { } args)
+                return base.GetHelpTopic (out fileName);
+
+            fileName = args.HelpNamespace;
+            int.TryParse (args.HelpKeyword, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out var topic);
+            return topic;
+        }
     }
 
     public partial class ToolStrip

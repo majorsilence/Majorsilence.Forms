@@ -206,7 +206,6 @@ Majorsilence.Forms.Form.AllowTransparency    -- needs a backend window capabilit
 Majorsilence.Forms.Form.AutoScale    -- legacy .NET 1.x autoscale; AutoScaleMode/Dimensions are the live path
 Majorsilence.Forms.Form.FormScreenCaptureMode    -- Win32 handle/window-class detail; no equivalent here
 Majorsilence.Forms.Form.MdiChildrenMinimizedAnchorBottom    -- MDI child minimisation is not modelled; the window list is real as of W6 mechanisms
-Majorsilence.Forms.Form.Modal    -- framework-written (outbound state)
 Majorsilence.Forms.Form.TransparencyKey    -- needs a backend window capability (per-pixel transparency / shadow)
 Majorsilence.Forms.GiveFeedbackEventArgs.CursorOffset    -- drop-description text and drag images are drawn by the OS shell drag image; the in-process session (W6) has none to hand them to
 Majorsilence.Forms.GiveFeedbackEventArgs.DragImage    -- drop-description text and drag images are drawn by the OS shell drag image; the in-process session (W6) has none to hand them to

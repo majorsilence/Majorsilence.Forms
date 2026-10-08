@@ -65,23 +65,34 @@ namespace Majorsilence.Forms.Automation
             }
         }
 
-        // A live region's change (Label.LiveSetting), from LiveAnnouncer.LiveRegionChanged: delivered to each
-        // observer of the label's window with a LiveRegionChanged handler. True when one took it.
-        internal static bool NotifyLiveRegionChanged (Control control)
+        // A live region's change (Label.LiveSetting, ToolStripStatusLabel.LiveSetting), from
+        // LiveAnnouncer.LiveRegionChanged: delivered to each observer of the owner's window with a
+        // LiveRegionChanged handler. True when one took it. A tool strip item is not a Control, so its
+        // window is its strip's; the tree already carries an element for it (AutomationProvider.BuildItems),
+        // which is what the UI Automation bridge raises the event on.
+        internal static bool NotifyLiveRegionChanged (object owner)
         {
+            var window = owner switch {
+                Control control => control.FindWindow (),
+                MenuItem item => item.OwnerControl?.FindWindow (),
+                _ => null,
+            };
+
+            if (window is null)
+                return false;
+
             AutomationObserver[] observers;
 
             lock (live)
                 observers = live.ToArray ();
 
             var delivered = false;
-            var window = control.FindWindow ();
 
             foreach (var observer in observers) {
                 if (!ReferenceEquals (observer._window, window) || observer.LiveRegionChanged is not { } handler)
                     continue;
 
-                handler (observer, observer.FindElement (control));
+                handler (observer, observer.FindElement (owner));
                 delivered = true;
             }
 
@@ -89,10 +100,10 @@ namespace Majorsilence.Forms.Automation
         }
 
         /// <summary>
-        /// Raised when a live region in the window -- a <see cref="Label"/> whose
-        /// <see cref="Label.LiveSetting"/> is not <see cref="AutomationLiveSetting.Off"/> -- changes, so a
-        /// screen reader announces it. The element is the label's, carrying its
-        /// <see cref="AutomationElement.LiveSetting"/>.
+        /// Raised when a live region in the window -- a <see cref="Label"/> or
+        /// <see cref="ToolStripStatusLabel"/> whose <c>LiveSetting</c> is not
+        /// <see cref="AutomationLiveSetting.Off"/> -- changes, so a screen reader announces it. The element
+        /// is the label's, carrying its <see cref="AutomationElement.LiveSetting"/>.
         /// </summary>
         public event EventHandler<AutomationElement?>? LiveRegionChanged;
 
@@ -146,9 +157,9 @@ namespace Majorsilence.Forms.Automation
             _valueSource = null;
         }
 
-        // Locates the snapshot element backed by the given live control (exact reference match).
-        private AutomationElement? FindElement (Control control) =>
-            Root.Self ().FirstOrDefault (e => ReferenceEquals (e.Source, control));
+        // Locates the snapshot element backed by the given live control or item (exact reference match).
+        private AutomationElement? FindElement (object source) =>
+            Root.Self ().FirstOrDefault (e => ReferenceEquals (e.Source, source));
 
         /// <inheritdoc/>
         public void Dispose ()
