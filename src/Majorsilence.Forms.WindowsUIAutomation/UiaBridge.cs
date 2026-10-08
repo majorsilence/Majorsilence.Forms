@@ -39,6 +39,7 @@ namespace Majorsilence.Forms.WindowsUIAutomation
             _observer = new AutomationObserver (window);
             _observer.FocusChanged += OnFocusChanged;
             _observer.ValueChanged += OnValueChanged;
+            _observer.LiveRegionChanged += OnLiveRegionChanged;
         }
 
         /// <summary>The window-root provider (fragment root).</summary>
@@ -101,6 +102,10 @@ namespace Majorsilence.Forms.WindowsUIAutomation
             return new ElementProvider (this, path);   // empty path => the window root (no deeper hit)
         }
 
+        // Read on the UI thread: an element's help raises the control's QueryAccessibilityHelp handlers.
+        public string HelpText (int[] path) => OnUi (() =>
+            UiaTree.Follow (AutomationProvider.BuildTree (_window), path)?.HelpText ?? string.Empty);
+
         public ElementProvider? FocusedProvider ()
         {
             var path = OnUi (() => UiaTree.FindFocused (AutomationProvider.BuildTree (_window)));
@@ -150,6 +155,26 @@ namespace Majorsilence.Forms.WindowsUIAutomation
                     new AutomationPropertyChangedEventArgs (ValuePatternIdentifiers.ValueProperty, null, provider.Value));
         }
 
+        // A live label's text changed (Label.LiveSetting): UIA's LiveRegionChanged on its provider is what
+        // makes Narrator and NVDA read the new text, at the politeness its LiveSetting property reports
+        // (upstream Control.ControlAccessibleObject.RaiseLiveRegionChanged).
+        private void OnLiveRegionChanged (object? sender, MfAutomationElement? element)
+        {
+            if (element == null || !AutomationInteropProvider.ClientsAreListening)
+                return;
+
+            // Raised from the label's OnTextChanged, on the UI thread.
+            var path = UiaTree.PathOf (AutomationProvider.BuildTree (_window), element.Source);
+            if (path == null)
+                return;
+
+            var provider = new ElementProvider (this, path);
+            AutomationInteropProvider.RaiseAutomationEvent (
+                AutomationElementIdentifiers.LiveRegionChangedEvent,
+                provider,
+                new AutomationEventArgs (AutomationElementIdentifiers.LiveRegionChangedEvent));
+        }
+
         // ── UI-thread marshalling (mirrors the WebDriver server) ───────────────────
 
         private static T OnUi<T> (Func<T> func) =>
@@ -173,6 +198,7 @@ namespace Majorsilence.Forms.WindowsUIAutomation
 
             _observer.FocusChanged -= OnFocusChanged;
             _observer.ValueChanged -= OnValueChanged;
+            _observer.LiveRegionChanged -= OnLiveRegionChanged;
             _observer.Dispose ();
 
             Native.RemoveWindowSubclass (_hwnd, _proc, SubclassId);

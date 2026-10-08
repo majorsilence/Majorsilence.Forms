@@ -167,9 +167,11 @@ per-row:
   is raised by F1; as of 2026-10-06, #344, `ChangeUICues` is raised on every control when a form
   starts showing focus or access-key cues, and `DpiChangedBeforeParent`/`DpiChangedAfterParent` with
   `Form.DpiChanged` when a window's scale changes); and
-  `QueryAccessibilityHelp`, `Scroll` and `SystemColorsChanged` remain no-op stub events with no
-  `On*` hook at all — no accessibility tree, no generic scroll source, and no OS system-colour
-  notification exist to raise them from. Derived-type-specific hooks (`OnSelectedIndexChanged`,
+  `Scroll` and `SystemColorsChanged` remain no-op stub events with no
+  `On*` hook at all — no generic scroll source and no OS system-colour
+  notification exist to raise them from. `QueryAccessibilityHelp` is raised as of 2026-10-08 (#344,
+  EVT-33) from the control's `ControlAccessibleObject.Help`/`GetHelpTopic`, which the UI Automation
+  bridge's HelpText and the browser accessibility DOM's `aria-description` read. Derived-type-specific hooks (`OnSelectedIndexChanged`,
   `OnCellPainting`, ...) are unchanged by this and are still mostly absent — see the per-row notes.
   `TabControl.OnDrawItem` is the exception that now works for real: setting `DrawMode` to either
   owner-draw value makes the tab strip raise `DrawItem` per tab (with the tab's bounds, index and

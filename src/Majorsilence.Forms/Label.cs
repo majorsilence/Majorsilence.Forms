@@ -168,6 +168,14 @@ namespace Majorsilence.Forms
         {
             base.OnTextChanged (e);
             AdjustSize ();
+
+            // Upstream Label.OnTextChanged raises the live-region change itself, so a screen reader
+            // announces a status label's new text. Upstream skips it until the accessible object exists,
+            // which on Windows is as soon as a UI Automation client asks for it; nothing here asks for it,
+            // so it is created on demand rather than the announcement being lost. The browser mirror also
+            // notices the text change on its own; the two are one announcement (AriaDomMirror.SyncNow).
+            if (LiveSetting != AutomationLiveSetting.Off)
+                AccessibilityObject.RaiseLiveRegionChanged ();
         }
 
         /// <inheritdoc/>

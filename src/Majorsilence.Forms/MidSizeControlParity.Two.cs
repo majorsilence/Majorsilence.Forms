@@ -81,13 +81,15 @@ namespace Majorsilence.Forms
             => Automation.LiveAnnouncer.Notify (LiveOwner, notificationProcessing, notificationText);
 
         /// <summary>Tells the accessibility client that the owner's text, a live region, changed.</summary>
-        /// <remarks>Delivered on the browser target for a <see cref="Label"/> or
-        /// <see cref="ToolStripStatusLabel"/> whose <c>LiveSetting</c> is not
-        /// <see cref="AutomationLiveSetting.Off"/>: its text is announced, assertively for
-        /// <see cref="AutomationLiveSetting.Assertive"/>. Such a label's text changes are announced without
-        /// this call too, as upstream raises the event itself on <c>TextChanged</c>; calling it after
-        /// setting the text, as code written for .NET Framework does, does not announce twice. False
-        /// otherwise, and nothing is announced.</remarks>
+        /// <remarks>For a <see cref="Label"/> or <see cref="ToolStripStatusLabel"/> whose <c>LiveSetting</c>
+        /// is not <see cref="AutomationLiveSetting.Off"/>. A label's change goes to every
+        /// <see cref="Automation.AutomationObserver"/> of its window that listens -- the Windows UI Automation
+        /// bridge raises UIA's LiveRegionChanged from it -- and on the browser target its text is announced
+        /// through the accessibility DOM's live region, assertively for
+        /// <see cref="AutomationLiveSetting.Assertive"/>. A label raises this itself when its text changes,
+        /// as upstream's <c>Label.OnTextChanged</c> does; calling it again after setting the text, as code
+        /// written for .NET Framework does, does not announce twice. True when something took the change;
+        /// false otherwise, as upstream returns with no automation client listening.</remarks>
         public virtual bool RaiseLiveRegionChanged () => Automation.LiveAnnouncer.LiveRegionChanged (LiveOwner);
     }
 

@@ -435,8 +435,13 @@ namespace Majorsilence.Forms
             /// <summary>Gets the control this object describes.</summary>
             public Control Owner { get; }
 
-            /// <summary>Gets the name reported to assistive technology.</summary>
-            public override string? Name => Owner.AccessibleName ?? Owner.Text;
+            /// <summary>Gets or sets the name reported to assistive technology.</summary>
+            /// <remarks>Setting it sets the owner's <see cref="Control.AccessibleName"/>, as upstream's does,
+            /// so a name assigned through the accessible object is the one the automation tree reports.</remarks>
+            public override string? Name {
+                get => Owner.AccessibleName ?? Owner.Text;
+                set => Owner.AccessibleName = value;
+            }
 
             /// <summary>Gets the description reported to assistive technology.</summary>
             public override string? Description => Owner.AccessibleDescription;
@@ -447,6 +452,48 @@ namespace Majorsilence.Forms
 
             /// <summary>Gets the control's bounds.</summary>
             public override Rectangle Bounds => Owner.Bounds;
+
+            /// <summary>Gets the help text: what a <see cref="QueryAccessibilityHelp"/> handler supplies.</summary>
+            /// <remarks>Raises the owner's <see cref="QueryAccessibilityHelp"/> event and returns its
+            /// <see cref="QueryAccessibilityHelpEventArgs.HelpString"/>; with no handler, the base help
+            /// (upstream <c>Control.ControlAccessibleObject.Help</c>).</remarks>
+            public override string? Help
+                => Owner.QueryAccessibilityHelpFromHandlers () is { } args ? args.HelpString : base.Help;
+
+            /// <summary>Gets the help topic: what a <see cref="QueryAccessibilityHelp"/> handler supplies.</summary>
+            /// <remarks>Raises the owner's <see cref="QueryAccessibilityHelp"/> event; the file is its
+            /// <see cref="QueryAccessibilityHelpEventArgs.HelpNamespace"/> and the topic its
+            /// <see cref="QueryAccessibilityHelpEventArgs.HelpKeyword"/> parsed as an integer, 0 when it is
+            /// not one. With no handler, the base topic (upstream
+            /// <c>Control.ControlAccessibleObject.GetHelpTopic</c>).</remarks>
+            public override int GetHelpTopic (out string? fileName)
+            {
+                if (Owner.QueryAccessibilityHelpFromHandlers () is not { } args)
+                    return base.GetHelpTopic (out fileName);
+
+                fileName = args.HelpNamespace;
+                int.TryParse (args.HelpKeyword, System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out var topic);
+                return topic;
+            }
+
+            /// <summary>Tells accessibility clients that the owner, a live region, changed.</summary>
+            /// <remarks>
+            /// The owner must be a live region -- a <see cref="Label"/> -- or this throws
+            /// <see cref="InvalidOperationException"/>, as upstream's does. Otherwise it is the base
+            /// <see cref="AccessibleObject.RaiseLiveRegionChanged"/>: for a label whose <c>LiveSetting</c> is
+            /// not <see cref="AutomationLiveSetting.Off"/>, the change goes to every
+            /// <see cref="Automation.AutomationObserver"/> watching its window (the Windows UI Automation bridge
+            /// raises UIA's LiveRegionChanged from it) and to the browser accessibility DOM's live region.
+            /// </remarks>
+            /// <returns>True if the change was delivered; otherwise false.</returns>
+            public override bool RaiseLiveRegionChanged ()
+            {
+                if (Owner is not Label)
+                    throw new InvalidOperationException ("The owner control is not a live region.");
+
+                return base.RaiseLiveRegionChanged ();
+            }
         }
 
         private static string AssemblyMetadata<TAttribute> (Func<TAttribute, string?> read) where TAttribute : Attribute

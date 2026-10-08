@@ -101,7 +101,8 @@ namespace Majorsilence.Forms.Automation
                 visible: c.Visible,
                 focused: c.Focused,
                 bounds: new Rectangle (origin, c.Size),
-                children: children);
+                children: children,
+                liveSetting: LiveAnnouncer.LiveSettingOf (c));
         }
 
         // Items carry their own Bounds, relative to the strip that lays them out, so the running origin
@@ -129,7 +130,8 @@ namespace Majorsilence.Forms.Automation
                     visible: item.Visible,
                     focused: false,
                     bounds: new Rectangle (origin, item.Bounds.Size),
-                    children: BuildItems (item.Items, origin)));
+                    children: BuildItems (item.Items, origin),
+                    liveSetting: LiveAnnouncer.LiveSettingOf (item)));
             }
 
             return list;

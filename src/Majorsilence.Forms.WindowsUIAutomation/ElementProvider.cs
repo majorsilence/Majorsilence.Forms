@@ -50,6 +50,12 @@ namespace Majorsilence.Forms.WindowsUIAutomation
             if (propertyId == AutomationElementIdentifiers.IsEnabledProperty.Id) return el.Enabled;
             if (propertyId == AutomationElementIdentifiers.HasKeyboardFocusProperty.Id) return el.Focused;
             if (propertyId == AutomationElementIdentifiers.IsKeyboardFocusableProperty.Id) return UiaMappings.IsFocusable (el.Role);
+            // Through the accessible object's Help, which raises the control's QueryAccessibilityHelp
+            // (upstream AccessibleObject.GetPropertyValue: UIA_HelpTextPropertyId => Help ?? "").
+            if (propertyId == AutomationElementIdentifiers.HelpTextProperty.Id) return _bridge.HelpText (_path);
+            // UIA's LiveSetting is an int (Off 0, Polite 1, Assertive 2), the values AutomationLiveSetting
+            // shares with it; upstream reports (int)owner.LiveSetting for a live region.
+            if (propertyId == AutomationElementIdentifiers.LiveSettingProperty.Id) return (int) el.LiveSetting;
             if (propertyId == AutomationElementIdentifiers.IsControlElementProperty.Id) return true;
             if (propertyId == AutomationElementIdentifiers.IsContentElementProperty.Id) return true;
             return null;

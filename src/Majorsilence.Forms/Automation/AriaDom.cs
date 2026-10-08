@@ -537,6 +537,11 @@ namespace Majorsilence.Forms.Automation
                 active = menu_item.Selected && (context.Popup == PopupKind.Menu || menu_item.ParentControl is MenuBase { IsActivated: true });
             }
 
+            // The accessible object's Help, which asks the control's QueryAccessibilityHelp handlers (EVT-33)
+            // -- the UI Automation HelpText a Windows screen reader reads after the name.
+            if (e.HelpText is { Length: > 0 } help)
+                attributes["aria-description"] = help;
+
             if (!e.Enabled)
                 attributes["aria-disabled"] = "true";
 
@@ -550,7 +555,7 @@ namespace Majorsilence.Forms.Automation
 
             // A label the application marked live (LiveSetting), and anything on a status bar, is
             // announced when its text changes, as upstream raises LiveRegionChanged for it.
-            var setting = LiveAnnouncer.LiveSettingOf (e.Source);
+            var setting = e.LiveSetting;
             if (setting != AutomationLiveSetting.Off || context.InStatus || role == "status") {
                 announce = AriaAnnounce.TextChange;
                 live = setting == AutomationLiveSetting.Assertive ? AriaLive.Assertive : AriaLive.Polite;
@@ -925,13 +930,21 @@ namespace Majorsilence.Forms.Automation
             _ => AutomationLiveSetting.Off,
         };
 
-        /// <summary><see cref="AccessibleObject.RaiseLiveRegionChanged"/>: announces a live label's text.</summary>
+        /// <summary>
+        /// <see cref="AccessibleObject.RaiseLiveRegionChanged"/>, and so a live label's text change: the one
+        /// path every platform's announcement takes. A control's change goes to each
+        /// <see cref="AutomationObserver"/> of its window that listens (the Windows UI Automation bridge raises
+        /// UIA's LiveRegionChanged from it, SMP-16), and any owner's text to the browser's live region. True
+        /// when either took it, as upstream returns whether the UIA event was raised.
+        /// </summary>
         internal static bool LiveRegionChanged (object? owner)
         {
             var setting = LiveSettingOf (owner);
 
             if (setting == AutomationLiveSetting.Off)
                 return false;
+
+            var observed = owner is Control control && AutomationObserver.NotifyLiveRegionChanged (control);
 
             // The same text the mirror computes for the label's node, so this and the mirror noticing the
             // text change are recognised as one announcement rather than spoken twice.
@@ -941,7 +954,7 @@ namespace Majorsilence.Forms.Automation
                 _ => null,
             };
 
-            return Announce (text, setting == AutomationLiveSetting.Assertive, AriaDom.KeyOf (owner));
+            return Announce (text, setting == AutomationLiveSetting.Assertive, AriaDom.KeyOf (owner)) | observed;
         }
 
         /// <summary><see cref="AccessibleObject.RaiseAutomationNotification"/>.</summary>

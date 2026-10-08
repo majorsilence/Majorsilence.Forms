@@ -23,7 +23,8 @@ namespace Majorsilence.Forms.Automation
             bool visible,
             bool focused,
             Rectangle bounds,
-            IReadOnlyList<AutomationElement> children)
+            IReadOnlyList<AutomationElement> children,
+            AutomationLiveSetting liveSetting = AutomationLiveSetting.Off)
         {
             Source = source;
             AutomationId = automationId;
@@ -37,6 +38,7 @@ namespace Majorsilence.Forms.Automation
             Focused = focused;
             Bounds = bounds;
             Children = children;
+            LiveSetting = liveSetting;
         }
 
         // The underlying control this snapshot was built from (not exposed publicly to keep the model
@@ -80,6 +82,36 @@ namespace Majorsilence.Forms.Automation
 
         /// <summary>The element's bounds in window-client (logical) coordinates.</summary>
         public Rectangle Bounds { get; }
+
+        /// <summary>
+        /// How assistive technology announces changes to this element: a <see cref="Label"/>'s or
+        /// <see cref="ToolStripStatusLabel"/>'s <c>LiveSetting</c>, <see cref="AutomationLiveSetting.Off"/>
+        /// for everything else. What the UI Automation bridge reports as LiveSetting and what the browser
+        /// accessibility DOM announces a text change at.
+        /// </summary>
+        public AutomationLiveSetting LiveSetting { get; }
+
+        private string? help_text;
+        private bool help_text_read;
+
+        /// <summary>
+        /// The control's help text: its accessible object's <see cref="AccessibleObject.Help"/>, which raises
+        /// <see cref="Control.QueryAccessibilityHelp"/> -- or null. What the UI Automation bridge reports as
+        /// HelpText and the browser accessibility DOM as <c>aria-description</c>.
+        /// </summary>
+        /// <remarks>Read when first asked for, not when the snapshot is built, and then kept: upstream raises
+        /// the event when a client asks for help, so building a tree to find one element does not raise it
+        /// for every control in the window. Read it on the UI thread, since it runs application handlers.</remarks>
+        public string? HelpText {
+            get {
+                if (!help_text_read) {
+                    help_text = Source is Control control ? control.AccessibilityObject.Help : null;
+                    help_text_read = true;
+                }
+
+                return help_text;
+            }
+        }
 
         /// <summary>The child elements, in z-order.</summary>
         public IReadOnlyList<AutomationElement> Children { get; }
