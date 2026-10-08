@@ -255,7 +255,9 @@ namespace Majorsilence.Forms.Tests
             HeadlessRenderer.Use ();
 
             using var form = new Form { FormBorderStyle = FormBorderStyle.None, ClientSize = new Size (600, 100) };
-            var strip = new ToolStrip { AutoSize = false, Height = 40 };
+            // Tall enough for the font on any platform (it measures 42px on Windows): the strip clamps
+            // its hosted control, and this test is about the text box not being stretched to 38.
+            var strip = new ToolStrip { AutoSize = false, Height = 60 };
             var box = new ToolStripTextBox { Size = new Size (250, 38) };
             strip.Items.Add (box);
             form.Controls.Add (strip);
