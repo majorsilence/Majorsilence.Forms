@@ -258,8 +258,8 @@ namespace Majorsilence.Forms.Tests
             // follow-up); it used to squeeze eight columns into the old width.
             Assert.True (numbered.Geometry.Grid.Left > plain.Geometry.Grid.Left);
             Assert.True (numbered.Width > plain.Width);
-            Assert.True (Math.Abs (numbered.Geometry.CellWidth - plain.Geometry.CellWidth) <= 1,
-                         $"day columns {numbered.Geometry.CellWidth} vs {plain.Geometry.CellWidth}");
+            // Not that the day columns keep their width: when the title is the widest part of the month
+            // (a wide font) the seven-column control is wider than its days need, so its cells are too.
             Assert.Equal (numbered.Geometry.CellWidth, numbered.Geometry.Grid.Left - numbered.Geometry.WeekNumberColumn.Left);
 
             using var bitmap = Render (numbered);
