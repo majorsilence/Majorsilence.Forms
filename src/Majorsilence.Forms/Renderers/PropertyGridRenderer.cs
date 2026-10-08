@@ -196,6 +196,6 @@ namespace Majorsilence.Forms.Renderers
         private static SKColor SelectionFore (PropertyGrid control)
             => control.Focused ? SK (control.SelectedItemWithFocusForeColor) : Theme.ForegroundColorOnAccent;
 
-        private static SKColor SK (Color c) => new SKColor (c.R, c.G, c.B, c.A);
+        private static SKColor SK (Color c) => c.ToSKColor ();
     }
 }

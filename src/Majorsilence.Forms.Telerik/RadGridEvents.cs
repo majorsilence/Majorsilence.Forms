@@ -61,9 +61,9 @@ namespace Majorsilence.Forms.Telerik
         internal void ApplyTo (DataGridViewCell cell)
         {
             if (customize_fill && back_color != Color.Empty)
-                cell.Style.BackgroundColor = new SkiaSharp.SKColor (back_color.R, back_color.G, back_color.B, back_color.A);
+                cell.Style.BackgroundColor = back_color.ToSKColor ();
             if (fore_color != Color.Empty)
-                cell.Style.ForegroundColor = new SkiaSharp.SKColor (fore_color.R, fore_color.G, fore_color.B, fore_color.A);
+                cell.Style.ForegroundColor = fore_color.ToSKColor ();
             if (alignment_set)
                 cell.Style.Alignment = (DataGridViewContentAlignment) (int) alignment;
 
@@ -231,7 +231,7 @@ namespace Majorsilence.Forms.Telerik
                 if (Grid is { } grid) {
                     grid.AlternatingRowsDefaultCellStyle.BackgroundColor = value.IsEmpty
                         ? null
-                        : new SkiaSharp.SKColor (value.R, value.G, value.B, value.A);
+                        : value.ToSKColor ();
                     grid.Invalidate ();
                 }
             }

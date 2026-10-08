@@ -301,7 +301,7 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>Clears the entire surface to the specified color.</summary>
-        public void Clear (Color color) => canvas.Clear (new SKColor (color.R, color.G, color.B, color.A));
+        public void Clear (Color color) => canvas.Clear (color.ToSKColor ());
 
         private static SKPath CreatePolygonPath (PointF[] points, bool close)
         {

@@ -223,6 +223,8 @@ namespace Majorsilence.Forms
             pending_color = value;
             preview.Style.BackgroundColor = value.ToSKColor ();
 
+            // The boxes show the colour as painted: a system colour's own channels are the runtime's.
+            value = Majorsilence.Forms.Drawing.SystemColorPalette.Resolve (value);
             syncing_rgb = true;
 
             try {
@@ -253,7 +255,11 @@ namespace Majorsilence.Forms
         private static Color FromColorRef (int colorRef)
             => Color.FromArgb (colorRef & 0xFF, (colorRef >> 8) & 0xFF, (colorRef >> 16) & 0xFF);
 
-        private static int ToColorRef (Color value) => value.R | (value.G << 8) | (value.B << 16);
+        private static int ToColorRef (Color value)
+        {
+            value = Majorsilence.Forms.Drawing.SystemColorPalette.Resolve (value);
+            return value.R | (value.G << 8) | (value.B << 16);
+        }
 
         /// <summary>Gets or sets the color selected by the user. Setting <see cref="Color.Empty"/> resets to black.</summary>
         public Color Color {

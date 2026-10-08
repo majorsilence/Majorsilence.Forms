@@ -39,14 +39,14 @@ namespace Majorsilence.Forms
                 // is why Light (SystemColors.Control) is DARKER than Control in WinForms. Upstream tests
                 // identity (ControlPaint.HLSColor.cs: ToKnownColor), so a real KnownColor.Control -- one
                 // a designer file or resx deserialised -- qualifies whatever its channels. The ARGB clause
-                // stands in for identity while SystemColors returns anonymous colours (GFX-39, open).
-                // (By name: netstandard2.0 has no KnownColor, and a known colour's name is its member's.)
-                is_system_colors_control = color.ToArgb () == SystemColors.Control.ToArgb ();
-#if !NETSTANDARD2_0
-                is_system_colors_control |= color.IsSystemColor && color.Name == "Control";
-#endif
+                // stays beside it because Control.BackColor hands back an anonymous colour (it round-trips
+                // through the style's SKColor), and the default BackColor must shade as upstream's does.
+                var painted = Majorsilence.Forms.Drawing.SystemColorPalette.Resolve (color);
+                is_system_colors_control = color == SystemColors.Control
+                    || painted.ToArgb () == Majorsilence.Forms.Drawing.SystemColorPalette.Resolve (SystemColors.Control).ToArgb ();
 
-                int r = color.R, g = color.G, b = color.B;
+                // The channels as painted (GFX-39): a system colour's own R/G/B are the runtime's table.
+                int r = painted.R, g = painted.G, b = painted.B;
                 var max = Math.Max (Math.Max (r, g), b);
                 var min = Math.Min (Math.Min (r, g), b);
                 var sum = max + min;

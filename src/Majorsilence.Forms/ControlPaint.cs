@@ -322,6 +322,7 @@ namespace Majorsilence.Forms
                 return;
 
             // Simple luminance-based contrast pick, same idea as WinForms' internal dot color.
+            backColor = Majorsilence.Forms.Drawing.SystemColorPalette.Resolve (backColor);
             int luminance = (backColor.R * 299 + backColor.G * 587 + backColor.B * 114) / 1000;
             var dotColor = luminance > 128 ? System.Drawing.Color.Black : System.Drawing.Color.White;
             using var dotBrush = new Majorsilence.Forms.Drawing.SolidBrush (dotColor);

@@ -194,7 +194,7 @@ namespace Majorsilence.Forms.Telerik
             }
 
             if (!AlertElement.BorderColor.IsEmpty) {
-                Style.Border.Color = new SkiaSharp.SKColor (AlertElement.BorderColor.R, AlertElement.BorderColor.G, AlertElement.BorderColor.B, AlertElement.BorderColor.A);
+                Style.Border.Color = AlertElement.BorderColor.ToSKColor ();
                 Style.Border.Width = 2;
             }
         }

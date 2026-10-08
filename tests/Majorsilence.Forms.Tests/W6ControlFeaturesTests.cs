@@ -820,7 +820,7 @@ public class W6ControlFeaturesTests
 
     // ── helpers ─────────────────────────────────────────────────────────────────────────────────────
 
-    private static SKColor ToSK (Color c) => new SKColor (c.R, c.G, c.B, c.A);
+    private static SKColor ToSK (Color c) => c.ToSKColor ();
 
     private static int CountIn (SKBitmap bitmap, Rectangle area, SKColor colour)
     {

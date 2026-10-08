@@ -97,7 +97,7 @@ public class ColorIdentityAndContrastTests
             SystemInformation.HighContrastOverride = null;
         }
 
-        Assert.Contains (SystemColors.GrayText.ToArgb (), colours);
+        Assert.Contains (Majorsilence.Forms.Drawing.SystemColorPalette.Resolve (SystemColors.GrayText).ToArgb (), colours);
         Assert.DoesNotContain (ControlPaint.Dark (Color.Red).ToArgb (), colours);
     }
 

@@ -179,7 +179,9 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
             return (colors, (float[])positions.Clone ());
         }
 
-        private static Color Lerp (Color from, Color to, float amount) => Color.FromArgb (
+        private static Color Lerp (Color from, Color to, float amount) => LerpResolved (SystemColorPalette.Resolve (from), SystemColorPalette.Resolve (to), amount);
+
+        private static Color LerpResolved (Color from, Color to, float amount) => Color.FromArgb (
             (int)Math.Round (from.A + (to.A - from.A) * amount),
             (int)Math.Round (from.R + (to.R - from.R) * amount),
             (int)Math.Round (from.G + (to.G - from.G) * amount),

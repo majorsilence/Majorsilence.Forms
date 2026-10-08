@@ -208,7 +208,7 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
             return new SKPaint { Shader = shader, Style = SKPaintStyle.Fill, IsAntialias = true };
         }
 
-        private static SKColor ToSK (Color c) => new (c.R, c.G, c.B, c.A);
+        private static SKColor ToSK (Color c) => SystemColorPalette.ToSKColor (c);
 
         private static RectangleF BoundsOf (PointF[] points)
         {

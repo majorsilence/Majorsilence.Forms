@@ -1208,7 +1208,11 @@ namespace Majorsilence.Forms
     public static class ColorCompatExtensions
     {
         /// <summary>Converts a <see cref="System.Drawing.Color"/> to an <see cref="SKColor"/>.</summary>
-        public static SKColor ToSKColor (this Color color) => new SKColor (color.R, color.G, color.B, color.A);
+        /// <remarks>
+        /// A system color (<c>SystemColors.Control</c>, a deserialised <c>KnownColor.Control</c>) converts
+        /// to this library's palette value, not the runtime's channels for it -- see <see cref="SystemColors"/>.
+        /// </remarks>
+        public static SKColor ToSKColor (this Color color) => Majorsilence.Forms.Drawing.SystemColorPalette.ToSKColor (color);
 
         /// <summary>Converts an <see cref="SKColor"/> to a <see cref="System.Drawing.Color"/>.</summary>
         public static Color ToDrawingColor (this SKColor color) => Color.FromArgb (color.Alpha, color.Red, color.Green, color.Blue);

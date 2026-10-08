@@ -805,7 +805,7 @@ namespace Majorsilence.Forms.Renderers
         }
 
         // System.Drawing color (the DataGridViewCellStyle surface) to the Skia color the canvas wants.
-        private static SKColor ToSK (System.Drawing.Color color) => new SKColor (color.R, color.G, color.B, color.A);
+        private static SKColor ToSK (System.Drawing.Color color) => color.ToSKColor ();
 
         // Colour for an edge style: sunken/raised edges read darker/lighter than a plain single line. A
         // plain line is the grid line, and takes GridColor when the app set one -- it was stored,

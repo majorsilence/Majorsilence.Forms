@@ -45,7 +45,10 @@ namespace Majorsilence.Forms.Tests
             // The counter-intuitive consequence of the system short-circuit, and the one a linear
             // "add to each channel" implementation can never produce: SystemColors.ControlLight is
             // darker than SystemColors.Control, so lightening the control colour moves it DOWN.
-            Assert.True (ControlPaint.Light (SystemColors.Control, 0f).GetBrightness () < SystemColors.Control.GetBrightness ());
+            // Compared as painted: a system colour's own channels are the runtime's table (GFX-39).
+            static float Brightness (Color c) => Majorsilence.Forms.Drawing.SystemColorPalette.Resolve (c).GetBrightness ();
+
+            Assert.True (Brightness (ControlPaint.Light (SystemColors.Control, 0f)) < Brightness (SystemColors.Control));
         }
 
         [Fact]

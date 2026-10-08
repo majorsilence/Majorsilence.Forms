@@ -102,7 +102,7 @@ namespace Majorsilence.Forms.Drawing
 #endif
 
         internal override SKPaint CreatePaint () => new SKPaint {
-            Color = new SKColor (Color.R, Color.G, Color.B, Color.A),
+            Color = SystemColorPalette.ToSKColor (Color),
             Style = SKPaintStyle.Fill,
             IsAntialias = true
         };
@@ -369,14 +369,14 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
             float[]? stops;
             if (blendColors is { Length: >= 2 } ramp)
             {
-                colors = Array.ConvertAll (ramp, c => new SKColor (c.R, c.G, c.B, c.A));
+                colors = Array.ConvertAll (ramp, SystemColorPalette.ToSKColor);
                 stops = blendPositions is { } pos && pos.Length == ramp.Length ? pos : null;
             }
             else
             {
                 colors = [
-                    new SKColor (color1.R, color1.G, color1.B, color1.A),
-                    new SKColor (color2.R, color2.G, color2.B, color2.A)
+                    SystemColorPalette.ToSKColor (color1),
+                    SystemColorPalette.ToSKColor (color2)
                 ];
                 stops = [0f, 1f];
             }
@@ -432,8 +432,8 @@ namespace Majorsilence.Forms.Drawing.Drawing2D
 
         internal override SKPaint CreatePaint ()
         {
-            var skFore = new SKColor (foreColor.R, foreColor.G, foreColor.B, foreColor.A);
-            var skBack = new SKColor (BackgroundColor.R, BackgroundColor.G, BackgroundColor.B, BackgroundColor.A);
+            var skFore = SystemColorPalette.ToSKColor (foreColor);
+            var skBack = SystemColorPalette.ToSKColor (BackgroundColor);
 
             using var tile = new SKBitmap (8, 8, SKColorType.Bgra8888, SKAlphaType.Premul);
 

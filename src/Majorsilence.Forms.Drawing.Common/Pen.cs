@@ -199,7 +199,7 @@ namespace Majorsilence.Forms.Drawing
         internal SKPaint CreatePaint ()
         {
             var paint = new SKPaint {
-                Color = new SKColor (Color.R, Color.G, Color.B, Color.A),
+                Color = SystemColorPalette.ToSKColor (Color),
                 Style = SKPaintStyle.Stroke,
                 StrokeWidth = Width <= 0 ? 1 : Width,
                 IsAntialias = true,
