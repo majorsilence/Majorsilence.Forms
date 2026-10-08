@@ -257,6 +257,7 @@ namespace Majorsilence.Forms
 
         private void SetLoadedImage (SKBitmap? bitmap)
         {
+            StopAnimate ();
             _systemImage = null;
             _skImage?.Dispose ();
             _skImage = bitmap;

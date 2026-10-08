@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using ControlGallery;
+using Gallery.Checks;
 using Majorsilence.Forms;
 
 namespace Gallery.Wasm

@@ -437,10 +437,51 @@ namespace Majorsilence.Forms
         public Cursor UserSetCursor => Cursor;
 
         /// <summary>Gets how far the control is scrolled vertically, in pixels.</summary>
-        public int VerticalScrollingOffset => vscrollbar.Value;
+        /// <remarks>
+        /// The height of the rows scrolled off the top, in logical pixels like every public offset (RC-8). The
+        /// vertical bar here counts rows, and this answered the bar's value -- a row index, not pixels as
+        /// upstream's <c>VerticalScrollingOffset</c> is (DGV-34).
+        /// </remarks>
+        public int VerticalScrollingOffset {
+            get {
+                var offset = 0;
+
+                for (var i = 0; i < Math.Min (top_index, RowCountWithNewRow); i++)
+                    offset += RowDeviceHeight (i);
+
+                return DeviceToLogicalUnits (offset);
+            }
+        }
 
         /// <summary>Gets the width of the part of the first displayed column that is scrolled out of view.</summary>
-        public int FirstDisplayedScrollingColumnHiddenWidth => 0;
+        /// <remarks>
+        /// In logical pixels, as <see cref="HorizontalScrollingOffset"/> is (RC-8): the offset less the width of
+        /// the scrolling columns wholly before <see cref="FirstDisplayedScrollingColumnIndex"/>. It answered 0
+        /// whatever the scroll (DGV-34).
+        /// </remarks>
+        public int FirstDisplayedScrollingColumnHiddenWidth {
+            get {
+                var first = FirstDisplayedScrollingColumnIndex;
+
+                if (first < 0)
+                    return 0;
+
+                var before = 0;
+
+                foreach (var i in DisplayOrder) {
+                    if (i == first)
+                        break;
+
+                    if (!Columns[i].Visible || Columns[i].Frozen || Columns[i].PinnedRight)
+                        continue;
+
+                    before += LogicalToDeviceUnits (Columns[i].Width);
+                }
+
+                // Device arithmetic, one conversion at the end, so the rounding does not accumulate per column.
+                return DeviceToLogicalUnits (Math.Max (0, HorizontalScrollingOffsetDevice - before));
+            }
+        }
 
         // IsCurrentRowDirty moved to DataGridView.Editing.cs (DGV-08): it is a different question from
         // IsCurrentCellDirty and needs its own state.

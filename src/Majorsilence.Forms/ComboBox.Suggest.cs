@@ -112,7 +112,7 @@ namespace Majorsilence.Forms
             }
 
             if (suggest_popup is null || suggest_popup.IsDisposed) {
-                suggest_popup = new PopupWindow (window, activates: false);
+                suggest_popup = new PopupWindow (window, activates: false) { AccessibleOwner = this };
                 suggest_popup.Controls.Add (suggest_list);
             }
 

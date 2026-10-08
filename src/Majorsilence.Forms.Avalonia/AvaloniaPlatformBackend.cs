@@ -24,9 +24,19 @@ namespace Majorsilence.Forms.Backends
 #if !BROWSER
         , IKeepScreenAwakeBackend
 #endif
+#if !SINGLEVIEW
+        , ITrayIconBackend
+#endif
     {
         /// <inheritdoc/>
         public string Name => "Avalonia";
+
+#if !SINGLEVIEW
+        /// <inheritdoc/>
+        /// <remarks>Avalonia's <c>TrayIcon</c> (TSM-19); see <see cref="AvaloniaTrayIcon"/> for what it reports.
+        /// Not on the browser, Android or iOS rows: none has a notification area.</remarks>
+        public ITrayIconHandle? CreateTrayIcon (NotifyIcon owner) => AvaloniaTrayIcon.Create (owner);
+#endif
 
 #if !BROWSER
         /// <inheritdoc/>
@@ -600,13 +610,19 @@ namespace Majorsilence.Forms.Backends
                 s.IsPrimary)).ToArray ();
         }
 
-#if BROWSER
+#if BROWSER || ANDROID || IOS
         /// <inheritdoc/>
         /// <remarks>
-        /// False in the browser: measured with <c>samples/Gallery.Wasm</c>'s modal check (issue #406),
-        /// Avalonia.Browser's dispatcher has no nested frame -- <see cref="Dispatcher.PushFrame"/> throws a
-        /// bare <see cref="PlatformNotSupportedException"/> -- because the page's JavaScript event loop, not
-        /// .NET, owns the only thread. The blocking modal APIs check this before they show anything.
+        /// <para>False on every single-view row. In the browser, measured with <c>samples/Gallery.Wasm</c>'s
+        /// modal check (issue #406), Avalonia.Browser's dispatcher has no nested frame --
+        /// <see cref="Dispatcher.PushFrame"/> throws a bare <see cref="PlatformNotSupportedException"/> --
+        /// because the page's JavaScript event loop, not .NET, owns the only thread.</para>
+        /// <para>On Android and iOS the same check (linked into <c>samples/Gallery.Android</c> and
+        /// <c>samples/Gallery.iOS</c>), run on an Android 15 emulator and an iOS 26.5 simulator against
+        /// Avalonia 12.1.1, found the same: <see cref="Dispatcher.PushFrame"/> throws that bare exception at
+        /// once, after the dialog -- or the native file picker -- is already on screen. It did not hang. See
+        /// "Blocking modal calls on Android and iOS" in docs/backends.md.</para>
+        /// <para>The blocking modal APIs check this before they show anything.</para>
         /// </remarks>
         public bool CanRunModalLoop => false;
 

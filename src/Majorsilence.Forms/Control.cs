@@ -106,6 +106,9 @@ namespace Majorsilence.Forms
 
             // When a control seems to be going from invisible -> visible,
             // yet its parent is being set to null and it's not top level, do not raise OnVisibleChanged.
+            // Now that an unparented control reads visible (CTL-14) this is what keeps removal from a
+            // hidden parent quiet. Upstream also exempts a top-level control (Control.cs AssignParent);
+            // the only parent one has here is its own popup host, which always reads visible.
             var new_visible = Visible;
 
             if (old_visible != new_visible && !(!old_visible && new_visible && parent is null))
@@ -437,9 +440,9 @@ namespace Majorsilence.Forms
                 OnBindingContextChanged (EventArgs.Empty);
         }
 
-        // This control's own Visible flag and every ancestor's -- upstream's Visible, which treats an
-        // unparented control as visible. The Visible property here reports a parentless control as
-        // hidden, so creation cannot ask it: an unparented panel would never create its children.
+        // This control's own Visible flag and every ancestor's -- the same answer as the Visible
+        // getter, but read from the state flags so an override of Visible (a drop-down that reports
+        // its popup, the root adapter) cannot change whether this control is created.
         private bool IsVisibleInTree {
             get {
                 for (var c = this; c is not null; c = c.parent) {
@@ -2944,20 +2947,13 @@ namespace Majorsilence.Forms
             if (Selected || !CanSelect)
                 return;
 
-            var adapter = FindAdapter ();
-
-            if (adapter is null) {
-                // No container to sequence the change (an unparented control, or one on a window that
-                // has not been built yet). Take focus directly so the flag and the notification still
-                // agree with each other.
-                Selected = true;
-                RaiseEnterOnly ();
-                RaiseGotFocus ();
-                Invalidate ();
-                return;
-            }
-
-            adapter.SelectedControl = this;
+            // No window to sequence the change: an unparented control, or a tree not yet on a form.
+            // Upstream's Select hands the request to GetContainerControl ()'s ActiveControl and does
+            // nothing without one (Control.cs Select (bool, bool)); a container that records it
+            // (ContainerFocus) keeps it for later. Taking focus directly here made a second focused
+            // control that the window never learned about once the control was parented (CTL-14).
+            if (FindAdapter () is { } adapter)
+                adapter.SelectedControl = this;
         }
 
         /// <summary>
@@ -3408,7 +3404,11 @@ namespace Majorsilence.Forms
                 if (!GetState (States.Visible))
                     return false;
 
-                return parent?.Visible ?? false;
+                // An unparented control is visible (CTL-14), as upstream's Visible getter
+                // (Control.cs): `ParentInternal is null || ParentInternal.Visible`. Reporting it hidden
+                // made every Controls.Add a hidden-to-visible transition and every Remove the reverse,
+                // so each raised a VisibleChanged that upstream's AssignParent never raises.
+                return parent is null || parent.Visible;
             }
             set => SetVisibleCore (value);
         }

@@ -118,69 +118,134 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font (maps to SKTypeface at the font's size).</summary>
+        /// <remarks>
+        /// As in GDI+, spaces at the end of a line are not part of the measurement; see
+        /// <see cref="MeasureString(string, Majorsilence.Forms.Drawing.Font, SizeF, Majorsilence.Forms.Drawing.StringFormat)"/>.
+        /// </remarks>
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font)
-        {
-            if (string.IsNullOrEmpty (text) || font is null) return SizeF.Empty;
-            var face = TypefaceCache.Resolve (font);
-            return MeasureString (text, face, (int)Math.Round (FontUnits (font)));
-        }
+            => MeasureFormatted (text, font, 0, null);
 
         /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to a size.</summary>
+        /// <inheritdoc cref="MeasureString(string, Majorsilence.Forms.Drawing.Font)" path="/remarks"/>
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, SizeF layoutArea)
+            => MeasureFormatted (text, font, layoutArea.Width, null);
+
+        /// <summary>
+        /// The run exactly as it is drawn, trailing spaces included: what the drawing code positions,
+        /// aligns and underlines by. The public overloads apply GDI+'s measurement rules on top.
+        /// </summary>
+        internal SizeF MeasureRun (string text, Majorsilence.Forms.Drawing.Font font, float layoutWidth = 0)
         {
             if (string.IsNullOrEmpty (text) || font is null) return SizeF.Empty;
             var face = TypefaceCache.Resolve (font);
-            return MeasureString (text, face, (int)layoutArea.Width, (int)Math.Round (FontUnits (font)));
+            return layoutWidth > 0
+                ? MeasureString (text, face, (int)layoutWidth, (int)Math.Round (FontUnits (font)))
+                : MeasureString (text, face, (int)Math.Round (FontUnits (font)));
         }
 
         /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font and StringFormat.</summary>
         /// <remarks>
-        /// Honours <c>HotkeyPrefix</c> and <see cref="Majorsilence.Forms.Drawing.StringFormatFlags.DirectionVertical"/>
-        /// (which swaps the reported width and height, matching the rotated run
+        /// Honours <c>HotkeyPrefix</c>, <see cref="Majorsilence.Forms.Drawing.StringFormatFlags.NoWrap"/>,
+        /// <see cref="Majorsilence.Forms.Drawing.StringFormatFlags.MeasureTrailingSpaces"/> and
+        /// <see cref="Majorsilence.Forms.Drawing.StringFormatFlags.DirectionVertical"/> (which swaps the
+        /// reported width and height, matching the rotated run
         /// <see cref="DrawString(string, Majorsilence.Forms.Drawing.Font, Majorsilence.Forms.Drawing.Brush, RectangleF, Majorsilence.Forms.Drawing.StringFormat?)"/>
-        /// draws for it). Trimming is still ignored.
+        /// draws for it). <see cref="Majorsilence.Forms.Drawing.StringFormat.Trimming"/> is not applied to
+        /// the measurement: Microsoft's documentation describes trimming only as how drawn text is cut,
+        /// and does not say whether GDI+ caps a measurement at the layout width because of it.
         /// </remarks>
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.StringFormat? format)
         {
-            var single = MeasureString (WithoutHotkeyPrefix (text, format), font);
+            var single = MeasureFormatted (WithoutHotkeyPrefix (text, format), font, 0, format);
             return IsVertical (format) ? new SizeF (single.Height, single.Width) : single;
         }
 
         /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to int width.</summary>
         /// <inheritdoc cref="MeasureString(string, Majorsilence.Forms.Drawing.Font, Majorsilence.Forms.Drawing.StringFormat)"/>
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, int width, Majorsilence.Forms.Drawing.StringFormat? format)
-        {
-            text = WithoutHotkeyPrefix (text, format);
-            if (string.IsNullOrEmpty (text) || font is null) return SizeF.Empty;
-
-            // Vertical text here is a single rotated run, not multi-column CJK stacking (see
-            // DrawStringVertical), so there is no second column for it to wrap into -- the width
-            // constraint that drives wrapping for horizontal text does not apply.
-            if (IsVertical (format)) {
-                var single = MeasureString (text, font);
-                return new SizeF (single.Height, single.Width);
-            }
-
-            var face = TypefaceCache.Resolve (font);
-            return MeasureString (text, face, NoWrap (format) ? 0 : width, (int)Math.Round (FontUnits (font)));
-        }
-
-        // GFX-20: NoWrap suppresses line breaking, so the measurement is the natural single-line run --
-        // how column auto-fit and "is this truncated?" checks are written. It was ignored, so those got
-        // the wrapped height and a width capped at the layout area.
-        private static bool NoWrap (Majorsilence.Forms.Drawing.StringFormat? format) =>
-            format is not null && format.FormatFlags.HasFlag (Majorsilence.Forms.Drawing.StringFormatFlags.NoWrap);
+            => MeasureString (text, font, new SizeF (width, 0), format);
 
         /// <summary>Measures the string with a Majorsilence.Forms.Drawing.Font, constrained to SizeF.</summary>
         /// <inheritdoc cref="MeasureString(string, Majorsilence.Forms.Drawing.Font, Majorsilence.Forms.Drawing.StringFormat)"/>
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, SizeF layoutArea, Majorsilence.Forms.Drawing.StringFormat? format)
         {
             var display = WithoutHotkeyPrefix (text, format);
+
+            // Vertical text here is a single rotated run, not multi-column CJK stacking (see
+            // DrawStringVertical), so there is no second column for it to wrap into -- the width
+            // constraint that drives wrapping for horizontal text does not apply.
             if (IsVertical (format)) {
-                var single = MeasureString (display, font);
+                var single = MeasureFormatted (display, font, 0, format);
                 return new SizeF (single.Height, single.Width);
             }
-            return NoWrap (format) ? MeasureString (display, font) : MeasureString (display, font, layoutArea);
+            return MeasureFormatted (display, font, layoutArea.Width, format);
+        }
+
+        /// <summary>The GDI+ measurement of <paramref name="text"/> under <paramref name="format"/>.</summary>
+        /// <remarks>
+        /// GFX-20, from Microsoft's <c>StringFormatFlags</c> documentation:
+        /// <list type="bullet">
+        /// <item><c>NoWrap</c> suppresses line breaking, so the measurement is the natural single-line
+        /// run -- how column auto-fit and "is this truncated?" checks are written. It was ignored, so
+        /// those got the wrapped height and a width capped at the layout area.</item>
+        /// <item>"By default the boundary rectangle returned by the MeasureString method excludes the
+        /// space at the end of each line"; <c>MeasureTrailingSpaces</c> includes it. Trailing spaces
+        /// always counted here, so a caption measured as <c>"Name: "</c> to place a value after it put
+        /// the value a space further right than GDI+ does, and a run of only spaces measured wide where
+        /// GDI+ reports a line with no width.</item>
+        /// <item>Unless <c>NoClip</c> is set, "trailing spaces that extend outside the layout rectangle
+        /// are not included in the measurement", so counting them never takes the width past the
+        /// layout width.</item>
+        /// </list>
+        /// </remarks>
+        private SizeF MeasureFormatted (string text, Majorsilence.Forms.Drawing.Font font, float layoutWidth,
+            Majorsilence.Forms.Drawing.StringFormat? format)
+        {
+            if (string.IsNullOrEmpty (text) || font is null)
+                return SizeF.Empty;
+
+            var flags = format?.FormatFlags ?? 0;
+            var wrapWidth = (flags & Majorsilence.Forms.Drawing.StringFormatFlags.NoWrap) != 0 ? 0 : layoutWidth;
+
+            var trimmed = WithoutTrailingSpaces (text);
+            if (trimmed.Length == text.Length)
+                return MeasureRun (text, font, wrapWidth);
+
+            // Only spaces: one line tall, no width.
+            var size = trimmed.Length > 0
+                ? MeasureRun (trimmed, font, wrapWidth)
+                : new SizeF (0, MeasureRun (text, font).Height);
+
+            if ((flags & Majorsilence.Forms.Drawing.StringFormatFlags.MeasureTrailingSpaces) == 0)
+                return size;
+
+            var width = MeasureRun (text, font, wrapWidth).Width;
+            if (layoutWidth > 0 && (flags & Majorsilence.Forms.Drawing.StringFormatFlags.NoClip) == 0)
+                width = Math.Min (width, layoutWidth);
+
+            return new SizeF (Math.Max (width, size.Width), size.Height);
+        }
+
+        // The text without the spaces that end each of its lines. Only U+0020, as the documentation says
+        // "space"; a line ends at a CR, an LF or the end of the text.
+        private static string WithoutTrailingSpaces (string text)
+        {
+            if (text.IndexOf (' ') < 0)
+                return text;
+
+            var result = new System.Text.StringBuilder (text.Length);
+            var pending = 0;
+            foreach (var c in text) {
+                if (c == ' ') {
+                    pending++;
+                    continue;
+                }
+                if (c != '\r' && c != '\n')
+                    result.Append (' ', pending);
+                pending = 0;
+                result.Append (c);
+            }
+            return result.ToString ();
         }
 
         // Vertical here means "rotate the run 90 degrees", the way RDL's WritingMode="tb-rl" and every
@@ -717,6 +782,63 @@ namespace Majorsilence.Forms.Drawing
 
         private void DrawBitmapSampled (SKBitmap bitmap, SKRect destination, SKPaint? paint = null)
             => DrawBitmapSampled (bitmap, new SKRect (0, 0, bitmap.Width, bitmap.Height), destination, paint);
+
+        /// <summary>
+        /// Draws <paramref name="source"/> of <paramref name="bitmap"/> into <paramref name="destination"/>,
+        /// honouring <see cref="Majorsilence.Forms.Drawing.Imaging.ImageAttributes.WrapMode"/> where the
+        /// source rectangle runs past the image.
+        /// </summary>
+        /// <remarks>
+        /// GFX-43: GDI+ uses the attributes' wrap mode for the part of the source rectangle outside the
+        /// image -- the tiling modes repeat or mirror the image there, and <c>Clamp</c> shows the clamp
+        /// colour (transparent unless <c>SetWrapMode (mode, color)</c> gave one). The mode was stored and
+        /// never read, so a texture drawn through <c>DrawImage</c> with an oversized source rectangle
+        /// showed one copy and nothing beside it. A source inside the image takes the plain draw, which
+        /// already samples only inside the source rectangle.
+        /// </remarks>
+        private void DrawBitmapWrapped (SKBitmap bitmap, SKRect source, SKRect destination, SKPaint? paint,
+            Majorsilence.Forms.Drawing.Imaging.ImageAttributes? attributes)
+        {
+            if (_canvas is null)
+                return;
+
+            var bounds = new SKRect (0, 0, bitmap.Width, bitmap.Height);
+            var clampColor = attributes?.ClampColor ?? System.Drawing.Color.Transparent;
+            var plainClamp = attributes is null
+                || (attributes.WrapMode == Majorsilence.Forms.Drawing.Drawing2D.WrapMode.Clamp && clampColor.A == 0);
+            if (plainClamp || source.Width <= 0 || source.Height <= 0 || bounds.Contains (source)) {
+                DrawBitmapSampled (bitmap, source, destination, paint);
+                return;
+            }
+
+            // Image space onto the destination: the source rectangle lands exactly on it, and the image's
+            // own origin anchors the tiling, as it does for GDI+.
+            var sx = destination.Width / source.Width;
+            var sy = destination.Height / source.Height;
+            var toDestination = SKMatrix.CreateScaleTranslation (sx, sy, destination.Left - source.Left * sx, destination.Top - source.Top * sy);
+
+            _canvas.Save ();
+            _canvas.ClipRect (destination, antialias: Antialias);
+
+            if (attributes!.WrapMode == Majorsilence.Forms.Drawing.Drawing2D.WrapMode.Clamp) {
+                _canvas.Save ();
+                _canvas.ClipRect (toDestination.MapRect (bounds), SKClipOperation.Difference);
+                using var fill = new SKPaint { Color = clampColor.ToSKColor (), BlendMode = BlendMode };
+                _canvas.DrawRect (destination, fill);
+                _canvas.Restore ();
+            }
+
+            using var image = SKImage.FromBitmap (bitmap);
+            using var shader = image.ToShader (attributes.TileModeX, attributes.TileModeY, Sampling, toDestination);
+            using var tiled = new SKPaint {
+                Shader = shader,
+                ColorFilter = paint?.ColorFilter,
+                BlendMode = BlendMode,
+                IsAntialias = paint?.IsAntialias ?? false,
+            };
+            _canvas.DrawRect (destination, tiled);
+            _canvas.Restore ();
+        }
 
         /// <summary>
         /// The paint an image draw needs, or null when the defaults do: a colour filter from
@@ -1312,7 +1434,7 @@ namespace Majorsilence.Forms.Drawing
 
             _canvas.Save ();
             _canvas.Concat (matrix);
-            DrawBitmapSampled (source, src, new SKRect (0, 0, width, height), paint);
+            DrawBitmapWrapped (source, src, new SKRect (0, 0, width, height), paint, imageAttrs);
             _canvas.Restore ();
         }
 
@@ -2682,7 +2804,7 @@ namespace Majorsilence.Forms.Drawing
 
             // Unrotated: size.Width is the run's length (becomes the box's height once rotated),
             // size.Height is its thickness (becomes the box's width).
-            var size = MeasureString (display, font);
+            var size = MeasureRun (display, font);
 
             var alongSlack = bounds.Height - size.Width;
             var acrossSlack = bounds.Width - size.Height;
@@ -2714,8 +2836,8 @@ namespace Majorsilence.Forms.Drawing
             if (_canvas is null)
                 return;
 
-            var before = MeasureString (display[..index], font).Width;
-            var width = MeasureString (display[index].ToString (), font).Width;
+            var before = MeasureRun (display[..index], font).Width;
+            var width = MeasureRun (display[index].ToString (), font).Width;
 
             if (width <= 0)
                 return;
@@ -2745,7 +2867,7 @@ namespace Majorsilence.Forms.Drawing
                 || (format.FormatFlags & Majorsilence.Forms.Drawing.StringFormatFlags.NoWrap) != 0)
                 return null;
 
-            return MeasureString (text, font).Width > bounds.Width ? solid : null;
+            return MeasureRun (text, font).Width > bounds.Width ? solid : null;
         }
 
         private static ContentAlignment ToContentAlignment (Majorsilence.Forms.Drawing.StringAlignment horizontal, Majorsilence.Forms.Drawing.StringAlignment vertical)
@@ -2779,7 +2901,7 @@ namespace Majorsilence.Forms.Drawing
         /// </remarks>
         internal PointF AlignTextInBounds (string text, Majorsilence.Forms.Drawing.Font font, RectangleF bounds, float xFactor, float yFactor)
         {
-            var size = MeasureString (text, font);
+            var size = MeasureRun (text, font);
             return new PointF (
                 bounds.X + ((bounds.Width - size.Width) * xFactor),
                 bounds.Y + ((bounds.Height - size.Height) * yFactor));
@@ -2872,7 +2994,7 @@ namespace Majorsilence.Forms.Drawing
             DrawStringClipped (display, font, brush, origin, null);
 
             if (mnemonic >= 0 && mnemonic < display.Length) {
-                var size = MeasureString (display, font);
+                var size = MeasureRun (display, font);
                 DrawMnemonicUnderline (display, mnemonic, font, brush, origin, new RectangleF (origin, new SizeF (size.Width, size.Height + 2)));
             }
         }
@@ -3110,7 +3232,7 @@ namespace Majorsilence.Forms.Drawing
             var inPixels = SourceInPixels (image, new RectangleF (srcX, srcY, srcWidth, srcHeight), srcUnit);
             var src = new SKRect (inPixels.Left, inPixels.Top, inPixels.Right, inPixels.Bottom);
             var dst = new SKRect (destRect.Left, destRect.Top, destRect.Right, destRect.Bottom);
-            DrawBitmapSampled (source, src, dst, paint);
+            DrawBitmapWrapped (source, src, dst, paint, imageAttrs);
         }
 
         /// <inheritdoc cref="DrawImage(Majorsilence.Forms.Drawing.Image, Rectangle, float, float, float, float, Majorsilence.Forms.Drawing.GraphicsUnit, Majorsilence.Forms.Drawing.Imaging.ImageAttributes)"/>

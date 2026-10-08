@@ -656,8 +656,9 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
 - **Test:** n/a.
 - **Tests today:** none.
 
-### EVT-30 — `ScrollableControl.Scroll` / `ScrollBar.Scroll` use the wrong delegate type — Cat E — P2 — High
-- **Still open (2026-10-06, #344):** retyping the events is a public API change in `ScrollableControl`/`ScrollBar`, files another branch has unpushed changes in; left for that branch or a follow-up so the two do not collide.
+### EVT-30 — `ScrollableControl.Scroll` / `ScrollBar.Scroll` use the wrong delegate type — Cat E — P2 — High — **CLOSED (2026-10-08)**
+- **Fix (applied):** `ScrollableControl.Scroll` is a `ScrollEventHandler`, as upstream declares it (`Scrolling/ScrollableControl.cs`); `ScrollBar.Scroll` already was (SMP-50). The empty-accessor `Control.Scroll` is gone -- upstream's `Control` has no `Scroll` -- so `ScrollableControl`, `ScrollBar`, `DataGridView` and `TrackBar` (an `EventHandler`, as upstream) declare theirs without `new`. A handler attached to `Scroll` on a control that has none now fails to compile, as it does upstream, instead of being dropped. Tests: `ScrollEventShapeTests` (delegate types, no `Control.Scroll`, a thumb drag on a panel raising one `ThumbTrack`).
+- **Was open (2026-10-06, #344):** retyping the events is a public API change in `ScrollableControl`/`ScrollBar`, files another branch has unpushed changes in; left for that branch or a follow-up so the two do not collide.
 - **Ours:** `public new event EventHandler<ScrollEventArgs>? Scroll;`
   (`src/Majorsilence.Forms/ScrollableControl.cs:330` and `src/Majorsilence.Forms/ScrollBar.cs:93`) —
   and they hide `Control.Scroll`, which is declared as the correct `ScrollEventHandler` but with empty

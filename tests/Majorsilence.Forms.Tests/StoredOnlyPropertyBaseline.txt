@@ -66,7 +66,6 @@ Majorsilence.Forms.Control.CheckForIllegalCrossThreadCalls    -- Win32 handle/wi
 Majorsilence.Forms.Control.DoubleBuffered    -- every surface is double-buffered by the Skia pipeline; nothing to switch
 Majorsilence.Forms.Control.HScroll    -- framework-written (outbound state)
 Majorsilence.Forms.Control.IsAccessible    -- accessibility metadata; no accessible-object tree
-Majorsilence.Forms.Control.UseVisualStyleBackColor    -- GDI/visual-styles rendering switch; one text and theme pipeline here
 Majorsilence.Forms.Control.VScroll    -- framework-written (outbound state)
 Majorsilence.Forms.ControlBindingsCollection.BindableComponent    -- framework-written (outbound state)
 Majorsilence.Forms.CreateParams.Caption    -- Win32 handle/window-class detail; no equivalent here
@@ -221,7 +220,6 @@ Majorsilence.Forms.HtmlElementEventArgs.BubbleEvent    -- no browser engine; the
 Majorsilence.Forms.HtmlElementEventArgs.ReturnValue    -- no browser engine; the control is a placeholder
 Majorsilence.Forms.ImageList.ColorDepth    -- Win32 handle/window-class detail; no equivalent here
 Majorsilence.Forms.ImageList.Tag    -- user-data slot; upstream reads it nowhere either
-Majorsilence.Forms.Label.LiveSetting    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.Label.UseCompatibleTextRendering    -- GDI/visual-styles rendering switch; one text and theme pipeline here
 Majorsilence.Forms.LinkLabel+Link.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.ListView.UseCompatibleStateImageBehavior    -- .NET 1.1 state-image behaviour switch; neither behaviour is implemented (W6.2 ListView slice)
@@ -234,7 +232,6 @@ Majorsilence.Forms.Media.SoundPlayer.Tag    -- user-data slot; upstream reads it
 Majorsilence.Forms.Message.HWnd    -- framework-written (outbound state)
 Majorsilence.Forms.Message.Result    -- Win32 handle/window-class detail; no equivalent here
 Majorsilence.Forms.NavigationPaneItem.Tag    -- user-data slot; upstream reads it nowhere either
-Majorsilence.Forms.NotifyIcon.ContextMenuStrip    -- needs a tray backend capability
 Majorsilence.Forms.NotifyIcon.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.NumericUpDownAcceleration.Increment    -- framework-written (outbound state)
 Majorsilence.Forms.OpenFileDialog.SelectReadOnly    -- native picker option; not forwarded to the backend dialog (needs a backend capability)
@@ -310,7 +307,6 @@ Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextAlign    -- framework-wr
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextFont    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripItemTextRenderEventArgs.TextFormat    -- framework-written (outbound state)
 Majorsilence.Forms.ToolStripManager.VisualStylesEnabled    -- Win32 handle/window-class detail; no equivalent here
-Majorsilence.Forms.ToolStripStatusLabel.LiveSetting    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.ToolTip.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.UpDownBase.ChangingText    -- framework-written (outbound state)
 Majorsilence.Forms.VisualStyles.VisualStyleRenderer.Class    -- framework-written (outbound state)

@@ -4685,6 +4685,186 @@ Data binding worked for a control that was bound and read in isolation, but not 
 - Left open: **BND-32** (the setters live in `WinFormsCompat.cs`, held by the form agent).
 Tests: `BindingContextRehomingTests` (17 new). Neutralization: 15 rounds, each red (15a/b/c, 17a/b/c, 25a/b, 26a/b, 22a/b/c/d, 33); the default-mode test is labelled a guard (already fixed before this change). The selection-carry branch of BND-26 is covered by the existing `DataGridViewComboBoxColumnTests.The_editor_opens_on_the_cells_current_value`, which went red before it existed.
 
+**Input and form plumbing: modifier state, Cursor.Hide, binding setters, Form.AutoSize (#348, #340, #345). — 2026-10-08.**
+This change picks up leftovers that earlier change sets could not reach. They were blocked because they needed `WindowBase.cs`, `Form.cs` or `WinFormsCompat.cs`. This time the `WindowBase.cs` edits were accepted. Closed: SVC-10 and BND-32, plus the two binding leftovers recorded under BND-15 and BND-17. SVC-38 and FRM-38 are half done and stay open.
+
+- **SVC-10 (`Control.ModifierKeys`):** the static was written by the `KeyEventArgs`/`MouseEventArgs` constructors. Any hand-built args overwrote the real state, and the value went stale after the last event. Upstream reads `GetKeyState` live (`Control.cs`). The nearest equivalent here is the window's input handlers. `WindowBase.HandleKeyDown/Up` and `HandlePointerPressed/Released/Moved/Wheel` now write it, and the constructors no longer do. Pointer-exit is left out because `FormHost` forwards it with `Keys.None`.
+- **SVC-38, Hide/Show half:** both calls were empty. Upstream calls `ShowCursor (false/true)`, a balanced display counter (`Input/Cursor.cs`). There is now a process-wide counter, and every cursor a window sends to its backend goes through `WindowBase.ApplyBackendCursor`. That covers seven `WindowBase` sites and `Form`'s eight border cursors. While the cursor is hidden, the window sends the new `CursorType.None`.
+  - Avalonia, GTK 4 and WPF map `None` to their own hidden cursor. WinForms has no hidden cursor object, so it uses `WF.Cursor.Hide/Show` behind one process-wide flag. Uno has no hidden shape and keeps the arrow.
+  - **The `.cur` constructors stay open.** They need a bitmap-cursor method on `IWindowBackend` (15 implementations), a decoder, and a new `Cursor` equality. The design note is in services.md.
+- **BND-32:** `FormatString`, `FormatInfo`, `NullValue`, `FormattingEnabled` and `ControlUpdateMode` were plain setters. Upstream's setters call `PushData` when `IsBinding`. Each setter now compares, stores and calls `PushValue`, which honours `Never`. `NullValue` pushes only when the source value is null or DBNull (`Formatter.IsNullData`).
+- **BND-17 leftover:** the 3- and 4-argument `DataBindings.Add` accepted a null source. Every upstream overload ends in the long one's `ThrowIfNull`, so these now throw too.
+- **BND-15 leftover:** `Form.BindingContext = x` only stored the new context. The window's setter now does two things:
+  - it moves the form's own `DataBindings` onto the new context;
+  - it raises the change through the root adapter, so the form's controls move and hear `BindingContextChanged`.
+
+  The adapter's setter now forwards to the window, so the change is raised once.
+- **FRM-38, `AutoSize` half:** `AutoSize`/`AutoSizeMode` were stored only, and the window's preferred size was the adapter's, which includes the caption.
+  - `Form.GetPreferredSize` now measures `FormClientArea` (upstream `ContainerControl.GetPreferredSizeCore`, without the border term) and adds the caption. `WindowBase.PreferredSize` now answers `GetPreferredSize (Size.Empty)`.
+  - `ApplyAutoSize` applies upstream `Form.OnLayout`'s rule (`GrowOnly` takes the union with the current size, `GrowAndShrink` takes the exact preferred size). It runs from the client area's layout pass and from both setters.
+  - Not ported: upstream restores the specified size when `AutoSize` is turned off.
+  - **`TransparencyKey` stays open** because it needs a shaped-window seam. **`SizeGripStyle` and `MaximizedBounds` stay open** (P3, not trivial).
+
+Tests: `InputAndFormPlumbingTests` has 18 tests: 3 for SVC-10, 3 for SVC-38, 5 for BND-32, 1 for the null source, 2 for `Form.BindingContext` and 4 for `AutoSize`. One test changed: `ListViewModifierSelectionTests.The_click_uses_its_own_modifiers_not_whatever_is_held_down_now` now primes the static directly, because constructing args no longer resets it. Comments were updated in `DataGridViewSelectionTests` and `KeyboardChainTests`. Neutralization: 16 rounds, all red, and every file was restored byte-identical (checked with `cmp`). Baselines: `Cursor.Hide/Show` were dropped from `NoOpStubBaseline.txt` and `Form.AutoSizeMode` from `StoredOnlyPropertyBaseline.txt`.
+
+**Grid and scrolling: header drag reorder, Scroll delegate types, keyboard splitter (#342, #344, #346). — 2026-10-08.**
+The grid and scrolling findings left over from earlier passes: the DataGridView header drag (`AllowUserToOrderColumns`), the last two wrong members of the grid's scrolling API, the `Scroll` event types on `ScrollableControl`/`Control`, and moving a `SplitContainer`'s splitter from the keyboard. Each follows the upstream source named below.
+
+- **DGV-23 (closed).** The header click sorted on the press, so a drag could not be told from a click. Upstream raises the header click on the release (`OnMouseClick`, skipped while `OperationTrackColRelocation` is set). The sort and `ColumnHeaderMouseClick` now run on a release over the same header. The press still selects the column in the column-selection modes. With `AllowUserToOrderColumns`, a header press that moves past `SystemInformation.DragSize` starts a relocation (Alt+press in the column-selection modes, as upstream). The pointer is held inside the column's frozen or scrolling band. The header draws a shadow and a `HotTrack` insertion bar. The release sets `DisplayIndex` by upstream's `ColumnRelocationTarget`/`EndColumnRelocation` rules, which raises `ColumnDisplayIndexChanged` for every column that moved (`DataGridView.Methods.cs`). The new code is in `DataGridView.ColumnRelocation.cs`.
+- **DGV-34 (remainder closed).** It was already marked closed on 2026-10-02, but two members were still wrong. `VerticalScrollingOffset` returned the vertical bar's value, which is a row index. It now returns the height of the rows scrolled off the top. `FirstDisplayedScrollingColumnHiddenWidth` always returned 0. `HorizontalScrollingOffset` itself returned device pixels, so at scale 2 it read double what upstream's does. That broke RC-8, under which public offsets are logical. All three are now logical, and so are the horizontal positions in `Scroll`. The grid's own geometry (`ScrollIntoView`, the `FirstDisplayedScrollingColumnIndex` setter, the horizontal bar) uses a new internal `HorizontalScrollingOffsetDevice`.
+- **EVT-30 (closed).** `ScrollableControl.Scroll` was `EventHandler<ScrollEventArgs>`, so the designer's `new ScrollEventHandler (...)` did not compile. It is now `ScrollEventHandler`, as upstream declares it. The `Control.Scroll` stub, which nothing raised, is removed, because upstream's `Control` has no `Scroll`. `ScrollBar`, `DataGridView` and `TrackBar` lose their `new` modifiers. Small edits outside the owned files: `Control.Events.cs` (stub removed) and `TrackBar.cs` (`new` dropped). Baselines: `Control.Scroll` is removed from `UnraisedEventBaseline.txt` and `Scroll` from `ControlWindowParityBaseline.txt`.
+- **LAY-06 (closed).** The splitter could not be moved from the keyboard. Upstream treats "the container has focus" as "the splitter is focused" (`Layout/Containers/SplitContainer.cs`). A press on the bar now focuses the container. `ProcessDialogKey` passes the arrows to `OnKeyDown`. Each arrow moves the bar by `SplitterIncrement`, and a step that would cross a minimum is refused. The repeats of a held key raise a cancellable `SplitterMoving`. Escape abandons the move, and key-up raises `SplitterMoved` once. The bar draws a focus rectangle. The inner `Splitter` is no longer selectable or a tab stop, matching upstream's `Splitter.cs`. Deviations: the panels move live instead of showing upstream's reversible preview line, and the tab order through the container (Panel1, bar, Panel2) is not upstream's.
+
+Tests: `DataGridViewColumnReorderTests` (11, including a scale 1 vs 2 comparison of the three offsets and the `Scroll` value), `SplitContainerKeyboardTests` (9), `ScrollEventShapeTests` (6), and `DataGridViewStylesSizingSortingTests.ClickAt` changed to a press and a release. `W62WiringBatch2Tests` now compares the internal device offset in device units. Neutralization: 25 rounds, 24 red. The scale test went red for each of its four conversions (the property, the `Scroll` value, the vertical offset, the hidden width) when each was neutralized on its own. Three rounds stayed green at first because the neutralizations were ineffective (a no-op condition, and a threshold clause the horizontal drags never reach); once corrected they went red. The validity round went red after a no-insertion-bar assertion was added. One round stays green by design: the `ProcessDialogKey` arrow pass-through, because nothing on our dialog-key path moves focus on an arrow. The assertion is labelled as a guard in the test.
+
+**Control: unparented Visible, quiet Add/Remove, focus needs a handle; TopLevelControl closed by design (#341). — 2026-10-08.**
+
+CTL-14 was left open because making an unparented control visible also made it selectable, and `Select ()` with
+no window took focus on its own -- a second focused control the adapter never heard of. The user decided to match
+upstream, so this change takes the visibility rule and the focus rules that make it safe together. CTL-25 is
+closed by design: a form is a window, not a control.
+
+- **CTL-14, Visible:** the getter returned `parent?.Visible ?? false`, so `new Button ().Visible` was false and every
+  `Controls.Add` was a hidden-to-visible change. Upstream (`Control.cs` Visible) is `DesiredVisibility &&
+  (ParentInternal is null || ParentInternal.Visible)`. Now the same. `AssignParent`'s existing guard (no event for
+  invisible-to-visible with a null parent) keeps removal from a hidden parent quiet; `Insert`'s explicit raise was
+  already gone (EVT-13). Plain Add/Remove now raise no `VisibleChanged`, as upstream's `AssignParent`.
+- **CTL-14, focus:** `CanFocus` now requires `IsHandleCreated` (upstream `IsHandleCreated && IsWindowVisible &&
+  IsWindowEnabled`); `Focus ()` selects only when `CanFocus` (upstream `FocusInternal`); `Select ()` with no adapter
+  does nothing instead of focusing directly (upstream `Select` goes to `GetContainerControl ()?.ActiveControl`).
+  `UserControl.ActiveControl` still records the value. `CanSelect`, `ActiveControl`, `SelectNextControl` and the
+  adapter's tracking needed no change: they all route through `Select ()` -> `ControlAdapter.SelectedControl`.
+- **CTL-25:** closed by design. `TopLevelControl` can't return a `Form` because `Form : WindowBase` is not a
+  `Control` (user decision 2026-10-08; Krypton-port decision 2026-08-14). No code change.
+- Changed to upstream's answer: `PanelTests.Ctor_Default` (`Visible` true, as upstream's PanelTests),
+  `FormLifecycleOrderTests.Adding_a_child_raises_no_VisibleChanged` (was "_once"), and two
+  `ControlTests.OnParentVisibleChanged_*` tests that relied on removal hiding a subtree, now driven by a hidden
+  parent instead.
+
+Tests: `ControlBaseGapTests.CTL14_*` (6 new: unparented visible, Add/Remove count 0, leaving a hidden parent,
+uncreated Focus/Select, unparented UserControl.ActiveControl, focus after show) plus the 4 changed tests.
+Neutralization: 5 rounds (Visible getter, Select's no-window path, Focus's CanFocus gate, CanFocus's handle check,
+AssignParent's removal guard), all red; `CTL14_Focus_after_the_form_is_shown_still_works` is labelled a guard.
+
+**Backends: a tray seam for `NotifyIcon` and a synchronous present for `Control.Update` (#351, #341). — 2026-10-08.**
+
+Option 1 for both findings, as decided: two backend capabilities, each implemented where the toolkit can do it honestly and reported or documented where it cannot. TSM-19 and CTL-21 are closed.
+
+- **TSM-19 `NotifyIcon`.** Before this, `NotifyIcon` stored its properties and raised none of its events. No backend had a tray, so an application that minimised to the tray could not be reached again, and nothing said so. Upstream adds the shell icon in `UpdateIcon` only while `Visible` and `Icon` are both set, and turns the tray's mouse messages into events in `WmMouseDown`/`WmMouseUp`/`WndProc`; on the right-button release it shows `ContextMenuStrip` before raising the release events. What changed:
+  - **New seam.** A per-application `Backends.ITrayIconBackend` (`CreateTrayIcon` returns an `ITrayIconHandle`), found the same way as the other optional capabilities. Backends report back through the internal `NotifyIcon.HandleTray*`/`HandleBalloonTip*` methods, which follow upstream's order.
+  - **Avalonia desktop:** uses `TrayIcon`.
+    - Clicks: left click only. A double-click is built from two clicks.
+    - Menu: `ContextMenuStrip` becomes a `NativeMenu`, rebuilt on `NeedsUpdate` after `Opening` is raised.
+    - Balloons: not shown; Avalonia has no notification API, and a `Trace` warning reports it. The first version started `osascript`/`notify-send`; that was dropped before release so the library never launches a process (sandboxed apps, caller text on a command line).
+  - **WinForms and WPF hosts:** use the real `System.Windows.Forms.NotifyIcon` through one shared adapter, `ShellTrayIcon`. The WPF project now sets `UseWindowsForms` on its modern target frameworks.
+  - **Headless:** a recording fake.
+  - **GTK 4, browser, mobile and terminal:** there is no tray. Setting `Visible = true` writes one `Trace.TraceWarning` per icon.
+- **CTL-21 `Update`/`Refresh`.** Before this, `Update` painted the control's surface, but the pixels only reached the screen on the backend's next frame. Upstream's `UpdateWindow` presents synchronously. What changed:
+  - **New member.** `IWindowBackend.PresentNow ()`, which `Control.Update` calls after it paints.
+  - **WinForms:** the surface control's `Refresh ()`, guarded against being called during a paint.
+  - **WPF:** renders into the bitmap, then calls `Dispatcher.Invoke` at Render priority. That nested pump can also run `Platform.Post` work; this is documented.
+  - **Headless:** counts the calls.
+  - **Avalonia, GTK 4 and Uno:** a documented no-op, because they render from their own frame loop.
+
+Tests: `NotifyIconTrayTests` (11 new); `NotifyIconTests` (existing, now `[Collection ("Headless")]` so a visible icon never resolves the Avalonia backend); `ControlBaseGapTests.CTL21_Refresh_presents_the_frame_before_it_returns` (1 new). Neutralization: 9 rounds (adding to the tray, the right-click menu, suppressing the click after a double-click, the Trace report, balloon forwarding, dispose, handing over the menu, propagating Text, PresentNow). All 9 went red and every file was restored identical (`cmp`). Baselines: added `IWindowBackend.PresentNow/0` to the stub baseline; `NotifyIcon.ContextMenuStrip` dropped off the stored-only baseline; the eight NotifyIcon unraised-event notes now point at the tray backend (their only callers are in backend assemblies).
+
+**Lists: `TabControl.HotTrack` gates the hovered tab (#347). — 2026-10-08.**
+LST-61 was left open on 2026-09-17 as "not demonstrable". On current main it is. The user decided to match upstream: `HotTrack` defaults to false, and the hover style applies only when it is set.
+
+- **The gate.** `TabStripRenderer` styled a hovered tab whenever `item.Hovered`, so every tab control behaved as if `HotTrack = true`. Upstream sets `TCS_HOTTRACK` only when `HotTrack` is true (`Controls/TabControl/TabControl.cs`, `CreateParams`), and comctl32 draws no hot tab without it. Now the hover part style and the hot-track caption colour apply only when the owning `TabControl.HotTrack` is true. A `TabStrip` with no owning `TabControl` keeps tracking hover. `HotTrack` has a backing field and repaints the strip when it changes; upstream recreates the handle instead.
+- **The theme default.** `TabStrip.DefaultItemHoverStyle` used `ControlLowColor`. That equals `BackgroundColor` in the Dark and PointOfSale themes, so in those themes a hovered tab looked exactly like the strip. It now uses `ControlHighlightLowColor`, the item-hover token that Menu, MenuDropDown and ToolBar items already use. That colour differs from the strip background in every built-in theme and every ThemeStudio preset.
+- **"CSS did not make it observable."** Not reproducible on current code: a `TabStrip::item:hover` rule paints the hovered tab, and a test now covers it. The probable cause of the old result is that tab bounds stay empty until the strip's first layout, so a pointer move made before the first render hovers nothing. Running under Dark, where the default hover matched the strip, would also explain it.
+- **Docs and samples.** The `ThemeCssReference` token and part descriptions were updated, and the generated section of `docs/theming.md` was regenerated with `MAJORSILENCE_WRITE_THEMING_DOC=1`. A hand-written note on the HotTrack gate was added to the Parts section. The `COMPATIBILITY_MATRIX.md` TabControl row was updated. The preview `TabControl` in ThemeStudio sets `HotTrack = true`, so the hover part being edited stays visible.
+
+Tests: `TabControlHotTrackTests`, 9 cases: gate off paints identically, gate on differs, six built-in themes as a theory, and a CSS rule. `StripPaintSpaceTests`' TabStrip probe now sets `HotTrack = true`. Neutralization, 3 rounds, all red: (1) gate forced on: the gate-off test and the CSS test failed; (2) default reverted to `ControlLowColor`: the Dark and PointOfSale theory cases failed; (3) gate forced off: 8 of 9 failed, and the remaining one is the gate-off test, which is correct.
+
+**Drawing: trailing spaces, wrap mode, device contexts and GIF animation (#343). — 2026-10-08.**
+The remaining drawing findings of #343, second pass. Three close (GFX-29, GFX-36, GFX-43); GFX-20 is closed
+except `Trimming`, which Microsoft's documentation does not pin down for measurement. GFX-39 (palette
+decision), GFX-44 (float `Region` is a redesign) and GFX-46 (the finding is mostly wrong; reasoning already
+recorded) are left open as asked.
+
+- **GFX-20 (partly):** `MeasureString` counted the spaces that end a line. Microsoft's `StringFormatFlags`
+  documentation says the measured rectangle excludes them by default, `MeasureTrailingSpaces` includes them,
+  and with clipping on (no `NoClip`) spaces past the layout rectangle are not counted. Every `Font`
+  overload now follows that through one `MeasureFormatted`; a run of only spaces is one line with no width.
+  The draw path keeps measuring the raw run (`Graphics.MeasureRun`, internal), so drawing does not move.
+  `Trimming` stays open: the documentation describes only drawn text, not whether measurement is capped.
+- **GFX-43:** `SetWrapMode` was stored only. GDI+ applies it where the source rectangle runs past the image.
+  The attribute `DrawImage` overloads (rectangle and parallelogram) now draw such a source as an image
+  shader with per-axis tiling (`Tile`, `TileFlipX`, `TileFlipY`, `TileFlipXY`) anchored at the image
+  origin, and `Clamp` fills the excess with the clamp colour. A source inside the image keeps the plain draw.
+- **GFX-29:** `TextRenderer.DrawText` drew nothing for any `IDeviceContext` that was not a `Graphics`.
+  Upstream asks the context for an HDC (`DeviceContextHdcScope`, via the internal `IGraphicsHdcProvider`)
+  and throws `InvalidOperationException` on a null one. New public `IGraphicsDeviceContext : IDeviceContext`
+  (`Graphics? GetGraphics ()`) is that route made public. A wrapper implementing it is drawn through; any
+  other context throws, and a null one throws `ArgumentNullException`. `ControlPaint.DrawStringDisabled
+  (IDeviceContext, ...)` inherits the fix.
+- **GFX-36:** `ImageAnimator.Animate` never advanced, and nothing pumped it. Upstream runs a 40 ms
+  animation thread that moves frames on by elapsed time against per-frame delays, raises the handler, and
+  lets `UpdateFrames` (from paint) select the frame. Ported:
+  - `Image` now records `SKCodec` frame durations and the repetition count.
+  - `ImageAnimator` runs a timer that posts its ticks through `UIThreadDispatcher`, which `PictureBox` sets
+    to `Application.RunOnUIThread`. At most one tick is queued at a time, and the timer stops with the last
+    image.
+  - `UpdateFrames` selects the pending frame; it no longer steps one frame per call.
+  - `PictureBox` animates while visible, enabled and parented (upstream `PictureBox.Animate`), invalidates
+    on each frame change and refreshes its pixel copy in `OnPaint`.
+  - `Clock` and `TimerFactory` are internal seams, so the tests run on a manual clock.
+  - Found on the way: disposing a `Form` does not dispose its controls (`WindowBase.Dispose`, input
+    agent's file). A box left on a disposed form therefore stops at its next frame change.
+
+Tests: `DrawingTextAndImageParityTests` +9 (2 trailing-space, 4-case wrap-mode theory + 1 clamp,
+2 TextRenderer), `PictureBoxAnimationTests` 3 (new), `ImageMetadataAndFrameTests` 2 (replacing the old
+step-per-call test). Neutralization: 9 rounds (trailing-space exclusion, the `NoClip` cap, the wrap path,
+the `TextRenderer` seam, the animator timer seen from both suites, `PictureBox` start, `PictureBox` frame
+refresh, the dispatcher post, the disposed-form stop). All went red. One round first showed a second test
+failing only because the first leaked an animating box. The tests now track and dispose their boxes, and
+that run exposed the `Form`-dispose gap above.
+
+**Lists, tool strip panel, calendar: suggestions, icon-view groups, multi-strip rows, multi-month calendar (#347, #351, #349). — 2026-10-08.**
+
+This closes the leftover rendering and layout findings in the list, strip-panel and calendar areas. Each one had been recorded as needing a redesign. It turned out each could be done as one bounded change against a model the code already had: the drop-down machinery, `GroupRuns`, `ToolStripPanelRow`, and `MonthCalendarGeometry`.
+
+- **LST-07 (P1), `Suggest` half.**
+  - Wrong: `AutoCompleteMode.Suggest` did nothing, and `SuggestAppend` only appended. A combo's `Items` *are* its drop-down `ListBox`'s items, so filtering the drop-down would have destroyed them.
+  - Upstream: no filtering either. The shell's auto-complete object (`ComboBox.SetAutoComplete`) draws the suggestions in a window of its own.
+  - Change: `ComboBox.Suggest.cs` adds a second, non-activating `PopupWindow` over a presentation list of matching strings. It is rebuilt from `ListItems`/`CustomSource` on every user edit and never touches `Items` or the selection.
+    - Up/Down walk the list and preview the entry in the edit region.
+    - Enter or a click takes an entry through the `Text` setter, so a matching item is selected.
+    - Escape restores what was typed.
+    - Opening the drop-down or leaving the control closes the list.
+  - Still open: `Simple`'s always-visible list. It needs the drop-down `ListBox` re-hosted inside the control, which is a hosting change, not a filtering one.
+- **LST-46, closed.**
+  - Wrong: the last remainder was grouping in `LargeIcon`/`Tile`. The decorative members had already been closed by LST-63.
+  - Change: `LayoutTilesGrouped` places a band per group, starts each group's tiles on a fresh line, and handles footers and collapse. A band takes one tile line, so the uniform-line scroll model is unchanged.
+  - Two latent bugs fixed on the way:
+    - Grouped `LineCount` counted a collapsed group's items as lines, which left a blank scrollable tail. It is now computed from the same walk as the layout (`GroupedLineCount`). `ListViewGroupHeaderTests` had pinned the old count and was corrected.
+    - The tile layout never cleared the bands the row layout had placed, so stale headers were painted.
+  - `EnsureVisible` now reads the line the layout recorded for each item.
+- **TSM-36, closed.**
+  - Wrong: the layout stacked `Controls` one per row and never read `rows`.
+  - Upstream: `Join (strip, row)` makes the row a drop point at its leading edge, and `HorizontalRowManager.JoinRow` inserts the strip there, beside the strips already on that row.
+  - Change: the rows are now the model.
+    - Strips on a row are laid side by side, and the last one stretches when `Stretch` is set.
+    - `Join (strip, row)` inserts at the front of the row; an index past the last row makes a new row.
+    - `Join (strip, point)` places the strip by position along the row.
+    - A row is removed when its last strip leaves it.
+    - `Controls.Add` strips are reconciled lazily into a row each, menus first. It has to be lazy because `ControlCollection` lays out before it raises `ControlAdded`.
+    - Rafting joins by point.
+    - `SaveSettings` records the row, and `LoadSettings` rebuilds all rows in one pass.
+  - Three tests that pinned the old invented one-strip-per-row behaviour were corrected.
+- **SMP-46, closed.**
+  - Wrong: `CalendarDimensions` > 1x1 painted one month across the whole control while `GetDisplayRange` counted several.
+  - Upstream: one block per month, a title each, the arrows only at the two ends of the top row, and the padding days only at the ends of the run.
+  - Change: `GetMonthGeometry (index)` tiles the blocks. The renderer, `HitTest` and the mouse handlers loop over them, and blank padding cells hit as `CalendarBackground`.
+  - The `CalendarDimensions` setter now goes through `SetCalendarDimensions`, which validates and caps at twelve, as upstream's does.
+  - Not done: upstream grows the control to fit the months; here the client area is divided.
+- **SMP-52, closed by design.** User decision 2026-10-08: `Form` stays a window, never a `ContainerControl`. No code change.
+- **Left open:** LST-61 (theming decision), SMP-16 (accessibility), SMP-55 (API reshape).
+
+Tests: `ComboBoxSuggestTests` (10), `ListViewTileGroupingTests` (6), `ToolStripPanelJoinTests` (6) and `MonthCalendarMultiMonthTests` (7) are new. `TailParityTests` (1), `W6LayoutAndRaftingTests` (2) and `ListViewGroupHeaderTests` (1) were corrected to upstream behaviour. Neutralization: 25 rounds (6 `ToolStripPanel`, 7 `MonthCalendar`, 5 `ListView`, 7 `ComboBox`). All 25 went red, none stayed green, and every file was restored and checked with `cmp`. Guards labelled in-test: `One_month_lays_out_across_the_whole_control_as_before` and `Append_alone_does_not_suggest`.
+
 **W6.3 — Coordinate-space audit (RC-8). — DONE (2026-09-15).**
 7 tests in `tests/Majorsilence.Forms.Tests/CoordinateSpaceTests.cs`, 5 neutralizations each producing
 a failure.

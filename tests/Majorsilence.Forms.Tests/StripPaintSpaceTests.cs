@@ -123,7 +123,8 @@ namespace Majorsilence.Forms.Tests
                 }
 
                 case "TabStrip": {
-                    var tabs = new TabControl { Width = 300, Height = 200 };
+                    // HotTrack on: without it a hovered tab paints like any other (LST-61).
+                    var tabs = new TabControl { Width = 300, Height = 200, HotTrack = true };
                     tabs.TabPages.Add (new TabPage { Text = "One" });
                     tabs.TabPages.Add (new TabPage { Text = "Two" });
                     form.Controls.Add (tabs);

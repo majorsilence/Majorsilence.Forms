@@ -14,6 +14,67 @@ namespace Majorsilence.Forms
 
         internal override bool ShowsActivated => activates;
 
+        /// <summary>The window this popup was opened for.</summary>
+        internal WindowBase ParentWindow => parent_form;
+
+        /// <summary>
+        /// Whether this popup is a tool tip, which the browser's accessibility DOM reads as one piece of
+        /// text describing its owner. Set by <see cref="ToolTip"/>; not implied by showing without
+        /// activating, which a combo box's suggestion list (a listbox) does too.
+        /// </summary>
+        internal bool IsToolTip { get; init; }
+
+        /// <summary>
+        /// What the popup was opened for -- the combo box, date picker or tool-tipped control -- so the
+        /// browser's accessibility DOM can link the two (<c>aria-controls</c>, <c>aria-describedby</c>).
+        /// Null when the popup's content says it itself (a menu drop-down knows its owner item).
+        /// </summary>
+        internal object? AccessibleOwner { get; set; }
+
+        // The popups on screen, in the order they were shown, for the browser's accessibility DOM, which
+        // mirrors them next to the forms. Application.OpenForms holds forms only.
+        private static readonly System.Collections.Generic.List<PopupWindow> shown_popups = new ();
+
+        /// <summary>The popups currently shown, oldest first.</summary>
+        internal static PopupWindow[] ShownPopups {
+            get {
+                lock (shown_popups)
+                    return shown_popups.ToArray ();
+            }
+        }
+
+        /// <summary>Raised when a popup is shown or hidden. A popup's hiding paints nothing, so the
+        /// accessibility DOM cannot learn of it from a frame.</summary>
+        internal static event System.Action? ShownPopupsChanged;
+
+        /// <inheritdoc/>
+        protected override void OnVisibleChanged (System.EventArgs e)
+        {
+            lock (shown_popups) {
+                shown_popups.Remove (this);
+                if (Visible)
+                    shown_popups.Add (this);
+            }
+
+            ShownPopupsChanged?.Invoke ();
+            base.OnVisibleChanged (e);
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>Disposing takes the popup off screen without a VisibleChanged, so it leaves the
+        /// list of shown popups here.</remarks>
+        protected override void Dispose (bool disposing)
+        {
+            base.Dispose (disposing);
+
+            bool removed;
+            lock (shown_popups)
+                removed = shown_popups.Remove (this);
+
+            if (removed)
+                ShownPopupsChanged?.Invoke ();
+        }
+
         /// <summary>
         /// Initializes a new instance of the PopupWindow class.
         /// </summary>
@@ -86,7 +147,8 @@ namespace Majorsilence.Forms
             Show (parent_form.PointToScreen (new System.Drawing.Point (pos.X + x, pos.Y + y)));
         }
 
-        // A popup that shows without activating: a tool tip. Not registered as ActivePopupWindow either,
+        // A popup that shows without activating: a tool tip, or a combo box's suggestion list, which must
+        // leave the keyboard in the edit box. Not registered as ActivePopupWindow either,
         // which would otherwise replace an open menu or drop-down with a tip and have it close that
         // popup on the next click.
         internal PopupWindow (WindowBase parentForm, bool activates) : this (parentForm)

@@ -55,8 +55,17 @@ namespace Gallery.iOS
             // MainForm.Show() constructs MajorsilenceFormsSingleViewHost, whose constructor registers
             // itself as ISingleViewApplicationLifetime.MainView as a side effect -- there is nothing
             // further to read/return here, unlike Android's MainViewFactory.
-            if (ApplicationLifetime is ISingleViewApplicationLifetime)
-                MSForms.Application.RunIOS (() => new MainForm ());
+            //
+            // MF_CHECK runs that blocking-modal check (issue #406) instead of the gallery; on a simulator,
+            // `SIMCTL_CHILD_MF_CHECK=showdialog xcrun simctl launch --console booted com.majorsilence.gallery`.
+            if (ApplicationLifetime is ISingleViewApplicationLifetime) {
+                var check = System.Environment.GetEnvironmentVariable ("MF_CHECK");
+
+                if (string.IsNullOrEmpty (check))
+                    MSForms.Application.RunIOS (() => new MainForm ());
+                else
+                    MSForms.Application.RunIOS (() => new Gallery.Checks.ModalCheckForm (check));
+            }
 
             base.OnFrameworkInitializationCompleted ();
         }

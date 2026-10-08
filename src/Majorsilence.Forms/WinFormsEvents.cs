@@ -1651,6 +1651,10 @@ namespace Majorsilence.Forms
             AssociatedWindow = associatedWindow;
             AssociatedControl = associatedControl;
             IsBalloon = isBalloon;
+            // Upstream's constructor keeps the size it is given. Dropped, every tool tip was shown at
+            // the 0 x 0 a handler had not set -- found by the browser accessibility DOM reading a tip's
+            // bounds; the test that asserted a size asserted it inside ToolTip's catch-all.
+            ToolTipSize = size;
         }
 
         /// <summary>Gets the associated window.</summary>

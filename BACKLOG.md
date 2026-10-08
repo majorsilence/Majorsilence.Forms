@@ -621,9 +621,11 @@ close to a drop-in, and collapses three implementations of one function to one.
 Issue #406. On the browser target the blocking modal APIs (`Form.ShowDialog`, `MessageBox.Show`, the
 pickers' `ShowDialog`, `TaskDialog.ShowDialog`) throw `PlatformNotSupportedException` naming their
 async form, because Avalonia.Browser's dispatcher has no nested frame and .NET has the page's only
-thread. Measured with `samples/Gallery.Wasm`'s check (`tools/modal-check.mjs`); the reasoning is in
+thread. Measured with `samples/Gallery.Wasm`'s check (`tools/modal-check.mjs`), which CI's `wasm` job runs
+with `--expect` on every PR; the reasoning is in
 [`docs/backends.md`](docs/backends.md#browser-threading). Re-run the check, and turn the Avalonia
-backend's `CanRunModalLoop` back on for the browser if a nested loop then works, when any of these lands:
+backend's `CanRunModalLoop` back on for the browser if a nested loop then works (and update the script's
+`expected` table, which is what CI holds the browser to), when any of these lands:
 
 - the CoreCLR browser runtime (expected around .NET 12);
 - .NET using JSPI (JavaScript Promise Integration), which would allow synchronous waits on async browser work;
@@ -632,15 +634,41 @@ backend's `CanRunModalLoop` back on for the browser if a nested loop then works,
 
 Left over from the same work:
 
-- **Android and iOS are unmeasured.** Their `RunModalLoop` is still Avalonia's `Dispatcher.PushFrame`
-  and `CanRunModalLoop` reports true; whether a nested frame runs there has not been tried on a device.
-- **`FileDialog.ShowDialogAsync` does not raise `FileOk`.** The blocking `ShowDialogSync` raises it
-  after the pick (and turns a cancelled `FileOk` into Cancel); the awaitable path returns the picker's
-  answer directly. Now that the awaitable path is the only one in the browser, it should do the same.
-- **The Gallery.Wasm check is not in CI.** The `wasm` job publishes the bundle; running
-  `tools/modal-check.mjs` against it would keep the measurements above honest.
-- **Accessibility DOM (browser):** popups (combo box drop-downs, menu drop-downs, tooltips) are not
-  mirrored, value changes are not announced through a live region, and nothing has been tried with a
-  real screen reader -- it was verified by reading the DOM in headless Chrome. Seen once while building
-  the check, not investigated: controls added to an already-shown form from a `Timer.Tick` did not
-  appear in the canvas (or the mirror) until something else repainted.
+- **Android and iOS: measured, refused like the browser.** The Gallery.Wasm check, linked into
+  `samples/Gallery.Android` and `samples/Gallery.iOS` (`tools/modal-check.sh` in each), found Avalonia's
+  `Dispatcher.PushFrame` throwing a message-less `PlatformNotSupportedException` at once on an Android 15
+  (API 35) emulator and an iOS 26.5 simulator (Avalonia 12.1.1, .NET 10, Debug builds) -- after the
+  message box or native file picker was already on screen, never a hang. Their `CanRunModalLoop` is now
+  false, so the blocking calls refuse up front; the async forms work on both. Results and versions are in
+  [`docs/backends.md`](docs/backends.md#blocking-modal-calls-on-android-and-ios). Still open: re-run on
+  a physical device and in a Release/AOT build (iOS device builds are always AOT), and on Android's CoreCLR
+  runtime; re-check if Avalonia's Android or iOS dispatcher gains nested-frame support. The MFB analyzer
+  is browser-only, so blocking calls in mobile code are not flagged at build time.
+- **Accessibility DOM (browser):** popups (combo box lists, menu and context-menu drop-downs, tool tips)
+  are mirrored and linked to their owners, and a polite/assertive live region announces live labels,
+  status bars, dialogs and message boxes opening, focused value changes and
+  `RaiseAutomationNotification`/`RaiseLiveRegionChanged` (docs/backends.md, "Accessibility DOM
+  (browser)"). **Nothing has been tried with a real screen reader** -- it was verified by reading the DOM
+  and recording the live regions' output in headless Chrome; VoiceOver/NVDA/JAWS behaviour inside
+  `role="application"` with `aria-activedescendant` is the open question. Still not covered: grid and list
+  view rows, arrow keys in an editable combo box, a form hidden with `Hide` (leaves the mirror only at
+  the next repaint). Seen while building the check, not investigated here: a submenu opened from code
+  (`ShowDropDown` on the parent's item, then on the submenu's) is drawn at the parent menu's top rather
+  than beside its item, and the mirror reproduces the drawn position. (A menu drop-down opened from code
+  also painted its background but not its items; that was the missing repaint on add, fixed below.)
+- **Fixed: rendering of late controls and of dialogs (`?check=timeradd`, `dialogvisual`,
+  `messageboxvisual`, `owneddialogvisual`).** A control added to a shown form never told its window to
+  repaint -- not specific to `Timer.Tick`; the desktop Avalonia window polls for dirty controls every
+  frame and hid it, the single view and the embedded presenter do not. On the single view a secondary
+  window's size was read back from Avalonia layout that had not run yet, so a form sized one dimension
+  at a time came out 0 wide (an owner that was not drawn) or laid out at another size than its view;
+  the owner's `IsEnabled` disabled the dialog inside it, so no dialog could be clicked; and on every
+  backend a client area filled to its edges painted over the right and bottom frame.
+- **Single-view secondary windows have no caption and open at the top-left.** `Form` hides its title
+  bar on every single-view window, which is right for the root but leaves a dialog with no title and no
+  way to tell it from content; and `AvaloniaPlatformBackend.GetScreens` returns nothing there, so
+  `CenterParent`/`CenterScreen` do not move it. Giving the single view one screen (the root view) needs
+  `Location`, `PointToScreen` and `DesktopScaling` to agree on one unit first: today `Location` is the
+  view's logical pixels, `PointToScreen` is whatever the Avalonia platform's `TopLevel.PointToScreen`
+  returns, and `ScreenBounds` scales the size by the render scaling -- equal only at a device pixel
+  ratio of 1, which is all the headless-Chrome check covers. Measure on a HiDPI browser and on Android.

@@ -56,11 +56,14 @@ namespace Majorsilence.Forms
         public Majorsilence.Forms.Drawing.Image? Image {
             get => _systemImage;
             set {
+                // Upstream InstallNewImage: stop the old image's animation, start the new one's.
+                StopAnimate ();
                 _systemImage = value;
                 _skImage?.Dispose ();
                 _skImage = value?.ToSKBitmap ();
                 IsErrored = false;
                 UpdateSize ();
+                Animate ();
                 Invalidate ();
             }
         }
@@ -99,6 +102,7 @@ namespace Majorsilence.Forms
         /// <summary>Sets the image from a SKBitmap for Majorsilence.Forms usage.</summary>
         public void SetSKImage (SKBitmap? bitmap)
         {
+            StopAnimate ();
             _systemImage = null;
             _skImage?.Dispose ();
             _skImage = bitmap;
@@ -206,7 +210,93 @@ namespace Majorsilence.Forms
         {
             base.OnPaint (e);
 
+            // Upstream OnPaint: Animate, then UpdateFrames to select the frame the animator moved to.
+            // The renderer draws a copy of the image's pixels, so a new frame means a fresh copy.
+            if (_systemImage is not null) {
+                Animate ();
+                if (Majorsilence.Forms.Drawing.ImageAnimator.ApplyPendingFrame (_systemImage)) {
+                    _skImage?.Dispose ();
+                    _skImage = _systemImage.ToSKBitmap ();
+                }
+            }
+
             RenderManager.Render (this, e);
+        }
+
+        // GFX-36: an animated GIF in a PictureBox showed its first frame and stopped, because nothing
+        // started the animator. Upstream PictureBox animates while it is visible, enabled and parented
+        // (Controls/PictureBox/PictureBox.cs, Animate) and repaints on each frame change.
+        private bool _currentlyAnimating;
+
+        private void Animate () => Animate (!DesignMode && Visible && Enabled && Parent is not null && !Disposing && !IsDisposed);
+
+        private void StopAnimate () => Animate (false);
+
+        private void Animate (bool animate)
+        {
+            if (animate == _currentlyAnimating || _systemImage is null)
+                return;
+
+            if (animate) {
+                // Frame changes are delivered on the UI thread from here on, so OnFrameChanged can
+                // invalidate directly; upstream raises them on its animation thread and BeginInvokes.
+                Majorsilence.Forms.Drawing.ImageAnimator.UIThreadDispatcher ??= Application.RunOnUIThread;
+                Majorsilence.Forms.Drawing.ImageAnimator.Animate (_systemImage, OnFrameChanged);
+            } else {
+                Majorsilence.Forms.Drawing.ImageAnimator.StopAnimate (_systemImage, OnFrameChanged);
+            }
+            _currentlyAnimating = animate;
+        }
+
+        private void OnFrameChanged (object? sender, EventArgs e)
+        {
+            if (IsDisposed)
+                return;
+
+            // Upstream stops through Dispose when the form disposes its controls. Disposing a window
+            // here does not dispose its controls (WindowBase.Dispose), so a box left on a disposed form
+            // would animate for ever; the first frame change after the window has gone stops it.
+            if (FindForm () is { IsDisposed: true }) {
+                StopAnimate ();
+                return;
+            }
+
+            if (InvokeRequired) {
+                BeginInvoke (new EventHandler (OnFrameChanged), sender, e);
+                return;
+            }
+
+            Invalidate ();
+        }
+
+        /// <inheritdoc/>
+        protected override void OnVisibleChanged (EventArgs e)
+        {
+            base.OnVisibleChanged (e);
+            Animate ();
+        }
+
+        /// <inheritdoc/>
+        protected override void OnEnabledChanged (EventArgs e)
+        {
+            base.OnEnabledChanged (e);
+            Animate ();
+        }
+
+        /// <inheritdoc/>
+        protected override void OnParentChanged (EventArgs e)
+        {
+            base.OnParentChanged (e);
+            Animate ();
+        }
+
+        /// <inheritdoc/>
+        protected override void Dispose (bool disposing)
+        {
+            if (disposing)
+                StopAnimate ();
+
+            base.Dispose (disposing);
         }
 
         /// <summary>

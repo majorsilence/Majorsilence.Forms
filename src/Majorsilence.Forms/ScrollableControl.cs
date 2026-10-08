@@ -481,7 +481,11 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raised when the ScrollableControl is scrolled.
         /// </summary>
-        public new event EventHandler<ScrollEventArgs>? Scroll;
+        /// <remarks>
+        /// Typed <see cref="ScrollEventHandler"/>, as upstream's is (Scrolling/ScrollableControl.cs), so the
+        /// designer's <c>Scroll += new ScrollEventHandler (handler)</c> compiles (EVT-30).
+        /// </remarks>
+        public event ScrollEventHandler? Scroll;
 
         // Scrolls the control by the requested offsets.
         private void ScrollWindow (int xOffset, int yOffset)

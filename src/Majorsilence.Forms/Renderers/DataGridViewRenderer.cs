@@ -80,6 +80,25 @@ namespace Majorsilence.Forms.Renderers
 
             // Draw header bottom border
             e.Canvas.DrawLine (contentArea.Left, y + header_height - 1, contentArea.Right, y + header_height - 1, DataGridView.DefaultColumnHeaderStyle.Border.Bottom.GetColor ());
+
+            RenderColumnRelocationFeedback (control, e);
+        }
+
+        /// <summary>
+        /// Renders the feedback of a column header being dragged to a new position: a shadow of the
+        /// header under the pointer and the insertion bar where it would land (DGV-23).
+        /// </summary>
+        /// <remarks>Upstream draws the same two shapes (DataGridView.Methods.cs, DrawColHeaderShadow), the
+        /// bar in <see cref="SystemColors.HotTrack"/>.</remarks>
+        protected virtual void RenderColumnRelocationFeedback (DataGridView control, PaintEventArgs e)
+        {
+            if (!control.GetColumnRelocationFeedback (out var shadow, out var insertion_bar))
+                return;
+
+            e.Canvas.FillRectangle (shadow, SystemColors.ControlDark.ToSKColor ().WithAlpha (0x80));
+
+            if (!insertion_bar.IsEmpty)
+                e.Canvas.FillRectangle (insertion_bar, SystemColors.HotTrack.ToSKColor ());
         }
 
         // Renders a single column header at its frozen-aware device position.

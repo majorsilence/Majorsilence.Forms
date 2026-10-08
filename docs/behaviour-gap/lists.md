@@ -695,7 +695,19 @@ distinguishes "ours is wrong" from "ours is right and the sibling differs".
   state index still draws its check box (the default, and every checked list in existence), and that an
   out-of-range index falls back rather than throwing.
 
-### LST-61 — `TabControl.HotTrack` is unread, and not demonstrable — Cat A — P3 — Low
+### LST-61 — `TabControl.HotTrack` is unread, and not demonstrable — Cat A — P3 — Low — **CLOSED (2026-10-08)**
+- **Fix (applied):** `TabStripRenderer` styles a hovered tab only when its owning `TabControl.HotTrack`
+  is true (a `TabStrip` with no owning `TabControl` keeps tracking hover), matching upstream, which sets
+  `TCS_HOTTRACK` only then (`Controls/TabControl/TabControl.cs`, `CreateParams`). `HotTrack` defaults to
+  false and repaints the strip when it changes. `TabStrip.DefaultItemHoverStyle` now uses
+  `Theme.ControlHighlightLowColor`, the item-hover token `Menu`, `MenuDropDown` and `ToolBar` already use:
+  the previous `ControlLowColor` equals `BackgroundColor` in the Dark and PointOfSale themes, so there a
+  hovered tab was pixel-identical to the strip. **Why "CSS did not make it observable":** on current
+  code it does -- a `TabStrip::item:hover` rule paints the hovered tab in every theme (now tested). The
+  likely cause of the 2026-09-17 observation is that tab bounds are empty until the strip is first laid
+  out, so a pointer moved (or a hover checked) before the first render hovers nothing; that, or a run
+  under Dark, where the default hover matched the strip. ThemeStudio's preview `TabControl` sets
+  `HotTrack = true` so the hover part being edited is visible. Tests: `TabControlHotTrackTests`.
 - **Still open (2026-10-02, #347):** unchanged -- it waits on a theming decision (a default background for `TabStrip::item:hover`), without which the gate cannot be demonstrated.
 - **Ours:** stored and consumed by nothing. `TabStripRenderer` styles a hovered tab whenever
   `item.Hovered`, which is the `HotTrack = true` behaviour applied whatever the property says; upstream

@@ -254,22 +254,55 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Shows the dialog asynchronously with the specified owner form.</summary>
+        /// <remarks>An implementation raises <see cref="FileOk"/> (through <see cref="OnFileOk"/>) for each
+        /// pick the user accepts and shows the picker again when a handler cancels, as
+        /// <see cref="OpenFileDialog"/> and <see cref="SaveFileDialog"/> do. One that answers
+        /// <see cref="DialogResult.OK"/> without raising it gets it raised by every other
+        /// <c>ShowDialog</c> / <c>ShowDialogAsync</c> overload, where a cancelling handler turns the answer
+        /// into <see cref="DialogResult.Cancel"/>.</remarks>
         public abstract Task<DialogResult> ShowDialogAsync (Form owner);
 
         /// <summary>Shows the dialog without blocking the caller, owned as <see cref="ShowDialog()"/> would
         /// own it; with no open form to show against it answers Cancel, as that does.</summary>
+        /// <remarks>Raises <see cref="FileOk"/> exactly as <see cref="ShowDialog()"/> does.</remarks>
         public Task<DialogResult> ShowDialogAsync ()
         {
             var owner = Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
-            return owner is not null ? ShowDialogAsync (owner) : Task.FromResult (DialogResult.Cancel);
+            return owner is not null ? ShowConfirmedAsync (owner) : Task.FromResult (DialogResult.Cancel);
         }
 
         /// <summary>Shows the dialog without blocking the caller, owned by the given window -- or, for a
         /// control, by its form -- as <see cref="ShowDialog(IWin32Window)"/> would own it.</summary>
+        /// <remarks>Raises <see cref="FileOk"/> exactly as <see cref="ShowDialog(IWin32Window)"/> does.</remarks>
         public Task<DialogResult> ShowDialogAsync (IWin32Window owner)
         {
             var form = owner as Form ?? (owner as Control)?.FindForm () ?? Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
-            return form is not null ? ShowDialogAsync (form) : Task.FromResult (DialogResult.Cancel);
+            return form is not null ? ShowConfirmedAsync (form) : Task.FromResult (DialogResult.Cancel);
+        }
+
+        // Set by OnFileOk; tells the wrappers below whether the implementation already asked FileOk.
+        private bool file_ok_raised;
+
+        private async Task<DialogResult> ShowConfirmedAsync (Form owner)
+        {
+            file_ok_raised = false;
+            return ConfirmResult (await ShowDialogAsync (owner).ConfigureAwait (true));
+        }
+
+        // Upstream raises FileOk once per accepted pick, before the dialog closes, and a cancelling handler
+        // keeps it open. OpenFileDialog and SaveFileDialog do that inside ShowDialogAsync (Form) and show the
+        // picker again (AcceptResult), so nothing is left to do. A derived dialog that answered OK without
+        // asking gets FileOk here; its picker has closed by now, so a cancel turns the answer into Cancel
+        // (W6.1). Raising it here unconditionally ran every handler twice for one pick.
+        private DialogResult ConfirmResult (DialogResult result)
+        {
+            if (result != DialogResult.OK || file_ok_raised)
+                return result;
+
+            var ok = new System.ComponentModel.CancelEventArgs ();
+            OnFileOk (ok);
+
+            return ok.Cancel ? DialogResult.Cancel : DialogResult.OK;
         }
 
         /// <summary>Shows the dialog modally with the given owner and blocks until closed.</summary>
@@ -287,17 +320,8 @@ namespace Majorsilence.Forms
         {
             BlockingModal.ThrowIfUnsupported ("FileDialog.ShowDialog", "FileDialog.ShowDialogAsync");
 
-            var result = Form.RunModal (ShowDialogAsync (owner));
-
-            if (result != DialogResult.OK)
-                return result;
-
-            // Upstream raises FileOk before the dialog closes and a cancelling handler keeps it open. The
-            // native dialog has closed by now, so a cancel turns the answer into Cancel instead (W6.1).
-            var ok = new System.ComponentModel.CancelEventArgs ();
-            OnFileOk (ok);
-
-            return ok.Cancel ? DialogResult.Cancel : DialogResult.OK;
+            file_ok_raised = false;
+            return ConfirmResult (Form.RunModal (ShowDialogAsync (owner)));
         }
     }
 }

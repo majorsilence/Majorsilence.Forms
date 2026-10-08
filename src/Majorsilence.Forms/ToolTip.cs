@@ -479,13 +479,14 @@ namespace Majorsilence.Forms
                     return;
 
                 if (popup is null || popup_label is null) {
-                    popup = new PopupWindow (window, activates: false);
+                    popup = new PopupWindow (window, activates: false) { IsToolTip = true };
                     popup_label = popup.Controls.Add (new TipLabel { Dock = DockStyle.Fill, Owner = this });
                     popup_label.Style.Border.Width = 1;
                 }
 
                 associated_control = control;
                 associated_window = window as IWin32Window;
+                popup.AccessibleOwner = control;
 
                 // StripAmpersands drops the mnemonic marker a caller copied from a button's Text;
                 // ToolTipTitle heads the tip on its own line (W6.2 sweep).

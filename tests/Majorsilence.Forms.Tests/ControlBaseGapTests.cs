@@ -338,6 +338,24 @@ public sealed class ControlBaseGapTests : IDisposable
         Assert.Equal (new SKColor (255, 0, 0), bitmap.GetPixel ((int) (50 * scale), (int) (50 * scale)));
     }
 
+    [Fact]
+    public void CTL21_Refresh_presents_the_frame_before_it_returns ()
+    {
+        var label = new Label { Bounds = new Rectangle (10, 10, 100, 20), Text = "0" };
+        using var form = Shown (label);
+        HeadlessRenderer.CapturePng (form);   // the first frame: nothing dirty is left
+        var host = (HeadlessWindowHost) form.Backend;
+        var before = host.PresentNowCount;
+
+        label.Update ();   // nothing to paint: upstream's UpdateWindow does nothing either
+        Assert.Equal (before, host.PresentNowCount);
+
+        label.Text = "1";
+        label.Refresh ();
+
+        Assert.Equal (before + 1, host.PresentNowCount);
+    }
+
     // ── CTL-22: the Cursor setter waited for the pointer to re-enter ───────────────────────────────
 
     [Fact]
@@ -520,5 +538,123 @@ public sealed class ControlBaseGapTests : IDisposable
         second.Controls.Add (child);
 
         Assert.True (changes >= 1);
+    }
+
+    // ── CTL-14: an unparented control is visible; Add/Remove raise no VisibleChanged; focus needs a created control ──
+
+    [Fact]
+    public void CTL14_an_unparented_control_is_visible ()
+    {
+        using var button = new Button ();
+
+        Assert.True (button.Visible);
+    }
+
+    [Fact]
+    public void CTL14_Controls_Add_and_Remove_raise_no_VisibleChanged ()
+    {
+        using var form = Shown ();
+        var panel = new Panel ();
+        var leaf = new Button ();
+        panel.Controls.Add (leaf);
+
+        var panel_changes = 0;
+        var leaf_changes = 0;
+        panel.VisibleChanged += (_, _) => panel_changes++;
+        leaf.VisibleChanged += (_, _) => leaf_changes++;
+
+        form.Controls.Add (panel);
+        Assert.Equal ((0, 0), (panel_changes, leaf_changes));
+
+        form.Controls.Remove (panel);
+        Assert.Equal ((0, 0), (panel_changes, leaf_changes));
+        Assert.True (leaf.Visible);
+    }
+
+    [Fact]
+    public void CTL14_leaving_a_hidden_parent_raises_no_VisibleChanged ()
+    {
+        // The child goes from hidden (by its parent) to visible (unparented), yet nothing was shown:
+        // upstream's AssignParent skips exactly this transition.
+        using var form = Shown ();
+        var hidden = new Panel { Visible = false };
+        var child = new Button ();
+        form.Controls.Add (hidden);
+        hidden.Controls.Add (child);
+        Assert.False (child.Visible);
+
+        var changes = 0;
+        child.VisibleChanged += (_, _) => changes++;
+
+        hidden.Controls.Remove (child);
+
+        Assert.True (child.Visible);
+        Assert.Equal (0, changes);
+    }
+
+    [Fact]
+    public void CTL14_Focus_on_an_uncreated_control_returns_false_and_focuses_nothing ()
+    {
+        var other = new TextBox { Bounds = new Rectangle (10, 40, 80, 20) };
+        using var form = Shown (other);
+        Assert.True (other.Focus ());
+
+        // Unparented: visible and selectable now, but no handle and no window to track it.
+        var loose = new TextBox ();
+        Assert.False (loose.CanFocus);
+        Assert.False (loose.Focus ());
+        loose.Select ();
+        Assert.False (loose.Focused);
+
+        // Joining the window must not bring a second focused control with it.
+        form.Controls.Add (loose);
+        Assert.False (loose.Focused);
+        Assert.True (other.Focused);
+
+        // A control on a form that has not been shown is not created yet either.
+        using var hidden_form = new Form ();
+        var on_hidden = new TextBox ();
+        hidden_form.Controls.Add (on_hidden);
+        Assert.False (on_hidden.Created);
+        Assert.False (on_hidden.Focus ());
+        Assert.False (on_hidden.Focused);
+    }
+
+    [Fact]
+    public void CTL14_an_unparented_UserControl_ActiveControl_takes_no_focus_until_it_is_on_a_window ()
+    {
+        var uc = new UserControl ();
+        var child = new TextBox ();
+        uc.Controls.Add (child);
+
+        uc.ActiveControl = child;
+
+        // Recorded (upstream's _activeControl), but nothing is focused without a window.
+        Assert.Same (child, uc.ActiveControl);
+        Assert.False (child.Focused);
+
+        var other = new TextBox ();
+        using var form = Shown (other);
+        Assert.True (other.Focus ());
+
+        form.Controls.Add (uc);
+
+        Assert.False (child.Focused);
+        Assert.True (other.Focused);
+    }
+
+    [Fact]
+    public void CTL14_Focus_after_the_form_is_shown_still_works ()
+    {
+        // Guard: pins that requiring a handle did not take focus away from created controls. No single
+        // CTL-14 fix reverted turns it red; it fails if CanFocus stops being true on a shown form.
+        var first = new TextBox { Bounds = new Rectangle (10, 10, 80, 20) };
+        var second = new TextBox { Bounds = new Rectangle (10, 40, 80, 20) };
+        using var form = Shown (first, second);
+
+        Assert.True (second.CanFocus);
+        Assert.True (second.Focus ());
+        Assert.True (second.Focused);
+        Assert.False (first.Focused);
     }
 }

@@ -323,8 +323,29 @@ namespace Majorsilence.Forms
 
         private TabAppearance appearance = TabAppearance.Normal;
 
-        /// <summary>Gets or sets whether tabs are highlighted when mouse hovers. Stub in Majorsilence.Forms.</summary>
-        public bool HotTrack { get; set; }
+        /// <summary>
+        /// Gets or sets whether the tab under the mouse pointer is highlighted. The default is
+        /// <see langword="false"/>.
+        /// </summary>
+        /// <remarks>When <see langword="true"/>, the hovered tab paints with the
+        /// <c>TabStrip::item:hover</c> part style (by default the <c>--control-highlight-low-color</c>
+        /// background) and the <see cref="SystemColors.HotTrack"/> caption colour. When
+        /// <see langword="false"/>, a hovered tab paints exactly like any other tab.</remarks>
+        public bool HotTrack {
+            get => hot_track;
+            set {
+                if (hot_track == value)
+                    return;
+
+                // Upstream (Controls/TabControl/TabControl.cs) maps HotTrack to TCS_HOTTRACK and
+                // recreates the handle, so a change shows on the next paint; there is no handle here,
+                // so the strip is repainted instead.
+                hot_track = value;
+                tab_strip.Invalidate ();
+            }
+        }
+
+        private bool hot_track;
 
         // Notifies on change; the event was declared and raised by nothing (W6.1).
         private bool right_to_left_layout;

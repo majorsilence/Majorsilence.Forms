@@ -428,7 +428,7 @@ namespace Majorsilence.Forms
                     // The suggestions and the drop-down are never open together (LST-07).
                     CloseSuggestions ();
 
-                    popup ??= new PopupWindow (window);
+                    popup ??= new PopupWindow (window) { AccessibleOwner = this };
 
                     popup.Controls.Add (popup_listbox);
                     popup.Size = ComputePopupSize ();

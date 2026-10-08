@@ -56,6 +56,20 @@
     <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />
   </ItemGroup>
 
+  <!-- NotifyIcon (TSM-19): WPF has no tray icon, so WPF applications (and this host) use the
+       WinForms one. The shared adapter lives in the WinForms backend and is linked, not copied. net48
+       already references System.Windows.Forms above; the modern rows take it from the same
+       Microsoft.WindowsDesktop.App shared framework WPF comes from. The WinForms implicit usings are
+       removed so names like Control, Point and Application keep meaning what they did. -->
+  <PropertyGroup Condition="'$(TargetFramework)' != 'net48'">
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+    <Compile Include="..\Majorsilence.Forms.WinForms\ShellTrayIcon.cs" Link="ShellTrayIcon.cs" />
+  </ItemGroup>
+
   <!-- SkiaSharp comes transitively from Majorsilence.Forms; no SkiaSharp.Views.WPF (its SKElement /
        WriteableBitmap present path is done directly here, mirroring the WinForms backend's
        SkiaHostControl, to avoid that package's SkiaSharp.Views.Desktop shim collisions). -->

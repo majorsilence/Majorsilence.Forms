@@ -118,7 +118,7 @@ namespace Majorsilence.Forms
         /// designer's <c>Scroll += new ScrollEventHandler (handler)</c> compiles. It was
         /// <c>EventHandler&lt;ScrollEventArgs&gt;</c>, which only method-group syntax hid (SMP-50).
         /// </remarks>
-        public new event ScrollEventHandler? Scroll;
+        public event ScrollEventHandler? Scroll;
 
         /// <summary>
         /// Gets or sets the amount the ScrollBar will change when the increment or decrement arrows are clicked.

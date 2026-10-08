@@ -262,7 +262,7 @@ namespace Majorsilence.Forms
                 "Custom controls. Telerik: RadGridView."),
             new ThemeCssToken (nameof (Theme.ControlHighlightLowColor), ThemeCssValueKind.Color,
                 "The hover highlight for items inside a control.",
-                "Hovered Menu, ToolBar, Ribbon and MenuDropDown items, hovered ListBox/ListView rows, selected DataGridView rows, MonthCalendar hover."),
+                "Hovered Menu, ToolBar, Ribbon and MenuDropDown items, hovered TabStrip tabs (TabControl.HotTrack), hovered ListBox/ListView rows, selected DataGridView rows, MonthCalendar hover."),
             new ThemeCssToken (nameof (Theme.ControlHighlightMidColor), ThemeCssValueKind.Color,
                 "The pressed / selected item highlight.",
                 "Selected Ribbon item, ScrollBar and NumericUpDown arrow glyphs, MonthCalendar."),
@@ -369,7 +369,7 @@ namespace Majorsilence.Forms
             new ThemeCssSelector ("TabControl", "Tab controls: the frame around the pages (the tab headers are a TabStrip, the pages are Panels).", () => TabControl.DefaultStyle),
             new ThemeCssSelector ("TabStrip", "The row of tab headers. Tabs are the ::item part (with :hover) and the current one the ::selected part.", () => TabStrip.DefaultStyle)
                 .WithParts (
-                    new ThemeCssPart ("item", "A tab: optional background and the caption colour; :hover is the hovered tab (default --control-low-color).",
+                    new ThemeCssPart ("item", "A tab: optional background and the caption colour; :hover is the hovered tab, painted only when TabControl.HotTrack is set (default --control-highlight-low-color).",
                         () => TabStrip.DefaultItemStyle, () => TabStrip.DefaultItemHoverStyle, "background-color", "color"),
                     new ThemeCssPart ("selected", "The selected tab: optional background, caption colour, and the accent underline (border-bottom-color, border-bottom-width; default --accent-color-2, 3px).",
                         () => TabStrip.DefaultSelectedItemStyle, null, "background-color", "color", "border-bottom-color", "border-bottom-width")),

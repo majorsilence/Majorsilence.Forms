@@ -26,7 +26,7 @@ namespace Majorsilence.Forms.Wpf
     /// Windows-only, like WPF itself (the assembly compiles on other OSes via EnableWindowsTargeting
     /// so it stays a CI compile gate, but it cannot run there).
     /// </summary>
-    public sealed class WpfPlatformBackend : IPlatformBackend, IDisposable
+    public sealed class WpfPlatformBackend : IPlatformBackend, ITrayIconBackend, IDisposable
     {
         private Dispatcher? _dispatcher;
         private DispatcherFrame? _loopFrame;
@@ -34,6 +34,10 @@ namespace Majorsilence.Forms.Wpf
 
         /// <inheritdoc/>
         public string Name => "WPF";
+
+        /// <inheritdoc/>
+        /// <remarks>The real <c>System.Windows.Forms.NotifyIcon</c> (TSM-19).</remarks>
+        public ITrayIconHandle? CreateTrayIcon (MF.NotifyIcon owner) => new Backends.Shell.ShellTrayIcon (owner);
 
         /// <inheritdoc/>
         public void Initialize ()

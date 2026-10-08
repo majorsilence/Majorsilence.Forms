@@ -24,7 +24,7 @@ namespace Majorsilence.Forms.WinForms
     /// </list>
     /// Windows-only by definition — see the package README.
     /// </summary>
-    public sealed class WinFormsPlatformBackend : IPlatformBackend, IDisposable
+    public sealed class WinFormsPlatformBackend : IPlatformBackend, ITrayIconBackend, IDisposable
     {
         private int _uiThreadId = -1;
         private WF.Control? _marshal;                 // hidden handle the UI thread marshals through
@@ -32,6 +32,10 @@ namespace Majorsilence.Forms.WinForms
 
         /// <inheritdoc/>
         public string Name => "WinForms";
+
+        /// <inheritdoc/>
+        /// <remarks>The real <c>System.Windows.Forms.NotifyIcon</c> (TSM-19).</remarks>
+        public ITrayIconHandle? CreateTrayIcon (MF.NotifyIcon owner) => new Backends.Shell.ShellTrayIcon (owner);
 
         /// <inheritdoc/>
         public void Initialize ()

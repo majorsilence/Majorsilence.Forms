@@ -53,9 +53,17 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Sets input focus to the control. Returns true if focus was successfully set.
         /// </summary>
+        /// <remarks>
+        /// Only a control that <see cref="CanFocus"/> -- one whose handle exists -- takes focus, as
+        /// upstream's <c>FocusInternal</c> (Control.cs) calls <c>SetFocus</c> only then. A control on a
+        /// form that has not been shown is not created yet, so this returns false there; use
+        /// <see cref="Select ()"/> or <c>ActiveControl</c> to choose the control that gets focus on show.
+        /// </remarks>
         public bool Focus ()
         {
-            Select ();
+            if (CanFocus)
+                Select ();
+
             return Focused;
         }
 
@@ -191,7 +199,7 @@ namespace Majorsilence.Forms
             }
         }
 
-        private void PaintBackgroundImage (PaintEventArgs e)
+        private protected void PaintBackgroundImage (PaintEventArgs e)
         {
             var image = background_image;
 
@@ -471,7 +479,13 @@ namespace Majorsilence.Forms
         public bool ContainsFocus => Focused || Controls.Any (c => c.ContainsFocus);
 
         /// <summary>Gets whether the control can receive focus.</summary>
-        public bool CanFocus => Visible && Enabled && CanSelect;
+        /// <remarks>
+        /// Requires a created handle, as upstream's <c>CanFocus</c> (Control.cs:
+        /// <c>IsHandleCreated &amp;&amp; IsWindowVisible &amp;&amp; IsWindowEnabled</c>). Without it an
+        /// unparented control -- which is <see cref="Visible"/>, as upstream -- could take focus that
+        /// no window tracks (CTL-14).
+        /// </remarks>
+        public bool CanFocus => IsHandleCreated && Visible && Enabled && CanSelect;
 
         /// <summary>Gets whether the caller must use Invoke to call the control (always false on UI thread).</summary>
         public bool InvokeRequired => !Platform.Backend.CheckAccess ();
@@ -615,16 +629,19 @@ namespace Majorsilence.Forms
         /// <see cref="Invalidate()"/> (CTL-21), so a Paint handler ran only on the backend's next frame
         /// and anything reading the control's pixels straight after -- <c>label.Text = ...;
         /// label.Refresh ();</c> then <see cref="DrawToBitmap"/> -- saw the old ones. Now a dirty,
-        /// created control paints into its surface here, raising <c>Paint</c> before this returns.
-        /// Putting that surface on screen is still the window's next frame: no backend can present
-        /// synchronously, so a UI thread blocked in a loop does not show it until it returns.
+        /// created control paints into its surface here, raising <c>Paint</c> before this returns, and
+        /// the window is asked to present it (<see cref="Backends.IWindowBackend.PresentNow"/>). The
+        /// WinForms and WPF hosts put it on screen at once; Avalonia, GTK 4 and Uno render from their
+        /// own frame loop, so there a UI thread blocked in a loop shows it only once it returns.
         /// </remarks>
         public void Update ()
         {
             if (this is ControlAdapter || !Created || !GetState (States.IsDirty) || !Visible || Width <= 0 || Height <= 0)
                 return;
 
-            if (FindWindow () is null)
+            var window = FindWindow ();
+
+            if (window is null)
                 return;
 
             var size = ScaledSize;
@@ -644,6 +661,10 @@ namespace Majorsilence.Forms
             // (NeedsPaint), so they are marked in its place.
             for (var p = parent; p is not null; p = p.parent)
                 p.SetState (States.IsDirty, true);
+
+            // Upstream's UpdateWindow ends with the pixels on screen; the composite above only reaches
+            // it through the window's next frame unless the backend can present now (CTL-21).
+            window.Backend?.PresentNow ();
         }
 
         /// <summary>Scales the control and its children by the specified horizontal and vertical scaling factors.</summary>
@@ -880,7 +901,14 @@ namespace Majorsilence.Forms
         private AccessibleObject? _accessibilityObject;
 
         /// <summary>Gets the AccessibleObject assigned to the control.</summary>
-        public AccessibleObject AccessibilityObject => _accessibilityObject ??= CreateAccessibilityInstance ();
+        public AccessibleObject AccessibilityObject => _accessibilityObject ??= BindAccessibilityObject (CreateAccessibilityInstance ());
+
+        // Ties the object to this control so RaiseLiveRegionChanged knows whose text to announce.
+        private AccessibleObject BindAccessibilityObject (AccessibleObject accessible)
+        {
+            accessible.LiveOwner ??= this;
+            return accessible;
+        }
 
         /// <summary>Creates the accessibility object for this control. Override to return a custom implementation.</summary>
         protected virtual AccessibleObject CreateAccessibilityInstance () => new AccessibleObject ();

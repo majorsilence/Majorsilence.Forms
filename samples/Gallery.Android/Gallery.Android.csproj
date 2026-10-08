@@ -44,6 +44,9 @@
     <!-- Reuse the full ControlGallery MainForm/panels to render the whole gallery on Avalonia-on-Android. -->
     <ProjectReference Include="..\ControlGallery\ControlGallery.csproj" />
     <PackageReference Include="Avalonia.Android" />
+    <!-- The blocking-modal head check (issue #406), shared with the browser head; MainActivity runs it
+         instead of the gallery when launched with a "check" intent extra. See docs/samples.md. -->
+    <Compile Include="..\Gallery.Wasm\ModalCheckForm.cs" Link="ModalCheckForm.cs" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(EnableAndroidHead)' == 'true'">
