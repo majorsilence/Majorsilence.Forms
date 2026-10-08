@@ -14,6 +14,9 @@ It is the WPF counterpart of `Majorsilence.Forms.Avalonia`, `Majorsilence.Forms.
 
 **Windows-only** at runtime, like WPF itself.
 
+`NotifyIcon` uses the real `System.Windows.Forms.NotifyIcon` (WPF has no tray icon of its own), so the
+package references the Windows Forms part of the Windows Desktop framework as well as WPF.
+
 **Target frameworks:** `net48` (classic .NET Framework 4.8 — pairs with the `netstandard2.0` build of
 `Majorsilence.Forms`), plus `net8.0-windows` and `net10.0-windows` for modern .NET.
 

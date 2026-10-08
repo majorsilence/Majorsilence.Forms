@@ -8,18 +8,22 @@
 
 using System;
 using System.ComponentModel;
+using Majorsilence.Forms.Headless;
 using Xunit;
 
 namespace Majorsilence.Forms.Tests
 {
     // Behavioral tests ported from the upstream WinForms NotifyIconTests, adapted to the
-    // Majorsilence.Forms API. Majorsilence.Forms has no native system-tray support, so tray/Handle/design-mode
-    // plumbing is omitted. The tests pin the property get/set round-trips (Text incl. MaxTextSize
-    // validation, Visible, BalloonTip*, Tag, ContextMenuStrip, Icon), the constructor contract,
-    // event add/remove, dispose behavior, and the ShowBalloonTip argument validation that mirrors
-    // WinForms.
+    // Majorsilence.Forms API. Handle/design-mode plumbing is omitted. The tests pin the property get/set
+    // round-trips (Text incl. MaxTextSize validation, Visible, BalloonTip*, Tag, ContextMenuStrip, Icon),
+    // the constructor contract, event add/remove, dispose behavior, and the ShowBalloonTip argument
+    // validation that mirrors WinForms. What reaches the tray is NotifyIconTrayTests'. These run on the
+    // Headless backend so a visible icon never resolves the default (Avalonia) one.
+    [Collection ("Headless")]
     public class NotifyIconTests
     {
+        public NotifyIconTests () => HeadlessRenderer.Use ();
+
         [Fact]
         public void Ctor_Default ()
         {
@@ -428,7 +432,7 @@ namespace Majorsilence.Forms.Tests
                 BalloonTipIcon = tipIcon
             };
 
-            // No-op in Majorsilence.Forms (no tray), but must not throw with valid arguments.
+            // Not in the tray (not Visible), so nothing is shown; must not throw with valid arguments.
             notifyIcon.ShowBalloonTip (0);
         }
 

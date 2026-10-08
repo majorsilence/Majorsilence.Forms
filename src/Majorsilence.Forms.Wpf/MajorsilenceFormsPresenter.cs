@@ -200,6 +200,9 @@ namespace Majorsilence.Forms.Wpf
 
         void IWindowBackend.Invalidate () => _skia.RequestRender ();
 
+        // Control.Update/Refresh: render now and run the Render-priority pass (CTL-21).
+        void IWindowBackend.PresentNow () => _skia.PresentNow ();
+
         // ── INativeControlHostBackend ────────────────────────────────────────────
 
         void INativeControlHostBackend.AttachNativeControl (MF.NativeControlHost host, object nativeControl)

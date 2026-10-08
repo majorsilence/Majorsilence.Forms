@@ -615,16 +615,19 @@ namespace Majorsilence.Forms
         /// <see cref="Invalidate()"/> (CTL-21), so a Paint handler ran only on the backend's next frame
         /// and anything reading the control's pixels straight after -- <c>label.Text = ...;
         /// label.Refresh ();</c> then <see cref="DrawToBitmap"/> -- saw the old ones. Now a dirty,
-        /// created control paints into its surface here, raising <c>Paint</c> before this returns.
-        /// Putting that surface on screen is still the window's next frame: no backend can present
-        /// synchronously, so a UI thread blocked in a loop does not show it until it returns.
+        /// created control paints into its surface here, raising <c>Paint</c> before this returns, and
+        /// the window is asked to present it (<see cref="Backends.IWindowBackend.PresentNow"/>). The
+        /// WinForms and WPF hosts put it on screen at once; Avalonia, GTK 4 and Uno render from their
+        /// own frame loop, so there a UI thread blocked in a loop shows it only once it returns.
         /// </remarks>
         public void Update ()
         {
             if (this is ControlAdapter || !Created || !GetState (States.IsDirty) || !Visible || Width <= 0 || Height <= 0)
                 return;
 
-            if (FindWindow () is null)
+            var window = FindWindow ();
+
+            if (window is null)
                 return;
 
             var size = ScaledSize;
@@ -644,6 +647,10 @@ namespace Majorsilence.Forms
             // (NeedsPaint), so they are marked in its place.
             for (var p = parent; p is not null; p = p.parent)
                 p.SetState (States.IsDirty, true);
+
+            // Upstream's UpdateWindow ends with the pixels on screen; the composite above only reaches
+            // it through the window's next frame unless the backend can present now (CTL-21).
+            window.Backend?.PresentNow ();
         }
 
         /// <summary>Scales the control and its children by the specified horizontal and vertical scaling factors.</summary>

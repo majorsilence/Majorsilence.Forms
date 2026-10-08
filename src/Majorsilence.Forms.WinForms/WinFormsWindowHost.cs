@@ -349,6 +349,9 @@ namespace Majorsilence.Forms.WinForms
             _skia.Invalidate ();
         }
 
+        // Control.Update/Refresh: a synchronous WM_PAINT, as upstream (CTL-21).
+        public void PresentNow () => _skia.PresentNow ();
+
         // ── INativeControlHostBackend (real WinForms controls inside the Majorsilence scene) ──────
 
         void INativeControlHostBackend.AttachNativeControl (MF.NativeControlHost host, object nativeControl)

@@ -165,6 +165,25 @@ namespace Majorsilence.Forms.Backends
         /// <summary>Marks the window as needing a repaint.</summary>
         void Invalidate ();
 
+        /// <summary>
+        /// Puts the window's current scene on screen before returning, instead of on the next frame --
+        /// what <see cref="Control.Update"/> and <see cref="Control.Refresh"/> need so a UI thread that
+        /// stays busy afterwards (the <c>label.Text = …; label.Refresh ();</c> progress loop) still shows
+        /// the new pixels. Called on the UI thread, after the control has painted into its surface.
+        /// </summary>
+        /// <remarks>
+        /// Implemented where the toolkit can present synchronously: the WinForms host refreshes its
+        /// surface control (a synchronous WM_PAINT), WPF renders into its bitmap and runs a dispatcher
+        /// pass at Render priority so the frame reaches the composition thread. Avalonia, GTK 4 and Uno
+        /// render from their own frame loop, which a blocked UI thread cannot drive, so they leave the
+        /// default no-op and the pixels appear on the next frame. Headless records the call.
+        /// </remarks>
+#if NETSTANDARD2_0
+        void PresentNow ();
+#else
+        void PresentNow () { }
+#endif
+
         // ── File/folder pickers (owned by this window) ───────────────────────────
         /// <summary>Shows an open-file picker; returns the chosen full paths (empty if cancelled).</summary>
         System.Threading.Tasks.Task<string[]> ShowOpenFileDialog (OpenFileRequest request);
