@@ -29,6 +29,12 @@ namespace Majorsilence.Forms
         {
             Dock = DockStyle.Left;
             Cursor = Cursors.SizeWestEast;
+
+            // Upstream's Splitter is never focusable (Controls/Splitter/Splitter.cs constructor). This one
+            // was, so Tab stopped on the bar inside every SplitContainer with nothing to do there, and a
+            // click on it took focus away from the container that moves the bar from the keyboard.
+            SetStyle (ControlStyles.Selectable, false);
+            TabStop = false;
         }
 
         /// <inheritdoc/>

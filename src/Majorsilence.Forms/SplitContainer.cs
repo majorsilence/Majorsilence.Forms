@@ -49,6 +49,7 @@ namespace Majorsilence.Forms
             });
 
             splitter.Drag += Splitter_Drag;
+            splitter.MouseDown += Splitter_MouseDown;
             splitter.MouseUp += Splitter_MouseUp;
         }
 
@@ -390,6 +391,156 @@ namespace Majorsilence.Forms
                 split_moved_by_drag = true;
 
             Invalidate ();
+        }
+
+        // LAY-06: pressing the bar focuses the container, which is what upstream's "splitter focused"
+        // state is (Layout/Containers/SplitContainer.cs, OnMouseDown sets _splitterFocused and makes the
+        // container the active control), so the arrow keys move the bar after a click. The bar itself is
+        // not selectable (Splitter), as upstream draws it rather than hosting a control.
+        private void Splitter_MouseDown (object? sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left && e.Clicks == 1 && !IsSplitterFixed)
+                Focus ();
+        }
+
+        // Keyboard move state (LAY-06). A held arrow key is one move: it begins on the first key-down,
+        // each auto-repeat moves the bar again, and the key-up ends it -- upstream's _splitBegin/_splitMove.
+        private bool key_split_active;
+        private int key_split_origin;
+
+        // Upstream's IsSplitterMovable: a container too small to honour both minimums does not move.
+        private bool IsSplitterMovable
+            => Panel1.Visible && Panel2.Visible && ClientExtent >= panel1_min_size + SplitterWidth + panel2_min_size;
+
+        private static bool IsArrowKey (Keys keyData)
+            => keyData is Keys.Left or Keys.Right or Keys.Up or Keys.Down;
+
+        /// <inheritdoc/>
+        /// <remarks>With the splitter focused the unmodified arrow keys are not dialog keys: they reach
+        /// <see cref="OnKeyDown"/> and move the bar, as upstream's override arranges
+        /// (Layout/Containers/SplitContainer.cs, ProcessDialogKey) (LAY-06).</remarks>
+        protected override bool ProcessDialogKey (Keys keyData)
+        {
+            if (Focused && IsArrowKey (keyData))
+                return false;
+
+            return base.ProcessDialogKey (keyData);
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>Moves the splitter by <see cref="SplitterIncrement"/> per arrow key while the
+        /// container has focus and <see cref="IsSplitterFixed"/> is off; Escape abandons a move in
+        /// progress. Upstream previews the move with a reversible line and applies it on key-up; here the
+        /// panels follow the bar live, as they do for a mouse drag, and <see cref="SplitterMoved"/> is
+        /// still raised once, on key-up (LAY-06).</remarks>
+        protected override void OnKeyDown (KeyEventArgs e)
+        {
+            base.OnKeyDown (e);
+
+            if (IsSplitterFixed || !IsSplitterMovable)
+                return;
+
+            if (e.KeyData == Keys.Escape && key_split_active) {
+                EndKeyboardSplit (accept: false);
+                e.Handled = true;
+                return;
+            }
+
+            if (!Focused || !IsArrowKey (e.KeyData))
+                return;
+
+            var repeat = key_split_active;
+
+            if (!key_split_active) {
+                key_split_active = true;
+                key_split_origin = SplitterDistance;
+            }
+
+            // Upstream's arithmetic (OnKeyDown): a step that would cross a minimum is not taken at all,
+            // rather than clamped part of the way.
+            var distance = SplitterDistance;
+
+            if (e.KeyData is Keys.Left or Keys.Up) {
+                distance -= splitter_increment;
+
+                if (distance < panel1_min_size)
+                    distance += splitter_increment;
+
+                distance = Math.Max (distance, 0);
+            } else {
+                distance += splitter_increment;
+
+                if (distance + SplitterWidth > ClientExtent - panel2_min_size)
+                    distance -= splitter_increment;
+            }
+
+            // Upstream raises SplitterMoving for the repeats of a held key, not for the press that
+            // starts the move, and a cancel there abandons the whole move.
+            if (repeat) {
+                var vertical = orientation == Orientation.Vertical;
+                var bar = SplitterRectangle;
+                var moving = new SplitterCancelEventArgs (Left + bar.X + bar.Width / 2, Top + bar.Y + bar.Height / 2,
+                    vertical ? distance : 0, vertical ? 0 : distance);
+
+                OnSplitterMoving (moving);
+
+                if (moving.Cancel) {
+                    EndKeyboardSplit (accept: false);
+                    e.Handled = true;
+                    return;
+                }
+            }
+
+            ResizePanels (distance);
+            e.Handled = true;
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>Releasing the arrow key ends a keyboard move and raises <see cref="SplitterMoved"/>
+        /// when the bar ended somewhere new, as upstream's <c>OnKeyUp</c> does (LAY-06).</remarks>
+        protected override void OnKeyUp (KeyEventArgs e)
+        {
+            base.OnKeyUp (e);
+
+            if (key_split_active && IsArrowKey (e.KeyData))
+                EndKeyboardSplit (accept: true);
+        }
+
+        private void EndKeyboardSplit (bool accept)
+        {
+            key_split_active = false;
+
+            if (!accept) {
+                ResizePanels (key_split_origin);
+                return;
+            }
+
+            if (SplitterDistance == key_split_origin)
+                return;
+
+            var rect = SplitterRectangle;
+            OnSplitterMoved (new SplitterEventArgs (rect.X + rect.Width / 2, rect.Y + rect.Height / 2, rect.X, rect.Y));
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>Repaints the bar, which carries the focus cue (LAY-06).</remarks>
+        protected override void OnGotFocus (EventArgs e)
+        {
+            base.OnGotFocus (e);
+            splitter.Invalidate ();
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>Repaints the bar to drop the focus cue, and finishes a keyboard move the focus change
+        /// interrupted, since its panels have already moved (LAY-06).</remarks>
+        protected override void OnLostFocus (EventArgs e)
+        {
+            base.OnLostFocus (e);
+
+            if (key_split_active)
+                EndKeyboardSplit (accept: true);
+
+            splitter.Invalidate ();
         }
 
         // LAY-03: WinForms raises SplitterMoved once the drag finishes, which is where applications

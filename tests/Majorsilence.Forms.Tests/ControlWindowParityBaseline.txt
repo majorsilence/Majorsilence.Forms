@@ -49,7 +49,6 @@ UpdateZOrder/0
 # N/A -- child-of-a-container scrolling. The window's own scrolling belongs to its content, not to it.
 HScroll
 OnScrollGesture/1
-Scroll
 ScrollGesture
 VScroll
 

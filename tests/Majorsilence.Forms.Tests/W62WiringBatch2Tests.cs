@@ -47,7 +47,8 @@ namespace Majorsilence.Forms.Tests
                 grid.HorizontalScrollingOffset = 120;
 
                 Assert.Equal (120, grid.HorizontalScrollingOffset);
-                Assert.Equal (120, grid.HorizontalScrollOffset);
+                // The internal offset is device pixels; the property is logical (RC-8).
+                Assert.Equal (grid.LogicalToDeviceUnits (120), grid.HorizontalScrollOffset);
             } finally {
                 form.Close ();
             }
@@ -66,7 +67,7 @@ namespace Majorsilence.Forms.Tests
 
                 grid.HorizontalScrollingOffset = 60;
 
-                Assert.Equal (grid.HorizontalScrollOffset, grid.HorizontalScrollingOffset);
+                Assert.Equal (grid.DeviceToLogicalUnits (grid.HorizontalScrollOffset), grid.HorizontalScrollingOffset);
             } finally {
                 form.Close ();
             }
@@ -96,7 +97,7 @@ namespace Majorsilence.Forms.Tests
             try {
                 Assert.Equal (0, grid.FirstDisplayedScrollingColumnIndex);
 
-                grid.HorizontalScrollingOffset = grid.LogicalToDeviceUnits (90) + 1;
+                grid.HorizontalScrollingOffset = 90 + 1;
 
                 Assert.Equal (1, grid.FirstDisplayedScrollingColumnIndex);
             } finally {
