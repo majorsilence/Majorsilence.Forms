@@ -59,6 +59,32 @@ namespace Majorsilence.Forms.Tests
                 Assert.Equal ((int) System.Math.Ceiling (caption) + 20, tabs.GetTabRect (0).Width);
             }, tabs => tabs.Padding = new Point (10, 3));
 
+        [Theory]
+        [InlineData (false)]
+        [InlineData (true)]
+        public void A_tab_is_as_wide_at_every_display_scale (bool choose)
+        {
+            // The strip lays its tabs out in logical units, but measured them at the device font size,
+            // so at scale 2 every tab was twice as wide -- drawn, hit-tested and reported by GetTabRect.
+            // UiScale multiplies into the gate's own scale, so this fails in every CI shape, not only the
+            // MF_HEADLESS_SCALE=2 one.
+            int WidthAt (double scale)
+            {
+                var original = Application.UiScale;
+                try {
+                    Application.UiScale = scale;
+                    var width = 0;
+                    WithChosenFont (choose, tabs => width = tabs.GetTabRect (0).Width);
+                    return width;
+                } finally {
+                    Application.UiScale = original;
+                }
+            }
+
+            var single = WidthAt (1);
+            Assert.InRange (WidthAt (2), single - 1, single + 1);
+        }
+
         [Fact]
         public void Without_a_chosen_font_the_page_fills_the_control_under_the_strip ()
             => WithChosenFont (false, tabs => {

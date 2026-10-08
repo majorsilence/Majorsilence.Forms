@@ -364,10 +364,14 @@ namespace Majorsilence.Forms
 
         // A tab's laid-out width: its measured preferred width, or the fixed one when the owner asked
         // for SizeMode.Fixed with a real ItemSize.Width.
-        private static int MeasureTab (TabStripItem tab, Size itemSize, TabSizeMode sizeMode)
+        // Layout is logical (avail, row_height and the tabs' Bounds, which the renderer scales up), but
+        // GetPreferredSize measures at the device font size with device padding, so at scale 2 every
+        // tab was laid out -- and hit-tested, and reported by GetTabRect -- twice as wide. A Fixed
+        // ItemSize is already logical.
+        private int MeasureTab (TabStripItem tab, Size itemSize, TabSizeMode sizeMode)
             => sizeMode == TabSizeMode.Fixed && itemSize.Width > 0
                 ? itemSize.Width
-                : tab.GetPreferredSize (Size.Empty).Width;
+                : DeviceToLogicalUnits (tab.GetPreferredSize (Size.Empty).Width);
 
         // SizeMode.FillToRight (upstream's TCS_RIGHTJUSTIFY): every row is stretched to the strip's
         // width, the slack split evenly and the rounding remainder given to the last tab in the row so
