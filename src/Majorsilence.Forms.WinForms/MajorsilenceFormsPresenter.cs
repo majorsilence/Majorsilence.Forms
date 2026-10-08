@@ -140,6 +140,7 @@ namespace Majorsilence.Forms.WinForms
         bool IWindowBackend.Topmost { get; set; }
         void IWindowBackend.SetSystemDecorations (bool useSystemDecorations) { }
         void IWindowBackend.SetCursor (CursorType cursor) => WinFormsKeyInterop.ApplyCursor (_skia, cursor);
+        void IWindowBackend.SetCustomCursor (SkiaSharp.SKBitmap image, Point hotSpot) => WinFormsKeyInterop.ApplyCustomCursor (_skia, image, hotSpot);
         void IWindowBackend.SetIcon (byte[]? iconPng) { }
         Size IWindowBackend.MinimumSize { set { } }
         Size IWindowBackend.MaximumSize { set { } }

@@ -462,6 +462,14 @@ namespace Majorsilence.Forms.Uno
         public void SetSystemDecorations (bool useSystemDecorations) { }
         /// <inheritdoc/>
         public void SetCursor (CursorType cursor) => _canvas.SetCursorShape (UnoKeyInterop.ToCursorShape (cursor));
+
+        // WinUI's pointer cursors are the InputSystemCursorShape set or a cursor resource compiled into the
+        // app; there is no cursor made from a bitmap at run time, so a cursor loaded from .cur/.ico data
+        // shows the arrow (SVC-38).
+        /// <inheritdoc/>
+        public void SetCustomCursor (SkiaSharp.SKBitmap image, System.Drawing.Point hotSpot)
+            => _canvas.SetCursorShape (UnoKeyInterop.ToCursorShape (CursorType.Arrow));
+
         /// <inheritdoc/>
         public void SetIcon (byte[]? iconPng) { }
         /// <inheritdoc/>

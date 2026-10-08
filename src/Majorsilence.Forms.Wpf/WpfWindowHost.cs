@@ -238,6 +238,8 @@ namespace Majorsilence.Forms.Wpf
 
         public void SetCursor (CursorType cursor) => _skia.Cursor = WpfKeyInterop.ToCursor (cursor);
 
+        public void SetCustomCursor (SkiaSharp.SKBitmap image, Point hotSpot) => _skia.Cursor = WpfKeyInterop.ToCursor (image, hotSpot);
+
         public void SetIcon (byte[]? iconPng)
         {
             if (_isPopup)

@@ -89,7 +89,24 @@ namespace Majorsilence.Forms.Headless
         // can see the cursor plumbing (Cursor.Current, UseWaitCursor, a control's Cursor) reach the window.
         public CursorType Cursor { get; private set; } = CursorType.Arrow;
 
-        public void SetCursor (CursorType cursor) => Cursor = cursor;
+        public void SetCursor (CursorType cursor)
+        {
+            Cursor = cursor;
+            CustomCursor = null;
+            CustomCursorHotSpot = System.Drawing.Point.Empty;
+        }
+
+        // The image of a cursor loaded from .cur/.ico data while one is shown, else null; Cursor then reads
+        // Arrow, what a backend without bitmap cursors would show.
+        public SkiaSharp.SKBitmap? CustomCursor { get; private set; }
+        public System.Drawing.Point CustomCursorHotSpot { get; private set; }
+
+        public void SetCustomCursor (SkiaSharp.SKBitmap image, System.Drawing.Point hotSpot)
+        {
+            Cursor = CursorType.Arrow;
+            CustomCursor = image;
+            CustomCursorHotSpot = hotSpot;
+        }
 
         // Records the framework's most recent on-screen-keyboard request. Headless has no keyboard to
         // show; this exists so a test can assert SoftKeyboardObserver drove the seam correctly.

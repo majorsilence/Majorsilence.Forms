@@ -181,6 +181,18 @@ namespace Majorsilence.Forms.Wpf
             _ => WI.Cursors.Arrow,
         };
 
+        // One native cursor per loaded image: the core hands the same SKBitmap back each time that cursor
+        // is shown, which is every mouse move over its control.
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<SkiaSharp.SKBitmap, WI.Cursor> custom_cursors
+            = new System.Runtime.CompilerServices.ConditionalWeakTable<SkiaSharp.SKBitmap, WI.Cursor> ();
+
+        /// <summary>
+        /// The WPF cursor for a cursor loaded from .cur/.ico data (SVC-38). WPF reads .cur data directly
+        /// (<c>WI.Cursor (Stream)</c>), so the image is written back as a one-frame .cur with its hotspot.
+        /// </summary>
+        internal static WI.Cursor ToCursor (SkiaSharp.SKBitmap image, System.Drawing.Point hotSpot)
+            => custom_cursors.GetValue (image, i => new WI.Cursor (new System.IO.MemoryStream (CursorFile.Encode (i, hotSpot))));
+
         /// <summary>
         /// Converts a WPF wheel delta (±120 per notch) to the small "notch count" Majorsilence.Forms'
         /// scrollbars expect, preserving direction for fractional (precision-touchpad) deltas.

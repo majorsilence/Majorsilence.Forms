@@ -155,6 +155,8 @@ namespace Majorsilence.Forms.Gtk4
 
         public void SetCursor (CursorType cursor) => _surface.Widget.SetCursorFromName (Gtk4KeyInterop.ToCursorName (cursor));
 
+        public void SetCustomCursor (SkiaSharp.SKBitmap image, Point hotSpot) => _surface.Widget.SetCursor (Gtk4CustomCursor.From (image, hotSpot));
+
         // GTK 4 window icons come from a themed icon name, not raw PNG bytes — no-op.
         public void SetIcon (byte[]? iconPng) { }
 

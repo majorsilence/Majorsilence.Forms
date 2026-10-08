@@ -15,8 +15,8 @@ namespace Majorsilence.Forms.Tests
 {
     // Behavioral tests ported from the upstream WinForms CursorTests/CursorsTests, adapted to the
     // Majorsilence.Forms API. Majorsilence.Forms cursors are backend-neutral value descriptors built around a
-    // CursorType (no Win32 handles, hotspots, .cur/.ico file loading, or accessibility plumbing), so
-    // those upstream cases are intentionally omitted. What remains pins the same observable contract:
+    // CursorType (no Win32 handles or accessibility plumbing), so those upstream cases are intentionally
+    // omitted; .cur/.ico loading, hotspots and handles are covered by CursorFileLoadingTests. What remains pins the same observable contract:
     // the Cursors.* statics are non-null and stable, equality/hashing/ToString behave sensibly, and
     // the Current/Position/Clip/Show/Hide statics round-trip without throwing.
     public class CursorTests
