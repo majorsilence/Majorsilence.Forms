@@ -338,6 +338,24 @@ public sealed class ControlBaseGapTests : IDisposable
         Assert.Equal (new SKColor (255, 0, 0), bitmap.GetPixel ((int) (50 * scale), (int) (50 * scale)));
     }
 
+    [Fact]
+    public void CTL21_Refresh_presents_the_frame_before_it_returns ()
+    {
+        var label = new Label { Bounds = new Rectangle (10, 10, 100, 20), Text = "0" };
+        using var form = Shown (label);
+        HeadlessRenderer.CapturePng (form);   // the first frame: nothing dirty is left
+        var host = (HeadlessWindowHost) form.Backend;
+        var before = host.PresentNowCount;
+
+        label.Update ();   // nothing to paint: upstream's UpdateWindow does nothing either
+        Assert.Equal (before, host.PresentNowCount);
+
+        label.Text = "1";
+        label.Refresh ();
+
+        Assert.Equal (before + 1, host.PresentNowCount);
+    }
+
     // ── CTL-22: the Cursor setter waited for the pointer to re-enter ───────────────────────────────
 
     [Fact]

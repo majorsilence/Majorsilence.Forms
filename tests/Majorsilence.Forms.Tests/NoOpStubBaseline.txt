@@ -7,6 +7,7 @@ Majorsilence.Forms.AccessibleObject.DoDefaultAction/0
 Majorsilence.Forms.AccessibleObject.Select/1
 Majorsilence.Forms.Application.EnableVisualStyles/0
 Majorsilence.Forms.Application.SetCompatibleTextRenderingDefault/1
+Majorsilence.Forms.Backends.IWindowBackend.PresentNow/0
 Majorsilence.Forms.Backends.IWindowBackend.SetCaptionRegions/1
 Majorsilence.Forms.Backends.IWindowBackend.SetExtendClientIntoTitleBar/2
 Majorsilence.Forms.Backends.IWindowBackend.SetShaped/1

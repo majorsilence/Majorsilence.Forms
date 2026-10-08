@@ -44,7 +44,34 @@ namespace Majorsilence.Forms.WinForms
 
         // ── Painting ─────────────────────────────────────────────────────────────
 
+        // Set while a frame is being painted: Control.Update called from inside the scene's own paint
+        // must not start a nested frame into the same locked back buffer.
+        private bool _painting;
+
+        /// <summary>
+        /// Paints and shows the frame now (CTL-21): <c>Refresh</c> is a synchronous WM_PAINT, which is
+        /// what upstream's <c>Control.Update</c> ends in. No-op off the UI thread or inside a paint.
+        /// </summary>
+        internal void PresentNow ()
+        {
+            if (_painting || !IsHandleCreated || InvokeRequired)
+                return;
+
+            Refresh ();
+        }
+
         protected override void OnPaint (WF.PaintEventArgs e)
+        {
+            _painting = true;
+
+            try {
+                PaintFrame (e);
+            } finally {
+                _painting = false;
+            }
+        }
+
+        private void PaintFrame (WF.PaintEventArgs e)
         {
             base.OnPaint (e);
 

@@ -153,6 +153,12 @@ namespace Majorsilence.Forms.Headless
 
         public void Invalidate () => InvalidateCount++;
 
+        /// <summary>How many times <c>Control.Update</c>/<c>Refresh</c> asked for the painted frame to be
+        /// presented before returning. There is no screen to put it on; the request is what a test asserts.</summary>
+        public int PresentNowCount { get; private set; }
+
+        public void PresentNow () => PresentNowCount++;
+
         // ── Pickers (unavailable headless) ──
         public Task<string[]> ShowOpenFileDialog (OpenFileRequest request)
             => Task.FromResult (HeadlessRenderer.OpenFileResponse?.Invoke (request) ?? Array.Empty<string> ());

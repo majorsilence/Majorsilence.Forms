@@ -45,14 +45,14 @@ Majorsilence.Forms.FolderBrowserDialog.HelpRequest    -- native dialogs; no help
 Majorsilence.Forms.Form.InputLanguageChanged    -- no input-language switching path
 Majorsilence.Forms.Form.InputLanguageChanging    -- no input-language switching path
 Majorsilence.Forms.ImageList.RecreateHandle    -- Win32 handle lifecycle; images are managed objects here
-Majorsilence.Forms.NotifyIcon.BalloonTipClicked    -- needs a tray backend capability
-Majorsilence.Forms.NotifyIcon.BalloonTipClosed    -- needs a tray backend capability
-Majorsilence.Forms.NotifyIcon.BalloonTipShown    -- needs a tray backend capability
-Majorsilence.Forms.NotifyIcon.Click    -- needs a tray backend capability
-Majorsilence.Forms.NotifyIcon.DoubleClick    -- needs a tray backend capability
-Majorsilence.Forms.NotifyIcon.MouseClick    -- needs a tray backend capability
-Majorsilence.Forms.NotifyIcon.MouseDoubleClick    -- needs a tray backend capability
-Majorsilence.Forms.NotifyIcon.MouseMove    -- needs a tray backend capability
+Majorsilence.Forms.NotifyIcon.BalloonTipClicked    -- raised from NotifyIcon.HandleTray*/HandleBalloonTip*, which only a tray backend calls (TSM-19)
+Majorsilence.Forms.NotifyIcon.BalloonTipClosed    -- raised from NotifyIcon.HandleTray*/HandleBalloonTip*, which only a tray backend calls (TSM-19)
+Majorsilence.Forms.NotifyIcon.BalloonTipShown    -- raised from NotifyIcon.HandleTray*/HandleBalloonTip*, which only a tray backend calls (TSM-19)
+Majorsilence.Forms.NotifyIcon.Click    -- raised from NotifyIcon.HandleTray*/HandleBalloonTip*, which only a tray backend calls (TSM-19)
+Majorsilence.Forms.NotifyIcon.DoubleClick    -- raised from NotifyIcon.HandleTray*/HandleBalloonTip*, which only a tray backend calls (TSM-19)
+Majorsilence.Forms.NotifyIcon.MouseClick    -- raised from NotifyIcon.HandleTray*/HandleBalloonTip*, which only a tray backend calls (TSM-19)
+Majorsilence.Forms.NotifyIcon.MouseDoubleClick    -- raised from NotifyIcon.HandleTray*/HandleBalloonTip*, which only a tray backend calls (TSM-19)
+Majorsilence.Forms.NotifyIcon.MouseMove    -- raised from NotifyIcon.HandleTray*/HandleBalloonTip*, which only a tray backend calls (TSM-19)
 Majorsilence.Forms.RichTextBox.ImeChange    -- IME composition; no IME path
 Majorsilence.Forms.SystemEvents.DisplaySettingsChanged    -- no OS display-settings hook
 Majorsilence.Forms.ToolStripControlHost.ContentChanged    -- not an upstream member; nothing defines what it would mean

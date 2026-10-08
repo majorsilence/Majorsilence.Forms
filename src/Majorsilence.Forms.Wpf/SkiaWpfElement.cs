@@ -82,7 +82,50 @@ namespace Majorsilence.Forms.Wpf
             Dispatcher.BeginInvoke (System.Windows.Threading.DispatcherPriority.Render, new Action (RenderNow));
         }
 
+        // Set while a frame is being rendered: Control.Update called from inside the scene's own paint
+        // must not start a nested frame into the same locked bitmap.
+        private bool _rendering;
+
+        /// <summary>
+        /// Puts the frame on screen before returning (CTL-21). WPF composes on its own render thread, fed
+        /// by the UI thread's render pass at <c>DispatcherPriority.Render</c>; so the frame is rendered
+        /// into the bitmap here, then a no-op is invoked at Render priority, which runs the queued render
+        /// pass before it returns. After that the composition thread shows the frame even if the UI
+        /// thread stays busy. There is no public way to run only the render pass: the nested pump also
+        /// runs anything queued at a higher priority -- <c>Platform.Post</c> work (Normal) -- though not
+        /// input, which is lower. Upstream's <c>UpdateWindow</c> pumps nothing, so that re-entrancy is
+        /// the price of presenting at all here.
+        /// </summary>
+        internal void PresentNow ()
+        {
+            if (_rendering || !Dispatcher.CheckAccess ())
+                return;
+
+            RenderNow ();
+
+            try {
+                Dispatcher.Invoke (System.Windows.Threading.DispatcherPriority.Render, new Action (() => { }));
+            } catch (InvalidOperationException) {
+                // Dispatcher processing is suspended (inside a layout pass or DisableProcessing): the
+                // frame reaches the screen with the next render pass, as before.
+            }
+        }
+
         private void RenderNow ()
+        {
+            if (_rendering)
+                return;
+
+            _rendering = true;
+
+            try {
+                RenderFrameIntoBitmap ();
+            } finally {
+                _rendering = false;
+            }
+        }
+
+        private void RenderFrameIntoBitmap ()
         {
             _renderQueued = false;
 

@@ -391,7 +391,17 @@ P3 list. No P0: nothing here crashes on sight, but CTL-01/02/03/04/05 change beh
 - **Test:** `var c = new Control(); _ = c.Handle; Assert.True(c.IsHandleCreated)`; HandleCreated count 1.
 - **Tests today:** KryptonPortParityTests/TailParityTests (Handle exists), none for creation side-effect.
 
-### CTL-21 — `Control.Refresh` / `Update` — Cat A — P2 — High — **PARTIALLY CLOSED (2026-10-06)**
+### CTL-21 — `Control.Refresh` / `Update` — Cat A — P2 — High — **CLOSED (2026-10-08)**
+- **Fix (applied, option 1):** `IWindowBackend.PresentNow ()` (a default no-op on net8+, explicit on the
+  netstandard2.0 rows), called by `Control.Update ()` after it paints a dirty control, so `Refresh ()` ends with
+  the frame on screen as upstream's `UpdateWindow` does. **WinForms host** (window and presenter): the surface
+  control's `Refresh ()`, a synchronous WM_PAINT (guarded against a nested paint). **WPF** (window and
+  presenter): renders into the `WriteableBitmap` now, then `Dispatcher.Invoke` of a no-op at `Render`
+  priority, which runs the queued render pass so the composition thread shows the frame even if the UI thread
+  stays busy -- WPF has no public render-only call, so that nested pump also runs work queued above Render
+  (`Platform.Post`'s Normal), though not input. **Headless** records it (`HeadlessWindowHost.PresentNowCount`).
+  **Avalonia, GTK 4 and Uno** keep the no-op: they render from their own frame loop, which a blocked UI thread
+  cannot drive, so there the pixels appear on the next frame. Test: `ControlBaseGapTests.CTL21_Refresh_presents_the_frame_before_it_returns`.
 - **Fix (applied, #341):** `Update ()` paints a dirty, created control into its surface before returning (raising
   `Paint`), and marks its ancestors so the next frame composites the new pixels; `Refresh ()` is upstream's
   `Invalidate (true); Update ();`. **Still open:** putting it on screen is the window's next frame -- no backend

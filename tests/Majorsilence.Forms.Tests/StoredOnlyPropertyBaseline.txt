@@ -234,7 +234,6 @@ Majorsilence.Forms.Media.SoundPlayer.Tag    -- user-data slot; upstream reads it
 Majorsilence.Forms.Message.HWnd    -- framework-written (outbound state)
 Majorsilence.Forms.Message.Result    -- Win32 handle/window-class detail; no equivalent here
 Majorsilence.Forms.NavigationPaneItem.Tag    -- user-data slot; upstream reads it nowhere either
-Majorsilence.Forms.NotifyIcon.ContextMenuStrip    -- needs a tray backend capability
 Majorsilence.Forms.NotifyIcon.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.NumericUpDownAcceleration.Increment    -- framework-written (outbound state)
 Majorsilence.Forms.OpenFileDialog.SelectReadOnly    -- native picker option; not forwarded to the backend dialog (needs a backend capability)

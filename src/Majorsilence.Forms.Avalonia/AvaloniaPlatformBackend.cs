@@ -24,9 +24,19 @@ namespace Majorsilence.Forms.Backends
 #if !BROWSER
         , IKeepScreenAwakeBackend
 #endif
+#if !SINGLEVIEW
+        , ITrayIconBackend
+#endif
     {
         /// <inheritdoc/>
         public string Name => "Avalonia";
+
+#if !SINGLEVIEW
+        /// <inheritdoc/>
+        /// <remarks>Avalonia's <c>TrayIcon</c> (TSM-19); see <see cref="AvaloniaTrayIcon"/> for what it reports.
+        /// Not on the browser, Android or iOS rows: none has a notification area.</remarks>
+        public ITrayIconHandle? CreateTrayIcon (NotifyIcon owner) => AvaloniaTrayIcon.Create (owner);
+#endif
 
 #if !BROWSER
         /// <inheritdoc/>
