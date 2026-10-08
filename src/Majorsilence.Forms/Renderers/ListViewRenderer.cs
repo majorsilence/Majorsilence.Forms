@@ -410,7 +410,7 @@ namespace Majorsilence.Forms.Renderers
         /// surface it.
         /// </remarks>
         internal static SkiaSharp.SKBitmap? StateImage (ImageList? images, int index)
-            => images is { } list && index >= 0 && index < list.Images.Count ? list.Images[index] : null;
+            => images is { } list && index >= 0 && index < list.Images.Count ? list.Images.GetBitmap (index) : null;
 
         // A per-item or per-subitem ForeColor overrides the theme; Color.Empty means "use the theme".
         private static SkiaSharp.SKColor Foreground (ListViewItem item, int column, bool selected)

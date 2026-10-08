@@ -187,11 +187,12 @@ public class W6NoOpMethodTests
         // The image answers to the new key, keeps its index, and the old key is gone.
         Assert.True (list.Images.ContainsKey ("renamed"));
         Assert.False (list.Images.ContainsKey ("second"));
-        Assert.Equal (SKColors.Blue, list.Images["renamed"].GetPixel (1, 1));
-        Assert.Equal (SKColors.Blue, list.Images[1].GetPixel (1, 1));
-        Assert.Equal (SKColors.Red, list.Images[0].GetPixel (1, 1));
+        Assert.Equal (SKColors.Blue, list.Images.GetBitmap ("renamed")!.GetPixel (1, 1));
+        Assert.Equal (SKColors.Blue, list.Images.GetBitmap (1).GetPixel (1, 1));
+        Assert.Equal (SKColors.Red, list.Images.GetBitmap (0).GetPixel (1, 1));
 
-        Assert.Throws<ArgumentOutOfRangeException> (() => list.Images.SetKeyName (5, "nope"));
+        // Upstream throws IndexOutOfRangeException here (ImageList.ImageCollection.SetKeyName).
+        Assert.Throws<IndexOutOfRangeException> (() => list.Images.SetKeyName (5, "nope"));
     }
 
     // ── Clipboard images ────────────────────────────────────────────────────────────────────────────

@@ -8,6 +8,7 @@
 
 using System;
 using System.Drawing;
+using System.Linq;
 using SkiaSharp;
 using Xunit;
 
@@ -105,8 +106,8 @@ namespace Majorsilence.Forms.Tests
             list.ImageSize = new Size (32, 24);
 
             Assert.Equal (new Size (32, 24), list.ImageSize);
-            Assert.Equal (32, list.Images["key"].Width);
-            Assert.Equal (24, list.Images["key"].Height);
+            Assert.Equal (32, list.Images.GetBitmap ("key")!.Width);
+            Assert.Equal (24, list.Images.GetBitmap ("key")!.Height);
         }
 
         [Fact]
@@ -175,13 +176,18 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void Images_AddDuplicateKey_ThrowsArgumentException ()
+        public void Images_AddDuplicateKey_IsAllowed_AndTheKeyFindsTheFirst ()
         {
+            // Upstream keys are names on ImageInfo entries, not dictionary keys: a duplicate is added
+            // and IndexOfKey finds the first (ImageList.ImageCollection.Add / IndexOfKey).
             using var list = new ImageList ();
             using var image = CreateBitmap ();
             list.Images.Add ("key", image);
 
-            Assert.Throws<ArgumentException> (() => list.Images.Add ("key", CreateBitmap ()));
+            list.Images.Add ("key", image);
+
+            Assert.Equal (2, list.Images.Count);
+            Assert.Equal (0, list.Images.IndexOfKey ("key"));
         }
 
         [Fact]
@@ -192,7 +198,7 @@ namespace Majorsilence.Forms.Tests
 
             list.Images.Add ("key", image);
 
-            var stored = list.Images["key"];
+            var stored = list.Images.GetBitmap ("key")!;
             Assert.Equal (16, stored.Width);
             Assert.Equal (16, stored.Height);
         }
@@ -230,22 +236,26 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void Images_Remove_ExistingKey_ReturnsTrue ()
+        public void Images_RemoveByKey_ExistingKey_RemovesIt ()
         {
             using var list = new ImageList ();
             list.Images.Add ("key", CreateBitmap ());
 
-            Assert.True (list.Images.Remove ("key"));
+            list.Images.RemoveByKey ("key");
+
             Assert.Equal (0, list.Images.Count);
             Assert.False (list.Images.ContainsKey ("key"));
         }
 
         [Fact]
-        public void Images_Remove_MissingKey_ReturnsFalse ()
+        public void Images_RemoveByKey_MissingKey_IsNoOp ()
         {
             using var list = new ImageList ();
+            list.Images.Add ("key", CreateBitmap ());
 
-            Assert.False (list.Images.Remove ("missing"));
+            list.Images.RemoveByKey ("missing");
+
+            Assert.Equal (1, list.Images.Count);
         }
 
         [Fact]
@@ -265,12 +275,13 @@ namespace Majorsilence.Forms.Tests
         [Theory]
         [InlineData (-1)]
         [InlineData (5)]
-        public void Images_RemoveAt_InvalidIndex_IsNoOp (int index)
+        public void Images_RemoveAt_InvalidIndex_Throws (int index)
         {
+            // Upstream validates the index (ImageList.ImageCollection.RemoveAt).
             using var list = new ImageList ();
             list.Images.Add ("a", CreateBitmap ());
 
-            list.Images.RemoveAt (index);
+            Assert.Throws<ArgumentOutOfRangeException> (() => list.Images.RemoveAt (index));
 
             Assert.Equal (1, list.Images.Count);
         }
@@ -304,20 +315,17 @@ namespace Majorsilence.Forms.Tests
             list.Images.Add ("a", CreateBitmap ());
             list.Images.Add ("b", CreateBitmap ());
 
-            Assert.Equal (new[] { "a", "b" }, list.Images.Keys);
+            Assert.Equal (new[] { "a", "b" }, list.Images.Keys.Cast<string> ());
         }
 
         [Fact]
-        public void Images_TryGetValue_ReturnsExpected ()
+        public void Images_GetBitmapByKey_ReturnsExpected ()
         {
             using var list = new ImageList ();
             list.Images.Add ("key", CreateBitmap ());
 
-            Assert.True (list.Images.TryGetValue ("key", out var found));
-            Assert.NotNull (found);
-
-            Assert.False (list.Images.TryGetValue ("missing", out var missing));
-            Assert.Null (missing);
+            Assert.NotNull (list.Images.GetBitmap ("key"));
+            Assert.Null (list.Images.GetBitmap ("missing"));
         }
     }
 }

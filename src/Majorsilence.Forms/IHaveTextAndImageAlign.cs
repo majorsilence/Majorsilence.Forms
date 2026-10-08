@@ -35,10 +35,10 @@ static class HaveTextAndImageAlignExtensions
             return null;
 
         if (self.ImageIndex >= 0)
-            return self.ImageList.Images[self.ImageIndex];
+            return self.ImageList.Images.GetBitmap (self.ImageIndex);
 
         if (self.ImageKey.Length > 0)
-            return self.ImageList.Images[self.ImageKey];
+            return self.ImageList.Images.GetBitmap (self.ImageKey);
 
         return null;
     }

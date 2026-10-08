@@ -124,7 +124,7 @@ public partial class ImageList : Component
     public void Draw (Graphics g, int x, int y, int index)
     {
         ThrowIfBadIndex (index);
-        g.DrawImage (Images[index], x, y);
+        g.DrawImage (Images.GetBitmap (index), x, y);
     }
 
     /// <summary>Draws the image at the specified index scaled to the given size.</summary>
@@ -132,7 +132,7 @@ public partial class ImageList : Component
     public void Draw (Graphics g, int x, int y, int width, int height, int index)
     {
         ThrowIfBadIndex (index);
-        g.DrawImage (Images[index], new System.Drawing.Rectangle (x, y, width, height));
+        g.DrawImage (Images.GetBitmap (index), new System.Drawing.Rectangle (x, y, width, height));
     }
 
     // Upstream ImageList.Draw throws for a bad index (Controls/ImageList/ImageList.cs). Painting nothing
