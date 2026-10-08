@@ -223,8 +223,16 @@ effective min/max — the new *gesture* paths do clamp to the effective range), 
 - **Test:** Headless render a `Label { BorderStyle = FixedSingle }` and assert the outermost pixel ring is the border colour.
 - **Tests today:** none.
 
-### SMP-16 — `Label.FlatStyle` / `Label.UseCompatibleTextRendering` / `LiveSetting` stored only — Cat C — P2 — High
-- **Status (2026-10-02):** `FlatStyle` is already consumed (`Label.ApplyBorder`, with the border); `UseCompatibleTextRendering` is a one-pipeline no-op. `LiveSetting` (and `ToolStripStatusLabel.LiveSetting`) is consumed by the browser's accessibility DOM, which announces a live label's text changes through an ARIA live region (#406 follow-up). **Still open:** the same on desktop backends, which needs a UIA LiveRegionChanged from an automation peer they do not have.
+### SMP-16 — `Label.FlatStyle` / `Label.UseCompatibleTextRendering` / `LiveSetting` stored only — Cat C — P2 — High — **CLOSED (2026-10-08)**
+- **Fix (applied, #349):** `LiveSetting` is consumed, through one path for every platform.
+  - As upstream's `Label.OnTextChanged`, a label whose `LiveSetting` is not `Off` calls `AccessibilityObject.RaiseLiveRegionChanged ()` when its text changes.
+  - A control's default accessible object is now a `ControlAccessibleObject`, as upstream's `Control.CreateAccessibilityInstance` returns. For an owner that is not a live region it throws `InvalidOperationException`, as upstream does.
+  - `RaiseLiveRegionChanged` goes to `LiveAnnouncer.LiveRegionChanged`. That delivers the change to every `AutomationObserver` of the label's window that listens (`AutomationObserver.LiveRegionChanged`, new) and to the browser accessibility DOM's live region (#417, which also notices the text change itself and keeps the two as one announcement). It returns true when either took the change and false otherwise, as upstream reports.
+  - The Windows UI Automation bridge raises UIA's `LiveRegionChanged` from the observer event and reports the `LiveSetting` property (`AutomationElement.LiveSetting`, new, which also covers `ToolStripStatusLabel`). The UIA side compiles against the Windows reference assemblies but has not run here.
+  - Android and iOS (TalkBack/VoiceOver) will follow #284.
+  - A `ToolStripStatusLabel` is announced in the browser but raises no UIA event, because the observer path covers controls only.
+  - Tests: `AccessibilityLiveRegionAndHelpTests`, `AriaDomTests.Live`.
+- **Status (2026-10-02):** `FlatStyle` is already consumed (`Label.ApplyBorder`, with the border); `UseCompatibleTextRendering` is a one-pipeline no-op.
 - **Ours:** `Label.FlatStyle` auto-property (`src/Majorsilence.Forms/Label.cs:380`); `UseCompatibleTextRendering` and `LiveSetting` auto-properties in `src/Majorsilence.Forms/TailParity.Two.cs:165-168`.
 - **Upstream:** `FlatStyle` combines with `BorderStyle` to select `Popup`/`System` border rendering (`Controls/Labels/Label.cs:285-300`); `LiveSetting` drives the UIA LiveRegion announcement.
 - **Impact:** Cosmetic once SMP-15 is fixed (FlatStyle only matters when a border exists); `LiveSetting` means screen readers never announce label changes.

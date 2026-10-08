@@ -944,6 +944,13 @@ keyboard focus fires a UIA focus-changed event, which is what makes a screen rea
 control and a magnifier follow the caret. The focused control's value changes raise a property-changed
 event.
 
+A `Label` whose `LiveSetting` is `Polite` or `Assertive` is a live region: its element reports UIA's
+**LiveSetting**, and changing its text raises UIA's **LiveRegionChanged** event, which is what makes
+Narrator and NVDA read a status label's new text without the user moving to it (as upstream's
+`Label.OnTextChanged` does). An element's **HelpText** is its control's `AccessibilityObject.Help`, so a
+`Control.QueryAccessibilityHelp` handler's `HelpString` is what a screen reader reads as the control's help.
+Both are compiled against the Windows reference assemblies but have not been heard from a real screen reader.
+
 **What works today, and what to expect:** the `Invoke` pattern (buttons) is live, so a FlaUI or
 WinAppDriver script can find controls and click them. `Value` (text, combo) and `Toggle` (checkbox) are
 exposed **for reading**; write support is a later phase — so *setting* text through UIA may not work yet,

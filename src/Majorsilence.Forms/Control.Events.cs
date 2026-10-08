@@ -562,10 +562,26 @@ public partial class Control
     /// </remarks>
     public event HelpEventHandler? HelpRequested;
 
-#pragma warning disable CS0067
-    /// <summary>Raised when component is being queried for help. Stub in Majorsilence.Forms.</summary>
+    /// <summary>Raised when an accessibility client asks the control for help.</summary>
+    /// <remarks>
+    /// Raised from the control's <see cref="ControlAccessibleObject"/> when its <see cref="AccessibleObject.Help"/>
+    /// or <see cref="AccessibleObject.GetHelpTopic"/> is read -- which is what the UI Automation bridge's
+    /// HelpText property and the browser accessibility DOM's <c>aria-description</c> read -- as upstream's
+    /// <c>ControlAccessibleObject</c> does.
+    /// </remarks>
     public event QueryAccessibilityHelpEventHandler? QueryAccessibilityHelp;
-#pragma warning restore CS0067
+
+    // Asks the QueryAccessibilityHelp handlers, or returns null when there are none, so the accessible
+    // object can fall back to its own help the way upstream's does when the event has no handler.
+    internal QueryAccessibilityHelpEventArgs? QueryAccessibilityHelpFromHandlers ()
+    {
+        if (QueryAccessibilityHelp is not { } handler)
+            return null;
+
+        var args = new QueryAccessibilityHelpEventArgs ();
+        handler (this, args);
+        return args;
+    }
 
     /// <summary>Raised when the user clicks the control with the mouse (typed mouse variant of <see cref="Click"/>).</summary>
     public event MouseEventHandler? MouseClick {

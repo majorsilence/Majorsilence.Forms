@@ -911,7 +911,11 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Creates the accessibility object for this control. Override to return a custom implementation.</summary>
-        protected virtual AccessibleObject CreateAccessibilityInstance () => new AccessibleObject ();
+        /// <remarks>A <see cref="ControlAccessibleObject"/> for this control, as upstream's
+        /// <c>Control.CreateAccessibilityInstance</c>: it is what raises <see cref="QueryAccessibilityHelp"/>
+        /// and delivers a <see cref="Label"/>'s live-region changes, which a plain
+        /// <see cref="AccessibleObject"/> knows no owner to do for.</remarks>
+        protected virtual AccessibleObject CreateAccessibilityInstance () => new ControlAccessibleObject (this);
 
         /// <summary>
         /// Processes Windows messages. Override to intercept messages. Stub in Majorsilence.Forms — does nothing.

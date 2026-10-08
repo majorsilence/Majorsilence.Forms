@@ -261,9 +261,6 @@ Majorsilence.Forms.PropertyGrid.CommandsForeColor    -- the commands pane holds 
 Majorsilence.Forms.PropertyGrid.UseCompatibleTextRendering    -- GDI/visual-styles rendering switch; one text and theme pipeline here
 Majorsilence.Forms.PropertyTabChangedEventArgs.NewTab    -- framework-written (outbound state)
 Majorsilence.Forms.PropertyTabChangedEventArgs.OldTab    -- framework-written (outbound state)
-Majorsilence.Forms.QueryAccessibilityHelpEventArgs.HelpKeyword    -- accessibility metadata; no accessible-object tree
-Majorsilence.Forms.QueryAccessibilityHelpEventArgs.HelpNamespace    -- accessibility metadata; no accessible-object tree
-Majorsilence.Forms.QueryAccessibilityHelpEventArgs.HelpString    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.RibbonItemGroup.Text    -- framework-written (outbound state)
 Majorsilence.Forms.RichTextBox.BulletIndent    -- paragraph geometry: the text lays out as one RichTextKit block with one alignment and one width, so per-paragraph placement needs the document to own its layout (character attributes are per-range, TXT-17 and W6)
 Majorsilence.Forms.RichTextBox.LanguageOption    -- IME and dual-font options; there is no IME composition path here (see RichTextBox.ImeChange in the unraised baseline)

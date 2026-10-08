@@ -65,6 +65,37 @@ namespace Majorsilence.Forms.Automation
             }
         }
 
+        // A live region's change (Label.LiveSetting), from LiveAnnouncer.LiveRegionChanged: delivered to each
+        // observer of the label's window with a LiveRegionChanged handler. True when one took it.
+        internal static bool NotifyLiveRegionChanged (Control control)
+        {
+            AutomationObserver[] observers;
+
+            lock (live)
+                observers = live.ToArray ();
+
+            var delivered = false;
+            var window = control.FindWindow ();
+
+            foreach (var observer in observers) {
+                if (!ReferenceEquals (observer._window, window) || observer.LiveRegionChanged is not { } handler)
+                    continue;
+
+                handler (observer, observer.FindElement (control));
+                delivered = true;
+            }
+
+            return delivered;
+        }
+
+        /// <summary>
+        /// Raised when a live region in the window -- a <see cref="Label"/> whose
+        /// <see cref="Label.LiveSetting"/> is not <see cref="AutomationLiveSetting.Off"/> -- changes, so a
+        /// screen reader announces it. The element is the label's, carrying its
+        /// <see cref="AutomationElement.LiveSetting"/>.
+        /// </summary>
+        public event EventHandler<AutomationElement?>? LiveRegionChanged;
+
         /// <summary>Raised when keyboard focus moves to a control (or to null when focus is cleared).</summary>
         public event EventHandler<AutomationElement?>? FocusChanged;
 

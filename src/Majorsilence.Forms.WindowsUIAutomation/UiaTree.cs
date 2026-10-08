@@ -96,6 +96,27 @@ namespace Majorsilence.Forms.WindowsUIAutomation
             return false;
         }
 
+        /// <summary>Returns the path of the element built from <paramref name="source"/> (the same control),
+        /// or null if it is not in the tree. How an element from another snapshot -- the one an
+        /// <see cref="AutomationObserver"/> event carries -- is located in a fresh one.</summary>
+        public static int[]? PathOf (AutomationElement root, object source)
+        {
+            var acc = new List<int> ();
+            return FindSource (root, source, acc) ? acc.ToArray () : null;
+        }
+
+        private static bool FindSource (AutomationElement node, object source, List<int> path)
+        {
+            for (var i = 0; i < node.Children.Count; i++) {
+                var c = node.Children[i];
+                path.Add (i);
+                if (ReferenceEquals (c.Source, source) || FindSource (c, source, path))
+                    return true;
+                path.RemoveAt (path.Count - 1);
+            }
+            return false;
+        }
+
         private static int[] Append (int[] path, int index)
         {
             var next = new int[path.Length + 1];

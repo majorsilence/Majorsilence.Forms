@@ -618,6 +618,8 @@ test can find, a screen reader can find too.
   or a combo box's list is open, at its highlighted item, and for a focused list box at its selected
   option.
 - **Privacy:** a password box's text never reaches the page; its name does.
+- **Help:** a control's `AccessibilityObject.Help` (what a `QueryAccessibilityHelp` handler supplies)
+  is its `aria-description`.
 - **Bounds:** each element is absolutely positioned over the control it mirrors, in CSS pixels, so
   find-in-page highlights land on the right place.
 
@@ -650,6 +652,11 @@ removed when it closes. Each is a `<div data-mf-popup="listbox|menu|tooltip|othe
 | The focused combo box, slider or spin box changes value while focus stays on it | the new value | polite |
 | `AccessibilityObject.RaiseAutomationNotification (kind, processing, text)` | the text | assertive for `ImportantAll`/`ImportantMostRecent`; the "most recent" kinds replace one not yet spoken |
 | `AccessibilityObject.RaiseLiveRegionChanged ()` on a live label | its text | its politeness |
+
+A live label raises `RaiseLiveRegionChanged` itself when its text changes, as upstream's `Label` does. That
+one call feeds both this live region and the `AutomationObserver` that the Windows UI Automation bridge
+turns into UIA's LiveRegionChanged. The mirror also notices the text change on its own, and the two
+count as one announcement.
 
 This follows the ARIA practice of announcing only what a reader would not otherwise hear: nothing on
 the first sync (a page that just loaded), nothing for focus arriving on a control (the reader announces

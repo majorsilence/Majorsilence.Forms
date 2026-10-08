@@ -712,14 +712,12 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
 - **Test:** headless: change the window scaling; assert both hooks fired once per control.
 - **Tests today:** none.
 
-### EVT-33 — `Control.QueryAccessibilityHelp` and `Control.BindingContextChanged` — Cat D — P2 — High
-- **Still open (2026-10-06, #344):** the `QueryAccessibilityHelp` half needs an accessible-object tree surfaced to a platform layer; there is still nothing to raise it from.
+### EVT-33 — `Control.QueryAccessibilityHelp` and `Control.BindingContextChanged` — Cat D — P2 — High — **CLOSED (2026-10-08)**
+- **Fix (applied, #344):** `QueryAccessibilityHelp` is raised from the control's accessible object, as upstream's `Control.ControlAccessibleObject` raises it. `Help` returns the handler's `HelpString`. `GetHelpTopic` returns the `HelpNamespace` as the file and the `HelpKeyword` parsed as the topic, 0 when it is not a number. With no handler, both fall back to the base answers. A control's default accessible object is now a `ControlAccessibleObject` (upstream `Control.CreateAccessibilityInstance`). The automation tree's `AutomationElement.HelpText` (new) reads through `Help` when asked, not when the tree is built. The Windows UI Automation bridge's HelpText property and the browser accessibility DOM's `aria-description` read it. The UIA side compiles against the Windows reference assemblies but has not run here. `ToolStripItem.QueryAccessibilityHelp` and `WindowBase.QueryAccessibilityHelp` stay unraised: they are separate events on types this change does not cover. Tests: `AccessibilityLiveRegionAndHelpTests`.
 - **`BindingContextChanged` half — CLOSED 2026-09-15 (W6.1).** Field-backed, raised from the
   `BindingContext` setter. See `control.md`'s `CTL-29` for the remaining cascade (`AssignParent`/
   `CreateControl`) this finding's "Fix" line did not call out.
-- **`QueryAccessibilityHelp` half — still open.** No accessible-object tree is surfaced to any
-  platform layer (see `COMPATIBILITY_MATRIX.md`'s accessibility notes), so there is nothing to raise
-  it from; not a one-line wire-up.
+- **`QueryAccessibilityHelp` half — CLOSED 2026-10-08** (see the fix above).
 - **Ours (as measured):** both declared `{ add { } remove { } }`
   (`src/Majorsilence.Forms/Control.Events.cs`, last block) — handlers attach and are dropped.
 - **Upstream:** `BindingContextChanged` is raised from `Control.BindingContext`'s setter and cascades to
@@ -859,7 +857,7 @@ Form show order is `VisibleChanged, Load, Activated, HandleCreated, Shown, Layou
 - `Form.InputLanguageChanged` / `InputLanguageChanging` (`src/Majorsilence.Forms/Form.cs:405`) — IME/keyboard-layout switching, WM_INPUTLANGCHANGE; no portable notification exists behind Skia/Avalonia.
 - `Control.ImeModeChanged` is raised by its setter, but `ImeMode` itself is stored-only — IME composition is a Win32/OS-IME concept with no portable meaning here.
 - `Control.StyleChanged` (`src/Majorsilence.Forms/ControlAndFormParity.cs:364`) and `Form.OnStyleChanged` (`src/Majorsilence.Forms/KryptonPortParity.cs:133`) — WS_* window-style bits; the code's own comment says "there is no window style to change".
-- `Control.QueryAccessibilityHelp` — the accessible-object side of EVT-33; no accessibility help provider exists in this layer.
+- `Control.QueryAccessibilityHelp` — the accessible-object side of EVT-33. Raised from `ControlAccessibleObject.Help` as of 2026-10-08.
 - `Control.RecreateHandle` — no HWND, so no handle to recreate.
 - `Application.DisplaySettingsChanged` / `Screen`-level notifications — WM_DISPLAYCHANGE, no portable backend event.
 - `ToolStripLabel.MouseEnter` / `MouseLeave` re-declared with `{ add { } remove { } }`, hiding the working base events (`src/Majorsilence.Forms/WinFormsCompat.cs:1364`, `1367`) — a silent-drop, but ToolStrip is another auditor's area; flagged for them.

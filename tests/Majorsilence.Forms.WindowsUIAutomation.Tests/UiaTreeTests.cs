@@ -108,6 +108,18 @@ namespace Majorsilence.Forms.WindowsUIAutomation.Tests
             Assert.Equal ("nameBox", UiaTree.Follow (root, path!)?.AutomationId);
         }
 
+        [Fact]
+        public void PathOf_LocatesAControlsElement ()
+        {
+            // How the bridge finds the provider to raise LiveRegionChanged on: the observer's element comes
+            // from another snapshot, so it is located again by the control it was built from.
+            using var form = BuildForm (out var button, out _);
+            var root = AutomationProvider.BuildTree (form);
+
+            Assert.Equal (PathOf (root, "okButton"), UiaTree.PathOf (root, button));
+            Assert.Null (UiaTree.PathOf (root, new Button ()));
+        }
+
         [Theory]
         [InlineData ("button")]
         [InlineData ("checkbox")]
