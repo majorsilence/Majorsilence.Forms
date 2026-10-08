@@ -51,6 +51,11 @@ namespace Majorsilence.Forms.Backends
         /// <summary>The drag-link cursor.</summary>
         DragLink,
         /// <summary>The drag-move cursor.</summary>
-        DragMove
+        DragMove,
+        /// <summary>
+        /// No cursor: the pointer is hidden over the window. Sent while <c>Cursor.Hide</c> is in effect;
+        /// a backend that cannot hide the pointer shows the arrow.
+        /// </summary>
+        None
     }
 }

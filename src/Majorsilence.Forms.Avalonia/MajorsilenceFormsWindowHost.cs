@@ -595,6 +595,7 @@ namespace Majorsilence.Forms
                 Backends.CursorType.DragCopy => Avalonia.Input.StandardCursorType.DragCopy,
                 Backends.CursorType.DragLink => Avalonia.Input.StandardCursorType.DragLink,
                 Backends.CursorType.DragMove => Avalonia.Input.StandardCursorType.DragMove,
+                Backends.CursorType.None => Avalonia.Input.StandardCursorType.None,
                 _ => Avalonia.Input.StandardCursorType.Arrow
             };
 

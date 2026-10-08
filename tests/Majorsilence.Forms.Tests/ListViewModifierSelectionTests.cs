@@ -8,16 +8,14 @@ namespace Majorsilence.Forms.Tests
     // no test drove either branch -- W5.6 delivered the code and covered only the programmatic path.
     //
     // The issue expected this to be untestable as written -- both branches read the static
-    // Control.ModifierKeys, and MouseEventArgs' constructor assigns that static from its own keyData.
-    // That turns out to be the wrong way round: because the constructor ASSIGNS the static, passing
-    // `keyData: Keys.Control` leaves the static agreeing with the args, so the original code was
-    // drivable all along. Five of the tests below pass against either source and are the coverage the
-    // issue actually asked for.
+    // Control.ModifierKeys. Five of the tests below pass against either source and are the coverage
+    // the issue actually asked for.
     //
     // Reading e.Modifiers is still the better question -- the modifiers belonging to THIS click rather
     // than whatever is held down when the handler runs -- and exactly one test here separates the two,
-    // by resetting the static after building the args. That is the shape of a queued or replayed
-    // event, and it is the only reason the change is worth making.
+    // by setting the static to something else. That is the shape of a queued or replayed event, and
+    // it is the only reason the change is worth making. (Since SVC-10 only WindowBase's input
+    // handlers write the static; constructing event args no longer does.)
     [Collection ("Headless")]
     public class ListViewModifierSelectionTests
     {
@@ -150,12 +148,9 @@ namespace Majorsilence.Forms.Tests
             // The only test here that separates e.Modifiers from the static Control.ModifierKeys, and
             // the reason the change is worth making.
             //
-            // MouseEventArgs' constructor ASSIGNS the static from its own keyData, so simply passing
-            // Keys.Control leaves the static agreeing with the args and either source gives the same
-            // answer. Constructing a second, modifier-less args afterwards resets the static to None
-            // while the first args still carries Control -- which is exactly the shape of a real
-            // queued or replayed event: the modifiers that belong to the click are not the ones held
-            // down by the time it is handled.
+            // The static says None while the args carry Control -- exactly the shape of a real queued
+            // or replayed event: the modifiers that belong to the click are not the ones held down by
+            // the time it is handled.
             using var view = Shown (out var form);
 
             try {
@@ -164,13 +159,15 @@ namespace Majorsilence.Forms.Tests
                 var centre = Centre (view, 2);
                 var ctrlClick = new MouseEventArgs (MouseButtons.Left, 1, centre.X, centre.Y, Point.Empty, keyData: Keys.Control);
 
-                // Resets the static to None; ctrlClick still says Control.
-                _ = new MouseEventArgs (MouseButtons.Left, 1, 0, 0, Point.Empty);
-
-                Assert.Equal (Keys.None, Control.ModifierKeys);
+                var held = Control.ModifierKeys;
+                Control.ModifierKeys = Keys.None;
                 Assert.Equal (Keys.Control, ctrlClick.Modifiers);
 
-                view.DriveClick (ctrlClick);
+                try {
+                    view.DriveClick (ctrlClick);
+                } finally {
+                    Control.ModifierKeys = held;
+                }
 
                 Assert.Equal (2, view.SelectedItems.Count);
             } finally {

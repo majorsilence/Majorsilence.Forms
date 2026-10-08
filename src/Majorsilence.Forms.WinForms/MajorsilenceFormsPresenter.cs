@@ -139,7 +139,7 @@ namespace Majorsilence.Forms.WinForms
         string IWindowBackend.Title { set { } }
         bool IWindowBackend.Topmost { get; set; }
         void IWindowBackend.SetSystemDecorations (bool useSystemDecorations) { }
-        void IWindowBackend.SetCursor (CursorType cursor) => _skia.Cursor = WinFormsKeyInterop.ToCursor (cursor);
+        void IWindowBackend.SetCursor (CursorType cursor) => WinFormsKeyInterop.ApplyCursor (_skia, cursor);
         void IWindowBackend.SetIcon (byte[]? iconPng) { }
         Size IWindowBackend.MinimumSize { set { } }
         Size IWindowBackend.MaximumSize { set { } }

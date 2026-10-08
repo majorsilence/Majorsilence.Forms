@@ -35,11 +35,13 @@ namespace Majorsilence.Forms
         /// </remarks>
         public override BindingContext BindingContext {
             get => ((IBindableComponent) ParentForm).BindingContext ?? base.BindingContext;
-            set {
-                ((IBindableComponent) ParentForm).BindingContext = value;
-                OnBindingContextChanged (EventArgs.Empty);
-            }
+            // The window raises the change (OnWindowBindingContextChanged), so setting it here or on the
+            // form does the same thing once.
+            set => ((IBindableComponent) ParentForm).BindingContext = value;
         }
+
+        // The window's context changed: re-home this root's children and raise BindingContextChanged.
+        internal void RaiseBindingContextChanged () => OnBindingContextChanged (EventArgs.Empty);
 
         /// <summary>
         /// Lays the window's children out, then lets the window itself lay out.

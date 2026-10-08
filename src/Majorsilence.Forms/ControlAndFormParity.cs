@@ -481,7 +481,20 @@ namespace Majorsilence.Forms
         public bool AutoScale { get; set; }
 
         /// <summary>Gets or sets how the form sizes itself to its contents.</summary>
-        public AutoSizeMode AutoSizeMode { get; set; } = AutoSizeMode.GrowOnly;
+        /// <remarks>Consulted when <see cref="WindowBase.AutoSize"/> is on: <c>GrowOnly</c> never shrinks the
+        /// form below its current size, <c>GrowAndShrink</c> fits it exactly (upstream Form.OnLayout).</remarks>
+        public AutoSizeMode AutoSizeMode {
+            get => auto_size_mode;
+            set {
+                if (auto_size_mode == value)
+                    return;
+
+                auto_size_mode = value;
+                ApplyAutoSize ();
+            }
+        }
+
+        private AutoSizeMode auto_size_mode = AutoSizeMode.GrowOnly;
 
         /// <summary>Gets or sets whether the form is a tab stop.</summary>
         public bool TabStop {
@@ -649,7 +662,12 @@ namespace Majorsilence.Forms
         /// <summary>Raised when a menu is about to be shown. Not raised by this layer yet.</summary>
         public event EventHandler? MenuStart;
 
-        internal override void OnAutoSizeChangedCore () => AutoSizeChanged?.Invoke (this, EventArgs.Empty);
+        internal override void OnAutoSizeChangedCore ()
+        {
+            // Upstream's setter lays the form out (LayoutTransaction.DoLayout), which is where it sizes.
+            ApplyAutoSize ();
+            AutoSizeChanged?.Invoke (this, EventArgs.Empty);
+        }
         internal override void OnMarginChangedCore () => MarginChanged?.Invoke (this, EventArgs.Empty);
         internal override void OnTabIndexChangedCore () => TabIndexChanged?.Invoke (this, EventArgs.Empty);
 

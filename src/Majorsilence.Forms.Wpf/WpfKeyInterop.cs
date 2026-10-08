@@ -176,6 +176,8 @@ namespace Majorsilence.Forms.Wpf
             CursorType.SizeWestEast or CursorType.LeftSide or CursorType.RightSide => WI.Cursors.SizeWE,
             CursorType.TopLeftCorner or CursorType.BottomRightCorner => WI.Cursors.SizeNWSE,
             CursorType.TopRightCorner or CursorType.BottomLeftCorner => WI.Cursors.SizeNESW,
+            // WPF's own hidden cursor (Cursor.Hide).
+            CursorType.None => WI.Cursors.None,
             _ => WI.Cursors.Arrow,
         };
 

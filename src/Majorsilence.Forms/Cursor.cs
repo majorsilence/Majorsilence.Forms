@@ -105,11 +105,43 @@ namespace Majorsilence.Forms
             current_set = true;
         }
 
-        /// <summary>Hides the cursor. Stub in Majorsilence.Forms.</summary>
-        public static void Hide () { }
+        // Upstream's Hide/Show call ShowCursor (false/true) (Input/Cursor.cs), which moves a display
+        // counter: the pointer is hidden while it is below zero, so the calls must be balanced and
+        // two Hides need two Shows. This is that counter, kept process-wide.
+        private static int display_count;
 
-        /// <summary>Shows the cursor. Stub in Majorsilence.Forms.</summary>
-        public static void Show () { }
+        // Whether Hide has outweighed Show: the windows then hand the backend CursorType.None in place
+        // of whatever cursor they would show (SVC-38).
+        internal static bool IsHidden => display_count < 0;
+
+        /// <summary>Hides the cursor.</summary>
+        /// <remarks>
+        /// As upstream, calls are counted: the cursor stays hidden until <see cref="Show"/> has been called
+        /// as many times as <see cref="Hide"/>. The pointer is hidden over this application's windows
+        /// only; a backend that has no hidden cursor (Uno) keeps showing the arrow.
+        /// </remarks>
+        public static void Hide ()
+        {
+            display_count--;
+
+            if (display_count == -1)
+                ReapplyToOpenForms ();
+        }
+
+        /// <summary>Shows the cursor, undoing one call to <see cref="Hide"/>.</summary>
+        public static void Show ()
+        {
+            display_count++;
+
+            if (display_count == 0)
+                ReapplyToOpenForms ();
+        }
+
+        private static void ReapplyToOpenForms ()
+        {
+            foreach (var form in Application.OpenForms.Cast<Form> ().ToList ())
+                form.ReapplyCursor ();
+        }
 
         /// <summary>Gets or sets the cursor's position in screen coordinates.</summary>
         /// <remarks>

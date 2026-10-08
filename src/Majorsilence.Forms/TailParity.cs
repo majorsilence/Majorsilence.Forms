@@ -383,10 +383,41 @@ namespace Majorsilence.Forms
     public partial class Binding
     {
         /// <summary>Gets or sets whether formatting is applied to the bound value.</summary>
-        public bool FormattingEnabled { get; set; }
+        /// <remarks>Changing it on a live binding re-shows the value, formatted or not, as upstream's
+        /// setter does (<c>PushData</c>, Binding.cs).</remarks>
+        public bool FormattingEnabled {
+            get => formatting_enabled;
+            set {
+                if (formatting_enabled == value)
+                    return;
 
-        /// <summary>Gets or sets when the control's value is written back to the source.</summary>
-        public ControlUpdateMode ControlUpdateMode { get; set; } = ControlUpdateMode.OnPropertyChanged;
+                formatting_enabled = value;
+
+                if (IsBinding)
+                    PushValue ();
+            }
+        }
+
+        private bool formatting_enabled;
+
+        /// <summary>Gets or sets when the control is refreshed from the data source.</summary>
+        /// <remarks>Changing it on a live binding refreshes the control under the new mode, as upstream's
+        /// setter does (<c>PushData</c>, Binding.cs) -- so switching from <c>Never</c> back to
+        /// <c>OnPropertyChanged</c> catches up with source changes made in between.</remarks>
+        public ControlUpdateMode ControlUpdateMode {
+            get => control_update_mode;
+            set {
+                if (control_update_mode == value)
+                    return;
+
+                control_update_mode = value;
+
+                if (IsBinding)
+                    PushValue ();
+            }
+        }
+
+        private ControlUpdateMode control_update_mode = ControlUpdateMode.OnPropertyChanged;
 
         /// <summary>Gets or sets the value written to the source when the control is empty.</summary>
         /// <remarks>Defaults to <see cref="DBNull.Value"/>, as upstream does for value-type members

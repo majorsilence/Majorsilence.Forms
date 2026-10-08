@@ -553,9 +553,8 @@ namespace Majorsilence.Forms.Tests
         private sealed class ClickableGrid : DataGridView
         {
             // Clicks the middle of a row's first cell with the given modifiers held. The modifiers ride
-            // on the event args, which is where a real backend puts them -- priming the static
-            // Control.ModifierKeys instead does nothing, because the MouseEventArgs constructor
-            // overwrites that static from its own keyData.
+            // on the event args, which is where a real backend puts them; the grid reads e.Modifiers,
+            // not the static Control.ModifierKeys.
             internal void ClickRow (int rowIndex, Keys modifiers = Keys.None)
             {
                 // GetCellBounds is device; the event is logical (RC-8).
