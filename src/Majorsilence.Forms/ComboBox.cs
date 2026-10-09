@@ -592,14 +592,22 @@ namespace Majorsilence.Forms
         /// <remarks>Always false for <see cref="ComboBoxStyle.Simple"/>, whose list is never dropped: it
         /// is showing all the time inside the control, and setting this opens nothing.</remarks>
         public bool DroppedDown {
-            get => !IsSimple && popup?.Visible == true;
+            get => !IsSimple && (popup?.Visible == true || native_picker_open);
             set {
+                // The platform's own picker closes itself, by a choice or a dismissal, and says so through
+                // its callback. Losing focus to it (OnDeselected) must not report it closed.
+                if (native_picker_open && !value)
+                    return;
+
                 if (DroppedDown && !value) {
                     popup?.Hide ();
                     OnDropDownClosed (EventArgs.Empty);
                 } else if (!DroppedDown && value && !IsSimple) {
                     if (FindWindow () is not WindowBase window)
                         throw new InvalidOperationException ("Cannot drop down a ComboBox that is not parented to a window");
+
+                    if (TryShowNativePicker ())
+                        return;
 
                     // The suggestions and the drop-down are never open together (LST-07).
                     CloseSuggestions ();
@@ -614,6 +622,56 @@ namespace Majorsilence.Forms
                     OnDropDownOpened (EventArgs.Empty);
                 }
             }
+        }
+
+        private bool native_picker_open;
+
+        // A phone has its own way to pick from a list, and a finger misses the small popup (#438). Only for a
+        // DropDownList: an editable combo's text box is part of the control, and the picker would hide it.
+        private bool TryShowNativePicker ()
+        {
+            if (drop_down_style != ComboBoxStyle.DropDownList || Items.Count == 0)
+                return false;
+
+            if (Backends.Platform.Backend is not Backends.IItemPickerBackend { PrefersNativeItemPicker: true } picker)
+                return false;
+
+            CloseSuggestions ();
+
+            var texts = new string[Items.Count];
+            for (var i = 0; i < texts.Length; i++)
+                texts[i] = GetItemText (Items[i]);
+
+            // Set before the request: a picker may answer from inside it.
+            native_picker_open = true;
+
+            if (!picker.ShowItemPicker (null, texts, SelectedIndex, NativePickerClosed)) {
+                native_picker_open = false;
+                return false;
+            }
+
+            OnDropDownOpened (EventArgs.Empty);
+            return true;
+        }
+
+        private void NativePickerClosed (int index)
+        {
+            if (!native_picker_open)
+                return;
+
+            // Closed first, so the commit below is the user's (user_selecting) and not an open popup's.
+            native_picker_open = false;
+
+            if (index > -1 && index < Items.Count && index != SelectedIndex) {
+                user_selecting = true;
+                try {
+                    SelectedIndex = index;
+                } finally {
+                    user_selecting = false;
+                }
+            }
+
+            OnDropDownClosed (EventArgs.Empty);
         }
 
         // The drop-down list's size. Width: DropDownWidth when set, otherwise the widest item text
