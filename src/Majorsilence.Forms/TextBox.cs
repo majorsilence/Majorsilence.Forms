@@ -1107,6 +1107,11 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void OnPaintBackground (PaintEventArgs e)
         {
+            if (PaintsUpstreamField) {
+                PaintUpstreamField (e);
+                return;
+            }
+
             // Only the colour differs; anything else Control's background pass does (an image, a
             // transparent box, the disabled state's own colour) stays with it.
             if (!PaintsReadOnlyBackground || !Enabled || BackgroundImage is not null) {
