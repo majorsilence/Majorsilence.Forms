@@ -17,6 +17,12 @@ namespace Majorsilence.Forms
         internal static readonly SKColor TextBoxBottom = new SKColor (0x83, 0x83, 0x83);
         internal static readonly SKColor ListBoxOutline = new SKColor (0x82, 0x87, 0x90);
 
+        // A drop-down list is drawn like a push button: near-white face, light outline, darker bottom.
+        internal static readonly SKColor ComboListFace = new SKColor (0xFD, 0xFD, 0xFD);
+        internal static readonly SKColor ComboListOutline = new SKColor (0xD2, 0xD2, 0xD2);
+        internal static readonly SKColor ComboListBottom = new SKColor (0xBC, 0xBC, 0xBC);
+        internal static readonly SKColor Chevron = new SKColor (0x6E, 0x6E, 0x6E);
+
         internal static bool Applies => ControlPaint.UsesUpstreamGlyphs;
 
         // Fills the field and draws its 1px outline; bottom, when given, is the colour of the bottom edge.
@@ -66,6 +72,53 @@ namespace Majorsilence.Forms
                 height = UpstreamHeight;
 
             base.SetBoundsCore (x, y, width, height, specified);
+        }
+    }
+
+    public partial class ComboBox
+    {
+        /// <inheritdoc/>
+        internal override SKColor? UpstreamDefaultBackColor
+            => FieldUpstreamLook.Applies && Enabled
+                ? DropDownStyle == ComboBoxStyle.DropDownList ? FieldUpstreamLook.ComboListFace : FieldUpstreamLook.Window
+                : null;
+
+        // A Simple combo's list is a child box with its own field; only the drop-down styles get the face.
+        internal bool PaintsUpstreamField => FieldUpstreamLook.Applies && !IsSimple && BackgroundImage is null;
+
+        /// <inheritdoc/>
+        protected override void OnPaintBackground (PaintEventArgs e)
+        {
+            if (!PaintsUpstreamField) {
+                base.OnPaintBackground (e);
+                return;
+            }
+
+            using var device = e.DeviceSpace ();
+
+            var face = Enabled ? GetEffectiveBackgroundColor () : FieldUpstreamLook.Control;
+
+            if (DropDownStyle == ComboBoxStyle.DropDownList)
+                FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, face, FieldUpstreamLook.ComboListOutline, FieldUpstreamLook.ComboListBottom);
+            else
+                FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, face, FieldUpstreamLook.TextBoxOutline, FieldUpstreamLook.TextBoxBottom);
+        }
+
+        // Upstream's Windows 11 drop-down arrow: an 8 x 4 chevron of single pixels, a staircase down four
+        // and up four, starting 12px in from the right-hand outline and centred vertically. Drawn as whole
+        // pixels: a 1px antialiased line at this size smears into pale grey.
+        internal static void DrawUpstreamChevron (PaintEventArgs e, int width, int height, bool enabled)
+        {
+            var px = (int) System.Math.Max (1, System.Math.Round (e.Scaling));
+            var left = width - 13 * px;
+            var top = (height - 4 * px + 1) / 2;
+
+            using var paint = new SKPaint { Color = enabled ? FieldUpstreamLook.Chevron : Theme.ForegroundDisabledColor };
+
+            for (var step = 0; step < 4; step++) {
+                e.Canvas.DrawRect (SKRect.Create (left + step * px, top + step * px, px, px), paint);
+                e.Canvas.DrawRect (SKRect.Create (left + (7 - step) * px, top + step * px, px, px), paint);
+            }
         }
     }
 
