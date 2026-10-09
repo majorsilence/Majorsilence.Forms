@@ -55,6 +55,11 @@ namespace Majorsilence.Forms.Renderers
                 return;
             }
 
+            if (control.UpstreamFont is not null) {
+                DrawUpstreamCaptionGlyph (e, item.ControlKind, bounds, item_style.GetForegroundColor ());
+                return;
+            }
+
             var glyph = e.LogicalToDeviceUnits (10);
             var box = new Rectangle (bounds.X + (bounds.Width - glyph) / 2, bounds.Y + (bounds.Height - glyph) / 2, glyph, glyph);
             var color = item_style.GetForegroundColor ();
@@ -74,6 +79,49 @@ namespace Majorsilence.Forms.Renderers
                 case MdiControlItem.Kind.Close:
                     e.Canvas.DrawLine (box.X, box.Y, box.Right, box.Bottom, color);
                     e.Canvas.DrawLine (box.X, box.Bottom, box.Right, box.Y, color);
+                    break;
+            }
+        }
+
+        // Upstream's caption glyphs in a 24px cell, as WinForms draws them on a maximized MDI child's merged
+        // buttons (measured from it): a 7 x 2 bar; two boxes with 2px tops, the front one 8px wide over
+        // the back one; an X of 2px strokes, 10px square. Solid pixels in the text colour -- the 1px
+        // outlines drawn for the theme read as a lighter, different set beside WinForms'.
+        private static void DrawUpstreamCaptionGlyph (PaintEventArgs e, MdiControlItem.Kind kind, Rectangle cell, SKColor color)
+        {
+            var px = (int) Math.Max (1, Math.Round (e.Scaling));
+            var ox = cell.X + (cell.Width - 24 * px) / 2;
+            var oy = cell.Y + (cell.Height - 24 * px) / 2;
+
+            using var paint = new SKPaint { Color = color };
+
+            // A run of whole cell pixels: x, y, width, height in the 24px cell.
+            void Fill (int x, int y, int w, int h) => e.Canvas.DrawRect (SKRect.Create (ox + x * px, oy + y * px, w * px, h * px), paint);
+
+            switch (kind) {
+                case MdiControlItem.Kind.Minimize:
+                    Fill (8, 15, 7, 2);
+                    break;
+
+                case MdiControlItem.Kind.Restore:
+                    // Back window: its top and right edge, and the corners that show past the front one.
+                    Fill (9, 6, 9, 2);
+                    Fill (17, 8, 1, 5);
+                    Fill (9, 8, 1, 2);
+                    Fill (15, 12, 2, 1);
+
+                    // Front window.
+                    Fill (7, 10, 8, 2);
+                    Fill (7, 12, 1, 5);
+                    Fill (14, 12, 1, 5);
+                    Fill (7, 16, 8, 1);
+                    break;
+
+                case MdiControlItem.Kind.Close:
+                    for (var i = 0; i < 10; i++) {
+                        Fill (8 + i, 7 + i, 2, 1);
+                        Fill (16 - i, 7 + i, 2, 1);
+                    }
                     break;
             }
         }
