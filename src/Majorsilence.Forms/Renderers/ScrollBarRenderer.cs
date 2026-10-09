@@ -24,6 +24,11 @@ namespace Majorsilence.Forms.Renderers
                 return;
             }
 
+            if (control.PaintsUpstreamLook) {
+                RenderUpstream (control, e);
+                return;
+            }
+
             var top_arrow_area = GetDecrementArrowBounds (control);
             top_arrow_area.Width -= 1;
             top_arrow_area.Height -= 1;
@@ -65,6 +70,69 @@ namespace Majorsilence.Forms.Renderers
                         e.Canvas.DrawRectangle (thumb_bounds, thumb.Border.GetColor (), stroke);
                 }
             }
+        }
+
+        // Upstream's Windows 11 scroll bar (ScrollBar.PaintsUpstreamLook): a plain track, and a rounded
+        // thumb centred across the bar -- 2px thick at rest, 6px with small arrows under the pointer.
+        private void RenderUpstream (ScrollBar control, PaintEventArgs e)
+        {
+            var client = control.DeviceClientRectangle;
+            e.Canvas.FillRectangle (client, ScrollBar.UpstreamTrack);
+
+            var vertical = control is VerticalScrollBar;
+            var hovered = control.IsHovering && control.Enabled;
+            var colour = control.Enabled ? ScrollBar.UpstreamThumb : Theme.ForegroundDisabledColor;
+
+            if (hovered) {
+                DrawUpstreamArrow (e, GetDecrementArrowBounds (control), colour, vertical, decrement: true);
+                DrawUpstreamArrow (e, GetIncrementArrowBounds (control), colour, vertical, decrement: false);
+            }
+
+            if (!control.Enabled)
+                return;
+
+            var bounds = GetThumbDragBounds (control);
+            if (bounds.Width <= 0 || bounds.Height <= 0)
+                return;
+
+            var thickness = e.LogicalToDeviceUnits (hovered ? 6 : 2);
+            var thumb = vertical
+                ? new Rectangle (client.Left + (client.Width - thickness) / 2, bounds.Y, thickness, bounds.Height + 1)
+                : new Rectangle (bounds.X, client.Top + (client.Height - thickness) / 2, bounds.Width + 1, thickness);
+
+            using var paint = new SkiaSharp.SKPaint { Color = colour, IsAntialias = true };
+            var radius = thickness / 2f;
+            e.Canvas.DrawRoundRect (new SkiaSharp.SKRect (thumb.Left, thumb.Top, thumb.Right, thumb.Bottom), radius, radius, paint);
+        }
+
+        // A small filled triangle pointing along the bar, as Windows 11 shows over a hovered scroll bar.
+        private static void DrawUpstreamArrow (PaintEventArgs e, Rectangle area, SkiaSharp.SKColor colour, bool vertical, bool decrement)
+        {
+            var half = e.LogicalToDeviceUnits (3);
+            var depth = e.LogicalToDeviceUnits (3);
+            var cx = area.Left + area.Width / 2f;
+            var cy = area.Top + area.Height / 2f;
+
+            using var path = new SkiaSharp.SKPath ();
+
+            if (vertical) {
+                var tip = decrement ? cy - depth / 2f : cy + depth / 2f;
+                var bas = decrement ? cy + depth / 2f : cy - depth / 2f;
+                path.MoveTo (cx, tip);
+                path.LineTo (cx - half, bas);
+                path.LineTo (cx + half, bas);
+            } else {
+                var tip = decrement ? cx - depth / 2f : cx + depth / 2f;
+                var bas = decrement ? cx + depth / 2f : cx - depth / 2f;
+                path.MoveTo (tip, cy);
+                path.LineTo (bas, cy - half);
+                path.LineTo (bas, cy + half);
+            }
+
+            path.Close ();
+
+            using var paint = new SkiaSharp.SKPaint { Color = colour, IsAntialias = true };
+            e.Canvas.DrawPath (path, paint);
         }
 
         // The mobile look: only a slim, fully rounded, translucent thumb, hugging the trailing edge of the strip.
