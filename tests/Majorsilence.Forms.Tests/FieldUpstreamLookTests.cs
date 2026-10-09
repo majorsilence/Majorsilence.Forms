@@ -29,7 +29,10 @@ namespace Majorsilence.Forms.Tests
         private static SKColor CentrePixel (Form form, Control control)
         {
             using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 300, 200));
-            return bitmap.GetPixel (control.Left + control.Width / 2, control.Top + 3);
+
+            // The capture is in device pixels, which CI also runs at scale 2 (MF_HEADLESS_SCALE).
+            var scale = bitmap.Width / 300f;
+            return bitmap.GetPixel ((int) ((control.Left + control.Width / 2) * scale), (int) ((control.Top + 3) * scale));
         }
 
         [Fact]
