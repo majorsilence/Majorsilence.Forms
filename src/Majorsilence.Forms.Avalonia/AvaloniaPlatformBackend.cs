@@ -20,6 +20,7 @@ namespace Majorsilence.Forms.Backends
 #endif
 #if ANDROID
         , INotificationBackend
+        , IItemPickerBackend
 #endif
 #if !BROWSER
         , IKeepScreenAwakeBackend
@@ -408,6 +409,20 @@ namespace Majorsilence.Forms.Backends
 
         /// <inheritdoc/>
         public void Cancel (int id) => notificationBackend.Cancel (id);
+#endif
+
+        // ── IItemPickerBackend ── Android only: a ComboBox hands its choice to a platform list dialog instead of the
+        // small drop-down popup, which the single-view host never showed (#438). Declared only under ANDROID like the
+        // seams above: desktop and the browser keep the popup, so there is nothing for them to say yes to.
+#if ANDROID
+        private readonly AndroidItemPickerBackend itemPickerBackend = new ();
+
+        /// <inheritdoc/>
+        public bool PrefersNativeItemPicker => itemPickerBackend.IsAvailable;
+
+        /// <inheritdoc/>
+        public bool ShowItemPicker (string? title, IReadOnlyList<string> items, int selectedIndex, Action<int> completed)
+            => itemPickerBackend.Show (title, items, selectedIndex, completed);
 #endif
 
         // ── IKeepScreenAwakeBackend ── real on Android, iOS and all three desktop OSes (register item

@@ -1144,6 +1144,29 @@ Unlike Haptics/local notifications, Headless implements `IKeepScreenAwakeBackend
 
 **Verification, three different ways for three different rows.** Android: `MainActivity.RunKeepScreenAwakeSmokeTest` sets `KeepScreenAwake` true then false on the real Activity `RegisterAndroidActivity` already registers (register item F14), confirmed via `android-smoke-test.sh`'s `F12_KEEPAWAKE_SMOKE` log line. Linux: `KeepScreenAwakeTests.The_real_desktop_set_never_throws_and_toggles_IsEnabled_regardless_of_host` calls the real `Set (true)`/`Set (false)` (not the injectable `Dispatch`) directly, genuinely spawning and killing a real `systemd-inhibit` child process on whatever Linux CI runner executes it. Windows and macOS: unlike `DesktopReducedMotion`'s own P/Invoke, which has run on this project's real Windows/macOS CI build jobs ever since F7 merged without a reported failure, this specific P/Invoke is new as of this register item — the *same* test above also runs for real on CI's `build (windows-latest)`/`build (macos-latest)` jobs (which run the full test suite, not just a compile check), so a wrong `DllImport` signature or constant value there would show up as an actual test failure, not just "written from the documented API, not run." iOS: written from the documented `UIApplication.IdleTimerDisabled` API, compiles clean via CI's `ios`/`sample-ios` jobs, but not run on a simulator or device — the same honest gap F13/F14 already have for iOS.
 
+## Native item picker for `ComboBox` (#438)
+
+A `ComboBox` normally opens its list as a small `PopupWindow` under the control. On a phone that popup is hard to hit
+with a finger, and the single-view host never showed it, so no `ComboBox` could be changed on Android.
+`Backends.IItemPickerBackend` is the optional seam a backend implements when its platform has its own way to pick one
+item from a list: `PrefersNativeItemPicker` says whether it should be used, and `ShowItemPicker (title, items,
+selectedIndex, completed)` shows it and answers later through `completed` with the chosen index, or -1 when it was
+dismissed. The core discovers it with `Platform.Backend as IItemPickerBackend`, like `IKeepScreenAwakeBackend` and
+`IHapticsBackend`.
+
+- **Android**: `AndroidItemPickerBackend` shows an `AlertDialog` of single-choice items with the current one marked, on
+  the registered `CurrentAndroidActivity`. Back or a tap outside answers -1. `AvaloniaPlatformBackend` declares the
+  interface only under `ANDROID`.
+- **iOS and the browser**: not implemented yet, so a `ComboBox` keeps its popup there.
+- **Desktop**: unchanged; the popup stays.
+- **Headless**: `HeadlessPlatformBackend.ItemPicker` is a hook a test assigns to stand in for a mobile platform and to
+  answer when it chooses; null (the default) means no native picker.
+
+Only a `DropDownList` combo with items uses it: an editable combo's text box is part of the control, and a dialog
+would hide it. `DroppedDown` is true while the picker shows, a close request from losing focus to the dialog is
+ignored (the dialog closes itself), and a choice is a user commit: `SelectedIndexChanged` and
+`SelectionChangeCommitted` fire, then `DropDownClosed`. A dismissal fires only `DropDownClosed`.
+
 ## SecureStorage is not part of this seam (register item F16)
 
 `Majorsilence.Forms.Essentials.SecureStorage` deliberately does not go through `Backends.Platform`/`IPlatformBackend` the way

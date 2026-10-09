@@ -22,7 +22,7 @@ namespace Majorsilence.Forms.Headless
     /// (2) a reference second backend proving the <see cref="IPlatformBackend"/>/<see cref="IWindowBackend"/>
     /// seam is genuinely toolkit-agnostic — the same shape a real Uno backend follows.
     /// </summary>
-    public sealed partial class HeadlessPlatformBackend : IPlatformBackend, IAnimationFrameSource, IReducedMotionSource, IAudioBackend, IKeepScreenAwakeBackend, IModalLoopSupport, IDisposable
+    public sealed partial class HeadlessPlatformBackend : IPlatformBackend, IAnimationFrameSource, IReducedMotionSource, IAudioBackend, IKeepScreenAwakeBackend, IItemPickerBackend, IModalLoopSupport, IDisposable
     {
         /// <summary>Gets the animation frames, which run only when stepped by hand.</summary>
         public HeadlessAnimationClock AnimationClock { get; } = new ();
@@ -49,6 +49,18 @@ namespace Majorsilence.Forms.Headless
 
         /// <summary>Gets or sets the answer <see cref="Application.KeepScreenAwake"/> reports while this backend is active, for a test to assert directly instead of a real OS sleep-inhibit to observe.</summary>
         public bool KeepScreenAwake { get; set; }
+
+        // ── IItemPickerBackend ── a hook, not a real picker: a test stands in for a mobile platform by assigning ItemPicker,
+        // receives the request a ComboBox made, and answers through the completion callback when it chooses to.
+        /// <summary>Gets or sets what answers an <see cref="IItemPickerBackend.ShowItemPicker"/> request: null (the default) means this backend has no native picker and a <see cref="ComboBox"/> opens its own popup.</summary>
+        public Func<string?, IReadOnlyList<string>, int, Action<int>, bool>? ItemPicker { get; set; }
+
+        /// <inheritdoc/>
+        public bool PrefersNativeItemPicker => ItemPicker is not null;
+
+        /// <inheritdoc/>
+        public bool ShowItemPicker (string? title, IReadOnlyList<string> items, int selectedIndex, Action<int> completed)
+            => ItemPicker?.Invoke (title, items, selectedIndex, completed) ?? false;
 
         // ── IAudioBackend ── a recording fake, not a real player: there is nothing to actually play back
         // in a headless test process, so this exists purely so SoundPlayer/SystemSounds routing (try the
