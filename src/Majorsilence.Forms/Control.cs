@@ -1935,6 +1935,11 @@ namespace Majorsilence.Forms
         /// </summary>
         internal SKColor GetEffectiveBackgroundColor ()
         {
+            // A control with no colour of its own takes upstream's default for its type where it has
+            // one that differs from the theme's (see UpstreamDefaultBackColor).
+            if (Style.BackgroundColor is null && UpstreamDefaultBackColor is { } upstream)
+                return upstream;
+
             var chain = CurrentStyle.TryGetBackgroundColor ();
             if (chain is not null)
                 return chain.Value;
@@ -1951,6 +1956,13 @@ namespace Majorsilence.Forms
 
             return Theme.BackgroundColor;
         }
+
+        /// <summary>
+        /// The background upstream gives this control when it has none of its own, where that differs
+        /// from the theme's: a text or list box's white field (SystemColors.Window) once the app has
+        /// chosen a font. Null takes the theme's.
+        /// </summary>
+        internal virtual SKColor? UpstreamDefaultBackColor => null;
 
         /// <summary>
         /// Resolves the control's effective foreground the way WinForms' ambient ForeColor does: an
