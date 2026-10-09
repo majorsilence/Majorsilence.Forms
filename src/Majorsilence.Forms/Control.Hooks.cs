@@ -392,6 +392,11 @@ public partial class Control
     // moves it, and it then takes its preferred size rather than the scaled one.
     internal virtual bool SizesToContentWhenScaled => false;
 
+    // The bounds a scale starts from: the control's own, unless it shortened what it was asked for
+    // (an IntegralHeight list box), when upstream scales the requested size instead (its
+    // ListBox.GetScaledBounds). GetScaledBounds itself also maps to device pixels, so it is not the hook.
+    internal virtual Rectangle BoundsToScale => Bounds;
+
     /// <summary>
     /// Scales this control -- its bounds, and everything else measured in the same pixels -- by the
     /// given factor. Only the bounds components named by <paramref name="specified"/> are scaled.
@@ -432,7 +437,7 @@ public partial class Control
         if (GetStyle (ControlStyles.FixedHeight) || IsFixedHeightForScaling)
             specified &= ~BoundsSpecified.Height;
 
-        var scaled = GetScaledBounds (Bounds, factor, specified);
+        var scaled = GetScaledBounds (BoundsToScale, factor, specified);
 
         // Padding and Margin live in the same pixel space as Bounds, so they move with them -- except
         // under a legacy AutoScaleBaseSize scale, which upstream runs through Scale (float, float) and

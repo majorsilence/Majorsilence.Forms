@@ -269,6 +269,36 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void An_integral_height_list_scales_the_height_it_was_asked_for ()
+        {
+            // Upstream scales a list box's requested height, then snaps it to whole rows once. Scaling the
+            // already-snapped height compounded the roundings: ReportDesigner's Embedded Images list came
+            // out a row shorter than WinForms'.
+            HeadlessRenderer.Use ();
+
+            var form = new Form {
+                FormBorderStyle = FormBorderStyle.None,
+                ClientSize = new Size (466, 334),
+                Font = new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 11f),
+            };
+            // 104px: at this scale the requested height and the pre-snapped one land on different rows.
+            var list = new ListBox { ItemHeight = 15, IntegralHeight = true, Location = new Point (16, 8), Size = new Size (120, 104) };
+            form.Controls.Add (list);
+            form.AutoScaleBaseSize = new Size (5, 13);
+
+            form.Show ();
+
+            using (form) {
+                var factor = form.ClientSize.Height / 334f;
+                var chrome = list.Height - list.ClientSize.Height;
+                var asked = (int) System.Math.Round (104 * factor);
+                var rows = (asked - chrome) / 15;
+
+                Assert.Equal (rows * 15 + chrome, list.Height);
+            }
+        }
+
+        [Fact]
         public void A_dialog_without_a_recorded_base_size_is_left_alone ()
         {
             var (form, button) = Dialog (null);
