@@ -59,6 +59,14 @@ namespace Majorsilence.Forms.Tests
 
         [Fact]
         public void Without_a_chosen_font_the_theme_item_height_is_kept ()
-            => Assert.NotEqual (15, ItemHeight (false, "Segoe UI", 9f));
+        {
+            // The theme's own rule (measured text + 3), not a fixed number: where Segoe UI is missing it
+            // falls back to another face, and on macOS that measurement happens to come out at 15 too.
+            HeadlessRenderer.Use ();
+            var list = new ListBox { Font = new Majorsilence.Forms.Drawing.Font ("Segoe UI", 9f) };
+            var theme = (int) TextMeasurer.MeasureText ("The quick brown Fox", list).Height + 3;
+
+            Assert.Equal (theme, ItemHeight (false, "Segoe UI", 9f));
+        }
     }
 }
