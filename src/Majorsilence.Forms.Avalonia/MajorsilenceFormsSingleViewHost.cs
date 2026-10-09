@@ -549,6 +549,8 @@ namespace Majorsilence.Forms
             }
 
             _textInputActiveAtPress = _textInputActive;
+            // Set before the press is forwarded: that is what focuses a text box, and focus asks for the keyboard.
+            _touchContact = isTouch;
             _touchOnScrollBar = isTouch && _owner.IsScrollBarAt ((int)(pos.X * Scale), (int)(pos.Y * Scale));
 
             var props = e.GetCurrentPoint (this).Properties;
@@ -635,6 +637,9 @@ namespace Majorsilence.Forms
             var wasTap = !_touchScrolling;
             _touchAnchor = null;
             _touchScrolling = false;   // restored by a bridging press, if one comes
+            _touchContact = false;
+            if (_keyboardGate.Tap () is { } heldKind)
+                ((IWindowBackend) this).SetTextInputActive (true, heldKind);
             base.OnPointerReleased (e);
             if (wasTap)
                 ReraiseKeyboardIfDismissed ();
@@ -655,6 +660,7 @@ namespace Majorsilence.Forms
 
             _touchAnchor = null;
             _touchScrolling = false;
+            _touchContact = false;
             base.OnPointerCaptureLost (e);
         }
 
@@ -768,6 +774,7 @@ namespace Majorsilence.Forms
                     return false;
 
                 _touchScrolling = true;
+                _keyboardGate.Drag ();
                 // Measure the first delta from the anchor, not from here, so the distance already
                 // travelled to cross the slop still scrolls.
                 _touchLast = _touchAnchor.Value;
@@ -1095,9 +1102,17 @@ namespace Majorsilence.Forms
             RaiseClientRequery ();
         }
 
+        private readonly TouchKeyboardGate _keyboardGate = new ();
+        private bool _touchContact;   // a touch or pen is down; cleared on release or capture loss
+
         void IWindowBackend.SetTextInputActive (bool active, TextInputKind kind)
         {
             _textInputActive = active;
+
+            // A touch that has not yet moved may be the start of a swipe: wait for the release before raising the keyboard.
+            if (!_keyboardGate.Request (active, kind, _touchContact && !_touchScrolling))
+                return;
+
             if (active)
                 _textInputRequestedTs = System.Diagnostics.Stopwatch.GetTimestamp ();
 
