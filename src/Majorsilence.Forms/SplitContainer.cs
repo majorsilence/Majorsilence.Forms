@@ -72,8 +72,41 @@ namespace Majorsilence.Forms
         // designer app (ReportDesigner.Forms) crashing on every dialog containing a SplitContainer
         // (DialogDatabase, DataSetsCtl, DialogExprEditor, RdlUserControl, SQLCtl -- File > New alone
         // hits DialogDatabase).
-        void System.ComponentModel.ISupportInitialize.BeginInit () { }
-        void System.ComponentModel.ISupportInitialize.EndInit () { }
+        //
+        // They are not no-ops any more: a SplitterDistance assigned between them is applied again at
+        // EndInit, as upstream defers it, against the size the designer has given the container by then.
+        void System.ComponentModel.ISupportInitialize.BeginInit () => initializing = true;
+
+        void System.ComponentModel.ISupportInitialize.EndInit ()
+        {
+            initializing = false;
+
+            if (pending_distance >= 0) {
+                var distance = pending_distance;
+                pending_distance = -1;
+                SetSplitterDistance (distance, force: true);
+            }
+        }
+
+        private bool initializing;
+        private int pending_distance = -1;
+
+        // Where the split sits as a share of the container, kept from the last time it was placed on
+        // purpose (in code, by a drag or by the keyboard), as upstream keeps _ratioWidth/_ratioHeight.
+        // -1 until it is known. A resize recomputes the distance from it rather than from the distance
+        // the previous resize left: that compounded every clamp, so a container measured once at an
+        // interim size never got its split back -- ReportDesigner's New Report SQL tab, a 203 of 612
+        // split, opened with the table tree taking 755 of 786 and the SQL box squeezed off the edge.
+        private double split_ratio = -1;
+
+        // Places the split and remembers where, as a share of the container.
+        private void PlaceSplit (int distance)
+        {
+            ResizePanels (distance);
+
+            var extent = ClientExtent;
+            split_ratio = extent > 0 && !initializing ? (double) SplitterDistance / extent : -1;
+        }
 
         // Calculates the size of Panel1.
         private int GetMaximumPanel1Size ()
@@ -234,7 +267,10 @@ namespace Majorsilence.Forms
             if (value < 0)
                 throw new ArgumentOutOfRangeException (nameof (SplitterDistance), value, string.Format (Majorsilence.Forms.Layout.SR.InvalidLowBoundArgumentEx, nameof (SplitterDistance), value, 0));
 
-            ResizePanels (value);
+            if (initializing)
+                pending_distance = value;
+
+            PlaceSplit (value);
 
             var rect = SplitterRectangle;
             OnSplitterMoved (new SplitterEventArgs (rect.X + rect.Width / 2, rect.Y + rect.Height / 2, rect.X, rect.Y));
@@ -322,7 +358,8 @@ namespace Majorsilence.Forms
         {
             var extent = ClientExtent;
 
-            if (extent <= 0)
+            // The constructor lays out while adding the panels, before Panel1 exists.
+            if (extent <= 0 || Panel1 is null)
                 return;
 
             if (last_client_extent > 0 && extent != last_client_extent) {
@@ -332,14 +369,19 @@ namespace Majorsilence.Forms
                     FixedPanel.Panel1 => SplitterDistance,
                     // Panel2 keeps its size, so the whole delta lands on Panel1.
                     FixedPanel.Panel2 => SplitterDistance + (extent - last_client_extent),
-                    // Neither is fixed: keep the proportion the split had. Scaling the distance by the
-                    // extent ratio is the same thing as upstream's stored _ratioWidth/_ratioHeight,
-                    // without a second field to keep in step.
-                    _ => (int)Math.Round ((double)SplitterDistance * extent / last_client_extent),
+                    // Neither is fixed: keep the share the split was given (split_ratio), not the one the
+                    // last resize happened to leave.
+                    _ => split_ratio >= 0
+                        ? (int)Math.Round (split_ratio * extent)
+                        : (int)Math.Round ((double)SplitterDistance * extent / last_client_extent),
                 };
 
                 ResizePanels (distance);
             }
+
+            // The first real measurement fixes the share a split placed before it was known.
+            if (split_ratio < 0 && !initializing)
+                split_ratio = (double) SplitterDistance / extent;
 
             last_client_extent = extent;
         }
@@ -385,7 +427,7 @@ namespace Majorsilence.Forms
             if (moving.Cancel)
                 return;
 
-            ResizePanels (vertical ? moving.SplitX : moving.SplitY);
+            PlaceSplit (vertical ? moving.SplitX : moving.SplitY);
 
             if (SplitterDistance != before)
                 split_moved_by_drag = true;
@@ -491,7 +533,7 @@ namespace Majorsilence.Forms
                 }
             }
 
-            ResizePanels (distance);
+            PlaceSplit (distance);
             e.Handled = true;
         }
 
@@ -511,7 +553,7 @@ namespace Majorsilence.Forms
             key_split_active = false;
 
             if (!accept) {
-                ResizePanels (key_split_origin);
+                PlaceSplit (key_split_origin);
                 return;
             }
 
