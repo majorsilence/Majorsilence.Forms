@@ -1075,10 +1075,26 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void SetBoundsCore (int x, int y, int width, int height, BoundsSpecified specified)
         {
+            // Kept as asked, before snapping to whole rows, as upstream's requestedHeight is.
+            if ((specified & BoundsSpecified.Height) != 0)
+                requested_height = height;
+
             base.SetBoundsCore (x, y, width, IntegralHeightFor (height), specified);
 
             UpdateVerticalScrollBar ();
         }
+
+        private int requested_height = -1;
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// A scale starts from the height that was asked for, not the whole-row height it snapped to,
+        /// as upstream's ListBox.GetScaledBounds does. Scaling the snapped height compounded the two
+        /// roundings: ReportDesigner's Embedded Images list, 95px in the designer, snapped to 92 at
+        /// 15px rows, scaled to 120 and snapped again to 107 -- a row shorter than WinForms' 124.
+        /// </remarks>
+        internal override Rectangle BoundsToScale
+            => integral_height && requested_height > 0 ? new Rectangle (Left, Top, Width, requested_height) : Bounds;
 
         // IntegralHeight (W6 mechanisms): the requested height less the non-client band, snapped down
         // to whole items, plus the band again -- never below one item, so a list cannot vanish. Left
