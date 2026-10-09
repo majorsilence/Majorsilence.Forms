@@ -304,14 +304,16 @@ namespace Majorsilence.Forms
 
             var props = descriptors.Where (p => p.IsBrowsable).Where (MatchesBrowsableAttributes).Where (IsCommonToSelection);
 
+            // By the label the row shows, ignoring case, as upstream's grid compares them: ordinal by
+            // Name put "BodyColumnSpacing" before "BodyColumns" and sorted by names the user never sees.
             if (PropertySort is PropertySort.Alphabetical or PropertySort.CategorizedAlphabetical)
-                props = props.OrderBy (p => p.Name, StringComparer.Ordinal);
+                props = props.OrderBy (p => p.DisplayName, LabelOrder);
 
             var categorised = PropertySort is PropertySort.CategorizedAlphabetical or PropertySort.Categorized;
 
             if (categorised)
-                props = props.OrderBy (p => p.Category == "Misc" ? "zzz" : p.Category ?? "zzz", StringComparer.Ordinal)
-                             .ThenBy (p => p.Name, StringComparer.Ordinal);
+                props = props.OrderBy (p => p.Category == "Misc" ? "zzz" : p.Category ?? "zzz", LabelOrder)
+                             .ThenBy (p => p.DisplayName, LabelOrder);
 
             GridItem? category = null;
 
@@ -342,10 +344,102 @@ namespace Majorsilence.Forms
                     roots.Add (item);
                 else
                     parent.GridItems.Add (item);
+
+                AddSubProperties (item, prop, item.Value, depth: 1);
             }
 
             OnEntriesRebuilt ();
             RebuildRows ();
+        }
+
+        // How rows are ordered by label: case-insensitively in the current culture, as upstream's grid.
+        private static StringComparer LabelOrder => StringComparer.CurrentCultureIgnoreCase;
+
+        // A property whose type converter exposes properties of its own (ExpandableObjectConverter: a
+        // margin's sides, a point's X and Y) gets them as child rows, collapsed until expanded, as
+        // upstream's grid does. They were never built, so such a value could only be edited as one
+        // string -- ReportDesigner's Page Margins, Page Header and Page Footer had no expander at all.
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2026", Justification = "PropertyGrid reads properties through TypeDescriptor at runtime; trimming is not supported for this control.")]
+        private void AddSubProperties (PropertyGridEntry owner, PropertyDescriptor property, object? value, int depth)
+        {
+            // One selected object only: a child row edits that object's value, and there is no single
+            // value to expand when the selection disagrees. The depth stops a type that contains itself.
+            if (value is null || owner.ValuesDiffer || _selected_objects.Length > 1 || depth > 4)
+                return;
+
+            PropertyDescriptorCollection? subs;
+
+            try {
+                if (!property.Converter.GetPropertiesSupported ())
+                    return;
+
+                subs = property.Converter.GetProperties (value);
+            } catch {
+                return;
+            }
+
+            if (subs is null)
+                return;
+
+            foreach (var sub in subs.Cast<PropertyDescriptor> ().Where (p => p.IsBrowsable).OrderBy (p => p.DisplayName, LabelOrder)) {
+                object? sub_value;
+
+                try {
+                    sub_value = sub.GetValue (value);
+                } catch {
+                    sub_value = null;
+                }
+
+                var child = new PropertyGridEntry (this) {
+                    Name = sub.Name,
+                    Label = sub.DisplayName,
+                    PropertyDescriptor = sub,
+                    Parent = owner,
+                    Value = sub_value,
+                    Component = value,
+                };
+
+                owner.GridItems.Add (child);
+                AddSubProperties (child, sub, sub_value, depth + 1);
+            }
+        }
+
+        /// <summary>
+        /// Writes a child row's edited parent value back up the chain: a parent the converter rebuilds
+        /// from its parts (a struct, an immutable value) is recreated, and every parent is set on its
+        /// own owner -- so the selected object's setter runs, as it does for a top-level edit.
+        /// </summary>
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2026", Justification = "PropertyGrid edits through TypeDescriptor at runtime; trimming is not supported for this control.")]
+        private void PropagateToParent (PropertyGridEntry child)
+        {
+            if (child.Parent is not PropertyGridEntry { PropertyDescriptor: { } parent_property } parent || child.Component is null)
+                return;
+
+            var parent_value = child.Component;
+
+            if (parent_property.Converter.GetCreateInstanceSupported ()) {
+                var parts = new System.Collections.Hashtable ();
+
+                foreach (var sibling in parent.GridItems.OfType<PropertyGridEntry> ())
+                    if (sibling.PropertyDescriptor is { } sibling_property)
+                        parts[sibling_property.Name] = sibling_property.GetValue (parent_value);
+
+                parent_value = parent_property.Converter.CreateInstance (parts) ?? parent_value;
+
+                foreach (var sibling in parent.GridItems.OfType<PropertyGridEntry> ())
+                    sibling.Component = parent_value;
+            }
+
+            if (parent.Component is { } owner)
+                parent_property.SetValue (owner, parent_value);
+            else
+                foreach (var target in _selected_objects)
+                    CounterpartOf (target, parent_property)?.SetValue (target, parent_value);
+
+            parent.Value = parent.Component is { } read_from ? parent_property.GetValue (read_from) : ReadValue (parent_property);
+            parent.CurrentValue = parent.Value;
+
+            PropagateToParent (parent);
         }
 
         // ── extension points for a derived grid (the Telerik layer's RadPropertyGrid) ───────────────
@@ -453,12 +547,44 @@ namespace Majorsilence.Forms
                     continue;
 
                 _rows.Add (root);
-
-                if (root.Expanded)
-                    _rows.AddRange (root.GridItems.Where (IsRowVisible));
+                AddExpandedChildren (root);
             }
 
             UpdateScrollExtent ();
+        }
+
+        // An expanded row's children, and theirs in turn: a category's properties, a property's parts.
+        private void AddExpandedChildren (GridItem item)
+        {
+            if (!item.Expanded)
+                return;
+
+            foreach (var child in item.GridItems.Where (IsRowVisible)) {
+                _rows.Add (child);
+                AddExpandedChildren (child);
+            }
+        }
+
+        /// <summary>How many properties a row sits under (0 for a property of the object itself).</summary>
+        internal static int PropertyDepth (GridItem item)
+        {
+            var depth = 0;
+
+            for (var parent = item.Parent; parent is not null; parent = parent.Parent)
+                if (parent.GridItemType == GridItemType.Property)
+                    depth++;
+
+            return depth;
+        }
+
+        /// <summary>
+        /// The logical indent of a property row's name. Rows under a category, or in a grid with an
+        /// expandable row, leave the left margin to the expanders; each level of parts goes 10px further.
+        /// </summary>
+        internal int NameIndent (GridItem item)
+        {
+            var margin = item.Parent is not null || roots.Any (r => r.GridItems.Count > 0) ? 16 : 2;
+            return margin + 10 * PropertyDepth (item);
         }
 
         /// <summary>Re-reads which rows are shown, after a derived grid changes an item's visibility.</summary>
@@ -534,7 +660,21 @@ namespace Majorsilence.Forms
         private int ScaledCommandsHeight
             => CommandsVisible ? LogicalToDeviceUnits ((Verbs.Count * COMMANDS_ROW_HEIGHT) + 8) : 0;
 
-        private int ScaledRowHeight => LogicalToDeviceUnits (ROW_HEIGHT);
+        private int ScaledRowHeight => LogicalToDeviceUnits (RowHeight);
+
+        // A ported WinForms app (one that chose its font with Application.SetDefaultFont) gets
+        // upstream's rows: the grid's own font, and a row as tall as that font plus 3 (19px for Segoe UI
+        // 9pt). The theme's fixed 22px rows in 10px type showed fewer, harder to read properties.
+        private bool UsesUpstreamRows => ControlPaint.UsesUpstreamGlyphs;
+
+        /// <summary>The logical height of a row.</summary>
+        internal int RowHeight => UsesUpstreamRows ? Font.Height + 3 : ROW_HEIGHT;
+
+        /// <summary>The typeface rows are drawn in.</summary>
+        internal SkiaSharp.SKTypeface RowTypeface => UsesUpstreamRows ? GetEffectiveFont () : Theme.UIFont;
+
+        /// <summary>The logical pixel size rows are drawn at.</summary>
+        internal int RowFontSize => UsesUpstreamRows ? GetEffectiveFontSize () : 10;
 
         private void UpdateScrollExtent ()
             => AutoScrollMinSize = new Size (0, DeviceToLogicalUnits (_rows.Count * ScaledRowHeight));
@@ -548,7 +688,9 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>The width of the name column, in device pixels.</summary>
-        internal int ScaledNameColumnWidth => ViewBounds.Width * NAME_COL_RATIO_PCT / 100;
+        /// <remarks>Half the view under upstream's rows, as WinForms' default label ratio splits it; the
+        /// theme's 40% cut ReportDesigner's longer names (BodyColumnSpacing) short.</remarks>
+        internal int ScaledNameColumnWidth => ViewBounds.Width * (UsesUpstreamRows ? 50 : NAME_COL_RATIO_PCT) / 100;
 
         // ── mouse ───────────────────────────────────────────────────────────────────────────────────
 
@@ -598,7 +740,12 @@ namespace Majorsilence.Forms
         {
             var row = RowBounds (index);
             var side = LogicalToDeviceUnits (9);
-            return new Rectangle (row.Left + LogicalToDeviceUnits (3), row.Top + ((row.Height - side) / 2), side, side);
+
+            // A category's sits in the margin; an expandable property's just before its name.
+            var item = index >= 0 && index < _rows.Count ? _rows[index] : null;
+            var left = item is null || item.GridItemType == GridItemType.Category ? 3 : NameIndent (item) - 13;
+
+            return new Rectangle (row.Left + LogicalToDeviceUnits (left), row.Top + ((row.Height - side) / 2), side, side);
         }
 
         /// <inheritdoc/>
@@ -647,6 +794,10 @@ namespace Majorsilence.Forms
 
             // The selected objects held different values when the grid last read this one.
             internal bool ValuesDiffer { get; set; }
+
+            // The object a part's descriptor reads and writes: its parent row's value. Null for a
+            // property of the selected objects themselves.
+            internal object? Component { get; set; }
         }
     }
 

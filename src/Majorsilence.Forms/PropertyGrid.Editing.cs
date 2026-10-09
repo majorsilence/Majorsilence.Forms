@@ -134,12 +134,21 @@ namespace Majorsilence.Forms
             try {
                 var parsed = property.Converter.ConvertFromString (text);
 
-                // Every selected object, as upstream's multi-select entry writes them all (SMP-59).
-                // CounterpartOf is never null here: the row is listed only when all of them have it.
-                foreach (var target in _selected_objects)
-                    CounterpartOf (target, property)?.SetValue (target, parsed);
+                if (item is PropertyGridEntry { Component: { } component } part) {
+                    // A part of an expanded value: written into that value, which is then written back
+                    // through its own property, so the selected object hears about it.
+                    property.SetValue (component, parsed);
+                    PropagateToParent (part);
+                    item.Value = property.GetValue (part.Component ?? component);
+                } else {
+                    // Every selected object, as upstream's multi-select entry writes them all (SMP-59).
+                    // CounterpartOf is never null here: the row is listed only when all of them have it.
+                    foreach (var target in _selected_objects)
+                        CounterpartOf (target, property)?.SetValue (target, parsed);
 
-                item.Value = property.GetValue (_selected_object);
+                    item.Value = property.GetValue (_selected_object);
+                }
+
                 ((PropertyGridEntry) item).ValuesDiffer = false;
             } catch {
                 // A value the converter or the setter refuses leaves the property alone, and the row

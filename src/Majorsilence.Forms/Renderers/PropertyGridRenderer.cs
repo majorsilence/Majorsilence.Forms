@@ -40,7 +40,8 @@ namespace Majorsilence.Forms.Renderers
 
             var name_width = control.ScaledNameColumnWidth;
             var line = SK (control.LineColor);
-            var font_size = e.LogicalToDeviceUnits (10);
+            var font_size = e.LogicalToDeviceUnits (control.RowFontSize);
+            var typeface = control.RowTypeface;
 
             for (var i = 0; i < control.VisibleRows.Count; i++) {
                 var row = control.RowBounds (i);
@@ -59,7 +60,7 @@ namespace Majorsilence.Forms.Renderers
                     var label = new Rectangle (row.Left + e.LogicalToDeviceUnits (16), row.Top,
                         row.Width - e.LogicalToDeviceUnits (16), row.Height);
 
-                    e.Canvas.DrawText (item.Label, Theme.UIFont, font_size, label, SK (control.CategoryForeColor),
+                    e.Canvas.DrawText (item.Label, typeface, font_size, label, SK (control.CategoryForeColor),
                         ContentAlignment.MiddleLeft, maxLines: 1);
 
                     // CategorySplitterColor: the rule under a category header (W6 mechanisms).
@@ -85,17 +86,21 @@ namespace Majorsilence.Forms.Renderers
 
                 e.Canvas.FillRectangle (row, background);
 
-                var indent = item.Parent is null ? 2 : 16;
+                // A property with parts (an expandable value) carries an expander before its name.
+                if (item.GridItems.Count > 0)
+                    RenderExpander (control, i, item.Expanded, e);
+
+                var indent = control.NameIndent (item);
                 var name = new Rectangle (row.Left + e.LogicalToDeviceUnits (indent), row.Top,
                     name_width - e.LogicalToDeviceUnits (indent), row.Height);
                 var value = new Rectangle (row.Left + name_width + e.LogicalToDeviceUnits (2), row.Top,
                     row.Width - name_width - e.LogicalToDeviceUnits (4), row.Height);
 
-                e.Canvas.DrawText (format.Label, Theme.UIFont, font_size, name, foreground, ContentAlignment.MiddleLeft, maxLines: 1);
+                e.Canvas.DrawText (format.Label, typeface, font_size, name, foreground, ContentAlignment.MiddleLeft, maxLines: 1);
 
                 // The open editor draws the value itself.
                 if (!ReferenceEquals (item, control.EditingItem))
-                    e.Canvas.DrawText (format.Value, Theme.UIFont, font_size, value, foreground,
+                    e.Canvas.DrawText (format.Value, typeface, font_size, value, foreground,
                         ContentAlignment.MiddleLeft, maxLines: 1);
 
                 e.Canvas.DrawLine (row.Left, row.Bottom - 1, row.Right, row.Bottom - 1, line);
