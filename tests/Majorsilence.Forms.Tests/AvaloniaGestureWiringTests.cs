@@ -25,16 +25,21 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void ScrollableControl_ScrollsForward_OnTheDeltaTheWiringProduces ()
         {
-            using var form = new Form { ClientSize = new System.Drawing.Size (200, 200) };
-            var panel = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
-            panel.Controls.Add (new Label { Location = new System.Drawing.Point (0, 0), Size = new System.Drawing.Size (100, 1000) });
-            form.Controls.Add (panel);
-            form.Show ();
+            var form = new Form ();
+            try {
+                form.Show ();
+                var panel = new Panel { Left = 0, Top = 0, Width = 100, Height = 100, AutoScroll = true, AutoScrollMinSize = new System.Drawing.Size (400, 1000) };
+                form.Controls.Add (panel);
+                panel.PerformLayout ();
 
-            var (dx, dy) = AvaloniaGestureWiring.FingerDelta (0, 40, 1);
-            form.HandleScrollGesture (50, 50, dx, dy);
+                var (dx, dy) = AvaloniaGestureWiring.FingerDelta (0, 15, 1);
+                var at = WindowPoint.DeviceIn (panel, 20, 20);
+                form.HandleScrollGesture (at.X, at.Y, dx, dy);
 
-            Assert.True (-panel.AutoScrollPosition.Y > 0, "a finger moving up should scroll the content forward");
+                Assert.True (panel.VerticalScrollProperties.Value > 0, "a finger moving up should scroll the content forward");
+            } finally {
+                form.Close ();
+            }
         }
     }
 }
