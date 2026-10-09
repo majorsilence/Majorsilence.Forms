@@ -16,14 +16,23 @@ namespace Majorsilence.Forms
         // any control assigned a system font -- RibbonWinForms sets Font = SystemFonts.CaptionFont, and
         // its panel and button text overflowed the slots the ribbon had measured for it.
         //
-        // The family still tracks the theme, so the text matches the rest of the UI; only the size is
+        // Elsewhere the family tracks the theme, so the text matches the rest of the UI; only the size is
         // pinned to what WinForms code was laid out against.
         private const float SystemFontSize = 9f;
+
+        // On Windows these are the shell's font, Segoe UI, as upstream reads them from the system. The
+        // theme's Windows family is Segoe UI Emoji, picked for its glyph coverage, and its line height is
+        // a pixel taller at 9pt: an app that adopted SystemFonts.MessageBoxFont (ReportDesigner does) got
+        // 16px list rows where WinForms' are 15. Emoji still draw: text falls back per character.
+        private static readonly string system_font_family =
+            OperatingSystemCompat.IsWindows () && SKTypeface.FromFamilyName ("Segoe UI") is { FamilyName: "Segoe UI" }
+                ? "Segoe UI"
+                : Theme.UIFont.FamilyName;
 
         // The caller's own property name is stamped on as SystemFontName, which is what makes
         // Font.IsSystemFont a real answer rather than a hardcoded false.
         private static Majorsilence.Forms.Drawing.Font Create ([System.Runtime.CompilerServices.CallerMemberName] string systemFontName = "")
-            => new Majorsilence.Forms.Drawing.Font (Theme.UIFont.FamilyName, SystemFontSize) { SystemFontName = systemFontName };
+            => new Majorsilence.Forms.Drawing.Font (system_font_family, SystemFontSize) { SystemFontName = systemFontName };
 
         // DefaultFont is the ambient fallback every unfonted Control.Font resolves to (see
         // Control.Font's getter). Real System.Windows.Forms.SystemFonts.DefaultFont is

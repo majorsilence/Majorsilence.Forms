@@ -285,6 +285,13 @@ namespace Majorsilence.Forms
         /// </summary>
         public int ItemHeight {
             get {
+                // A ported WinForms app (one that chose its font with Application.SetDefaultFont) gets
+                // upstream's default: the font's GDI line height, 15px for Segoe UI 9pt. The theme's
+                // measured text plus 3 was 21, so a designer-sized list showed a third fewer rows.
+                // Not cached, so it follows a change of font as upstream's does.
+                if (item_height == -1 && ControlPaint.UsesUpstreamGlyphs)
+                    return TextLineHeight.Of (Font);
+
                 if (item_height == -1)
                     item_height = (int)TextMeasurer.MeasureText ("The quick brown Fox", this).Height + 3;
 
