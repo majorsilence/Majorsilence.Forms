@@ -46,6 +46,12 @@ namespace Majorsilence.Forms.Renderers
             if (control.IsSimple)
                 return;
 
+            // Upstream's thin chevron, with the field it sits in (ComboBox.PaintsUpstreamField).
+            if (control.PaintsUpstreamField) {
+                ComboBox.DrawUpstreamChevron (e, control.ScaledWidth, control.ScaledHeight, control.Enabled);
+                return;
+            }
+
             // Draw the drop down glyph
             var button_bounds = GetDropDownButtonArea (control, e);
 

@@ -57,6 +57,54 @@ namespace Majorsilence.Forms.Tests
                 return 0;
             });
 
+        // Pixels of the upstream chevron's grey in the combo's right-hand 16px.
+        private static int ChevronPixels (Form form, Control combo)
+        {
+            using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 300, 200));
+            var scale = bitmap.Width / 300f;
+            var count = 0;
+
+            for (var x = (int) ((combo.Right - 16) * scale); x < (int) (combo.Right * scale); x++)
+                for (var y = (int) (combo.Top * scale); y < (int) (combo.Bottom * scale); y++) {
+                    var c = bitmap.GetPixel (x, y);
+                    if (c.Red is > 0x50 and < 0x90 && c.Red == c.Green && c.Green == c.Blue)
+                        count++;
+                }
+
+            return count;
+        }
+
+        [Fact]
+        public void A_drop_down_list_has_a_near_white_face_and_a_thin_chevron ()
+            => With (true, form => {
+                var combo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point (10, 10), Size = new Size (150, 23) };
+                form.Controls.Add (combo);
+
+                Assert.Equal (new SKColor (0xFD, 0xFD, 0xFD), CentrePixel (form, combo));
+                Assert.True (ChevronPixels (form, combo) > 3, "the chevron is drawn in upstream's grey");
+                return 0;
+            });
+
+        [Fact]
+        public void An_editable_combo_has_a_white_field ()
+            => With (true, form => {
+                var combo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown, Location = new Point (10, 10), Size = new Size (150, 23) };
+                form.Controls.Add (combo);
+
+                Assert.Equal (System.Drawing.Color.White.ToArgb (), combo.BackColor.ToArgb ());
+                return 0;
+            });
+
+        [Fact]
+        public void Without_a_chosen_font_the_theme_combo_is_kept ()
+            => With (false, form => {
+                var combo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point (10, 10), Size = new Size (150, 23) };
+                form.Controls.Add (combo);
+
+                Assert.NotEqual (new SKColor (0xFD, 0xFD, 0xFD), CentrePixel (form, combo));
+                return 0;
+            });
+
         [Fact]
         public void A_read_only_or_coloured_box_keeps_its_colour ()
             => With (true, form => {
