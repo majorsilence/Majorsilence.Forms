@@ -26,7 +26,7 @@ namespace Majorsilence.Forms.Essentials
         public bool IsSupported => true;
 
         /// <inheritdoc />
-        public Task<IReadOnlyList<SpeechVoice>> GetVoicesAsync ()
+        public Task<IReadOnlyList<SpeechVoice>> GetVoicesAsync (string? language, bool estimateGender)
         {
             try {
                 IReadOnlyList<SpeechVoice> voices = AVSpeechSynthesisVoice.GetSpeechVoices ()

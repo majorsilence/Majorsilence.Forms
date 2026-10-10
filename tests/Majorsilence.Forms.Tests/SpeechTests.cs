@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Majorsilence.Forms.Essentials;
@@ -126,6 +127,38 @@ public class SpeechTests
     }
 
     [Fact]
+    public async Task GetVoicesAsync_can_be_limited_to_a_language_and_asked_to_estimate_the_sex_of_voices_that_do_not_say ()
+    {
+        var voices = new[] {
+            new SpeechVoice ("a", "A", "en-GB", VoiceGender.Unknown),
+            new SpeechVoice ("b", "B", "en-US", VoiceGender.Male),
+            new SpeechVoice ("c", "C", "fr-FR", VoiceGender.Female),
+            new SpeechVoice ("d", "D", "", VoiceGender.Unknown),
+        };
+        var fake = new FakeSpeechBackend { Voices = voices };
+        var previous = Speech.Backend;
+        Speech.Backend = fake;
+        try {
+            var english = await Speech.GetVoicesAsync ("en", estimateGender: true);
+
+            Assert.Equal (("en", true), fake.VoicesAskedFor);                   // the backend is told, so it only samples what is wanted
+            Assert.Equal (["a", "b", "d"], english.Select (v => v.Id));         // and the list is of that language (a voice with no language stays)
+
+            Assert.Equal (4, (await Speech.GetVoicesAsync ()).Count);           // with no language, every voice
+            Assert.Equal ((null, false), fake.VoicesAskedFor);
+        } finally {
+            Speech.Backend = previous;
+        }
+    }
+
+    [Fact]
+    public void A_voices_sex_says_whether_it_was_estimated_and_by_default_it_was_not ()
+    {
+        Assert.False (new SpeechVoice ("a", "A", "en", VoiceGender.Male).GenderEstimated);
+        Assert.True (new SpeechVoice ("a", "A", "en", VoiceGender.Male, GenderEstimated: true).GenderEstimated);
+    }
+
+    [Fact]
     public void The_default_voice_is_none_so_the_platforms_own_is_used ()
     {
         Assert.Null (new SpeechOptions ().Voice);
@@ -241,8 +274,13 @@ public class SpeechTests
 
         public bool VoicesThrow { get; set; }
 
-        public Task<System.Collections.Generic.IReadOnlyList<SpeechVoice>> GetVoicesAsync ()
-            => VoicesThrow ? throw new InvalidOperationException ("boom") : Task.FromResult (Voices);
+        public (string? Language, bool EstimateGender)? VoicesAskedFor { get; private set; }
+
+        public Task<System.Collections.Generic.IReadOnlyList<SpeechVoice>> GetVoicesAsync (string? language, bool estimateGender)
+        {
+            VoicesAskedFor = (language, estimateGender);
+            return VoicesThrow ? throw new InvalidOperationException ("boom") : Task.FromResult (Voices);
+        }
 
         public Task SpeakAsync (string text, SpeechOptions options, CancellationToken cancellationToken)
         {

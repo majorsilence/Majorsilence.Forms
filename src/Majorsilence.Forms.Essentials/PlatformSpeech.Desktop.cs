@@ -39,7 +39,7 @@ namespace Majorsilence.Forms.Essentials
             () => SpeakLinuxAsync (text, options, cancellationToken));
 
         /// <inheritdoc />
-        public Task<IReadOnlyList<SpeechVoice>> GetVoicesAsync () => Dispatch (
+        public Task<IReadOnlyList<SpeechVoice>> GetVoicesAsync (string? language, bool estimateGender) => Dispatch (
             OperatingSystem.IsWindows, OperatingSystem.IsMacOS, OperatingSystem.IsLinux,
             ListWindowsVoicesAsync, ListMacVoicesAsync, ListLinuxVoicesAsync) ?? Task.FromResult<IReadOnlyList<SpeechVoice>> ([]);
 
