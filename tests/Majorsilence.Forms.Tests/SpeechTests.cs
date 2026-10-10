@@ -182,11 +182,53 @@ public class SpeechTests
     }
 
     [Fact]
+    public void Speech_dispatcher_voices_are_parsed_and_its_male_and_female_types_are_offered_first ()
+    {
+        const string output = """
+                                 NAME                 LANGUAGE                  VARIANT
+                            Afrikaans                       af                     none
+                       Afrikaans+Adam                       af                     Adam
+             English (America)+Alicia                       en                   Alicia
+            """;
+
+        var voices = DesktopSpeechBackend.ParseSpeechDispatcherVoices (output);
+
+        // The preferred voice types come first: they are the one thing speech-dispatcher says about a voice's sex.
+        Assert.Equal (new SpeechVoice ("male1", "Man 1", "", VoiceGender.Male), voices[0]);
+        Assert.Equal (VoiceGender.Male, voices[2].Gender);
+        Assert.Equal (7, voices.Count);                                  // six types and the one plain voice
+        Assert.Equal (new SpeechVoice ("female1", "Woman 1", "", VoiceGender.Female), voices[3]);
+        Assert.Contains (new SpeechVoice ("Afrikaans", "Afrikaans", "af", VoiceGender.Unknown), voices);
+        Assert.DoesNotContain (voices, v => v.Id.Contains ('+'));        // the thousands of language-by-variant combinations are not offered
+        Assert.DoesNotContain (voices, v => v.Id == "NAME");
+    }
+
+    [Theory]
+    [InlineData (1f, 0)]
+    [InlineData (2f, 100)]
+    [InlineData (0.5f, -50)]
+    [InlineData (3f, 100)]
+    public void Speech_dispatchers_rate_and_pitch_map_around_zero (float scale, int expected)
+    {
+        Assert.Equal (expected, DesktopSpeechBackend.SpeechDispatcherScale (scale));
+    }
+
+    [Theory]
+    [InlineData (1f, 0)]
+    [InlineData (0.5f, -50)]
+    [InlineData (0f, -100)]
+    public void Speech_dispatchers_volume_runs_from_silent_to_its_default (float volume, int expected)
+    {
+        Assert.Equal (expected, DesktopSpeechBackend.SpeechDispatcherVolume (volume));
+    }
+
+    [Fact]
     public void Garbage_in_a_voice_list_is_skipped_not_thrown_on ()
     {
         Assert.Empty (DesktopSpeechBackend.ParseEspeakVoices ("nonsense\n\n   \n"));
         Assert.Empty (DesktopSpeechBackend.ParseMacVoices ("nonsense\n\n"));
         Assert.Empty (DesktopSpeechBackend.ParseWindowsVoices ("||\nnonsense\n"));
+        Assert.Equal (6, DesktopSpeechBackend.ParseSpeechDispatcherVoices ("nonsense\n\n").Count);      // only the six voice types, no named voices
     }
 
     private sealed class FakeSpeechBackend : ISpeechBackend

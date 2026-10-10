@@ -24,7 +24,7 @@ namespace Majorsilence.Forms.Essentials
     {
         private bool? windows_available;
         private bool? macos_available;
-        private string? linux_engine; // "espeak-ng", "espeak", or "" once probed and neither is present
+        private string? linux_engine; // "espeak-ng", "espeak", "spd-say", or "" once probed and none is present
 
         /// <inheritdoc />
         public bool IsSupported => Dispatch (
@@ -170,8 +170,11 @@ namespace Majorsilence.Forms.Essentials
             if (linux_engine is { } cached)
                 return cached.Length == 0 ? null : cached;
 
+            // espeak first (it names its voices and says their sex), then speech-dispatcher, which a stock desktop has when it has no espeak
+            // binary of its own: it drives whatever engine the system is set up with, espeak-ng usually.
             linux_engine = ProbeAvailable ("espeak-ng", "--version") ? "espeak-ng"
                 : ProbeAvailable ("espeak", "--version") ? "espeak"
+                : ProbeAvailable ("spd-say", "--version") ? "spd-say"
                 : "";
             return linux_engine.Length == 0 ? null : linux_engine;
         }
@@ -180,6 +183,9 @@ namespace Majorsilence.Forms.Essentials
         {
             if (LinuxEngine () is not { } engine)
                 return Task.CompletedTask;
+
+            if (engine == "spd-say")
+                return SpeakSpeechDispatcherAsync (text, options, cancellationToken);
 
             // espeak's own -s is words per minute (default 175); -p is pitch 0..99 (default 50); -a is amplitude 0..200.
             var speed = (int)Math.Round (175 * Math.Clamp (options.Rate, 0.5f, 2f));
@@ -199,7 +205,72 @@ namespace Majorsilence.Forms.Essentials
         }
 
         private Task<IReadOnlyList<SpeechVoice>> ListLinuxVoicesAsync ()
-            => LinuxEngine () is { } engine ? CaptureVoicesAsync (engine, ["--voices"], ParseEspeakVoices) : Task.FromResult<IReadOnlyList<SpeechVoice>> ([]);
+            => LinuxEngine () switch {
+                "spd-say" => CaptureVoicesAsync ("spd-say", ["-L"], ParseSpeechDispatcherVoices),
+                { } engine => CaptureVoicesAsync (engine, ["--voices"], ParseEspeakVoices),
+                _ => Task.FromResult<IReadOnlyList<SpeechVoice>> ([]),
+            };
+
+        // ---- Linux: speech-dispatcher's spd-say ----
+
+        private static readonly string[] SpeechDispatcherTypes = ["male1", "male2", "male3", "female1", "female2", "female3"];
+
+        private static Task SpeakSpeechDispatcherAsync (string text, SpeechOptions options, CancellationToken cancellationToken)
+        {
+            // -w waits until the line is spoken (so completing means it finished), -e reads the text from stdin so nothing is escaped.
+            var args = new System.Collections.Generic.List<string> {
+                "-w", "-e",
+                "-r", SpeechDispatcherScale (options.Rate).ToString (CultureInfo.InvariantCulture),
+                "-p", SpeechDispatcherScale (options.Pitch).ToString (CultureInfo.InvariantCulture),
+                "-i", SpeechDispatcherVolume (options.Volume).ToString (CultureInfo.InvariantCulture),
+            };
+
+            // A chosen voice wins over a language: one of the preferred types (male1 ... female3) says a man's or a woman's voice, any other
+            // is a named synthesis voice.
+            if (options.Voice is { Length: > 0 } voice) {
+                args.AddRange (Array.IndexOf (SpeechDispatcherTypes, voice) >= 0 ? ["-t", voice] : ["-y", voice]);
+            } else if (options.Locale is { Length: > 0 } locale) {
+                args.AddRange (["-l", locale.Split ('-')[0]]);
+            }
+
+            return RunAsync ("spd-say", args.ToArray (), text, cancellationToken);
+        }
+
+        /// <summary>Maps a 0.5 to 2.0 rate or pitch (1.0 natural) onto speech-dispatcher's -100 to +100 around zero.</summary>
+        internal static int SpeechDispatcherScale (float scale) => (int)Math.Round (Math.Clamp ((scale - 1f) * 100f, -100f, 100f));
+
+        /// <summary>Maps a 0 to 1 volume onto speech-dispatcher's -100 (silent) to 0 (its own full level).</summary>
+        internal static int SpeechDispatcherVolume (float volume) => (int)Math.Round (Math.Clamp ((volume - 1f) * 100f, -100f, 0f));
+
+        private static readonly Regex SpeechDispatcherVoiceLine = new (@"^\s*(?<name>.+?)\s{2,}(?<language>\S+)\s{2,}(?<variant>\S.*)$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// Parses <c>spd-say -L</c> ("NAME LANGUAGE VARIANT" columns), keeping the plain voice of each language, and puts the six preferred voice types in front: they are the one thing
+        /// speech-dispatcher says about a voice's sex, so they are what a person picks a man's or a woman's voice with.
+        /// </summary>
+        internal static IReadOnlyList<SpeechVoice> ParseSpeechDispatcherVoices (string output)
+        {
+            var voices = new List<SpeechVoice> ();
+            foreach (var type in SpeechDispatcherTypes)
+                voices.Add (new SpeechVoice (type, (type.StartsWith ("male", StringComparison.Ordinal) ? "Man " : "Woman ") + type[^1], "",
+                    type.StartsWith ("male", StringComparison.Ordinal) ? VoiceGender.Male : VoiceGender.Female));
+
+            foreach (var line in output.Split ('\n', StringSplitOptions.RemoveEmptyEntries)) {
+                var m = SpeechDispatcherVoiceLine.Match (line.TrimEnd ('\r'));
+                if (!m.Success || m.Groups["name"].Value == "NAME")
+                    continue;
+
+                // The listing is every language crossed with every espeak variant (Afrikaans+Adam, Afrikaans+Alex...), thousands of lines, so
+                // only the plain voice of each language is offered, and the male and female types above say the rest.
+                if (m.Groups["variant"].Value.Trim () != "none")
+                    continue;
+
+                var name = m.Groups["name"].Value.Trim ();
+                voices.Add (new SpeechVoice (name, name, m.Groups["language"].Value, VoiceGender.Unknown));
+            }
+
+            return voices;
+        }
 
         /// <summary>
         /// Parses <c>espeak-ng --voices</c>: "Pty Language Age/Gender VoiceName File Other". The language column is what <c>-v</c> takes, and the
