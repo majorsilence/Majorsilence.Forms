@@ -68,11 +68,139 @@ public class SpeechTests
         await Assert.ThrowsAnyAsync<ArgumentException> (() => Speech.SpeakAsync (text!, cancellationToken: TestContext.Current.CancellationToken));
     }
 
+    // ---- Voices: listing the installed ones and speaking with a chosen one (#456) --------------------
+
+    [Fact]
+    public async Task GetVoicesAsync_returns_the_backends_voices ()
+    {
+        var voices = new[] {
+            new SpeechVoice ("en-gb-x-rp", "English (RP)", "en-GB", VoiceGender.Male),
+            new SpeechVoice ("fr-fr-x-vlf", "French", "fr-FR", VoiceGender.Unknown),
+        };
+        var previous = Speech.Backend;
+        Speech.Backend = new FakeSpeechBackend { Voices = voices };
+        try {
+            var listed = await Speech.GetVoicesAsync ();
+
+            Assert.Equal (voices, listed);
+        } finally {
+            Speech.Backend = previous;
+        }
+    }
+
+    [Fact]
+    public async Task GetVoicesAsync_is_empty_when_the_platform_cannot_list_them_or_fails ()
+    {
+        var previous = Speech.Backend;
+        try {
+            Speech.Backend = new FakeSpeechBackend { IsSupported = false };
+            Assert.Empty (await Speech.GetVoicesAsync ());
+
+            Speech.Backend = new FakeSpeechBackend { VoicesThrow = true };
+            Assert.Empty (await Speech.GetVoicesAsync ());
+        } finally {
+            Speech.Backend = previous;
+        }
+    }
+
+    [Fact]
+    public async Task SpeakAsync_passes_the_chosen_voice_to_the_backend ()
+    {
+        var fake = new FakeSpeechBackend ();
+        var previous = Speech.Backend;
+        Speech.Backend = fake;
+        try {
+            await Speech.SpeakAsync ("hello", new SpeechOptions { Voice = "en-gb-x-rp" }, TestContext.Current.CancellationToken);
+
+            Assert.Equal ("en-gb-x-rp", fake.Calls[0].Options.Voice);
+        } finally {
+            Speech.Backend = previous;
+        }
+    }
+
+    [Fact]
+    public void A_voice_says_whether_it_needs_the_network_and_by_default_it_does_not ()
+    {
+        Assert.False (new SpeechVoice ("a", "A", "en-GB", VoiceGender.Unknown).RequiresNetwork);
+        Assert.True (new SpeechVoice ("b", "B", "en-GB", VoiceGender.Unknown, RequiresNetwork: true).RequiresNetwork);
+    }
+
+    [Fact]
+    public void The_default_voice_is_none_so_the_platforms_own_is_used ()
+    {
+        Assert.Null (new SpeechOptions ().Voice);
+    }
+
+    [Fact]
+    public void Espeak_voices_are_parsed_with_their_gender ()
+    {
+        const string output = """
+            Pty Language       Age/Gender VoiceName          File                 Other Languages
+             5  af              --/M      Afrikaans          gmw/af
+             5  en-gb           --/M      English_(Great_Britain) gmw/en             (en 2)
+             5  fr-fr           --/F      French_(France)    roa/fr               (fr 5)
+             2  en-gb-x-rp      --/M      english-rp         gmw/en-GB-x-rp       (en-gb 2)(en 5)
+            """;
+
+        var voices = DesktopSpeechBackend.ParseEspeakVoices (output);
+
+        Assert.Equal (4, voices.Count);
+        Assert.Equal (new SpeechVoice ("af", "Afrikaans", "af", VoiceGender.Male), voices[0]);
+        Assert.Equal (new SpeechVoice ("en-gb", "English (Great Britain)", "en-GB", VoiceGender.Male), voices[1]);
+        Assert.Equal (VoiceGender.Female, voices[2].Gender);
+        Assert.Equal ("en-GB", voices[3].Locale);          // "en-gb-x-rp": the language, then a private-use extension
+    }
+
+    [Fact]
+    public void MacOS_voices_are_parsed_from_say_s_list ()
+    {
+        const string output = """
+            Alex                en_US    # Most people recognize me by my voice.
+            Eddy (English (UK)) en_GB    # Hello, my name is Eddy.
+            Thomas              fr_FR    # Bonjour, je m'appelle Thomas.
+            """;
+
+        var voices = DesktopSpeechBackend.ParseMacVoices (output);
+
+        Assert.Equal (3, voices.Count);
+        Assert.Equal (new SpeechVoice ("Alex", "Alex", "en-US", VoiceGender.Unknown), voices[0]);
+        Assert.Equal ("Eddy (English (UK))", voices[1].Name);
+        Assert.Equal ("fr-FR", voices[2].Locale);
+    }
+
+    [Fact]
+    public void Windows_voices_are_parsed_from_the_scripts_lines ()
+    {
+        const string output = "Microsoft David Desktop|en-US|Male\r\nMicrosoft Zira Desktop|en-US|Female\r\nMicrosoft Hortense Desktop|fr-FR|Female\r\nSome Voice|en-GB|Neutral\r\n";
+
+        var voices = DesktopSpeechBackend.ParseWindowsVoices (output);
+
+        Assert.Equal (4, voices.Count);
+        Assert.Equal (new SpeechVoice ("Microsoft David Desktop", "Microsoft David Desktop", "en-US", VoiceGender.Male), voices[0]);
+        Assert.Equal (VoiceGender.Female, voices[1].Gender);
+        Assert.Equal (VoiceGender.Unknown, voices[3].Gender);
+    }
+
+    [Fact]
+    public void Garbage_in_a_voice_list_is_skipped_not_thrown_on ()
+    {
+        Assert.Empty (DesktopSpeechBackend.ParseEspeakVoices ("nonsense\n\n   \n"));
+        Assert.Empty (DesktopSpeechBackend.ParseMacVoices ("nonsense\n\n"));
+        Assert.Empty (DesktopSpeechBackend.ParseWindowsVoices ("||\nnonsense\n"));
+    }
+
     private sealed class FakeSpeechBackend : ISpeechBackend
     {
         public System.Collections.Generic.List<(string Text, SpeechOptions Options)> Calls { get; } = [];
 
         public bool IsSupported { get; set; } = true;
+
+        public System.Collections.Generic.IReadOnlyList<SpeechVoice> Voices { get; set; } = [];
+
+        public bool VoicesThrow { get; set; }
+
+        public Task<System.Collections.Generic.IReadOnlyList<SpeechVoice>> GetVoicesAsync ()
+            => VoicesThrow ? throw new InvalidOperationException ("boom") : Task.FromResult (Voices);
 
         public Task SpeakAsync (string text, SpeechOptions options, CancellationToken cancellationToken)
         {
