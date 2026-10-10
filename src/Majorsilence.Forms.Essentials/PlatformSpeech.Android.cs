@@ -29,23 +29,88 @@ namespace Majorsilence.Forms.Essentials
         public bool IsSupported => true;
 
         /// <inheritdoc />
-        public async Task<IReadOnlyList<SpeechVoice>> GetVoicesAsync ()
+        public async Task<IReadOnlyList<SpeechVoice>> GetVoicesAsync (string? language, bool estimateGender)
         {
             try {
                 var tts = await EnsureEngineAsync ().ConfigureAwait (false);
                 if (tts?.Voices is not { } installed)
                     return [];
 
-                // Android does not say a voice's sex, so none is reported rather than guessed from its name. A voice that is not downloaded yet
-                // is left out (it cannot speak), and one that needs the network is listed and flagged, so an app that must work offline can skip it.
-                return installed
+                // A voice that is not downloaded yet is left out (it cannot speak), and one that needs the network is listed and flagged, so an app
+                // that must work offline can skip it.
+                var usable = installed
                     .Where (v => v.Name is { Length: > 0 } && v.Features?.Contains (TextToSpeech.Engine.KeyFeatureNotInstalled) != true)
-                    .Select (v => new SpeechVoice (v.Name!, FriendlyName (v), v.Locale?.ToLanguageTag () ?? "", VoiceGender.Unknown, v.IsNetworkConnectionRequired))
+                    .ToList ();
+
+                var voices = new List<SpeechVoice> ();
+                foreach (var v in usable) {
+                    // Android does not say a voice's sex. When asked, an offline voice of the wanted language speaks a sample and its pitch says;
+                    // anything else stays unknown rather than guessed from its name.
+                    var gender = VoiceGender.Unknown;
+                    var estimated = false;
+                    if (estimateGender && !v.IsNetworkConnectionRequired && IsOfLanguage (v, language)) {
+                        gender = await EstimateGenderAsync (tts, v).ConfigureAwait (false);
+                        estimated = gender != VoiceGender.Unknown;
+                    }
+
+                    voices.Add (new SpeechVoice (v.Name!, FriendlyName (v), v.Locale?.ToLanguageTag () ?? "", gender, v.IsNetworkConnectionRequired, estimated));
+                }
+
+                return voices
                     .OrderBy (v => v.Locale, StringComparer.Ordinal)
                     .ThenBy (v => v.Name, StringComparer.Ordinal)
                     .ToList ();
             } catch {
                 return [];
+            }
+        }
+
+        private static bool IsOfLanguage (Voice voice, string? language)
+            => string.IsNullOrEmpty (language) || voice.Locale?.ToLanguageTag () is { } tag && tag.StartsWith (language, StringComparison.OrdinalIgnoreCase);
+
+        // What was heard of each voice, kept for the life of the process: sampling takes a second or so a voice.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, VoiceGender> estimates = new ();
+
+        // One sampling at a time, and not while a line is being said: they share the engine's listener and voice.
+        private static readonly SemaphoreSlim sampling = new (1, 1);
+
+        private const string SampleLine = "The quick brown fox jumps over the lazy dog. Please tell a grown up now.";
+
+        /// <summary>Has <paramref name="voice"/> speak a sample into a file and calls its sex from the pitch of what it said.</summary>
+        private static async Task<VoiceGender> EstimateGenderAsync (TextToSpeech tts, Voice voice)
+        {
+            if (estimates.TryGetValue (voice.Name!, out var known))
+                return known;
+
+            await sampling.WaitAsync ().ConfigureAwait (false);
+            try {
+                var file = new Java.IO.File (Application.Context.CacheDir, $"voice-sample-{Guid.NewGuid ():N}.wav");
+                try {
+                    tts.SetVoice (voice);
+                    var utteranceId = Guid.NewGuid ().ToString ();
+                    var done = new TaskCompletionSource ();
+                    tts.SetOnUtteranceProgressListener (new ProgressListener (utteranceId, done));
+                    if (tts.SynthesizeToFile (SampleLine, null, file, utteranceId) != OperationResult.Success)
+                        return VoiceGender.Unknown;
+
+                    if (await Task.WhenAny (done.Task, Task.Delay (TimeSpan.FromSeconds (10))).ConfigureAwait (false) != done.Task)
+                        return VoiceGender.Unknown;
+
+                    var wav = VoicePitch.ReadWav (System.IO.File.ReadAllBytes (file.AbsolutePath));
+                    var pitch = wav is { } w ? VoicePitch.Estimate (w.Samples, w.Rate) : null;
+                    var gender = VoicePitch.GenderOf (pitch);
+                    if (gender != VoiceGender.Unknown)
+                        estimates[voice.Name!] = gender;
+
+                    return gender;
+                } finally {
+                    try { file.Delete (); } catch { }
+                    try { if (tts.DefaultVoice is { } own) tts.SetVoice (own); } catch { }
+                }
+            } catch {
+                return VoiceGender.Unknown;
+            } finally {
+                sampling.Release ();
             }
         }
 

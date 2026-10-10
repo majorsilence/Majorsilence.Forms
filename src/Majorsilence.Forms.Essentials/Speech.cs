@@ -49,7 +49,8 @@ namespace Majorsilence.Forms.Essentials
     /// <param name="Locale">The voice's language as a BCP-47 tag ("en-GB"), or an empty string when the platform does not say.</param>
     /// <param name="Gender">The voice's sex where the platform reports it (Windows, Linux's espeak, iOS 17 and later), else <see cref="VoiceGender.Unknown"/>.</param>
     /// <param name="RequiresNetwork">Whether the voice needs a connection to speak (some Android voices do), which an app that must speak offline can skip.</param>
-    public sealed record SpeechVoice (string Id, string Name, string Locale, VoiceGender Gender, bool RequiresNetwork = false);
+    /// <param name="GenderEstimated">Whether <paramref name="Gender"/> was worked out from a spoken sample rather than reported by the platform.</param>
+    public sealed record SpeechVoice (string Id, string Name, string Locale, VoiceGender Gender, bool RequiresNetwork = false, bool GenderEstimated = false);
 
     /// <summary>
     /// What a platform actually does the speaking. Internal so <see cref="Speech"/> is the only public surface; a test injects
@@ -63,8 +64,12 @@ namespace Majorsilence.Forms.Essentials
         /// <summary>Speaks <paramref name="text"/>, completing when it finishes, is cancelled, or fails.</summary>
         Task SpeakAsync (string text, SpeechOptions options, CancellationToken cancellationToken);
 
-        /// <summary>The installed voices, or none when the platform cannot list them. Never throws.</summary>
-        Task<IReadOnlyList<SpeechVoice>> GetVoicesAsync ();
+        /// <summary>
+        /// The installed voices, or none when the platform cannot list them. Never throws. <paramref name="language"/> limits the voices a
+        /// backend need look at (an Android backend only samples those); <paramref name="estimateGender"/> asks a backend that cannot be told a
+        /// voice's sex to work it out.
+        /// </summary>
+        Task<IReadOnlyList<SpeechVoice>> GetVoicesAsync (string? language, bool estimateGender);
     }
 
     /// <summary>
@@ -87,15 +92,28 @@ namespace Majorsilence.Forms.Essentials
         /// Lists the installed voices, so a person can pick one (for instance a man's voice) and the app can pass its
         /// <see cref="SpeechVoice.Id"/> in <see cref="SpeechOptions.Voice"/>. Empty when <see cref="IsSupported"/> is false, when the
         /// platform cannot list its voices, or when listing them fails. Android starts its speech engine to answer, so the first call
-        /// can take a moment.
+        /// can take a moment. <paramref name="language"/> ("en", "fr") limits the list to that language. Android does not say a voice's sex:
+        /// with <paramref name="estimateGender"/> it has each offline voice of that language speak a sample line and works the sex out from its
+        /// pitch (<see cref="SpeechVoice.GenderEstimated"/>), which takes a second or so per voice the first time and is remembered after.
         /// </summary>
-        public static async Task<IReadOnlyList<SpeechVoice>> GetVoicesAsync ()
+        public static async Task<IReadOnlyList<SpeechVoice>> GetVoicesAsync (string? language = null, bool estimateGender = false)
         {
             if (!IsSupported)
                 return [];
 
             try {
-                return await Backend.GetVoicesAsync ().ConfigureAwait (false);
+                var voices = await Backend.GetVoicesAsync (language, estimateGender).ConfigureAwait (false);
+                if (string.IsNullOrEmpty (language))
+                    return voices;
+
+                // The list is of that language ("en" matches "en-GB"); a voice that does not say which it is stays, as it may be any.
+                var wanted = new List<SpeechVoice> ();
+                foreach (var voice in voices) {
+                    if (voice.Locale.Length == 0 || voice.Locale.StartsWith (language, StringComparison.OrdinalIgnoreCase))
+                        wanted.Add (voice);
+                }
+
+                return wanted;
             } catch {
                 return [];
             }
