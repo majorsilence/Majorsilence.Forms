@@ -511,9 +511,14 @@ namespace Majorsilence.Forms
 
         // ── Input forwarding (Avalonia → Majorsilence.Forms; positions scaled to physical pixels) ───────
 
+        // One finger at a time (TouchPointerFilter): a second finger would take the mouse capture and leave the first control pressed.
+        private readonly TouchPointerFilter _touchFilter = new ();
+
+        private static bool IsTouchLike (AvPointerEventArgs e) => e.Pointer.Type is PointerType.Touch or PointerType.Pen;
+
         protected override void OnPointerPressed (AvPointerPressedEventArgs e)
         {
-            if (!AcceptsInput (e)) {
+            if (!AcceptsInput (e) || !_touchFilter.Pressed (e.Pointer.Id, IsTouchLike (e))) {
                 base.OnPointerPressed (e);
                 return;
             }
@@ -610,7 +615,7 @@ namespace Majorsilence.Forms
 
         protected override void OnPointerReleased (AvPointerReleasedEventArgs e)
         {
-            if (!AcceptsInput (e)) {
+            if (!AcceptsInput (e) || !_touchFilter.Released (e.Pointer.Id, IsTouchLike (e))) {
                 base.OnPointerReleased (e);
                 return;
             }
@@ -647,7 +652,7 @@ namespace Majorsilence.Forms
 
         protected override void OnPointerCaptureLost (PointerCaptureLostEventArgs e)
         {
-            if (!AcceptsInput (e)) {
+            if (!AcceptsInput (e) || !_touchFilter.Released (e.Pointer.Id, e.Pointer.Type is PointerType.Touch or PointerType.Pen)) {
                 base.OnPointerCaptureLost (e);
                 return;
             }
@@ -739,7 +744,7 @@ namespace Majorsilence.Forms
 
         protected override void OnPointerMoved (AvPointerEventArgs e)
         {
-            if (!AcceptsInput (e)) {
+            if (!AcceptsInput (e) || !_touchFilter.Moved (e.Pointer.Id, IsTouchLike (e))) {
                 base.OnPointerMoved (e);
                 return;
             }
