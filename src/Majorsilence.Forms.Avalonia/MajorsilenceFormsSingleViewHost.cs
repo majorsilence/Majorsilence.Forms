@@ -299,7 +299,13 @@ namespace Majorsilence.Forms
         {
             if (_isRoot && _insets is not null)
                 PushSafeArea (_insets.SafeAreaPadding);
+
+            // The keyboard's "closed" event can be missed (see InputPaneResync): its real state is asked for on every layout.
+            if (_isRoot && _inputPane is not null && _inputPaneResync.ShouldClear (_inputPane.State == InputPaneState.Closed))
+                _owner.HandleInputPaneChanged (System.Drawing.Rectangle.Empty);
         }
+
+        private readonly InputPaneResync _inputPaneResync = new ();
 
         private void PushSafeArea (Thickness t)
         {
@@ -335,6 +341,7 @@ namespace Majorsilence.Forms
                     ? (int) System.Math.Round (Bounds.Height - p.Y)
                     : (int) System.Math.Round (r.Height);
             }
+            _inputPaneResync.Changed (occludedHeight);
             _owner.HandleInputPaneChanged (occludedHeight > 0
                 ? new System.Drawing.Rectangle (0, (int) System.Math.Round (Bounds.Height) - occludedHeight, (int) System.Math.Round (Bounds.Width), occludedHeight)
                 : System.Drawing.Rectangle.Empty);
