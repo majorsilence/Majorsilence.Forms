@@ -1,12 +1,12 @@
 # Majorsilence.Forms — cross-platform WinForms for .NET
 
-**Take your WinForms apps cross-platform — without rewriting them.**
+**WinForms for Linux, macOS and Windows — plus Android, iOS and the browser. Keep your code; skip the rewrite.**
 
 [![NuGet](https://img.shields.io/nuget/v/Majorsilence.Forms.svg?logo=nuget&label=Majorsilence.Forms)](https://www.nuget.org/packages/Majorsilence.Forms)
 [![Downloads](https://img.shields.io/nuget/dt/Majorsilence.Forms.svg?logo=nuget&label=downloads)](https://www.nuget.org/packages/Majorsilence.Forms)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](license.md)
 [![.NET](https://img.shields.io/badge/.NET-8.0%20%7C%2010.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com)
-[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Wasm-informational)](https://forms.majorsilence.com/backends/)
+[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Android%20%7C%20iOS%20%7C%20Wasm-informational)](https://forms.majorsilence.com/backends/)
 
 📖 **[Documentation](https://forms.majorsilence.com)** ·
 🚀 **[Getting started](https://forms.majorsilence.com/getting-started/)** ·
@@ -14,15 +14,30 @@
 🌐 **[Live browser demo](https://forms.majorsilence.com/gallery/)** ·
 ❓ **[FAQ](https://forms.majorsilence.com/faq/)**
 
-Majorsilence.Forms is a **WinForms compatibility layer** — a WinForms-style UI framework that lets
-you move legacy *and* modern Windows Forms applications onto a modern, cross-platform stack. You
-keep the programming model you already know — `Form`s, controls, event handlers, even the
-`*.Designer.cs` files — and gain Windows, macOS, and Linux out of the box, with mobile and web
-within reach through [Uno Platform](https://platform.uno) or through
-[Avalonia](https://avaloniaui.net)'s own Android, iOS, and Browser (WASM) targets.
+Majorsilence.Forms is a **ready-to-use, open-source (MIT) cross-platform WinForms framework for .NET**.
+You write the `System.Windows.Forms` programming model you already know — `Form`s, controls, event
+handlers, even `*.Designer.cs` files — and it runs natively on **Windows, macOS and Linux** from one
+build, with **Android, iOS and WebAssembly** support growing release by release. It works for new
+cross-platform apps and for moving existing WinForms apps off the Windows-only desktop.
 
-> ⚠️ **Beta stage.** The API is stabilizing and not every WinForms corner is covered yet.
-> Great for new cross-platform LOB apps and for migrating real apps today — just pin your version.
+> **Status: beta, and shipping.** Releases are frequent and versioned, the desktop backends are what
+> the project's own samples and CI exercise every day, and the full control gallery runs
+> [live in your browser](https://forms.majorsilence.com/gallery/). Pin your version.
+
+## Platform support at a glance
+
+| Platform | Status | Notes |
+|---|---|---|
+| **Linux** | ✅ Supported | Avalonia (X11/Wayland) or a real GTK 4 window, WebKitGTK `WebBrowser`, tested in CI |
+| **macOS** | ✅ Supported | Native `NSWindow` on Apple Silicon and Intel, Retina, trackpad gestures, `WKWebView`, Keychain |
+| **Windows** | ✅ Supported | Avalonia or Uno; also WinForms/WPF backends to adopt it one control at a time, incl. .NET Framework 4.8 |
+| **WebAssembly** | 🟢 Working | Whole control gallery runs in the browser; async dialogs, ARIA mirror for screen readers |
+| **Android** | 🟡 Growing | Boots, taps, scaling, touch scrolling and soft keyboard confirmed on device; rotation and full control coverage still being exercised |
+| **iOS** | 🟠 Early | Compiles and launches in a CI simulator smoke check; not yet run interactively on a device |
+| **Terminal** | 🟡 Experimental | Kitty graphics / Sixel / Unicode blocks; verified in xterm and WezTerm on Linux |
+
+Where each control stands is tracked, member by member, in [`COMPATIBILITY_MATRIX.md`](COMPATIBILITY_MATRIX.md) —
+it is deliberately conservative, so nothing is claimed that is not tested.
 
 <details>
 <summary><b>Looking for one specific thing?</b></summary>
@@ -38,6 +53,7 @@ within reach through [Uno Platform](https://platform.uno) or through
 | WinForms UI testing, Selenium, headless CI | [Automation & UI testing](https://forms.majorsilence.com/automation/) |
 | theme / dark mode / restyle a Majorsilence.Forms app, CSS themes | [Theming with CSS](docs/theming.md) |
 | apply the same CSS theme to real WinForms or native Avalonia controls | [WinForms](docs/theming-winforms.md), [Avalonia](docs/theming-avalonia.md) |
+| how does this compare to MAUI / Avalonia / Uno? | [Alternatives compared](https://forms.majorsilence.com/winforms-alternatives/) |
 | `System.Drawing.Common` / GDI+ replacement | [`Majorsilence.Forms.Drawing.Common`](https://www.nuget.org/packages/Majorsilence.Forms.Drawing.Common) |
 
 </details>
@@ -53,10 +69,12 @@ churn — then runs everywhere on top of best-in-class hosts:
 
 - **Reuse, don't rewrite.** The same control model and event-driven code you wrote in WinForms.
   No XAML, no forced MVVM rewrite, no relearning the framework.
-- **Cross-platform by construction.** Everything is drawn with [SkiaSharp](https://github.com/mono/SkiaSharp)
-  and runs on a swappable host backend — [Avalonia](https://avaloniaui.net) by default for desktop,
-  with its own Android/iOS/Browser targets as one path to mobile and web, and
-  [Uno Platform](https://platform.uno) as another, for the broadest reach (desktop, mobile, WebAssembly).
+- **Desktop is first-class.** Everything is drawn with [SkiaSharp](https://github.com/mono/SkiaSharp)
+  and runs on a swappable host backend — [Avalonia](https://avaloniaui.net) by default, a real GTK 4
+  window on Linux, or [Uno Platform](https://platform.uno). Linux and macOS are exercised in CI on every change, not an afterthought.
+- **Mobile and web are growing fast.** Android, iOS and WebAssembly ride on Avalonia's and Uno's
+  targets, with soft-keyboard, safe-area and touch work landing in each release, and async dialogs
+  (`ShowDialogAsync`, `MessageBox.ShowAsync`) so the same code runs where a blocking loop can't.
 - **Bring your skills, your team, your code.** WinForms muscle memory transfers directly, so the
   ramp-up cost for an existing .NET shop is close to zero.
 - **Modern under the hood.** GPU-accelerated Skia rendering, HiDPI, current .NET — a clean
