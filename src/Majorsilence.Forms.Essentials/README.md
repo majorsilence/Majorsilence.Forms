@@ -26,6 +26,10 @@ if (Speech.IsSupported)
   completes when the line finishes, is cancelled through its `CancellationToken`, or the platform reports a failure; a
   missing `espeak`/`espeak-ng` on Linux means `IsSupported` is false there too, the same honesty `SecureStorage`'s own
   Linux row has.
+- **`Speech.GetVoicesAsync ()`** lists the installed voices (`SpeechVoice`: `Id`, `Name`, `Locale`, and `Gender` where the platform says
+  it: Windows, Linux's espeak and iOS 17 and later; Android and macOS report `Unknown`). Pass a voice's `Id` as `SpeechOptions.Voice` to
+  speak with it; a voice that is no longer installed is ignored and the line is spoken in the default voice for `Locale`.
+
 - Every member degrades to doing nothing (`SecureStorage.Get` returns null, `Set`/`Remove` and `Speech.SpeakAsync` do
   nothing) rather than throwing when the platform cannot help — the same contract `Haptics` and `Media.AudioPlayer` already
   use for their own capability gaps. Check `IsSupported` before depending on a value having actually persisted or a line

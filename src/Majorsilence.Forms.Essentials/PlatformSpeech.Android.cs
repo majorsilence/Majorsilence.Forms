@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Android.App;
@@ -27,6 +29,27 @@ namespace Majorsilence.Forms.Essentials
         public bool IsSupported => true;
 
         /// <inheritdoc />
+        public async Task<IReadOnlyList<SpeechVoice>> GetVoicesAsync ()
+        {
+            try {
+                var tts = await EnsureEngineAsync ().ConfigureAwait (false);
+                if (tts?.Voices is not { } installed)
+                    return [];
+
+                // Android does not say a voice's sex, so none is reported rather than guessed from its name. A voice that needs the network
+                // is still listed: whether it can be used is the person's call.
+                return installed
+                    .Where (v => v.Name is { Length: > 0 })
+                    .Select (v => new SpeechVoice (v.Name!, v.Name!, v.Locale?.ToLanguageTag () ?? "", VoiceGender.Unknown))
+                    .OrderBy (v => v.Locale, StringComparer.Ordinal)
+                    .ThenBy (v => v.Name, StringComparer.Ordinal)
+                    .ToList ();
+            } catch {
+                return [];
+            }
+        }
+
+        /// <inheritdoc />
         public async Task SpeakAsync (string text, SpeechOptions options, CancellationToken cancellationToken)
         {
             try {
@@ -36,7 +59,12 @@ namespace Majorsilence.Forms.Essentials
 
                 tts.SetPitch (options.Pitch);
                 tts.SetSpeechRate (options.Rate);
-                if (options.Locale is { Length: > 0 } locale) {
+
+                // A chosen voice carries its own language, so it wins over Locale; one that is no longer installed falls through to Locale.
+                var chosen = options.Voice is { Length: > 0 } voiceId ? tts.Voices?.FirstOrDefault (v => v.Name == voiceId) : null;
+                if (chosen is not null) {
+                    try { tts.SetVoice (chosen); } catch { }
+                } else if (options.Locale is { Length: > 0 } locale) {
                     // Java.Util.Locale itself is flagged obsolete from API 36; there is no other way to build the
                     // BCP-47-to-Locale value TextToSpeech.SetLanguage takes, and the type still works, only deprecated,
                     // the same reasoning F13's own iOS CA1422 suppression documents for a comparable gap.

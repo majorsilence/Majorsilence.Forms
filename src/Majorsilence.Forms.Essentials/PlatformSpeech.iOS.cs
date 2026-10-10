@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AVFoundation;
@@ -24,6 +26,34 @@ namespace Majorsilence.Forms.Essentials
         public bool IsSupported => true;
 
         /// <inheritdoc />
+        public Task<IReadOnlyList<SpeechVoice>> GetVoicesAsync ()
+        {
+            try {
+                IReadOnlyList<SpeechVoice> voices = AVSpeechSynthesisVoice.GetSpeechVoices ()
+                    .Select (v => new SpeechVoice (v.Identifier, v.Name, v.Language, GenderOf (v)))
+                    .OrderBy (v => v.Locale, StringComparer.Ordinal)
+                    .ThenBy (v => v.Name, StringComparer.Ordinal)
+                    .ToList ();
+                return Task.FromResult (voices);
+            } catch {
+                return Task.FromResult<IReadOnlyList<SpeechVoice>> ([]);
+            }
+        }
+
+        // The voice's sex is reported from iOS 17; before that it is not said.
+        private static VoiceGender GenderOf (AVSpeechSynthesisVoice voice)
+        {
+            if (!OperatingSystem.IsIOSVersionAtLeast (17))
+                return VoiceGender.Unknown;
+
+            return voice.Gender switch {
+                AVSpeechSynthesisVoiceGender.Male => VoiceGender.Male,
+                AVSpeechSynthesisVoiceGender.Female => VoiceGender.Female,
+                _ => VoiceGender.Unknown,
+            };
+        }
+
+        /// <inheritdoc />
         public Task SpeakAsync (string text, SpeechOptions options, CancellationToken cancellationToken)
         {
             try {
@@ -35,7 +65,11 @@ namespace Majorsilence.Forms.Essentials
                     Volume = Math.Clamp (options.Volume, 0f, 1f),
                 };
 
-                if (options.Locale is { Length: > 0 } locale)
+                // A chosen voice wins over a language; one that is no longer installed falls through to the language.
+                var chosen = options.Voice is { Length: > 0 } voiceId ? AVSpeechSynthesisVoice.FromIdentifier (voiceId) : null;
+                if (chosen is not null)
+                    utterance.Voice = chosen;
+                else if (options.Locale is { Length: > 0 } locale)
                     utterance.Voice = AVSpeechSynthesisVoice.FromLanguage (locale);
 
                 var doneTcs = new TaskCompletionSource ();
