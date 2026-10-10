@@ -119,6 +119,13 @@ public class SpeechTests
     }
 
     [Fact]
+    public void A_voice_says_whether_it_needs_the_network_and_by_default_it_does_not ()
+    {
+        Assert.False (new SpeechVoice ("a", "A", "en-GB", VoiceGender.Unknown).RequiresNetwork);
+        Assert.True (new SpeechVoice ("b", "B", "en-GB", VoiceGender.Unknown, RequiresNetwork: true).RequiresNetwork);
+    }
+
+    [Fact]
     public void The_default_voice_is_none_so_the_platforms_own_is_used ()
     {
         Assert.Null (new SpeechOptions ().Voice);

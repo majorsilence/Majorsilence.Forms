@@ -36,17 +36,31 @@ namespace Majorsilence.Forms.Essentials
                 if (tts?.Voices is not { } installed)
                     return [];
 
-                // Android does not say a voice's sex, so none is reported rather than guessed from its name. A voice that needs the network
-                // is still listed: whether it can be used is the person's call.
+                // Android does not say a voice's sex, so none is reported rather than guessed from its name. A voice that is not downloaded yet
+                // is left out (it cannot speak), and one that needs the network is listed and flagged, so an app that must work offline can skip it.
                 return installed
-                    .Where (v => v.Name is { Length: > 0 })
-                    .Select (v => new SpeechVoice (v.Name!, v.Name!, v.Locale?.ToLanguageTag () ?? "", VoiceGender.Unknown))
+                    .Where (v => v.Name is { Length: > 0 } && v.Features?.Contains (TextToSpeech.Engine.KeyFeatureNotInstalled) != true)
+                    .Select (v => new SpeechVoice (v.Name!, FriendlyName (v), v.Locale?.ToLanguageTag () ?? "", VoiceGender.Unknown, v.IsNetworkConnectionRequired))
                     .OrderBy (v => v.Locale, StringComparer.Ordinal)
                     .ThenBy (v => v.Name, StringComparer.Ordinal)
                     .ToList ();
             } catch {
                 return [];
             }
+        }
+
+        // Google's voice names read "en-gb-x-gba-local": the language, then a variant code. "English (United Kingdom) GBA" tells a person more.
+        private static string FriendlyName (Voice voice)
+        {
+            var language = voice.Locale?.DisplayName;
+            if (string.IsNullOrEmpty (language))
+                return voice.Name!;
+
+            var parts = voice.Name!.Split ('-');
+            var x = Array.IndexOf (parts, "x");
+            return x >= 0 && x + 1 < parts.Length && parts[x + 1] is not ("local" or "network")
+                ? $"{language} {parts[x + 1].ToUpperInvariant ()}"
+                : language;
         }
 
         /// <inheritdoc />

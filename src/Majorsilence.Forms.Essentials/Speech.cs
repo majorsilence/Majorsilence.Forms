@@ -48,7 +48,8 @@ namespace Majorsilence.Forms.Essentials
     /// <param name="Name">A name to show a person.</param>
     /// <param name="Locale">The voice's language as a BCP-47 tag ("en-GB"), or an empty string when the platform does not say.</param>
     /// <param name="Gender">The voice's sex where the platform reports it (Windows, Linux's espeak, iOS 17 and later), else <see cref="VoiceGender.Unknown"/>.</param>
-    public sealed record SpeechVoice (string Id, string Name, string Locale, VoiceGender Gender);
+    /// <param name="RequiresNetwork">Whether the voice needs a connection to speak (some Android voices do), which an app that must speak offline can skip.</param>
+    public sealed record SpeechVoice (string Id, string Name, string Locale, VoiceGender Gender, bool RequiresNetwork = false);
 
     /// <summary>
     /// What a platform actually does the speaking. Internal so <see cref="Speech"/> is the only public surface; a test injects
