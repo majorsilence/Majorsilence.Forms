@@ -335,8 +335,11 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void OnPaintBackground (PaintEventArgs e)
         {
-            // The strip is a transparent overlay on a touch host: the page behind it shows through.
-            if (!TouchStyle)
+            // The strip is a transparent overlay on a touch host: the page behind it shows through. It is cleared rather than skipped,
+            // because the control repaints into the surface it painted last time, and a thumb that moved would leave a trail behind it.
+            if (TouchStyle)
+                e.Canvas.Clear ();
+            else
                 base.OnPaintBackground (e);
         }
 

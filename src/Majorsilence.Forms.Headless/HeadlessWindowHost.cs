@@ -108,6 +108,9 @@ namespace Majorsilence.Forms.Headless
             CustomCursorHotSpot = hotSpot;
         }
 
+        /// <summary>Whether this window reports itself as a single-view (touch) host, so a test can exercise the phone-shaped paths.</summary>
+        public bool IsSingleView { get; set; }
+
         // Records the framework's most recent on-screen-keyboard request. Headless has no keyboard to
         // show; this exists so a test can assert SoftKeyboardObserver drove the seam correctly.
         public bool TextInputActive { get; private set; }
