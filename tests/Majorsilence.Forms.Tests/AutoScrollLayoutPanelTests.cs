@@ -109,13 +109,15 @@ public class AutoScrollLayoutPanelTests
     {
         using var form = Show (Column (count: 30));
         var flow = (FlowLayoutPanel) form.Controls[0];
-        var tall = flow.VerticalScroll.Maximum;
+        // The scroll range is Maximum - LargeChange + 1 (the last offset), as upstream defines it.
+        var tall = flow.VerticalScroll.Maximum - flow.VerticalScroll.LargeChange + 1;
 
         flow.Height = 80;
         HeadlessRenderer.CapturePng (form);
 
+        var short_range = flow.VerticalScroll.Maximum - flow.VerticalScroll.LargeChange + 1;
         Assert.True (flow.VerticalScroll.Visible);
-        Assert.True (flow.VerticalScroll.Maximum > tall, $"short {flow.VerticalScroll.Maximum} should exceed tall {tall}");
+        Assert.True (short_range > tall, $"short {short_range} should exceed tall {tall}");
     }
 
     // The shape of a real reader screen: a flow panel docked to fill a page, with padding, filled after the form is showing by clearing and adding

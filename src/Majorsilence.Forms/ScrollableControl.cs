@@ -152,10 +152,10 @@ namespace Majorsilence.Forms
                 var y = value.Y;
 
                 if (hscrollbar.Visible)
-                    hscrollbar.Value = Math.Max (hscrollbar.Minimum, Math.Min (x, hscrollbar.Maximum));
+                    hscrollbar.Value = Math.Max (hscrollbar.Minimum, Math.Min (x, hscrollbar.EffectiveMaximum));
 
                 if (vscrollbar.Visible)
-                    vscrollbar.Value = Math.Max (vscrollbar.Minimum, Math.Min (y, vscrollbar.Maximum));
+                    vscrollbar.Value = Math.Max (vscrollbar.Minimum, Math.Min (y, vscrollbar.EffectiveMaximum));
             }
         }
 
@@ -437,7 +437,9 @@ namespace Majorsilence.Forms
             if (hscroll_visible) {
                 hscrollbar.LargeChange = right_edge;
                 hscrollbar.SmallChange = 5;
-                hscrollbar.Maximum = canvas.Width - client.Width + bar_size;
+                // The bar's own convention: the last offset is Maximum - LargeChange + 1. Setting Maximum to the last offset itself left
+                // the thumb with a range of (content - 2 x viewport), none for a page under two screens.
+                hscrollbar.Maximum = canvas.Width - client.Width + bar_size + hscrollbar.LargeChange - 1;
 
             } else {
                 if (hscrollbar.Visible)
@@ -449,7 +451,7 @@ namespace Majorsilence.Forms
             if (vscroll_visible) {
                 vscrollbar.LargeChange = bottom_edge;
                 vscrollbar.SmallChange = 5;
-                vscrollbar.Maximum = canvas.Height - client.Height + bar_size;
+                vscrollbar.Maximum = canvas.Height - client.Height + bar_size + vscrollbar.LargeChange - 1;
 
             } else {
                 if (vscrollbar.Visible)
