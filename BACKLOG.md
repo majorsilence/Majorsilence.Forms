@@ -1,5 +1,18 @@
 ﻿# Backlog
 
+## Performance (researched 2026-10-11)
+
+**Status: planned, nothing implemented yet.** Majorsilence.Reporting renders reports headlessly through
+this library on many threads, and its profile pointed here: `Graphics.MeasureCharacterRanges` was about
+20 % of CPU, mostly `FitRun` re-measuring every prefix of the text (O(n²)) and the Skia `Region` objects
+built per range. The plan is `docs/performance-plan.md`: ten session-sized tasks, starting with the
+`FitRun` fix (F1), a test that pins a suspected phantom-empty-line behaviour in `LayoutLines` (F2, to be
+decided before it is changed), a scaled-`SKFont` cache (F3), and then a small public measuring API (F4)
+that the Reporting engine will adopt. Also covered: `TextMeasurer` eviction and concurrent painting of
+shared cached blocks, duplicate typeface caches and uncached font substitution, image encoding, per-call
+paints and shaders, unsynchronised static caches, and a few UI paint/layout items. Every impact figure in
+the plan is an estimate until its benchmark is run.
+
 ## Behavioural gaps: the stub audit
 
 **The big one.** Both API-surface gap plans are at zero — every WinForms and GDI+ member that upstream

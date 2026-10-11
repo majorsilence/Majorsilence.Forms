@@ -320,6 +320,69 @@ namespace Majorsilence.Forms.Drawing
             return result;
         }
 
+        /// <summary>
+        /// Measures <paramref name="text"/> as a single unwrapped run, in the units of this surface, and returns
+        /// its width.
+        /// </summary>
+        /// <remarks>
+        /// This is the width <see cref="MeasureCharacterRanges"/> reports for one range covering the whole of a text
+        /// without line breaks (the same <c>SKFont.MeasureText</c> advances, so the same floats), without the
+        /// <see cref="Majorsilence.Forms.Drawing.Region"/>, <see cref="Majorsilence.Forms.Drawing.StringFormat"/> and
+        /// layout that come with it. It is not the width <c>MeasureString</c> returns: that goes through text
+        /// shaping and rounds the font size to a whole number. Text must not contain line breaks.
+        /// </remarks>
+        public float MeasureRunWidth (string text, Majorsilence.Forms.Drawing.Font font)
+        {
+            if (string.IsNullOrEmpty (text) || font is null)
+                return 0f;
+
+            return SkFontFor (font, out _).MeasureText (text.AsSpan ());
+        }
+
+        /// <summary>
+        /// Measures where character ranges of an unwrapped, single-line <paramref name="text"/> start and end, as
+        /// <see cref="MeasureCharacterRanges"/> would report them for a layout rectangle at x = 0 that is wide
+        /// enough not to wrap, but without creating a region per range.
+        /// </summary>
+        /// <param name="text">The text, without line breaks.</param>
+        /// <param name="font">The font to measure with.</param>
+        /// <param name="ranges">The ranges, as given to <see cref="Majorsilence.Forms.Drawing.StringFormat.SetMeasurableCharacterRanges"/>.</param>
+        /// <param name="result">Receives the left and right edge of each range, in the same order. At least as long as <paramref name="ranges"/>.</param>
+        /// <remarks>
+        /// A range outside the text, or empty, gets <c>(0, 0)</c>, as the empty region <see cref="MeasureCharacterRanges"/>
+        /// returns for it has zero bounds. Edges come from the same two <c>SKFont.MeasureText</c> calls as
+        /// <see cref="MeasureCharacterRanges"/> makes (the text before the range, and the range), so they are the same floats.
+        /// </remarks>
+        public void MeasureRunSpans (
+            string text,
+            Majorsilence.Forms.Drawing.Font font,
+            ReadOnlySpan<Majorsilence.Forms.Drawing.CharacterRange> ranges,
+            Span<(float Left, float Right)> result)
+        {
+            if (result.Length < ranges.Length)
+                throw new ArgumentException ("result must be at least as long as ranges.", nameof (result));
+
+            if (string.IsNullOrEmpty (text) || font is null) {
+                for (var i = 0; i < ranges.Length; i++)
+                    result[i] = (0f, 0f);
+                return;
+            }
+
+            var skFont = SkFontFor (font, out _);
+            for (var i = 0; i < ranges.Length; i++) {
+                var segStart = Math.Max (ranges[i].First, 0);
+                var segEnd = Math.Min (ranges[i].First + ranges[i].Length, text.Length);
+                if (segEnd <= segStart) {
+                    result[i] = (0f, 0f);
+                    continue;
+                }
+
+                var left = skFont.MeasureText (text.AsSpan (0, segStart));
+                var width = skFont.MeasureText (text.AsSpan (segStart, segEnd - segStart));
+                result[i] = (left, left + width);
+            }
+        }
+
         private static Majorsilence.Forms.Drawing.Region EmptyRegion ()
         {
             var region = new Majorsilence.Forms.Drawing.Region ();
@@ -332,7 +395,7 @@ namespace Majorsilence.Forms.Drawing
         /// word wrapping at <paramref name="maxWidth"/>. Each entry keeps its start index into the
         /// original string so character ranges can be mapped back onto it.
         /// </summary>
-        private static List<(int Start, int Length, int Index)> LayoutLines (string text, SKFont font, float maxWidth)
+        internal static List<(int Start, int Length, int Index)> LayoutLines (string text, SKFont font, float maxWidth)
         {
             var lines = new List<(int, int, int)> ();
             var lineIndex = 0;
@@ -372,23 +435,40 @@ namespace Majorsilence.Forms.Drawing
         /// <paramref name="maxWidth"/>, breaking on the last space that fits. Falls back to a hard
         /// character break when a single word is itself wider than the line.
         /// </summary>
-        private static int FitRun (string text, int start, int end, SKFont font, float maxWidth)
+        /// <remarks>
+        /// The width of a prefix never shrinks as it grows (the advances are not negative), so the first
+        /// character at which the prefix overflows can be found by measuring the whole run once and, only if
+        /// that overflows, by bisection. This used to measure every prefix in turn, which is quadratic in the
+        /// length of the text and, for a caller that wants no wrapping and passes a huge width, did all that
+        /// work to learn that everything fits. It reaches the same answer: every prefix it compares is measured
+        /// exactly as before, only fewer of them.
+        /// </remarks>
+        internal static int FitRun (string text, int start, int end, SKFont font, float maxWidth)
         {
             if (start >= end)
                 return 0;
 
-            var lastBreak = -1;
-            for (var i = start; i < end; i++) {
-                var width = font.MeasureText (text.AsSpan (start, i - start + 1));
-                if (width > maxWidth) {
-                    if (lastBreak >= 0)
-                        return lastBreak - start;        // break at the last space that fit
-                    return Math.Max (1, i - start);      // single over-long word: hard break
-                }
-                if (text[i] == ' ')
-                    lastBreak = i;
+            // Everything fits: the usual case for a table cell, and the only one when there is no wrapping.
+            if (font.MeasureText (text.AsSpan (start, end - start)) <= maxWidth)
+                return end - start;
+
+            // Smallest i in [start, end) whose prefix text[start..i] is wider than maxWidth. The full run
+            // overflows, so one exists; the last index is the fallback the loop below converges on.
+            var low = start;
+            var high = end - 1;
+            while (low < high) {
+                var mid = low + (high - low) / 2;
+                if (font.MeasureText (text.AsSpan (start, mid - start + 1)) > maxWidth)
+                    high = mid;
+                else
+                    low = mid + 1;
             }
-            return end - start;
+
+            // Every prefix before low fits, so the last space before it is the last one that fit.
+            var lastBreak = low > start ? text.LastIndexOf (' ', low - 1, low - start) : -1;
+            if (lastBreak >= 0)
+                return lastBreak - start;        // break at the last space that fit
+            return Math.Max (1, low - start);    // single over-long word: hard break
         }
 
         // --- Transform stubs ---
@@ -531,8 +611,10 @@ namespace Majorsilence.Forms.Drawing
                 return cached;
             }
 
-            owned = new SKFont (cached.Typeface, FontUnits (font)) { Edging = cached.Edging, Subpixel = cached.Subpixel, Hinting = cached.Hinting };
-            return owned;
+            // Kept with the Font (it used to be made, and disposed by every caller, on each call). Never owned by the
+            // caller: a caller that wants to change it makes its own copy, as the draw path does for TextPaint.
+            owned = null;
+            return font.GetScaledSKFont (FontUnits (font));
         }
 
         /// <summary>How many device pixels one unit of <see cref="PageUnit"/> covers, times <see cref="PageScale"/>.</summary>
