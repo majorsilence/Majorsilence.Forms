@@ -196,6 +196,30 @@ namespace Majorsilence.Forms.Drawing
             _ => Size,   // Pixel, World, Display
         };
 
+        SKFont? scaled_font;
+        float scaled_size;
+
+        /// <summary>
+        /// The SkiaSharp font at a different size (a surface whose resolution is not 96 DPI draws and measures at
+        /// <c>FontUnits</c>, not <see cref="PixelSize"/>), made once and kept with this font. It carries the cached
+        /// font's edging, subpixel and hinting, set again on every call, so a caller that changed them on an earlier
+        /// call gets them back. Owned by this font: do not dispose it. A new size replaces it without disposing the
+        /// old one, which may still be in use by an earlier caller; the finalizer collects it.
+        /// </summary>
+        internal SKFont GetScaledSKFont (float size)
+        {
+            var baseFont = GetSKFont ();
+            if (scaled_font is null || scaled_size != size) {
+                scaled_font = new SKFont (baseFont.Typeface, size);
+                scaled_size = size;
+            }
+
+            scaled_font.Edging = baseFont.Edging;
+            scaled_font.Subpixel = baseFont.Subpixel;
+            scaled_font.Hinting = baseFont.Hinting;
+            return scaled_font;
+        }
+
         // Lazily resolves and caches the SkiaSharp font.
         internal SKFont GetSKFont ()
         {
@@ -244,6 +268,8 @@ namespace Majorsilence.Forms.Drawing
         /// <inheritdoc/>
         public void Dispose ()
         {
+            scaled_font?.Dispose ();
+            scaled_font = null;
             font?.Dispose ();
             if (ownsTypeface)
                 typeface?.Dispose ();
