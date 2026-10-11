@@ -5,7 +5,11 @@
     /// </summary>
     public static class RenderManager
     {
-        private static readonly Dictionary<Type, Renderer> renderers = [];
+        // Read on every paint and changed by the public SetRenderer, so it is replaced as a whole (copy on write)
+        // and never modified once published: readers need no lock, and a SetRenderer on another thread cannot
+        // corrupt an enumeration in progress.
+        private static readonly object renderers_gate = new ();
+        private static volatile Dictionary<Type, Renderer> renderers = [];
 
         static RenderManager ()
         {
@@ -93,7 +97,9 @@
             if (renderer.Type != typeof (T))
                 throw new InvalidOperationException ($"Invalid renderer for type {typeof (T).FullName}");
 
-            renderers[typeof (T)] = renderer;
+            lock (renderers_gate) {
+                renderers = new Dictionary<Type, Renderer> (renderers) { [typeof (T)] = renderer };
+            }
         }
     }
 }

@@ -489,7 +489,8 @@ namespace Majorsilence.Forms
             ("RadControl", "the base of the Telerik controls"),
         };
 
-        private static Dictionary<Type, ThemeCssSelector>? selectors_by_type;
+        // Built in full before it is published; two threads that race build equal maps.
+        private static volatile Dictionary<Type, ThemeCssSelector>? selectors_by_type;
 
         private static Dictionary<Type, ThemeCssSelector> SelectorsByType ()
         {
