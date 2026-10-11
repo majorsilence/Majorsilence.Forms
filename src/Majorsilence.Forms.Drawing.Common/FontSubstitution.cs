@@ -30,6 +30,16 @@ namespace Majorsilence.Forms.Drawing
             ["Wingdings"]            = ["DejaVu Sans", "Liberation Sans", "Noto Sans"],
             ["Symbol"]               = ["DejaVu Sans", "Liberation Sans", "Noto Sans"],
 
+            // CSS-style generic names and the Windows shell font. Majorsilence.Forms asks for "sans-serif"
+            // as its UI family off Windows and expects the platform's font manager to map it; where there
+            // is no such mapping (browser-wasm) it must still land on a real face, not the font manager's
+            // single built-in one. Noto Sans first because that is what those platforms resolve it to.
+            ["sans-serif"]           = ["Noto Sans", "Liberation Sans", "DejaVu Sans"],
+            ["system-ui"]            = ["Noto Sans", "Liberation Sans", "DejaVu Sans"],
+            ["Segoe UI"]             = ["Noto Sans", "Liberation Sans", "DejaVu Sans"],
+            ["serif"]                = ["Noto Serif", "Liberation Serif", "DejaVu Serif"],
+            ["monospace"]            = ["Liberation Mono", "DejaVu Sans Mono", "Noto Sans Mono"],
+
             // Merged in from the Majorsilence.Forms-side substitution table during the drawing
             // consolidation: CJK and a few legacy Windows families this table was missing.
             ["Arial Narrow"]         = ["Liberation Sans Narrow", "FreeSans", "DejaVu Sans Condensed"],
@@ -121,8 +131,22 @@ namespace Majorsilence.Forms.Drawing
             return typeface ?? SKTypeface.Default;
         }
 
+        // The embedded table is keyed by the four shared SKFontStyle instances (StyleOf), and
+        // SKFontStyle compares by reference. A style built from a weight and slant (as Font's typeface
+        // cache does) is never one of them, so map it to the matching shared instance first.
+        private static SKFontStyle Canonical(SKFontStyle style)
+        {
+            bool bold = style.Weight >= (int)SKFontStyleWeight.SemiBold;
+            bool italic = style.Slant != SKFontStyleSlant.Upright;
+            if (bold && italic) return SKFontStyle.BoldItalic;
+            if (bold) return SKFontStyle.Bold;
+            if (italic) return SKFontStyle.Italic;
+            return SKFontStyle.Normal;
+        }
+
         private static SKTypeface? GetEmbedded(string familyName, SKFontStyle style)
         {
+            style = Canonical(style);
             if (_embedded.TryGetValue((familyName, style), out var exact))
                 return exact;
             // If the exact weight/slant isn't embedded, fall back to Regular so at least

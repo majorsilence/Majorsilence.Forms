@@ -58,10 +58,35 @@ namespace Majorsilence.Forms
 #if NETSTANDARD2_0
             // The GetOrAdd overload taking a factory-argument (to avoid a closure) is a .NET Core 2.1
             // addition; the closure allocation on a cache miss is negligible.
-            return _cache.GetOrAdd (key, _ => _inner.TypefaceFromStyle (style, ignoreFontVariants));
+            return _cache.GetOrAdd (key, _ => Resolve (_inner, style, ignoreFontVariants));
 #else
-            return _cache.GetOrAdd (key, static (_, ctx) => ctx.inner.TypefaceFromStyle (ctx.style, ctx.ignoreFontVariants), (inner: _inner, style, ignoreFontVariants));
+            return _cache.GetOrAdd (key, static (_, ctx) => Resolve (ctx.inner, ctx.style, ctx.ignoreFontVariants), (inner: _inner, style, ignoreFontVariants));
 #endif
+        }
+
+        // The inner mapper only asks the platform font manager. Where the requested family is not
+        // installed, that manager answers with whatever it likes -- on browser-wasm it has exactly one
+        // face ("Noto Mono"), so all text was laid out and drawn monospace with bold lost. When the
+        // answer is not the family asked for, try the same substitution Drawing.Common's own font
+        // lookup uses: a metric-compatible substitute, then the bundled fonts. If that finds nothing
+        // better it hands back the inner mapper's answer, so behaviour is unchanged for such families.
+        private static SKTypeface Resolve (FontMapper inner, IStyle style, bool ignoreFontVariants)
+        {
+            var typeface = inner.TypefaceFromStyle (style, ignoreFontVariants);
+            var family = style.FontFamily;
+
+            if (string.IsNullOrWhiteSpace (family)
+                || string.Equals (typeface.FamilyName, family.Trim (), System.StringComparison.OrdinalIgnoreCase))
+                return typeface;
+
+            var wanted = new SKFontStyle (
+                (SKFontStyleWeight)style.FontWeight,
+                style.FontWidth,
+                style.FontItalic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright);
+
+            var substitute = Drawing.FontSubstitution.Resolve (family, wanted);
+
+            return substitute is not null && !ReferenceEquals (substitute, typeface) ? substitute : typeface;
         }
 
         // Installs this mapper as RichTextKit's process-wide default. Idempotent -- safe to call

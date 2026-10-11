@@ -32,13 +32,19 @@ namespace Majorsilence.Forms.Drawing
         // that pick a face.
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Family, int Weight, int Slant), SKTypeface> s_typefaceCache = new ();
 
+        // The lookup goes through FontSubstitution rather than straight to the font manager: where the
+        // requested family is not installed it falls back to a metric-compatible substitute and then
+        // to the bundled fonts. Without that, a platform whose font manager answers every request
+        // with one face (browser-wasm only has "Noto Mono") draws everything in that face, bold lost.
         private static SKTypeface ResolveCachedTypeface (string family, SKFontStyle style)
             => s_typefaceCache.GetOrAdd (
                 (family ?? string.Empty, (int) style.Weight, (int) style.Slant),
-                static key => SKTypeface.FromFamilyName (
-                    key.Family.Length == 0 ? null : key.Family,
-                    new SKFontStyle (key.Weight, (int) SKFontStyleWidth.Normal, (SKFontStyleSlant) key.Slant))
-                    ?? SKTypeface.Default);
+                static key => {
+                    var keyStyle = new SKFontStyle (key.Weight, (int) SKFontStyleWidth.Normal, (SKFontStyleSlant) key.Slant);
+                    return key.Family.Length == 0
+                        ? SKTypeface.FromFamilyName (null, keyStyle) ?? SKTypeface.Default
+                        : FontSubstitution.Resolve (key.Family, keyStyle);
+                });
 
         /// <summary>Initializes a new instance of the Font class.</summary>
         public Font (string familyName, float size, bool bold = false, bool italic = false)

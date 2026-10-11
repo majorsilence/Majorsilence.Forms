@@ -29,6 +29,59 @@ namespace Majorsilence.Forms.Drawing.Common.Tests
             Assert.NotSame (regular.GetSKTypeface (), bold.GetSKTypeface ());
         }
 
+        // The cache must resolve through FontSubstitution (substitute table, then the bundled fonts),
+        // not ask the platform font manager directly. Where that manager answers every request with one
+        // face (browser-wasm only has "Noto Mono"), the direct query drew every font in that face and
+        // lost bold. Whatever this machine has installed, the Font must get what FontSubstitution picks.
+        [Theory]
+        [InlineData ("Arial", false)]
+        [InlineData ("Arial", true)]
+        [InlineData ("Times New Roman", false)]
+        [InlineData ("Times New Roman", true)]
+        [InlineData ("Courier New", true)]
+        [InlineData ("Calibri", false)]
+        public void Font_resolves_through_the_substitution_and_bundled_fonts (string family, bool bold)
+        {
+            var style = bold ? SkiaSharp.SKFontStyle.Bold : SkiaSharp.SKFontStyle.Normal;
+            var expected = FontSubstitution.Resolve (family, style);
+
+            using var font = new Font (family, 10f, bold: bold);
+
+            Assert.Equal (expected.FamilyName, font.GetSKTypeface ().FamilyName);
+            Assert.Equal (expected.FontWeight, font.GetSKTypeface ().FontWeight);
+        }
+
+        // The bundled fonts are keyed by shared SKFontStyle instances and SKFontStyle compares by
+        // reference, so a style built from a weight (what the cache and Font use) used to miss the exact
+        // bold face and get the Regular one instead.
+        [Theory]
+        [InlineData ("Liberation Sans")]
+        [InlineData ("Carlito")]
+        public void Bundled_bold_is_found_for_a_style_built_from_a_weight (string bundledFamily)
+        {
+            var built = new SkiaSharp.SKFontStyle (SkiaSharp.SKFontStyleWeight.Bold, SkiaSharp.SKFontStyleWidth.Normal, SkiaSharp.SKFontStyleSlant.Upright);
+
+            var face = FontSubstitution.Resolve (bundledFamily, built);
+
+            Assert.True (face.FontWeight >= (int) SkiaSharp.SKFontStyleWeight.SemiBold, $"{face.FamilyName} resolved at weight {face.FontWeight}");
+        }
+
+        // Majorsilence.Forms asks for "sans-serif" as its UI family off Windows. It has to be a family
+        // FontSubstitution knows, or a platform with no such mapping lands on its single built-in face.
+        [Theory]
+        [InlineData ("sans-serif")]
+        [InlineData ("serif")]
+        [InlineData ("monospace")]
+        [InlineData ("Segoe UI")]
+        public void Generic_and_shell_family_names_have_a_substitution (string family)
+        {
+            using var font = new Font (family, 10f);
+            var expected = FontSubstitution.Resolve (family, SkiaSharp.SKFontStyle.Normal);
+
+            Assert.Equal (expected.FamilyName, font.GetSKTypeface ().FamilyName);
+            Assert.False (string.IsNullOrEmpty (font.GetSKTypeface ().FamilyName));
+        }
+
         [Fact]
         public void Disposing_a_font_does_not_dispose_the_shared_typeface ()
         {

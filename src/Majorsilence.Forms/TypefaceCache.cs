@@ -51,10 +51,13 @@ namespace Majorsilence.Forms
         public static SKTypeface? Get (string? family, SKFontStyleWeight weight, SKFontStyleWidth width, SKFontStyleSlant slant)
             => cache.GetOrAdd (
                 (family ?? string.Empty, (int)weight, (int)width, (int)slant),
-                static key => SKTypeface.FromFamilyName (
-                    key.Family.Length == 0 ? null : key.Family,
-                    (SKFontStyleWeight)key.Weight,
-                    (SKFontStyleWidth)key.Width,
-                    (SKFontStyleSlant)key.Slant));
+                static key => key.Family.Length == 0
+                    ? SKTypeface.FromFamilyName (null, (SKFontStyleWeight)key.Weight, (SKFontStyleWidth)key.Width, (SKFontStyleSlant)key.Slant)
+                    // Through FontSubstitution, not straight to the font manager, so a family the platform
+                    // lacks gets a substitute or bundled face rather than the font manager's own default
+                    // (browser-wasm: its single monospace face).
+                    : Majorsilence.Forms.Drawing.FontSubstitution.Resolve (
+                        key.Family,
+                        new SKFontStyle (key.Weight, key.Width, (SKFontStyleSlant)key.Slant)));
     }
 }
