@@ -36,6 +36,13 @@ namespace Majorsilence.Forms
         private static readonly Dictionary<TextBlockKey, TextBlock> _textBlockCache = new (capacity: 512);
         private const int TBCacheLimit = 2000;
 
+        // Guards _textBlockCache. MeasureText is also called off the UI thread (report engines measure
+        // on whatever thread renders the report), and a plain Dictionary mutated by two threads is
+        // corrupted ("Operations that change non-concurrent collections must have exclusive access").
+        // Only the dictionary access is locked, not the layout, which is by far the expensive part;
+        // two threads that miss on the same key both lay it out and the last one stored wins.
+        private static readonly object _textBlockCacheLock = new ();
+
         internal static TextBlock CreateTextBlock (string text, SKTypeface font, int fontSize, Size maxSize, TextAlignment alignment = TextAlignment.Auto, SKColor color = new SKColor (), int? maxLines = null, bool ellipsis = false, int mnemonicIndex = -1, int rasterisation = -1)
         {
             // rasterisation keys the cache only. RichTextKit builds each run's SKTextBlob on the FIRST
@@ -50,8 +57,10 @@ namespace Majorsilence.Forms
 
             var key = new TextBlockKey (text, font, fontSize, maxSize.Width, maxSize.Height, alignment, (uint)color, maxLines ?? -1, ellipsis, mnemonicIndex, rasterisation);
 
-            if (_textBlockCache.TryGetValue (key, out var cached))
-                return cached;
+            lock (_textBlockCacheLock) {
+                if (_textBlockCache.TryGetValue (key, out var cached))
+                    return cached;
+            }
 
             var tb = new TextBlock {
                 MaxWidth = maxLines.GetValueOrDefault () == 1 ? (float?)null : maxSize.Width,
@@ -110,10 +119,13 @@ namespace Majorsilence.Forms
                     tb.MaxHeight *= 2;
             }
 
-            if (_textBlockCache.Count >= TBCacheLimit)
-                _textBlockCache.Clear ();
+            lock (_textBlockCacheLock) {
+                if (_textBlockCache.Count >= TBCacheLimit)
+                    _textBlockCache.Clear ();
 
-            _textBlockCache[key] = tb;
+                _textBlockCache[key] = tb;
+            }
+
             return tb;
         }
 
@@ -180,7 +192,11 @@ namespace Majorsilence.Forms
         /// Clears the TextBlock layout cache. Call when the theme changes so stale
         /// color/font entries are not reused.
         /// </summary>
-        internal static void ClearTextBlockCache () => _textBlockCache.Clear ();
+        internal static void ClearTextBlockCache ()
+        {
+            lock (_textBlockCacheLock)
+                _textBlockCache.Clear ();
+        }
 
         /// <summary>
         /// Finds the next word separator in the specified text.
