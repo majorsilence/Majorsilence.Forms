@@ -69,11 +69,15 @@ namespace Majorsilence.Forms
         // face ("Noto Mono"), so all text was laid out and drawn monospace with bold lost. When the
         // answer is not the family asked for, try the same substitution Drawing.Common's own font
         // lookup uses: a metric-compatible substitute, then the bundled fonts. If that finds nothing
-        // better it hands back the inner mapper's answer, so behaviour is unchanged for such families.
+        // better it hands back the inner mapper's answer.
         private static SKTypeface Resolve (FontMapper inner, IStyle style, bool ignoreFontVariants)
         {
             var typeface = inner.TypefaceFromStyle (style, ignoreFontVariants);
             var family = style.FontFamily;
+
+            // Only a platform with no fonts of its own needs this; elsewhere the inner mapper's answer stands.
+            if (Drawing.FontSubstitution.PlatformHasFonts)
+                return typeface;
 
             if (string.IsNullOrWhiteSpace (family)
                 || string.Equals (typeface.FamilyName, family.Trim (), System.StringComparison.OrdinalIgnoreCase))

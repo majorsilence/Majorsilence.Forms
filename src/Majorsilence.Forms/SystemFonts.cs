@@ -93,7 +93,7 @@ namespace Majorsilence.Forms
         // GetEffectiveFont() (Control.cs) calls this on every ambient-font resolution that
         // reaches the root of the parent chain.
         private static readonly SKTypeface _defaultTypeface =
-            Majorsilence.Forms.Drawing.FontSubstitution.Resolve (_defaultFontFamily, SKFontStyle.Normal);
+            Majorsilence.Forms.Drawing.FontSubstitution.ResolveWhereNoSystemFonts (_defaultFontFamily, SKFontStyle.Normal);
 
         /// <summary>Gets the default font as an SKTypeface (for internal Majorsilence.Forms use).</summary>
         internal static SKTypeface DefaultTypeface => _defaultTypeface;

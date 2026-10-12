@@ -368,7 +368,7 @@ namespace Majorsilence.Forms
 
             return string.IsNullOrEmpty (family)
                 ? SKTypeface.FromFamilyName (family, weight, width, slant)
-                : Majorsilence.Forms.Drawing.FontSubstitution.Resolve (family, new SKFontStyle (weight, width, slant));
+                : Majorsilence.Forms.Drawing.FontSubstitution.ResolveWhereNoSystemFonts (family, new SKFontStyle (weight, width, slant));
         }
 
         private static T ParseEnumAttribute<T> (XElement element, string attribute, T fallback, string property)

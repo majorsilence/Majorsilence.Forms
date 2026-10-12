@@ -54,6 +54,28 @@ namespace Majorsilence.Forms.Drawing
             ["Microsoft YaHei"]      = ["Noto Sans CJK SC", "WenQuanYi Micro Hei", "Noto Sans"],
         };
 
+        // Generic and shell family names a platform maps itself; see Resolve.
+        private static readonly HashSet<string> PlatformMapped = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "sans-serif", "system-ui", "serif", "monospace", "Segoe UI",
+        };
+
+        // A font manager with at most one family (browser-wasm: "Noto Mono") has nothing to map names to.
+        private static readonly Lazy<bool> _platformHasFonts = new(() => SKFontManager.Default.FontFamilyCount > 1);
+
+        internal static bool PlatformHasFonts => _platformHasFonts.Value;
+
+        /// <summary>
+        /// Resolves through <see cref="Resolve"/> only on a platform with no fonts of its own (browser-wasm); anywhere
+        /// else it is the platform's own answer, exactly as a direct <c>SKTypeface.FromFamilyName</c> call gives.
+        /// For callers that predate the substitution table and whose desktop behaviour (and tests) depend on the
+        /// platform's mapping of a missing family.
+        /// </summary>
+        internal static SKTypeface ResolveWhereNoSystemFonts(string familyName, SKFontStyle style)
+            => PlatformHasFonts
+                ? SKTypeface.FromFamilyName(familyName, style) ?? SKTypeface.Default
+                : Resolve(familyName, style);
+
         // Fonts loaded from embedded resources, keyed by (FamilyName, SKFontStyle).
         private static readonly Dictionary<(string, SKFontStyle), SKTypeface> _embedded;
         // Held to prevent GC of the underlying native buffers.
@@ -102,6 +124,13 @@ namespace Majorsilence.Forms.Drawing
         /// </summary>
         public static SKTypeface Resolve(string familyName, SKFontStyle style)
         {
+            // Names the platform's own font manager maps ("sans-serif", the shell font). Where the platform
+            // has real fonts its answer is the right one and callers (the theme's font-family matching, the
+            // ambient default font) depend on it being a family the system really has, so leave it alone.
+            // Only a platform with no fonts to map to (browser-wasm) needs the bundled ones.
+            if (PlatformMapped.Contains(familyName.Trim()) && PlatformHasFonts)
+                return SKTypeface.FromFamilyName(familyName, style) ?? SKTypeface.Default;
+
             // 1. Try system font — if it actually matched, use it.
             var typeface = SKTypeface.FromFamilyName(familyName, style);
             if (IsMatch(typeface, familyName))

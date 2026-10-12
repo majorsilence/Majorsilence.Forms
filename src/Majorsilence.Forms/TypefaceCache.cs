@@ -56,7 +56,7 @@ namespace Majorsilence.Forms
                     // Through FontSubstitution, not straight to the font manager, so a family the platform
                     // lacks gets a substitute or bundled face rather than the font manager's own default
                     // (browser-wasm: its single monospace face).
-                    : Majorsilence.Forms.Drawing.FontSubstitution.Resolve (
+                    : Majorsilence.Forms.Drawing.FontSubstitution.ResolveWhereNoSystemFonts (
                         key.Family,
                         new SKFontStyle (key.Weight, key.Width, (SKFontStyleSlant)key.Slant)));
     }
