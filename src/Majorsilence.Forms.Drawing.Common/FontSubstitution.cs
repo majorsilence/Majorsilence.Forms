@@ -30,6 +30,16 @@ namespace Majorsilence.Forms.Drawing
             ["Wingdings"]            = ["DejaVu Sans", "Liberation Sans", "Noto Sans"],
             ["Symbol"]               = ["DejaVu Sans", "Liberation Sans", "Noto Sans"],
 
+            // CSS-style generic names and the Windows shell font. Majorsilence.Forms asks for "sans-serif"
+            // as its UI family off Windows and expects the platform's font manager to map it; where there
+            // is no such mapping (browser-wasm) it must still land on a real face, not the font manager's
+            // single built-in one. Noto Sans first because that is what those platforms resolve it to.
+            ["sans-serif"]           = ["Noto Sans", "Liberation Sans", "DejaVu Sans"],
+            ["system-ui"]            = ["Noto Sans", "Liberation Sans", "DejaVu Sans"],
+            ["Segoe UI"]             = ["Noto Sans", "Liberation Sans", "DejaVu Sans"],
+            ["serif"]                = ["Noto Serif", "Liberation Serif", "DejaVu Serif"],
+            ["monospace"]            = ["Liberation Mono", "DejaVu Sans Mono", "Noto Sans Mono"],
+
             // Merged in from the Majorsilence.Forms-side substitution table during the drawing
             // consolidation: CJK and a few legacy Windows families this table was missing.
             ["Arial Narrow"]         = ["Liberation Sans Narrow", "FreeSans", "DejaVu Sans Condensed"],
@@ -43,6 +53,28 @@ namespace Majorsilence.Forms.Drawing
             ["SimHei"]               = ["Noto Sans CJK SC", "WenQuanYi Zen Hei", "Noto Sans"],
             ["Microsoft YaHei"]      = ["Noto Sans CJK SC", "WenQuanYi Micro Hei", "Noto Sans"],
         };
+
+        // Generic and shell family names a platform maps itself; see Resolve.
+        private static readonly HashSet<string> PlatformMapped = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "sans-serif", "system-ui", "serif", "monospace", "Segoe UI",
+        };
+
+        // A font manager with at most one family (browser-wasm: "Noto Mono") has nothing to map names to.
+        private static readonly Lazy<bool> _platformHasFonts = new(() => SKFontManager.Default.FontFamilyCount > 1);
+
+        internal static bool PlatformHasFonts => _platformHasFonts.Value;
+
+        /// <summary>
+        /// Resolves through <see cref="Resolve"/> only on a platform with no fonts of its own (browser-wasm); anywhere
+        /// else it is the platform's own answer, exactly as a direct <c>SKTypeface.FromFamilyName</c> call gives.
+        /// For callers that predate the substitution table and whose desktop behaviour (and tests) depend on the
+        /// platform's mapping of a missing family.
+        /// </summary>
+        internal static SKTypeface ResolveWhereNoSystemFonts(string familyName, SKFontStyle style)
+            => PlatformHasFonts
+                ? SKTypeface.FromFamilyName(familyName, style) ?? SKTypeface.Default
+                : Resolve(familyName, style);
 
         // Fonts loaded from embedded resources, keyed by (FamilyName, SKFontStyle).
         private static readonly Dictionary<(string, SKFontStyle), SKTypeface> _embedded;
@@ -92,6 +124,13 @@ namespace Majorsilence.Forms.Drawing
         /// </summary>
         public static SKTypeface Resolve(string familyName, SKFontStyle style)
         {
+            // Names the platform's own font manager maps ("sans-serif", the shell font). Where the platform
+            // has real fonts its answer is the right one and callers (the theme's font-family matching, the
+            // ambient default font) depend on it being a family the system really has, so leave it alone.
+            // Only a platform with no fonts to map to (browser-wasm) needs the bundled ones.
+            if (PlatformMapped.Contains(familyName.Trim()) && PlatformHasFonts)
+                return SKTypeface.FromFamilyName(familyName, style) ?? SKTypeface.Default;
+
             // 1. Try system font — if it actually matched, use it.
             var typeface = SKTypeface.FromFamilyName(familyName, style);
             if (IsMatch(typeface, familyName))
@@ -121,8 +160,22 @@ namespace Majorsilence.Forms.Drawing
             return typeface ?? SKTypeface.Default;
         }
 
+        // The embedded table is keyed by the four shared SKFontStyle instances (StyleOf), and
+        // SKFontStyle compares by reference. A style built from a weight and slant (as Font's typeface
+        // cache does) is never one of them, so map it to the matching shared instance first.
+        private static SKFontStyle Canonical(SKFontStyle style)
+        {
+            bool bold = style.Weight >= (int)SKFontStyleWeight.SemiBold;
+            bool italic = style.Slant != SKFontStyleSlant.Upright;
+            if (bold && italic) return SKFontStyle.BoldItalic;
+            if (bold) return SKFontStyle.Bold;
+            if (italic) return SKFontStyle.Italic;
+            return SKFontStyle.Normal;
+        }
+
         private static SKTypeface? GetEmbedded(string familyName, SKFontStyle style)
         {
+            style = Canonical(style);
             if (_embedded.TryGetValue((familyName, style), out var exact))
                 return exact;
             // If the exact weight/slant isn't embedded, fall back to Regular so at least

@@ -26,8 +26,10 @@ namespace Majorsilence.Forms
         // The font defaults every built-in theme shares. Created once (typeface lookup is not free) and
         // re-applied by SetBuiltInTheme, so switching to a built-in theme also undoes a custom theme's
         // fonts and sizes -- otherwise a CSS theme's --font-size would leak into the next theme.
-        private static readonly SKTypeface default_ui_font = SKTypeface.FromFamilyName (_uiFontFamily, SKFontStyleWeight.Normal, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
-        private static readonly SKTypeface default_ui_font_bold = SKTypeface.FromFamilyName (_uiFontFamily, SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
+        // A platform with no fonts to map "sans-serif" to (browser-wasm has one built-in face, a monospace
+        // one) gets a bundled face; anywhere else it is the platform font manager's answer, as before.
+        private static readonly SKTypeface default_ui_font = Majorsilence.Forms.Drawing.FontSubstitution.ResolveWhereNoSystemFonts (_uiFontFamily, SKFontStyle.Normal);
+        private static readonly SKTypeface default_ui_font_bold = Majorsilence.Forms.Drawing.FontSubstitution.ResolveWhereNoSystemFonts (_uiFontFamily, SKFontStyle.Bold);
         private const int default_font_size = 14;
         private const int default_item_font_size = 12;
 
