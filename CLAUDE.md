@@ -50,7 +50,7 @@ A new library project meant for consumers (not a sample/test/internal tool) must
    csproj as a template, including its Windows-only-placeholder pattern if applicable.
 2. Be added to the `PACKABLE_PROJECTS` (cross-platform), `PACKABLE_PROJECTS_WINDOWS`
    (`net*-windows` / `UseWindowsForms`/`UseWPF`) or `PACKABLE_PROJECTS_MACOS` (carries a `net10.0-ios` row,
-   so only a macOS runner can pack it; `Majorsilence.Forms.Essentials` is the one today) list in **all three** places that enumerate them by
+   so only a macOS runner can pack it; `Majorsilence.Forms.Essentials` and `Majorsilence.Forms.Avalonia` today) list in **all three** places that enumerate them by
    hand: the `pack` job matrix in `.github/workflows/dotnet.yml`, and the top-level env block in both
    `.github/workflows/release.yml` and `.github/workflows/publish-nuget.yml`. Each already says "keep
    in sync" in a comment for exactly this reason — miss one and the package either builds in CI but

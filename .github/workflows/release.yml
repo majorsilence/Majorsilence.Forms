@@ -55,7 +55,6 @@ env:
   # Keep this in sync with PACKABLE_PROJECTS in publish-nuget.yml and dotnet.yml (the `pack` job).
   PACKABLE_PROJECTS: >-
     src/Majorsilence.Forms/Majorsilence.Forms.csproj
-    src/Majorsilence.Forms.Avalonia/Majorsilence.Forms.Avalonia.csproj
     src/Majorsilence.Forms.Theming.Avalonia/Majorsilence.Forms.Theming.Avalonia.csproj
     src/Majorsilence.Forms.Headless/Majorsilence.Forms.Headless.csproj
     src/Majorsilence.Forms.Terminal/Majorsilence.Forms.Terminal.csproj
@@ -79,11 +78,14 @@ env:
     src/Majorsilence.Forms.WindowsUIAutomation/Majorsilence.Forms.WindowsUIAutomation.csproj
     src/Majorsilence.Forms.Theming.WinForms/Majorsilence.Forms.Theming.WinForms.csproj
   # Packages that need a macOS runner because they carry a net10.0-ios row (Apple's toolchain is a hard
-  # requirement). Majorsilence.Forms.Essentials ships android + ios + desktop in ONE package, so it is
-  # packed here with both workloads, and deliberately not in PACKABLE_PROJECTS above (two packs of
-  # the same id would collide on nuget.org). Keep in sync with the other two workflows.
+  # requirement). Majorsilence.Forms.Essentials and Majorsilence.Forms.Avalonia each ship android + ios +
+  # desktop (+ browser, for Avalonia) in ONE package, so they are packed here with both workloads, and
+  # deliberately not in PACKABLE_PROJECTS above (two packs of the same id would collide on nuget.org).
+  # Packing Avalonia on Linux shipped every release without its net10.0-ios asset, so an iOS head
+  # silently got the desktop build. Keep in sync with the other two workflows.
   PACKABLE_PROJECTS_MACOS: >-
     src/Majorsilence.Forms.Essentials/Majorsilence.Forms.Essentials.csproj
+    src/Majorsilence.Forms.Avalonia/Majorsilence.Forms.Avalonia.csproj
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -117,11 +119,10 @@ jobs:
           echo "Resolved version: '${VERSION:-(from csproj)}'"
 
   # ---------------------------------------------------------------------------
-  # Pack the NuGet packages. Platform-agnostic, so a single runner is enough --
-  # it just needs the `android` workload installed, since Majorsilence.Forms.Avalonia
-  # is packed with EnableAndroidTarget=true below to include a net10.0-android asset
-  # (that TFM's reference assemblies are required just to compile, same reason CI's
-  # separate `android` job in dotnet.yml needs the workload).
+  # Pack the NuGet packages. Platform-agnostic, so a single runner is enough.
+  # Majorsilence.Forms.Avalonia (android + ios + browser + desktop rows) packs in the macOS
+  # job instead; the `android` workload stays installed here because
+  # Majorsilence.Forms.Theming.Avalonia builds against it.
   # ---------------------------------------------------------------------------
   pack:
     needs: version
@@ -157,18 +158,10 @@ jobs:
           set -euo pipefail
           for proj in $PACKABLE_PROJECTS; do
             echo "::group::pack $proj"
-            # Majorsilence.Forms.Avalonia's net10.0-android TFM row is opt-in (see that csproj's
-            # TargetFrameworks comment) so a plain `dotnet build`/`dotnet pack` elsewhere never needs
-            # the android workload; the released package still needs to include it, so it's the one
-            # project here packed with EnableAndroidTarget=true.
-            extra_args=""
-            if [[ "$proj" == *Majorsilence.Forms.Avalonia.csproj ]]; then
-              extra_args="-p:EnableAndroidTarget=true"
-            fi
             dotnet pack "$proj" \
               --configuration Release \
               --output "${{ github.workspace }}/nupkg" \
-              ${{ steps.args.outputs.version_arg }} $extra_args
+              ${{ steps.args.outputs.version_arg }}
             echo "::endgroup::"
           done
 
@@ -193,7 +186,7 @@ jobs:
   # ---------------------------------------------------------------------------
   # Pack the packages that carry a net10.0-ios row. iOS only compiles on macOS, so these cannot
   # be packed by the Linux `pack` job. Not continue-on-error: a release must fail loudly rather
-  # than quietly ship Majorsilence.Forms.Essentials without its iOS (or Android) asset.
+  # than quietly ship Essentials or Avalonia without its iOS (or Android) asset.
   # ---------------------------------------------------------------------------
   pack-macos:
     needs: version
@@ -213,7 +206,7 @@ jobs:
       # Pinned to workload set 10.0.401 (iOS 26.5.10318), same as the ios job in dotnet.yml: set 10.0.401.1
       # brought .NET for iOS 27.0, which refuses to build without Xcode 27, and the macos runner image
       # still ships Xcode 26.6. Drop the pin when that job's does. android and ios go in together so
-      # the one Essentials package carries both rows.
+      # the Essentials and Avalonia packages carry both rows.
       - name: Install android and ios workloads
         run: dotnet workload install android ios --version 10.0.401
 
