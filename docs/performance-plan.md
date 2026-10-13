@@ -21,7 +21,7 @@ more briefly at the end. The Reporting side of the same work is in that reposito
 | F4 `MeasureRunWidth` / `MeasureRunSpans` | done: 4.2 us / 728 B -> 0.84 us / 0 B per 20-char cell | #471 |
 | Benchmarks in the solution, Dry smoke run and allocation gate in CI | done | this round, phase 0 |
 | F6 `TextMeasurer` | done. (b) two-generation cache: a working set of 1000 strings among a stream of new ones goes from 2.85 us / 1645 B to 2.06 us / 1046 B per measurement. (c) one `IndexOfAny` before the `Replace` calls: a single-line cache hit goes from 68 to 46 ns. (d) painting one cached block on 8 threads at once is safe, pinned by `TextBlockConcurrentPaintTests`. (a) not done: colour is part of the block's `Style`, so a painted block cannot answer for another colour, and measure-only calls already share one key (colour 0) | round 2 |
-| F11 unshaped measuring without Skia's lock | new, see section A | round 2 |
+| F11 unshaped measuring without Skia's lock | done: `MeasureRunWidth` on 8 threads 3.12 ms -> 0.030 ms (500 measurements each); one 20-character cell 0.84 us -> 19 ns; `MeasureRunSpans` over 13 words 23 us -> 0.36 us; same floats, bit for bit (`AdvanceTableParityTests`) | round 2 |
 | F7 fonts and startup | see section B | |
 | F9 static state | `TextMeasurer` cache lock #470; `RenderManager`, `ThemeCssReference` #472; the rest see section D | |
 | F5, F8, F10 | see sections A, C, E | |

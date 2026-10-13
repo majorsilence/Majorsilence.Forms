@@ -218,12 +218,32 @@ namespace Majorsilence.Forms.Drawing
             if (scaled_font is null || scaled_size != size) {
                 scaled_font = new SKFont (baseFont.Typeface, size);
                 scaled_size = size;
+                scaled_advances = null;
             }
 
             scaled_font.Edging = baseFont.Edging;
             scaled_font.Subpixel = baseFont.Subpixel;
             scaled_font.Hinting = baseFont.Hinting;
             return scaled_font;
+        }
+
+        Text.AdvanceTable? base_advances;
+        Text.AdvanceTable? scaled_advances;
+
+        /// <summary>
+        /// <paramref name="skFont"/> (this font's <see cref="GetSKFont"/> or <see cref="GetScaledSKFont"/>) with its
+        /// advance table, kept here so measuring a run does not look the table up each time. A plain field is enough:
+        /// a table is immutable, and two threads that race to set it set the same shared table.
+        /// </summary>
+        internal Text.RunFont GetRunFont (SKFont skFont)
+        {
+            if (ReferenceEquals (skFont, font))
+                return new Text.RunFont (skFont, base_advances ??= Text.AdvanceTable.For (skFont, typeface));
+
+            if (ReferenceEquals (skFont, scaled_font))
+                return new Text.RunFont (skFont, scaled_advances ??= Text.AdvanceTable.For (skFont, typeface));
+
+            return skFont;
         }
 
         // Lazily resolves and caches the SkiaSharp font.
@@ -276,6 +296,8 @@ namespace Majorsilence.Forms.Drawing
         {
             scaled_font?.Dispose ();
             scaled_font = null;
+            base_advances = null;
+            scaled_advances = null;
             font?.Dispose ();
             if (ownsTypeface)
                 typeface?.Dispose ();

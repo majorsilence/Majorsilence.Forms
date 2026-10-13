@@ -293,9 +293,10 @@ namespace Majorsilence.Forms.Drawing
 
             var skFont = SkFontFor (font, out var ownedFont);
             using var owned_font = ownedFont;
+            var runFont = font.GetRunFont (skFont);
             var metrics = skFont.Metrics;
             var lineHeight = metrics.Descent - metrics.Ascent;
-            var lines = LayoutLines (text, skFont, layoutRect.Width);
+            var lines = LayoutLines (text, runFont, layoutRect.Width);
 
             for (var i = 0; i < ranges.Length; i++) {
                 var region = EmptyRegion ();
@@ -309,8 +310,8 @@ namespace Majorsilence.Forms.Drawing
                     if (segEnd <= segStart)
                         continue;
 
-                    var x = layoutRect.X + skFont.MeasureText (text.AsSpan (start, segStart - start));
-                    var width = skFont.MeasureText (text.AsSpan (segStart, segEnd - segStart));
+                    var x = layoutRect.X + runFont.Measure (text.AsSpan (start, segStart - start));
+                    var width = runFont.Measure (text.AsSpan (segStart, segEnd - segStart));
                     region.Union (new RectangleF (x, layoutRect.Y + index * lineHeight, width, lineHeight));
                 }
 
@@ -336,7 +337,7 @@ namespace Majorsilence.Forms.Drawing
             if (string.IsNullOrEmpty (text) || font is null)
                 return 0f;
 
-            return SkFontFor (font, out _).MeasureText (text.AsSpan ());
+            return font.GetRunFont (SkFontFor (font, out _)).Measure (text.AsSpan ());
         }
 
         /// <summary>
@@ -368,7 +369,7 @@ namespace Majorsilence.Forms.Drawing
                 return;
             }
 
-            var skFont = SkFontFor (font, out _);
+            var runFont = font.GetRunFont (SkFontFor (font, out _));
             for (var i = 0; i < ranges.Length; i++) {
                 var segStart = Math.Max (ranges[i].First, 0);
                 var segEnd = Math.Min (ranges[i].First + ranges[i].Length, text.Length);
@@ -377,8 +378,8 @@ namespace Majorsilence.Forms.Drawing
                     continue;
                 }
 
-                var left = skFont.MeasureText (text.AsSpan (0, segStart));
-                var width = skFont.MeasureText (text.AsSpan (segStart, segEnd - segStart));
+                var left = runFont.Measure (text.AsSpan (0, segStart));
+                var width = runFont.Measure (text.AsSpan (segStart, segEnd - segStart));
                 result[i] = (left, left + width);
             }
         }
@@ -395,7 +396,7 @@ namespace Majorsilence.Forms.Drawing
         /// word wrapping at <paramref name="maxWidth"/>. Each entry keeps its start index into the
         /// original string so character ranges can be mapped back onto it.
         /// </summary>
-        internal static List<(int Start, int Length, int Index)> LayoutLines (string text, SKFont font, float maxWidth)
+        internal static List<(int Start, int Length, int Index)> LayoutLines (string text, Majorsilence.Forms.Drawing.Text.RunFont font, float maxWidth)
         {
             var lines = new List<(int, int, int)> ();
             var lineIndex = 0;
@@ -443,13 +444,13 @@ namespace Majorsilence.Forms.Drawing
         /// work to learn that everything fits. It reaches the same answer: every prefix it compares is measured
         /// exactly as before, only fewer of them.
         /// </remarks>
-        internal static int FitRun (string text, int start, int end, SKFont font, float maxWidth)
+        internal static int FitRun (string text, int start, int end, Majorsilence.Forms.Drawing.Text.RunFont font, float maxWidth)
         {
             if (start >= end)
                 return 0;
 
             // Everything fits: the usual case for a table cell, and the only one when there is no wrapping.
-            if (font.MeasureText (text.AsSpan (start, end - start)) <= maxWidth)
+            if (font.Measure (text.AsSpan (start, end - start)) <= maxWidth)
                 return end - start;
 
             // Smallest i in [start, end) whose prefix text[start..i] is wider than maxWidth. The full run
@@ -458,7 +459,7 @@ namespace Majorsilence.Forms.Drawing
             var high = end - 1;
             while (low < high) {
                 var mid = low + (high - low) / 2;
-                if (font.MeasureText (text.AsSpan (start, mid - start + 1)) > maxWidth)
+                if (font.Measure (text.AsSpan (start, mid - start + 1)) > maxWidth)
                     high = mid;
                 else
                     low = mid + 1;
