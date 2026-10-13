@@ -1564,31 +1564,25 @@ namespace Majorsilence.Forms
                 return left0;
 
             var column = Columns[columnIndex];
+            var x = column.Frozen ? left0
+                : column.PinnedRight ? client.Right - RightPinnedColumnsWidth
+                : left0 + FrozenColumnsWidth - horizontal_scroll_offset;
 
             // "Before" is in DISPLAY order (W6 mechanisms): a column moved by DisplayIndex takes its
-            // place among the others, whatever its index in the collection.
-            var before = DisplayOrder.TakeWhile (i => i != columnIndex).Select (i => Columns[i]);
+            // place among the others, whatever its index in the collection. DisplayOrder's order is by
+            // DisplayIndex, ties by index; only which columns come first matters for a sum of widths, so
+            // each is tested directly. Sorting the columns into a new list for every cell painted was a
+            // tenth of a DataGridView scroll repaint (DataGridViewScrollBenchmarks).
+            var display_index = column.DisplayIndex;
+            for (var i = 0; i < Columns.Count; i++) {
+                var other = Columns[i];
+                if (!other.Visible || other.DisplayIndex > display_index || (other.DisplayIndex == display_index && i >= columnIndex))
+                    continue;
 
-            if (column.Frozen) {
-                var fx = left0;
-                foreach (var other in before)
-                    if (other.Visible && other.Frozen)
-                        fx += LogicalToDeviceUnits (other.Width);
-                return fx;
-            }
-
-            if (column.PinnedRight) {
-                var rx = client.Right - RightPinnedColumnsWidth;
-                foreach (var other in before)
-                    if (other.Visible && other.PinnedRight)
-                        rx += LogicalToDeviceUnits (other.Width);
-                return rx;
-            }
-
-            var x = left0 + FrozenColumnsWidth - horizontal_scroll_offset;
-            foreach (var other in before)
-                if (other.Visible && !other.Frozen && !other.PinnedRight)
+                if (column.Frozen ? other.Frozen : column.PinnedRight ? other.PinnedRight : !other.Frozen && !other.PinnedRight)
                     x += LogicalToDeviceUnits (other.Width);
+            }
+
             return x;
         }
 

@@ -2320,11 +2320,7 @@ namespace Majorsilence.Forms.Drawing
 
         /// <summary>Draws a line using a Majorsilence.Forms.Drawing.Pen.</summary>
         public void DrawLine (Majorsilence.Forms.Drawing.Pen pen, Point p1, Point p2)
-        {
-            if (_canvas is null) return;
-            using var paint = RentStrokePaint (pen);
-            _canvas.DrawLine (p1.X, p1.Y, p2.X, p2.Y, paint);
-        }
+            => DrawLine (pen, (PointF)p1, (PointF)p2);   // Skia takes floats either way; one place for the rectangle path
 
         /// <summary>Draws a line using a Majorsilence.Forms.Drawing.Pen.</summary>
         public void DrawLine (Majorsilence.Forms.Drawing.Pen pen, int x1, int y1, int x2, int y2)
@@ -2334,7 +2330,20 @@ namespace Majorsilence.Forms.Drawing
         public void DrawLine (Majorsilence.Forms.Drawing.Pen pen, PointF p1, PointF p2)
         {
             if (_canvas is null) return;
-            using var paint = RentStrokePaint (pen);
+            using var handle = RentStrokePaint (pen);
+            SKPaint paint = handle;
+
+            // A plain pen (solid, flat caps, solid colour) on a horizontal or vertical line, without antialiasing: the
+            // rectangle the stroke covers, filled, is the same pixels in a quarter of the time (see
+            // SkiaExtensions.TryLineAsRect). Report engines draw every cell border this way. The pooled paint is
+            // set back to Stroke on its next rent.
+            if (!Antialias && IsPooledPen (pen)
+                && SkiaExtensions.TryLineAsRect (_canvas, p1.X, p1.Y, p2.X, p2.Y, paint.StrokeWidth, out var rect)) {
+                paint.Style = SKPaintStyle.Fill;
+                _canvas.DrawRect (rect, paint);
+                return;
+            }
+
             _canvas.DrawLine (p1.X, p1.Y, p2.X, p2.Y, paint);
         }
 
@@ -3244,6 +3253,14 @@ namespace Majorsilence.Forms.Drawing
         internal void DrawLine (SKColor color, Point p1, Point p2)
         {
             if (_canvas is null) return;
+
+            // A horizontal or vertical line as the rectangle it covers: the same pixels, a quarter of the time
+            // (see SkiaExtensions.TryLineAsRect).
+            if (SkiaExtensions.TryLineAsRect (_canvas, p1.X, p1.Y, p2.X, p2.Y, 1, out var rect)) {
+                _canvas.DrawRect (rect, PlainPaint (color, SKPaintStyle.Fill));
+                return;
+            }
+
             _canvas.DrawLine (p1.X, p1.Y, p2.X, p2.Y, PlainPaint (color, SKPaintStyle.Stroke));
         }
 
