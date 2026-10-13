@@ -9,7 +9,8 @@ namespace Majorsilence.Forms.Tests
     // AdvanceTable measures unshaped runs by adding up per-character advances in managed code, so report threads do
     // not queue on Skia's glyph-cache mutex (performance plan F11). MeasureCharacterRanges, MeasureRunWidth and
     // word wrap use it, and their results must not move by a single bit: this compares it with SKFont.MeasureText,
-    // the oracle, over every substring of a corpus in a spread of faces, sizes and rasterisation settings.
+    // the oracle, over every substring of a corpus in a spread of faces, sizes and rasterisation settings, Latin-1
+    // and the pages past it alike.
     public class AdvanceTableParityTests
     {
         private static readonly string[] corpus = [
@@ -18,8 +19,12 @@ namespace Majorsilence.Forms.Tests
             "0123456789 +-*/=()[]{}<>.,;:!?'\"@#$%^&_|\\~`",
             "Ça été déjà vu: ½ ü ß Ø ÿ ñ « » ¿ ©",
             "tab\there nul\0 del\u007f nbsp shy­end",
-            "mixed — “quoted” € naïve",           // past U+00FF: falls back to Skia for the run
-            "emoji 😀 surrogate pair",
+            "mixed — “quoted” € naïve",           // past U+00FF: pages built on first use (F13)
+            "Zażółć gęślą jaźń, Příliš žluťoučký kůň",
+            "Τριμηνιαία αποτελέσματα Квартальные результаты",
+            "ﬁ ﬂ \ufeff \u200b ‰ ™ → ∑ ≤ ￼ \uffff",  // ligature code points, zero-width, specials, a non-character
+            "שלום مرحبا 中文 한국어",               // characters the face may not have: glyph 0's advance, as in Skia
+            "emoji 😀 surrogate pair",            // a surrogate: Skia measures the whole run
             "WWWWWiiiiilllll     ....",
             "",
         ];
@@ -67,6 +72,32 @@ namespace Majorsilence.Forms.Tests
                         }
                     }
                 }
+            }
+        }
+
+        // Pages past U+00FF are built by whichever thread needs them first, with no lock.
+        [Fact]
+        public void Threads_building_pages_at_once_all_get_Skia_s_widths ()
+        {
+            var texts = new[] { corpus[5], corpus[6], corpus[7], corpus[8], corpus[9] };
+            for (var round = 0; round < 20; round++) {
+                // A size no other test uses, so every page starts unbuilt.
+                var size = 17.25f + round / 64f;
+                using var font = new SKFont (SKTypeface.Default, size) { Subpixel = true };
+                var expected = Array.ConvertAll (texts, t => font.MeasureText (t));
+                var wrong = new System.Collections.Concurrent.ConcurrentBag<string> ();
+
+                System.Threading.Tasks.Parallel.For (0, 8, new System.Threading.Tasks.ParallelOptions { MaxDegreeOfParallelism = 8 }, t => {
+                    using var own = new SKFont (SKTypeface.Default, size) { Subpixel = true };
+                    RunFont runFont = own;
+                    for (var i = 0; i < texts.Length; i++) {
+                        var k = (i + t) % texts.Length;
+                        if (BitConverter.SingleToInt32Bits (runFont.Measure (texts[k])) != BitConverter.SingleToInt32Bits (expected[k]))
+                            wrong.Add (texts[k]);
+                    }
+                });
+
+                Assert.Empty (wrong);
             }
         }
 

@@ -24,6 +24,14 @@ public class ConcurrentMeasureBenchmarks
         "Total",
     ];
 
+    // Text past U+00FF: Polish, Czech, Greek and Cyrillic cells, and typographic punctuation.
+    private static readonly string[] extendedTexts = [
+        "Zażółć gęślą jaźń, łódź",
+        "Příliš žluťoučký kůň úpěl",
+        "Τριμηνιαία αποτελέσματα",
+        "Квартальные результаты — “итого”",
+    ];
+
     // More distinct strings than TextMeasurer's two cache generations hold (2000), cycled through, so every
     // measurement misses the cache and lays the text out: what a report full of different values does.
     private const int DistinctTexts = 5000;
@@ -93,6 +101,9 @@ public class ConcurrentMeasureBenchmarks
 
     [Benchmark]
     public void MeasureRunWidth () => Run ((g, font, _, text) => g.MeasureRunWidth (text, font));
+
+    [Benchmark]
+    public void MeasureRunWidthExtended () => Run ((g, font, _, text) => g.MeasureRunWidth (extendedTexts[text.Length & 3], font));
 
     [Benchmark]
     public void MeasureCharacterRanges () => Run ((g, font, format, text) => {
