@@ -1,0 +1,52 @@
+# Managed bytes allocated per operation by the benchmarks tagged [BenchmarkCategory ("AllocGate")].
+#
+# CI fails when one allocates more than this plus the larger of 5 % and 64 B (see AllocationGate.cs).
+# Recorded on Linux, the leg CI gates on: font and fallback paths can allocate differently elsewhere.
+#
+# Regenerate with: dotnet run -c Release --project benchmarks/Majorsilence.Forms.Benchmarks -- --alloc-gate --write
+# (or MAJORSILENCE_WRITE_ALLOC_BASELINE=1). Do not hand-edit.
+
+BitmapFillBenchmarks.LockBits(Size=256): 1312572 B
+BitmapFillBenchmarks.LockBits(Size=512): 5246464 B
+BitmapFillBenchmarks.LockBits(Size=860): 14797122 B
+BitmapFillBenchmarks.SetPixel(Size=256): 12582912 B
+BitmapFillBenchmarks.SetPixel(Size=512): 50334336 B
+BitmapFillBenchmarks.SetPixel(Size=860): 142006176 B
+DrawingBenchmarks.DrawLine: 73 B
+DrawingBenchmarks.DrawString: 360010 B
+DrawingBenchmarks.FillPolygon: 80009 B
+DrawingBenchmarks.FillRectangle: 2 B
+LayoutBenchmarks.AnchoredLayoutPass(ChildCount=10): 17267 B
+LayoutBenchmarks.AnchoredLayoutPass(ChildCount=100): 159276 B
+LayoutBenchmarks.AnchoredLayoutPass(ChildCount=1000): 1579337 B
+LayoutBenchmarks.AnchoredLayoutPass(ChildCount=10000): 15691484 B
+LayoutBenchmarks.AnchoredLayoutPass(ChildCount=5000): 7827944 B
+LayoutBenchmarks.DockedLayoutPass(ChildCount=10): 2001 B
+LayoutBenchmarks.DockedLayoutPass(ChildCount=100): 17131 B
+LayoutBenchmarks.DockedLayoutPass(ChildCount=1000): 168411 B
+LayoutBenchmarks.DockedLayoutPass(ChildCount=10000): 1681488 B
+LayoutBenchmarks.DockedLayoutPass(ChildCount=5000): 840904 B
+PaintConstructionBenchmarks.AllocateFreshPaint: 88001 B
+PaintConstructionBenchmarks.DrawRectWithFreshPaint: 88006 B
+PaintConstructionBenchmarks.DrawRectWithPooledPaint: 3 B
+PaintConstructionBenchmarks.ReconfigurePooledPaint: 0 B
+TextMeasureBenchmarks.MeasureStringForComparison(Text=Customer number 4821, Dpi=300): 176 B
+TextMeasureBenchmarks.MeasureStringForComparison(Text=Customer number 4821, Dpi=96): 176 B
+TextMeasureBenchmarks.MeasureStringForComparison(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 440 B
+TextMeasureBenchmarks.MeasureStringForComparison(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 440 B
+TextMeasureBenchmarks.WidthViaMeasureRunWidth(Text=Customer number 4821, Dpi=300): 0 B
+TextMeasureBenchmarks.WidthViaMeasureRunWidth(Text=Customer number 4821, Dpi=96): 0 B
+TextMeasureBenchmarks.WidthViaMeasureRunWidth(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 0 B
+TextMeasureBenchmarks.WidthViaMeasureRunWidth(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 0 B
+TextMeasureBenchmarks.WidthViaRegions(Text=Customer number 4821, Dpi=300): 728 B
+TextMeasureBenchmarks.WidthViaRegions(Text=Customer number 4821, Dpi=96): 728 B
+TextMeasureBenchmarks.WidthViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 728 B
+TextMeasureBenchmarks.WidthViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 728 B
+TextMeasureBenchmarks.WordsViaMeasureRunSpans(Text=Customer number 4821, Dpi=300): 0 B
+TextMeasureBenchmarks.WordsViaMeasureRunSpans(Text=Customer number 4821, Dpi=96): 0 B
+TextMeasureBenchmarks.WordsViaMeasureRunSpans(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 0 B
+TextMeasureBenchmarks.WordsViaMeasureRunSpans(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 0 B
+TextMeasureBenchmarks.WordsViaRegions(Text=Customer number 4821, Dpi=300): 1896 B
+TextMeasureBenchmarks.WordsViaRegions(Text=Customer number 4821, Dpi=96): 1896 B
+TextMeasureBenchmarks.WordsViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 7152 B
+TextMeasureBenchmarks.WordsViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 7152 B

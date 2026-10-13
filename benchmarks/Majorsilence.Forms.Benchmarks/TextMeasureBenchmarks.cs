@@ -10,6 +10,7 @@ namespace Majorsilence.Forms.Benchmarks;
 // single line, and sometimes the start and end of every word. MeasureCharacterRanges lays the text out and builds
 // a Region per range; MeasureRunWidth / MeasureRunSpans make the same two SKFont.MeasureText calls without that.
 [MemoryDiagnoser]
+[BenchmarkCategory (AllocationGate.Category)]
 public class TextMeasureBenchmarks
 {
     private Bitmap bitmap = null!;

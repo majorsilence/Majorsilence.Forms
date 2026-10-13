@@ -277,6 +277,41 @@ jobs:
           if-no-files-found: ignore
 
   # .NET Framework (net472) consumer smoke test.
+  # Benchmarks: a smoke run and the allocation regression gate.
+  #
+  # benchmarks/Majorsilence.Forms.Benchmarks is in the solution, so the `build` job already compiles it;
+  # this job proves every benchmark still RUNS (BenchmarkDotNet's Dry job: one invocation each, no
+  # statistics) and then runs the allocation gate: the benchmarks tagged [BenchmarkCategory ("AllocGate")]
+  # must not allocate more per operation than benchmarks/Majorsilence.Forms.Benchmarks/AllocationBaseline.txt
+  # records (see AllocationGate.cs). Allocated bytes are the same run to run; timings are not, and are never
+  # gated here -- benchmarks.yml runs the full suite on demand for those. Linux only: the baseline is recorded
+  # on Linux, and font paths can allocate differently on other OSes.
+  benchmarks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      # The same fonts the test job installs, so text benchmarks resolve the faces they do there.
+      - name: Install CJK and emoji fonts
+        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk fonts-noto-color-emoji
+
+      - name: Build
+        run: dotnet build benchmarks/Majorsilence.Forms.Benchmarks --configuration Release
+
+      - name: Smoke-run every benchmark (Dry job)
+        run: dotnet run --configuration Release --no-build --project benchmarks/Majorsilence.Forms.Benchmarks -- --filter '*' --job dry
+
+      - name: Allocation gate
+        run: dotnet run --configuration Release --no-build --project benchmarks/Majorsilence.Forms.Benchmarks -- --alloc-gate
+
   #
   # Majorsilence.Forms / Majorsilence.Forms.Telerik now also ship a netstandard2.0 target so classic
   # .NET Framework 4.7.2+ apps can consume the core. tests/Majorsilence.Forms.NetFxSmoke is a net472

@@ -2,7 +2,7 @@
 
 ## Performance (researched 2026-10-11)
 
-**Status: planned, nothing implemented yet.** Majorsilence.Reporting renders reports headlessly through
+**Status: F1–F4 done (#471), part of F9 (#470, #472); benchmarks are in the solution and CI runs an allocation gate. The rest is in progress.** Majorsilence.Reporting renders reports headlessly through
 this library on many threads, and its profile pointed here: `Graphics.MeasureCharacterRanges` was about
 20 % of CPU, mostly `FitRun` re-measuring every prefix of the text (O(n²)) and the Skia `Region` objects
 built per range. The plan is `docs/performance-plan.md`: ten session-sized tasks, starting with the

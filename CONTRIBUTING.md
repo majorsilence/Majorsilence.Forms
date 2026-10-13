@@ -180,6 +180,24 @@ zero and should stay there.
 dotnet run --project tools/Majorsilence.Forms.ApiDiff -- --surface winforms --check
 ```
 
+The **allocation gate** guards performance work. The benchmarks in
+[`benchmarks/Majorsilence.Forms.Benchmarks`](benchmarks/Majorsilence.Forms.Benchmarks) that are tagged
+`[BenchmarkCategory ("AllocGate")]` must not allocate more managed bytes per operation than
+`AllocationBaseline.txt` beside them records, plus the larger of 5 % and 64 B. Allocated bytes are the
+same from run to run; timings are not, so timings are never gated. CI's `benchmarks` job runs it on
+Linux, where the baseline is recorded, after a Dry smoke run of every benchmark. It takes about four
+minutes:
+
+```bash
+dotnet run -c Release --project benchmarks/Majorsilence.Forms.Benchmarks -- --alloc-gate          # check
+dotnet run -c Release --project benchmarks/Majorsilence.Forms.Benchmarks -- --alloc-gate --write  # regenerate
+```
+
+Add `--filter '*TextMeasure*'` to check, or rewrite the lines of, only some benchmarks. Regenerate when a change makes a gated benchmark allocate less (the gate prints a notice), so the gain
+cannot be lost again. A rise that is intended also needs a regenerate, with the reason in the commit
+message. Full timing runs are local (`-- --filter '*TextMeasure*'`) or the manual `Benchmarks`
+workflow. [`docs/performance-plan.md`](docs/performance-plan.md) has the method.
+
 ### Diagnosing a rendering fault
 
 Render to a PNG on the headless backend rather than launching a GUI: `HeadlessRenderer.Use ()`,

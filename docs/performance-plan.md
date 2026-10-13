@@ -1,25 +1,43 @@
 # Performance and optimization plan
 
-**Researched 2026-10-11** by reading `Majorsilence.Forms` and `Majorsilence.Forms.Drawing.Common` with the
-Reporting engine's server-side use in mind. **Nothing here is measured yet**: every impact figure is an
-estimate from reading code, and every task below starts by measuring and ends by re-measuring.
+**Researched 2026-10-11** by reading `Majorsilence.Forms` and `Majorsilence.Forms.Drawing.Common`, with
+the Reporting engine's server-side use in mind. Impact figures in the findings tables are estimates from
+reading code. Measured numbers appear in the status table and in each task's commit message.
 
-Majorsilence.Reporting renders reports headlessly through this library, on many threads at once, one
+Majorsilence.Reporting renders reports headlessly through this library, on many threads at once, with one
 `Graphics`/`Font` per thread. Its profile (WorldFacts PDF, 66 ms before its own optimisation work) put
-`Graphics.MeasureCharacterRanges` at about 20 % of CPU and its allocation profile pointed at the
+`Graphics.MeasureCharacterRanges` at about 20 % of CPU, and its allocation profile pointed at the
 `ValueTuple<int,int,int>[]` that `LayoutLines` returns. That is the priority; the UI side is covered
 more briefly at the end. The Reporting side of the same work is in that repository's
 `docs/performance/` and its plan; the cross-repository dependency is spelled out in "Order".
 
+## Status
+
+| Task | State | Where |
+|---|---|---|
+| F1 `FitRun` in O(n) | done | #471 |
+| F2 pin the phantom empty line | done (pinned, not changed) | #471, `LayoutLinesPinTests` |
+| F3 cache the scaled `SKFont` | done | #471, `Font.GetScaledSKFont` |
+| F4 `MeasureRunWidth` / `MeasureRunSpans` | done: 4.2 us / 728 B -> 0.84 us / 0 B per 20-char cell | #471 |
+| Benchmarks in the solution, Dry smoke run and allocation gate in CI | done | this round, phase 0 |
+| F6 `TextMeasurer` | see section A | |
+| F7 fonts and startup | see section B | |
+| F9 static state | `TextMeasurer` cache lock #470; `RenderManager`, `ThemeCssReference` #472; the rest see section D | |
+| F5, F8, F10 | see sections A, C, E | |
+
 ## Method
 
-- Benchmarks live in `benchmarks/Majorsilence.Forms.Benchmarks` (BenchmarkDotNet, `[MemoryDiagnoser]`).
-  Run one class with
+- Benchmarks live in `benchmarks/Majorsilence.Forms.Benchmarks` (BenchmarkDotNet, `[MemoryDiagnoser]`),
+  which is in the solution, so `dotnet build` compiles it. Run one class with
   `dotnet run -c Release --project benchmarks/Majorsilence.Forms.Benchmarks -- --filter '*TextMeasure*' --job short`.
-  There is no CI job that runs them; results are local (`BenchmarkDotNet.Artifacts/` is ignored).
-  Existing: `DrawingBenchmarks`, `BitmapFillBenchmarks`, `LayoutBenchmarks`, `PaintBenchmarks`,
-  `PaintConstructionBenchmarks`. **Missing, and added by the tasks below:** text measurement, image
-  encode, graphics allocation, startup, threading.
+  Local results go to `BenchmarkDotNet.Artifacts/`, which is ignored. The manual `Benchmarks` workflow
+  (`.github/workflows/benchmarks.yml`) runs a filter on a CI machine and uploads the results.
+- **CI** (`benchmarks` job in `dotnet.yml`, Linux) runs every benchmark once with the Dry job, so a
+  broken benchmark fails the PR, and then runs the **allocation gate**. Benchmarks tagged
+  `[BenchmarkCategory ("AllocGate")]` must not allocate more managed bytes per operation than
+  `AllocationBaseline.txt` records, plus the larger of 5 % and 64 B. The gate prints a notice when one
+  allocates less. Regenerate with `-- --alloc-gate --write` to lock the gain in. Tag a new benchmark
+  only after two runs give the same number. Timings are never gated.
 - Allocated bytes are exact and comparable between runs; timings are not (battery, background load).
   Compare allocation first.
 - Public API: `tools/Majorsilence.Forms.ApiDiff` only reports upstream members that are missing or have

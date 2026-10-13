@@ -1,0 +1,53 @@
+name: Benchmarks
+
+# Full BenchmarkDotNet runs on demand, so timings come from one consistent kind of machine rather than a
+# laptop on battery. Results (markdown, CSV, JSON, HTML) are uploaded as the `benchmark-results` artifact.
+# The per-PR smoke run and allocation gate are the `benchmarks` job in dotnet.yml; docs/performance-plan.md
+# describes how the numbers are used.
+
+on:
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: "BenchmarkDotNet --filter glob, e.g. '*TextMeasure*'"
+        required: false
+        default: "*"
+      job:
+        description: "BenchmarkDotNet --job (default, short, medium, long)"
+        required: false
+        default: "default"
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Install CJK and emoji fonts
+        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk fonts-noto-color-emoji
+
+      - name: Run benchmarks
+        env:
+          FILTER: ${{ inputs.filter }}
+          JOB: ${{ inputs.job }}
+        run: dotnet run --configuration Release --project benchmarks/Majorsilence.Forms.Benchmarks -- --filter "$FILTER" --job "$JOB"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: BenchmarkDotNet.Artifacts/
