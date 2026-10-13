@@ -1,17 +1,18 @@
 ﻿# Backlog
 
-## Performance (researched 2026-10-11)
+## Performance (researched 2026-10-11, round 2 done 2026-10-13)
 
-**Status: F1–F4 done (#471), part of F9 (#470, #472); benchmarks are in the solution and CI runs an allocation gate. The rest is in progress.** Majorsilence.Reporting renders reports headlessly through
-this library on many threads, and its profile pointed here: `Graphics.MeasureCharacterRanges` was about
-20 % of CPU, mostly `FitRun` re-measuring every prefix of the text (O(n²)) and the Skia `Region` objects
-built per range. The plan is `docs/performance-plan.md`: ten session-sized tasks, starting with the
-`FitRun` fix (F1), a test that pins a suspected phantom-empty-line behaviour in `LayoutLines` (F2, to be
-decided before it is changed), a scaled-`SKFont` cache (F3), and then a small public measuring API (F4)
-that the Reporting engine will adopt. Also covered: `TextMeasurer` eviction and concurrent painting of
-shared cached blocks, duplicate typeface caches and uncached font substitution, image encoding, per-call
-paints and shaders, unsynchronised static caches, and a few UI paint/layout items. Every impact figure in
-the plan is an estimate until its benchmark is run.
+**Status: F1–F11 done, some in part; the status table in `docs/performance-plan.md` records what was
+measured and what was left, with reasons.** Majorsilence.Reporting renders reports headlessly through this
+library on many threads, and its profile pointed at `Graphics.MeasureCharacterRanges`. Round 2 put the
+benchmarks in the solution, added a Dry smoke run and an allocation regression gate to CI, and measured
+before changing anything. That turned up causes the plan had not guessed: Skia's process-wide glyph-cache
+lock (eight measuring threads ran slower than one; unshaped runs are now summed from a shared advance
+table, bit-identical), a `FontSubstitution.Resolve` that asked fontconfig on every call (17 ms per
+`FontFamily` metric), an enum validator that reflected on every read (90 % of a docked layout pass), and
+hidden scroll bars that were re-laid out on every resize. Left open: cold start (125 ms for the first
+headless `MeasureString`, mostly native initialisation), `DrawString`'s allocation inside RichTextKit, and
+per-fill gradient shaders.
 
 ## Behavioural gaps: the stub audit
 
