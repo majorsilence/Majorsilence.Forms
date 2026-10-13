@@ -92,7 +92,22 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>Gets or sets the fill color.</summary>
-        public Color Color { get; set; }
+        /// <exception cref="System.ArgumentException">The brush is one of the shared <see cref="Brushes"/>, which cannot be changed.</exception>
+        public Color Color {
+            get => color;
+            set {
+                // Brushes and SystemBrushes share one instance per colour across the process and every thread; GDI+
+                // makes them immutable (dotnet/winforms, System.Drawing.SolidBrush's _immutable). A clone is mutable.
+                if (immutable)
+                    throw new System.ArgumentException ("Changes cannot be made to Brush because permissions are not valid.");
+                color = value;
+            }
+        }
+
+        private Color color;
+        private bool immutable;
+
+        internal static SolidBrush CreateImmutable (Color color) => new (color) { immutable = true };
 
         /// <inheritdoc/>
 #if NETSTANDARD2_0

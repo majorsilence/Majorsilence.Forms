@@ -164,7 +164,7 @@ namespace Majorsilence.Forms
     {
         private static readonly ConcurrentDictionary<Color, Pen> cache = new ();
 
-        private static Pen Get (Color color) => cache.GetOrAdd (color, static c => new Pen (c));
+        private static Pen Get (Color color) => cache.GetOrAdd (color, static c => Pen.CreateImmutable (c));
 
         /// <summary>Gets a cached pen for an arbitrary system color.</summary>
         public static Pen FromSystemColor (Color c) => Get (c);
@@ -252,7 +252,7 @@ namespace Majorsilence.Forms
     {
         private static readonly ConcurrentDictionary<Color, SolidBrush> cache = new ();
 
-        private static SolidBrush Get (Color color) => cache.GetOrAdd (color, static c => new SolidBrush (c));
+        private static SolidBrush Get (Color color) => cache.GetOrAdd (color, static c => SolidBrush.CreateImmutable (c));
 
         /// <summary>Gets a cached brush for an arbitrary system color.</summary>
         public static SolidBrush FromSystemColor (Color c) => Get (c);

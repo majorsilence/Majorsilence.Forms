@@ -107,6 +107,7 @@ namespace Majorsilence.Forms.Drawing
             }
         }
 
+        // A plain Dictionary, so every access holds gate (checked for thread safety, performance plan F9).
         private static readonly Dictionary<Image, AnimationState> animated = [];
         private static readonly object gate = new ();
         private static readonly Stopwatch stopwatch = Stopwatch.StartNew ();
