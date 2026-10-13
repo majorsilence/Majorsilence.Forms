@@ -54,6 +54,7 @@
          exists to hide. Granting the consuming assemblies access keeps the published surface clean.
          Same pattern Majorsilence.Forms.csproj already uses for its own backends. -->
     <InternalsVisibleTo Include="Majorsilence.Forms" />
+    <InternalsVisibleTo Include="Majorsilence.Forms.Benchmarks" />
     <InternalsVisibleTo Include="Majorsilence.Forms.Tests" />
     <InternalsVisibleTo Include="Majorsilence.Forms.Drawing.Common.Tests" />
   </ItemGroup>

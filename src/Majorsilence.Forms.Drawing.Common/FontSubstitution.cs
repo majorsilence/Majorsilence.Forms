@@ -124,6 +124,31 @@ namespace Majorsilence.Forms.Drawing
         /// </summary>
         public static SKTypeface Resolve(string familyName, SKFontStyle style)
         {
+            // Every uncached call asks the platform font manager (fontconfig on Linux) for the family and then for
+            // each substitute: about 8 ms a call, paid by every FontFamily metric, IsStyleAvailable and
+            // GraphicsPath.AddString (FontBenchmarks). The answer for a name and style does not change while the
+            // process runs, and the typefaces handed out were already shared (callers must not dispose them).
+            // Bounded crudely: past the limit the map is dropped and refilled.
+            var key = (familyName ?? string.Empty, style.Weight, style.Width, (int)style.Slant);
+            if (_resolved.TryGetValue(key, out var cached))
+                return cached;
+
+            System.Threading.Interlocked.Increment(ref _uncachedResolves);
+            var typeface = ResolveUncached(key.Item1, style);
+            if (_resolved.Count >= ResolvedLimit)
+                _resolved.Clear();
+            return _resolved.GetOrAdd(key, typeface);
+        }
+
+        // For tests: how many lookups have gone to the platform font manager.
+        private static int _uncachedResolves;
+        internal static int UncachedResolves => System.Threading.Volatile.Read(ref _uncachedResolves);
+
+        private const int ResolvedLimit = 512;
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string, int, int, int), SKTypeface> _resolved = new();
+
+        private static SKTypeface ResolveUncached(string familyName, SKFontStyle style)
+        {
             // Names the platform's own font manager maps ("sans-serif", the shell font). Where the platform
             // has real fonts its answer is the right one and callers (the theme's font-family matching, the
             // ambient default font) depend on it being a family the system really has, so leave it alone.

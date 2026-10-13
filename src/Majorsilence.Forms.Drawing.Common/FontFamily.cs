@@ -80,15 +80,27 @@ namespace Majorsilence.Forms.Drawing
         // a 1.0 em, so measuring at exactly DesignUnitsPerEm converts in one step.
         private const int DesignUnitsPerEm = 2048;
 
+        // Metrics depend only on the family name and the bold/italic bits, and a report asks for them for every
+        // line of text, so they are kept process-wide (a FontFamily is often made afresh per use: Font.FontFamily).
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string, FontStyle), SkiaSharp.SKFontMetrics> metrics_cache = new ();
+
         private SkiaSharp.SKFontMetrics MetricsFor (FontStyle style)
         {
+            var key = (Name, style & (FontStyle.Bold | FontStyle.Italic));
+            if (metrics_cache.TryGetValue (key, out var cached))
+                return cached;
+
             var typeface = FontSubstitution.Resolve (Name, new SkiaSharp.SKFontStyle (
                 (style & FontStyle.Bold) != 0 ? SkiaSharp.SKFontStyleWeight.Bold : SkiaSharp.SKFontStyleWeight.Normal,
                 SkiaSharp.SKFontStyleWidth.Normal,
                 (style & FontStyle.Italic) != 0 ? SkiaSharp.SKFontStyleSlant.Italic : SkiaSharp.SKFontStyleSlant.Upright));
 
             using var font = new SkiaSharp.SKFont (typeface, DesignUnitsPerEm);
-            return font.Metrics;
+            var metrics = font.Metrics;
+            if (metrics_cache.Count >= 512)
+                metrics_cache.Clear ();
+            metrics_cache[key] = metrics;
+            return metrics;
         }
 
         /// <summary>Returns the em height, in design units, of this family in the specified style.</summary>

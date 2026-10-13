@@ -123,7 +123,10 @@ namespace Majorsilence.Forms.Drawing
         public bool GdiVerticalFont => false;
 
         /// <summary>Gets the font family.</summary>
-        public FontFamily FontFamily => new FontFamily (FamilyName);
+        public FontFamily FontFamily => font_family ??= new FontFamily (FamilyName);
+
+        // FontFamily is immutable and its Dispose does nothing, so one instance serves every access.
+        FontFamily? font_family;
 
         /// <summary>Gets the em size of the font in the unit specified by <see cref="Unit"/>.</summary>
         public float Size { get; }

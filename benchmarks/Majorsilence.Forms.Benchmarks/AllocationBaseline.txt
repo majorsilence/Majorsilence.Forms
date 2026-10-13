@@ -16,6 +16,12 @@ DrawingBenchmarks.DrawLine: 73 B
 DrawingBenchmarks.DrawString: 360010 B
 DrawingBenchmarks.FillPolygon: 80009 B
 DrawingBenchmarks.FillRectangle: 2 B
+FontBenchmarks.FamilyMetrics: 0 B
+FontBenchmarks.FamilyMetricsUnknownFamily: 0 B
+FontBenchmarks.IsStyleAvailable: 240 B
+FontBenchmarks.NewFont: 288 B
+FontBenchmarks.NewFontUnknownFamily: 288 B
+FontBenchmarks.PathAddString: 632 B
 LayoutBenchmarks.AnchoredLayoutPass(ChildCount=10): 17267 B
 LayoutBenchmarks.AnchoredLayoutPass(ChildCount=100): 159276 B
 LayoutBenchmarks.AnchoredLayoutPass(ChildCount=1000): 1579337 B
