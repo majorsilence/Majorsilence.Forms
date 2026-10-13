@@ -11,7 +11,7 @@ namespace Majorsilence.Forms.Drawing
         private static readonly ConcurrentDictionary<string, Brush> cache = new ();
 
         private static Brush Get (Color color) =>
-            cache.GetOrAdd (color.Name, _ => new SolidBrush (color));
+            cache.GetOrAdd (color.Name, _ => SolidBrush.CreateImmutable (color));
 
         /// <summary>Gets a brush for the color Transparent.</summary>
         public static Brush Transparent => Get (Color.Transparent);

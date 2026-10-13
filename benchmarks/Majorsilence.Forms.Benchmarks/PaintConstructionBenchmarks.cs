@@ -9,6 +9,7 @@ namespace Majorsilence.Forms.Benchmarks;
 // construction is a small fraction of a real draw call's cost, pooling ~40 call sites for a
 // "fresh, caller-owned" API isn't worth the risk; if it's a large fraction, it is.
 [MemoryDiagnoser]
+[BenchmarkCategory (AllocationGate.Category)]
 public class PaintConstructionBenchmarks
 {
     private const int Iterations = 1000;

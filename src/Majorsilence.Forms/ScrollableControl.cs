@@ -398,8 +398,9 @@ namespace Majorsilence.Forms
             var hscroll_visible = false;
             var vscroll_visible = false;
 
-            // A finger needs a wider strip than a mouse pointer to hit and drag the thumb.
-            var bar_size = FindForm () is { IsSingleViewHost: true } ? 22 : 15;
+            // A finger needs a wider strip than a mouse pointer to hit and drag the thumb. Without AutoScroll no bar
+            // is shown, so the size is never used and the walk up to the form is skipped.
+            var bar_size = auto_scroll && FindForm () is { IsSingleViewHost: true } ? 22 : 15;
 
             do {
                 prev_right_edge = right_edge;
@@ -429,9 +430,11 @@ namespace Majorsilence.Forms
             HScroll = hscroll_visible;
             VScroll = vscroll_visible;
 
-            if (!vscroll_visible)
+            // Only when not already 0: the setter recomputes the thumb's position on the track every time, which is
+            // pointless for a hidden bar that stays at 0 (it is placed again, thumb included, when shown).
+            if (!vscroll_visible && vscrollbar.Value != 0)
                 vscrollbar.Value = 0;
-            if (!hscroll_visible)
+            if (!hscroll_visible && hscrollbar.Value != 0)
                 hscrollbar.Value = 0;
 
             if (hscroll_visible) {
@@ -467,14 +470,20 @@ namespace Majorsilence.Forms
 
             var sizegrip_visible = hscroll_visible && vscroll_visible;
 
+            // Only a bar that is shown is placed: it is placed before it is made visible, so it never shows at stale
+            // bounds. Placing hidden ones too made every resize of every Panel (AutoScroll off, bars never shown)
+            // recompute both bars' track and thumb geometry -- most of an anchored layout pass (LayoutBenchmarks).
             // The bar spans the WIDTH (CTL-12: it took the control's height when there was no size grip).
-            hscrollbar.SetBounds (0, client.Height - bar_size, sizegrip_visible ? Bounds.Width - bar_size : Bounds.Width, bar_size);
+            if (hscroll_visible)
+                hscrollbar.SetBounds (0, client.Height - bar_size, sizegrip_visible ? Bounds.Width - bar_size : Bounds.Width, bar_size);
             hscrollbar.Visible = hscroll_visible;
 
-            vscrollbar.SetBounds (client.Width - bar_size, 0, bar_size, sizegrip_visible ? Bounds.Height - bar_size : Bounds.Height);
+            if (vscroll_visible)
+                vscrollbar.SetBounds (client.Width - bar_size, 0, bar_size, sizegrip_visible ? Bounds.Height - bar_size : Bounds.Height);
             vscrollbar.Visible = vscroll_visible;
 
-            sizegrip.SetBounds (client.Width - bar_size, client.Height - bar_size, bar_size, bar_size);
+            if (sizegrip_visible)
+                sizegrip.SetBounds (client.Width - bar_size, client.Height - bar_size, bar_size, bar_size);
             sizegrip.Visible = sizegrip_visible;
 
             ResumeLayout (doLayout);

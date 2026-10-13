@@ -11,6 +11,7 @@ namespace Majorsilence.Forms.Benchmarks;
 // compares it against Bitmap.LockBits' bulk buffer write for the same total pixel count, to put a
 // number on whether switching is worth it.
 [MemoryDiagnoser]
+[BenchmarkCategory (AllocationGate.Category)]
 public class BitmapFillBenchmarks
 {
     [Params (256, 512, 860)]

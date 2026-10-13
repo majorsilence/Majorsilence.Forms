@@ -10,6 +10,7 @@ namespace Majorsilence.Forms.Benchmarks;
 // FillRectangle (Game of Life's cells), FillPolygon (Fractals' Sierpinski triangles), and
 // DrawString (Binary Rain's falling glyphs).
 [MemoryDiagnoser]
+[BenchmarkCategory (AllocationGate.Category)]
 public class DrawingBenchmarks
 {
     private const int CanvasSize = 512;

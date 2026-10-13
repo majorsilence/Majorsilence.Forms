@@ -11,7 +11,7 @@ namespace Majorsilence.Forms.Drawing
         private static readonly ConcurrentDictionary<string, Pen> cache = new ();
 
         private static Pen Get (Color color) =>
-            cache.GetOrAdd (color.Name, _ => new Pen (color));
+            cache.GetOrAdd (color.Name, _ => Pen.CreateImmutable (color));
 
         /// <summary>Gets a pen for the color Transparent.</summary>
         public static Pen Transparent => Get (Color.Transparent);

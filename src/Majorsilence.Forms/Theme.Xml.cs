@@ -23,7 +23,8 @@ namespace Majorsilence.Forms
     public static partial class Theme
     {
         // Registered themes keyed by name, stored parsed (an XElement root or a ThemeStyleSheet) so
-        // they can be re-applied any number of times (and re-used as a base by other themes).
+        // they can be re-applied any number of times (and re-used as a base by other themes). A plain
+        // Dictionary, so every access holds _lock (checked for thread safety, performance plan F9).
         private static readonly Dictionary<string, object> registered_themes = new (StringComparer.OrdinalIgnoreCase);
 
         // The set of color-valued properties that may appear as XML elements. Matches the SKColor

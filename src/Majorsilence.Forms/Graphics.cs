@@ -293,12 +293,20 @@ namespace Majorsilence.Forms.Drawing
 
             var skFont = SkFontFor (font, out var ownedFont);
             using var owned_font = ownedFont;
+            var runFont = font.GetRunFont (skFont);
             var metrics = skFont.Metrics;
             var lineHeight = metrics.Descent - metrics.Ascent;
-            var lines = LayoutLines (text, skFont, layoutRect.Width);
+            // A list kept per thread: the ValueTuple array behind a fresh list per call was the allocation report
+            // engines saw most, one per measured cell. Nothing called from here measures text again on this thread.
+            var lines = layout_lines ??= new List<(int Start, int Length, int Index)> ();
+            LayoutLines (text, runFont, layoutRect.Width, lines);
 
             for (var i = 0; i < ranges.Length; i++) {
-                var region = EmptyRegion ();
+                // Built from the first rectangle rather than as the empty region unioned with it: the same area
+                // and bounds (MeasureCharacterRangesRegionParityTests), without a second Region and, for a
+                // fractional rectangle, an SKPath.Op per range. A range on one line, the usual case, needs no
+                // combining at all.
+                Majorsilence.Forms.Drawing.Region? region = null;
                 var rangeStart = ranges[i].First;
                 var rangeEnd = rangeStart + ranges[i].Length;
 
@@ -309,12 +317,16 @@ namespace Majorsilence.Forms.Drawing
                     if (segEnd <= segStart)
                         continue;
 
-                    var x = layoutRect.X + skFont.MeasureText (text.AsSpan (start, segStart - start));
-                    var width = skFont.MeasureText (text.AsSpan (segStart, segEnd - segStart));
-                    region.Union (new RectangleF (x, layoutRect.Y + index * lineHeight, width, lineHeight));
+                    var x = layoutRect.X + runFont.Measure (text.AsSpan (start, segStart - start));
+                    var width = runFont.Measure (text.AsSpan (segStart, segEnd - segStart));
+                    var rect = new RectangleF (x, layoutRect.Y + index * lineHeight, width, lineHeight);
+                    if (region is null)
+                        region = new Majorsilence.Forms.Drawing.Region (rect);
+                    else
+                        region.Union (rect);
                 }
 
-                result[i] = region;
+                result[i] = region ?? EmptyRegion ();
             }
 
             return result;
@@ -336,7 +348,7 @@ namespace Majorsilence.Forms.Drawing
             if (string.IsNullOrEmpty (text) || font is null)
                 return 0f;
 
-            return SkFontFor (font, out _).MeasureText (text.AsSpan ());
+            return font.GetRunFont (SkFontFor (font, out _)).Measure (text.AsSpan ());
         }
 
         /// <summary>
@@ -368,7 +380,7 @@ namespace Majorsilence.Forms.Drawing
                 return;
             }
 
-            var skFont = SkFontFor (font, out _);
+            var runFont = font.GetRunFont (SkFontFor (font, out _));
             for (var i = 0; i < ranges.Length; i++) {
                 var segStart = Math.Max (ranges[i].First, 0);
                 var segEnd = Math.Min (ranges[i].First + ranges[i].Length, text.Length);
@@ -377,8 +389,8 @@ namespace Majorsilence.Forms.Drawing
                     continue;
                 }
 
-                var left = skFont.MeasureText (text.AsSpan (0, segStart));
-                var width = skFont.MeasureText (text.AsSpan (segStart, segEnd - segStart));
+                var left = runFont.Measure (text.AsSpan (0, segStart));
+                var width = runFont.Measure (text.AsSpan (segStart, segEnd - segStart));
                 result[i] = (left, left + width);
             }
         }
@@ -395,9 +407,20 @@ namespace Majorsilence.Forms.Drawing
         /// word wrapping at <paramref name="maxWidth"/>. Each entry keeps its start index into the
         /// original string so character ranges can be mapped back onto it.
         /// </summary>
-        internal static List<(int Start, int Length, int Index)> LayoutLines (string text, SKFont font, float maxWidth)
+        internal static List<(int Start, int Length, int Index)> LayoutLines (string text, Majorsilence.Forms.Drawing.Text.RunFont font, float maxWidth)
         {
-            var lines = new List<(int, int, int)> ();
+            var lines = new List<(int Start, int Length, int Index)> ();
+            LayoutLines (text, font, maxWidth, lines);
+            return lines;
+        }
+
+        [ThreadStatic]
+        private static List<(int Start, int Length, int Index)>? layout_lines;
+
+        // As above, into a list the caller owns (it is cleared first).
+        private static void LayoutLines (string text, Majorsilence.Forms.Drawing.Text.RunFont font, float maxWidth, List<(int Start, int Length, int Index)> lines)
+        {
+            lines.Clear ();
             var lineIndex = 0;
 
             for (var paragraphStart = 0; paragraphStart <= text.Length;) {
@@ -426,8 +449,6 @@ namespace Majorsilence.Forms.Drawing
                     break;
                 paragraphStart = paragraphEnd + 1;
             }
-
-            return lines;
         }
 
         /// <summary>
@@ -443,13 +464,13 @@ namespace Majorsilence.Forms.Drawing
         /// work to learn that everything fits. It reaches the same answer: every prefix it compares is measured
         /// exactly as before, only fewer of them.
         /// </remarks>
-        internal static int FitRun (string text, int start, int end, SKFont font, float maxWidth)
+        internal static int FitRun (string text, int start, int end, Majorsilence.Forms.Drawing.Text.RunFont font, float maxWidth)
         {
             if (start >= end)
                 return 0;
 
             // Everything fits: the usual case for a table cell, and the only one when there is no wrapping.
-            if (font.MeasureText (text.AsSpan (start, end - start)) <= maxWidth)
+            if (font.Measure (text.AsSpan (start, end - start)) <= maxWidth)
                 return end - start;
 
             // Smallest i in [start, end) whose prefix text[start..i] is wider than maxWidth. The full run
@@ -458,7 +479,7 @@ namespace Majorsilence.Forms.Drawing
             var high = end - 1;
             while (low < high) {
                 var mid = low + (high - low) / 2;
-                if (font.MeasureText (text.AsSpan (start, mid - start + 1)) > maxWidth)
+                if (font.Measure (text.AsSpan (start, mid - start + 1)) > maxWidth)
                     high = mid;
                 else
                     low = mid + 1;
@@ -3196,24 +3217,36 @@ namespace Majorsilence.Forms.Drawing
         internal void FillRectangle (SKColor color, Rectangle rect)
         {
             if (_canvas is null) return;
-            using var paint = new SKPaint { Color = color, Style = SKPaintStyle.Fill };
-            _canvas.DrawRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), paint);
+            _canvas.DrawRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), PlainPaint (color, SKPaintStyle.Fill));
         }
 
         /// <summary>Draws a rectangle outline with the given SKColor.</summary>
         internal void DrawRectangle (SKColor color, Rectangle rect)
         {
             if (_canvas is null) return;
-            using var paint = new SKPaint { Color = color, Style = SKPaintStyle.Stroke, StrokeWidth = 1 };
-            _canvas.DrawRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), paint);
+            _canvas.DrawRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), PlainPaint (color, SKPaintStyle.Stroke));
         }
 
         /// <summary>Draws a line with the given SKColor.</summary>
         internal void DrawLine (SKColor color, Point p1, Point p2)
         {
             if (_canvas is null) return;
-            using var paint = new SKPaint { Color = color, Style = SKPaintStyle.Stroke, StrokeWidth = 1 };
-            _canvas.DrawLine (p1.X, p1.Y, p2.X, p2.Y, paint);
+            _canvas.DrawLine (p1.X, p1.Y, p2.X, p2.Y, PlainPaint (color, SKPaintStyle.Stroke));
+        }
+
+        // The SKColor helpers above made a new SKPaint per call: every control background, border and separator.
+        // Pooled per thread for the same reason as t_strokePaint and t_fillPaint (see there). Only colour and style
+        // change; everything else stays at SKPaint's defaults (no antialiasing, SrcOver, width 1), which is what
+        // the fresh paints had, so nothing else may set state on this one.
+        [ThreadStatic]
+        private static SKPaint? t_plainPaint;
+
+        private static SKPaint PlainPaint (SKColor color, SKPaintStyle style)
+        {
+            var paint = t_plainPaint ??= new SKPaint { StrokeWidth = 1 };
+            paint.Color = color;
+            paint.Style = style;
+            return paint;
         }
 
         /// <summary>Draws a string with the given SKColor.</summary>

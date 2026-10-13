@@ -36,28 +36,68 @@ namespace Majorsilence.Forms.Drawing
         /// <see cref="SolidBrush"/>, the stroke is painted with that brush's shader, so a gradient or
         /// textured outline renders for real rather than collapsing to a flat color.
         /// </summary>
-        public Brush? Brush { get; set; }
+        public Brush? Brush {
+            get => brush;
+            set { ThrowIfImmutable (); brush = value; }
+        }
+
+        private Brush? brush;
 
         /// <summary>Gets or sets the pen color.</summary>
-        public Color Color { get; set; }
+        public Color Color {
+            get => color;
+            set { ThrowIfImmutable (); color = value; }
+        }
+
+        private Color color;
 
         /// <summary>Gets or sets the stroke width.</summary>
-        public float Width { get; set; }
+        public float Width {
+            get => width;
+            set { ThrowIfImmutable (); width = value; }
+        }
+
+        private float width;
 
         /// <summary>Gets or sets the dash style.</summary>
-        public DashStyle DashStyle { get; set; } = DashStyle.Solid;
+        public DashStyle DashStyle {
+            get => dashStyle;
+            set { ThrowIfImmutable (); dashStyle = value; }
+        }
+
+        private DashStyle dashStyle = DashStyle.Solid;
 
         /// <summary>Gets or sets the join style for the ends of two consecutive line segments.</summary>
-        public Drawing2D.LineJoin LineJoin { get; set; } = Drawing2D.LineJoin.Miter;
+        public Drawing2D.LineJoin LineJoin {
+            get => lineJoin;
+            set { ThrowIfImmutable (); lineJoin = value; }
+        }
+
+        private Drawing2D.LineJoin lineJoin = Drawing2D.LineJoin.Miter;
 
         /// <summary>Gets or sets the cap style used at the start of lines drawn with this pen.</summary>
-        public Drawing2D.LineCap StartCap { get; set; } = Drawing2D.LineCap.Flat;
+        public Drawing2D.LineCap StartCap {
+            get => startCap;
+            set { ThrowIfImmutable (); startCap = value; }
+        }
+
+        private Drawing2D.LineCap startCap = Drawing2D.LineCap.Flat;
 
         /// <summary>Gets or sets the cap style used at the end of lines drawn with this pen.</summary>
-        public Drawing2D.LineCap EndCap { get; set; } = Drawing2D.LineCap.Flat;
+        public Drawing2D.LineCap EndCap {
+            get => endCap;
+            set { ThrowIfImmutable (); endCap = value; }
+        }
+
+        private Drawing2D.LineCap endCap = Drawing2D.LineCap.Flat;
 
         /// <summary>Gets or sets the limit of the thickness of a join on a mitered corner.</summary>
-        public float MiterLimit { get; set; } = 10f;
+        public float MiterLimit {
+            get => miterLimit;
+            set { ThrowIfImmutable (); miterLimit = value; }
+        }
+
+        private float miterLimit = 10f;
 
         /// <summary>
         /// Gets or sets the alignment of this pen relative to the line it strokes. Stored and
@@ -65,20 +105,40 @@ namespace Majorsilence.Forms.Drawing
         /// change with this value -- an inset/outset stroke would require offsetting the geometry
         /// itself, which is not expressible through <c>SKPaint</c>.
         /// </summary>
-        public Drawing2D.PenAlignment Alignment { get; set; } = Drawing2D.PenAlignment.Center;
+        public Drawing2D.PenAlignment Alignment {
+            get => alignment;
+            set { ThrowIfImmutable (); alignment = value; }
+        }
+
+        private Drawing2D.PenAlignment alignment = Drawing2D.PenAlignment.Center;
 
         /// <summary>
         /// Gets or sets the custom cap used at the start of lines drawn with this pen. Its
         /// <see cref="Drawing2D.CustomLineCap.BaseCap"/> drives the Skia stroke cap -- see
         /// <see cref="Drawing2D.CustomLineCap"/> for why the custom outline itself cannot be stroked.
         /// </summary>
-        public Drawing2D.CustomLineCap? CustomStartCap { get; set; }
+        public Drawing2D.CustomLineCap? CustomStartCap {
+            get => customStartCap;
+            set { ThrowIfImmutable (); customStartCap = value; }
+        }
+
+        private Drawing2D.CustomLineCap? customStartCap;
 
         /// <summary>Gets or sets the custom cap used at the end of lines drawn with this pen.</summary>
-        public Drawing2D.CustomLineCap? CustomEndCap { get; set; }
+        public Drawing2D.CustomLineCap? CustomEndCap {
+            get => customEndCap;
+            set { ThrowIfImmutable (); customEndCap = value; }
+        }
+
+        private Drawing2D.CustomLineCap? customEndCap;
 
         /// <summary>Gets or sets the distance from the start of a line to the beginning of a dash pattern.</summary>
-        public float DashOffset { get; set; }
+        public float DashOffset {
+            get => dashOffset;
+            set { ThrowIfImmutable (); dashOffset = value; }
+        }
+
+        private float dashOffset;
 
         /// <summary>
         /// Gets or sets a user-defined dash pattern, in units of the pen width. Setting a non-null
@@ -90,6 +150,7 @@ namespace Majorsilence.Forms.Drawing
             get => dashPattern;
             set
             {
+                ThrowIfImmutable ();
                 dashPattern = value;
                 DashStyle = value is not null ? DashStyle.Custom : DashStyle.Solid;
             }
@@ -103,7 +164,12 @@ namespace Majorsilence.Forms.Drawing
         /// dash segment, so a dash cap that differs from <see cref="StartCap"/>/<see cref="EndCap"/>
         /// cannot be expressed separately and the pen's stroke cap wins.
         /// </remarks>
-        public Drawing2D.DashCap DashCap { get; set; } = Drawing2D.DashCap.Flat;
+        public Drawing2D.DashCap DashCap {
+            get => dashCap;
+            set { ThrowIfImmutable (); dashCap = value; }
+        }
+
+        private Drawing2D.DashCap dashCap = Drawing2D.DashCap.Flat;
 
         /// <summary>Gets the kind of fill this pen strokes with, derived from <see cref="Brush"/>.</summary>
         public Drawing2D.PenType PenType => Brush switch {
@@ -123,7 +189,12 @@ namespace Majorsilence.Forms.Drawing
         /// and has no compound-stroke concept, so honoring this would mean generating the parallel
         /// outlines as geometry. Same category as <see cref="Alignment"/>.
         /// </remarks>
-        public float[]? CompoundArray { get; set; }
+        public float[]? CompoundArray {
+            get => compoundArray;
+            set { ThrowIfImmutable (); compoundArray = value; }
+        }
+
+        private float[]? compoundArray;
 
         private readonly BrushTransform transform = new ();
 
@@ -138,27 +209,43 @@ namespace Majorsilence.Forms.Drawing
         /// </remarks>
         public Drawing2D.Matrix Transform {
             get => transform.Get ();
-            set => transform.Set (value);
+            set { ThrowIfImmutable (); transform.Set (value); }
         }
 
         /// <summary>Resets the pen transform to the identity.</summary>
-        public void ResetTransform () => transform.Reset ();
+        public void ResetTransform ()
+        {
+            ThrowIfImmutable ();
+            transform.Reset ();
+        }
 
         /// <summary>Multiplies the pen transform by <paramref name="matrix"/>.</summary>
         public void MultiplyTransform (Drawing2D.Matrix matrix, Drawing2D.MatrixOrder order = Drawing2D.MatrixOrder.Prepend)
-            => transform.Multiply (matrix, order);
+        {
+            ThrowIfImmutable ();
+            transform.Multiply (matrix, order);
+        }
 
         /// <summary>Translates the pen transform by the specified offsets.</summary>
         public void TranslateTransform (float dx, float dy, Drawing2D.MatrixOrder order = Drawing2D.MatrixOrder.Prepend)
-            => transform.Translate (dx, dy, order);
+        {
+            ThrowIfImmutable ();
+            transform.Translate (dx, dy, order);
+        }
 
         /// <summary>Scales the pen transform by the specified factors.</summary>
         public void ScaleTransform (float sx, float sy, Drawing2D.MatrixOrder order = Drawing2D.MatrixOrder.Prepend)
-            => transform.Scale (sx, sy, order);
+        {
+            ThrowIfImmutable ();
+            transform.Scale (sx, sy, order);
+        }
 
         /// <summary>Rotates the pen transform by the specified angle, in degrees.</summary>
         public void RotateTransform (float angle, Drawing2D.MatrixOrder order = Drawing2D.MatrixOrder.Prepend)
-            => transform.Rotate (angle, order);
+        {
+            ThrowIfImmutable ();
+            transform.Rotate (angle, order);
+        }
 
         /// <summary>Sets the start cap, end cap and dash cap in one call, matching System.Drawing.Pen.</summary>
         public void SetLineCap (Drawing2D.LineCap startCap, Drawing2D.LineCap endCap, Drawing2D.DashCap dashCap)
@@ -166,6 +253,19 @@ namespace Majorsilence.Forms.Drawing
             StartCap = startCap;
             EndCap = endCap;
             DashCap = dashCap;
+        }
+
+        // Pens, SystemPens: one instance per colour shared by the whole process, and so by every thread. GDI+ makes those
+        // immutable and throws on any change (dotnet/winforms, System.Drawing.Pen's _immutable), since a change made
+        // through Pens.Black would show up in every other caller's drawing. A clone is an ordinary, mutable pen.
+        private bool immutable;
+
+        internal static Pen CreateImmutable (Color color) => new (color) { immutable = true };
+
+        private void ThrowIfImmutable ()
+        {
+            if (immutable)
+                throw new System.ArgumentException ("Changes cannot be made to Pen because permissions are not valid.");
         }
 
         /// <summary>Creates an independent copy of this pen.</summary>
@@ -191,6 +291,11 @@ namespace Majorsilence.Forms.Drawing
         /// purely for API-shape compatibility with System.Drawing.Pen (so `using (var p = new
         /// Pen(...))`, common in ported WinForms drawing code, compiles unmodified).
         /// </summary>
+        /// <remarks>
+        /// GDI+ throws when one of the shared <see cref="Pens"/> is disposed. Here that stays a no-op: disposing frees
+        /// nothing, so it cannot hurt the other users of the pen, and ported code that wraps <c>Pens.Black</c> in a
+        /// <c>using</c> keeps working.
+        /// </remarks>
         public void Dispose ()
         {
         }

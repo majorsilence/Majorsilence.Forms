@@ -9,6 +9,7 @@ namespace Majorsilence.Forms.Benchmarks;
 // Count()/ElementAt(i) inside a loop re-enumerates that Concat every iteration. If that theory is
 // right, the per-child cost should visibly grow with ChildCount rather than stay flat.
 [MemoryDiagnoser]
+[BenchmarkCategory (AllocationGate.Category)]
 public class LayoutBenchmarks
 {
     [Params (10, 100, 1000, 5000, 10000)]

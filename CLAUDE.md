@@ -15,6 +15,7 @@ short orientation: where things are, how to verify a change, and the traps that 
 | `src/Majorsilence.Forms.Theming.Avalonia/` | Applies CSS themes to **native** Avalonia controls (Fluent resources + generated styles). |
 | `src/Majorsilence.Forms.Drawing.Common/` | The `System.Drawing` reimplementation. |
 | `tests/Majorsilence.Forms.Tests/` | The main suite (xunit v3, headless backend). Windows-only suites sit beside it. |
+| `benchmarks/` | BenchmarkDotNet suite, and the allocation gate CI runs (`-- --alloc-gate`); see `docs/performance-plan.md`. |
 | `samples/` | One app per scenario; `docs/samples.md` describes each. `ThemeStudio*` are the theme editors. |
 | `tools/` | `ApiDiff` (public-surface gate), `Migrator`, `Mcp`, templates. |
 | `docs/` | User docs. Several sections are **generated from code** between marker comments — see below. |
@@ -94,6 +95,7 @@ test that fails when code and document drift. Set the named variable and run the
 | `docs/theming.md` | `ThemeCssReference.ToMarkdown ()` | `MAJORSILENCE_WRITE_THEMING_DOC=1` (Majorsilence.Forms.Tests) |
 | `docs/theming-winforms.md` | `WinFormsThemeSupport.ToMarkdown ()` | `MAJORSILENCE_WRITE_THEMING_WINFORMS_DOC=1` (Theming.WinForms.Tests, Windows) |
 | `docs/theming-avalonia.md` | `AvaloniaThemeSupport.ToMarkdown ()` | `MAJORSILENCE_WRITE_THEMING_AVALONIA_DOC=1` (Theming.Avalonia.Tests) |
+| `benchmarks/Majorsilence.Forms.Benchmarks/AllocationBaseline.txt` | allocated bytes of `AllocGate` benchmarks | `dotnet run -c Release --project benchmarks/Majorsilence.Forms.Benchmarks -- --alloc-gate --write` (Linux) |
 | `tests/Majorsilence.Forms.Tests/*Baseline.txt` | reflection scans | `MAJORSILENCE_WRITE_*_BASELINE=1` (see CONTRIBUTING.md) |
 
 ## Theming, in one paragraph

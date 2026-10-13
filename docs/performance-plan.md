@@ -1,25 +1,46 @@
 # Performance and optimization plan
 
-**Researched 2026-10-11** by reading `Majorsilence.Forms` and `Majorsilence.Forms.Drawing.Common` with the
-Reporting engine's server-side use in mind. **Nothing here is measured yet**: every impact figure is an
-estimate from reading code, and every task below starts by measuring and ends by re-measuring.
+**Researched 2026-10-11** by reading `Majorsilence.Forms` and `Majorsilence.Forms.Drawing.Common`, with
+the Reporting engine's server-side use in mind. Impact figures in the findings tables are estimates from
+reading code. Measured numbers appear in the status table and in each task's commit message.
 
-Majorsilence.Reporting renders reports headlessly through this library, on many threads at once, one
+Majorsilence.Reporting renders reports headlessly through this library, on many threads at once, with one
 `Graphics`/`Font` per thread. Its profile (WorldFacts PDF, 66 ms before its own optimisation work) put
-`Graphics.MeasureCharacterRanges` at about 20 % of CPU and its allocation profile pointed at the
+`Graphics.MeasureCharacterRanges` at about 20 % of CPU, and its allocation profile pointed at the
 `ValueTuple<int,int,int>[]` that `LayoutLines` returns. That is the priority; the UI side is covered
 more briefly at the end. The Reporting side of the same work is in that repository's
 `docs/performance/` and its plan; the cross-repository dependency is spelled out in "Order".
 
+## Status
+
+| Task | State | Where |
+|---|---|---|
+| F1 `FitRun` in O(n) | done | #471 |
+| F2 pin the phantom empty line | done (pinned, not changed) | #471, `LayoutLinesPinTests` |
+| F3 cache the scaled `SKFont` | done | #471, `Font.GetScaledSKFont` |
+| F4 `MeasureRunWidth` / `MeasureRunSpans` | done: 4.2 us / 728 B -> 0.84 us / 0 B per 20-char cell | #471 |
+| Benchmarks in the solution, Dry smoke run and allocation gate in CI | done | this round, phase 0 |
+| F6 `TextMeasurer` | done. (b) two-generation cache: a working set of 1000 strings among a stream of new ones goes from 2.85 us / 1645 B to 2.06 us / 1046 B per measurement. (c) one `IndexOfAny` before the `Replace` calls: a single-line cache hit goes from 68 to 46 ns. (d) painting one cached block on 8 threads at once is safe, pinned by `TextBlockConcurrentPaintTests`. (a) not done: colour is part of the block's `Style`, so a painted block cannot answer for another colour, and measure-only calls already share one key (colour 0) | round 2 |
+| F11 unshaped measuring without Skia's lock | done: `MeasureRunWidth` on 8 threads 3.12 ms -> 0.030 ms (500 measurements each); one 20-character cell 0.84 us -> 19 ns; `MeasureRunSpans` over 13 words 23 us -> 0.36 us; same floats, bit for bit (`AdvanceTableParityTests`) | round 2 |
+| F7 fonts and startup | done, in part. `FontSubstitution.Resolve` is cached (bounded) and `FontFamily` keeps design-unit metrics per (family, bold/italic): `GetLineSpacing` + `GetCellAscent` 17 ms -> 37 ns, `IsStyleAvailable` 8.5 ms -> 2 us, `GraphicsPath.AddString` 8.4 ms -> 3.4 us. `Font.FontFamily` is one instance. Not done: merging the three typeface caches (they resolve each face once already, and Skia hands back the same managed typeface for a face, so they do not split the text cache), and cold start: the first headless `MeasureString` in a process takes 125 ms and `MeasureRunWidth` 70 ms (`StartupBenchmarks`), almost all of it one-time native initialisation (font manager, HarfBuzz) | round 2 |
+| F9 static state | done. `TextMeasurer` cache lock #470; `RenderManager`, `ThemeCssReference` #472. Round 2: `Pens`, `Brushes`, `SystemPens` and `SystemBrushes` are immutable as in GDI+ (a change throws `ArgumentException`; `Dispose` stays a no-op, a deliberate difference). `Theme.Xml` `registered_themes` and `ImageAnimator` `animated` hold their lock on every access, so they are safe as they are | round 2 |
+| F5 regions in `MeasureCharacterRanges` | done: each range's region starts from its first rectangle instead of the empty region unioned with it, and the line list is kept per thread. One 20-character cell's width 1.55 us / 728 B -> 0.81 us / 240 B; the 13 word ranges of an 85-character cell 13.6 us / 7152 B -> 7.5 us / 2616 B. Same bounds, emptiness and scans (`MeasureCharacterRangesRegionParityTests`) | round 2 |
+| F8 images and graphics | done, in part. `Image.Save` encodes from the bitmap's pixels instead of an `SKImage` snapshot: the same bytes (`ImageSaveParityTests`, 5 pixel formats x 6 containers x 3 qualities), no 12 MB native copy for a 2000x1500 page, the encode itself unchanged (codec-bound: 32 ms JPEG, 91 ms PNG); an unsupported container goes to PNG without a failed encode first. The `SKColor` helpers controls paint with share a per-thread paint: 3000 calls 2.96 ms / 258 KB -> 2.48 ms / 0 B. Not done: gradient shaders per fill (a cached shader would need invalidating on every brush property), `SetClip (Region)`'s clone (needed, because the caller keeps the region), `DrawString`'s 488 B per call (inside RichTextKit's paint), and the PNG-options overload (no caller asked for it) | round 2 |
+| F10 UI | done, in part. Profiling (`--profiler EP`) found two causes the plan had not guessed. `EnumValidator` answered by reflection on every call and `xGetDock` validates on every read: 90 % of a docked layout pass. It now works out each enum type's rules once. `ScrollableControl.Recalculate` placed, and reset the value of, the hidden scroll bars of every resized `Panel`, recomputing their thumb geometry. Over 1000 children, docked 10.1 ms / 164 KB -> 0.21 ms / 144 B, anchored 25.2 ms / 1542 KB -> 1.42 ms / 338 KB. Not done: `ElementAt` in the layout loops (`Concat` answers it without enumerating, and the profile does not show it), and a typed `Theme` value cache (a read is 10 ns and allocates nothing, `ThemeBenchmarks`). New: `ThemeBenchmarks`, `DataGridViewScrollBenchmarks` (one row and a repaint, 3.9 ms); `PaintBenchmarks` render without PNG-encoding (the encode was about 22 of each 23 ms; a repaint is about 1.1 ms) | round 2 |
+
 ## Method
 
-- Benchmarks live in `benchmarks/Majorsilence.Forms.Benchmarks` (BenchmarkDotNet, `[MemoryDiagnoser]`).
-  Run one class with
+- Benchmarks live in `benchmarks/Majorsilence.Forms.Benchmarks` (BenchmarkDotNet, `[MemoryDiagnoser]`),
+  which is in the solution, so `dotnet build` compiles it. Run one class with
   `dotnet run -c Release --project benchmarks/Majorsilence.Forms.Benchmarks -- --filter '*TextMeasure*' --job short`.
-  There is no CI job that runs them; results are local (`BenchmarkDotNet.Artifacts/` is ignored).
-  Existing: `DrawingBenchmarks`, `BitmapFillBenchmarks`, `LayoutBenchmarks`, `PaintBenchmarks`,
-  `PaintConstructionBenchmarks`. **Missing, and added by the tasks below:** text measurement, image
-  encode, graphics allocation, startup, threading.
+  Local results go to `BenchmarkDotNet.Artifacts/`, which is ignored. The manual `Benchmarks` workflow
+  (`.github/workflows/benchmarks.yml`) runs a filter on a CI machine and uploads the results.
+- **CI** (`benchmarks` job in `dotnet.yml`, Linux) runs every benchmark once with the Dry job, so a
+  broken benchmark fails the PR, and then runs the **allocation gate**. Benchmarks tagged
+  `[BenchmarkCategory ("AllocGate")]` must not allocate more managed bytes per operation than
+  `AllocationBaseline.txt` records, plus the larger of 5 % and 64 B. The gate prints a notice when one
+  allocates less. Regenerate with `-- --alloc-gate --write` to lock the gain in. Tag a new benchmark
+  only after two runs give the same number. Timings are never gated.
 - Allocated bytes are exact and comparable between runs; timings are not (battery, background load).
   Compare allocation first.
 - Public API: `tools/Majorsilence.Forms.ApiDiff` only reports upstream members that are missing or have
@@ -86,6 +107,29 @@ text. Unconfirmed: the first task is a test that pins what actually happens.
    first paint, so the cache after #470 is safe as a dictionary but a shared block may not be safe to paint
    concurrently. Test first; the fix may be a per-thread cache or a clone.
 
+### Found while measuring: Skia serialises measurement across threads
+
+`ConcurrentMeasureBenchmarks` gives every thread its own `Graphics`, `Font` and text, so it should scale
+flat. It does not. For 500 measurements per thread, on a 12-core machine:
+
+| Threads | `SKFont.MeasureText` alone | `MeasureRunWidth` | `MeasureString` (cached block) | `MeasureCharacterRanges` |
+|---|---|---|---|---|
+| 1 | 0.32 ms | 0.30 ms | 0.08 ms | 1.26 ms |
+| 4 | 1.48 ms | 1.53 ms | 0.53 ms | 4.69 ms |
+| 8 | 3.20 ms | 3.12 ms | 1.77 ms | 8.64 ms |
+
+The raw SkiaSharp call, with no code from this library, scales the same way. Every `SKFont.MeasureText`
+goes through Skia's process-wide glyph cache (`SkStrikeCache`), which is guarded by one mutex. Eight
+report threads measuring cells therefore run more slowly than one thread would.
+
+11. **F11: unshaped advances from a managed table** (M). Keep each glyph's advance for a
+    (typeface, size, edging, subpixel, hinting) in an immutable table shared across `Font` instances, and
+    sum it in managed code for `MeasureRunWidth`, `MeasureRunSpans`, `FitRun` and
+    `MeasureCharacterRanges`. Skia's `measureText` adds the same per-glyph advances in the same order, so
+    the result is bit-identical when the strike is not rescaled. A parity test over a corpus of texts,
+    sizes and DPIs proves it. Characters outside the table (surrogates, anything past U+00FF) fall back to
+    Skia for the whole run.
+
 ## B. Fonts and startup
 
 | Finding | Where |
@@ -138,7 +182,7 @@ The #470 class of bug. From a read of the static collections in `src` (not all w
 
 | Finding | Where |
 |---|---|
-| Every `Theme.X` getter is a string-keyed `ConcurrentDictionary` lookup plus unboxing, on the paint path | `Theme.cs:15` |
+| Every `Theme.X` getter is a string-keyed `ConcurrentDictionary` lookup plus unboxing, on the paint path (measured since: 10 ns a read, no allocation) | `Theme.cs:15` |
 | `children.ElementAt(i)` in layout loops (benchmarks show near-linear docked layout at 10,000 children, so this may already be hidden by an `IList` fast path; anchored layout allocates ~10 KB per 10 children) | `Layout/DockAndAnchorLayout.cs:29, 264, 309, 495, 917` |
 | Text block cache churn on repaint (see F6) | `PaintBenchmarks` (four repaints, 44-56 ms each) |
 | Uncovered by benchmarks: invalidate coalescing, CSS rule matching (`ThemeStyleSheet` application), `DataGridView` scroll paint | |

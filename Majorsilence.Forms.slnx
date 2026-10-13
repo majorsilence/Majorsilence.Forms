@@ -4,6 +4,9 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/Majorsilence.Forms.Benchmarks/Majorsilence.Forms.Benchmarks.csproj" />
+  </Folder>
   <Folder Name="/Samples/">
     <Project Path="samples/AutomationTarget/AutomationTarget.csproj" />
     <Project Path="samples/ControlGallery/ControlGallery.csproj" />
