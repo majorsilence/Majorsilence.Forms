@@ -50,6 +50,7 @@ namespace Majorsilence.Forms.Tests
                 Check (new SKFont (typeface, size) { Edging = SKFontEdging.SubpixelAntialias, Subpixel = true }, typeface);
                 Check (new SKFont (typeface, size), typeface);
                 Check (new SKFont (typeface, size) { Hinting = SKFontHinting.Full, Edging = SKFontEdging.Alias }, typeface);
+                Check (new SKFont (typeface, size) { Hinting = SKFontHinting.Full, ForceAutoHinting = true, BaselineSnap = false, EmbeddedBitmaps = true }, typeface);
             }
         }
 
@@ -59,6 +60,11 @@ namespace Majorsilence.Forms.Tests
                 var table = AdvanceTable.For (font, typeface);
                 Assert.Equal (font.Size <= 256f, table is not null);
                 var runFont = new RunFont (font, table);
+
+                // The metrics the table keeps are the font's own (F14).
+                var metrics = font.Metrics;
+                if (!metrics.Equals (runFont.Metrics))
+                    Assert.Fail ($"{typeface.FamilyName} {font.Size}px edging={font.Edging} subpixel={font.Subpixel} hinting={font.Hinting}: metrics differ");
 
                 foreach (var text in corpus) {
                     for (var start = 0; start <= text.Length; start++) {
@@ -99,6 +105,23 @@ namespace Majorsilence.Forms.Tests
 
                 Assert.Empty (wrong);
             }
+        }
+
+        // Every setting that goes into Skia's scaler context is in the key, so fonts that differ only in one of them do
+        // not share a table built for the other.
+        [Fact]
+        public void Fonts_that_differ_in_a_scaler_setting_do_not_share_a_table ()
+        {
+            var typeface = SKTypeface.Default;
+            using var plain = new SKFont (typeface, 12f);
+            using var autoHinted = new SKFont (typeface, 12f) { ForceAutoHinting = true };
+            using var bitmaps = new SKFont (typeface, 12f) { EmbeddedBitmaps = true };
+            using var unsnapped = new SKFont (typeface, 12f) { BaselineSnap = false };
+
+            var table = AdvanceTable.For (plain, typeface);
+            Assert.NotSame (table, AdvanceTable.For (autoHinted, typeface));
+            Assert.NotSame (table, AdvanceTable.For (bitmaps, typeface));
+            Assert.NotSame (table, AdvanceTable.For (unsnapped, typeface));
         }
 
         [Fact]

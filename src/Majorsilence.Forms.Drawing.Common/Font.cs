@@ -161,7 +161,10 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Gets the line spacing, in pixels, of this font.</summary>
         public float GetHeight ()
         {
-            var metrics = GetSKFont ().Metrics;
+            // From the advance table when there is one: SKFont.Metrics takes Skia's glyph-cache lock, and report engines
+            // ask for a font's height for every line they place.
+            var skFont = GetSKFont ();
+            var metrics = GetRunFont (skFont).Metrics;
             return metrics.Descent - metrics.Ascent + metrics.Leading;
         }
 

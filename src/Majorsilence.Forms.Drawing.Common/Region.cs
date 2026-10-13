@@ -57,6 +57,14 @@ namespace Majorsilence.Forms.Drawing
         // The path form of an integral or infinite region, cached for clipping.
         private SKPath? outline;
 
+        // A region made from one rectangle that nothing has asked anything of but its bounds or emptiness: no native
+        // object yet. Report engines make one per measured range (Graphics.MeasureCharacterRanges), read its bounds
+        // and dispose it; making the SKRegion or SKPath registers it in SkiaSharp's process-wide handle table, under
+        // one lock, which is where eight measuring threads queued (ConcurrentMeasureBenchmarks, F14). Anything else
+        // makes the native form the constructor used to make (Materialize), so every other answer is unchanged.
+        private RectangleF pending;
+        private bool has_pending;
+
         /// <summary>Initializes a new infinite region.</summary>
         public Region () => infinite = true;
 
@@ -64,10 +72,52 @@ namespace Majorsilence.Forms.Drawing
         /// <remarks>Not rounded: a fractional rectangle keeps its edges (GFX-44).</remarks>
         public Region (RectangleF rect)
         {
-            if (IsIntegral (rect))
-                pixels = IntegralRegion (rect);
+            pending = rect;
+            has_pending = true;
+        }
+
+        // The native form of a pending rectangle: what the RectangleF constructor made before regions were lazy.
+        private void Materialize ()
+        {
+            if (!has_pending)
+                return;
+
+            has_pending = false;
+            if (IsIntegral (pending))
+                pixels = IntegralRegion (pending);
             else
-                shape = RectanglePath (rect);
+                shape = RectanglePath (pending);
+        }
+
+        // The bounds and emptiness of a pending rectangle, worked out as the native form would give them, or false
+        // when that is not certain without it. Integral: SKRegion.SetRect of the truncated edges, empty unless right
+        // exceeds left and bottom top. Fractional: a rectangle path, whose tight bounds are its four edges as floats;
+        // only a rectangle comfortably larger than float precision at its position is answered here, as path
+        // simplification decides whether a sliver encloses anything.
+        private bool TryPendingBounds (out RectangleF bounds, out bool empty)
+        {
+            var rect = pending;
+
+            if (IsIntegral (rect)) {
+                int left = (int)rect.Left, top = (int)rect.Top, right = (int)rect.Right, bottom = (int)rect.Bottom;
+                empty = right <= left || bottom <= top;
+                bounds = empty ? RectangleF.Empty : new RectangleF (left, top, right - left, bottom - top);
+                return true;
+            }
+
+            float l = rect.Left, t = rect.Top, r = rect.Right, b = rect.Bottom;
+            const float Limit = 1 << 24;
+            const float Sliver = 1f / 256;
+            if (rect.Width > 0 && rect.Height > 0 && r - l >= Sliver && b - t >= Sliver
+                && Math.Abs (l) < Limit && Math.Abs (t) < Limit && Math.Abs (r) < Limit && Math.Abs (b) < Limit) {
+                empty = false;
+                bounds = new RectangleF (l, t, r - l, b - t);
+                return true;
+            }
+
+            bounds = default;
+            empty = false;
+            return false;
         }
 
         /// <summary>Initializes a new region from the specified rectangle.</summary>
@@ -96,6 +146,7 @@ namespace Majorsilence.Forms.Drawing
         /// </summary>
         internal SKRegion GetSKRegion ()
         {
+            Materialize ();
             if (pixels is not null)
                 return pixels;
 
@@ -115,6 +166,7 @@ namespace Majorsilence.Forms.Drawing
         /// </summary>
         internal SKPath GetSKPath ()
         {
+            Materialize ();
             if (shape is not null)
                 return shape;
 
@@ -132,7 +184,15 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>Whether the shape has gone to float geometry (a path) rather than integer rectangles. Test seam.</summary>
-        internal bool IsShaped => shape is not null;
+        internal bool IsShaped {
+            get {
+                Materialize ();
+                return shape is not null;
+            }
+        }
+
+        /// <summary>Whether the region is still a rectangle with no native form. Test seam.</summary>
+        internal bool IsPending => has_pending;
 
         /// <summary>Makes this region empty.</summary>
         public void MakeEmpty ()
@@ -152,6 +212,10 @@ namespace Majorsilence.Forms.Drawing
         /// <remarks>A shape with area is not empty however small: a half-pixel region is a region.</remarks>
         public bool IsEmpty (object? graphics = null)
         {
+            if (has_pending && TryPendingBounds (out _, out var empty))
+                return empty;
+
+            Materialize ();
             if (infinite)
                 return false;
 
@@ -318,6 +382,7 @@ namespace Majorsilence.Forms.Drawing
         /// <summary>Offsets this region by the specified amounts.</summary>
         public void Translate (int dx, int dy)
         {
+            Materialize ();
             if (infinite)
                 return;
 
@@ -342,6 +407,7 @@ namespace Majorsilence.Forms.Drawing
                 return;
             }
 
+            Materialize ();
             if (infinite)
                 return;
 
@@ -361,6 +427,7 @@ namespace Majorsilence.Forms.Drawing
         {
             Guard.ThrowIfNull (matrix);
 
+            Materialize ();
             if (infinite || IsEmpty ())
                 return;
 
@@ -402,6 +469,9 @@ namespace Majorsilence.Forms.Drawing
         private void Combine (Region other, SKRegionOperation op)
         {
             Guard.ThrowIfNull (other);
+
+            Materialize ();
+            other.Materialize ();
 
             // The infinite cases are algebra, not geometry: only "infinite minus something" (and Xor,
             // which is the same thing here) needs the infinite region made finite.
@@ -459,6 +529,10 @@ namespace Majorsilence.Forms.Drawing
         /// </remarks>
         public RectangleF GetBounds (object? graphics = null)
         {
+            if (has_pending && TryPendingBounds (out var bounds, out _))
+                return bounds;
+
+            Materialize ();
             if (infinite)
                 return new RectangleF (infinite_rect.Left, infinite_rect.Top, infinite_rect.Width, infinite_rect.Height);
 
@@ -493,7 +567,10 @@ namespace Majorsilence.Forms.Drawing
             Clear ();
             infinite = other.infinite;
 
-            if (other.shape is not null)
+            if (other.has_pending) {
+                pending = other.pending;
+                has_pending = true;
+            } else if (other.shape is not null)
                 shape = new SKPath (other.shape);
             else if (!other.infinite)
                 pixels = new SKRegion (other.pixels!);
@@ -501,6 +578,7 @@ namespace Majorsilence.Forms.Drawing
 
         private void Clear ()
         {
+            has_pending = false;
             infinite = false;
             shape?.Dispose ();
             shape = null;

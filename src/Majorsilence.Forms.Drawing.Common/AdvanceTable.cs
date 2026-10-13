@@ -39,14 +39,24 @@ namespace Majorsilence.Forms.Drawing.Text
         // freed typeface's address reused by a new one cannot pick up the old table. Bounded crudely: past the
         // limit the whole map is dropped and refilled, which is rare and only costs rebuilding tables.
         private const int SharedLimit = 1024;
-        private static readonly ConcurrentDictionary<(SKTypeface, float, SKFontEdging, bool, SKFontHinting, bool, float, float, bool), AdvanceTable> shared = new ();
+        private static readonly ConcurrentDictionary<(SKTypeface, float, SKFontEdging, bool, SKFontHinting, bool, float, float, bool, bool, bool, bool), AdvanceTable> shared = new ();
 
         // Indexed by the high byte of the character. Page 0 is always there; another is null until a run needs it, and
         // once published it never changes, so readers take no lock. Two threads needing a new page at once may both
         // build it; they build the same advances.
         private readonly float[]?[] pages = new float[]?[Pages];
 
-        private AdvanceTable (float[] latin) => pages[0] = latin;
+        private AdvanceTable (float[] latin, SKFontMetrics metrics)
+        {
+            pages[0] = latin;
+            Metrics = metrics;
+        }
+
+        /// <summary>
+        /// The font's metrics. <c>SKFont.Metrics</c> goes through the same locked glyph cache as measuring: it was
+        /// two thirds of a one-range <c>MeasureCharacterRanges</c> call (ConcurrentMeasureBenchmarks, F14).
+        /// </summary>
+        internal SKFontMetrics Metrics { get; }
 
         /// <summary>
         /// The table for <paramref name="font"/>, whose typeface is <paramref name="typeface"/> (passed in because
@@ -62,8 +72,9 @@ namespace Majorsilence.Forms.Drawing.Text
             if (!(size > 0f) || size > LargestUnscaledSize)
                 return null;
 
-            // Everything that changes a glyph's advance in Skia's scaler context.
-            var key = (typeface, size, font.Edging, font.Subpixel, font.Hinting, font.Embolden, font.ScaleX, font.SkewX, font.LinearMetrics);
+            // Everything that goes into Skia's scaler context, which gives both the advances and the metrics.
+            var key = (typeface, size, font.Edging, font.Subpixel, font.Hinting, font.Embolden, font.ScaleX, font.SkewX, font.LinearMetrics,
+                font.BaselineSnap, font.ForceAutoHinting, font.EmbeddedBitmaps);
             if (shared.TryGetValue (key, out var table))
                 return table;
 
@@ -73,7 +84,7 @@ namespace Majorsilence.Forms.Drawing.Text
             return shared.GetOrAdd (key, table);
         }
 
-        private static AdvanceTable Build (SKFont font) => new (BuildPage (font, 0));
+        private static AdvanceTable Build (SKFont font) => new (BuildPage (font, 0), font.Metrics);
 
         // Any font with this table's key gives the same advances, so a page is built from whichever font asks first.
         private static float[] BuildPage (SKFont font, int page)
@@ -146,6 +157,9 @@ namespace Majorsilence.Forms.Drawing.Text
         internal SKFont Font { get; }
 
         internal AdvanceTable? Advances { get; }
+
+        /// <summary><c>Font.Metrics</c>, from the table when there is one.</summary>
+        internal SKFontMetrics Metrics => Advances is { } table ? table.Metrics : Font.Metrics;
 
         /// <summary>The same float as <c>Font.MeasureText (text)</c>.</summary>
         internal float Measure (ReadOnlySpan<char> text)

@@ -305,7 +305,7 @@ namespace Majorsilence.Forms.Drawing
             var skFont = SkFontFor (font, out var ownedFont);
             using var owned_font = ownedFont;
             var runFont = font.GetRunFont (skFont);
-            var metrics = skFont.Metrics;
+            var metrics = runFont.Metrics;
             var lineHeight = metrics.Descent - metrics.Ascent;
             // A list kept per thread: the ValueTuple array behind a fresh list per call was the allocation report
             // engines saw most, one per measured cell. Nothing called from here measures text again on this thread.
@@ -1952,8 +1952,10 @@ namespace Majorsilence.Forms.Drawing
 
             var skFont = SkFontFor (font, out var ownedFont);
             using var owned_font = ownedFont;
-            var lineHeight = skFont.Metrics.Descent - skFont.Metrics.Ascent;
-            var lines = LayoutLines (text, skFont, noWrap ? 0 : layoutArea.Width);
+            var runFont = font.GetRunFont (skFont);
+            var metrics = runFont.Metrics;
+            var lineHeight = metrics.Descent - metrics.Ascent;
+            var lines = LayoutLines (text, runFont, noWrap ? 0 : layoutArea.Width);
 
             var fit = lines.Count;
             if (!unboundedHeight && lineHeight > 0) {
@@ -2995,7 +2997,7 @@ namespace Majorsilence.Forms.Drawing
                 return;
 
             // Just below the baseline, which DrawString places one ascent below the text's top edge.
-            var y = origin.Y - SkFontFor (font, out var ownedFont).Metrics.Ascent + 1f;
+            var y = origin.Y - font.GetRunFont (SkFontFor (font, out var ownedFont)).Metrics.Ascent + 1f;
             ownedFont?.Dispose ();
 
             using var paint = brush.CreatePaint ();
