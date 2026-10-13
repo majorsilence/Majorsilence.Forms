@@ -296,10 +296,17 @@ namespace Majorsilence.Forms.Drawing
             var runFont = font.GetRunFont (skFont);
             var metrics = skFont.Metrics;
             var lineHeight = metrics.Descent - metrics.Ascent;
-            var lines = LayoutLines (text, runFont, layoutRect.Width);
+            // A list kept per thread: the ValueTuple array behind a fresh list per call was the allocation report
+            // engines saw most, one per measured cell. Nothing called from here measures text again on this thread.
+            var lines = layout_lines ??= new List<(int Start, int Length, int Index)> ();
+            LayoutLines (text, runFont, layoutRect.Width, lines);
 
             for (var i = 0; i < ranges.Length; i++) {
-                var region = EmptyRegion ();
+                // Built from the first rectangle rather than as the empty region unioned with it: the same area
+                // and bounds (MeasureCharacterRangesRegionParityTests), without a second Region and, for a
+                // fractional rectangle, an SKPath.Op per range. A range on one line, the usual case, needs no
+                // combining at all.
+                Majorsilence.Forms.Drawing.Region? region = null;
                 var rangeStart = ranges[i].First;
                 var rangeEnd = rangeStart + ranges[i].Length;
 
@@ -312,10 +319,14 @@ namespace Majorsilence.Forms.Drawing
 
                     var x = layoutRect.X + runFont.Measure (text.AsSpan (start, segStart - start));
                     var width = runFont.Measure (text.AsSpan (segStart, segEnd - segStart));
-                    region.Union (new RectangleF (x, layoutRect.Y + index * lineHeight, width, lineHeight));
+                    var rect = new RectangleF (x, layoutRect.Y + index * lineHeight, width, lineHeight);
+                    if (region is null)
+                        region = new Majorsilence.Forms.Drawing.Region (rect);
+                    else
+                        region.Union (rect);
                 }
 
-                result[i] = region;
+                result[i] = region ?? EmptyRegion ();
             }
 
             return result;
@@ -398,7 +409,18 @@ namespace Majorsilence.Forms.Drawing
         /// </summary>
         internal static List<(int Start, int Length, int Index)> LayoutLines (string text, Majorsilence.Forms.Drawing.Text.RunFont font, float maxWidth)
         {
-            var lines = new List<(int, int, int)> ();
+            var lines = new List<(int Start, int Length, int Index)> ();
+            LayoutLines (text, font, maxWidth, lines);
+            return lines;
+        }
+
+        [ThreadStatic]
+        private static List<(int Start, int Length, int Index)>? layout_lines;
+
+        // As above, into a list the caller owns (it is cleared first).
+        private static void LayoutLines (string text, Majorsilence.Forms.Drawing.Text.RunFont font, float maxWidth, List<(int Start, int Length, int Index)> lines)
+        {
+            lines.Clear ();
             var lineIndex = 0;
 
             for (var paragraphStart = 0; paragraphStart <= text.Length;) {
@@ -427,8 +449,6 @@ namespace Majorsilence.Forms.Drawing
                     break;
                 paragraphStart = paragraphEnd + 1;
             }
-
-            return lines;
         }
 
         /// <summary>

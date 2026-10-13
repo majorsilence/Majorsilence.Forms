@@ -44,17 +44,17 @@ TextMeasureBenchmarks.WidthViaMeasureRunWidth(Text=Customer number 4821, Dpi=300
 TextMeasureBenchmarks.WidthViaMeasureRunWidth(Text=Customer number 4821, Dpi=96): 0 B
 TextMeasureBenchmarks.WidthViaMeasureRunWidth(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 0 B
 TextMeasureBenchmarks.WidthViaMeasureRunWidth(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 0 B
-TextMeasureBenchmarks.WidthViaRegions(Text=Customer number 4821, Dpi=300): 728 B
-TextMeasureBenchmarks.WidthViaRegions(Text=Customer number 4821, Dpi=96): 728 B
-TextMeasureBenchmarks.WidthViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 728 B
-TextMeasureBenchmarks.WidthViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 728 B
+TextMeasureBenchmarks.WidthViaRegions(Text=Customer number 4821, Dpi=300): 240 B
+TextMeasureBenchmarks.WidthViaRegions(Text=Customer number 4821, Dpi=96): 240 B
+TextMeasureBenchmarks.WidthViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 240 B
+TextMeasureBenchmarks.WidthViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 240 B
 TextMeasureBenchmarks.WordsViaMeasureRunSpans(Text=Customer number 4821, Dpi=300): 0 B
 TextMeasureBenchmarks.WordsViaMeasureRunSpans(Text=Customer number 4821, Dpi=96): 0 B
 TextMeasureBenchmarks.WordsViaMeasureRunSpans(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 0 B
 TextMeasureBenchmarks.WordsViaMeasureRunSpans(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 0 B
-TextMeasureBenchmarks.WordsViaRegions(Text=Customer number 4821, Dpi=300): 1896 B
-TextMeasureBenchmarks.WordsViaRegions(Text=Customer number 4821, Dpi=96): 1896 B
-TextMeasureBenchmarks.WordsViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 7152 B
-TextMeasureBenchmarks.WordsViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 7152 B
+TextMeasureBenchmarks.WordsViaRegions(Text=Customer number 4821, Dpi=300): 672 B
+TextMeasureBenchmarks.WordsViaRegions(Text=Customer number 4821, Dpi=96): 672 B
+TextMeasureBenchmarks.WordsViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 2616 B
+TextMeasureBenchmarks.WordsViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 2616 B
 TextMeasurerCacheBenchmarks.Hit: 0 B
 TextMeasurerCacheBenchmarks.HitSingleLine: 0 B
