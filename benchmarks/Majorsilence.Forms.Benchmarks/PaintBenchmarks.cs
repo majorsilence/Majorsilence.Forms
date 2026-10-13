@@ -1,7 +1,6 @@
 using System.Drawing;
 using BenchmarkDotNet.Attributes;
 using ControlGallery.Panels;
-using Majorsilence.Forms.Headless;
 
 namespace Majorsilence.Forms.Benchmarks;
 
@@ -9,9 +8,10 @@ namespace Majorsilence.Forms.Benchmarks;
 // Control/Form/paint pipeline (per-control back-buffer caching, PaintChildren compositing) rather
 // than isolated Graphics calls -- this is what a continuously-animating panel actually pays per
 // tick, since each panel's Timer invalidates and repaints on every frame. Invalidate() is called
-// before every capture because CapturePng only re-runs OnPaint for controls whose NeedsPaint flag
-// is set (Control.cs's per-control back-buffer cache) -- otherwise a repeat capture would just
-// re-blit the previous frame's cached buffers, measuring almost nothing.
+// before every render because rendering only re-runs OnPaint for controls whose NeedsPaint flag
+// is set (Control.cs's per-control back-buffer cache) -- otherwise a repeat render would just
+// re-blit the previous frame's cached buffers, measuring almost nothing. Frames are rendered, not
+// PNG-encoded (see Frame).
 [MemoryDiagnoser]
 public class PaintBenchmarks
 {
@@ -50,7 +50,7 @@ public class PaintBenchmarks
     public void GameOfLifeRepaint ()
     {
         gameOfLifePanel.Invalidate ();
-        HeadlessRenderer.CapturePng (gameOfLifeForm, 900, 700);
+        Frame.Render (gameOfLifeForm);
     }
 
     // Whichever fractal is currently selected (Mandelbrot by default -- a full Bitmap.SetPixel
@@ -59,7 +59,7 @@ public class PaintBenchmarks
     public void FractalsRepaint ()
     {
         fractalsPanel.Invalidate ();
-        HeadlessRenderer.CapturePng (fractalsForm, 900, 700);
+        Frame.Render (fractalsForm);
     }
 
     // On the order of a thousand Graphics.DrawString calls per repaint.
@@ -67,7 +67,7 @@ public class PaintBenchmarks
     public void BinaryRainRepaint ()
     {
         binaryRainPanel.Invalidate ();
-        HeadlessRenderer.CapturePng (binaryRainForm, 900, 700);
+        Frame.Render (binaryRainForm);
     }
 
     // 64 Graphics.FillRectangle calls per repaint -- the lightest of the four, included as a
@@ -76,6 +76,6 @@ public class PaintBenchmarks
     public void SortingVisualizerRepaint ()
     {
         sortingPanel.Invalidate ();
-        HeadlessRenderer.CapturePng (sortingForm, 900, 700);
+        Frame.Render (sortingForm);
     }
 }

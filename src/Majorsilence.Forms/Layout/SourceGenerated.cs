@@ -3,7 +3,11 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+#if NET8_0_OR_GREATER
+using System.Runtime.CompilerServices;
+#endif
 
 namespace Majorsilence.Forms.Layout;
 
@@ -18,33 +22,55 @@ internal sealed class SourceGenerated
         /// for a normal enum the value must be one of the defined members.
         /// All call sites pass a parameter named <c>value</c>.
         /// </summary>
-        public static void Validate (Enum e)
+        /// <remarks>
+        /// Upstream generates a switch per enum at compile time. This used to answer by reflection on every call
+        /// (<c>Attribute.IsDefined</c> and <c>Enum.IsDefined</c> on a boxed value), and some callers validate on
+        /// every read: <c>CommonProperties.xGetDock</c> does, and a layout pass reads every child's
+        /// <c>Dock</c> several times, so reflection was 90 % of a docked layout pass (LayoutBenchmarks). The rules
+        /// for each enum type are now worked out once, and checking a value neither reflects nor boxes.
+        /// </remarks>
+        public static void Validate<T> (T value) where T : struct, Enum
         {
-            var type = e.GetType ();
+            if (!Rules<T>.IsValid (value))
+                throw new InvalidEnumArgumentException ("value", unchecked ((int)Bits (value)), typeof (T));
+        }
 
-            if (Attribute.IsDefined (type, typeof (FlagsAttribute))) {
-                // Flags enum: the value must not contain any bit outside the union of defined members.
-                long mask = 0;
+        private static class Rules<T> where T : struct, Enum
+        {
+            private static readonly bool flags = typeof (T).IsDefined (typeof (FlagsAttribute), false);
+            private static readonly ulong mask;
+            private static readonly HashSet<T> defined = new ();
+
+            static Rules ()
+            {
 #if NET8_0_OR_GREATER
-                // GetValuesAsUnderlyingType returns the boxed underlying values (int[]/long[]/...), so
-                // it needs no runtime-constructed TEnum[] -- unlike Enum.GetValues(Type), which is
-                // RequiresDynamicCode. The loop only reads the numeric value anyway.
-                foreach (var member in Enum.GetValuesAsUnderlyingType (type))
-                    mask |= Convert.ToInt64 (member);
+                var values = Enum.GetValues<T> ();
 #else
-                foreach (var member in Enum.GetValues (type))
-                    mask |= Convert.ToInt64 (member);
+                var values = (T[])Enum.GetValues (typeof (T));
 #endif
-
-                var value = Convert.ToInt64 (e);
-                if ((value & ~mask) != 0)
-                    throw new InvalidEnumArgumentException ("value", unchecked ((int) value), type);
-
-                return;
+                foreach (var member in values) {
+                    defined.Add (member);
+                    mask |= Bits (member);
+                }
             }
 
-            if (!Enum.IsDefined (type, e))
-                throw new InvalidEnumArgumentException ("value", Convert.ToInt32 (e), type);
+            // Flags: no bit outside the union of the defined members. Otherwise: one of the defined members.
+            public static bool IsValid (T value) => flags ? (Bits (value) & ~mask) == 0 : defined.Contains (value);
+        }
+
+        // The value's bits, as stored (not sign-extended); used consistently for the mask and the value.
+        private static ulong Bits<T> (T value) where T : struct, Enum
+        {
+#if NET8_0_OR_GREATER
+            return Unsafe.SizeOf<T> () switch {
+                1 => Unsafe.As<T, byte> (ref value),
+                2 => Unsafe.As<T, ushort> (ref value),
+                4 => Unsafe.As<T, uint> (ref value),
+                _ => Unsafe.As<T, ulong> (ref value),
+            };
+#else
+            return unchecked ((ulong)Convert.ToInt64 (value));
+#endif
         }
     }
 }
