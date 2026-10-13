@@ -22,6 +22,10 @@ FontBenchmarks.IsStyleAvailable: 240 B
 FontBenchmarks.NewFont: 288 B
 FontBenchmarks.NewFontUnknownFamily: 288 B
 FontBenchmarks.PathAddString: 632 B
+GraphicsAllocationBenchmarks.ColorHelpers: 0 B
+GraphicsAllocationBenchmarks.DrawStringSolid: 488016 B
+GraphicsAllocationBenchmarks.GradientFill: 256057 B
+GraphicsAllocationBenchmarks.SetClipRegion: 208004 B
 LayoutBenchmarks.AnchoredLayoutPass(ChildCount=10): 17267 B
 LayoutBenchmarks.AnchoredLayoutPass(ChildCount=100): 159276 B
 LayoutBenchmarks.AnchoredLayoutPass(ChildCount=1000): 1579337 B

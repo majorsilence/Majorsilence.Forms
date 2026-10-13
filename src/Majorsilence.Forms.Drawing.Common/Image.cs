@@ -322,15 +322,29 @@ namespace Majorsilence.Forms.Drawing
             if (backing is null)
                 return;
 
-            using var image = SKImage.FromBitmap (backing);
-
             // Skia encodes PNG, JPEG and WebP only. The other containers fall back to PNG -- what the
             // ImageFormat members document -- rather than a null-reference from the failed encode, which
             // matters now that a loaded GIF, BMP or icon reports its own RawFormat and the idiom
-            // image.Save (stream, image.RawFormat) asks for exactly that container.
-            using var data = image.Encode (format.ToSKEncodedImageFormat (), quality)
-                ?? image.Encode (SKEncodedImageFormat.Png, quality);
-            data.SaveTo (stream);
+            // image.Save (stream, image.RawFormat) asks for exactly that container. Chosen up front rather
+            // than by trying the unsupported encoder first.
+            var encoded = format.ToSKEncodedImageFormat () switch {
+                SKEncodedImageFormat.Png or SKEncodedImageFormat.Jpeg or SKEncodedImageFormat.Webp => format.ToSKEncodedImageFormat (),
+                _ => SKEncodedImageFormat.Png,
+            };
+
+            // Encoded straight from the bitmap's pixels. This went through SKImage.FromBitmap, which copies
+            // a mutable bitmap's pixels into a snapshot first (12 MB for a 2000x1500 page) to encode the same
+            // bytes (ImageSaveParityTests).
+            using var pixmap = backing.PeekPixels ();
+            using var data = pixmap?.Encode (encoded, quality) ?? EncodeSnapshot (backing, encoded, quality);
+            data?.SaveTo (stream);
+        }
+
+        // A bitmap whose pixels cannot be peeked (none allocated) is encoded the old way, through an image.
+        private static SKData? EncodeSnapshot (SKBitmap bitmap, SKEncodedImageFormat format, int quality)
+        {
+            using var image = SKImage.FromBitmap (bitmap);
+            return image?.Encode (format, quality);
         }
 
         /// <summary>Returns a thumbnail of this image at the requested size.</summary>

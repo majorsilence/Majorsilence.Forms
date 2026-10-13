@@ -3217,24 +3217,36 @@ namespace Majorsilence.Forms.Drawing
         internal void FillRectangle (SKColor color, Rectangle rect)
         {
             if (_canvas is null) return;
-            using var paint = new SKPaint { Color = color, Style = SKPaintStyle.Fill };
-            _canvas.DrawRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), paint);
+            _canvas.DrawRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), PlainPaint (color, SKPaintStyle.Fill));
         }
 
         /// <summary>Draws a rectangle outline with the given SKColor.</summary>
         internal void DrawRectangle (SKColor color, Rectangle rect)
         {
             if (_canvas is null) return;
-            using var paint = new SKPaint { Color = color, Style = SKPaintStyle.Stroke, StrokeWidth = 1 };
-            _canvas.DrawRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), paint);
+            _canvas.DrawRect (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), PlainPaint (color, SKPaintStyle.Stroke));
         }
 
         /// <summary>Draws a line with the given SKColor.</summary>
         internal void DrawLine (SKColor color, Point p1, Point p2)
         {
             if (_canvas is null) return;
-            using var paint = new SKPaint { Color = color, Style = SKPaintStyle.Stroke, StrokeWidth = 1 };
-            _canvas.DrawLine (p1.X, p1.Y, p2.X, p2.Y, paint);
+            _canvas.DrawLine (p1.X, p1.Y, p2.X, p2.Y, PlainPaint (color, SKPaintStyle.Stroke));
+        }
+
+        // The SKColor helpers above made a new SKPaint per call: every control background, border and separator.
+        // Pooled per thread for the same reason as t_strokePaint and t_fillPaint (see there). Only colour and style
+        // change; everything else stays at SKPaint's defaults (no antialiasing, SrcOver, width 1), which is what
+        // the fresh paints had, so nothing else may set state on this one.
+        [ThreadStatic]
+        private static SKPaint? t_plainPaint;
+
+        private static SKPaint PlainPaint (SKColor color, SKPaintStyle style)
+        {
+            var paint = t_plainPaint ??= new SKPaint { StrokeWidth = 1 };
+            paint.Color = color;
+            paint.Style = style;
+            return paint;
         }
 
         /// <summary>Draws a string with the given SKColor.</summary>
