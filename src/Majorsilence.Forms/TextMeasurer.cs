@@ -31,12 +31,20 @@ namespace Majorsilence.Forms
             int MnemonicIndex,
             int Rasterisation);    // -1 for the default; see CreateTextBlock
 
-        // Paint-safe TextBlock cache. TextBlock layout is idempotent; Paint() is read-only.
-        // Reusing cached instances eliminates repeated RichTextKit layout on every frame.
-        private static readonly Dictionary<TextBlockKey, TextBlock> _textBlockCache = new (capacity: 512);
-        private const int TBCacheLimit = 2000;
+        // Paint-safe TextBlock cache. TextBlock layout is idempotent; Paint() is read-only (painting one block on
+        // several threads at once is covered by TextBlockConcurrentPaintTests). Reusing cached instances
+        // eliminates repeated RichTextKit layout on every frame.
+        //
+        // Two generations rather than one dictionary emptied when full: new blocks go into _recentBlocks, and when
+        // that fills it becomes _olderBlocks and the previous older generation is dropped. A block found in the
+        // older generation moves back to the recent one. So text in use (a grid's headers, a report's repeated
+        // values) survives a stream of strings seen once, which used to empty the whole cache every 2000 new
+        // strings and lay the working set out again. The two dictionaries are reused, never reallocated.
+        private static Dictionary<TextBlockKey, TextBlock> _recentBlocks = new (capacity: GenerationSize);
+        private static Dictionary<TextBlockKey, TextBlock> _olderBlocks = new (capacity: GenerationSize);
+        private const int GenerationSize = 1000;   // two generations: at most 2000 blocks, the old single limit
 
-        // Guards _textBlockCache. MeasureText is also called off the UI thread (report engines measure
+        // Guards _recentBlocks and _olderBlocks. MeasureText is also called off the UI thread (report engines measure
         // on whatever thread renders the report), and a plain Dictionary mutated by two threads is
         // corrupted ("Operations that change non-concurrent collections must have exclusive access").
         // Only the dictionary access is locked, not the layout, which is by far the expensive part;
@@ -49,7 +57,8 @@ namespace Majorsilence.Forms
             // paint, with that paint's edging and hinting, and reuses it for every later paint -- so a
             // block shared between an aliased and an antialiased draw of the same text rendered with
             // whichever came first (Graphics.TextRenderingHint, GFX-08).
-            if (maxLines == 1) {
+            // One vectorised scan instead of three Replace passes on every call, cache hits included.
+            if (maxLines == 1 && text.AsSpan ().IndexOfAny ('\n', '\r') >= 0) {
                 text = text.Replace ("\n\r", "»");
                 text = text.Replace ("\n", "»");
                 text = text.Replace ("\r", "»");
@@ -58,8 +67,13 @@ namespace Majorsilence.Forms
             var key = new TextBlockKey (text, font, fontSize, maxSize.Width, maxSize.Height, alignment, (uint)color, maxLines ?? -1, ellipsis, mnemonicIndex, rasterisation);
 
             lock (_textBlockCacheLock) {
-                if (_textBlockCache.TryGetValue (key, out var cached))
+                if (_recentBlocks.TryGetValue (key, out var cached))
                     return cached;
+
+                if (_olderBlocks.Remove (key, out cached)) {
+                    AddRecentBlock (key, cached);
+                    return cached;
+                }
             }
 
             var tb = new TextBlock {
@@ -119,14 +133,29 @@ namespace Majorsilence.Forms
                     tb.MaxHeight *= 2;
             }
 
-            lock (_textBlockCacheLock) {
-                if (_textBlockCache.Count >= TBCacheLimit)
-                    _textBlockCache.Clear ();
-
-                _textBlockCache[key] = tb;
-            }
+            lock (_textBlockCacheLock)
+                AddRecentBlock (key, tb);
 
             return tb;
+        }
+
+        // Caller holds _textBlockCacheLock.
+        private static void AddRecentBlock (TextBlockKey key, TextBlock block)
+        {
+            if (_recentBlocks.Count >= GenerationSize) {
+                (_olderBlocks, _recentBlocks) = (_recentBlocks, _olderBlocks);
+                _recentBlocks.Clear ();
+            }
+
+            _recentBlocks[key] = block;
+        }
+
+        // For tests: the number of cached blocks, both generations.
+        internal static int CachedBlockCount {
+            get {
+                lock (_textBlockCacheLock)
+                    return _recentBlocks.Count + _olderBlocks.Count;
+            }
         }
 
         // Resolved emoji-capable typeface family names, keyed by base codepoint. A font-manager query,
@@ -194,8 +223,10 @@ namespace Majorsilence.Forms
         /// </summary>
         internal static void ClearTextBlockCache ()
         {
-            lock (_textBlockCacheLock)
-                _textBlockCache.Clear ();
+            lock (_textBlockCacheLock) {
+                _recentBlocks.Clear ();
+                _olderBlocks.Clear ();
+            }
         }
 
         /// <summary>

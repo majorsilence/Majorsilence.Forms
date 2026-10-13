@@ -50,3 +50,5 @@ TextMeasureBenchmarks.WordsViaRegions(Text=Customer number 4821, Dpi=300): 1896 
 TextMeasureBenchmarks.WordsViaRegions(Text=Customer number 4821, Dpi=96): 1896 B
 TextMeasureBenchmarks.WordsViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 7152 B
 TextMeasureBenchmarks.WordsViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 7152 B
+TextMeasurerCacheBenchmarks.Hit: 0 B
+TextMeasurerCacheBenchmarks.HitSingleLine: 0 B

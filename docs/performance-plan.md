@@ -20,7 +20,8 @@ more briefly at the end. The Reporting side of the same work is in that reposito
 | F3 cache the scaled `SKFont` | done | #471, `Font.GetScaledSKFont` |
 | F4 `MeasureRunWidth` / `MeasureRunSpans` | done: 4.2 us / 728 B -> 0.84 us / 0 B per 20-char cell | #471 |
 | Benchmarks in the solution, Dry smoke run and allocation gate in CI | done | this round, phase 0 |
-| F6 `TextMeasurer` | see section A | |
+| F6 `TextMeasurer` | done. (b) two-generation cache: a working set of 1000 strings among a stream of new ones goes from 2.85 us / 1645 B to 2.06 us / 1046 B per measurement. (c) one `IndexOfAny` before the `Replace` calls: a single-line cache hit goes from 68 to 46 ns. (d) painting one cached block on 8 threads at once is safe, pinned by `TextBlockConcurrentPaintTests`. (a) not done: colour is part of the block's `Style`, so a painted block cannot answer for another colour, and measure-only calls already share one key (colour 0) | round 2 |
+| F11 unshaped measuring without Skia's lock | new, see section A | round 2 |
 | F7 fonts and startup | see section B | |
 | F9 static state | `TextMeasurer` cache lock #470; `RenderManager`, `ThemeCssReference` #472; the rest see section D | |
 | F5, F8, F10 | see sections A, C, E | |
@@ -103,6 +104,29 @@ text. Unconfirmed: the first task is a test that pins what actually happens.
    a shared cached `TextBlock` from two threads**: RichTextKit builds each run's `SKTextBlob` lazily on
    first paint, so the cache after #470 is safe as a dictionary but a shared block may not be safe to paint
    concurrently. Test first; the fix may be a per-thread cache or a clone.
+
+### Found while measuring: Skia serialises measurement across threads
+
+`ConcurrentMeasureBenchmarks` gives every thread its own `Graphics`, `Font` and text, so it should scale
+flat. It does not. For 500 measurements per thread, on a 12-core machine:
+
+| Threads | `SKFont.MeasureText` alone | `MeasureRunWidth` | `MeasureString` (cached block) | `MeasureCharacterRanges` |
+|---|---|---|---|---|
+| 1 | 0.32 ms | 0.30 ms | 0.08 ms | 1.26 ms |
+| 4 | 1.48 ms | 1.53 ms | 0.53 ms | 4.69 ms |
+| 8 | 3.20 ms | 3.12 ms | 1.77 ms | 8.64 ms |
+
+The raw SkiaSharp call, with no code from this library, scales the same way. Every `SKFont.MeasureText`
+goes through Skia's process-wide glyph cache (`SkStrikeCache`), which is guarded by one mutex. Eight
+report threads measuring cells therefore run more slowly than one thread would.
+
+11. **F11: unshaped advances from a managed table** (M). Keep each glyph's advance for a
+    (typeface, size, edging, subpixel, hinting) in an immutable table shared across `Font` instances, and
+    sum it in managed code for `MeasureRunWidth`, `MeasureRunSpans`, `FitRun` and
+    `MeasureCharacterRanges`. Skia's `measureText` adds the same per-glyph advances in the same order, so
+    the result is bit-identical when the strike is not rescaled. A parity test over a corpus of texts,
+    sizes and DPIs proves it. Characters outside the table (surrogates, anything past U+00FF) fall back to
+    Skia for the whole run.
 
 ## B. Fonts and startup
 
