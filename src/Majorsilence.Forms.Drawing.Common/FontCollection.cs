@@ -176,9 +176,13 @@ namespace Majorsilence.Forms.Drawing.Text
         private static readonly Dictionary<string, List<SKTypeface>> byFamily =
             new (StringComparer.OrdinalIgnoreCase);
 
-        public static bool IsEmpty {
-            get { lock (gate) return byFamily.Count == 0; }
-        }
+        // byFamily.Count, kept outside the lock. Every text layout asks IsEmpty (CachingFontMapper, once per run), and
+        // taking the lock for it made report threads laying text out at once queue on this one object: 16 % of
+        // the time of eight threads measuring new strings (ConcurrentMeasureBenchmarks). A reader that races an Add
+        // sees the registry as it was a moment earlier, which is all the lock gave it too.
+        private static volatile int familyCount;
+
+        public static bool IsEmpty => familyCount == 0;
 
         public static void Add (SKTypeface typeface)
         {
@@ -186,6 +190,7 @@ namespace Majorsilence.Forms.Drawing.Text
                 if (!byFamily.TryGetValue (typeface.FamilyName, out var list))
                     byFamily[typeface.FamilyName] = list = new List<SKTypeface> ();
                 list.Add (typeface);
+                familyCount = byFamily.Count;
             }
         }
 
@@ -197,6 +202,7 @@ namespace Majorsilence.Forms.Drawing.Text
                 list.Remove (typeface);
                 if (list.Count == 0)
                     byFamily.Remove (typeface.FamilyName);
+                familyCount = byFamily.Count;
             }
         }
 
@@ -207,7 +213,7 @@ namespace Majorsilence.Forms.Drawing.Text
         /// </summary>
         public static SKTypeface? Resolve (string familyName, SKFontStyle style)
         {
-            if (string.IsNullOrEmpty (familyName))
+            if (string.IsNullOrEmpty (familyName) || familyCount == 0)
                 return null;
 
             lock (gate) {

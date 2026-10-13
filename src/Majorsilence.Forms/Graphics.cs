@@ -230,7 +230,7 @@ namespace Majorsilence.Forms.Drawing
         // "space"; a line ends at a CR, an LF or the end of the text.
         private static string WithoutTrailingSpaces (string text)
         {
-            if (text.IndexOf (' ') < 0)
+            if (!HasTrailingSpace (text))
                 return text;
 
             var result = new System.Text.StringBuilder (text.Length);
@@ -246,6 +246,17 @@ namespace Majorsilence.Forms.Drawing
                 result.Append (c);
             }
             return result.ToString ();
+        }
+
+        // Whether any line of text ends in a space. Most text has spaces only between words, and building a copy of
+        // it to drop nothing was the one allocation of a cached MeasureString (TextMeasureBenchmarks).
+        private static bool HasTrailingSpace (string text)
+        {
+            for (var i = text.IndexOf (' '); i >= 0; i = text.IndexOf (' ', i + 1)) {
+                if (i + 1 == text.Length || text[i + 1] is '\r' or '\n')
+                    return true;
+            }
+            return false;
         }
 
         // Vertical here means "rotate the run 90 degrees", the way RDL's WritingMode="tb-rl" and every

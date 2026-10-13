@@ -40,10 +40,10 @@ PaintConstructionBenchmarks.AllocateFreshPaint: 88001 B
 PaintConstructionBenchmarks.DrawRectWithFreshPaint: 88006 B
 PaintConstructionBenchmarks.DrawRectWithPooledPaint: 3 B
 PaintConstructionBenchmarks.ReconfigurePooledPaint: 0 B
-TextMeasureBenchmarks.MeasureStringForComparison(Text=Customer number 4821, Dpi=300): 176 B
-TextMeasureBenchmarks.MeasureStringForComparison(Text=Customer number 4821, Dpi=96): 176 B
-TextMeasureBenchmarks.MeasureStringForComparison(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 440 B
-TextMeasureBenchmarks.MeasureStringForComparison(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 440 B
+TextMeasureBenchmarks.MeasureStringForComparison(Text=Customer number 4821, Dpi=300): 0 B
+TextMeasureBenchmarks.MeasureStringForComparison(Text=Customer number 4821, Dpi=96): 0 B
+TextMeasureBenchmarks.MeasureStringForComparison(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 0 B
+TextMeasureBenchmarks.MeasureStringForComparison(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 0 B
 TextMeasureBenchmarks.WidthViaMeasureRunWidth(Text=Customer number 4821, Dpi=300): 0 B
 TextMeasureBenchmarks.WidthViaMeasureRunWidth(Text=Customer number 4821, Dpi=96): 0 B
 TextMeasureBenchmarks.WidthViaMeasureRunWidth(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 0 B
