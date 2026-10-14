@@ -150,25 +150,25 @@ namespace Majorsilence.Forms
             // The typeface's slant has to travel with its weight: RichTextKit re-resolves the face
             // from the style's family name, weight and FontItalic, so without it every italic font
             // drew upright -- a report chart's italic category labels among them.
-            var italic = font.FontSlant != SKFontStyleSlant.Upright;
+            var face = StyleOf (font);
 
             var styleNormal = new Style {
-                FontFamily = font.FamilyName,
+                FontFamily = face.Family,
                 FontSize = fontSize,
                 TextColor = color,
-                FontWeight = font.FontWeight,
-                FontItalic = italic
+                FontWeight = face.Weight,
+                FontItalic = face.Italic
             };
 
             // Underline the mnemonic character (the access key) by splitting the text into a
             // normal run, a single underlined run for that character, and a trailing normal run.
             if (mnemonicIndex >= 0 && mnemonicIndex < text.Length) {
                 var styleMnemonic = new Style {
-                    FontFamily = font.FamilyName,
+                    FontFamily = face.Family,
                     FontSize = fontSize,
                     TextColor = color,
-                    FontWeight = font.FontWeight,
-                    FontItalic = italic,
+                    FontWeight = face.Weight,
+                    FontItalic = face.Italic,
                     Underline = UnderlineStyle.Solid
                 };
 
@@ -198,6 +198,21 @@ namespace Majorsilence.Forms
 
             return tb;
         }
+
+        // A typeface's family name, weight and slant, as a block's Style takes them. Each is a native call on the
+        // typeface, the name a native string as well, and every block laid out asked for all three: a few per cent of
+        // measuring a new string (ConcurrentMeasureBenchmarks). A typeface's style never changes.
+        private sealed class TypefaceStyle (string family, int weight, bool italic)
+        {
+            internal string Family { get; } = family;
+            internal int Weight { get; } = weight;
+            internal bool Italic { get; } = italic;
+        }
+
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<SKTypeface, TypefaceStyle> typeface_styles = new ();
+
+        private static TypefaceStyle StyleOf (SKTypeface font)
+            => typeface_styles.GetValue (font, static f => new TypefaceStyle (f.FamilyName, f.FontWeight, f.FontSlant != SKFontStyleSlant.Upright));
 
         // For tests: the number of cached blocks and sizes, both generations of each.
         internal static int CachedBlockCount => _blocks.Count + _sizes.Count;

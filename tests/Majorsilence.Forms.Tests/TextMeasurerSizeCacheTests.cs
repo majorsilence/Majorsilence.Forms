@@ -107,6 +107,26 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (g.MeasureString (trimmed, font), g.MeasureString (text, font));
         }
 
+        // The family, weight and slant a block's style takes come from a per-typeface cache, not three native calls
+        // per block laid out.
+        [Theory]
+        [InlineData ("Arial", SKFontStyleWeight.Normal, SKFontStyleSlant.Upright)]
+        [InlineData ("Arial", SKFontStyleWeight.Bold, SKFontStyleSlant.Upright)]
+        [InlineData ("Times New Roman", SKFontStyleWeight.Bold, SKFontStyleSlant.Italic)]
+        [InlineData ("Courier New", SKFontStyleWeight.Normal, SKFontStyleSlant.Italic)]
+        public void A_block_takes_the_typeface_s_family_weight_and_slant (string family, SKFontStyleWeight weight, SKFontStyleSlant slant)
+        {
+            HeadlessRenderer.Use ();
+            using var typeface = SKTypeface.FromFamilyName (family, weight, SKFontStyleWidth.Normal, slant);
+
+            for (var i = 0; i < 2; i++) {   // the second time from the cache
+                var style = TextMeasurer.CreateTextBlock ($"Styled {i}", typeface, 12, new Size (300, 100)).Lines[0].Runs[0].Style;
+                Assert.Equal (typeface.FamilyName, style.FontFamily);
+                Assert.Equal (typeface.FontWeight, style.FontWeight);
+                Assert.Equal (typeface.FontSlant != SKFontStyleSlant.Upright, style.FontItalic);
+            }
+        }
+
         [Fact]
         public void A_cached_MeasureString_of_words_allocates_nothing ()
         {
