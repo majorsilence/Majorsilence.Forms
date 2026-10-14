@@ -41,7 +41,13 @@ namespace Majorsilence.Forms
     /// </remarks>
     public sealed class LayoutEventArgs : EventArgs
     {
-        private readonly WeakReference<IComponent>? affected_component;
+        // The component, held strongly while these args are only passed to a layout handler, and through a weak
+        // reference once a control caches them for a later layout (Control.PerformLayout while layout is suspended):
+        // upstream holds it weakly because cached args would otherwise keep a removed child alive. Every layout of
+        // every control makes one of these, and a WeakReference is a GC handle with a finaliser; with a thousand
+        // anchored children that was a fifth of what a layout pass allocated (LayoutBenchmarks).
+        private IComponent? affected_strong;
+        private WeakReference<IComponent>? affected_component;
 
         /// <summary>
         ///  Initializes a new instance of the LayoutEventArgs class.
@@ -56,8 +62,17 @@ namespace Majorsilence.Forms
         /// </summary>
         public LayoutEventArgs (IComponent? affectedComponent, string? affectedProperty)
         {
-            affected_component = affectedComponent is not null ? new WeakReference<IComponent> (affectedComponent) : null;
+            affected_strong = affectedComponent;
             AffectedProperty = affectedProperty;
+        }
+
+        // Called before the args are kept beyond the layout they were made for.
+        internal void HoldWeakly ()
+        {
+            if (affected_strong is { } component) {
+                affected_component = new WeakReference<IComponent> (component);
+                affected_strong = null;
+            }
         }
 
         /// <summary>
@@ -65,6 +80,9 @@ namespace Majorsilence.Forms
         /// </summary>
         public IComponent? AffectedComponent {
             get {
+                if (affected_strong is { } component)
+                    return component;
+
                 IComponent? target = null;
                 affected_component?.TryGetTarget (out target);
                 return target;

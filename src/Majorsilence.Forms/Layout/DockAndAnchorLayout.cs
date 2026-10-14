@@ -2,8 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System.Collections;
-using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Drawing;
 
@@ -15,6 +13,20 @@ internal sealed partial class DefaultLayout : LayoutEngine
 
     private static readonly int s_layoutInfoProperty = PropertyStore.CreateKey ();
     private static readonly int s_cachedBoundsProperty = PropertyStore.CreateKey ();
+    private static readonly int s_cachedBoundsStoreProperty = PropertyStore.CreateKey ();
+
+    // The bounds a layout pass has worked out for a container's children but not yet applied. Upstream
+    // (DefaultLayout.cs) keeps a HybridDictionary, made for each pass: past eight children it becomes a Hashtable
+    // that grows bucket array by bucket array, and every Rectangle is boxed, as is every entry read back. That was
+    // most of what an anchored layout pass allocated, 340 bytes a child (LayoutBenchmarks). A typed dictionary is
+    // kept with the container and emptied between passes instead (s_cachedBoundsStoreProperty); whether a pass has
+    // cached bounds is still whether s_cachedBoundsProperty is set. Bounds are applied in the order they were
+    // worked out, as HybridDictionary applied them up to eight children; past that the Hashtable's order followed
+    // the children's hash codes, which nothing can rely on.
+    private sealed class CachedBoundsStore
+    {
+        internal readonly Dictionary<IArrangedElement, Rectangle> Bounds = new ();
+    }
 
     /// <summary>
     ///  Loop through the AutoSized controls and expand them if they are smaller than
@@ -788,15 +800,9 @@ internal sealed partial class DefaultLayout : LayoutEngine
 
     private static Rectangle GetCachedBounds (IArrangedElement element)
     {
-        if (element.Container is not null) {
-            var dictionary = (IDictionary?)element.Container.Properties.GetObject (s_cachedBoundsProperty);
-            if (dictionary is not null) {
-                var bounds = dictionary[element];
-                if (bounds is not null) {
-                    return (Rectangle)bounds;
-                }
-            }
-        }
+        if (element.Container?.Properties.GetObject (s_cachedBoundsProperty) is CachedBoundsStore store
+            && store.Bounds.TryGetValue (element, out var bounds))
+            return bounds;
 
         return element.Bounds;
     }
@@ -817,13 +823,9 @@ internal sealed partial class DefaultLayout : LayoutEngine
             }
         }
 
-        var dictionary = (IDictionary?)container.Properties.GetObject (s_cachedBoundsProperty);
-        if (dictionary is not null) {
-            foreach (DictionaryEntry entry in dictionary) {
-                var element = (IArrangedElement)entry.Key;
-
+        if (container.Properties.GetObject (s_cachedBoundsProperty) is CachedBoundsStore store) {
+            foreach (var (element, bounds) in store.Bounds) {
                 Debug.Assert (element.Container == container, "We have non-children in our containers cached bounds store.");
-                var bounds = (Rectangle)entry.Value!;
                 element.SetBounds (bounds, BoundsSpecified.None);
             }
 
@@ -833,19 +835,23 @@ internal sealed partial class DefaultLayout : LayoutEngine
 
     private static void ClearCachedBounds (IArrangedElement container)
     {
+        // Emptied, not dropped, for the next pass; emptying also lets go of the children it named.
+        if (container.Properties.GetObject (s_cachedBoundsProperty) is CachedBoundsStore store)
+            store.Bounds.Clear ();
+
         container.Properties.SetObject (s_cachedBoundsProperty, null);
     }
 
     private static void SetCachedBounds (IArrangedElement element, Rectangle bounds)
     {
-        if (bounds != GetCachedBounds (element)) {
-            var dictionary = (IDictionary?)element.Container?.Properties.GetObject (s_cachedBoundsProperty);
-            if (dictionary is null) {
-                dictionary = new HybridDictionary ();
-                element.Container?.Properties.SetObject (s_cachedBoundsProperty, dictionary);
+        if (bounds != GetCachedBounds (element) && element.Container is { } container) {
+            if (container.Properties.GetObject (s_cachedBoundsProperty) is not CachedBoundsStore store) {
+                store = container.Properties.GetObject (s_cachedBoundsStoreProperty) as CachedBoundsStore ?? new CachedBoundsStore ();
+                container.Properties.SetObject (s_cachedBoundsStoreProperty, store);
+                container.Properties.SetObject (s_cachedBoundsProperty, store);
             }
 
-            dictionary[element] = bounds;
+            store.Bounds[element] = bounds;
         }
     }
 

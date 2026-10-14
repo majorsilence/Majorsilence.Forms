@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Drawing;
 using SkiaSharp;
 using Topten.RichTextKit;
@@ -34,22 +35,86 @@ namespace Majorsilence.Forms
         // Paint-safe TextBlock cache. TextBlock layout is idempotent; Paint() is read-only (painting one block on
         // several threads at once is covered by TextBlockConcurrentPaintTests). Reusing cached instances
         // eliminates repeated RichTextKit layout on every frame.
-        //
-        // Two generations rather than one dictionary emptied when full: new blocks go into _recentBlocks, and when
-        // that fills it becomes _olderBlocks and the previous older generation is dropped. A block found in the
-        // older generation moves back to the recent one. So text in use (a grid's headers, a report's repeated
-        // values) survives a stream of strings seen once, which used to empty the whole cache every 2000 new
-        // strings and lay the working set out again. The two dictionaries are reused, never reallocated.
-        private static Dictionary<TextBlockKey, TextBlock> _recentBlocks = new (capacity: GenerationSize);
-        private static Dictionary<TextBlockKey, TextBlock> _olderBlocks = new (capacity: GenerationSize);
-        private const int GenerationSize = 1000;   // two generations: at most 2000 blocks, the old single limit
+        private static readonly GenerationCache<TextBlock> _blocks = new ();
 
-        // Guards _recentBlocks and _olderBlocks. MeasureText is also called off the UI thread (report engines measure
-        // on whatever thread renders the report), and a plain Dictionary mutated by two threads is
-        // corrupted ("Operations that change non-concurrent collections must have exclusive access").
-        // Only the dictionary access is locked, not the layout, which is by far the expensive part;
-        // two threads that miss on the same key both lay it out and the last one stored wins.
-        private static readonly object _textBlockCacheLock = new ();
+        // MeasureText's answers. Measuring needs only the size, and keeping the whole block for it (its lines, runs
+        // and glyph buffers, about 4 KB) kept every measured string's layout alive long enough to be promoted by
+        // the garbage collector: a report measuring new values spent a third of its time collecting
+        // (ConcurrentMeasureBenchmarks). Nothing else asks for a block with MeasureText's key (default alignment
+        // and colour, no line limit), so no caller loses a block it used to get from the cache.
+        private static readonly GenerationCache<SKSize> _sizes = new ();
+
+        // Two generations rather than one dictionary emptied when full: new entries go into the recent generation,
+        // and when that has had GenerationSize entries added it becomes the older one and the previous older
+        // generation is dropped. An entry found in the older generation is added back to the recent one. So text in
+        // use (a grid's headers, a report's repeated values) survives a stream of strings seen once, which used to
+        // empty the whole cache every 2000 new strings and lay the working set out again.
+        //
+        // Lock-free. MeasureText is also called off the UI thread (report engines measure on whatever thread
+        // renders the report), and with one lock around two Dictionaries, eight threads measuring at once spent a
+        // quarter of their time queueing for it (ConcurrentMeasureBenchmarks). A swap replaces the whole pair at
+        // once, so a reader sees either the old pair or the new one. Two threads that miss on the same key both lay
+        // it out and the first one stored wins.
+        private sealed class GenerationCache<TValue>
+        {
+            private const int GenerationSize = 1000;   // two generations: at most 2000 entries, the old single limit
+
+            private sealed class Generations
+            {
+                internal Generations (ConcurrentDictionary<TextBlockKey, TValue>? older) => Older = older;
+
+                // Sized for a whole generation up front: growing takes every one of the dictionary's locks, which
+                // threads adding blocks queued on (9 % of eight threads measuring new strings).
+                internal readonly ConcurrentDictionary<TextBlockKey, TValue> Recent = new (Environment.ProcessorCount, GenerationSize + GenerationSize / 4);
+                internal readonly ConcurrentDictionary<TextBlockKey, TValue>? Older;
+
+                // Entries added to Recent: the thread that adds the GenerationSize-th one swaps. Recent.Count would
+                // take every one of the dictionary's locks.
+                internal int Added;
+            }
+
+            private volatile Generations generations = new (null);
+
+            internal bool TryGet (TextBlockKey key, out TValue value)
+            {
+                var current = generations;
+                if (current.Recent.TryGetValue (key, out value!))
+                    return true;
+
+                if (current.Older is { } older && older.TryGetValue (key, out value!)) {
+                    Add (key, value);
+                    return true;
+                }
+
+                return false;
+            }
+
+            // The value now cached for key: value, or the one another thread stored first.
+            internal TValue Add (TextBlockKey key, TValue value)
+            {
+                var current = generations;
+                if (!current.Recent.TryAdd (key, value))
+                    return current.Recent.TryGetValue (key, out var stored) ? stored : value;
+
+                // An entry left in the older generation as well as the recent one is harmless: the older one goes at
+                // the next swap. A thread that read the generations just before a swap adds to what is now the older
+                // one, which only lets that generation run an entry or two over GenerationSize.
+                if (System.Threading.Interlocked.Increment (ref current.Added) == GenerationSize)
+                    generations = new Generations (current.Recent);
+
+                return value;
+            }
+
+            internal void Clear () => generations = new Generations (null);
+
+            // A key in both generations counts twice.
+            internal int Count {
+                get {
+                    var current = generations;
+                    return current.Recent.Count + (current.Older?.Count ?? 0);
+                }
+            }
+        }
 
         internal static TextBlock CreateTextBlock (string text, SKTypeface font, int fontSize, Size maxSize, TextAlignment alignment = TextAlignment.Auto, SKColor color = new SKColor (), int? maxLines = null, bool ellipsis = false, int mnemonicIndex = -1, int rasterisation = -1)
         {
@@ -66,16 +131,14 @@ namespace Majorsilence.Forms
 
             var key = new TextBlockKey (text, font, fontSize, maxSize.Width, maxSize.Height, alignment, (uint)color, maxLines ?? -1, ellipsis, mnemonicIndex, rasterisation);
 
-            lock (_textBlockCacheLock) {
-                if (_recentBlocks.TryGetValue (key, out var cached))
-                    return cached;
+            if (_blocks.TryGet (key, out var cached))
+                return cached;
 
-                if (_olderBlocks.Remove (key, out cached)) {
-                    AddRecentBlock (key, cached);
-                    return cached;
-                }
-            }
+            return _blocks.Add (key, LayOut (text, font, fontSize, maxSize, alignment, color, maxLines, ellipsis, mnemonicIndex));
+        }
 
+        private static TextBlock LayOut (string text, SKTypeface font, int fontSize, Size maxSize, TextAlignment alignment, SKColor color, int? maxLines, bool ellipsis, int mnemonicIndex)
+        {
             var tb = new TextBlock {
                 MaxWidth = maxLines.GetValueOrDefault () == 1 ? (float?)null : maxSize.Width,
                 MaxHeight = maxSize.Height == int.MaxValue ? (int?)null : maxSize.Height,
@@ -87,25 +150,25 @@ namespace Majorsilence.Forms
             // The typeface's slant has to travel with its weight: RichTextKit re-resolves the face
             // from the style's family name, weight and FontItalic, so without it every italic font
             // drew upright -- a report chart's italic category labels among them.
-            var italic = font.FontSlant != SKFontStyleSlant.Upright;
+            var face = StyleOf (font);
 
             var styleNormal = new Style {
-                FontFamily = font.FamilyName,
+                FontFamily = face.Family,
                 FontSize = fontSize,
                 TextColor = color,
-                FontWeight = font.FontWeight,
-                FontItalic = italic
+                FontWeight = face.Weight,
+                FontItalic = face.Italic
             };
 
             // Underline the mnemonic character (the access key) by splitting the text into a
             // normal run, a single underlined run for that character, and a trailing normal run.
             if (mnemonicIndex >= 0 && mnemonicIndex < text.Length) {
                 var styleMnemonic = new Style {
-                    FontFamily = font.FamilyName,
+                    FontFamily = face.Family,
                     FontSize = fontSize,
                     TextColor = color,
-                    FontWeight = font.FontWeight,
-                    FontItalic = italic,
+                    FontWeight = face.Weight,
+                    FontItalic = face.Italic,
                     Underline = UnderlineStyle.Solid
                 };
 
@@ -133,30 +196,29 @@ namespace Majorsilence.Forms
                     tb.MaxHeight *= 2;
             }
 
-            lock (_textBlockCacheLock)
-                AddRecentBlock (key, tb);
-
             return tb;
         }
 
-        // Caller holds _textBlockCacheLock.
-        private static void AddRecentBlock (TextBlockKey key, TextBlock block)
+        // A typeface's family name, weight and slant, as a block's Style takes them. Each is a native call on the
+        // typeface, the name a native string as well, and every block laid out asked for all three: a few per cent of
+        // measuring a new string (ConcurrentMeasureBenchmarks). A typeface's style never changes.
+        private sealed class TypefaceStyle (string family, int weight, bool italic)
         {
-            if (_recentBlocks.Count >= GenerationSize) {
-                (_olderBlocks, _recentBlocks) = (_recentBlocks, _olderBlocks);
-                _recentBlocks.Clear ();
-            }
-
-            _recentBlocks[key] = block;
+            internal string Family { get; } = family;
+            internal int Weight { get; } = weight;
+            internal bool Italic { get; } = italic;
         }
 
-        // For tests: the number of cached blocks, both generations.
-        internal static int CachedBlockCount {
-            get {
-                lock (_textBlockCacheLock)
-                    return _recentBlocks.Count + _olderBlocks.Count;
-            }
-        }
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<SKTypeface, TypefaceStyle> typeface_styles = new ();
+
+        private static TypefaceStyle StyleOf (SKTypeface font)
+            => typeface_styles.GetValue (font, static f => new TypefaceStyle (f.FamilyName, f.FontWeight, f.FontSlant != SKFontStyleSlant.Upright));
+
+        // For tests: the number of cached blocks and sizes, both generations of each.
+        internal static int CachedBlockCount => _blocks.Count + _sizes.Count;
+
+        // For tests: the number of cached blocks alone.
+        internal static int CachedLayoutCount => _blocks.Count;
 
         // Resolved emoji-capable typeface family names, keyed by base codepoint. A font-manager query,
         // amortised the same way FontSubstitution's own fallback cache is (see there): this is asked
@@ -223,10 +285,8 @@ namespace Majorsilence.Forms
         /// </summary>
         internal static void ClearTextBlockCache ()
         {
-            lock (_textBlockCacheLock) {
-                _recentBlocks.Clear ();
-                _olderBlocks.Clear ();
-            }
+            _blocks.Clear ();
+            _sizes.Clear ();
         }
 
         /// <summary>
@@ -422,9 +482,15 @@ namespace Majorsilence.Forms
             if (!text.HasValue ())
                 return SKSize.Empty;
 
-            var tb = CreateTextBlock (text, font, fontSize, maxSize);
+            // The key CreateTextBlock (text, font, fontSize, maxSize) would use; MeasureText's text never has its
+            // line breaks replaced, as that is only done for a one-line block.
+            var key = new TextBlockKey (text, font, fontSize, maxSize.Width, maxSize.Height, TextAlignment.Auto, 0, -1, false, -1, -1);
+            if (_sizes.TryGet (key, out var size))
+                return size;
 
-            return new SKSize (tb.MeasuredWidth, tb.MeasuredHeight);
+            var tb = LayOut (text, font, fontSize, maxSize, TextAlignment.Auto, new SKColor (), null, false, -1);
+
+            return _sizes.Add (key, new SKSize (tb.MeasuredWidth, tb.MeasuredHeight));
         }
     }
 }

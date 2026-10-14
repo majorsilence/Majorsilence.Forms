@@ -380,9 +380,64 @@ public partial class Control
         internal IEnumerable<Control> GetAllControls (bool includeImplicit = true)
         {
             if (includeImplicit)
-                return control_list.Concat (implicit_control_list);
+                return all_controls ??= new AllControls (this);
 
             return control_list;
+        }
+
+        // Both lists as one live, read-only list: what Concat gave, plus a count and an indexer. Layout asks a
+        // container for its children on every pass and walks them with Any, Count () and ElementAt, which LINQ answers
+        // from IList without enumerating; a scroll bar or a size grip is implicit in every panel, so each of the
+        // thousand children in an anchored pass made a Concat iterator (LayoutBenchmarks). Enumerating is still the
+        // Concat, so a collection changed mid-enumeration fails the same way.
+        private AllControls? all_controls;
+
+        private sealed class AllControls : IList<Control>, IReadOnlyList<Control>
+        {
+            private readonly ControlCollection owner;
+
+            internal AllControls (ControlCollection owner) => this.owner = owner;
+
+            public int Count => owner.control_list.Count + owner.implicit_control_list.Count;
+
+            public bool IsReadOnly => true;
+
+            public Control this[int index] {
+                get {
+                    var explicitCount = owner.control_list.Count;
+                    if ((uint)index >= (uint)Count)
+                        throw new ArgumentOutOfRangeException (nameof (index));
+                    return index < explicitCount ? owner.control_list[index] : owner.implicit_control_list[index - explicitCount];
+                }
+                set => throw new NotSupportedException ();
+            }
+
+            public IEnumerator<Control> GetEnumerator () => owner.control_list.Concat (owner.implicit_control_list).GetEnumerator ();
+
+            IEnumerator IEnumerable.GetEnumerator () => GetEnumerator ();
+
+            public int IndexOf (Control item)
+            {
+                var index = owner.control_list.IndexOf (item);
+                if (index >= 0)
+                    return index;
+                index = owner.implicit_control_list.IndexOf (item);
+                return index >= 0 ? owner.control_list.Count + index : -1;
+            }
+
+            public bool Contains (Control item) => IndexOf (item) >= 0;
+
+            public void CopyTo (Control[] array, int arrayIndex)
+            {
+                owner.control_list.CopyTo (array, arrayIndex);
+                owner.implicit_control_list.CopyTo (array, arrayIndex + owner.control_list.Count);
+            }
+
+            public void Add (Control item) => throw new NotSupportedException ();
+            public void Clear () => throw new NotSupportedException ();
+            public void Insert (int index, Control item) => throw new NotSupportedException ();
+            public bool Remove (Control item) => throw new NotSupportedException ();
+            public void RemoveAt (int index) => throw new NotSupportedException ();
         }
 
         // Children in bottom-to-top paint order: explicit children from the highest index (back of

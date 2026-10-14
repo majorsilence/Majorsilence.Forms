@@ -230,7 +230,7 @@ namespace Majorsilence.Forms.Drawing
         // "space"; a line ends at a CR, an LF or the end of the text.
         private static string WithoutTrailingSpaces (string text)
         {
-            if (text.IndexOf (' ') < 0)
+            if (!HasTrailingSpace (text))
                 return text;
 
             var result = new System.Text.StringBuilder (text.Length);
@@ -246,6 +246,17 @@ namespace Majorsilence.Forms.Drawing
                 result.Append (c);
             }
             return result.ToString ();
+        }
+
+        // Whether any line of text ends in a space. Most text has spaces only between words, and building a copy of
+        // it to drop nothing was the one allocation of a cached MeasureString (TextMeasureBenchmarks).
+        private static bool HasTrailingSpace (string text)
+        {
+            for (var i = text.IndexOf (' '); i >= 0; i = text.IndexOf (' ', i + 1)) {
+                if (i + 1 == text.Length || text[i + 1] is '\r' or '\n')
+                    return true;
+            }
+            return false;
         }
 
         // Vertical here means "rotate the run 90 degrees", the way RDL's WritingMode="tb-rl" and every
@@ -294,7 +305,7 @@ namespace Majorsilence.Forms.Drawing
             var skFont = SkFontFor (font, out var ownedFont);
             using var owned_font = ownedFont;
             var runFont = font.GetRunFont (skFont);
-            var metrics = skFont.Metrics;
+            var metrics = runFont.Metrics;
             var lineHeight = metrics.Descent - metrics.Ascent;
             // A list kept per thread: the ValueTuple array behind a fresh list per call was the allocation report
             // engines saw most, one per measured cell. Nothing called from here measures text again on this thread.
@@ -879,9 +890,52 @@ namespace Majorsilence.Forms.Drawing
             if (_canvas is null)
                 return;
 
-            using var image = SKImage.FromBitmap (bitmap);
+            using var pixels = SharedPixels (bitmap);
+            using var image = pixels is null ? SKImage.FromBitmap (bitmap) : SKImage.FromPixels (pixels);
             _canvas.DrawImage (image, source, destination, Sampling, paint);
         }
+
+        // The bitmap's own pixels to draw it from, or null to draw from a copy. SKImage.FromBitmap copies a mutable
+        // bitmap's pixels so the image keeps them as they were if the bitmap changes before the canvas reads them, which
+        // a PDF page (printing) or a recorded picture (the single-view host) can do. A Graphics made by FromImage draws
+        // into a bitmap at once, so there the image can share the pixels: drawing an 800x600 image went from 403 to
+        // 361 us and a 2000x1500 one from 3.6 to 2.4 ms (DrawImageBenchmarks). Not when the bitmap is the one being drawn
+        // into: an overlapping draw onto itself must read the pixels from before it.
+        // The bitmap to draw image from. These overloads drew from a copy of the image (ToSKBitmap), and the draw copied
+        // it again. On a Graphics made by FromImage the image's own bitmap is drawn from directly (see SharedPixels),
+        // unless it is the bitmap being drawn into. Owned is whether the caller must dispose what it gets.
+        private SKBitmap? SourceBitmap (Majorsilence.Forms.Drawing.Image image, out bool owned)
+        {
+            var backing = image.GetSKBitmap ();
+            owned = !(backing is not null && _sourceImage?.GetSKBitmap () is { } target && !ReferenceEquals (target, backing));
+            if (!owned)
+                return backing;
+
+            // Elsewhere a copy, made immutable: SKImage.FromBitmap then shares its pixels, by reference count, instead of
+            // copying them a second time, and a canvas that keeps the image (a PDF page) keeps them alive. Copied by
+            // reading the pixels into a bitmap of the same shape, the same bytes as SKBitmap.Copy, which took 18 ms for a
+            // 1600x1200 photo where reading them takes about one (DrawImageBenchmarks.PhotoOnACanvas).
+            if (backing is null)
+                return null;
+
+            SKBitmap? copy = null;
+            using (var pixels = backing.PeekPixels ()) {
+                if (pixels is not null) {
+                    copy = new SKBitmap (backing.Info);
+                    if (!pixels.ReadPixels (copy.Info, copy.GetPixels (), copy.RowBytes)) {
+                        copy.Dispose ();
+                        copy = null;
+                    }
+                }
+            }
+
+            copy ??= backing.Copy ();
+            copy?.SetImmutable ();
+            return copy;
+        }
+
+        private SKPixmap? SharedPixels (SKBitmap bitmap)
+            => _sourceImage?.GetSKBitmap () is { } target && !ReferenceEquals (target, bitmap) ? bitmap.PeekPixels () : null;
 
         private void DrawBitmapSampled (SKBitmap bitmap, SKRect destination, SKPaint? paint = null)
             => DrawBitmapSampled (bitmap, new SKRect (0, 0, bitmap.Width, bitmap.Height), destination, paint);
@@ -931,7 +985,8 @@ namespace Majorsilence.Forms.Drawing
                 _canvas.Restore ();
             }
 
-            using var image = SKImage.FromBitmap (bitmap);
+            using var pixels = SharedPixels (bitmap);
+            using var image = pixels is null ? SKImage.FromBitmap (bitmap) : SKImage.FromPixels (pixels);
             using var shader = image.ToShader (attributes.TileModeX, attributes.TileModeY, Sampling, toDestination);
             using var tiled = new SKPaint {
                 Shader = shader,
@@ -1941,8 +1996,10 @@ namespace Majorsilence.Forms.Drawing
 
             var skFont = SkFontFor (font, out var ownedFont);
             using var owned_font = ownedFont;
-            var lineHeight = skFont.Metrics.Descent - skFont.Metrics.Ascent;
-            var lines = LayoutLines (text, skFont, noWrap ? 0 : layoutArea.Width);
+            var runFont = font.GetRunFont (skFont);
+            var metrics = runFont.Metrics;
+            var lineHeight = metrics.Descent - metrics.Ascent;
+            var lines = LayoutLines (text, runFont, noWrap ? 0 : layoutArea.Width);
 
             var fit = lines.Count;
             if (!unboundedHeight && lineHeight > 0) {
@@ -2307,11 +2364,7 @@ namespace Majorsilence.Forms.Drawing
 
         /// <summary>Draws a line using a Majorsilence.Forms.Drawing.Pen.</summary>
         public void DrawLine (Majorsilence.Forms.Drawing.Pen pen, Point p1, Point p2)
-        {
-            if (_canvas is null) return;
-            using var paint = RentStrokePaint (pen);
-            _canvas.DrawLine (p1.X, p1.Y, p2.X, p2.Y, paint);
-        }
+            => DrawLine (pen, (PointF)p1, (PointF)p2);   // Skia takes floats either way; one place for the rectangle path
 
         /// <summary>Draws a line using a Majorsilence.Forms.Drawing.Pen.</summary>
         public void DrawLine (Majorsilence.Forms.Drawing.Pen pen, int x1, int y1, int x2, int y2)
@@ -2321,7 +2374,20 @@ namespace Majorsilence.Forms.Drawing
         public void DrawLine (Majorsilence.Forms.Drawing.Pen pen, PointF p1, PointF p2)
         {
             if (_canvas is null) return;
-            using var paint = RentStrokePaint (pen);
+            using var handle = RentStrokePaint (pen);
+            SKPaint paint = handle;
+
+            // A plain pen (solid, flat caps, solid colour) on a horizontal or vertical line, without antialiasing: the
+            // rectangle the stroke covers, filled, is the same pixels in a quarter of the time (see
+            // SkiaExtensions.TryLineAsRect). Report engines draw every cell border this way. The pooled paint is
+            // set back to Stroke on its next rent.
+            if (!Antialias && IsPooledPen (pen)
+                && SkiaExtensions.TryLineAsRect (_canvas, p1.X, p1.Y, p2.X, p2.Y, paint.StrokeWidth, out var rect)) {
+                paint.Style = SKPaintStyle.Fill;
+                _canvas.DrawRect (rect, paint);
+                return;
+            }
+
             _canvas.DrawLine (p1.X, p1.Y, p2.X, p2.Y, paint);
         }
 
@@ -2984,7 +3050,7 @@ namespace Majorsilence.Forms.Drawing
                 return;
 
             // Just below the baseline, which DrawString places one ascent below the text's top edge.
-            var y = origin.Y - SkFontFor (font, out var ownedFont).Metrics.Ascent + 1f;
+            var y = origin.Y - font.GetRunFont (SkFontFor (font, out var ownedFont)).Metrics.Ascent + 1f;
             ownedFont?.Dispose ();
 
             using var paint = brush.CreatePaint ();
@@ -3231,6 +3297,14 @@ namespace Majorsilence.Forms.Drawing
         internal void DrawLine (SKColor color, Point p1, Point p2)
         {
             if (_canvas is null) return;
+
+            // A horizontal or vertical line as the rectangle it covers: the same pixels, a quarter of the time
+            // (see SkiaExtensions.TryLineAsRect).
+            if (SkiaExtensions.TryLineAsRect (_canvas, p1.X, p1.Y, p2.X, p2.Y, 1, out var rect)) {
+                _canvas.DrawRect (rect, PlainPaint (color, SKPaintStyle.Fill));
+                return;
+            }
+
             _canvas.DrawLine (p1.X, p1.Y, p2.X, p2.Y, PlainPaint (color, SKPaintStyle.Stroke));
         }
 
@@ -3295,7 +3369,9 @@ namespace Majorsilence.Forms.Drawing
 #pragma warning disable CA1416
         public void DrawImage (Majorsilence.Forms.Drawing.Image image, int x, int y)
         {
-            using var bmp = image?.ToSKBitmap ();
+            var owned = false;
+            var bmp = image is null ? null : SourceBitmap (image, out owned);
+            using var owned_bitmap = owned ? bmp : null;
             if (bmp != null) DrawImage (bmp, x, y);
         }
 
@@ -3308,7 +3384,9 @@ namespace Majorsilence.Forms.Drawing
         {
             image?.PrepareForDraw (destRect.Width, destRect.Height);
 
-            using var bmp = image?.ToSKBitmap ();
+            var owned = false;
+            var bmp = image is null ? null : SourceBitmap (image, out owned);
+            using var owned_bitmap = owned ? bmp : null;
             if (bmp != null) DrawImage (bmp, destRect);
         }
 
@@ -3344,7 +3422,8 @@ namespace Majorsilence.Forms.Drawing
 
             image.PrepareForDraw ((int)Math.Round (destRect.Width), (int)Math.Round (destRect.Height));
 
-            using var bmp = image.ToSKBitmap ();
+            var bmp = SourceBitmap (image, out var owned);
+            using var owned_bitmap = owned ? bmp : null;
             if (bmp is null)
                 return;
 

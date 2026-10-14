@@ -84,31 +84,47 @@ namespace Majorsilence.Forms
             => (Math.Max (0, -shadow.OffsetX), Math.Max (0, -shadow.OffsetY),
                 Math.Max (0, width - Math.Abs (shadow.OffsetX)), Math.Max (0, height - Math.Abs (shadow.OffsetY)));
 
+        // The SKColor helpers here made a new SKPaint per call, and renderers call them for every border, grid line,
+        // background and glyph they paint: 28 % of a DataGridView scroll repaint was its cell borders, mostly making
+        // and finalising paints (DataGridViewScrollBenchmarks). Each thread keeps one paint and every helper sets all
+        // four properties any of them changes -- colour, style, stroke width and antialiasing -- so it draws with
+        // exactly what a fresh paint with those four set had. Nothing else may be set on it; a helper that needs a
+        // path effect or a filter keeps its own paint. Graphics pools its SKColor helpers the same way.
+        [ThreadStatic]
+        private static SKPaint? t_paint;
+
+        private static SKPaint Paint (SKColor color, bool stroke = false, float strokeWidth = 0, bool antialias = false)
+        {
+            var paint = t_paint ??= new SKPaint ();
+            paint.Color = color;
+            paint.IsStroke = stroke;
+            paint.StrokeWidth = strokeWidth;
+            paint.IsAntialias = antialias;
+            return paint;
+        }
+
+        // For the bitmap helpers: a default paint, with the disabled filter or none.
+        [ThreadStatic]
+        private static SKPaint? t_bitmapPaint;
+
+        private static SKPaint BitmapPaint (bool disabled)
+        {
+            var paint = t_bitmapPaint ??= new SKPaint ();
+            paint.ColorFilter = disabled ? disabled_matrix : null;
+            return paint;
+        }
+
         /// <summary>
         /// Draws a bitmap.
         /// </summary>
         public static void DrawBitmap (this SKCanvas canvas, SKBitmap bitmap, Rectangle rect, bool disabled = false)
-        {
-            using var paint = new SKPaint ();
-
-            if (disabled)
-                paint.ColorFilter = disabled_matrix;
-
-            canvas.DrawBitmap (bitmap, rect.ToSKRect (), paint);
-        }
+            => canvas.DrawBitmap (bitmap, rect.ToSKRect (), BitmapPaint (disabled));
 
         /// <summary>
         /// Draws a bitmap.
         /// </summary>
         public static void DrawBitmap (this SKCanvas canvas, SKBitmap bitmap, float x, float y, bool disabled = false)
-        {
-            using var paint = new SKPaint ();
-
-            if (disabled)
-                paint.ColorFilter = disabled_matrix;
-
-            canvas.DrawBitmap (bitmap, x, y, paint);
-        }
+            => canvas.DrawBitmap (bitmap, x, y, BitmapPaint (disabled));
 
         /// <summary>
         /// Draws a control's border.
@@ -223,7 +239,7 @@ namespace Majorsilence.Forms
                 return;
             }
 
-            using var paint = new SKPaint { Color = color, IsStroke = false, IsAntialias = true };
+            var paint = Paint (color, antialias: true);
             using var rect = RoundRectOf (x + .5f, y + .5f, width, height, radii);
 
             canvas.DrawRoundRect (rect, paint);
@@ -234,9 +250,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public static void DrawCircle (this SKCanvas canvas, int x, int y, int radius, SKColor color, int strokeWidth = 1)
         {
-            using var paint = new SKPaint { Color = color, IsStroke = true, StrokeWidth = strokeWidth, IsAntialias = true };
-
-            canvas.DrawCircle (x, y, radius, paint);
+            canvas.DrawCircle (x, y, radius, Paint (color, stroke: true, strokeWidth: strokeWidth, antialias: true));
         }
 
         /// <summary>
@@ -248,7 +262,7 @@ namespace Majorsilence.Forms
             canvas.DrawRectangle (x + inset, y + inset, width - (2 * inset) - 1, height - (2 * inset) - 1, SKColors.White);
 
             // Draw a black dashed rectangle on top of it
-            var effect = SKPathEffect.CreateDash (focus_dash_intervals, 0);
+            using var effect = SKPathEffect.CreateDash (focus_dash_intervals, 0);
             using var paint = new SKPaint { Color = SKColors.Black, IsStroke = true, StrokeWidth = 1, PathEffect = effect };
 
             canvas.DrawRect (x + inset, y + inset, width - (2 * inset) - 1, height - (2 * inset) - 1, paint);
@@ -265,9 +279,42 @@ namespace Majorsilence.Forms
         /// </summary>
         public static void DrawLine (this SKCanvas canvas, float x1, float y1, float x2, float y2, SKColor color, int thickness = 1)
         {
-            using var paint = new SKPaint { Color = color, StrokeWidth = thickness };
+            if (TryLineAsRect (canvas, x1, y1, x2, y2, thickness, out var rect)) {
+                canvas.DrawRect (rect, Paint (color));
+                return;
+            }
 
-            canvas.DrawLine (x1, y1, x2, y2, paint);
+            canvas.DrawLine (x1, y1, x2, y2, Paint (color, strokeWidth: thickness));
+        }
+
+        /// <summary>
+        /// The rectangle a horizontal or vertical line of <paramref name="width"/> covers, when filling it draws the
+        /// same pixels as stroking the line with flat caps and no antialiasing.
+        /// </summary>
+        /// <remarks>
+        /// Skia draws a line wider than a hairline by building the stroke's outline as a path and filling that: 1.3 us
+        /// for a one-pixel grid line, against 0.35 us for filling the rectangle it covers. Grids and report tables
+        /// draw hundreds of such lines a frame; a DataGridView spent a third of a scroll repaint on its cell borders
+        /// (DataGridViewScrollBenchmarks). Under a canvas matrix that only scales (mirrored included) and translates,
+        /// the two give the same pixels: LineAsRectParityTests compares them over integral and fractional positions,
+        /// both directions, zero length, widths 1 to 3, scales from 0.75 to 3 and -2, a clip and a translucent colour.
+        /// A rotated or skewed canvas, a diagonal line or a hairline keeps the stroke.
+        /// </remarks>
+        internal static bool TryLineAsRect (SKCanvas canvas, float x1, float y1, float x2, float y2, float width, out SKRect rect)
+        {
+            rect = default;
+            if (!(width > 0) || (x1 != x2 && y1 != y2))
+                return false;
+
+            var m = canvas.TotalMatrix;
+            if (m.SkewX != 0 || m.SkewY != 0 || m.Persp0 != 0 || m.Persp1 != 0 || m.Persp2 != 1)
+                return false;
+
+            var half = width / 2f;
+            rect = x1 == x2
+                ? new SKRect (x1 - half, Math.Min (y1, y2), x1 + half, Math.Max (y1, y2))
+                : new SKRect (Math.Min (x1, x2), y1 - half, Math.Max (x1, x2), y1 + half);
+            return true;
         }
 
         /// <summary>
@@ -275,9 +322,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public static void DrawPath (this SKCanvas canvas, SKPath path, SKColor color, int thickness = 1)
         {
-            using var paint = new SKPaint { Color = color, StrokeWidth = thickness, IsStroke = true };
-
-            canvas.DrawPath (path, paint);
+            canvas.DrawPath (path, Paint (color, stroke: true, strokeWidth: thickness));
         }
 
         /// <summary>
@@ -285,7 +330,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public static void DrawRectangle (this SKCanvas canvas, int x, int y, int width, int height, SKColor color, int strokeWidth = 1)
         {
-            using var paint = new SKPaint { Color = color, IsStroke = true, StrokeWidth = strokeWidth };
+            var paint = Paint (color, stroke: true, strokeWidth: strokeWidth);
 
             // Inset by half the stroke width so the stroke is fully inside the specified bounds.
             // In Skia's coordinate system, pixel (i,j) occupies [i,i+1)x[j,j+1), so a centered
@@ -323,12 +368,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public static void DrawRoundedRectangle (this SKCanvas canvas, int x, int y, int width, int height, SKColor color, int rx = 3, int ry = 3, float strokeWidth = 1)
         {
-            using var paint = new SKPaint {
-                Color = color,
-                IsStroke = true,
-                IsAntialias = true,
-                StrokeWidth = strokeWidth
-            };
+            var paint = Paint (color, stroke: true, strokeWidth: strokeWidth, antialias: true);
 
             // Inset by half the stroke width so the stroke is fully inside the specified bounds.
             // In Skia's coordinate system, pixel (i,j) occupies [i,i+1)x[j,j+1), so a centered
@@ -345,9 +385,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public static void FillCircle (this SKCanvas canvas, int x, int y, int radius, SKColor color)
         {
-            using var paint = new SKPaint { Color = color, IsAntialias = true };
-
-            canvas.DrawCircle (x, y, radius, paint);
+            canvas.DrawCircle (x, y, radius, Paint (color, antialias: true));
         }
 
         /// <summary>
@@ -361,9 +399,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public static void FillRectangle (this SKCanvas canvas, int x, int y, int width, int height, SKColor color)
         {
-            using var paint = new SKPaint { Color = color };
-
-            canvas.DrawRect (x, y, width, height, paint);
+            canvas.DrawRect (x, y, width, height, Paint (color));
         }
 
         /// <summary>
@@ -371,15 +407,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public static void FillRoundedRectangle (this SKCanvas canvas, int x, int y, int width, int height, SKColor color, int rx = 3, int ry = 3, float strokeWidth = 1)
         {
-            using var paint = new SKPaint {
-                Color = color,
-                IsStroke = false,
-                IsAntialias = true,
-                StrokeWidth = strokeWidth
-            };
-            var r = new SKRoundRect ();
-
-            canvas.DrawRoundRect (x + .5f, y + .5f, width, height, rx, ry, paint);
+            canvas.DrawRoundRect (x + .5f, y + .5f, width, height, rx, ry, Paint (color, strokeWidth: strokeWidth, antialias: true));
         }
 
         /// <summary>

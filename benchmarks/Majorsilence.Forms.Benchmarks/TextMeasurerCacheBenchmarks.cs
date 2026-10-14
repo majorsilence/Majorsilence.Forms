@@ -30,7 +30,7 @@ public class TextMeasurerCacheBenchmarks
             TextMeasurer.MeasureText (text, typeface, 12);
     }
 
-    // Every call a cache hit: the cost of building the key and taking the lock.
+    // Every call a cache hit: the cost of building the key and looking it up.
     [Benchmark (OperationsPerInvoke = OpsPerInvoke)]
     [BenchmarkCategory (AllocationGate.Category)]
     public float Hit ()

@@ -8,7 +8,7 @@
 
 BitmapFillBenchmarks.LockBits(Size=256): 1312712 B
 BitmapFillBenchmarks.LockBits(Size=512): 5246815 B
-BitmapFillBenchmarks.LockBits(Size=860): 14797534 B
+BitmapFillBenchmarks.LockBits(Size=860): 14797640 B
 BitmapFillBenchmarks.SetPixel(Size=256): 12582912 B
 BitmapFillBenchmarks.SetPixel(Size=512): 50334960 B
 BitmapFillBenchmarks.SetPixel(Size=860): 142006512 B
@@ -22,44 +22,45 @@ FontBenchmarks.IsStyleAvailable: 240 B
 FontBenchmarks.NewFont: 288 B
 FontBenchmarks.NewFontUnknownFamily: 288 B
 FontBenchmarks.PathAddString: 632 B
-GraphicsAllocationBenchmarks.ColorHelpers: 21 B
+GraphicsAllocationBenchmarks.ColorHelpers: 10 B
 GraphicsAllocationBenchmarks.DrawStringSolid: 488021 B
 GraphicsAllocationBenchmarks.GradientFill: 256083 B
-GraphicsAllocationBenchmarks.SetClipRegion: 208005 B
-LayoutBenchmarks.AnchoredLayoutPass(ChildCount=10): 3736 B
-LayoutBenchmarks.AnchoredLayoutPass(ChildCount=100): 34121 B
-LayoutBenchmarks.AnchoredLayoutPass(ChildCount=1000): 337970 B
-LayoutBenchmarks.AnchoredLayoutPass(ChildCount=10000): 3289886 B
-LayoutBenchmarks.AnchoredLayoutPass(ChildCount=5000): 1625227 B
-LayoutBenchmarks.DockedLayoutPass(ChildCount=10): 144 B
-LayoutBenchmarks.DockedLayoutPass(ChildCount=100): 144 B
-LayoutBenchmarks.DockedLayoutPass(ChildCount=1000): 145 B
-LayoutBenchmarks.DockedLayoutPass(ChildCount=10000): 165 B
-LayoutBenchmarks.DockedLayoutPass(ChildCount=5000): 154 B
+GraphicsAllocationBenchmarks.SetClipRegion: 144005 B
+GraphicsAllocationBenchmarks.TableBorders: 21 B
+LayoutBenchmarks.AnchoredLayoutPass(ChildCount=10): 1120 B
+LayoutBenchmarks.AnchoredLayoutPass(ChildCount=100): 10481 B
+LayoutBenchmarks.AnchoredLayoutPass(ChildCount=1000): 104090 B
+LayoutBenchmarks.AnchoredLayoutPass(ChildCount=10000): 1040238 B
+LayoutBenchmarks.AnchoredLayoutPass(ChildCount=5000): 520163 B
+LayoutBenchmarks.DockedLayoutPass(ChildCount=10): 40 B
+LayoutBenchmarks.DockedLayoutPass(ChildCount=100): 40 B
+LayoutBenchmarks.DockedLayoutPass(ChildCount=1000): 41 B
+LayoutBenchmarks.DockedLayoutPass(ChildCount=10000): 50 B
+LayoutBenchmarks.DockedLayoutPass(ChildCount=5000): 50 B
 PaintConstructionBenchmarks.AllocateFreshPaint: 88001 B
 PaintConstructionBenchmarks.DrawRectWithFreshPaint: 88006 B
 PaintConstructionBenchmarks.DrawRectWithPooledPaint: 3 B
 PaintConstructionBenchmarks.ReconfigurePooledPaint: 0 B
-TextMeasureBenchmarks.MeasureStringForComparison(Text=Customer number 4821, Dpi=300): 176 B
-TextMeasureBenchmarks.MeasureStringForComparison(Text=Customer number 4821, Dpi=96): 176 B
-TextMeasureBenchmarks.MeasureStringForComparison(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 440 B
-TextMeasureBenchmarks.MeasureStringForComparison(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 440 B
+TextMeasureBenchmarks.MeasureStringForComparison(Text=Customer number 4821, Dpi=300): 0 B
+TextMeasureBenchmarks.MeasureStringForComparison(Text=Customer number 4821, Dpi=96): 0 B
+TextMeasureBenchmarks.MeasureStringForComparison(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 0 B
+TextMeasureBenchmarks.MeasureStringForComparison(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 0 B
 TextMeasureBenchmarks.WidthViaMeasureRunWidth(Text=Customer number 4821, Dpi=300): 0 B
 TextMeasureBenchmarks.WidthViaMeasureRunWidth(Text=Customer number 4821, Dpi=96): 0 B
 TextMeasureBenchmarks.WidthViaMeasureRunWidth(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 0 B
 TextMeasureBenchmarks.WidthViaMeasureRunWidth(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 0 B
-TextMeasureBenchmarks.WidthViaRegions(Text=Customer number 4821, Dpi=300): 240 B
-TextMeasureBenchmarks.WidthViaRegions(Text=Customer number 4821, Dpi=96): 240 B
-TextMeasureBenchmarks.WidthViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 240 B
-TextMeasureBenchmarks.WidthViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 240 B
+TextMeasureBenchmarks.WidthViaRegions(Text=Customer number 4821, Dpi=300): 96 B
+TextMeasureBenchmarks.WidthViaRegions(Text=Customer number 4821, Dpi=96): 96 B
+TextMeasureBenchmarks.WidthViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 96 B
+TextMeasureBenchmarks.WidthViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 96 B
 TextMeasureBenchmarks.WordsViaMeasureRunSpans(Text=Customer number 4821, Dpi=300): 0 B
 TextMeasureBenchmarks.WordsViaMeasureRunSpans(Text=Customer number 4821, Dpi=96): 0 B
 TextMeasureBenchmarks.WordsViaMeasureRunSpans(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 0 B
 TextMeasureBenchmarks.WordsViaMeasureRunSpans(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 0 B
-TextMeasureBenchmarks.WordsViaRegions(Text=Customer number 4821, Dpi=300): 672 B
-TextMeasureBenchmarks.WordsViaRegions(Text=Customer number 4821, Dpi=96): 672 B
-TextMeasureBenchmarks.WordsViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 2616 B
-TextMeasureBenchmarks.WordsViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 2616 B
+TextMeasureBenchmarks.WordsViaRegions(Text=Customer number 4821, Dpi=300): 240 B
+TextMeasureBenchmarks.WordsViaRegions(Text=Customer number 4821, Dpi=96): 240 B
+TextMeasureBenchmarks.WordsViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=300): 888 B
+TextMeasureBenchmarks.WordsViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 888 B
 TextMeasurerCacheBenchmarks.Hit: 0 B
 TextMeasurerCacheBenchmarks.HitSingleLine: 0 B
 ThemeBenchmarks.ParseCss: 41936 B

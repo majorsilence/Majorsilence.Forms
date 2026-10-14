@@ -431,6 +431,7 @@ public partial class Control
             SetState (States.LayoutDeferred, true);
 
             if (_cachedLayoutEventArgs is null || GetExtendedState (ExtendedStates.ClearLayoutArgs)) {
+                args.HoldWeakly ();
                 _cachedLayoutEventArgs = args;
 
                 if (GetExtendedState (ExtendedStates.ClearLayoutArgs))

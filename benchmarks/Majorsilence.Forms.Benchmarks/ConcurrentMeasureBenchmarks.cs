@@ -24,6 +24,28 @@ public class ConcurrentMeasureBenchmarks
         "Total",
     ];
 
+    // Text past U+00FF: Polish, Czech, Greek and Cyrillic cells, and typographic punctuation.
+    private static readonly string[] extendedTexts = [
+        "Zażółć gęślą jaźń, łódź",
+        "Příliš žluťoučký kůň úpěl",
+        "Τριμηνιαία αποτελέσματα",
+        "Квартальные результаты — “итого”",
+    ];
+
+    // More distinct strings than TextMeasurer's two cache generations hold (2000), cycled through, so every
+    // measurement misses the cache and lays the text out: what a report full of different values does.
+    private const int DistinctTexts = 5000;
+    private static readonly string[] distinct = MakeDistinct ();
+    private int[] cursors = null!;
+
+    private static string[] MakeDistinct ()
+    {
+        var all = new string[DistinctTexts];
+        for (var i = 0; i < all.Length; i++)
+            all[i] = $"{texts[i & 3]} {i}";
+        return all;
+    }
+
     private Bitmap[] bitmaps = null!;
     private Graphics[] graphics = null!;
     private Font[] fonts = null!;
@@ -42,6 +64,7 @@ public class ConcurrentMeasureBenchmarks
         fonts = new Font[Threads];
         formats = new MSStringFormat[Threads];
         skFonts = new SKFont[Threads];
+        cursors = new int[Threads * 16];   // one per thread, a cache line apart
         for (var t = 0; t < Threads; t++) {
             bitmaps[t] = new Bitmap (400, 100);
             graphics[t] = Graphics.FromImage (bitmaps[t]);
@@ -80,11 +103,34 @@ public class ConcurrentMeasureBenchmarks
     public void MeasureRunWidth () => Run ((g, font, _, text) => g.MeasureRunWidth (text, font));
 
     [Benchmark]
+    public void MeasureRunWidthExtended () => Run ((g, font, _, text) => g.MeasureRunWidth (extendedTexts[text.Length & 3], font));
+
+    [Benchmark]
     public void MeasureCharacterRanges () => Run ((g, font, format, text) => {
         format.SetMeasurableCharacterRanges ([new CharacterRange (0, text.Length)]);
         foreach (var region in g.MeasureCharacterRanges (text, font, layout, format))
             region.Dispose ();
     });
+
+    [Benchmark]
+    public void MeasureStringDistinct () => RunDistinct ((g, font, text) => g.MeasureString (text, font));
+
+    [Benchmark]
+    public void DrawStringDistinct () => RunDistinct ((g, font, text) => g.DrawString (text, font, Brushes.Black, 0, 0));
+
+    private void RunDistinct (Action<Graphics, Font, string> measure)
+    {
+        Parallel.For (0, Threads, new ParallelOptions { MaxDegreeOfParallelism = Threads }, t => {
+            var g = graphics[t];
+            var font = fonts[t];
+            ref var cursor = ref cursors[t * 16];
+            for (var i = 0; i < OpsPerThread; i++) {
+                // Threads start a share of the cycle apart, so they do not lay out each other's strings.
+                measure (g, font, distinct[(cursor + t * (DistinctTexts / 8)) % DistinctTexts]);
+                cursor++;
+            }
+        });
+    }
 
     private void Run (Action<Graphics, Font, MSStringFormat, string> measure)
     {
