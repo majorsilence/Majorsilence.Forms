@@ -1315,7 +1315,7 @@ namespace Majorsilence.Forms
             LayoutItems ();
 
             var contentRect = new Rectangle (client.Left, client.Top, contentWidth, client.Height);
-            using var snapshot = buffer.Copy ();
+            using var snapshot = Majorsilence.Forms.Drawing.BitmapCopy.Of (buffer)!;
             if (snapshot is null)
                 return false;
 

@@ -911,25 +911,10 @@ namespace Majorsilence.Forms.Drawing
             if (!owned)
                 return backing;
 
-            // Elsewhere a copy, made immutable: SKImage.FromBitmap then shares its pixels, by reference count, instead of
-            // copying them a second time, and a canvas that keeps the image (a PDF page) keeps them alive. Copied by
-            // reading the pixels into a bitmap of the same shape, the same bytes as SKBitmap.Copy, which took 18 ms for a
-            // 1600x1200 photo where reading them takes about one (DrawImageBenchmarks.PhotoOnACanvas).
-            if (backing is null)
-                return null;
-
-            SKBitmap? copy = null;
-            using (var pixels = backing.PeekPixels ()) {
-                if (pixels is not null) {
-                    copy = new SKBitmap (backing.Info);
-                    if (!pixels.ReadPixels (copy.Info, copy.GetPixels (), copy.RowBytes)) {
-                        copy.Dispose ();
-                        copy = null;
-                    }
-                }
-            }
-
-            copy ??= backing.Copy ();
+            // Elsewhere a copy (BitmapCopy, not the slow SKBitmap.Copy), made immutable: SKImage.FromBitmap then shares its
+            // pixels, by reference count, instead of copying them a second time, and a canvas that keeps the image (a
+            // PDF page) keeps them alive.
+            var copy = Majorsilence.Forms.Drawing.BitmapCopy.Of (backing);
             copy?.SetImmutable ();
             return copy;
         }
