@@ -176,10 +176,10 @@ jobs:
   # props, and it injects a release version for the draft GitHub Release. This job is the plain
   # "grab the packages" artifact.
   #
-  # Three rows: macOS packs Majorsilence.Forms.Essentials (android + ios + desktop rows in one package;
-  # iOS only compiles on macOS); the cross-platform packages pack on Linux (the `android` workload is installed
-  # because Majorsilence.Forms.Avalonia is packed with EnableAndroidTarget=true to carry its
-  # net10.0-android asset — same reason release.yml's pack job needs it); the net*-windows
+  # Three rows: macOS packs Majorsilence.Forms.Essentials and Majorsilence.Forms.Avalonia (android + ios +
+  # desktop rows in one package; iOS only compiles on macOS); the cross-platform packages pack on Linux
+  # (the `android` workload is installed because Majorsilence.Forms.Theming.Avalonia builds against
+  # Majorsilence.Forms.Avalonia — same reason release.yml's pack job needs it); the net*-windows
   # packages (UseWindowsForms/UseWPF) compile to an empty IsPackable=false stub off Windows, so
   # they pack on windows-latest. Keep the two lists in sync with release.yml / publish-nuget.yml.
   pack:
@@ -192,7 +192,6 @@ jobs:
             workload: android
             projects: >-
               src/Majorsilence.Forms/Majorsilence.Forms.csproj
-              src/Majorsilence.Forms.Avalonia/Majorsilence.Forms.Avalonia.csproj
               src/Majorsilence.Forms.Theming.Avalonia/Majorsilence.Forms.Theming.Avalonia.csproj
               src/Majorsilence.Forms.Headless/Majorsilence.Forms.Headless.csproj
               src/Majorsilence.Forms.Terminal/Majorsilence.Forms.Terminal.csproj
@@ -209,11 +208,12 @@ jobs:
               src/Majorsilence.Forms.WinFormsShims.Compat/Majorsilence.Forms.WinFormsShims.Compat.csproj
           - os: macos-latest
             artifact: nuget-packages-macos
-            # android + ios together so the one Essentials package carries both rows; pinned like the ios job.
+            # android + ios together so the Essentials and Avalonia packages carry both rows; pinned like the ios job.
             workload: android ios --version 10.0.401
             pack_args: -p:EnableAndroidTarget=true -p:EnableIOSTarget=true
             projects: >-
               src/Majorsilence.Forms.Essentials/Majorsilence.Forms.Essentials.csproj
+              src/Majorsilence.Forms.Avalonia/Majorsilence.Forms.Avalonia.csproj
           - os: windows-latest
             artifact: nuget-packages-windows
             workload: ''
@@ -251,13 +251,7 @@ jobs:
           mkdir -p "${{ github.workspace }}/nupkg"
           for proj in ${{ matrix.projects }}; do
             echo "::group::pack $proj"
-            # Majorsilence.Forms.Avalonia's net10.0-android TFM row is opt-in, so include it
-            # explicitly here the same way release.yml / publish-nuget.yml do.
-            extra_args=""
-            if [[ "$proj" == *Majorsilence.Forms.Avalonia.csproj ]]; then
-              extra_args="-p:EnableAndroidTarget=true"
-            fi
-            dotnet pack "$proj" --configuration Release --output "${{ github.workspace }}/nupkg" $extra_args ${{ matrix.pack_args }}
+            dotnet pack "$proj" --configuration Release --output "${{ github.workspace }}/nupkg" ${{ matrix.pack_args }}
             echo "::endgroup::"
           done
           ls -lh "${{ github.workspace }}/nupkg"
