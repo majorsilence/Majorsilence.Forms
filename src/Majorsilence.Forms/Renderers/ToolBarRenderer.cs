@@ -154,7 +154,7 @@ namespace Majorsilence.Forms.Renderers
 
             // Content box: inside the horizontal padding, less the dropdown arrow's gutter so text
             // never runs underneath the glyph.
-            var arrow_gutter = item.HasItems ? e.LogicalToDeviceUnits (16) + 4 : 0;
+            var arrow_gutter = item.HasItems ? DropDownArrowGutter (e.LogicalToDeviceUnits (16)) : 0;
             var content = new Rectangle (
                 item.DeviceBounds.Left + pad_left,
                 item.DeviceBounds.Top,
@@ -329,6 +329,9 @@ namespace Majorsilence.Forms.Renderers
             }
         }
 
+        /// <summary>The width a drop-down item reserves at its right for the arrow: the glyph plus a gap.</summary>
+        internal static int DropDownArrowGutter (int scaledArrow) => scaledArrow + 4;
+
         // The 3D edge of a ToolBarAppearance.Normal button: light top-left and dark bottom-right when
         // raised, the reverse when pushed.
         private static void RenderRaisedBorder (Rectangle bounds, PaintEventArgs e, bool sunken)
@@ -467,8 +470,11 @@ namespace Majorsilence.Forms.Renderers
                     width += control.LogicalToDeviceUnits (4);
             }
 
+            // The same gutter RenderItem takes out of the content box for the arrow. This added 14 while
+            // RenderItem took 20, so the text of every drop-down button was given 6px less than it was
+            // measured at and wrapped onto a second line ("Sort: Recent" drew as "Sort:" over "Recent").
             if (item.HasItems)
-                width += control.LogicalToDeviceUnits (14);
+                width += DropDownArrowGutter (control.LogicalToDeviceUnits (16));
 
             // Height was previously the item's current box, which made a strip's preferred height
             // depend on whatever it had already been given rather than on its content.
