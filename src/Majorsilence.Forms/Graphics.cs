@@ -890,9 +890,52 @@ namespace Majorsilence.Forms.Drawing
             if (_canvas is null)
                 return;
 
-            using var image = SKImage.FromBitmap (bitmap);
+            using var pixels = SharedPixels (bitmap);
+            using var image = pixels is null ? SKImage.FromBitmap (bitmap) : SKImage.FromPixels (pixels);
             _canvas.DrawImage (image, source, destination, Sampling, paint);
         }
+
+        // The bitmap's own pixels to draw it from, or null to draw from a copy. SKImage.FromBitmap copies a mutable
+        // bitmap's pixels so the image keeps them as they were if the bitmap changes before the canvas reads them, which
+        // a PDF page (printing) or a recorded picture (the single-view host) can do. A Graphics made by FromImage draws
+        // into a bitmap at once, so there the image can share the pixels: drawing an 800x600 image went from 403 to
+        // 361 us and a 2000x1500 one from 3.6 to 2.4 ms (DrawImageBenchmarks). Not when the bitmap is the one being drawn
+        // into: an overlapping draw onto itself must read the pixels from before it.
+        // The bitmap to draw image from. These overloads drew from a copy of the image (ToSKBitmap), and the draw copied
+        // it again. On a Graphics made by FromImage the image's own bitmap is drawn from directly (see SharedPixels),
+        // unless it is the bitmap being drawn into. Owned is whether the caller must dispose what it gets.
+        private SKBitmap? SourceBitmap (Majorsilence.Forms.Drawing.Image image, out bool owned)
+        {
+            var backing = image.GetSKBitmap ();
+            owned = !(backing is not null && _sourceImage?.GetSKBitmap () is { } target && !ReferenceEquals (target, backing));
+            if (!owned)
+                return backing;
+
+            // Elsewhere a copy, made immutable: SKImage.FromBitmap then shares its pixels, by reference count, instead of
+            // copying them a second time, and a canvas that keeps the image (a PDF page) keeps them alive. Copied by
+            // reading the pixels into a bitmap of the same shape, the same bytes as SKBitmap.Copy, which took 18 ms for a
+            // 1600x1200 photo where reading them takes about one (DrawImageBenchmarks.PhotoOnACanvas).
+            if (backing is null)
+                return null;
+
+            SKBitmap? copy = null;
+            using (var pixels = backing.PeekPixels ()) {
+                if (pixels is not null) {
+                    copy = new SKBitmap (backing.Info);
+                    if (!pixels.ReadPixels (copy.Info, copy.GetPixels (), copy.RowBytes)) {
+                        copy.Dispose ();
+                        copy = null;
+                    }
+                }
+            }
+
+            copy ??= backing.Copy ();
+            copy?.SetImmutable ();
+            return copy;
+        }
+
+        private SKPixmap? SharedPixels (SKBitmap bitmap)
+            => _sourceImage?.GetSKBitmap () is { } target && !ReferenceEquals (target, bitmap) ? bitmap.PeekPixels () : null;
 
         private void DrawBitmapSampled (SKBitmap bitmap, SKRect destination, SKPaint? paint = null)
             => DrawBitmapSampled (bitmap, new SKRect (0, 0, bitmap.Width, bitmap.Height), destination, paint);
@@ -942,7 +985,8 @@ namespace Majorsilence.Forms.Drawing
                 _canvas.Restore ();
             }
 
-            using var image = SKImage.FromBitmap (bitmap);
+            using var pixels = SharedPixels (bitmap);
+            using var image = pixels is null ? SKImage.FromBitmap (bitmap) : SKImage.FromPixels (pixels);
             using var shader = image.ToShader (attributes.TileModeX, attributes.TileModeY, Sampling, toDestination);
             using var tiled = new SKPaint {
                 Shader = shader,
@@ -3325,7 +3369,9 @@ namespace Majorsilence.Forms.Drawing
 #pragma warning disable CA1416
         public void DrawImage (Majorsilence.Forms.Drawing.Image image, int x, int y)
         {
-            using var bmp = image?.ToSKBitmap ();
+            var owned = false;
+            var bmp = image is null ? null : SourceBitmap (image, out owned);
+            using var owned_bitmap = owned ? bmp : null;
             if (bmp != null) DrawImage (bmp, x, y);
         }
 
@@ -3338,7 +3384,9 @@ namespace Majorsilence.Forms.Drawing
         {
             image?.PrepareForDraw (destRect.Width, destRect.Height);
 
-            using var bmp = image?.ToSKBitmap ();
+            var owned = false;
+            var bmp = image is null ? null : SourceBitmap (image, out owned);
+            using var owned_bitmap = owned ? bmp : null;
             if (bmp != null) DrawImage (bmp, destRect);
         }
 
@@ -3374,7 +3422,8 @@ namespace Majorsilence.Forms.Drawing
 
             image.PrepareForDraw ((int)Math.Round (destRect.Width), (int)Math.Round (destRect.Height));
 
-            using var bmp = image.ToSKBitmap ();
+            var bmp = SourceBitmap (image, out var owned);
+            using var owned_bitmap = owned ? bmp : null;
             if (bmp is null)
                 return;
 
