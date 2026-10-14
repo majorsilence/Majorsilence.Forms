@@ -122,7 +122,7 @@ namespace Majorsilence.Forms.Drawing
         internal SKBitmap? GetSKBitmap () => backing;
 
         /// <summary>Converts this icon to a <see cref="Bitmap"/>.</summary>
-        public Bitmap ToBitmap () => new Bitmap (backing?.Copy ());
+        public Bitmap ToBitmap () => new Bitmap (BitmapCopy.Of (backing));
 
         /// <summary>Saves this icon to the specified stream, in ICO format.</summary>
         /// <remarks>
@@ -150,7 +150,7 @@ namespace Majorsilence.Forms.Drawing
         }
 
         /// <summary>Creates an exact copy of this icon.</summary>
-        public object Clone () => new Icon (backing?.Copy ()) { iconData = iconData };
+        public object Clone () => new Icon (BitmapCopy.Of (backing)) { iconData = iconData };
 
         /// <inheritdoc/>
         public void Dispose ()

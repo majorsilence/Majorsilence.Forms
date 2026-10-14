@@ -377,7 +377,7 @@ namespace Majorsilence.Forms.Drawing
         /// </remarks>
         public object Clone ()
         {
-            var copy = new Bitmap (backing?.Copy ()) {
+            var copy = new Bitmap (BitmapCopy.Of (backing)) {
                 RawFormat = RawFormat,
                 HorizontalResolution = HorizontalResolution,
                 VerticalResolution = VerticalResolution,
@@ -534,7 +534,7 @@ namespace Majorsilence.Forms.Drawing
         /// </remarks>
         public Bitmap (Image original)
         {
-            backing = original?.GetSKBitmap ()?.Copy () ?? new SKBitmap (1, 1);
+            backing = BitmapCopy.Of (original?.GetSKBitmap ()) ?? new SKBitmap (1, 1);
             pixelFormat = PixelFormat.Format32bppArgb;
         }
 

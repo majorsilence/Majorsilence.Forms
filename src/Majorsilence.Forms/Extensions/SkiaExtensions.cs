@@ -425,7 +425,7 @@ namespace Majorsilence.Forms
         /// Converts an SKBitmap to a cross-platform <see cref="Bitmap"/>.
         /// </summary>
         public static Bitmap ToBitmap (this SKBitmap skiaBitmap)
-            => new Bitmap (skiaBitmap.Copy ());
+            => new Bitmap (Majorsilence.Forms.Drawing.BitmapCopy.Of (skiaBitmap));
 
         /// <summary>
         /// Converts an SKRect to a Rectangle.

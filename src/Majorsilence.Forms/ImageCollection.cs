@@ -91,7 +91,7 @@ namespace Majorsilence.Forms
         [Browsable (false)]
         [DesignerSerializationVisibility (DesignerSerializationVisibility.Hidden)]
         public Image this[int index] {
-            get => new DrawingBitmap (GetBitmap (index).Copy ());
+            get => new DrawingBitmap (Majorsilence.Forms.Drawing.BitmapCopy.Of (GetBitmap (index)));
             set {
                 ThrowIfBadIndex (index);
                 Guard.ThrowIfNull (value);
@@ -119,7 +119,7 @@ namespace Majorsilence.Forms
         /// <summary>Gets the image with the specified key, or <c>null</c> when no image has it.</summary>
         /// <remarks>Keys compare case-insensitively. As with the integer indexer, the result is a new
         /// <see cref="Image"/> the caller owns.</remarks>
-        public Image? this[string key] => GetBitmap (key) is { } bitmap ? new DrawingBitmap (bitmap.Copy ()) : null;
+        public Image? this[string key] => GetBitmap (key) is { } bitmap ? new DrawingBitmap (Majorsilence.Forms.Drawing.BitmapCopy.Of (bitmap)) : null;
 
         /// <summary>Gets the stored Skia bitmap at the specified index, without copying it.</summary>
         /// <remarks>A Majorsilence.Forms extension, not part of WinForms. The bitmap belongs to the
@@ -189,7 +189,7 @@ namespace Majorsilence.Forms
             // Upstream's OriginalOptions.CustomTransparentColor: this colour replaces the list's own key.
             Store (null, PixelsOf (value), bitmap => {
                 var keyed = ColorKeyedBitmaps.Apply (bitmap, key);
-                return ReferenceEquals (keyed, bitmap) ? bitmap : keyed.Copy ();
+                return ReferenceEquals (keyed, bitmap) ? bitmap : Majorsilence.Forms.Drawing.BitmapCopy.Of (keyed)!;
             });
 
             return Count - 1;
@@ -431,7 +431,7 @@ namespace Majorsilence.Forms
         private SKBitmap Normalize (SKBitmap source, Func<SKBitmap, SKBitmap>? transform)
         {
             var sized = source.GetSize ().ToSKSize () == ImageSize
-                ? source.Copy ()
+                ? Majorsilence.Forms.Drawing.BitmapCopy.Of (source)!
                 : source.Resize (ImageSize.ToSizeI (), new SKSamplingOptions (SKCubicResampler.Mitchell));
 
             if (transform is null)

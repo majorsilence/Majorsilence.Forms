@@ -1227,10 +1227,10 @@ namespace Majorsilence.Forms
     {
         /// <summary>Returns a copy of the SkiaSharp bitmap backing the given <see cref="Majorsilence.Forms.Drawing.Bitmap"/>.</summary>
         public static SkiaSharp.SKBitmap? ToSKBitmap (this Majorsilence.Forms.Drawing.Bitmap bitmap)
-            => bitmap?.GetSKBitmap ()?.Copy ();
+            => Majorsilence.Forms.Drawing.BitmapCopy.Of (bitmap?.GetSKBitmap ());
 
         /// <summary>Returns a copy of the SkiaSharp bitmap backing the given <see cref="Majorsilence.Forms.Drawing.Image"/>.</summary>
         public static SkiaSharp.SKBitmap? ToSKBitmap (this Majorsilence.Forms.Drawing.Image image)
-            => image?.GetSKBitmap ()?.Copy ();
+            => Majorsilence.Forms.Drawing.BitmapCopy.Of (image?.GetSKBitmap ());
     }
 }
