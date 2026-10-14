@@ -94,14 +94,15 @@ namespace Majorsilence.Forms.Tests
                 for (var x = 0; x < 37; x++)
                     source.SetPixel (x, y, System.Drawing.Color.FromArgb (40 + x * 5, x * 7, y * 11, (x * y) % 255));
 
-            using var expected = new SKBitmap (120, 90);
+            using var fromImage = new MSBitmap (120, 90);
+            // The same pixel layout as the bitmaps compared with: a bare SKBitmap takes the platform's colour type.
+            using var expected = new SKBitmap (fromImage.GetSKBitmap ()!.Info);
             expected.Erase (SKColors.White);
             using (var canvas = new SKCanvas (expected))
             using (var copy = source.GetSKBitmap ()!.Copy ())
             using (var image = SKImage.FromBitmap (copy))
                 canvas.DrawImage (image, new SKRect (0, 0, 37, 23), new SKRect (10, 30, 90, 80), new SKSamplingOptions (SKFilterMode.Linear, SKMipmapMode.None));
 
-            using var fromImage = new MSBitmap (120, 90);
             using (var g = MSGraphics.FromImage (fromImage)) {
                 g.Clear (System.Drawing.Color.White);
                 g.DrawImage (source, new Rectangle (10, 30, 80, 50));
