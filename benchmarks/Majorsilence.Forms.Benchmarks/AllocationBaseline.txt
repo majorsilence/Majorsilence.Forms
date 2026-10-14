@@ -8,7 +8,7 @@
 
 BitmapFillBenchmarks.LockBits(Size=256): 1312712 B
 BitmapFillBenchmarks.LockBits(Size=512): 5246815 B
-BitmapFillBenchmarks.LockBits(Size=860): 14797534 B
+BitmapFillBenchmarks.LockBits(Size=860): 14797640 B
 BitmapFillBenchmarks.SetPixel(Size=256): 12582912 B
 BitmapFillBenchmarks.SetPixel(Size=512): 50334960 B
 BitmapFillBenchmarks.SetPixel(Size=860): 142006512 B
@@ -22,20 +22,21 @@ FontBenchmarks.IsStyleAvailable: 240 B
 FontBenchmarks.NewFont: 288 B
 FontBenchmarks.NewFontUnknownFamily: 288 B
 FontBenchmarks.PathAddString: 632 B
-GraphicsAllocationBenchmarks.ColorHelpers: 21 B
+GraphicsAllocationBenchmarks.ColorHelpers: 10 B
 GraphicsAllocationBenchmarks.DrawStringSolid: 488021 B
 GraphicsAllocationBenchmarks.GradientFill: 256083 B
-GraphicsAllocationBenchmarks.SetClipRegion: 208005 B
+GraphicsAllocationBenchmarks.SetClipRegion: 144005 B
+GraphicsAllocationBenchmarks.TableBorders: 21 B
 LayoutBenchmarks.AnchoredLayoutPass(ChildCount=10): 1120 B
 LayoutBenchmarks.AnchoredLayoutPass(ChildCount=100): 10481 B
-LayoutBenchmarks.AnchoredLayoutPass(ChildCount=1000): 104088 B
-LayoutBenchmarks.AnchoredLayoutPass(ChildCount=10000): 1040215 B
-LayoutBenchmarks.AnchoredLayoutPass(ChildCount=5000): 520114 B
+LayoutBenchmarks.AnchoredLayoutPass(ChildCount=1000): 104090 B
+LayoutBenchmarks.AnchoredLayoutPass(ChildCount=10000): 1040238 B
+LayoutBenchmarks.AnchoredLayoutPass(ChildCount=5000): 520163 B
 LayoutBenchmarks.DockedLayoutPass(ChildCount=10): 40 B
 LayoutBenchmarks.DockedLayoutPass(ChildCount=100): 40 B
 LayoutBenchmarks.DockedLayoutPass(ChildCount=1000): 41 B
-LayoutBenchmarks.DockedLayoutPass(ChildCount=10000): 48 B
-LayoutBenchmarks.DockedLayoutPass(ChildCount=5000): 48 B
+LayoutBenchmarks.DockedLayoutPass(ChildCount=10000): 50 B
+LayoutBenchmarks.DockedLayoutPass(ChildCount=5000): 50 B
 PaintConstructionBenchmarks.AllocateFreshPaint: 88001 B
 PaintConstructionBenchmarks.DrawRectWithFreshPaint: 88006 B
 PaintConstructionBenchmarks.DrawRectWithPooledPaint: 3 B

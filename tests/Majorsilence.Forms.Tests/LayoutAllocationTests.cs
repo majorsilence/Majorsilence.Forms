@@ -12,6 +12,12 @@ namespace Majorsilence.Forms.Tests
     [Collection ("Headless")]
     public class LayoutAllocationTests
     {
+#if DEBUG
+        private const bool IsDebugBuild = true;
+#else
+        private const bool IsDebugBuild = false;
+#endif
+
         // Upstream holds the affected component weakly because a control caches layout args while its layout is
         // suspended, and those would otherwise keep a removed child alive. Args are now weak only once cached.
         [Fact]
@@ -19,10 +25,8 @@ namespace Majorsilence.Forms.Tests
         {
             HeadlessRenderer.Use ();
             using var parent = new Panel { Width = 200, Height = 200 };
-            var child = Track (parent, out var weak);
+            var weak = AddCacheAndRemove (parent);
 
-            parent.Controls.Remove (child);
-            child = null!;
             GC.Collect ();
             GC.WaitForPendingFinalizers ();
             GC.Collect ();
@@ -31,16 +35,17 @@ namespace Majorsilence.Forms.Tests
             parent.ResumeLayout ();
         }
 
+        // In a method of its own, so no local here (Debug code keeps them to the end of the method) holds the child.
         [MethodImpl (MethodImplOptions.NoInlining)]
-        private static Panel Track (Panel parent, out WeakReference<Panel> weak)
+        private static WeakReference<Panel> AddCacheAndRemove (Panel parent)
         {
             var child = new Panel ();
             parent.Controls.Add (child);
             parent.SuspendLayout ();
             // Caches args naming the child on the suspended parent.
             ((Layout.IArrangedElement)parent).PerformLayout (child, "Bounds");
-            weak = new WeakReference<Panel> (child);
-            return child;
+            parent.Controls.Remove (child);
+            return new WeakReference<Panel> (child);
         }
 
         [Fact]
@@ -86,6 +91,8 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void An_anchored_layout_pass_allocates_little_per_child ()
         {
+            // Unoptimised (Debug) code heap-allocates what optimised code keeps on the stack.
+            Assert.SkipWhen (IsDebugBuild, "allocation is measured on optimised code");
             HeadlessRenderer.Use ();
             using var container = new Panel { Width = 2000, Height = 2000 };
             container.SuspendLayout ();
