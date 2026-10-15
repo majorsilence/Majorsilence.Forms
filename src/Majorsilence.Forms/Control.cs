@@ -3173,6 +3173,13 @@ namespace Majorsilence.Forms
                 if (value && Parent is not null)
                     Invalidate (true);
 
+                // A control that just went away has to be painted over: upstream hides the child window and its
+                // parent repaints what it uncovered. Nothing asked for that here, so a hidden control -- a
+                // "loading" progress bar hidden once the data arrived -- stayed on screen until something else
+                // happened to repaint the parent there.
+                if (!value && Parent is not null)
+                    Parent.Invalidate ();
+
                 // A visible top-level control lives in its own window; keep that window in step.
                 // No-op for ordinary controls -- see Control.TopLevel.cs.
                 UpdateTopLevelHost (value);

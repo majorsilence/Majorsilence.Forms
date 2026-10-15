@@ -14,10 +14,11 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void First_child_opens_centred_in_the_client_area ()
+        public void A_default_child_opens_at_the_top_left_of_the_client_area ()
         {
-            // Opening hard against the top-left corner butted the child's caption into the container's
-            // own chrome, making it hard to see where the child window began.
+            // As Win32's MDI client places a child created with the default position
+            // (WindowsDefaultLocation): the cascade starts at the client's corner. Every child used to open
+            // centred, whatever its StartPosition.
             var (parent, client) = Container ();
             var child = new Form { MdiParent = parent, ClientSize = new Size (300, 200) };
             child.Show ();
@@ -25,17 +26,26 @@ namespace Majorsilence.Forms.Tests
             var frame = client.Controls.OfType<MdiChildWindow> ().Single ();
             var area = client.DisplayRectangle;
 
-            var expectedX = (area.Width - frame.Width) / 2;
-            var expectedY = (area.Height - frame.Height) / 2;
-
-            // Exact centre for the first child (no cascade offset yet).
-            Assert.Equal (expectedX, frame.Left);
-            Assert.Equal (expectedY, frame.Top);
+            Assert.Equal (area.Left, frame.Left);
+            Assert.Equal (area.Top, frame.Top);
         }
 
-        // A designer-sized child (ClientSize = ...) gets exactly that client area inside its frame. The
-        // caption a top-level window would draw was counted in as well, so the child came out one caption
-        // taller than designed.
+        [Theory]
+        [InlineData (FormStartPosition.CenterParent)]
+        [InlineData (FormStartPosition.CenterScreen)]
+        public void A_centred_child_opens_centred_in_the_client_area (FormStartPosition position)
+        {
+            var (parent, client) = Container ();
+            var child = new Form { MdiParent = parent, ClientSize = new Size (300, 200), StartPosition = position };
+            child.Show ();
+
+            var frame = client.Controls.OfType<MdiChildWindow> ().Single ();
+            var area = client.DisplayRectangle;
+
+            Assert.Equal (area.Left + (area.Width - frame.Width) / 2, frame.Left);
+            Assert.Equal (area.Top + (area.Height - frame.Height) / 2, frame.Top);
+        }
+
         [Fact]
         public void A_child_gets_the_client_size_it_was_designed_with ()
         {
@@ -109,7 +119,7 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void Successive_children_cascade_off_centre_without_leaving_the_client_area ()
+        public void Successive_children_cascade_without_leaving_the_client_area ()
         {
             var (parent, client) = Container ();
 
