@@ -146,12 +146,14 @@ namespace Majorsilence.Forms
         // FileOk handler veto the result -- a veto keeps the dialog open, so it is shown again.
 
         // Takes what the picker returned. False when a FileOk handler cancelled.
-        private protected bool AcceptResult (IReadOnlyList<string> picked, bool mustExist)
+        private protected bool AcceptResult (IReadOnlyList<string> picked, bool mustExist, Func<int, bool>? isPath = null)
         {
             filenames.Clear ();
 
-            foreach (var file in picked)
-                filenames.Add (WithExtension (file, mustExist));
+            // A file the platform gives no path (a content URI, a browser handle) is named as the picker
+            // named it: there is no directory to look for a sibling with the filter's extension in.
+            for (var i = 0; i < picked.Count; i++)
+                filenames.Add (isPath is null || isPath (i) ? WithExtension (picked[i], mustExist) : picked[i]);
 
             InferFilterIndex ();
 

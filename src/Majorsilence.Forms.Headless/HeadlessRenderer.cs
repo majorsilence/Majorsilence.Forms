@@ -87,6 +87,13 @@ namespace Majorsilence.Forms.Headless
         /// </summary>
         public static System.Func<Majorsilence.Forms.Backends.OpenFileRequest, string[]>? OpenFileResponse { get; set; }
 
+        /// <summary>
+        /// What an open-file picker returns as readable files, as Android, iOS and the browser hand back
+        /// files with no local path. Wins over <see cref="OpenFileResponse"/> when set; null (the default)
+        /// falls back to it.
+        /// </summary>
+        public static System.Func<Majorsilence.Forms.Backends.OpenFileRequest, Majorsilence.Forms.Backends.PickedFile[]>? OpenFilePickResponse { get; set; }
+
         /// <summary>What a save-file picker on the headless backend returns; null (the default) cancels.</summary>
         public static System.Func<Majorsilence.Forms.Backends.SaveFileRequest, string?>? SaveFileResponse { get; set; }
 

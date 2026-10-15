@@ -54,7 +54,7 @@ namespace Majorsilence.Forms
     /// window activation) -- only losing focus to something outside the app entirely is unhandled.
     /// </summary>
     [System.Diagnostics.CodeAnalysis.SuppressMessage ("Design", "CA1001", Justification = "_scene SKPictures are disposed in IWindowBackend.Close/DetachedFromVisualTree; there is no owning Window to dispose through here.")]
-    internal sealed class MajorsilenceFormsSingleViewHost : Canvas, IWindowBackend, INativeControlHostBackend, IAnimationFrameSource
+    internal sealed class MajorsilenceFormsSingleViewHost : Canvas, IWindowBackend, Backends.IPickedFileBackend, INativeControlHostBackend, IAnimationFrameSource
     {
         internal static MajorsilenceFormsSingleViewHost? MainHost { get; private set; }
 
@@ -1256,13 +1256,14 @@ namespace Majorsilence.Forms
                 : await top.StorageProvider.TryGetFolderFromPathAsync (new System.Uri (initialDirectory));
         }
 
-        async System.Threading.Tasks.Task<string[]> IWindowBackend.ShowOpenFileDialog (Backends.OpenFileRequest request)
+        // One picker for both forms: paths for IWindowBackend, readable handles for IPickedFileBackend.
+        private async System.Threading.Tasks.Task<IReadOnlyList<Avalonia.Platform.Storage.IStorageFile>> PickFilesAsync (Backends.OpenFileRequest request)
         {
             var top = TopLevel.GetTopLevel (this);
-            if (top is null) return Array.Empty<string> ();
+            if (top is null) return Array.Empty<Avalonia.Platform.Storage.IStorageFile> ();
 
             var types = MapFilters (request.Filters);
-            var result = await top.StorageProvider.OpenFilePickerAsync (new Avalonia.Platform.Storage.FilePickerOpenOptions {
+            return await top.StorageProvider.OpenFilePickerAsync (new Avalonia.Platform.Storage.FilePickerOpenOptions {
                 AllowMultiple = request.AllowMultiple,
                 SuggestedStartLocation = await ResolveStartFolder (request.InitialDirectory),
                 Title = request.Title,
@@ -1270,8 +1271,13 @@ namespace Majorsilence.Forms
                 // The filter FilterIndex names is the one the picker opens on (SVC-24).
                 SuggestedFileType = request.FilterIndex >= 1 && request.FilterIndex <= types.Length ? types[request.FilterIndex - 1] : null
             });
-            return result.Select (f => f.GetFullPath ()).WhereNotNull ().ToArray ();
         }
+
+        async System.Threading.Tasks.Task<string[]> IWindowBackend.ShowOpenFileDialog (Backends.OpenFileRequest request)
+            => (await PickFilesAsync (request)).Select (f => f.GetFullPath ()).WhereNotNull ().ToArray ();
+
+        async System.Threading.Tasks.Task<Backends.PickedFile[]> Backends.IPickedFileBackend.ShowOpenFilePicker (Backends.OpenFileRequest request)
+            => (await PickFilesAsync (request)).Select (f => f.ToPickedFile ()).ToArray ();
 
         async System.Threading.Tasks.Task<string?> IWindowBackend.ShowSaveFileDialog (Backends.SaveFileRequest request)
         {

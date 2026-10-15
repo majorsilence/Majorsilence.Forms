@@ -31,7 +31,7 @@ namespace Majorsilence.Forms
     /// native-framebuffer approach and is reliable across all Avalonia 12 platforms.
     /// </summary>
     [System.Diagnostics.CodeAnalysis.SuppressMessage ("Design", "CA1001", Justification = "_framebuffer is disposed in OnClosed; Window lifecycle manages the call.")]
-    internal class MajorsilenceFormsWindowHost : Window, Majorsilence.Forms.Backends.IWindowBackend, Majorsilence.Forms.Backends.INativeControlHostBackend,
+    internal class MajorsilenceFormsWindowHost : Window, Majorsilence.Forms.Backends.IWindowBackend, Majorsilence.Forms.Backends.IPickedFileBackend, Majorsilence.Forms.Backends.INativeControlHostBackend,
         Majorsilence.Forms.Backends.IAnimationFrameSource
     {
         private readonly WindowBase _owner;
@@ -523,7 +523,8 @@ namespace Majorsilence.Forms
         private async System.Threading.Tasks.Task<Avalonia.Platform.Storage.IStorageFolder?> ResolveStartFolder (string? initialDirectory)
             => initialDirectory is null ? null : await StorageProvider.TryGetFolderFromPathAsync (new System.Uri (initialDirectory));
 
-        async System.Threading.Tasks.Task<string[]> Backends.IWindowBackend.ShowOpenFileDialog (Backends.OpenFileRequest request)
+        // One picker for both forms: paths for IWindowBackend, readable handles for IPickedFileBackend.
+        private async System.Threading.Tasks.Task<IReadOnlyList<Avalonia.Platform.Storage.IStorageFile>> PickFilesAsync (Backends.OpenFileRequest request)
         {
             var types = MapFilters (request.Filters);
             var options = new Avalonia.Platform.Storage.FilePickerOpenOptions {
@@ -535,9 +536,14 @@ namespace Majorsilence.Forms
                 SuggestedFileType = request.FilterIndex >= 1 && request.FilterIndex <= types.Length ? types[request.FilterIndex - 1] : null
             };
 
-            var result = await StorageProvider.OpenFilePickerAsync (options);
-            return result.Select (f => f.GetFullPath ()).WhereNotNull ().ToArray ();
+            return await StorageProvider.OpenFilePickerAsync (options);
         }
+
+        async System.Threading.Tasks.Task<string[]> Backends.IWindowBackend.ShowOpenFileDialog (Backends.OpenFileRequest request)
+            => (await PickFilesAsync (request)).Select (f => f.GetFullPath ()).WhereNotNull ().ToArray ();
+
+        async System.Threading.Tasks.Task<Backends.PickedFile[]> Backends.IPickedFileBackend.ShowOpenFilePicker (Backends.OpenFileRequest request)
+            => (await PickFilesAsync (request)).Select (f => f.ToPickedFile ()).ToArray ();
 
         async System.Threading.Tasks.Task<string?> Backends.IWindowBackend.ShowSaveFileDialog (Backends.SaveFileRequest request)
         {

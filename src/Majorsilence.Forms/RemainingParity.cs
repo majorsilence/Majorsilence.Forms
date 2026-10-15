@@ -512,12 +512,22 @@ namespace Majorsilence.Forms
         public bool ShowPreview { get; set; }
 
         /// <summary>Opens the chosen file for reading.</summary>
+        /// <remarks>A file the platform gives no path (Android, iOS) is opened through its picker when that
+        /// completes at once; one that cannot be read synchronously (the browser) needs
+        /// <see cref="OpenFileAsync"/>.</remarks>
         public Stream OpenFile ()
         {
             if (string.IsNullOrEmpty (FileName))
                 throw new InvalidOperationException ("No file has been chosen.");
 
-            return File.OpenRead (FileName);
+            if (!picked.TryGetValue (FileName, out var file))
+                return File.OpenRead (FileName);
+
+            // Never block on it: a browser read completes on the UI thread this would be holding.
+            var open = file.OpenReadAsync ();
+            if (!open.IsCompleted)
+                throw new PlatformNotSupportedException ("This file can only be read asynchronously; use OpenFileAsync.");
+            return open.GetAwaiter ().GetResult ();
         }
     }
 
