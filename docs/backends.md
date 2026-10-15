@@ -62,6 +62,12 @@ PointToClient / PointToScreen, BeginMoveDrag, BeginResizeDrag(WindowEdge), Inval
 ShowOpenFileDialog / ShowSaveFileDialog / ShowOpenFolderDialog
 ```
 
+A backend whose open-file picker can return files with no local path (Android content URIs, iOS
+security-scoped URLs, browser file handles) also implements `IPickedFileBackend.ShowOpenFilePicker`,
+returning `PickedFile`s that carry a name, an optional path and a way to open the file; the Avalonia and
+Headless backends do. `OpenFileDialog` prefers it, exposes the files as `SelectedFiles`, and reads them in
+`OpenFileAsync ()` / `OpenFile ()`. A backend without it is asked for paths, which are opened from disk.
+
 `IWindowBackend` is the **pull** side — operations `WindowBase` invokes on its window. The **push**
 side (native input → Majorsilence.Forms, and paint requests) is delivered by the backend calling the
 owning window's neutral methods directly, none of which expose any platform type:

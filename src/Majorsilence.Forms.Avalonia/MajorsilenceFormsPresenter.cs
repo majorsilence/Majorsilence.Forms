@@ -38,7 +38,7 @@ namespace Majorsilence.Forms
     /// Derives from <see cref="Canvas"/> so it can also overlay native Avalonia controls hosted inside the
     /// Majorsilence scene via <see cref="NativeControlHost"/> (the airspace interop model).
     /// </summary>
-    public class MajorsilenceFormsPresenter : Canvas, IWindowBackend, INativeControlHostBackend, IDisposable
+    public class MajorsilenceFormsPresenter : Canvas, IWindowBackend, Backends.IPickedFileBackend, INativeControlHostBackend, IDisposable
     {
         private readonly HostedSurface _host;
         private WriteableBitmap? _framebuffer;
@@ -473,13 +473,14 @@ namespace Majorsilence.Forms
                 : await top.StorageProvider.TryGetFolderFromPathAsync (new System.Uri (initialDirectory));
         }
 
-        async System.Threading.Tasks.Task<string[]> IWindowBackend.ShowOpenFileDialog (Backends.OpenFileRequest request)
+        // One picker for both forms: paths for IWindowBackend, readable handles for IPickedFileBackend.
+        private async System.Threading.Tasks.Task<IReadOnlyList<Avalonia.Platform.Storage.IStorageFile>> PickFilesAsync (Backends.OpenFileRequest request)
         {
             var top = TopLevel.GetTopLevel (this);
-            if (top is null) return Array.Empty<string> ();
+            if (top is null) return Array.Empty<Avalonia.Platform.Storage.IStorageFile> ();
 
             var types = MapFilters (request.Filters);
-            var result = await top.StorageProvider.OpenFilePickerAsync (new Avalonia.Platform.Storage.FilePickerOpenOptions {
+            return await top.StorageProvider.OpenFilePickerAsync (new Avalonia.Platform.Storage.FilePickerOpenOptions {
                 AllowMultiple = request.AllowMultiple,
                 SuggestedStartLocation = await ResolveStartFolder (request.InitialDirectory),
                 Title = request.Title,
@@ -487,8 +488,13 @@ namespace Majorsilence.Forms
                 // The filter FilterIndex names is the one the picker opens on (SVC-24).
                 SuggestedFileType = request.FilterIndex >= 1 && request.FilterIndex <= types.Length ? types[request.FilterIndex - 1] : null
             });
-            return result.Select (f => f.GetFullPath ()).WhereNotNull ().ToArray ();
         }
+
+        async System.Threading.Tasks.Task<string[]> IWindowBackend.ShowOpenFileDialog (Backends.OpenFileRequest request)
+            => (await PickFilesAsync (request)).Select (f => f.GetFullPath ()).WhereNotNull ().ToArray ();
+
+        async System.Threading.Tasks.Task<Backends.PickedFile[]> Backends.IPickedFileBackend.ShowOpenFilePicker (Backends.OpenFileRequest request)
+            => (await PickFilesAsync (request)).Select (f => f.ToPickedFile ()).ToArray ();
 
         async System.Threading.Tasks.Task<string?> IWindowBackend.ShowSaveFileDialog (Backends.SaveFileRequest request)
         {
