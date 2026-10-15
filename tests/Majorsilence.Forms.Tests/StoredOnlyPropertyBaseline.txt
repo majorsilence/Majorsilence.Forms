@@ -325,5 +325,5 @@ Majorsilence.Forms.WindowBase.DoubleBuffered    -- every surface is double-buffe
 Majorsilence.Forms.WindowBase.IsAccessible    -- accessibility metadata; no accessible-object tree
 Majorsilence.Forms.WindowBase.StartPosition    -- framework-written (outbound state)
 Majorsilence.Forms.WindowBase.Tag    -- user-data slot; upstream reads it nowhere either
-Majorsilence.Forms.WindowsFormsSynchronizationContext.AutoInstall    -- Win32 handle/window-class detail; no equivalent here
+Majorsilence.Forms.WindowsFormsSynchronizationContext.AutoInstall    -- read by the Headless backend's main loop (another assembly); the Avalonia backend installs its own context
 SkiaSharp.Views.Desktop.SKGLControl.VSync    -- no GL swap chain here: presentation is the compositor's and no backend exposes the choice (member remarks)
