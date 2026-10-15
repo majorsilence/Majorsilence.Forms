@@ -4,6 +4,7 @@ using Xunit;
 
 namespace Majorsilence.Forms.Tests
 {
+    [Collection ("Headless")]
     public class MdiChildInitialPlacementTests
     {
         private static (Form parent, MdiClient client) Container ()
@@ -99,6 +100,27 @@ namespace Majorsilence.Forms.Tests
 
             Assert.Same (box, child.ActiveControl);
             Assert.True (entered);
+        }
+
+        // An MDI child with no font of its own takes its MDI parent's, as upstream's does (Font is ambient through
+        // the MDI client the child sits in): a parent set to 12pt has children whose fontless controls draw at
+        // 12pt. Here they fell back to the default font, so their text was visibly smaller.
+        [Fact]
+        public void A_child_without_a_font_inherits_the_mdi_parents ()
+        {
+            HeadlessRenderer.Use ();
+            var parent = new Form { IsMdiContainer = true, Font = new Majorsilence.Forms.Drawing.Font ("Microsoft Sans Serif", 12f) };
+            HeadlessRenderer.CapturePng (parent, 900, 700);
+
+            var child = new Form { MdiParent = parent, ClientSize = new Size (300, 200) };
+            var label = new Label { Text = "x" };
+            var grid = new DataGridView { Top = 30 };
+            child.Controls.Add (label);
+            child.Controls.Add (grid);
+            child.Show ();
+
+            Assert.Equal (16, label.GetEffectiveFontSize ());
+            Assert.Equal (16, grid.CellFallbackFont ().Size);
         }
 
         // Upstream opens a Manual-positioned child at the Location assigned before Show; here every child

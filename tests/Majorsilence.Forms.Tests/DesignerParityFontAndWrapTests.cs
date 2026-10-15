@@ -503,6 +503,31 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (0, fill);
         }
 
+        // A list sorted in code -- a DataView's Sort -- is how upstream's grid reports itself sorted: SortedColumn,
+        // SortOrder and the header glyph follow the list, and clear when it is unsorted. Only a sort the grid had
+        // been asked for showed a glyph here.
+        [Fact]
+        public void A_list_sorted_in_code_shows_as_the_grid_sort ()
+        {
+            var table = new System.Data.DataTable ();
+            table.Columns.Add ("name");
+            table.Columns.Add ("date", typeof (System.DateTime));
+            table.Rows.Add ("a", new System.DateTime (2026, 1, 2));
+            table.Rows.Add ("b", new System.DateTime (2026, 1, 3));
+            table.DefaultView.Sort = "date DESC";
+
+            using var grid = new DataGridView { DataSource = table };
+
+            var date = grid.Columns["date"]!;
+            Assert.Same (date, grid.SortedColumn);
+            Assert.Equal (SortOrder.Descending, grid.SortOrder);
+            Assert.Equal (SortOrder.Descending, date.HeaderCell.SortGlyphDirection);
+
+            table.DefaultView.Sort = "";
+            Assert.Null (grid.SortedColumn);
+            Assert.Equal (SortOrder.None, date.HeaderCell.SortGlyphDirection);
+        }
+
         // A focused button keeps its explicit colours, as upstream's does. Its :focus style chains to the type
         // default rather than the instance, so focus swapped the designer's BackColor and ForeColor for the
         // defaults -- on every Show () once a form focuses its first control.
