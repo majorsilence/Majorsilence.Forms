@@ -2459,8 +2459,14 @@ namespace Majorsilence.Forms
             /// whatever was behind them showed through, which reads exactly like a child being
             /// overpainted by its parent.
             /// </para>
+            /// <para>
+            /// Its surface is still cleared to transparent, so the window's background shows through
+            /// where no child paints: it is retained between frames, and left as it was, whatever a child
+            /// once drew stayed there after the child was hidden or moved -- a "loading" progress bar
+            /// hidden once its data arrived stayed on screen.
+            /// </para>
             /// </remarks>
-            protected override void OnPaintBackground (PaintEventArgs e) { }
+            protected override void OnPaintBackground (PaintEventArgs e) => e.Canvas.Clear (SkiaSharp.SKColors.Transparent);
         }
 
         /// <summary>Gets or sets the MenuStrip that is the main menu for the form.</summary>

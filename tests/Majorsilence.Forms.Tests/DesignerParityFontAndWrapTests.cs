@@ -462,6 +462,47 @@ namespace Majorsilence.Forms.Tests
             Assert.True (entered);
         }
 
+        // Hiding a control repaints what it uncovered, as upstream's parent repaints the area a hidden child
+        // window leaves. A "loading" progress bar hidden once its data arrived stayed on screen: nothing
+        // invalidated the parent, and the form's client area never cleared its retained surface.
+        [Theory]
+        [InlineData (false)]
+        [InlineData (true)]
+        public void A_hidden_control_is_painted_over (bool inPanel)
+        {
+            HeadlessRenderer.Use ();
+
+            using var form = new Form { ClientSize = new System.Drawing.Size (300, 100) };
+            var bar = new ProgressBar { Location = new System.Drawing.Point (100, 40), Size = new System.Drawing.Size (100, 23), Value = 50, Visible = false };
+            if (inPanel) {
+                var panel = new Panel { Dock = DockStyle.Fill };
+                panel.Controls.Add (bar);
+                form.Controls.Add (panel);
+            } else {
+                form.Controls.Add (bar);
+            }
+
+            form.Load += (_, _) => bar.Visible = true;   // shown while loading, as such forms do
+            form.Show ();
+            HeadlessRenderer.CapturePng (form);
+
+            bar.Visible = false;
+            using var bitmap = SkiaSharp.SKBitmap.Decode (HeadlessRenderer.CapturePng (form));
+
+            // The bar's fill colour where the bar was (device pixels; the capture includes the caption above
+            // the client area).
+            var top = bitmap.Height - form.LogicalToDeviceUnits (form.ClientSize.Height);
+            var left = form.LogicalToDeviceUnits (100);
+            var bar_top = top + form.LogicalToDeviceUnits (40);
+            var fill = 0;
+            for (var x = left + 2; x < left + form.LogicalToDeviceUnits (100) - 2; x++)
+                for (var y = bar_top + 2; y < bar_top + form.LogicalToDeviceUnits (23) - 2; y++)
+                    if (bitmap.GetPixel (x, y) is var c && c.Blue > 150 && c.Red < 80)
+                        fill++;
+
+            Assert.Equal (0, fill);
+        }
+
         // A focused button keeps its explicit colours, as upstream's does. Its :focus style chains to the type
         // default rather than the instance, so focus swapped the designer's BackColor and ForeColor for the
         // defaults -- on every Show () once a form focuses its first control.
