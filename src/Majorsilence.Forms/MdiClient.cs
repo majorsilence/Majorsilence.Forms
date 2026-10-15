@@ -11,6 +11,9 @@ namespace Majorsilence.Forms
     {
         private const int CascadeStep = 26;
 
+        // The next default-placed child's position in the cascade (see AddChild).
+        private int default_cascade_index;
+
         private MdiChildWindow? active;
 
         // Guards against re-entrancy: clamping a child's bounds in OnLayout re-triggers the client's layout.
@@ -57,24 +60,41 @@ namespace Majorsilence.Forms
             var content = child.InitialMdiContentSize;
             frame.SetContentSize (content);
 
-            // A Manual child opens at its assigned Location, as upstream's does. Any other child opens
-            // centred in the client area, then cascades successive children off that centre so a stack
-            // of windows stays individually reachable instead of perfectly overlapping. Opening hard
-            // against the top-left corner left the caption bar butted into the container's own chrome,
-            // which made it hard to see where the child window began.
-            // The cascade offset is added to the centre rather than clamped into it: clamping collapsed
-            // successive children onto the same spot whenever a child was nearly as wide as the client.
-            // FitToClient below already pulls anything overhanging back inside, as it did when children
-            // cascaded from the corner.
-            if (child.StartPosition == FormStartPosition.Manual) {
-                frame.Location = child.InitialMdiLocation;
-            } else {
-                var area = DisplayRectangle;
-                var offset = (frames.Count % 8) * CascadeStep;
-                var centreX = area.Width > frame.Width ? (area.Width - frame.Width) / 2 : 0;
-                var centreY = area.Height > frame.Height ? (area.Height - frame.Height) / 2 : 0;
+            // Placed by StartPosition, as Win32's MDI client places them. Manual keeps its assigned Location.
+            // The default (WindowsDefaultLocation/Bounds) cascades from the client's top-left corner, each such
+            // child one step further down and right, starting again at the corner when the next would leave it.
+            // CenterParent and CenterScreen centre in the client. Every child used to open centred, whatever
+            // its StartPosition.
+            var area = DisplayRectangle;
 
-                frame.Location = new Point (centreX + offset, centreY + offset);
+            switch (child.StartPosition) {
+                case FormStartPosition.Manual:
+                    frame.Location = child.InitialMdiLocation;
+                    break;
+
+                case FormStartPosition.CenterParent:
+                case FormStartPosition.CenterScreen:
+                    frame.Location = new Point (
+                        area.Left + Math.Max (0, (area.Width - frame.Width) / 2),
+                        area.Top + Math.Max (0, (area.Height - frame.Height) / 2));
+                    break;
+
+                default:
+                    var step = LogicalToDeviceUnits (CascadeStep);
+                    var offset = default_cascade_index * step;
+
+                    // Win32 restarts the cascade when the next window's corner -- its caption -- would leave the
+                    // client, not when the whole window would (a child larger than the client still cascades). A
+                    // client not laid out yet has no extent to leave.
+                    if (default_cascade_index > 0 && area.Width > 0 && area.Height > 0
+                        && (offset + step > area.Width || offset + step > area.Height)) {
+                        default_cascade_index = 0;
+                        offset = 0;
+                    }
+
+                    frame.Location = new Point (area.Left + offset, area.Top + offset);
+                    default_cascade_index++;
+                    break;
             }
 
             frame.RestoreBounds = frame.Bounds;
