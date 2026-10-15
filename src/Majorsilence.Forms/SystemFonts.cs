@@ -96,7 +96,10 @@ namespace Majorsilence.Forms
             Majorsilence.Forms.Drawing.FontSubstitution.ResolveWhereNoSystemFonts (_defaultFontFamily, SKFontStyle.Normal);
 
         /// <summary>Gets the default font as an SKTypeface (for internal Majorsilence.Forms use).</summary>
-        internal static SKTypeface DefaultTypeface => _defaultTypeface;
+        /// <remarks>The font chosen with Application.SetDefaultFont when there is one. This returned the
+        /// built-in face regardless, so Control.Font reported the app's default while every control that
+        /// draws through GetEffectiveFont (TreeView, ListView, ...) still drew in the system font.</remarks>
+        internal static SKTypeface DefaultTypeface => _defaultFontOverride?.GetSKTypeface () ?? _defaultTypeface;
 
         /// <summary>Gets the default font size in points.</summary>
         /// <summary>
