@@ -107,10 +107,24 @@ namespace Majorsilence.Forms.Tests
                 container.PerformLayout ();
             }
 
-            var before = GC.GetAllocatedBytesForCurrentThread ();
-            container.Width = container.Width == 2000 ? 2010 : 2000;
-            container.PerformLayout ();
-            var perChild = (GC.GetAllocatedBytesForCurrentThread () - before) / 500;
+            // Promotion happens on a background thread after the call counts are reached, and a slow CI runner
+            // (macOS, scale 2) could still be running the unoptimised code at the first measurement: 1029 bytes a
+            // child. Measure a few times, giving the tiering thread time in between, and take the steady state.
+            var perChild = long.MaxValue;
+            for (var attempt = 0; attempt < 10 && perChild > 160; attempt++) {
+                if (attempt > 0) {
+                    Thread.Sleep (100);
+                    for (var i = 0; i < 100; i++) {
+                        container.Width = container.Width == 2000 ? 2010 : 2000;
+                        container.PerformLayout ();
+                    }
+                }
+
+                var before = GC.GetAllocatedBytesForCurrentThread ();
+                container.Width = container.Width == 2000 ? 2010 : 2000;
+                container.PerformLayout ();
+                perChild = Math.Min (perChild, (GC.GetAllocatedBytesForCurrentThread () - before) / 500);
+            }
 
             // A LayoutEventArgs per resized child, and the weak reference a suspended parent's cached args need; it
             // was 340 bytes a child with a dictionary made each pass.
