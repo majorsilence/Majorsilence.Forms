@@ -103,9 +103,13 @@ namespace Majorsilence.Forms.Tests
             var check = new CheckBox { Size = new Size (179, 25), Font = new DFont ("Arial", 12F, DStyle.Bold), Text = "Adjust To Minimum Tax" };
             form.Controls.Add (check);
 
-            var bounds = new Rectangle (20, 0, 155, 25);
+            // Narrower than the caption's one line, whatever font the machine resolves Arial to, so it wraps.
+            var font = check.GetEffectiveFont ();
+            var size = check.LogicalToDeviceUnits (check.GetEffectiveFontSize ());
+            var one_line = TextMeasurer.MeasureText (check.Text, font, size).Width;
+            var bounds = new Rectangle (20, 0, (int) (one_line * 0.7), check.LogicalToDeviceUnits (25));
             var (box, align) = SkiaTextExtensions.WholeLineBox (check, check.Text, bounds, ContentAlignment.MiddleLeft);
-            var line = TextMeasurer.MeasureText ("X", check.GetEffectiveFont (), check.LogicalToDeviceUnits (check.GetEffectiveFontSize ())).Height;
+            var line = TextMeasurer.MeasureText ("X", font, size).Height;
 
             Assert.Equal (ContentAlignment.TopLeft, align);
             Assert.Equal ((int) line, box.Height);
@@ -416,7 +420,8 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void An_overflowing_cell_ends_in_an_ellipsis ()
         {
-            HeadlessRenderer.Use ();
+            // The bundled font, so the strokes measured below are the same on every machine.
+            using var deterministic = HeadlessRenderer.UseDeterministic ();
 
             using var form = new Form { Size = new System.Drawing.Size (300, 200) };
             var grid = new DataGridView { Left = 0, Top = 0, Width = 200, Height = 100, RowHeadersVisible = false, ColumnHeadersVisible = false };
@@ -435,19 +440,19 @@ namespace Majorsilence.Forms.Tests
             var bitmap = (SkiaSharp.SKBitmap) buffer.Invoke (grid, null)!;
 
             // The cell's last ink is the ellipsis's final dot -- a couple of pixels tall -- where clipped
-            // text ends on a full-height letter stroke.
-            var row = grid.GetRowDisplayRectangle (0, false);
+            // text ends on a full-height letter stroke. Device pixels throughout (the back buffer's).
+            var cell = grid.GetCellBounds (0, 0);
             bool Dark (int x, int y) => bitmap.GetPixel (x, y) is var c && c.Red < 128 && c.Green < 128;
             var lastInk = -1;
-            for (var x = 0; x < 40; x++)
-                for (var y = row.Top + 1; y < row.Bottom - 1; y++)
+            for (var x = cell.Left; x < cell.Right; x++)
+                for (var y = cell.Top + 1; y < cell.Bottom - 1; y++)
                     if (Dark (x, y)) { lastInk = x; break; }
             var height = 0;
-            for (var y = row.Top + 1; y < row.Bottom - 1; y++)
-                if (Dark (lastInk, y))
+            for (var y = cell.Top + 1; y < cell.Bottom - 1; y++)
+                if (lastInk >= 0 && Dark (lastInk, y))
                     height++;
 
-            Assert.True (lastInk >= 0 && height <= 3, $"the text ends at x={lastInk} on a {height}px stroke, not a dot");
+            Assert.True (lastInk >= 0 && height <= grid.LogicalToDeviceUnits (3), $"the text ends at x={lastInk} on a {height}px stroke, not a dot");
         }
 
         // Telerik's header cells end a caption that does not fit with "..."; the compat grid clipped it
@@ -455,7 +460,8 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void A_Telerik_header_that_does_not_fit_ends_in_an_ellipsis ()
         {
-            HeadlessRenderer.Use ();
+            // The bundled font, so the strokes measured below are the same on every machine.
+            using var deterministic = HeadlessRenderer.UseDeterministic ();
 
             using var form = new Form { Size = new System.Drawing.Size (300, 200) };
             var grid = new Majorsilence.Forms.Telerik.RadGridView { Left = 0, Top = 0, Width = 200, Height = 100, ShowGroupPanel = false };
@@ -475,7 +481,7 @@ namespace Majorsilence.Forms.Tests
             var bottom = grid.ScaledHeaderHeight;
             bool Dark (int x, int y) => bitmap.GetPixel (x, y) is var c && c.Red < 110 && c.Green < 110 && c.Blue < 110;
             var lastInk = -1;
-            for (var x = 2; x < 48; x++)
+            for (var x = 2; x < grid.LogicalToDeviceUnits (48); x++)
                 for (var y = top + 3; y < bottom - 3; y++)
                     if (Dark (x, y)) { lastInk = x; break; }
             var height = 0;
@@ -483,7 +489,7 @@ namespace Majorsilence.Forms.Tests
                 if (lastInk >= 0 && Dark (lastInk, y))
                     height++;
 
-            Assert.True (lastInk >= 0 && height <= 3, $"the header ends at x={lastInk} on a {height}px stroke, not a dot");
+            Assert.True (lastInk >= 0 && height <= grid.LogicalToDeviceUnits (3), $"the header ends at x={lastInk} on a {height}px stroke, not a dot");
         }
 
         // Upstream's picker frames the text and the drop-down button together. Here the button face was
@@ -579,6 +585,37 @@ namespace Majorsilence.Forms.Tests
             Assert.True (grid.IsRowPaintedSelected (2));
         }
 
+        // Upstream fills a selected cell with the selection colour, as it does a selected row; here a selected
+        // cell was only outlined, so the current cell of a grid in the default RowHeaderSelect looked unselected.
+        [Fact]
+        public void A_selected_cell_is_filled_with_the_selection_colour ()
+        {
+            HeadlessRenderer.Use ();
+
+            using var form = new Form { Size = new System.Drawing.Size (300, 200) };
+            var grid = new DataGridView { Left = 0, Top = 0, Width = 240, Height = 120, RowHeadersVisible = false, AllowUserToAddRows = false };
+            grid.Columns.Add ("a", "A");
+            grid.Columns.Add ("b", "B");
+            grid.Rows.Add ("", "");
+            form.Controls.Add (grid);
+            form.Show ();
+            grid.CurrentCell = grid[0, 0];
+            Assert.True (grid.IsCellPaintedSelected (0, 0));
+
+            HeadlessRenderer.CapturePng (form);
+            HeadlessRenderer.CapturePng (form);
+            var buffer = typeof (Control).GetMethod ("GetBackBuffer",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+            var bitmap = (SkiaSharp.SKBitmap) buffer.Invoke (grid, null)!;
+
+            // GetCellBounds is in device pixels, as the back buffer is.
+            var selected = grid.GetCellBounds (0, 0);
+            var other = grid.GetCellBounds (0, 1);
+            var expected = DataGridView.DefaultSelectionStyle.GetBackgroundColor ();
+            Assert.Equal (expected, bitmap.GetPixel (selected.Left + selected.Width / 2, selected.Top + selected.Height / 2));
+            Assert.NotEqual (expected, bitmap.GetPixel (other.Left + other.Width / 2, other.Top + other.Height / 2));
+        }
+
         // Upstream holds no rows without columns, so a fresh grid with no columns shows only its background. Here it
         // drew an empty new-row line (and its row header) in every column-less grid waiting for data.
         [Fact]
@@ -655,10 +692,16 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void A_synthesized_bold_is_widened_to_GDIs_advance_and_a_real_bold_face_is_not ()
         {
+            // Windows only: a synthesized bold is recognised by sharing the regular face's font file, which
+            // the macOS port (where this family also ships) does not expose the same way -- there the bold
+            // keeps Skia's own advance, as it did before.
+            if (!OperatingSystem.IsWindows ())
+                return;
+
             using var regular = SKFontManager.Default.MatchFamily ("Microsoft Sans Serif", SKFontStyle.Normal);
 
             if (regular is null || regular.FamilyName != "Microsoft Sans Serif")
-                return;   // not installed here (non-Windows legs)
+                return;   // not installed here
 
             var synthetic = new DFont ("Microsoft Sans Serif", 12F, DStyle.Bold).GetSKTypeface ();
             var spacing = TextMeasurer.GdiBoldSpacing (synthetic, 16);

@@ -632,11 +632,13 @@ namespace Majorsilence.Forms.Renderers
             if (paintParts.HasFlag (DataGridViewPaintParts.Border))
                 RenderCellBorders (control, control.AdvancedCellBorderStyle, bounds, e);
 
-            // Draw cell selection for the cell and column modes. Every selected cell is outlined, not
-            // just the current one -- which is what makes a Ctrl-clicked or SelectAll'd block visible.
+            // Draw cell selection for the cell and column modes: every selected cell is filled with the
+            // selection colour, as a selected row is and as upstream fills them. It used to be outlined
+            // only, which left the current cell of a grid in the default RowHeaderSelect looking
+            // unselected. A cell style's own SelectionBackColor is painted over this further down.
             if (paintParts.HasFlag (DataGridViewPaintParts.SelectionBackground)
                 && control.IsCellPaintedSelected (rowIndex, columnIndex))
-                e.Canvas.DrawRectangle (bounds, DataGridView.DefaultSelectionStyle.Border.GetColor (), DataGridView.DefaultSelectionStyle.Border.GetWidth ());
+                e.Canvas.FillRectangle (bounds, DataGridView.DefaultSelectionStyle.GetBackgroundColor ());
 
             if (!paintParts.HasFlag (DataGridViewPaintParts.ContentForeground)
                 && !paintParts.HasFlag (DataGridViewPaintParts.ContentBackground))

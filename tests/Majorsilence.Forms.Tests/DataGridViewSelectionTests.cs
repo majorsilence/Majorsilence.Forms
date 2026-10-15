@@ -465,7 +465,7 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void In_cell_mode_a_selected_cell_is_outlined_and_its_row_is_not_highlighted ()
+        public void In_cell_mode_a_selected_cell_is_filled_and_its_row_is_not_highlighted ()
         {
             using var grid = Grid (mode: DataGridViewSelectionMode.CellSelect);
             using var form = new Form { Width = 500, Height = 320 };
@@ -476,11 +476,12 @@ namespace Majorsilence.Forms.Tests
 
                 using var bitmap = PaintSurface.RenderOnForm (grid, 1f);
 
-                // The outline is a 2px stroke on the cell's border, so it is counted rather than
-                // measured as coverage -- it is deliberately NOT a fill.
-                Assert.True (CountIn (bitmap, grid.GetCellBounds (1, 1), DataGridView.DefaultSelectionStyle.Border.GetColor ()) > 0,
-                    "the selected cell was not outlined");
-                Assert.True (Coverage (bitmap, grid.GetCellBounds (1, 0), DataGridView.DefaultSelectionStyle.GetBackgroundColor ()) < Unfilled,
+                // Filled with the selection colour, as upstream paints a selected cell (it was outlined
+                // only); the rest of its row is not.
+                var highlight = DataGridView.DefaultSelectionStyle.GetBackgroundColor ();
+                Assert.True (Coverage (bitmap, grid.GetCellBounds (1, 1), highlight) > Filled,
+                    "the selected cell was not filled");
+                Assert.True (Coverage (bitmap, grid.GetCellBounds (1, 0), highlight) < Unfilled,
                     "cell selection must not highlight the whole row");
             } finally {
                 form.Dispose ();
