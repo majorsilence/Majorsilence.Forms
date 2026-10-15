@@ -430,7 +430,42 @@ namespace Majorsilence.Forms
         protected virtual void OnDataSourceChanged (EventArgs e) => DataSourceChanged?.Invoke (this, e);
 
         // Called by the column/row collections, which cannot reach the protected hooks directly.
-        internal void RaiseColumnAdded (DataGridViewColumn column) => OnColumnAdded (new DataGridViewColumnEventArgs (column));
+        internal void RaiseColumnAdded (DataGridViewColumn column)
+        {
+            // A column added to an already-bound grid is matched to the bound list as it arrives, as upstream's
+            // data connection does, so ColumnAdded handlers already see the right IsDataBound.
+            column.IsDataBound = IsBoundMember (column.DataPropertyName);
+            OnColumnAdded (new DataGridViewColumnEventArgs (column));
+        }
+
+        // Upstream's DataGridViewColumn.IsDataBound is derived, not stored: true while the column's
+        // DataPropertyName names a property of the bound list (matched ignoring case, as its data connection
+        // does). Here it was a bare property nothing set, so code that hides every unbound column once a source
+        // is assigned -- a legacy DataGrid table-style shim does exactly that -- hid them all and showed rows
+        // with no columns.
+        private void UpdateColumnsDataBound ()
+        {
+            foreach (DataGridViewColumn column in Columns)
+                column.IsDataBound = IsBoundMember (column.DataPropertyName);
+        }
+
+        [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection over user-provided types.")]
+        private bool IsBoundMember (string? member)
+        {
+            if (data_source is null || string.IsNullOrEmpty (member))
+                return false;
+
+            if (bound_descriptors is not null)
+                return bound_descriptors.Find (member, ignoreCase: true) is not null;
+
+            if (data_source is System.ComponentModel.ITypedList typed)
+                return typed.GetItemProperties (null).Find (member, ignoreCase: true) is not null;
+
+            var properties = bound_properties
+                ?? GetElementType (data_source)?.GetProperties (BindingFlags.Public | BindingFlags.Instance);
+
+            return properties?.Any (p => string.Equals (p.Name, member, StringComparison.OrdinalIgnoreCase)) == true;
+        }
         internal void RaiseColumnRemoved (DataGridViewColumn column) => OnColumnRemoved (new DataGridViewColumnEventArgs (column));
         internal void RaiseRowsAdded (int rowIndex, int rowCount) => OnRowsAdded (new DataGridViewRowsAddedEventArgs (rowIndex, rowCount));
         internal void RaiseRowsRemoved (int rowIndex, int rowCount) => OnRowsRemoved (new DataGridViewRowsRemovedEventArgs (rowIndex, rowCount));
@@ -2169,7 +2204,7 @@ namespace Majorsilence.Forms
             if (string.IsNullOrEmpty (member))
                 return true;
 
-            var descriptor = System.ComponentModel.TypeDescriptor.GetProperties (item)[member];
+            var descriptor = System.ComponentModel.TypeDescriptor.GetProperties (item).Find (member, ignoreCase: true);
 
             if (descriptor is not null) {
                 if (descriptor.IsReadOnly)
@@ -2296,6 +2331,13 @@ namespace Majorsilence.Forms
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection over user-provided types.")]
         private void OnDataSourceChanged (bool forceColumnRegeneration = false)
         {
+            BindDataSource (forceColumnRegeneration);
+            UpdateColumnsDataBound ();
+        }
+
+        [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection over user-provided types.")]
+        private void BindDataSource (bool forceColumnRegeneration)
+        {
             bound_descriptors = null;
             bound_properties = null;
 
@@ -2401,10 +2443,10 @@ namespace Majorsilence.Forms
             if (!seeded)
                 return;
 
-            if (SelectionIsColumnBased) {
+            if (CellSelectsColumn) {
                 if (selected_column_index >= 0 && selected_column_index < Columns.Count)
                     Columns[selected_column_index].SetSelectedCore (true, ++selection_sequence);
-            } else if (SelectionIsRowBased) {
+            } else if (CellSelectsRow) {
                 if (selected_row_index >= 0 && selected_row_index < Rows.Count)
                     Rows[selected_row_index].SetSelectedCore (true, ++selection_sequence);
             } else if (IsCellAddress (selected_row_index, selected_column_index)) {
@@ -2431,11 +2473,42 @@ namespace Majorsilence.Forms
             return null;
         }
 
+        // The font cells draw with when neither the cell styles nor DefaultCellStyle name one. Upstream's
+        // DefaultCellStyle.Font IS the grid's Font -- ambient, so a grid inside a container whose designer set
+        // Font = Tahoma 8pt draws its cells in Tahoma 8pt. Every cell here drew the theme font regardless. The
+        // ambient font is used once the grid or an ancestor has chosen one; a grid in an app that never set a
+        // font keeps the theme's item font, as before.
+        internal (SkiaSharp.SKTypeface Typeface, int Size) CellFallbackFont ()
+        {
+            for (Control? c = this; c is not null; c = c.Parent)
+                if (c.HasOwnFont)
+                    return (GetEffectiveFont (), GetEffectiveFontSize ());
+
+            return (Theme.UIFont, Theme.ItemFontSize);
+        }
+
+        // The font column headers draw with when ColumnHeadersDefaultCellStyle names none. Upstream's header
+        // style inherits the grid's Font too, so a grid whose container chose Tahoma 8pt has Tahoma 8pt
+        // (regular) headers; here they always drew in the theme's bold font. As for cells, the ambient font is
+        // used once the grid or an ancestor has chosen one, and the theme's header style otherwise.
+        internal (SkiaSharp.SKTypeface Typeface, int Size) HeaderFallbackFont ()
+        {
+            for (Control? c = this; c is not null; c = c.Parent)
+                if (c.HasOwnFont)
+                    return (GetEffectiveFont (), GetEffectiveFontSize ());
+
+            return (DefaultColumnHeaderStyle.GetFont (), DefaultColumnHeaderStyle.GetFontSize ());
+        }
+
         // Reads a bound member off a data item, preferring property descriptors: a DataRowView exposes
         // its columns that way and has no CLR property per column, so reflection alone finds nothing.
         // Indexers are skipped -- GetValue with no index arguments throws TargetParameterCountException,
         // which is why binding to a List<string> (whose element type carries string's Chars indexer)
         // used to crash on the first row.
+        //
+        // Members are matched ignoring case, as upstream's data connection matches DataPropertyName to the
+        // bound list's properties: a legacy table style naming "chknumber" bound to a query returning
+        // "ChkNumber" filled the column there and left it blank here.
         [UnconditionalSuppressMessage ("Trimming", "IL2075",
             Justification = "Bound item types are only known at runtime — same as WinForms.")]
         [UnconditionalSuppressMessage ("Trimming", "IL2026",
@@ -2445,7 +2518,7 @@ namespace Majorsilence.Forms
             if (string.IsNullOrEmpty (member))
                 return null;
 
-            var descriptor = System.ComponentModel.TypeDescriptor.GetProperties (item)[member];
+            var descriptor = System.ComponentModel.TypeDescriptor.GetProperties (item).Find (member, ignoreCase: true);
 
             if (descriptor is not null)
                 return descriptor.GetValue (item);
@@ -3236,7 +3309,17 @@ namespace Majorsilence.Forms
         // index and raises RowEnter. Returns false when a Validating handler cancelled, in which case
         // the current row has not moved. Separated out because "current" and "selected" are different
         // things (DGV-14/DGV-15) and the pointer path needs to move one without replacing the other.
-        private bool SetCurrentRowIndex (int value) => MoveCurrentCell (value, selected_column_index);
+        // A current row always has a current cell upstream; with no column current yet, it lands in the
+        // first visible column -- otherwise a cell-selecting mode (RowHeaderSelect, the default) had no
+        // cell to select and the move selected nothing.
+        private bool SetCurrentRowIndex (int value)
+        {
+            var column = selected_column_index >= 0 || value < 0
+                ? selected_column_index
+                : Columns.GetFirstColumn (DataGridViewElementStates.Visible)?.Index ?? -1;
+
+            return MoveCurrentCell (value, column);
+        }
 
         /// <summary>
         /// Called when the current row is about to change, after everything else that could veto the
@@ -3320,9 +3403,9 @@ namespace Majorsilence.Forms
         // the selection. Raises SelectionChanged once.
         private void ReplaceSelectionWithCurrentCell ()
         {
-            if (SelectionIsColumnBased)
+            if (CellSelectsColumn)
                 SelectSingleColumn (selected_column_index);
-            else if (SelectionIsRowBased)
+            else if (CellSelectsRow)
                 SelectSingleRow (selected_row_index);
             else
                 SelectSingleCell (selected_row_index, selected_column_index);
@@ -3412,11 +3495,27 @@ namespace Majorsilence.Forms
                 return style?.NullValue?.ToString ();
 
             var format = style is not null && style.Format.Length > 0 ? style.Format : column?.FormatString;
-
-            if (string.IsNullOrEmpty (format))
-                return null;
-
             var provider = style?.FormatProvider ?? System.Globalization.CultureInfo.CurrentCulture;
+
+            if (string.IsNullOrEmpty (format)) {
+                // With no format, upstream converts through the value's TypeConverter rather than ToString ().
+                // For a DateTime that is DateTimeConverter: the short date alone at midnight, short date and
+                // short time otherwise, empty for DateTime.MinValue. ToString () always appends the time, so a
+                // bound date column read "11-16-2017 12:00:00 AM" where upstream shows "11-16-2017".
+                if (value is DateTime date) {
+                    if (date == DateTime.MinValue)
+                        return string.Empty;
+
+                    var culture = provider as System.Globalization.CultureInfo ?? System.Globalization.CultureInfo.CurrentCulture;
+                    var pattern = date.TimeOfDay == TimeSpan.Zero
+                        ? culture.DateTimeFormat.ShortDatePattern
+                        : culture.DateTimeFormat.ShortDatePattern + " " + culture.DateTimeFormat.ShortTimePattern;
+
+                    return date.ToString (pattern, culture);
+                }
+
+                return null;
+            }
 
             // Telerik-style "{0:C2}" composite formats and plain ".NET" format specifiers both occur.
             if (format.Contains ('{'))
@@ -3569,7 +3668,11 @@ namespace Majorsilence.Forms
         private DataGridViewRow? new_row;
 
         /// <summary>Whether an uncommitted new row is shown after the last row.</summary>
-        internal bool ShowsNewRow => AllowUserToAddRows && !read_only && BoundListAllowsNew;
+        /// <remarks>Never without columns: upstream's grid holds no rows at all until it has a column ("Rows cannot be
+        /// programmatically added to the DataGridView's rows collection when there are no columns"), so a fresh,
+        /// column-less grid shows only its background rather than an empty new-row line. Rows added before any column
+        /// (which this grid tolerates) keep the new row.</remarks>
+        internal bool ShowsNewRow => AllowUserToAddRows && !read_only && (Columns.Count > 0 || Rows.Count > 0) && BoundListAllowsNew;
 
         // A bound list has the last word, as upstream's currency manager does: an IBindingList says
         // so itself; a plain list must at least be growable.

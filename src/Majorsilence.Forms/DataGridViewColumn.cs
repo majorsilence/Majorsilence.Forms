@@ -106,7 +106,9 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Gets or sets whether this column is bound to a data source. WinForms compatibility stub.
+        /// Gets whether this column is bound to the grid's data source: its <see cref="DataPropertyName"/> names a
+        /// property of the bound list. The grid keeps it current as the source and columns change; the setter is
+        /// kept for source compatibility.
         /// </summary>
         public bool IsDataBound { get; set; }
 

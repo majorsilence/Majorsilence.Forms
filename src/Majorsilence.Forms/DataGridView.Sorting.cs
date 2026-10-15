@@ -98,8 +98,8 @@ namespace Majorsilence.Forms
             if (string.IsNullOrEmpty (member))
                 return false;
 
-            var descriptor = (list as ITypedList)?.GetItemProperties (null)[member]
-                ?? (bound_descriptors is not null ? bound_descriptors[member] : null);
+            var descriptor = (list as ITypedList)?.GetItemProperties (null).Find (member, ignoreCase: true)
+                ?? bound_descriptors?.Find (member, ignoreCase: true);
 
             if (descriptor is null)
                 return false;

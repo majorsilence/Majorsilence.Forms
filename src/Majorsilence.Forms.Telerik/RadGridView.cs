@@ -108,6 +108,10 @@ namespace Majorsilence.Forms.Telerik
             MasterTemplate = new MasterGridViewTemplate (this);
             TableElement = new GridTableElement { ViewElement = RootElement, Grid = this };
 
+            // Telerik's grid selects whole rows by default (GridViewSelectionMode.FullRowSelect), which is also
+            // what the Telerik-typed SelectionMode reports; the WinForms default underneath selects cells.
+            base.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+
             // Descriptor changes (add/remove/clear) rebuild the displayed view.
             SortDescriptors.Changed = () => { SyncSortGlyphs (); RebuildView (); };
             GroupDescriptors.Changed = () => { _seenGroupKeys.Clear (); RefreshLayout (); RebuildView (); };
@@ -467,7 +471,26 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets whether the in-grid column filtering UI (funnel popups) is enabled.</summary>
         public bool EnableFiltering {
             get => MasterTemplate.EnableFiltering;
-            set { MasterTemplate.EnableFiltering = value; Invalidate (); }
+            set => MasterTemplate.EnableFiltering = value;   // the template refreshes the layout (filter row)
+        }
+
+        /// <summary>Gets or sets whether the filtering row is shown below the headers while filtering is enabled
+        /// (Telerik's <c>ShowFilteringRow</c>, on by default; forwards to the master template).</summary>
+        public bool ShowFilteringRow {
+            get => MasterTemplate.ShowFilteringRow;
+            set => MasterTemplate.ShowFilteringRow = value;
+        }
+
+        // Telerik draws filter buttons in the header cells only with ShowHeaderCellButtons (Excel-like
+        // filtering); otherwise filtering is the filtering row.
+        internal bool ShowsHeaderFilterButtons => EnableFiltering && MasterTemplate.ShowHeaderCellButtons;
+
+        // EnableFiltering / ShowFilteringRow / ShowHeaderCellButtons changed on the template.
+        internal void OnFilteringLayoutChanged ()
+        {
+            if (!ShowFilterRow)
+                CloseFilterEditor ();
+            RefreshLayout ();
         }
 
         /// <summary>Gets or sets whether sorting is enabled. When false, header-click sorting is disabled for every column.</summary>
@@ -607,7 +630,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets whether grouped data auto-expands. Stub retained for compatibility.</summary>
         public bool AutoExpandGroups { get => MasterTemplate.AutoExpandGroups; set => MasterTemplate.AutoExpandGroups = value; }
 
-        private bool _showGroupPanel;
+        // On by default, as Telerik's are: a RadGridView shows the "drag a column here to group" panel and
+        // groups unless the designer turns them off.
+        private bool _showGroupPanel = true;
         /// <summary>Gets or sets whether the group panel (drag a column header here to group) is shown.</summary>
         public bool ShowGroupPanel {
             get => _showGroupPanel;
@@ -619,7 +644,7 @@ namespace Majorsilence.Forms.Telerik
             }
         }
 
-        private bool _enableGrouping;
+        private bool _enableGrouping = true;
         /// <summary>Gets or sets whether grouping (group panel, right-click "group by", drag-to-group) is enabled.</summary>
         public bool EnableGrouping {
             get => _enableGrouping;
@@ -693,12 +718,14 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Logical height of the inline filter row.</summary>
         internal const int FilterRowLogicalHeight = 26;
 
-        private bool _showFilterRow;
+        private bool? _showFilterRow;
         /// <summary>Gets or sets whether the inline filter row (a live per-column quick filter) is shown below the headers.</summary>
+        /// <remarks>Unless set, it follows Telerik: shown while <see cref="EnableFiltering"/> and
+        /// <see cref="ShowFilteringRow"/> are both on.</remarks>
         public bool ShowFilterRow {
-            get => _showFilterRow;
+            get => _showFilterRow ?? (EnableFiltering && MasterTemplate.ShowFilteringRow);
             set {
-                if (_showFilterRow == value)
+                if (ShowFilterRow == value && _showFilterRow is not null)
                     return;
                 _showFilterRow = value;
                 if (!value)
@@ -1606,7 +1633,7 @@ namespace Majorsilence.Forms.Telerik
 
                         var col = GetColumnAtLocation (device);
                         if (col >= 0) {
-                            if (EnableFiltering && FilterGlyphRects.TryGetValue (col, out var glyph) && glyph.Contains (device)) {
+                            if (ShowsHeaderFilterButtons && FilterGlyphRects.TryGetValue (col, out var glyph) && glyph.Contains (device)) {
                                 ShowFilterPopup (col);
                                 return;
                             }
@@ -2970,8 +2997,17 @@ namespace Majorsilence.Forms.Telerik
         public bool AllowColumnReorder { get; set; } = true;
         /// <summary>Gets or sets whether the column chooser is allowed.</summary>
         public bool AllowColumnChooser { get; set; }
+        private bool _enableFiltering;
         /// <summary>Gets or sets whether filtering is enabled.</summary>
-        public bool EnableFiltering { get; set; }
+        public bool EnableFiltering {
+            get => _enableFiltering;
+            set {
+                if (_enableFiltering == value)
+                    return;
+                _enableFiltering = value;
+                _grid?.OnFilteringLayoutChanged ();
+            }
+        }
         /// <summary>Gets or sets whether sorting is enabled.</summary>
         public bool EnableSorting { get; set; } = true;
         /// <summary>Gets or sets whether grouped data auto-expands.</summary>
@@ -3050,8 +3086,31 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets virtual-mode data-operation strictness. Stored for Telerik compat.</summary>
         public bool ThrowExceptionOnDataOperationInVirtualMode { get; set; }
 
-        /// <summary>Gets or sets whether header cells show filter/menu buttons. Stored for compat.</summary>
-        public bool ShowHeaderCellButtons { get; set; }
+        private bool _showHeaderCellButtons;
+        /// <summary>Gets or sets whether header cells show filter buttons (Telerik's Excel-like filtering) while
+        /// filtering is enabled. Off by default, as Telerik's is: filtering is then the filtering row.</summary>
+        public bool ShowHeaderCellButtons {
+            get => _showHeaderCellButtons;
+            set {
+                if (_showHeaderCellButtons == value)
+                    return;
+                _showHeaderCellButtons = value;
+                Grid?.OnFilteringLayoutChanged ();
+            }
+        }
+
+        private bool _showFilteringRow = true;
+        /// <summary>Gets or sets whether the filtering row is shown while filtering is enabled. On by default, as
+        /// Telerik's is.</summary>
+        public bool ShowFilteringRow {
+            get => _showFilteringRow;
+            set {
+                if (_showFilteringRow == value)
+                    return;
+                _showFilteringRow = value;
+                Grid?.OnFilteringLayoutChanged ();
+            }
+        }
 
         /// <summary>Initializes a new, detached instance. Attach it to a grid via the grid's designer-generated template assignment.</summary>
         public MasterGridViewTemplate () : base () { }
@@ -3158,6 +3217,14 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Base Telerik-compat grid column. Adds the Telerik column member names on top of <see cref="DataGridViewColumn"/>.</summary>
     public class GridViewColumn : DataGridViewColumn
     {
+        /// <summary>Initializes a new instance of the <see cref="GridViewColumn"/> class.</summary>
+        /// <remarks>Telerik centres a column's header text (HeaderTextAlignment defaults to MiddleCenter);
+        /// the WinForms default this inherited put every header at the left.</remarks>
+        public GridViewColumn ()
+        {
+            HeaderAlignment = ContentAlignment.MiddleCenter;
+        }
+
         /// <summary>Gets or sets the sort order shown for this column, using Telerik's <see cref="RadSortOrder"/> (forwards to the base WinForms-typed SortOrder; the enum values align).</summary>
         public new RadSortOrder SortOrder {
             get => (RadSortOrder)(int)base.SortOrder;

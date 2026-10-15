@@ -104,7 +104,7 @@ namespace Majorsilence.Forms.Renderers
         {
             base.RenderColumnHeader (control, column, columnIndex, bounds, e);
 
-            if (control is not RadGridView grid || !grid.EnableFiltering || !RadGridView.ColumnAllowsFiltering (column) || !FunnelFits (column))
+            if (control is not RadGridView grid || !grid.ShowsHeaderFilterButtons || !RadGridView.ColumnAllowsFiltering (column) || !FunnelFits (column))
                 return;
 
             // Funnel glyph at the right of the header (left of the sort glyph), recorded for hit-testing.
@@ -130,12 +130,16 @@ namespace Majorsilence.Forms.Renderers
         /// <inheritdoc/>
         protected override int HeaderRightInset (DataGridView control, DataGridViewColumn column)
         {
-            if (control is RadGridView grid && grid.EnableFiltering && RadGridView.ColumnAllowsFiltering (column) && FunnelFits (column))
+            if (control is RadGridView grid && grid.ShowsHeaderFilterButtons && RadGridView.ColumnAllowsFiltering (column) && FunnelFits (column))
                 return control.LogicalToDeviceUnits (26);   // keep text left of the funnel (drawn at Right-30)
             if (column.Sortable && column.SortOrder != SortOrder.None)
                 return control.LogicalToDeviceUnits (16);   // room for the sort glyph alone
             return 0;
         }
+
+        /// <inheritdoc/>
+        /// <remarks>Telerik's header cells end text that does not fit with "...".</remarks>
+        protected override bool HeaderTextEllipsis => true;
 
         // The funnel glyph is suppressed on very narrow columns (it would crowd out the header text).
         private static bool FunnelFits (DataGridViewColumn column) => column.Width >= 60;
@@ -344,7 +348,7 @@ namespace Majorsilence.Forms.Renderers
             if (grid.GroupDescriptors.Count == 0) {
                 var hintRect = band;
                 hintRect.Inflate (-grid.LogicalToDeviceUnits (10), 0);
-                e.Canvas.DrawText ("Drag a column header here to group by that column",
+                e.Canvas.DrawText ("Drag a column here to group by this column.",
                     Theme.UIFont, fontSize, hintRect, Theme.ForegroundDisabledColor, ContentAlignment.MiddleLeft, maxLines: 1);
                 return;
             }

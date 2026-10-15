@@ -167,7 +167,6 @@ Majorsilence.Forms.Telerik.LightVisualElement.GradientStyle    -- fills are soli
 Majorsilence.Forms.Telerik.MasterGridViewTemplate.AllowDragToGroup    -- there is no group panel to drag a column to
 Majorsilence.Forms.Telerik.MasterGridViewTemplate.HorizontalScrollState    -- scroll bars show when needed; there is no auto-hide state
 Majorsilence.Forms.Telerik.MasterGridViewTemplate.PagingBeforeGrouping    -- the order of paging and grouping is not configurable here
-Majorsilence.Forms.Telerik.MasterGridViewTemplate.ShowHeaderCellButtons    -- header cells draw no filter or menu buttons
 Majorsilence.Forms.Telerik.MasterGridViewTemplate.ShowTotals    -- no totals row is drawn for this flag; summary rows come from SummaryRowsBottom/Top
 Majorsilence.Forms.Telerik.MasterGridViewTemplate.ThrowExceptionOnDataOperationInVirtualMode    -- the grid has no virtual mode
 Majorsilence.Forms.Telerik.MasterGridViewTemplate.VerticalScrollState    -- scroll bars show when needed; there is no auto-hide state

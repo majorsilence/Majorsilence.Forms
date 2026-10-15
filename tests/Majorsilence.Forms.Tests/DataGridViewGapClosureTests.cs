@@ -146,8 +146,9 @@ namespace Majorsilence.Forms.Tests
             var grid = Grid (out var form);
 
             using (form) {
+                // The default RowHeaderSelect selects the current cell, as upstream's does.
                 grid.CurrentCell = grid[1, 1];
-                Assert.NotEmpty (grid.SelectedRows);
+                Assert.NotEmpty (grid.SelectedCells);
 
                 grid.CurrentCell = null;
 

@@ -48,13 +48,33 @@ namespace Majorsilence.Forms
             if (ActiveMenu == null && ActivePopupWindow == null)
                 return;
 
-            if (ActivePopupWindow?.IsActive == true)
+            if (ActivePopupWindow?.IsActive == true || IsMenuPopupActive (ActiveMenu))
                 return;
 
             Backends.Platform.Backend.Post (() => {
-                if (ActivePopupWindow?.IsActive != true)
+                if (ActivePopupWindow?.IsActive != true && !IsMenuPopupActive (ActiveMenu))
                     ClosePopups (reason: ToolStripDropDownCloseReason.AppFocusChange);
             });
+        }
+
+        // Whether focus is still inside the open menu: any drop-down in its chain, not only the newest. Popups
+        // activate (to receive clicks), and ActivePopupWindow is the most recently shown one -- an open
+        // SUBMENU. Clicking back on its PARENT drop-down (pressing "Customers" while its submenu is showing)
+        // moves activation from the submenu to the parent, which read as the application losing focus: the
+        // menu closed under the click and left the submenu floating on its own. Upstream keeps both open.
+        private static bool IsMenuPopupActive (MenuBase? menu)
+        {
+            if (menu is null)
+                return false;
+
+            if (menu is MenuDropDown { IsPopupActive: true })
+                return true;
+
+            foreach (var item in menu.Items)
+                if (item.OpenDropDown is { } open && IsMenuPopupActive (open))
+                    return true;
+
+            return false;
         }
 
         /// <summary>

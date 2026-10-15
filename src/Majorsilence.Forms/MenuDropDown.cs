@@ -15,6 +15,9 @@ namespace Majorsilence.Forms
     {
         private WindowBase? parent_form;
         private PopupWindow? popup;
+
+        // Whether this drop-down's own popup window currently holds activation.
+        internal bool IsPopupActive => popup is { Visible: true, IsActive: true };
         private int width = 400;
         private int height = 400;
 

@@ -171,8 +171,7 @@ namespace Majorsilence.Forms
             e.Canvas.FillRectangle (new Rectangle (w - edge, 0, edge, h), FrameOutline);          // right
         }
 
-        private int VisibleButtonCount () =>
-            1 + (ChildForm.MaximizeBox ? 1 : 0) + (ChildForm.MinimizeBox ? 1 : 0);
+        private int VisibleButtonCount () => CaptionButtonOrder ().Length;
 
         /// <summary>
         /// Whether the caption buttons sit at the leading (left) edge, as macOS places its window
@@ -215,16 +214,33 @@ namespace Majorsilence.Forms
         /// </summary>
         internal CaptionHit[] CaptionButtonOrder ()
         {
+            // The Win32 caption rules a top-level form follows (see Form.ApplyControlBox): ControlBox = false
+            // takes every button away; minimize and maximize come as a PAIR, a refused one shown disabled; and
+            // the help button appears only when both are off. A child frame drew whichever of min/max was on
+            // and never drew help at all, so a designer's HelpButton dialog lost its "?".
+            if (!ChildForm.ControlBox)
+                return [];
+
+            var any_box = ChildForm.MinimizeBox || ChildForm.MaximizeBox;
+            var help = ChildForm.HelpButton && !any_box && !MacStyleCaption;
+
             var order = CaptionButtonsOnLeft
                 ? new[] { CaptionHit.Close, CaptionHit.Minimize, CaptionHit.Maximize }
-                : new[] { CaptionHit.Minimize, CaptionHit.Maximize, CaptionHit.Close };
+                : new[] { CaptionHit.Minimize, CaptionHit.Maximize, CaptionHit.Help, CaptionHit.Close };
 
             return order.Where (hit => hit switch {
-                CaptionHit.Maximize => ChildForm.MaximizeBox,
-                CaptionHit.Minimize => ChildForm.MinimizeBox,
+                CaptionHit.Maximize or CaptionHit.Minimize => any_box,
+                CaptionHit.Help => help,
                 _ => true,
             }).ToArray ();
         }
+
+        // A caption button that is shown but refused: the half of the min/max pair the form turned off.
+        private bool IsCaptionButtonEnabled (CaptionHit hit) => hit switch {
+            CaptionHit.Maximize => ChildForm.MaximizeBox,
+            CaptionHit.Minimize => ChildForm.MinimizeBox,
+            _ => true,
+        };
 
         /// <summary>
         /// Left edge of the caption button at <paramref name="index"/>, in the same units as
@@ -252,6 +268,11 @@ namespace Majorsilence.Forms
 
                 var box = CenterGlyph (cell, e);
 
+                using var dim = IsCaptionButtonEnabled (order[i]) ? null : new SKPaint { Color = SKColors.White.WithAlpha (0x60) };
+
+                if (dim is not null)
+                    e.Canvas.SaveLayer (dim);
+
                 switch (order[i]) {
                     case CaptionHit.Close:
                         ControlPaint.DrawCloseGlyph (e, box);
@@ -265,7 +286,14 @@ namespace Majorsilence.Forms
                     case CaptionHit.Minimize:
                         ControlPaint.DrawMinimizeGlyph (e, box);
                         break;
+                    case CaptionHit.Help:
+                        e.Canvas.DrawText ("?", Theme.UIFont, e.LogicalToDeviceUnits (Theme.FontSize + 2), cell,
+                            Theme.ForegroundColorOnAccent, ContentAlignment.MiddleCenter);
+                        break;
                 }
+
+                if (dim is not null)
+                    e.Canvas.Restore ();
             }
         }
 
@@ -335,7 +363,7 @@ namespace Majorsilence.Forms
 
         // ── Caption-button hit testing (logical, control-relative) ────────────────
 
-        internal enum CaptionHit { None, Close, Maximize, Minimize }
+        internal enum CaptionHit { None, Close, Maximize, Minimize, Help }
 
         private CaptionHit HitCaptionButton (int lx, int ly)
         {
@@ -347,7 +375,7 @@ namespace Majorsilence.Forms
             for (var i = 0; i < order.Length; i++) {
                 var x = CaptionButtonX (i, order.Length, CaptionButtonSlot, Width, FrameBorder);
                 if (lx >= x && lx < x + CaptionButtonSlot)
-                    return order[i];
+                    return IsCaptionButtonEnabled (order[i]) ? order[i] : CaptionHit.None;
             }
 
             return CaptionHit.None;
@@ -377,6 +405,7 @@ namespace Majorsilence.Forms
                 case CaptionHit.Close: ChildForm.Close (); return;
                 case CaptionHit.Maximize: ToggleMaximize (); return;
                 case CaptionHit.Minimize: ToggleMinimize (); return;
+                case CaptionHit.Help: ChildForm.RaiseHelpButtonClicked (); return;
             }
 
             // Resize edges (only when restored & resizable).

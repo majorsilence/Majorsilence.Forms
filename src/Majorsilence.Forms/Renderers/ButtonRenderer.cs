@@ -40,27 +40,10 @@ namespace Majorsilence.Forms.Renderers
 
         private static void DrawCaption (Button control, System.Drawing.Rectangle bounds, PaintEventArgs e)
         {
-            var alignment = control.TextAlign;
+            var alignment = TextImageLayoutEngine.RtlTranslate (control, control.TextAlign);
             var font = control.GetEffectiveFont ();
             var font_size = control.LogicalToDeviceUnits (control.GetEffectiveFontSize ());
-            var wrapped = TextMeasurer.MeasureText (control.Text, font, font_size, new System.Drawing.Size (bounds.Width, int.MaxValue)).Height;
-            var line = TextMeasurer.MeasureText ("X", font, font_size).Height;
-            var whole_lines = line > 0 ? (int)(bounds.Height / line) : 0;
-
-            // Only when the wrapped caption overflows and at least one whole line fits: narrow the box to
-            // those whole lines, centred where the alignment asks, and let the clip hide the rest. A
-            // button shorter than a single line keeps the ordinary (top-clamped) path.
-            if (wrapped > bounds.Height && whole_lines >= 1) {
-                var visible = (int)(whole_lines * line);
-                var top = TextMeasurer.GetVerticalAlign (alignment) switch {
-                    SkiaSharp.SKTextAlign.Left => bounds.Top,
-                    SkiaSharp.SKTextAlign.Right => bounds.Bottom - visible,
-                    _ => bounds.Top + ((bounds.Height - visible) / 2),
-                };
-
-                bounds = new System.Drawing.Rectangle (bounds.X, top, bounds.Width, visible);
-                alignment = ToTopRow (alignment);
-            }
+            (bounds, alignment) = SkiaTextExtensions.WholeLineBox (control.Text, font, font_size, bounds, alignment);
 
             // Upstream's themed button keeps its text colour on hover; the theme's hover style turns it
             // white for the accent-filled face, which the upstream face (Button.PaintsUpstreamLook) is not.
@@ -75,11 +58,5 @@ namespace Majorsilence.Forms.Renderers
             e.Canvas.DrawMnemonicText (control.Text, bounds, control, alignment, maxLines: null, ellipsis: control.AutoEllipsis);
         }
 
-        private static ContentAlignment ToTopRow (ContentAlignment alignment) => alignment switch {
-            ContentAlignment.MiddleLeft or ContentAlignment.BottomLeft => ContentAlignment.TopLeft,
-            ContentAlignment.MiddleRight or ContentAlignment.BottomRight => ContentAlignment.TopRight,
-            ContentAlignment.MiddleCenter or ContentAlignment.BottomCenter => ContentAlignment.TopCenter,
-            _ => alignment,
-        };
     }
 }

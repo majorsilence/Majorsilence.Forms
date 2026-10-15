@@ -46,6 +46,14 @@ namespace Majorsilence.Forms
         internal bool SelectionIsColumnBased
             => selection_mode is DataGridViewSelectionMode.FullColumnSelect or DataGridViewSelectionMode.ColumnHeaderSelect;
 
+        // Whether a cell -- pressed, moved to with the keyboard, or made current by binding -- selects its
+        // whole row (column). Only the Full modes do: in RowHeaderSelect, the default, upstream selects the
+        // cell and leaves the row to a press on its header (ColumnHeaderSelect likewise). Treating the
+        // header modes as full-row ones lit up the entire row of every freshly bound grid.
+        private bool CellSelectsRow => selection_mode == DataGridViewSelectionMode.FullRowSelect;
+
+        private bool CellSelectsColumn => selection_mode == DataGridViewSelectionMode.FullColumnSelect;
+
         // ---------------- the three choke points
 
         /// <summary>
@@ -301,7 +309,9 @@ namespace Majorsilence.Forms
             var extend = multi_select && shift;
             var toggle = multi_select && ctrl;
 
-            if (SelectionIsColumnBased) {
+            // A press on a header (index -1 on the other axis) selects the whole column or row in the header
+            // modes; a press on a cell does so only in the Full modes.
+            if (CellSelectsColumn || (SelectionIsColumnBased && rowIndex < 0)) {
                 if (toggle) {
                     ToggleColumn (columnIndex);
                 } else if (extend && selection_anchor_column >= 0) {
@@ -313,7 +323,7 @@ namespace Majorsilence.Forms
                 return;
             }
 
-            if (SelectionIsRowBased) {
+            if (CellSelectsRow || (SelectionIsRowBased && columnIndex < 0)) {
                 if (toggle) {
                     ToggleRow (rowIndex);
                 } else if (extend && selection_anchor_row >= 0) {
@@ -454,7 +464,7 @@ namespace Majorsilence.Forms
             // HideSelection is checked in BOTH painted-selection helpers rather than at each paint
             // site: the two together are what every renderer asks, so one of them missing it would
             // hide the row band and leave the cell highlight behind.
-            if (!ShowsSelection || SelectionIsRowBased || !IsCellAddress (rowIndex, columnIndex))
+            if (!ShowsSelection || CellSelectsRow || !IsCellAddress (rowIndex, columnIndex))
                 return false;
 
             return Rows[rowIndex].Cells[columnIndex].Selected

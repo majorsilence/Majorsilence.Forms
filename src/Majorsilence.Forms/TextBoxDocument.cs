@@ -423,7 +423,7 @@ namespace Majorsilence.Forms
                 MaxLines = MaxLines,
             };
 
-            var defaultStyle = new Style { FontFamily = font.FamilyName, FontSize = textbox.CurrentFontSize, TextColor = defaultColor, FontWeight = font.FontWeight };
+            var defaultStyle = new Style { FontFamily = font.FamilyName, FontSize = textbox.CurrentFontSize, TextColor = defaultColor, FontWeight = font.FontWeight, LetterSpacing = TextMeasurer.GdiBoldSpacing (font, textbox.CurrentFontSize) };
             var next = 0;
 
             foreach (var span in colorizer (text)) {

@@ -151,6 +151,7 @@ public class W6TelerikGridSettingsTests
         using (form) {
             var column = (GridViewColumn) ((DataGridView) grid).Columns[0];
             column.MaxWidth = 150;
+            grid.ShowGroupPanel = false;   // the header row at the top, where the coordinates below expect it
 
             // On the column's right edge, in the header row: the divider the resize drag starts from.
             var edge = grid.DeviceToLogicalUnits (((DataGridView) grid).GetCellBounds (0, 0)).Right;

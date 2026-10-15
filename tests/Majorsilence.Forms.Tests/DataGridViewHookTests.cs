@@ -45,7 +45,9 @@ namespace Majorsilence.Forms.Tests
         {
             // No new-row placeholder: these tests count the rows and cells the hooks see, and the
             // uncommitted new row (painted since W6, as upstream paints it) would be one more of each.
-            var grid = new HookGrid { Width = 420, Height = 200, AllowUserToAddRows = false };
+            // FullRowSelect: the selection and clipboard tests here work on whole rows, which the default
+            // RowHeaderSelect selects only from the row header (a move selects the current cell).
+            var grid = new HookGrid { Width = 420, Height = 200, AllowUserToAddRows = false, SelectionMode = DataGridViewSelectionMode.FullRowSelect };
             grid.Columns.Add ("Name", 160);
             grid.Columns.Add ("Amount", 160);
             grid.Rows.Add ("Alice", 1234.5);

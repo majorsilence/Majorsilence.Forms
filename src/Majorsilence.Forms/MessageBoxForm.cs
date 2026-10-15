@@ -25,7 +25,7 @@ namespace Majorsilence.Forms
 
                 if (Glyph is { } glyph) {
                     var size = LogicalToDeviceUnits (32);
-                    MessageGlyphs.Draw (e.Canvas, glyph, new Rectangle ((ScaledWidth - size) / 2, LogicalToDeviceUnits (12), size, size));
+                    MessageGlyphs.Draw (e.Canvas, glyph, new Rectangle (LogicalToDeviceUnits (IconLeft), LogicalToDeviceUnits (MessageMargin), size, size));
                 }
             }
         }
@@ -49,29 +49,31 @@ namespace Majorsilence.Forms
             // A Label, not a read-only TextBox: a TextBox has no word wrap, so it laid the message out
             // as one long line and scrolled to the end of it, cutting off the *start* of the sentence
             // ("...t find mplayer" instead of "Cannot find mplayer"). A multiline Label wraps.
+            // Laid out as upstream's (the system message box): the message on a window-coloured area,
+            // centred against the glyph, above a control-coloured band holding the buttons at its right.
             label = Controls.Add (new Label {
                 Dock = DockStyle.Fill,
                 Multiline = true,
-                Padding = new Padding (10)
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding (TextMarginNoIcon, MessageMargin, TextMarginRight, MessageMargin)
             });
 
-            label.Style.BackgroundColor = Theme.BackgroundColor;
+            label.Style.BackgroundColor = Theme.ControlLowColor;
             label.Style.Border.Width = 0;
 
-            icon_box = Controls.Add (new IconBox { Dock = DockStyle.Left, Width = 56, Visible = false });
-            icon_box.Style.BackgroundColor = Theme.BackgroundColor;
+            icon_box = Controls.Add (new IconBox { Dock = DockStyle.Left, Width = IconBandWidth, Visible = false });
+            icon_box.Style.BackgroundColor = Theme.ControlLowColor;
 
             button_panel = Controls.Add (new Panel {
                 Dock = DockStyle.Bottom,
-                Height = 45
+                Height = ButtonBandHeight
             });
 
             AddButtons (MessageBoxButtons.OK);
 
-            // Re-centre whenever the panel itself is resized. The form's own resize is too early: the
-            // docked panel has not been given its final width by then, so centring against it put the
-            // buttons well left of centre.
-            button_panel.SizeChanged += (_, _) => CenterButtons ();
+            // Re-place whenever the panel itself is resized. The form's own resize is too early: the
+            // docked panel has not been given its final width by then.
+            button_panel.SizeChanged += (_, _) => PlaceButtons ();
         }
 
         /// <summary>
@@ -96,10 +98,11 @@ namespace Majorsilence.Forms
         {
             icon_box.Glyph = MessageGlyphs.For (icon);
             icon_box.Visible = icon_box.Glyph is not null;
+            label.Padding = new Padding (icon_box.Visible ? 0 : TextMarginNoIcon, MessageMargin, TextMarginRight, MessageMargin);
             CalculateDialogSize ();   // the glyph band widens the dialog
 
             if ((options & MessageBoxOptions.RightAlign) != 0)
-                label.TextAlign = ContentAlignment.TopRight;
+                label.TextAlign = ContentAlignment.MiddleRight;
 
             if ((options & MessageBoxOptions.RtlReading) != 0)
                 RightToLeft = RightToLeft.Yes;
@@ -147,21 +150,37 @@ namespace Majorsilence.Forms
         {
             button_panel.Controls.Clear ();
 
-            // Added in reading order; CenterButtons lays them out left to right in collection order, so
+            // Added in reading order; PlaceButtons lays them out left to right in collection order, so
             // the collection order is the visual order. The previous hand-written cases added the
             // secondary button first, which put No before Yes and Cancel before OK.
-            var left = 10;
+            var left = ButtonMargin;
 
             foreach (var (text, result) in ButtonsFor (buttons)) {
-                var button = button_panel.Controls.Add (new Button { Text = text, Width = 80, Top = 8, Left = left });
+                var button = button_panel.Controls.Add (new Button {
+                    Text = text, Width = ButtonWidth, Height = ButtonHeight, Top = (ButtonBandHeight - ButtonHeight) / 2, Left = left
+                });
                 button.Click += (_, _) => DialogResult = result;
-                left += 90;
+                left += ButtonWidth + ButtonGap;
             }
         }
 
         // The widest the message runs before it wraps, and the tallest the dialog grows.
         private const int MaxTextWidth = 560;
         private const int MaxClientHeight = 700;
+
+        // Upstream's metrics, measured from the system message box at 96 DPI: the 32px glyph sits 21px
+        // in and 23px down, the text starts 9px past it and is centred on it, and the 42px band holds
+        // 75x23 buttons 15px in from the right edge.
+        private const int MessageMargin = 23;
+        private const int IconLeft = 21;
+        private const int IconBandWidth = IconLeft + 32 + 9;
+        private const int TextMarginNoIcon = IconLeft;
+        private const int TextMarginRight = 30;
+        private const int ButtonBandHeight = 42;
+        private const int ButtonWidth = 75;
+        private const int ButtonHeight = 23;
+        private const int ButtonGap = 6;
+        private const int ButtonMargin = 15;
 
         // Sizes the dialog to its message, as upstream's message box does: the text's own width up to a
         // wrapping limit, its wrapped height, and never narrower than the button row. A fixed 400x200
@@ -173,18 +192,19 @@ namespace Majorsilence.Forms
             var text = label.GetPreferredSize (new Size (MaxTextWidth - label.Padding.Horizontal, 0));
 
             var buttons = button_panel.Controls.GetAllControls ().OfType<Button> ().ToList ();
-            var buttons_width = buttons.Sum (b => b.Width + 10) + 30;
+            var buttons_width = buttons.Sum (b => b.Width + ButtonGap) - ButtonGap + 2 * ButtonMargin;
 
-            // The glyph is 32px with 12px above it, so the band needs 56px whatever the text's height.
+            // The glyph is 32px with a margin above and below it, so the area is at least that tall
+            // whatever the text's height; the label's padding already holds the text's own margins.
             var width = Math.Max (icon_width + text.Width, buttons_width);
-            var body = Math.Max (text.Height, icon_box.Visible ? 56 : 0);
+            var body = Math.Max (text.Height, icon_box.Visible ? 32 + 2 * MessageMargin : 0);
 
-            ClientSize = new Size (Math.Max (width, 200), Math.Min (body + button_panel.Height, MaxClientHeight));
+            ClientSize = new Size (Math.Max (width, 180), Math.Min (body + button_panel.Height, MaxClientHeight));
 
-            CenterButtons ();
+            PlaceButtons ();
         }
 
-        // Centres the buttons in their panel.
+        // Lines the buttons up at the right of their band, as upstream's message box does.
         //
         // Called on every resize, not once at construction. The dialog is built before it has a window,
         // so the docked children are laid out against a client area that does not exist yet -- the Fill
@@ -192,21 +212,21 @@ namespace Majorsilence.Forms
         // layout pass the backend runs when the window appears, and positions computed before it are
         // simply wrong: measured against a zero-width panel the buttons landed at negative X, off the
         // left edge, so the message box showed its text and no buttons at all.
-        private void CenterButtons ()
+        private void PlaceButtons ()
         {
             // Buttons only: GetAllControls also yields the panel's implicit chrome -- its scrollbars --
             // which were being counted into the total width and, worse, repositioned along with the
-            // buttons. That is what left them sitting well left of centre.
+            // buttons.
             var buttons = button_panel.Controls.GetAllControls ().OfType<Button> ().ToList ();
             if (buttons.Count == 0 || button_panel.Width <= 0)
                 return;
 
-            var totalW = buttons.Sum (c => c.Width + 10) - 10;
-            var startX = Math.Max (0, (button_panel.Width - totalW) / 2);
+            var totalW = buttons.Sum (c => c.Width + ButtonGap) - ButtonGap;
+            var startX = Math.Max (0, button_panel.Width - ButtonMargin - totalW);
 
             foreach (var btn in buttons) {
                 btn.Left = startX;
-                startX += btn.Width + 10;
+                startX += btn.Width + ButtonGap;
             }
         }
 

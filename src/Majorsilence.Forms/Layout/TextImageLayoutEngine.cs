@@ -66,7 +66,7 @@ internal static class TextImageLayoutEngine
 
         layout.GlyphBounds = new Rectangle (layout.Field.X, layout.Field.Y, box_size, box_size);
 
-        var align = glyph_control.GlyphAlign;
+        var align = RtlTranslate (control, glyph_control.GlyphAlign);
         var field = layout.Field;
 
         // Handle horizontal alignment of GlyphBounds
@@ -135,13 +135,34 @@ internal static class TextImageLayoutEngine
         }
     }
 
+    // Upstream lays the button family and Label out mirrored when the control reads right-to-left
+    // (ButtonBaseAdapter.CommonLayout runs CheckAlign, ImageAlign and TextAlign through
+    // RtlTranslateContent): a RightToLeft = Yes check box puts its box at the right with the caption
+    // before it. Every alignment here was taken as written, so such a check box drew box-then-caption.
+    internal static ContentAlignment RtlTranslate (Control control, ContentAlignment align)
+    {
+        if (control.RightToLeft != RightToLeft.Yes)
+            return align;
+
+        return align switch {
+            ContentAlignment.TopLeft => ContentAlignment.TopRight,
+            ContentAlignment.TopRight => ContentAlignment.TopLeft,
+            ContentAlignment.MiddleLeft => ContentAlignment.MiddleRight,
+            ContentAlignment.MiddleRight => ContentAlignment.MiddleLeft,
+            ContentAlignment.BottomLeft => ContentAlignment.BottomRight,
+            ContentAlignment.BottomRight => ContentAlignment.BottomLeft,
+            _ => align,
+        };
+    }
+
     private static void CalculateImageAndTextBounds (Control control, TextImageLayoutData layout)
     {
         if (control is not IHaveTextAndImageAlign text_image_control)
             return;
 
-        var image_align = text_image_control.ImageAlign;
-        var text_align = text_image_control.TextAlign;
+        var image_align = RtlTranslate (control, text_image_control.ImageAlign);
+        var text_align = RtlTranslate (control, text_image_control.TextAlign);
+        layout.TextAlign = text_align;
         var text_image_relation = text_image_control.TextImageRelation;
         var image_size = text_image_control.GetImage ()?.GetSize () ?? Size.Empty;
         var maxBounds = layout.Field;

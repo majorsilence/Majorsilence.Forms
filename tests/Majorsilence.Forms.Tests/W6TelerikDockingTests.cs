@@ -143,10 +143,18 @@ public class W6TelerikDockingTests
         var dock = Dock (out var form, out var strip, "Alpha", "Bravo");
 
         using (form) {
-            var close = strip.Headers.CloseRects.Single (r => r.win.Name == "Bravo").rect;
+            // Telerik's DocumentButtons.Close is ONE strip button at the end of the header row that closes
+            // the selected document -- the tabs themselves carry no close box.
+            var bravo = strip.Controls.OfType<DocumentWindow> ().First (w => w.Name == "Bravo");
+            strip.SelectedTab = bravo;
+            Settle (dock);
+
+            var (target, close) = Assert.Single (strip.Headers.CloseRects);
+            Assert.Same (bravo, target);
+            Assert.All (strip.Headers.Rects, r => Assert.True (r.rect.Right <= close.Left, "a tab overlaps the strip close button"));
+
             strip.RaiseMouseDown (new MouseEventArgs (MouseButtons.Left, 1, close.Left + (close.Width / 2), close.Top + (close.Height / 2), 0));
 
-            var bravo = strip.Controls.OfType<DocumentWindow> ().First (w => w.Name == "Bravo");
             Assert.Equal (DockState.Hidden, bravo.DockState);
 
             // Without the Close button the tabs carry no box to hit.

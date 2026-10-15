@@ -143,7 +143,8 @@ namespace Majorsilence.Forms.Renderers
             var font_color = !item.Enabled ? Theme.ForegroundDisabledColor
                 : is_link ? LinkColour (link!)
                 : explicit_color ?? item_style.GetForegroundColor ();
-            var font_size = e.LogicalToDeviceUnits (Theme.FontSize);
+            var (item_typeface, item_font_size) = StripItemFont.Resolve (item, control);
+            var font_size = e.LogicalToDeviceUnits (item_font_size);
 
             // ToolStripItem carries the image/text placement knobs; a plain MenuItem keeps the
             // historical image-left/text-right arrangement.
@@ -205,7 +206,7 @@ namespace Majorsilence.Forms.Renderers
             var vertical_text = direction is ToolStripTextDirection.Vertical90 or ToolStripTextDirection.Vertical270;
 
             if (!string.IsNullOrEmpty (text)) {
-                var measured = TextMeasurer.MeasureText (text, Theme.UIFont, font_size);
+                var measured = TextMeasurer.MeasureText (text, item_typeface, font_size);
                 text_size = vertical_text
                     ? new Size ((int) Math.Ceiling (measured.Height), (int) Math.Ceiling (measured.Width))
                     : new Size ((int) Math.Ceiling (measured.Width), (int) Math.Ceiling (measured.Height));
@@ -303,10 +304,10 @@ namespace Majorsilence.Forms.Renderers
                     e.Canvas.Save ();
                     e.Canvas.Translate (centre_x, centre_y);
                     e.Canvas.RotateDegrees (tp.direction == ToolStripTextDirection.Vertical90 ? 90 : 270);
-                    e.Canvas.DrawText (tp.text, Theme.UIFont, font_size, rotated, font_color, ContentAlignment.MiddleCenter);
+                    e.Canvas.DrawText (tp.text, item_typeface, font_size, rotated, font_color, ContentAlignment.MiddleCenter);
                     e.Canvas.Restore ();
                 } else
-                    e.Canvas.DrawText (tp.text, Theme.UIFont, font_size, text_rect, font_color, text_align);
+                    e.Canvas.DrawText (tp.text, item_typeface, font_size, text_rect, font_color, text_align);
 
                 // Drawn as a line under the text rather than as a font style, matching
                 // LinkLabelRenderer -- the two link surfaces should not underline differently.
@@ -427,9 +428,10 @@ namespace Majorsilence.Forms.Renderers
             var strip_item = item as ToolStripItem;
 
             // Measured exactly as RenderItem draws: only the halves DisplayStyle shows (TSM-07).
-            var font_size = control.LogicalToDeviceUnits (Theme.FontSize);
+            var (item_typeface, item_font_size) = StripItemFont.Resolve (item, control);
+            var font_size = control.LogicalToDeviceUnits (item_font_size);
             var text = strip_item is { DisplaysText: false } ? string.Empty : item.Text;
-            var measured = TextMeasurer.MeasureText (text, Theme.UIFont, font_size);
+            var measured = TextMeasurer.MeasureText (text, item_typeface, font_size);
             // A compat item has no slack in its padding, so it rounds up as RenderItem does: rounding
             // down left the text a pixel short of its own width, and it was clipped.
             var text_width = strip_item is { IsOnPlainToolStrip: true }

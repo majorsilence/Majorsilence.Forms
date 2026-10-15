@@ -559,11 +559,12 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void ShowGroupPanel_TogglesContentOffset ()
         {
+            // Shown by default, as Telerik's is.
             using var grid = Populated ();
-            Assert.Equal (0, grid.GroupPanelBandHeight);
-
-            grid.ShowGroupPanel = true;
             Assert.True (grid.GroupPanelBandHeight > 0);
+
+            grid.ShowGroupPanel = false;
+            Assert.Equal (0, grid.GroupPanelBandHeight);
         }
 
         private static GridSummaryRow SummaryRow (RadGridView grid)
@@ -1126,6 +1127,7 @@ namespace Majorsilence.Forms.Tests
             grid.ShowGroupPanel = true;
             grid.ShowFilterRow = true;
             grid.EnableFiltering = true;
+            grid.MasterTemplate.ShowHeaderCellButtons = true;   // the header funnels (Excel-like filtering)
             grid.EnableGrouping = true;
             grid.GroupByColumn ("Dept");
             grid.SortDescriptors.Add (new SortDescriptor ("Salary", ListSortDirection.Descending));

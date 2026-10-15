@@ -93,7 +93,8 @@ namespace Majorsilence.Forms.Renderers
 
             // Text
             var font_color = item.Enabled ? item_style.GetForegroundColor () : Theme.ForegroundDisabledColor;
-            var font_size = e.LogicalToDeviceUnits (Theme.FontSize);
+            var (item_typeface, item_font_size) = StripItemFont.Resolve (item, control);
+            var font_size = e.LogicalToDeviceUnits (item_font_size);
             var bounds = item.DeviceBounds;
 
             // ShowImageMargin collapses the gutter the icons sit in, which is what a text-only context
@@ -107,7 +108,7 @@ namespace Majorsilence.Forms.Renderers
             if (StripRendererBridge.Text (control, item, item.Text, bounds, font_color, e) is { } tp) {
                 bounds = tp.rect;
                 font_color = tp.colour;
-                e.Canvas.DrawMnemonicText (tp.text, Theme.UIFont, font_size, bounds, font_color, ContentAlignment.MiddleLeft, maxLines: null, ellipsis: false, underline: control.ShowKeyboardCues);
+                e.Canvas.DrawMnemonicText (tp.text, item_typeface, font_size, bounds, font_color, ContentAlignment.MiddleLeft, maxLines: null, ellipsis: false, underline: control.ShowKeyboardCues);
             }
 
             // Shortcut text, right-aligned in the gutter the submenu arrow also uses. Drawn only when
@@ -121,7 +122,7 @@ namespace Majorsilence.Forms.Renderers
                     shortcut_bounds.Width -= e.LogicalToDeviceUnits (12);
 
                     // Same colour as the caption, so a disabled item's shortcut greys out with it.
-                    e.Canvas.DrawText (shortcut, Theme.UIFont, font_size, shortcut_bounds, font_color,
+                    e.Canvas.DrawText (shortcut, item_typeface, font_size, shortcut_bounds, font_color,
                         ContentAlignment.MiddleRight, maxLines: 1);
                 }
             }
@@ -177,8 +178,9 @@ namespace Majorsilence.Forms.Renderers
                 return GetPreferredSeparatorItemSize (control, tss, proposedSize);
 
             var padding = control.LogicalToDeviceUnits (item.Padding);
-            var font_size = control.LogicalToDeviceUnits (Theme.FontSize);
-            var text_size = TextMeasurer.MeasureText (Mnemonics.Strip (item.Text), Theme.UIFont, font_size);
+            var (item_typeface, item_font_size) = StripItemFont.Resolve (item, control);
+            var font_size = control.LogicalToDeviceUnits (item_font_size);
+            var text_size = TextMeasurer.MeasureText (Mnemonics.Strip (item.Text), item_typeface, font_size);
 
             return new Size ((int)Math.Round (text_size.Width, 0, MidpointRounding.AwayFromZero) + padding.Horizontal + control.LogicalToDeviceUnits (70), (int)Math.Round (text_size.Height, 0, MidpointRounding.AwayFromZero) + control.LogicalToDeviceUnits (8));
         }
