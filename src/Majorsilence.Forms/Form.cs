@@ -1217,8 +1217,11 @@ namespace Majorsilence.Forms
         /// </summary>
         public new System.Drawing.Size Size {
             get {
+                // An MDI child's Size is its whole window, caption and borders included, as upstream's is; its
+                // ClientSize is the content. It reported the content, so a size saved from one session and
+                // restored into the next (form.Size = saved) grew the child by its caption and borders.
                 if (MdiHost != null)
-                    return MdiHost.ContentSize;
+                    return MdiHost.Size;
                 if (PanelHost != null)
                     return PanelHost.Size;
                 return Backend.ClientSize;
@@ -1246,7 +1249,7 @@ namespace Majorsilence.Forms
                     return;
 
                 if (MdiHost != null)
-                    MdiHost.SetContentSize (value);
+                    MdiHost.Size = value;
                 else if (PanelHost != null)
                     PanelHost.Size = value;
                 else {
@@ -1325,6 +1328,9 @@ namespace Majorsilence.Forms
         /// </remarks>
         public System.Drawing.Size ClientSize {
             get {
+                if (MdiHost != null)
+                    return MdiHost.ContentSize;
+
                 var size = Size;
                 return new System.Drawing.Size (size.Width, Math.Max (0, size.Height - NonClientCaptionHeight));
             }
@@ -1341,6 +1347,12 @@ namespace Majorsilence.Forms
         /// </summary>
         protected virtual void SetClientSizeCore (int x, int y)
         {
+            if (MdiHost != null) {
+                MdiHost.SetContentSize (new System.Drawing.Size (x, y));
+                size_set_from_client_size = true;
+                return;
+            }
+
             Size = new System.Drawing.Size (x, y + NonClientCaptionHeight);
             size_set_from_client_size = true;
         }
@@ -2150,7 +2162,13 @@ namespace Majorsilence.Forms
         // controls over a blank band at the bottom. A Size assignment is the hosted content size, as before.
         private void PrepareAsMdiChild ()
         {
-            var caption = size_set_from_client_size && TitleBar.Visible ? NonClientCaptionHeight : 0;
+            // What the window gives up to the frame that now draws its chrome. A size set through ClientSize
+            // has only the caption a top-level window would draw added to it, so only that comes off and the
+            // designed client area is kept. A size set as Size is the whole window, as upstream's is, so the
+            // MDI frame's caption and borders come off it.
+            var shrink = size_set_from_client_size
+                ? new System.Drawing.Size (0, TitleBar.Visible ? NonClientCaptionHeight : 0)
+                : new System.Drawing.Size (2 * MdiChildWindow.FrameBorder, MdiChildWindow.CaptionHeight + 2 * MdiChildWindow.FrameBorder);
 
             // Hidden and shrunk under one suspended layout, so the single pass that follows sees only the
             // final client area -- the designed one. Laid out in between, the form's anchored controls
@@ -2159,9 +2177,19 @@ namespace Majorsilence.Forms
             SuspendLayout ();
             PrepareAsHostedChild ();
 
-            if (caption > 0) {
+            if (shrink != System.Drawing.Size.Empty) {
+                // MinimumSize/MaximumSize bound the whole window, as upstream's do; hosted, the chrome is the
+                // frame's, so the bounds come down with the size. Left as they were, a designer form with a
+                // MinimumSize just above its ClientSize was clamped back up and opened taller than designed.
+                if (!minimum_size.IsEmpty)
+                    Backend.MinimumSize = new System.Drawing.Size (Math.Max (0, minimum_size.Width - shrink.Width), Math.Max (0, minimum_size.Height - shrink.Height));
+                if (!maximum_size.IsEmpty)
+                    Backend.MaximumSize = new System.Drawing.Size (Math.Max (1, maximum_size.Width - shrink.Width), Math.Max (1, maximum_size.Height - shrink.Height));
+
                 var size = Size;
-                Size = new System.Drawing.Size (size.Width, Math.Max (1, size.Height - caption));
+                var keep = size_set_from_client_size;
+                Size = new System.Drawing.Size (Math.Max (1, size.Width - shrink.Width), Math.Max (1, size.Height - shrink.Height));
+                size_set_from_client_size = keep;
             }
 
             ResumeLayout (true);

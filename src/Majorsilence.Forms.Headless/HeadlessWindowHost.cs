@@ -21,7 +21,8 @@ namespace Majorsilence.Forms.Headless
 
         // ── Geometry ──
         public Point Location { get => _location; set => _location = value; }
-        public Size Size { get => _size; set => _size = value; }
+        // Clamped to the minimum and maximum, as a real window's size is: a size outside them never sticks.
+        public Size Size { get => _size; set => _size = Clamp (value); }
         public Size ClientSize => _size;
 
         // Defaults to 1.0; set the MF_HEADLESS_SCALE env var to simulate a HiDPI display (e.g. "2").
@@ -124,8 +125,25 @@ namespace Majorsilence.Forms.Headless
                 TextInputActivationCount++;
         }
         public void SetIcon (byte[]? iconPng) { }
-        public Size MinimumSize { set { } }
-        public Size MaximumSize { set { } }
+        public Size MinimumSize { set { _minimum = value; _size = Clamp (_size); } }
+        public Size MaximumSize { set { _maximum = value; _size = Clamp (_size); } }
+
+        private Size _minimum;
+        private Size _maximum;
+
+        // An empty bound (0 on an axis) does not constrain that axis.
+        private Size Clamp (Size size)
+        {
+            var width = size.Width;
+            var height = size.Height;
+
+            if (_minimum.Width > 0) width = Math.Max (width, _minimum.Width);
+            if (_minimum.Height > 0) height = Math.Max (height, _minimum.Height);
+            if (_maximum.Width > 0) width = Math.Min (width, _maximum.Width);
+            if (_maximum.Height > 0) height = Math.Min (height, _maximum.Height);
+
+            return new Size (width, height);
+        }
         public bool CanResize { get; set; } = true;
         public bool ShowInTaskbar { get; set; } = true;
         public double Opacity { get; set; } = 1.0;
