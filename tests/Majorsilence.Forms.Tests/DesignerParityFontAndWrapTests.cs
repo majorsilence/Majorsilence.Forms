@@ -371,6 +371,35 @@ namespace Majorsilence.Forms.Tests
             }
         }
 
+        // Telerik's RadGridView shows its group panel and groups by default, and filtering means the filtering
+        // row; funnels in the header cells come only with ShowHeaderCellButtons. Here the panel and grouping were
+        // off and EnableFiltering put funnels in the headers instead of the row.
+        [Fact]
+        public void RadGridView_grouping_and_filtering_defaults_follow_Telerik ()
+        {
+            using var grid = new Majorsilence.Forms.Telerik.RadGridView ();
+
+            Assert.True (grid.ShowGroupPanel);
+            Assert.True (grid.EnableGrouping);
+            Assert.True (grid.ShowFilteringRow);
+            Assert.False (grid.ShowFilterRow);
+            Assert.False (grid.ShowsHeaderFilterButtons);
+
+            grid.EnableFiltering = true;
+            Assert.True (grid.ShowFilterRow);
+            Assert.True (grid.FilterRowBandHeight > 0);
+            Assert.False (grid.ShowsHeaderFilterButtons);
+
+            grid.MasterTemplate.ShowFilteringRow = false;
+            Assert.False (grid.ShowFilterRow);
+
+            grid.MasterTemplate.ShowHeaderCellButtons = true;
+            Assert.True (grid.ShowsHeaderFilterButtons);
+
+            // Whole rows, as Telerik selects by default -- and as the Telerik-typed SelectionMode reports.
+            Assert.Equal (DataGridViewSelectionMode.FullRowSelect, ((DataGridView) grid).SelectionMode);
+        }
+
         // Telerik centres column header text by default; the compat columns inherited WinForms' left alignment.
         [Fact]
         public void Telerik_column_headers_are_centred_by_default ()
@@ -429,7 +458,7 @@ namespace Majorsilence.Forms.Tests
             HeadlessRenderer.Use ();
 
             using var form = new Form { Size = new System.Drawing.Size (300, 200) };
-            var grid = new Majorsilence.Forms.Telerik.RadGridView { Left = 0, Top = 0, Width = 200, Height = 100 };
+            var grid = new Majorsilence.Forms.Telerik.RadGridView { Left = 0, Top = 0, Width = 200, Height = 100, ShowGroupPanel = false };
             grid.RowHeadersVisible = false;
             grid.Columns.Add (new Majorsilence.Forms.Telerik.GridViewTextBoxColumn { Name = "a", HeaderText = new string ('l', 60), Width = 50 });
             form.Controls.Add (grid);
@@ -523,6 +552,31 @@ namespace Majorsilence.Forms.Tests
             // A grid in an app that never chose a font keeps the theme's header style.
             using var plain = new DataGridView ();
             Assert.Equal (DataGridView.DefaultColumnHeaderStyle.GetFont (), plain.HeaderFallbackFont ().Typeface);
+        }
+
+        // In RowHeaderSelect -- the default -- upstream selects the clicked cell, and a whole row only from its
+        // row header. Here every cell click selected and painted the whole row, as FullRowSelect does.
+        [Fact]
+        public void RowHeaderSelect_selects_the_cell_and_the_row_only_from_its_header ()
+        {
+            using var grid = new DataGridView ();
+            grid.Columns.Add ("a", "A");
+            grid.Columns.Add ("b", "B");
+            for (var r = 0; r < 3; r++)
+                grid.Rows.Add ($"a{r}", $"b{r}");
+            grid.ClearSelection ();
+
+            Assert.Equal (DataGridViewSelectionMode.RowHeaderSelect, grid.SelectionMode);
+
+            grid.SelectFromPointer (1, 1, Keys.None);
+            Assert.Empty (grid.SelectedRows);
+            Assert.Same (grid[1, 1], Assert.Single (grid.SelectedCells));
+            Assert.True (grid.IsCellPaintedSelected (1, 1));
+            Assert.False (grid.IsRowPaintedSelected (1));
+
+            grid.SelectFromPointer (2, -1, Keys.None);
+            Assert.Same (grid.Rows[2], Assert.Single (grid.SelectedRows));
+            Assert.True (grid.IsRowPaintedSelected (2));
         }
 
         // Upstream holds no rows without columns, so a fresh grid with no columns shows only its background. Here it

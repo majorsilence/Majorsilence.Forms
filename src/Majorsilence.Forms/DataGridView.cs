@@ -2443,10 +2443,10 @@ namespace Majorsilence.Forms
             if (!seeded)
                 return;
 
-            if (SelectionIsColumnBased) {
+            if (CellSelectsColumn) {
                 if (selected_column_index >= 0 && selected_column_index < Columns.Count)
                     Columns[selected_column_index].SetSelectedCore (true, ++selection_sequence);
-            } else if (SelectionIsRowBased) {
+            } else if (CellSelectsRow) {
                 if (selected_row_index >= 0 && selected_row_index < Rows.Count)
                     Rows[selected_row_index].SetSelectedCore (true, ++selection_sequence);
             } else if (IsCellAddress (selected_row_index, selected_column_index)) {
@@ -3309,7 +3309,17 @@ namespace Majorsilence.Forms
         // index and raises RowEnter. Returns false when a Validating handler cancelled, in which case
         // the current row has not moved. Separated out because "current" and "selected" are different
         // things (DGV-14/DGV-15) and the pointer path needs to move one without replacing the other.
-        private bool SetCurrentRowIndex (int value) => MoveCurrentCell (value, selected_column_index);
+        // A current row always has a current cell upstream; with no column current yet, it lands in the
+        // first visible column -- otherwise a cell-selecting mode (RowHeaderSelect, the default) had no
+        // cell to select and the move selected nothing.
+        private bool SetCurrentRowIndex (int value)
+        {
+            var column = selected_column_index >= 0 || value < 0
+                ? selected_column_index
+                : Columns.GetFirstColumn (DataGridViewElementStates.Visible)?.Index ?? -1;
+
+            return MoveCurrentCell (value, column);
+        }
 
         /// <summary>
         /// Called when the current row is about to change, after everything else that could veto the
@@ -3393,9 +3403,9 @@ namespace Majorsilence.Forms
         // the selection. Raises SelectionChanged once.
         private void ReplaceSelectionWithCurrentCell ()
         {
-            if (SelectionIsColumnBased)
+            if (CellSelectsColumn)
                 SelectSingleColumn (selected_column_index);
-            else if (SelectionIsRowBased)
+            else if (CellSelectsRow)
                 SelectSingleRow (selected_row_index);
             else
                 SelectSingleCell (selected_row_index, selected_column_index);

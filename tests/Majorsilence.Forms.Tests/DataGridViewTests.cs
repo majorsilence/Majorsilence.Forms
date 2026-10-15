@@ -411,7 +411,9 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void SelectedRowIndex_Set_UpdatesCurrentRowAndSelection ()
         {
-            using var control = new DataGridView ();
+            // FullRowSelect: moving the current row selects the row there; in the default RowHeaderSelect it
+            // selects the cell, as upstream's does.
+            using var control = new DataGridView { SelectionMode = DataGridViewSelectionMode.FullRowSelect };
             control.Columns.Add ("col", "Header");
             var row0 = control.Rows[control.Rows.Add ("a")];
             var row1 = control.Rows[control.Rows.Add ("b")];
@@ -427,7 +429,9 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void SelectedRowIndex_SetNewRow_DeselectsPreviousRow ()
         {
-            using var control = new DataGridView ();
+            // FullRowSelect: moving the current row selects the row there; in the default RowHeaderSelect it
+            // selects the cell, as upstream's does.
+            using var control = new DataGridView { SelectionMode = DataGridViewSelectionMode.FullRowSelect };
             control.Columns.Add ("col", "Header");
             var row0 = control.Rows[control.Rows.Add ("a")];
             var row1 = control.Rows[control.Rows.Add ("b")];

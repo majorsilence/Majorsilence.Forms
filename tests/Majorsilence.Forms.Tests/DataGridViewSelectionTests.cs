@@ -528,7 +528,9 @@ namespace Majorsilence.Forms.Tests
         {
             HeadlessRenderer.Use ();
             form = new Form { Width = 520, Height = 340 };
-            var grid = new ClickableGrid { Width = 400, Height = 220 };
+            // FullRowSelect: these click tests are about selecting rows, and in the default RowHeaderSelect a
+            // click on a cell selects only that cell, as upstream's does.
+            var grid = new ClickableGrid { Width = 400, Height = 220, SelectionMode = DataGridViewSelectionMode.FullRowSelect };
 
             for (var c = 0; c < 3; c++)
                 grid.Columns.Add (new DataGridViewColumn { HeaderText = $"C{c}", Width = 80 });
