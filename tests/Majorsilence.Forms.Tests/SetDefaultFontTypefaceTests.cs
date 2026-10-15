@@ -15,6 +15,8 @@ namespace Majorsilence.Forms.Tests
         {
             HeadlessRenderer.Use ();
             var font = new Majorsilence.Forms.Drawing.Font ("Courier New", 10);
+            // Where "Courier New" falls back to the default face, the assertion below could not fail.
+            Assert.NotEqual (new TreeView ().GetEffectiveFont ().FamilyName, font.GetSKTypeface ().FamilyName);
 
             try {
                 Application.SetDefaultFont (font);
