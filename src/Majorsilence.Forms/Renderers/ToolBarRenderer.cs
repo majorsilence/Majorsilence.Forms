@@ -134,9 +134,15 @@ namespace Majorsilence.Forms.Renderers
             var link = item.Enabled ? item as ToolStripLabel : null;
             var is_link = link is { IsLink: true };
 
+            // An explicit ForeColor -- the item's own, else the strip's -- wins over the built-in item
+            // style. Both were stored and documented as read by the strip renderers, but nothing read
+            // them unless a ToolStripRenderer was installed, so a strip themed dark (BackColor dark,
+            // ForeColor light) drew its item text in the default near-black on the dark background.
+            var explicit_color = item is ToolStripItem { ForeColor.IsEmpty: false } colored ? colored.ForeColor.ToSKColor ()
+                : control.Style.ForegroundColor;
             var font_color = !item.Enabled ? Theme.ForegroundDisabledColor
                 : is_link ? LinkColour (link!)
-                : item_style.GetForegroundColor ();
+                : explicit_color ?? item_style.GetForegroundColor ();
             var font_size = e.LogicalToDeviceUnits (Theme.FontSize);
 
             // ToolStripItem carries the image/text placement knobs; a plain MenuItem keeps the
