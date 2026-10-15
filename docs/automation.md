@@ -469,6 +469,12 @@ HeadlessRenderer.MouseUp   (form, 120, 60);
 
 HeadlessRenderer.KeyDown   (form, Keys.Control | Keys.A);
 HeadlessRenderer.TextInput (form, "typed text");
+
+// Touch gestures, as a touch backend's recognizers deliver them
+HeadlessRenderer.Swipe          (form, 200, 150, SwipeDirection.Left, velocityX: -900);
+HeadlessRenderer.Pinch          (form, 200, 150, scale: 1.5);
+HeadlessRenderer.LongPress      (form, 200, 150);
+HeadlessRenderer.ScrollGesture  (form, 200, 150, 0, 25);
 ```
 
 **VB.NET**
@@ -480,6 +486,12 @@ HeadlessRenderer.MouseUp(form, 120, 60)
 
 HeadlessRenderer.KeyDown(form, Keys.Control Or Keys.A)
 HeadlessRenderer.TextInput(form, "typed text")
+
+' Touch gestures, as a touch backend's recognizers deliver them
+HeadlessRenderer.Swipe(form, 200, 150, SwipeDirection.Left, velocityX:=-900)
+HeadlessRenderer.Pinch(form, 200, 150, scale:=1.5)
+HeadlessRenderer.LongPress(form, 200, 150)
+HeadlessRenderer.ScrollGesture(form, 200, 150, 0, 25)
 ```
 
 Coordinates here are **logical**, and the renderer converts them to device pixels for you — which is why
