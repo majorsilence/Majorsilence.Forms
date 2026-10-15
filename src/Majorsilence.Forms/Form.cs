@@ -195,6 +195,12 @@ namespace Majorsilence.Forms
         // the form is a real top-level window. Panel hosting and MDI hosting both go through a frame.
         private Control? HostFrame => (Control?)PanelHost ?? MdiHost;
 
+        // A hosted form with no font of its own takes its host's, as upstream's does: an MDI child sits in the
+        // MDI client, a panel-hosted form in its panel, and Font is ambient through that parent chain -- so
+        // a child of an MDI parent set to 12pt draws its fontless controls at 12pt. Null when not hosted or
+        // when this form has a font of its own.
+        internal Control? AmbientFontHost => Style.Font is null && Style.FontSize is null ? HostFrame : null;
+
         /// <summary>
         /// The control this form is hosted in, when it has been put inside another control rather than
         /// shown as its own top-level window (see <see cref="Control.ControlCollection.Add(Form)"/>).

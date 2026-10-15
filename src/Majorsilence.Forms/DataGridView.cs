@@ -2333,6 +2333,7 @@ namespace Majorsilence.Forms
         {
             BindDataSource (forceColumnRegeneration);
             UpdateColumnsDataBound ();
+            SyncSortFromBoundList ();
         }
 
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection over user-provided types.")]
@@ -2480,9 +2481,8 @@ namespace Majorsilence.Forms
         // font keeps the theme's item font, as before.
         internal (SkiaSharp.SKTypeface Typeface, int Size) CellFallbackFont ()
         {
-            for (Control? c = this; c is not null; c = c.Parent)
-                if (c.HasOwnFont)
-                    return (GetEffectiveFont (), GetEffectiveFontSize ());
+            if (HasAmbientFontChoice ())
+                return (GetEffectiveFont (), GetEffectiveFontSize ());
 
             return (Theme.UIFont, Theme.ItemFontSize);
         }
@@ -2493,9 +2493,8 @@ namespace Majorsilence.Forms
         // used once the grid or an ancestor has chosen one, and the theme's header style otherwise.
         internal (SkiaSharp.SKTypeface Typeface, int Size) HeaderFallbackFont ()
         {
-            for (Control? c = this; c is not null; c = c.Parent)
-                if (c.HasOwnFont)
-                    return (GetEffectiveFont (), GetEffectiveFontSize ());
+            if (HasAmbientFontChoice ())
+                return (GetEffectiveFont (), GetEffectiveFontSize ());
 
             return (DefaultColumnHeaderStyle.GetFont (), DefaultColumnHeaderStyle.GetFontSize ());
         }

@@ -73,6 +73,37 @@ namespace Majorsilence.Forms
             Invalidate ();
         }
 
+        // A bound list sorted by its own code (a DataView's Sort, a BindingSource's) is how the grid is sorted,
+        // as upstream reads it on every reset: SortedColumn, SortOrder and the header glyph follow the list's
+        // SortProperty and SortDirection, and are cleared when it is not sorted. They only reflected a sort
+        // the grid itself had been asked for, so a list sorted in code showed no glyph.
+        private void SyncSortFromBoundList ()
+        {
+            if (bound_list is not IBindingList { SupportsSorting: true } list)
+                return;
+
+            DataGridViewColumn? sorted = null;
+            var order = SortOrder.None;
+
+            if (list.IsSorted && list.SortProperty is { } property) {
+                foreach (var column in Columns) {
+                    var member = string.IsNullOrEmpty (column.DataPropertyName) ? column.Name : column.DataPropertyName;
+
+                    if (string.Equals (member, property.Name, StringComparison.OrdinalIgnoreCase)) {
+                        sorted = column;
+                        order = list.SortDirection == ListSortDirection.Ascending ? SortOrder.Ascending : SortOrder.Descending;
+                        break;
+                    }
+                }
+            }
+
+            SortedColumn = sorted;
+            SortOrder = order;
+
+            foreach (var column in Columns)
+                column.HeaderCell.SortGlyphDirection = ReferenceEquals (column, sorted) ? order : SortOrder.None;
+        }
+
         /// <summary>Sorts the data by the specified column in the specified direction.</summary>
         public void Sort (DataGridViewColumn column, ListSortDirection direction)
         {

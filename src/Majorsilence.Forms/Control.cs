@@ -555,6 +555,17 @@ namespace Majorsilence.Forms
             }
         }
 
+        // Whether this control, an ancestor, or -- for a control on a hosted form (MDI child, panel-hosted) --
+        // the host's chain has chosen a font, which then outranks a control's theme default.
+        internal bool HasAmbientFontChoice ()
+        {
+            for (Control? c = this; c is not null; c = c.Parent)
+                if (c.HasOwnFont)
+                    return true;
+
+            return (FindWindow () as Form)?.AmbientFontHost?.HasAmbientFontChoice () ?? false;
+        }
+
         // Whether CurrentStyle is this control's StyleFocus right now (see CurrentStyle).
         private bool IsInFocusStyle => ReferenceEquals (CurrentStyle, StyleFocus) && UsesFocusStyle;
 
@@ -2010,6 +2021,8 @@ namespace Majorsilence.Forms
                 ?? Style.Font
                 ?? CurrentStyle.TryGetFont ()
                 ?? Parent?.GetEffectiveFont ()
+                // A hosted form (MDI child, panel-hosted) with no font of its own continues into its host.
+                ?? (FindWindow () as Form)?.AmbientFontHost?.GetEffectiveFont ()
                 // The window is not a Control, so the parent walk stops at its adapter; ask the window's
                 // own style chain before the default, as the colour resolutions above do. This is what
                 // lets a `Form { font-family: ... }` theme rule set the app-wide text font.
@@ -2030,6 +2043,7 @@ namespace Majorsilence.Forms
                 ?? Style.FontSize
                 ?? CurrentStyle.TryGetFontSize ()
                 ?? Parent?.GetEffectiveFontSize ()
+                ?? (FindWindow () as Form)?.AmbientFontHost?.GetEffectiveFontSize ()
                 ?? FindWindow ()?.CurrentStyle.TryGetFontSize ()
                 ?? (int) System.Math.Round (Majorsilence.Forms.SystemFonts.DefaultFont.PixelSize);
 
