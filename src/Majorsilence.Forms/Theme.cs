@@ -462,17 +462,54 @@ namespace Majorsilence.Forms
         /// <summary>
         /// The default font used by controls.
         /// </summary>
+        /// <remarks>A typeface the system font manager cannot find by its family name -- one created from
+        /// a file, stream or bytes the app bundles -- is registered privately, as
+        /// <c>PrivateFontCollection</c> would, so text laid out by family name uses it.</remarks>
         public static SKTypeface UIFont {
             get => GetValue<SKTypeface> (nameof (UIFont));
-            set => SetValue (nameof (UIFont), value);
+            set => SetValue (nameof (UIFont), Register (value, ref registered_ui_font));
         }
 
         /// <summary>
         /// The default bold font used by controls.
         /// </summary>
+        /// <remarks>Registered privately when the system cannot find it, as <see cref="UIFont"/>.</remarks>
         public static SKTypeface UIFontBold {
             get => GetValue<SKTypeface> (nameof (UIFontBold));
-            set => SetValue (nameof (UIFontBold), value);
+            set => SetValue (nameof (UIFontBold), Register (value, ref registered_ui_font_bold));
+        }
+
+        private static SKTypeface? registered_ui_font, registered_ui_font_bold;
+
+        // Text layout resolves a face from the style's family *name* (CachingFontMapper): first the private
+        // font registry, then the platform font manager. A typeface made with SKTypeface.FromData/FromStream
+        // was therefore never used where its family is not installed -- text drew in the system UI font
+        // (Helvetica on macOS, Segoe UI on Windows) with no sign anything was wrong. Found by Recital, which
+        // bundles its UI font (FRAMEWORK_GAPS GAP-004). A face the manager does find is left alone, so the
+        // common case keeps the registry empty.
+        private static SKTypeface Register (SKTypeface value, ref SKTypeface? registered)
+        {
+            if (registered is not null && !ReferenceEquals (registered, value)) {
+                Drawing.Text.PrivateFontRegistry.Remove (registered);
+                registered = null;
+            }
+
+            if (value is null || registered is not null || IsInstalled (value))
+                return value!;
+
+            Drawing.Text.PrivateFontRegistry.Add (value);
+            registered = value;
+            return value;
+        }
+
+        private static bool IsInstalled (SKTypeface typeface)
+        {
+            if (Drawing.Text.PrivateFontRegistry.Resolve (typeface.FamilyName, typeface.FontStyle) is not null)
+                return true;
+
+            // Not disposed: SkiaSharp hands back a shared wrapper per native face, which may be one in use.
+            var match = SKFontManager.Default.MatchFamily (typeface.FamilyName, typeface.FontStyle);
+            return match is not null && string.Equals (match.FamilyName, typeface.FamilyName, StringComparison.OrdinalIgnoreCase);
         }
     }
 }
