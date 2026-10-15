@@ -286,16 +286,25 @@ namespace Majorsilence.Forms
         /// </remarks>
         public FixedPanel FixedPanel { get; set; } = FixedPanel.None;
 
-        /// <summary>Gets or sets whether Panel1 is collapsed. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether Panel1 is collapsed: hidden, with Panel2 taking the whole container.</summary>
+        /// <remarks>The splitter is hidden with it, as upstream. Only the panel was hidden before, so the
+        /// 5px splitter bar stayed docked at the edge beside a Panel2 that was meant to fill the control.</remarks>
         public bool Panel1Collapsed {
             get => !Panel1.Visible;
-            set => Panel1.Visible = !value;
+            set {
+                Panel1.Visible = !value;
+                splitter.Visible = Panel1.Visible && Panel2.Visible;
+            }
         }
 
-        /// <summary>Gets or sets whether Panel2 is collapsed. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets whether Panel2 is collapsed: hidden, with Panel1 taking the whole container.</summary>
+        /// <remarks>Hides the splitter too; see <see cref="Panel1Collapsed"/>.</remarks>
         public bool Panel2Collapsed {
             get => !Panel2.Visible;
-            set => Panel2.Visible = !value;
+            set {
+                Panel2.Visible = !value;
+                splitter.Visible = Panel1.Visible && Panel2.Visible;
+            }
         }
 
         /// <summary>Gets or sets whether the splitter can be moved by the user.</summary>
