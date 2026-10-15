@@ -201,6 +201,35 @@ namespace Majorsilence.Forms.Headless
             => window.HandlePointerWheel (MouseButtons.None, ToDevice (window, x), ToDevice (window, y),
                                           new System.Drawing.Point (0, delta), Keys.None);
 
+        // Gestures, as a touch backend's recognizers deliver them (Avalonia's AvaloniaGestureWiring, Uno's
+        // UnoGestureWiring): logical client coordinates in, device pixels to the window, like the mouse.
+
+        /// <summary>
+        /// Sends a swipe (a fling) at the given point (logical client coordinates). The velocity is in
+        /// logical pixels per second, as <see cref="SwipeGestureEventArgs"/> reports it.
+        /// </summary>
+        public static void Swipe (WindowBase window, int x, int y, SwipeDirection direction, double velocityX = 0, double velocityY = 0)
+            => window.HandleSwipe (ToDevice (window, x), ToDevice (window, y), velocityX * window.Scaling, velocityY * window.Scaling, direction);
+
+        /// <summary>
+        /// Sends one step of a pinch centred on the given point (logical client coordinates).
+        /// <paramref name="scale"/> is cumulative since the pinch began (1 = unchanged), as
+        /// <see cref="PinchGestureEventArgs"/> reports it.
+        /// </summary>
+        public static void Pinch (WindowBase window, int x, int y, double scale, double angle = 0, double angleDelta = 0)
+            => window.HandlePinch (ToDevice (window, x), ToDevice (window, y), scale, angle, angleDelta);
+
+        /// <summary>Sends a long press (press and hold) at the given point (logical client coordinates).</summary>
+        public static void LongPress (WindowBase window, int x, int y)
+            => window.HandleLongPress (ToDevice (window, x), ToDevice (window, y));
+
+        /// <summary>
+        /// Sends one step of a touch scroll (a one-finger drag that pans) at the given point. The point and
+        /// the movement are in logical pixels, the movement in the sense <see cref="ScrollGestureEventArgs.Delta"/> reports.
+        /// </summary>
+        public static void ScrollGesture (WindowBase window, int x, int y, int deltaX, int deltaY)
+            => window.HandleScrollGesture (ToDevice (window, x), ToDevice (window, y), ToDevice (window, deltaX), ToDevice (window, deltaY));
+
         /// <summary>Sends a key-down event; returns whether the window handled it.</summary>
         public static bool KeyDown (WindowBase window, Keys keys) => window.HandleKeyDown (keys);
 
