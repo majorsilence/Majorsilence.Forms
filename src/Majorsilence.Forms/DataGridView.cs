@@ -1962,7 +1962,7 @@ namespace Majorsilence.Forms
         /// Gets or sets the height, in pixels, of the column headers row.
         /// </summary>
         public int ColumnHeadersHeight {
-            get => header_height;
+            get => EffectiveHeaderHeight;
             set {
                 if (header_height != value) {
                     header_height = Math.Max (value, 4);
@@ -3259,7 +3259,70 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets the scaled height of the header row.
         /// </summary>
-        internal int ScaledHeaderHeight => LogicalToDeviceUnits (header_height);
+        internal int ScaledHeaderHeight => LogicalToDeviceUnits (EffectiveHeaderHeight);
+
+        // Whether header captions wrap. Upstream's column header style wraps by default (WrapMode True), so a
+        // long caption takes a second line; only an explicit False keeps it on one.
+        internal virtual bool HeaderWraps => ColumnHeadersDefaultCellStyle.WrapMode != DataGridViewTriState.False;
+
+        // The header band's logical height: as set, or with ColumnHeadersHeightSizeMode.AutoSize the tallest
+        // header as it wraps in its column, as upstream sizes it. AutoSize was stored and ignored, so a
+        // designer's two-line headers were cut to their first line's worth. Re-measured only when what the
+        // headers show changes (columns, widths, captions, font).
+        internal int EffectiveHeaderHeight {
+            get {
+                if (column_headers_height_size_mode != DataGridViewColumnHeadersHeightSizeMode.AutoSize)
+                    return header_height;
+
+                var (font, size) = HeaderFontForMeasure ();
+                var key = unchecked (font.GetHashCode () * 31 + size) * 31 + (HeaderWraps ? 1 : 0);
+
+                foreach (DataGridViewColumn column in Columns)
+                    key = unchecked ((key * 31 + (column.Visible ? column.Width : -1)) * 31 + column.HeaderDisplayText.GetHashCode ());
+
+                if (key != auto_header_key || auto_header_height == 0) {
+                    auto_header_height = FitHeaderHeight (-1);
+                    auto_header_key = key;
+                }
+
+                return auto_header_height;
+            }
+        }
+
+        private int auto_header_key;
+        private int auto_header_height;
+
+        // The font headers draw with (see DataGridViewRenderer.RenderColumnHeaderAt), in logical units.
+        private (SkiaSharp.SKTypeface Typeface, int Size) HeaderFontForMeasure ()
+        {
+            var fallback = HeaderFallbackFont ();
+            return (ColumnHeadersDefaultCellStyle.Font ?? fallback.Typeface, ColumnHeadersDefaultCellStyle.FontSize ?? fallback.Size);
+        }
+
+        // The logical header height that fits the given column's caption, or every visible column's (-1):
+        // the text, wrapped in the column's text width when headers wrap, plus the header's vertical padding.
+        internal int FitHeaderHeight (int columnIndex)
+        {
+            var (font, size) = HeaderFontForMeasure ();
+            var tallest = 0;
+
+            for (var i = 0; i < Columns.Count; i++) {
+                var column = Columns[i];
+
+                if ((columnIndex >= 0 && i != columnIndex) || !column.Visible)
+                    continue;
+
+                var text = column.HeaderDisplayText;
+                var width = Math.Max (1, column.Width - 12);   // the renderer insets header text 6px a side
+                var measured = HeaderWraps
+                    ? TextMeasurer.MeasureText (text.Length > 0 ? text : "X", font, size, new Size (width, int.MaxValue))
+                    : TextMeasurer.MeasureText (text.Length > 0 ? text : "X", font, size);
+
+                tallest = Math.Max (tallest, (int) Math.Ceiling (measured.Height));
+            }
+
+            return tallest > 0 ? tallest + 8 : header_height;
+        }
 
         /// <summary>
         /// Gets the scaled height of each data row.

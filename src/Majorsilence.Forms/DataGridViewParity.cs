@@ -623,13 +623,9 @@ namespace Majorsilence.Forms
         /// <summary>Resizes the column header band to fit the tallest header.</summary>
         public void AutoResizeColumnHeadersHeight ()
         {
-            var tallest = 0;
-
-            foreach (var column in Columns)
-                tallest = Math.Max (tallest, (int)Math.Ceiling (TextMeasurer.MeasureText (column.HeaderText ?? string.Empty, this).Height));
-
-            if (tallest > 0)
-                ColumnHeadersHeight = tallest + 8;
+            // Measured as the headers are drawn: in the header font, wrapped in each column's width.
+            if (Columns.Count > 0)
+                ColumnHeadersHeight = FitHeaderHeight (-1);
         }
 
         /// <inheritdoc cref="AutoResizeColumnHeadersHeight()"/>
@@ -638,10 +634,7 @@ namespace Majorsilence.Forms
             if (columnIndex < 0 || columnIndex >= Columns.Count)
                 throw new ArgumentOutOfRangeException (nameof (columnIndex));
 
-            var height = (int)Math.Ceiling (TextMeasurer.MeasureText (Columns[columnIndex].HeaderText ?? string.Empty, this).Height);
-
-            if (height > 0)
-                ColumnHeadersHeight = height + 8;
+            ColumnHeadersHeight = FitHeaderHeight (columnIndex);
         }
 
         /// <summary>Resizes the row header band according to the given mode.</summary>

@@ -31,14 +31,29 @@ namespace Majorsilence.Forms.Renderers
 
             base.Render (control, e);
 
-            if (grid.ShowFilterRow)
+            if (grid.ShowsFilterRow)
                 RenderFilterRow (grid, e);
 
-            if (grid.ShowGroupPanel)
+            if (grid.ShowsGroupPanel)
                 RenderGroupPanel (grid, e);
+
+            if (control.Rows.Count == 0)
+                RenderNoDataText (grid, e);
 
             if (grid.DragActive)
                 RenderDragIndicator (grid, e);
+        }
+
+        // An empty grid says so, centred in its rows area, as Telerik's does.
+        private static void RenderNoDataText (RadGridView grid, PaintEventArgs e)
+        {
+            var content = grid.GetContentArea ();
+            var top = content.Top + (grid.ColumnHeadersVisible && ((DataGridView) grid).Columns.Count > 0 ? grid.ScaledHeaderHeight : 0)
+                + grid.FilterRowBandHeight;
+            var area = new Rectangle (content.Left, top, content.Width, Math.Max (0, content.Bottom - top));
+
+            e.Canvas.DrawText (RadGridView.NoDataText, Theme.UIFont, grid.LogicalToDeviceUnits (Theme.ItemFontSize), area,
+                grid.Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor, ContentAlignment.MiddleCenter, maxLines: 1);
         }
 
         // ── Inline filter row ──

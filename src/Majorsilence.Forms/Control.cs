@@ -555,6 +555,9 @@ namespace Majorsilence.Forms
             }
         }
 
+        // Whether CurrentStyle is this control's StyleFocus right now (see CurrentStyle).
+        private bool IsInFocusStyle => ReferenceEquals (CurrentStyle, StyleFocus) && UsesFocusStyle;
+
         /// <summary>
         /// Whether this control type has a <see cref="StyleFocus"/> of its own (a <c>Type:focus</c> rule in a theme) that
         /// <see cref="CurrentStyle"/> should use while the control is <see cref="Focused"/>. False for a type that does not, which then looks
@@ -1940,6 +1943,12 @@ namespace Majorsilence.Forms
             if (Style.BackgroundColor is null && UpstreamDefaultBackColor is { } upstream)
                 return upstream;
 
+            // The control's own BackColor outlasts focus, as upstream's does: a type's :focus style chains to
+            // the type default, not to this instance, so a focused button with an explicit BackColor drew the
+            // default face instead.
+            if (Style.BackgroundColor is { } own_back && IsInFocusStyle)
+                return own_back;
+
             var chain = CurrentStyle.TryGetBackgroundColor ();
             if (chain is not null)
                 return chain.Value;
@@ -1974,6 +1983,10 @@ namespace Majorsilence.Forms
         /// </summary>
         internal SKColor GetEffectiveForegroundColor ()
         {
+            // As for BackColor: the control's own ForeColor outlasts focus.
+            if (Style.ForegroundColor is { } own_fore && IsInFocusStyle)
+                return own_fore;
+
             var chain = CurrentStyle.TryGetForegroundColor ();
             if (chain is not null)
                 return chain.Value;
@@ -3047,6 +3060,12 @@ namespace Majorsilence.Forms
                 }
 
                 if (c.CanSelect && ((c.Parent == this) || nested) && (c.TabStop || !tabStopOnly)) {
+                    // A container control reached in tab order passes the focus on to its own first control,
+                    // as upstream's ContainerControl.Select (directed) does; it keeps it only when it has none.
+                    // A UserControl wrapping a TextBox took the focus itself, so the TextBox never got it.
+                    if (c is IContainerControl && c.SelectNextControl (null, forward, true, true, false))
+                        return true;
+
                     c.Select ();
                     return true;
                 }

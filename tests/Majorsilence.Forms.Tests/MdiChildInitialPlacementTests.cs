@@ -71,6 +71,26 @@ namespace Majorsilence.Forms.Tests
             Assert.Empty (client.Controls.OfType<MdiChildWindow> ());
         }
 
+        // Upstream focuses the first control in tab order when an MDI child is activated with nothing focused,
+        // so a newly opened child is ready for typing; here nothing had focus until the user clicked.
+        [Fact]
+        public void A_new_child_focuses_its_first_control_in_tab_order ()
+        {
+            var (parent, client) = Container ();
+            var child = new Form { MdiParent = parent, ClientSize = new Size (300, 200) };
+            var label = new Label { Text = "Name", TabIndex = 0 };
+            var box = new TextBox { Top = 30, TabIndex = 1 };
+            child.Controls.Add (label);
+            child.Controls.Add (box);
+            var entered = false;
+            box.Enter += (_, _) => entered = true;
+
+            child.Show ();
+
+            Assert.Same (box, child.ActiveControl);
+            Assert.True (entered);
+        }
+
         // Upstream opens a Manual-positioned child at the Location assigned before Show; here every child
         // was centred regardless, so code placing a child explicitly had no effect.
         [Fact]

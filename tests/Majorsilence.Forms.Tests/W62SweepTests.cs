@@ -47,6 +47,11 @@ namespace Majorsilence.Forms.Tests
             tree.Items.Add ("Pictures");
 
             form = new Form { Width = 300, Height = 260 };
+
+            // Focus elsewhere: a shown form now focuses its first control, as upstream's does. These
+            // tests need the tree unfocused until they focus it themselves.
+            form.Controls.Add (new Button { Left = 210, Top = 10, Width = 60, TabIndex = 0 });
+            tree.TabIndex = 1;
             form.Controls.Add (tree);
             form.Show ();
 

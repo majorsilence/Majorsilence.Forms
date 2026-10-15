@@ -16,6 +16,11 @@ namespace Majorsilence.Forms.Tests
             HeadlessRenderer.Use ();
 
             using var form = new Form { Size = new System.Drawing.Size (320, 160) };
+
+            // Focus elsewhere: a shown form now focuses its first control, as upstream's does, and a
+            // focused box selects its text and draws a caret over the ink these tests measure.
+            form.Controls.Add (new Button { Left = 260, Top = 100, Width = 40, TabIndex = 0 });
+            textBox.TabIndex = 1;
             form.Controls.Add (textBox);
             form.Show ();
             HeadlessRenderer.CapturePng (form);

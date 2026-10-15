@@ -33,14 +33,17 @@ namespace Majorsilence.Forms.Tests
             ");
 
             using var form = new Form { Size = new System.Drawing.Size (200, 150) };
-            var button = new Button { Dock = DockStyle.Fill };
+            var button = new Button { Dock = DockStyle.Fill, TabIndex = 1 };
+
+            // Focus elsewhere: a shown form now focuses its first control, as upstream's does. The decoy
+            // comes first in tab order and takes that focus; the button's own back buffer is what gets
+            // sampled, so the decoy's overlap does not reach the pixels.
+            form.Controls.Add (new Button { Location = System.Drawing.Point.Empty, Size = new System.Drawing.Size (20, 15), TabIndex = 0 });
             form.Controls.Add (button);
             form.Show ();
 
             // Ground truth for the "none of the four states apply" case below: nothing has focused,
-            // pressed or disabled the button yet. If this ever fails, some form-activation path now
-            // focuses the lone control on Show () and the fixture (not the production code) needs the
-            // update, e.g. giving it an unfocusable sibling.
+            // pressed or disabled the button yet.
             Assert.True (button.Enabled);
             Assert.False (button.Focused);
             Assert.False (button.IsPressed);

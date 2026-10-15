@@ -2844,6 +2844,9 @@ namespace Majorsilence.Forms
             if (activated) {
                 IsActive = true;
                 NoteActivated ();
+
+                if (firstShow && this is Form shown_form)
+                    shown_form.FocusFirstControlIfNone ();
             }
 
             if (pending_activation) {
