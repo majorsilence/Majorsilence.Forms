@@ -41,7 +41,11 @@ namespace Majorsilence.Forms.Renderers
             if (control.Text.HasValue ())
                 // SMP-13: see ButtonRenderer -- upstream wraps the whole button family's captions,
                 // and multi-line checkbox/radio labels are common on consent and option forms.
-                e.Canvas.DrawMnemonicText (control.Text, layout.TextBounds, control, control.TextAlign, maxLines: null, ellipsis: control.AutoEllipsis);
+                {
+                    // Upstream draws the button family with TextBoxControl: whole lines only (see WholeLineBox).
+                    var (text_box, text_align) = SkiaTextExtensions.WholeLineBox (control, control.Text, layout.TextBounds, layout.TextAlign);
+                    e.Canvas.DrawMnemonicText (control.Text, text_box, control, text_align, maxLines: null, ellipsis: control.AutoEllipsis);
+                }
         }
     }
 }

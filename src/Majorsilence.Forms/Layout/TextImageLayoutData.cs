@@ -15,6 +15,12 @@ internal sealed class TextImageLayoutData
     public Rectangle Face;
 
     /// <summary>
+    /// The text alignment the layout used: the control's TextAlign, mirrored when it reads right-to-left.
+    /// Renderers draw with this rather than the raw property so the caption lands where it was laid out.
+    /// </summary>
+    public ContentAlignment TextAlign;
+
+    /// <summary>
     /// The total area the glyph can be put in.
     /// </summary>
     public Rectangle GlyphArea;

@@ -275,7 +275,7 @@ namespace Majorsilence.Forms
             if (columnIndex >= 0 && columnIndex < Columns.Count
                 && !string.IsNullOrEmpty (Columns[columnIndex].DataPropertyName)
                 && data_source is { Count: > 0 } source && source[0] is { } sample) {
-                var descriptor = TypeDescriptor.GetProperties (sample)[Columns[columnIndex].DataPropertyName];
+                var descriptor = TypeDescriptor.GetProperties (sample).Find (Columns[columnIndex].DataPropertyName, ignoreCase: true);
 
                 if (descriptor is not null)
                     return descriptor.PropertyType;

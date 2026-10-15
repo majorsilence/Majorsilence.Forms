@@ -16,8 +16,8 @@ namespace Majorsilence.Forms.Renderers
             e.Canvas.Save ();
             e.Canvas.Clip (content);
 
-            // Draw column headers
-            if (control.ColumnHeadersVisible)
+            // Draw column headers (a grid that is still empty, with no columns or rows, shows only its background)
+            if (control.ColumnHeadersVisible && (control.Columns.Count > 0 || control.Rows.Count > 0))
                 RenderColumnHeaders (control, e, content);
 
             // Draw rows
@@ -127,11 +127,12 @@ namespace Majorsilence.Forms.Renderers
                 text_bounds.Width = Math.Max (0, text_bounds.Width - right_inset);
 
             var fg = control.ColumnHeadersDefaultCellStyle.ForegroundColor ?? DataGridView.DefaultColumnHeaderStyle.GetForegroundColor ();
-            var font = control.ColumnHeadersDefaultCellStyle.Font ?? DataGridView.DefaultColumnHeaderStyle.GetFont ();
-            var font_size = control.ColumnHeadersDefaultCellStyle.FontSize ?? DataGridView.DefaultColumnHeaderStyle.GetFontSize ();
+            var fallback = control.HeaderFallbackFont ();
+            var font = control.ColumnHeadersDefaultCellStyle.Font ?? fallback.Typeface;
+            var font_size = control.ColumnHeadersDefaultCellStyle.FontSize ?? fallback.Size;
 
             // The header CELL's value, which HeaderText is a view of (DGV-24) -- in any type, as upstream paints it.
-            e.Canvas.DrawText (column.HeaderDisplayText, font, control.LogicalToDeviceUnits (font_size), text_bounds, fg, column.HeaderAlignment, maxLines: 1);
+            e.Canvas.DrawText (column.HeaderDisplayText, font, control.LogicalToDeviceUnits (font_size), text_bounds, fg, column.HeaderAlignment, maxLines: 1, ellipsis: HeaderTextEllipsis);
 
             // Draw sort indicator
             if (column.SortOrder != SortOrder.None)
@@ -551,8 +552,9 @@ namespace Majorsilence.Forms.Renderers
             if (has_text) {
                 var text_bounds = Rectangle.FromLTRB (glyph_strip.Right, bounds.Top, Math.Max (glyph_strip.Right, bounds.Right - e.LogicalToDeviceUnits (2)), bounds.Bottom);
                 var fg = control.RowHeadersDefaultCellStyle.ForegroundColor ?? DataGridView.DefaultRowHeaderStyle.GetForegroundColor ();
-                var font = control.RowHeadersDefaultCellStyle.Font ?? control.DefaultCellStyle.Font ?? Theme.UIFont;
-                var font_size = control.RowHeadersDefaultCellStyle.FontSize ?? control.DefaultCellStyle.FontSize ?? Theme.ItemFontSize;
+                var (ambient_font, ambient_size) = control.CellFallbackFont ();
+                var font = control.RowHeadersDefaultCellStyle.Font ?? control.DefaultCellStyle.Font ?? ambient_font;
+                var font_size = control.RowHeadersDefaultCellStyle.FontSize ?? control.DefaultCellStyle.FontSize ?? ambient_size;
 
                 e.Canvas.DrawText (header_text!, font, control.LogicalToDeviceUnits (font_size), text_bounds, fg, ContentAlignment.MiddleLeft, maxLines: 1);
             }
@@ -671,9 +673,10 @@ namespace Majorsilence.Forms.Renderers
                 ? ToSK (sel_fg_style.SelectionForeColor)
                 : in_selection && DataGridView.DefaultSelectionStyle.ForegroundColor is { } selection_fg
                     ? selection_fg
-                    : cellStyle?.ForegroundColor ?? control.DefaultCellStyle.ForegroundColor ?? Theme.ForegroundColor;
-            var font = cellStyle?.Font ?? control.DefaultCellStyle.Font ?? Theme.UIFont;
-            var font_size = cellStyle?.FontSize ?? control.DefaultCellStyle.FontSize ?? Theme.ItemFontSize;
+                    : cellStyle?.ForegroundColor ?? control.DefaultCellStyle.ForegroundColor ?? control.GetEffectiveForegroundColor ();
+            var (ambient_font, ambient_size) = control.CellFallbackFont ();
+            var font = cellStyle?.Font ?? control.DefaultCellStyle.Font ?? ambient_font;
+            var font_size = cellStyle?.FontSize ?? control.DefaultCellStyle.FontSize ?? ambient_size;
             var scaled_font = control.LogicalToDeviceUnits (font_size);
 
             if (column is DataGridViewImageColumn image_col) {
@@ -716,7 +719,9 @@ namespace Majorsilence.Forms.Renderers
                     && (link_col.UseColumnTextForLinkValue || CellAt (control, rowIndex, columnIndex) is DataGridViewLinkCell { UseColumnTextForLinkValue: true }))
                     value = link_col.Text;
 
-                e.Canvas.DrawText (value, font, scaled_font, text_bounds, fg, alignment, maxLines: max_lines);
+                // A single-line cell ends what does not fit with an ellipsis, as upstream's text box cell
+                // does (EndEllipsis whenever it is not wrapping); clipping mid-letter hid that it was cut.
+                e.Canvas.DrawText (value, font, scaled_font, text_bounds, fg, alignment, maxLines: max_lines, ellipsis: max_lines == 1);
 
                 // A link cell is underlined as well as coloured. LinkBehavior was stored on both the
                 // cell and the column and read by neither, so every link cell drew without one
@@ -826,6 +831,9 @@ namespace Majorsilence.Forms.Renderers
 
         /// <summary>Device-pixel left inset applied to a cell's text, leaving room for a glyph a subclass draws at the cell's left (e.g. a master-detail expander). Default 0.</summary>
         protected virtual int CellLeftInset (DataGridView control, DataGridViewColumn column) => 0;
+
+        /// <summary>Whether a column header's text that does not fit ends in an ellipsis rather than being clipped. Default false.</summary>
+        protected virtual bool HeaderTextEllipsis => false;
 
         /// <summary>Device-pixel right inset applied to a header's text, leaving room for glyphs a subclass draws at the header's right (sort/filter). Default 0.</summary>
         protected virtual int HeaderRightInset (DataGridView control, DataGridViewColumn column) => 0;

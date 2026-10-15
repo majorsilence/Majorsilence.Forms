@@ -137,6 +137,10 @@ namespace Majorsilence.Forms.Renderers
             return 0;
         }
 
+        /// <inheritdoc/>
+        /// <remarks>Telerik's header cells end text that does not fit with "...".</remarks>
+        protected override bool HeaderTextEllipsis => true;
+
         // The funnel glyph is suppressed on very narrow columns (it would crowd out the header text).
         private static bool FunnelFits (DataGridViewColumn column) => column.Width >= 60;
 

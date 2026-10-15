@@ -31,8 +31,14 @@ namespace Majorsilence.Forms
     {
         /// <summary>Gets the default style for all date pickers: what a <c>DateTimePicker { ... }</c> theme rule sets.</summary>
         /// <remarks>Its own as of #100. The picker stopped deriving from TextBox when it gained a real
-        /// drop-down calendar, and the theming reference still said the TextBox rule reached it.</remarks>
-        public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle);
+        /// drop-down calendar, and the theming reference still said the TextBox rule reached it.
+        /// It keeps the input-field look a TextBox has -- a 1px frame on the input background -- which went
+        /// with the base class: upstream's picker is always framed, and a bare one read as a label.</remarks>
+        public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle,
+            (style) => {
+                style.Border.Width = 1;
+                style.BackgroundColor = Theme.ControlLowColor;
+            });
 
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
@@ -80,10 +86,21 @@ namespace Majorsilence.Forms
 
             e.Canvas.DrawText (base.Text, font, font_size, TextBounds, foreground, ContentAlignment.MiddleLeft, maxLines: 1);
 
-            var rect = ButtonBounds;
-            e.Canvas.FillRectangle (rect.X, rect.Y, rect.Width, rect.Height, Theme.ControlMidColor);
-
             var glyph = Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor;
+
+            // Upstream's Windows 11 picker: the field drawn like an editable combo's, with its thin chevron
+            // and no button face (see OnPaintBackground).
+            if (PaintsUpstreamField && !ShowUpDown) {
+                ComboBox.DrawUpstreamChevron (e, ScaledWidth, ScaledHeight, Enabled);
+                return;
+            }
+
+            // The button face sits inside the frame, as upstream's does: filled edge to edge it painted
+            // over the right half of the border, so the frame seemed to end where the button began.
+            var rect = ButtonBounds;
+            var border = LogicalToDeviceUnits (CurrentStyle.Border.GetWidth ());
+            rect = Rectangle.FromLTRB (rect.Left, rect.Top + border, rect.Right - border, rect.Bottom - border);
+            e.Canvas.FillRectangle (rect.X, rect.Y, rect.Width, rect.Height, Theme.ControlMidColor);
 
             if (ShowUpDown) {
                 // ShowUpDown replaces the drop-down button with a spin control, as upstream does. It was
@@ -95,6 +112,23 @@ namespace Majorsilence.Forms
             }
 
             e.Canvas.DrawText ("▾", font, font_size, rect, glyph, ContentAlignment.MiddleCenter, maxLines: 1);
+        }
+
+        // As for a combo box (FieldUpstreamLook): a ported app that chose its font gets upstream's field.
+        private bool PaintsUpstreamField => FieldUpstreamLook.Applies && BackgroundImage is null;
+
+        /// <inheritdoc/>
+        protected override void OnPaintBackground (PaintEventArgs e)
+        {
+            if (!PaintsUpstreamField) {
+                base.OnPaintBackground (e);
+                return;
+            }
+
+            using var device = e.DeviceSpace ();
+
+            var face = Enabled ? FieldUpstreamLook.Window : FieldUpstreamLook.Control;
+            FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, face, FieldUpstreamLook.TextBoxOutline, FieldUpstreamLook.TextBoxBottom);
         }
 
         // The optional-date check box: a box, and a tick when the date is set.
@@ -327,11 +361,44 @@ namespace Majorsilence.Forms
 
         /// <summary>The format string this control's <see cref="Format"/> selects.</summary>
         internal string FormatString => _format switch {
-            DateTimePickerFormat.Custom => _customFormat,
+            DateTimePickerFormat.Custom => LiteralSeparators (_customFormat),
             DateTimePickerFormat.Short => "d",
             DateTimePickerFormat.Time => "t",
             _ => "D"
         };
+
+        // Upstream's picker hands CustomFormat to the native control, whose format strings treat '/' and ':' as
+        // the literal characters. In a .NET format string they mean the culture's date and time separators, so
+        // CustomFormat = "MM/dd/yyyy" read "10-14-2026" under en-CA instead of "10/14/2026". Escapes them outside
+        // quoted literals so .NET prints them as written.
+        internal static string LiteralSeparators (string format)
+        {
+            if (string.IsNullOrEmpty (format) || (format.IndexOf ('/') < 0 && format.IndexOf (':') < 0))
+                return format;
+
+            var result = new System.Text.StringBuilder (format.Length + 4);
+            char? quote = null;
+
+            for (var i = 0; i < format.Length; i++) {
+                var c = format[i];
+
+                if (quote is not null) {
+                    if (c == quote)
+                        quote = null;
+                } else if (c is '\'' or '"') {
+                    quote = c;
+                } else if (c == '\\' && i + 1 < format.Length) {
+                    result.Append (c).Append (format[++i]);
+                    continue;
+                } else if (c is '/' or ':') {
+                    result.Append ('\\');
+                }
+
+                result.Append (c);
+            }
+
+            return result.ToString ();
+        }
 
         private void UpdateText ()
         {

@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using Majorsilence.Forms.Renderers;
 using SkiaSharp;
 using Majorsilence.Forms.Headless;
@@ -502,7 +502,7 @@ public class W6ControlFeaturesTests
 
         Assert.Equal (MessageGlyph.Question, box.Glyph);
         Assert.Equal ("No", ((Button) box.AcceptButton!).Text);
-        Assert.Equal (ContentAlignment.TopRight, box.Controls.GetAllControls ().OfType<Label> ().First ().TextAlign);
+        Assert.Equal (ContentAlignment.MiddleRight, box.Controls.GetAllControls ().OfType<Label> ().First ().TextAlign);
         Assert.Equal (RightToLeft.Yes, box.RightToLeft);
 
         using var plain = new MessageBoxForm ("Title", "Done", MessageBoxButtons.OK, MessageBoxIcon.None, MessageBoxDefaultButton.Button3, MessageBoxOptions.None);

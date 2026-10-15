@@ -27,6 +27,45 @@ namespace Majorsilence.Forms
         /// top-aligns when it cannot fit, so the caps stay fully visible and only the bottom overflows
         /// (and is clipped, as before).
         /// </summary>
+        /// <summary>
+        /// Narrows a wrapping text box to the whole lines that fit, as upstream's
+        /// <c>TextFormatFlags.TextBoxControl</c> does: <c>ControlPaint.CreateTextFormatFlags</c> ORs
+        /// <c>WordBreak | TextBoxControl</c> for Label and the whole button family, so a last line that would
+        /// only be partly visible is not drawn and the lines that remain are aligned as the control asks.
+        /// Returns the box and an alignment re-pinned to its top row, ready for the clip in the draw call to
+        /// hide the rest. Text that fits, or a control shorter than a single line (which keeps the
+        /// top-clamped path, see <see cref="VerticalTextOrigin"/>), comes back unchanged.
+        /// </summary>
+        internal static (Rectangle Bounds, ContentAlignment Alignment) WholeLineBox (string text, SKTypeface font, int fontSize, Rectangle bounds, ContentAlignment alignment)
+        {
+            var wrapped = TextMeasurer.MeasureText (Mnemonics.Strip (text), font, fontSize, new Size (bounds.Width, int.MaxValue)).Height;
+            var line = TextMeasurer.MeasureText ("X", font, fontSize).Height;
+            var whole_lines = line > 0 ? (int) (bounds.Height / line) : 0;
+
+            if (wrapped <= bounds.Height || whole_lines < 1)
+                return (bounds, alignment);
+
+            var visible = (int) (whole_lines * line);
+            var top = TextMeasurer.GetVerticalAlign (alignment) switch {
+                SKTextAlign.Left => bounds.Top,
+                SKTextAlign.Right => bounds.Bottom - visible,
+                _ => bounds.Top + ((bounds.Height - visible) / 2),
+            };
+
+            var top_row = alignment switch {
+                ContentAlignment.MiddleLeft or ContentAlignment.BottomLeft => ContentAlignment.TopLeft,
+                ContentAlignment.MiddleRight or ContentAlignment.BottomRight => ContentAlignment.TopRight,
+                ContentAlignment.MiddleCenter or ContentAlignment.BottomCenter => ContentAlignment.TopCenter,
+                _ => alignment,
+            };
+
+            return (new Rectangle (bounds.X, top, bounds.Width, visible), top_row);
+        }
+
+        /// <summary>A control's text box narrowed to whole lines, using the control's effective font.</summary>
+        internal static (Rectangle Bounds, ContentAlignment Alignment) WholeLineBox (Control control, string text, Rectangle bounds, ContentAlignment alignment)
+            => WholeLineBox (text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, alignment);
+
         internal static int VerticalTextOrigin (SKTextAlign vertical, Rectangle bounds, int measuredHeight)
         {
             // NOTE: GetVerticalAlign maps Top→Left, Center→Center, Bottom→Right (see TextMeasurer).

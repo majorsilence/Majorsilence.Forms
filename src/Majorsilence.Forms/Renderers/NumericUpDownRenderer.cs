@@ -11,8 +11,11 @@ namespace Majorsilence.Forms.Renderers
         protected override void Render (NumericUpDown control, PaintEventArgs e)
         {
             var client = control.DeviceClientRectangle;
-            var inc_area = control.GetIncrementArea ();
-            var dec_area = control.GetDecrementArea ();
+            // The buttons are painted inside the frame, as upstream's are: the hit-test areas run the
+            // control's full height, and filled as they were they covered the border beside them, so the
+            // frame seemed to stop where the buttons began.
+            var inc_area = Rectangle.Intersect (control.GetIncrementArea (), client);
+            var dec_area = Rectangle.Intersect (control.GetDecrementArea (), client);
 
             // SMP-33: the control's OWN font, size and colour -- these were Theme.UIFont,
             // Theme.FontSize and Theme.ForegroundColor, so setting Font on a NumericUpDown had no

@@ -1993,7 +1993,9 @@ namespace Majorsilence.Forms
         /// form's 8.25pt font in GDI) hold instead of clipping at the larger theme font.
         /// </summary>
         internal SKTypeface GetEffectiveFont ()
-            => CurrentStyle.TryGetFont ()
+            => StateStyle?.Font
+                ?? Style.Font
+                ?? CurrentStyle.TryGetFont ()
                 ?? Parent?.GetEffectiveFont ()
                 // The window is not a Control, so the parent walk stops at its adapter; ask the window's
                 // own style chain before the default, as the colour resolutions above do. This is what
@@ -2011,10 +2013,27 @@ namespace Majorsilence.Forms
         /// third place: the measuring call, the Control.Font setter, and this fallback.
         /// </remarks>
         internal int GetEffectiveFontSize ()
-            => CurrentStyle.TryGetFontSize ()
+            => StateStyle?.FontSize
+                ?? Style.FontSize
+                ?? CurrentStyle.TryGetFontSize ()
                 ?? Parent?.GetEffectiveFontSize ()
                 ?? FindWindow ()?.CurrentStyle.TryGetFontSize ()
                 ?? (int) System.Math.Round (Majorsilence.Forms.SystemFonts.DefaultFont.PixelSize);
+
+        // The instance's own state style (hover, pressed, disabled, focus) when the control is in one, else null.
+        //
+        // Font resolution checks it, then the instance's base Style, BEFORE walking the state style's chain.
+        // Control.Font writes Style, but several types (Button among them) chain their state styles to the
+        // TYPE-level state defaults rather than to the instance Style -- so walking CurrentStyle alone skipped
+        // the control's own font whenever it was disabled or hovered. A disabled 12pt Button drew its caption
+        // in the ambient/theme size, visibly smaller than the same button enabled. Upstream has no such
+        // states: a control's Font is its font in every state.
+        private ControlStyle? StateStyle {
+            get {
+                var current = CurrentStyle;
+                return ReferenceEquals (current, Style) ? null : current;
+            }
+        }
 
         /// <summary>
         /// Called when the Parent property is changed.
@@ -2414,8 +2433,12 @@ namespace Majorsilence.Forms
                     Application.ClosePopups (true, false);
 
                 // If we're clicking on a Control that isn't a child of the active PopupWindow,
-                // we need to close the active popup (if any)
-                if (FindWindow () != Application.ActivePopupWindow)
+                // we need to close the active popup (if any) -- unless the click is inside the open menu.
+                // The active popup is the NEWEST one, an open submenu; a press on its parent drop-down
+                // (clicking "Transfer Balances" while its submenu is showing) is a click on the menu,
+                // which upstream leaves open. Closing here hid the submenu's window out from under its
+                // still-"opened" item. The menu decides for itself what a click inside it dismisses.
+                if (FindWindow () != Application.ActivePopupWindow && !IsWithinActiveMenu ())
                     Application.ClosePopups (false, true);
 
                 if (Enabled) {

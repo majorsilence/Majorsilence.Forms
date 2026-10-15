@@ -3158,6 +3158,14 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Base Telerik-compat grid column. Adds the Telerik column member names on top of <see cref="DataGridViewColumn"/>.</summary>
     public class GridViewColumn : DataGridViewColumn
     {
+        /// <summary>Initializes a new instance of the <see cref="GridViewColumn"/> class.</summary>
+        /// <remarks>Telerik centres a column's header text (HeaderTextAlignment defaults to MiddleCenter);
+        /// the WinForms default this inherited put every header at the left.</remarks>
+        public GridViewColumn ()
+        {
+            HeaderAlignment = ContentAlignment.MiddleCenter;
+        }
+
         /// <summary>Gets or sets the sort order shown for this column, using Telerik's <see cref="RadSortOrder"/> (forwards to the base WinForms-typed SortOrder; the enum values align).</summary>
         public new RadSortOrder SortOrder {
             get => (RadSortOrder)(int)base.SortOrder;

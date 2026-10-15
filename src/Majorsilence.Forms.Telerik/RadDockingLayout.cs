@@ -25,8 +25,11 @@ namespace Majorsilence.Forms.Telerik
         internal const int CaptionHeight = 22;
         internal const int CloseBoxWidth = 16;
 
+        // The room the strip close button takes at the right end of the header row.
+        internal const int StripCloseBand = CloseBoxWidth + 6;
+
         // How a strip arranges itself: whether tab headers show, whether they sit below the content,
-        // the height of a caption band above everything, and whether each tab carries a close box.
+        // the height of a caption band above everything, and whether the header row ends in a close box.
         internal readonly struct Shape
         {
             internal Shape (bool headers, bool bottom, int caption, bool close)
@@ -91,10 +94,15 @@ namespace Majorsilence.Forms.Telerik
 
             var x = 0;
             var row = 0;
+            // DocumentButtons.Close is ONE button at the right end of the header row (Telerik's strip close
+            // button, which closes the active document), so the tabs flow short of it rather than each
+            // reserving a box of their own.
+            if (ShapeOf (strip).Close)
+                avail = Math.Max (60, avail - StripCloseBand);
+
             foreach (var w in ws) {
                 var textWidth = (int) Math.Ceiling (TextMeasurer.MeasureText (Caption (w), font, fontSize).Width);
-                var close = ShapeOf (strip).Close ? CloseBoxWidth : 0;
-                var width = Math.Min (Math.Max (60, textWidth + 20 + close), avail);
+                var width = Math.Min (Math.Max (60, textWidth + 20), avail);
 
                 if (x > 0 && x + width > avail) {
                     x = 0;
@@ -222,24 +230,26 @@ namespace Majorsilence.Forms.Telerik
                 e.Canvas.DrawRect (r.Left, r.Top, r.Width, r.Height, w == selected ? selFill : unselFill);
                 e.Canvas.DrawRect (r.Left + 0.5f, r.Top + 0.5f, r.Width - 1, r.Height - 1, border);
 
-                var close_width = shape.Close ? strip.LogicalToDeviceUnits (CloseBoxWidth) : 0;
-
                 e.Canvas.DrawText (Caption (w), font, deviceFontSize,
-                    new Rectangle (r.Left + pad, r.Top, Math.Max (0, r.Width - pad - 4 - close_width), r.Height),
+                    new Rectangle (r.Left + pad, r.Top, Math.Max (0, r.Width - pad - 4), r.Height),
                     fore, ContentAlignment.MiddleLeft, maxLines: 1);
 
                 state.Rects.Add ((w, logical));
+            }
 
-                if (shape.Close) {
-                    // The close box: a cross in the tab's right end (DocumentButtons.Close).
-                    var box = new Rectangle (logical.Right - CloseBoxWidth - 2, logical.Top + ((logical.Height - CloseBoxWidth) / 2), CloseBoxWidth, CloseBoxWidth);
-                    var d = Device (box);
-                    var inset = strip.LogicalToDeviceUnits (4);
-                    using var cross = new SKPaint { Color = fore, IsStroke = true, StrokeWidth = Math.Max (1, strip.LogicalToDeviceUnits (1)), IsAntialias = true };
-                    e.Canvas.DrawLine (d.Left + inset, d.Top + inset, d.Right - inset, d.Bottom - inset, cross);
-                    e.Canvas.DrawLine (d.Right - inset, d.Top + inset, d.Left + inset, d.Bottom - inset, cross);
-                    state.CloseRects.Add ((w, box));
-                }
+            if (shape.Close) {
+                // DocumentButtons.Close: Telerik's strip close button -- one cross at the right end of the
+                // first header row, closing whichever document is selected. Tabs carry no close box of
+                // their own (that is a separate, opt-in per-item button upstream); drawing one on every
+                // tab was a visible divergence on every tabbed-document form.
+                var target = selected ?? ws[0];
+                var box = new Rectangle (client.Right - CloseBoxWidth - 3, origin + ((HeaderHeight - CloseBoxWidth) / 2), CloseBoxWidth, CloseBoxWidth);
+                var d = Device (box);
+                var inset = strip.LogicalToDeviceUnits (4);
+                using var cross = new SKPaint { Color = fore, IsStroke = true, StrokeWidth = Math.Max (1, strip.LogicalToDeviceUnits (1)), IsAntialias = true };
+                e.Canvas.DrawLine (d.Left + inset, d.Top + inset, d.Right - inset, d.Bottom - inset, cross);
+                e.Canvas.DrawLine (d.Right - inset, d.Top + inset, d.Left + inset, d.Bottom - inset, cross);
+                state.CloseRects.Add ((target, box));
             }
         }
 
@@ -610,15 +620,8 @@ namespace Majorsilence.Forms.Telerik
         {
             base.OnMouseDown (e);
 
-            if (DockStrip.HitTest (_headers, e.Location) is not { } hit)
-                return;
-
-            if (e.Button == MouseButtons.Right) {
-                DockStrip.ShowTabMenu (this, hit, e.Location);
-                return;
-            }
-
-            if (DockStrip.HitClose (_headers, e.Location) is { } closing) {
+            // The strip close button sits past the last tab, outside every header, so it is tested first.
+            if (e.Button == MouseButtons.Left && DockStrip.HitClose (_headers, e.Location) is { } closing) {
                 if (DockStrip.DockOf (this) is { } dock)
                     dock.CloseWindow (closing);
                 else
@@ -626,6 +629,14 @@ namespace Majorsilence.Forms.Telerik
 
                 PerformLayout ();
                 Invalidate ();
+                return;
+            }
+
+            if (DockStrip.HitTest (_headers, e.Location) is not { } hit)
+                return;
+
+            if (e.Button == MouseButtons.Right) {
+                DockStrip.ShowTabMenu (this, hit, e.Location);
                 return;
             }
 

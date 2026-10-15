@@ -10,6 +10,66 @@ namespace Majorsilence.Forms
     /// </summary>
     public static class TextMeasurer
     {
+        // Per typeface: the extra advance per glyph, per pixel of font size, that the font engine already gives a
+        // SYNTHESIZED bold -- or null when the typeface is not one. Keyed by instance; typefaces are cached and reused.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<SKTypeface, float?> synthetic_bold = new ();
+
+        /// <summary>
+        /// The letter spacing, in pixels, that brings a SYNTHESIZED bold -- a bold asked of a family with no
+        /// bold face (Microsoft Sans Serif, the classic designer font, is the common case) -- up to GDI's width.
+        /// GDI widens every glyph of an emboldened face by about a pixel at UI sizes; DirectWrite and FreeType
+        /// widen it by much less (about a third of a pixel at 16px). Designer layouts were measured in GDI, so a
+        /// bold caption came out narrower than the space it was laid out for: a label that wraps to "Postal/Zip"
+        /// upstream stayed on one line here and ran under the textbox placed after it. Only the difference is
+        /// added, and a real bold face (its own font file) is left alone.
+        /// </summary>
+        internal static float GdiBoldSpacing (SKTypeface font, int fontSize)
+        {
+            if (fontSize <= 0 || synthetic_bold.GetOrAdd (font, EngineBoldAdvance) is not { } engine_per_px)
+                return 0f;
+
+            var gdi = Math.Max (1f, fontSize / 16f);
+            return Math.Max (0f, gdi - (engine_per_px * fontSize));
+        }
+
+        // A bold typeface served from the same font file as its family's regular face is synthesized. For one,
+        // returns how much wider than regular the engine already draws each glyph, per pixel of font size.
+        private static float? EngineBoldAdvance (SKTypeface font)
+        {
+            if (font.FontWeight < (int) SKFontStyleWeight.SemiBold)
+                return null;
+
+            using var regular = SKFontManager.Default.MatchFamily (font.FamilyName, SKFontStyle.Normal);
+
+            if (regular is null || regular.FontWeight >= (int) SKFontStyleWeight.SemiBold || !SameFontFile (font, regular))
+                return null;
+
+            const string sample = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+            const float size = 64f;
+            using var bold_font = new SKFont (font, size);
+            using var regular_font = new SKFont (regular, size);
+
+            return Math.Max (0f, bold_font.MeasureText (sample) - regular_font.MeasureText (sample)) / sample.Length / size;
+        }
+
+        private static bool SameFontFile (SKTypeface a, SKTypeface b)
+        {
+            using var sa = a.OpenStream (out var index_a);
+            using var sb = b.OpenStream (out var index_b);
+
+            if (sa is null || sb is null || index_a != index_b || sa.Length != sb.Length)
+                return false;
+
+            // Same length and collection index; compare the leading bytes (the table directory) to be sure.
+            var head = Math.Min (sa.Length, 4096);
+            var ba = new byte[head];
+            var bb = new byte[head];
+            sa.Read (ba, head);
+            sb.Read (bb, head);
+
+            return ba.AsSpan ().SequenceEqual (bb);
+        }
+
         // Every TextBlock in the library is created here (TextBoxDocument included), and a TextBlock
         // resolves its family name through FontMapper.Default at layout time. Installing from here
         // rather than relying on Theme's static constructor is what makes that dependable: Theme is
@@ -152,12 +212,15 @@ namespace Majorsilence.Forms
             // drew upright -- a report chart's italic category labels among them.
             var face = StyleOf (font);
 
+            var spacing = GdiBoldSpacing (font, fontSize);
+
             var styleNormal = new Style {
                 FontFamily = face.Family,
                 FontSize = fontSize,
                 TextColor = color,
                 FontWeight = face.Weight,
-                FontItalic = face.Italic
+                FontItalic = face.Italic,
+                LetterSpacing = spacing
             };
 
             // Underline the mnemonic character (the access key) by splitting the text into a
@@ -169,6 +232,7 @@ namespace Majorsilence.Forms
                     TextColor = color,
                     FontWeight = face.Weight,
                     FontItalic = face.Italic,
+                    LetterSpacing = spacing,
                     Underline = UnderlineStyle.Solid
                 };
 
@@ -262,6 +326,7 @@ namespace Majorsilence.Forms
                             TextColor = style.TextColor,
                             FontWeight = style.FontWeight,
                             Underline = style.Underline,
+                            LetterSpacing = style.LetterSpacing,
                         });
 
                         i += length + 1;

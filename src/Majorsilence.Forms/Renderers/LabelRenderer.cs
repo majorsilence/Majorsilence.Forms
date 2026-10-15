@@ -28,7 +28,7 @@ namespace Majorsilence.Forms.Renderers
                 // edge; centered text is unaffected).
                 var text_bounds = layout.TextBounds;
                 var inset = e.LogicalToDeviceUnits (2);
-                switch (control.TextAlign) {
+                switch (TextImageLayoutEngine.RtlTranslate (control, control.TextAlign)) {
                     case ContentAlignment.TopLeft:
                     case ContentAlignment.MiddleLeft:
                     case ContentAlignment.BottomLeft:
@@ -41,10 +41,15 @@ namespace Majorsilence.Forms.Renderers
                         break;
                 }
 
+                // A wrapping label draws whole lines only, as upstream's TextBoxControl flag does (see WholeLineBox).
+                var text_align = TextImageLayoutEngine.RtlTranslate (control, control.TextAlign);
+                if (control.Multiline)
+                    (text_bounds, text_align) = SkiaTextExtensions.WholeLineBox (control, control.Text, text_bounds, text_align);
+
                 if (control.UseMnemonic)
-                    e.Canvas.DrawMnemonicText (control.Text, text_bounds, control, control.TextAlign, maxLines: control.Multiline ? null : 1, ellipsis: control.AutoEllipsis);
+                    e.Canvas.DrawMnemonicText (control.Text, text_bounds, control, text_align, maxLines: control.Multiline ? null : 1, ellipsis: control.AutoEllipsis);
                 else
-                    e.Canvas.DrawText (control.Text, text_bounds, control, control.TextAlign, maxLines: control.Multiline ? null : 1, ellipsis: control.AutoEllipsis);
+                    e.Canvas.DrawText (control.Text, text_bounds, control, text_align, maxLines: control.Multiline ? null : 1, ellipsis: control.AutoEllipsis);
             }
         }
     }

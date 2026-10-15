@@ -37,9 +37,11 @@ internal partial class FlowLayout
             _container = container;
             _isContainerRTL = false;
 
-            // TODO: RTL
-            if (_container is Control)
-                _isContainerRTL = false;// ((Control)(_container)).RightToLeft == RightToLeft.Yes;
+            // As upstream: a right-to-left container mirrors the flow, so the FIRST child sits against the
+            // right edge. This was stubbed to false, so a designer's FlowLayoutPanel { RightToLeft = Yes } -- the
+            // usual way to right-align a row of buttons -- laid its buttons out in reverse order.
+            if (_container is Control control)
+                _isContainerRTL = control.RightToLeft == RightToLeft.Yes;
         }
 
         public virtual Rectangle Bounds {

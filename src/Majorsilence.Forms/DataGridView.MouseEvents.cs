@@ -292,8 +292,9 @@ namespace Majorsilence.Forms
                 text_area = new Rectangle (text_area.X + padded.Padding.Left, text_area.Y + padded.Padding.Top,
                     Math.Max (0, text_area.Width - padded.Padding.Horizontal), Math.Max (0, text_area.Height - padded.Padding.Vertical));
 
-            var font = style?.Font ?? DefaultCellStyle.Font ?? Theme.UIFont;
-            var font_size = style?.FontSize ?? DefaultCellStyle.FontSize ?? Theme.ItemFontSize;
+            var (ambient_font, ambient_size) = CellFallbackFont ();
+            var font = style?.Font ?? DefaultCellStyle.Font ?? ambient_font;
+            var font_size = style?.FontSize ?? DefaultCellStyle.FontSize ?? ambient_size;
             var measured = TextMeasurer.MeasureText (value_text, font, font_size);
             var text_size = new Size ((int)Math.Ceiling (measured.Width), (int)Math.Ceiling (measured.Height));
 

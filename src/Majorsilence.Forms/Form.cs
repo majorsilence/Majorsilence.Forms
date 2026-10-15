@@ -1223,6 +1223,8 @@ namespace Majorsilence.Forms
                 if (IsDisposed)
                     return;
 
+                size_set_from_client_size = false;
+
                 // Clamp instead of throwing. WinForms hands the size to SetWindowPos, which treats a
                 // negative extent as zero, so laying a window out to a negative size is something
                 // WinForms code does and survives -- a docking pane whose available area has collapsed
@@ -1332,7 +1334,13 @@ namespace Majorsilence.Forms
         /// border still compiles and runs here, it just has no border to adjust for.
         /// </summary>
         protected virtual void SetClientSizeCore (int x, int y)
-            => Size = new System.Drawing.Size (x, y + NonClientCaptionHeight);
+        {
+            Size = new System.Drawing.Size (x, y + NonClientCaptionHeight);
+            size_set_from_client_size = true;
+        }
+
+        // Whether the size last assigned came from ClientSize, and so has the caption's height added to it.
+        private bool size_set_from_client_size;
 
         /// <summary>Gets or sets the automatic scaling mode.</summary>
         /// <remarks>
@@ -2112,9 +2120,36 @@ namespace Majorsilence.Forms
             }
         }
 
+        // The Location assigned before Show (designer or code), where a Manual-positioned child opens
+        // within the MDI client. Read from the backend for the same reason as InitialMdiContentSize.
+        internal System.Drawing.Point InitialMdiLocation => Backend.Location;
+
         // Configures this form for being hosted as an MDI child: no self-drawn title bar/border (the frame
         // draws them) and no window-edge resize routing (the frame handles resize).
-        private void PrepareAsMdiChild () => PrepareAsHostedChild ();
+        //
+        // A size assigned through ClientSize includes the caption a top-level window would draw
+        // (SetClientSizeCore adds it), which the MDI frame draws instead. It comes off as the caption is
+        // hidden -- the two together, so the form's own layout never sees the taller area: otherwise every
+        // designer-sized child (ClientSize = ...) opened a caption's height taller than designed, its
+        // controls over a blank band at the bottom. A Size assignment is the hosted content size, as before.
+        private void PrepareAsMdiChild ()
+        {
+            var caption = size_set_from_client_size && TitleBar.Visible ? NonClientCaptionHeight : 0;
+
+            // Hidden and shrunk under one suspended layout, so the single pass that follows sees only the
+            // final client area -- the designed one. Laid out in between, the form's anchored controls
+            // were measured against the caption-tall interim area and kept that offset after the shrink:
+            // a bottom-anchored button row rode up by the caption's height.
+            SuspendLayout ();
+            PrepareAsHostedChild ();
+
+            if (caption > 0) {
+                var size = Size;
+                Size = new System.Drawing.Size (size.Width, Math.Max (1, size.Height - caption));
+            }
+
+            ResumeLayout (true);
+        }
 
         // Configures this form for being drawn inside a frame in someone else's control tree: no
         // self-drawn title bar or border (the host owns any chrome there is) and no window-edge resize
@@ -2161,6 +2196,16 @@ namespace Majorsilence.Forms
                 ShowHostedSequence (EnsureLoaded);
 
                 frame.Invalidate ();
+                return true;
+            }
+
+            // Shown again while it already has a frame -- most often by its own Load handler calling Show (),
+            // a long-standing designer-era habit. Upstream's Show on a form that is already showing only keeps
+            // it shown; this hosted it a second time, and the extra frame stayed behind, blank and impossible
+            // to close, once the form itself was closed.
+            if (MdiHost is { } mdi_frame) {
+                mdi_frame.Visible = true;
+                mdi_frame.Client.Activate (this);
                 return true;
             }
 
