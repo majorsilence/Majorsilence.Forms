@@ -33,8 +33,11 @@ namespace Majorsilence.Forms.Tests
             try {
                 PaintSurface.Render (strip).Dispose ();
 
-                // Same text, same padding: the only difference is the arrow's gutter.
-                Assert.Equal (plain.Width + Renderers.ToolBarRenderer.DropDownArrowGutter (16), drop_down.Width);
+                // Same text, same padding: the only difference is the arrow's gutter, which RenderItem takes
+                // in device pixels (the glyph scales, the 4px gap does not). Item widths are logical.
+                var scale = strip.LogicalToDeviceUnits (1000) / 1000.0;
+                var gutter = Renderers.ToolBarRenderer.DropDownArrowGutter (strip.LogicalToDeviceUnits (16));
+                Assert.Equal ((int) Math.Round (gutter / scale), drop_down.Width - plain.Width);
             } finally {
                 form.Close ();
             }
