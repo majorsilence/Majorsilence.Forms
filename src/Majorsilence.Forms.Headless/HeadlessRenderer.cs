@@ -110,6 +110,42 @@ namespace Majorsilence.Forms.Headless
         }
 
         /// <summary>
+        /// Installs the UI synchronization context on the calling thread, as a running message loop would,
+        /// so an <c>await</c> in an event handler resumes on this thread; disposing the result restores the
+        /// previous context. Call <see cref="Use"/> first.
+        /// </summary>
+        /// <remarks>
+        /// A test does not run <c>Application.Run</c>, so nothing drains what the context posts: pump it
+        /// with <see cref="PumpUntil"/> (or <c>Application.DoEvents</c>). <see cref="Use"/> does not install
+        /// it by itself, because a test that awaits real asynchronous work without pumping would then
+        /// never resume.
+        /// </remarks>
+        public static System.IDisposable UseSynchronizationContext ()
+        {
+            Backend.ClaimUiThread ();
+            var previous = System.Threading.SynchronizationContext.Current;
+            System.Threading.SynchronizationContext.SetSynchronizationContext (new WindowsFormsSynchronizationContext ());
+            return new RestoreContext (previous);
+        }
+
+        private sealed class RestoreContext (System.Threading.SynchronizationContext? previous) : System.IDisposable
+        {
+            public void Dispose () => System.Threading.SynchronizationContext.SetSynchronizationContext (previous);
+        }
+
+        /// <summary>
+        /// Runs posted work (marshalled calls, timer ticks, continuations posted through the UI
+        /// synchronization context) on the calling thread until <paramref name="condition"/> holds.
+        /// </summary>
+        /// <exception cref="System.TimeoutException">The condition still did not hold after <paramref name="timeout"/> (default 10 seconds).</exception>
+        public static void PumpUntil (System.Func<bool> condition, System.TimeSpan? timeout = null)
+        {
+            var limit = timeout ?? System.TimeSpan.FromSeconds (10);
+            if (!Backend.PumpUntil (condition, limit))
+                throw new System.TimeoutException ($"The condition did not hold within {limit.TotalSeconds:0.#} s of pumping.");
+        }
+
+        /// <summary>
         /// Whether the window currently owns a shown OS window — what <c>Form.TopLevel</c> decides.
         /// </summary>
         public static bool OwnsShownWindow (WindowBase window)

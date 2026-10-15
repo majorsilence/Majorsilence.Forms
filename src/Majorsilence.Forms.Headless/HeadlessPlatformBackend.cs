@@ -220,18 +220,63 @@ namespace Majorsilence.Forms.Headless
 
             using var registration = token.Register (() => _signal.Set ());
 
-            while (_running && !token.IsCancellationRequested) {
+            // As upstream's Application.Run: the loop's thread gets the UI synchronization context, so an
+            // await in an event handler resumes here. Nothing installed it, so continuations ran on the
+            // thread pool and touched controls there.
+            var previous = SynchronizationContext.Current;
+            var installed = InstallSynchronizationContextIfNeeded ();
+
+            try {
+                while (_running && !token.IsCancellationRequested) {
+                    DrainQueue ();
+
+                    // The loop has nothing left to do, which is what Application.Idle means. Raised here
+                    // rather than on every pass so a handler that queues work sees the queue drained
+                    // first. Nothing used to raise it at all.
+                    Majorsilence.Forms.Application.RaiseIdle ();
+
+                    _signal.WaitOne (50);
+                }
+
                 DrainQueue ();
-
-                // The loop has nothing left to do, which is what Application.Idle means. Raised here
-                // rather than on every pass so a handler that queues work sees the queue drained
-                // first. Nothing used to raise it at all.
-                Majorsilence.Forms.Application.RaiseIdle ();
-
-                _signal.WaitOne (50);
+            } finally {
+                if (installed)
+                    SynchronizationContext.SetSynchronizationContext (previous);
             }
+        }
 
-            DrainQueue ();
+        // Upstream's InstallIfNeeded: only when AutoInstall is on and the thread has no context of its own
+        // (a base SynchronizationContext counts as none).
+        internal static bool InstallSynchronizationContextIfNeeded ()
+        {
+            if (!WindowsFormsSynchronizationContext.AutoInstall)
+                return false;
+
+            var current = SynchronizationContext.Current;
+            if (current is not null && current.GetType () != typeof (SynchronizationContext))
+                return false;
+
+            SynchronizationContext.SetSynchronizationContext (new WindowsFormsSynchronizationContext ());
+            return true;
+        }
+
+        /// <summary>Runs posted work on the calling thread until <paramref name="done"/> holds or the time is up.</summary>
+        internal bool PumpUntil (Func<bool> done, TimeSpan timeout)
+        {
+            var deadline = DateTime.UtcNow + timeout;
+
+            while (true) {
+                DrainQueue ();
+                if (done ())
+                    return true;
+
+                var left = deadline - DateTime.UtcNow;
+                if (left <= TimeSpan.Zero)
+                    return false;
+
+                // Woken by the next Post, so a continuation arriving from the thread pool runs at once.
+                _signal.WaitOne (left < TimeSpan.FromMilliseconds (50) ? left : TimeSpan.FromMilliseconds (50));
+            }
         }
 
         /// <inheritdoc/>

@@ -565,6 +565,24 @@ Then: `Wait.For (session, By.Id ("resultsGrid"))`, or
 **Never `Thread.Sleep` alone.** Without `DoEvents()` the queued callback never runs, so a bare sleep
 makes the test slower *and* still failing.
 
+### `async` event handlers
+
+Under `Application.Run` (and on every interactive backend) the UI thread has a
+`WindowsFormsSynchronizationContext`, so the code after an `await` in an event handler resumes on the UI
+thread. A test does not run the message loop, so it installs the context itself and pumps until the
+handler has finished:
+
+```csharp
+using var context = HeadlessRenderer.UseSynchronizationContext ();
+
+session.Click (By.Id ("loadButton"));                       // an async void Click handler
+HeadlessRenderer.PumpUntil (() => grid.Rows.Count > 0);     // runs its continuations on this thread
+```
+
+`HeadlessRenderer.Use ()` does not install the context by itself: a test that awaited real asynchronous
+work with it installed and nothing pumping would never resume. `PumpUntil` throws a `TimeoutException`
+after ten seconds (or the timeout you pass).
+
 ---
 
 ## Page objects
