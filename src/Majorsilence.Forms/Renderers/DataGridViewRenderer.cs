@@ -132,7 +132,10 @@ namespace Majorsilence.Forms.Renderers
             var font_size = control.ColumnHeadersDefaultCellStyle.FontSize ?? fallback.Size;
 
             // The header CELL's value, which HeaderText is a view of (DGV-24) -- in any type, as upstream paints it.
-            e.Canvas.DrawText (column.HeaderDisplayText, font, control.LogicalToDeviceUnits (font_size), text_bounds, fg, column.HeaderAlignment, maxLines: 1, ellipsis: HeaderTextEllipsis);
+            // Wrapped onto further lines when headers wrap (upstream's default), unless this renderer ends a
+            // caption that does not fit with an ellipsis instead.
+            var header_lines = control.HeaderWraps && !HeaderTextEllipsis ? (int?) null : 1;
+            e.Canvas.DrawText (column.HeaderDisplayText, font, control.LogicalToDeviceUnits (font_size), text_bounds, fg, column.HeaderAlignment, maxLines: header_lines, ellipsis: HeaderTextEllipsis);
 
             // Draw sort indicator
             if (column.SortOrder != SortOrder.None)

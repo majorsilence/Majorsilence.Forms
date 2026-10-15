@@ -1797,6 +1797,16 @@ namespace Majorsilence.Forms
             set => ContainerFocus.SetActiveControl (client_area, value, ref active_control);
         }
 
+        // Upstream gives a container that gains focus with no active control its first control in tab order
+        // (ContainerControl.WmSetFocus), so a form -- top-level or MDI child -- opens with its first field
+        // focused and ready for typing. Here nothing had focus until the user clicked. A control focused by
+        // a Load handler wins, as upstream.
+        internal void FocusFirstControlIfNone ()
+        {
+            if (ActiveControl is null)
+                SelectNextControl (null, true, true, true, false);
+        }
+
         /// <summary>
         /// Gets or sets whether the form is an MDI container. Setting this true creates the client area
         /// that hosts MDI child forms (Majorsilence.Forms emulates MDI by hosting children inside the
@@ -2217,6 +2227,9 @@ namespace Majorsilence.Forms
             Application.OpenForms.Add (this);
 
             ShowHostedSequence (EnsureLoaded);
+
+            if (client.ActiveChild == this)
+                FocusFirstControlIfNone ();
 
             return true;
         }

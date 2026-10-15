@@ -153,6 +153,11 @@ namespace Majorsilence.Forms.Tests
                 view.Items.Add (new ListViewItem (text));
 
             form = new Form { Width = 400, Height = 300 };
+
+            // Focus elsewhere: a shown form now focuses its first control, as upstream's does. These
+            // tests need the list unfocused until they focus it themselves.
+            form.Controls.Add (new Button { Left = 310, Top = 10, Width = 60, TabIndex = 0 });
+            view.TabIndex = 1;
             form.Controls.Add (view);
             form.Show ();
 

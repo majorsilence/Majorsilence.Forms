@@ -382,6 +382,7 @@ namespace Majorsilence.Forms.Tests
         public void RadGridView_grouping_and_filtering_defaults_follow_Telerik ()
         {
             using var grid = new Majorsilence.Forms.Telerik.RadGridView ();
+            grid.Columns.Add (new Majorsilence.Forms.Telerik.GridViewTextBoxColumn { Name = "a", HeaderText = "A" });   // bands show with columns
 
             Assert.True (grid.ShowGroupPanel);
             Assert.True (grid.EnableGrouping);
@@ -402,6 +403,82 @@ namespace Majorsilence.Forms.Tests
 
             // Whole rows, as Telerik selects by default -- and as the Telerik-typed SelectionMode reports.
             Assert.Equal (DataGridViewSelectionMode.FullRowSelect, ((DataGridView) grid).SelectionMode);
+        }
+
+        // Telerik shows the group panel and filtering row only once a grid has columns, and an empty grid says
+        // "No data to display". Here an unbound grid showed a group panel over a blank area.
+        [Fact]
+        public void An_empty_RadGridView_shows_only_its_no_data_text ()
+        {
+            using var deterministic = HeadlessRenderer.UseDeterministic ();
+
+            using var form = new Form { Size = new System.Drawing.Size (400, 300) };
+            var grid = new Majorsilence.Forms.Telerik.RadGridView { Left = 0, Top = 0, Width = 300, Height = 200, EnableFiltering = true };
+            form.Controls.Add (grid);
+            form.Show ();
+
+            Assert.Equal (0, grid.GroupPanelBandHeight);
+            Assert.Equal (0, grid.FilterRowBandHeight);
+
+            HeadlessRenderer.CapturePng (form);
+            HeadlessRenderer.CapturePng (form);
+            var buffer = typeof (Control).GetMethod ("GetBackBuffer",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+            var bitmap = (SkiaSharp.SKBitmap) buffer.Invoke (grid, null)!;
+
+            // Ink across the middle of the grid: the centred text.
+            var ink = 0;
+            var mid = bitmap.Height / 2;
+            for (var x = 0; x < bitmap.Width; x++)
+                for (var y = mid - grid.LogicalToDeviceUnits (8); y < mid + grid.LogicalToDeviceUnits (8); y++)
+                    if (bitmap.GetPixel (x, y) is var c && c.Red < 100 && c.Green < 100 && c.Blue < 100)
+                        ink++;
+            Assert.True (ink > 20, $"no text in the middle of an empty grid ({ink} dark pixels)");
+
+            grid.Columns.Add (new Majorsilence.Forms.Telerik.GridViewTextBoxColumn { Name = "a", HeaderText = "A" });
+            Assert.True (grid.GroupPanelBandHeight > 0);
+            Assert.True (grid.FilterRowBandHeight > 0);
+        }
+
+        // Selecting a container control in tab order passes the focus on to its own first control, as
+        // upstream's ContainerControl.Select (directed) does. A UserControl wrapping a TextBox (a date
+        // field, say) took the focus itself, so the TextBox inside never got it, nor its Enter event.
+        [Fact]
+        public void Tab_order_selection_enters_a_user_controls_first_control ()
+        {
+            HeadlessRenderer.Use ();
+
+            using var form = new Form ();
+            var inner = new TextBox { Width = 100 };
+            var entered = false;
+            inner.Enter += (_, _) => entered = true;
+            var wrapper = new UserControl { Left = 10, Top = 10, Width = 120, Height = 30, TabIndex = 0 };
+            wrapper.Controls.Add (inner);
+            form.Controls.Add (wrapper);
+            form.Controls.Add (new Button { Left = 10, Top = 60, TabIndex = 1 });
+
+            Assert.True (form.SelectNextControl (null, true, true, true, false));
+            Assert.True (inner.Focused);
+            Assert.True (entered);
+        }
+
+        // A focused button keeps its explicit colours, as upstream's does. Its :focus style chains to the type
+        // default rather than the instance, so focus swapped the designer's BackColor and ForeColor for the
+        // defaults -- on every Show () once a form focuses its first control.
+        [Fact]
+        public void A_focused_button_keeps_its_explicit_colours ()
+        {
+            HeadlessRenderer.Use ();
+
+            using var form = new Form ();
+            var button = new Button { BackColor = System.Drawing.Color.Gold, ForeColor = System.Drawing.Color.DarkRed };
+            form.Controls.Add (button);
+            form.Show ();
+            button.Focus ();
+
+            Assert.True (button.Focused);
+            Assert.Equal (System.Drawing.Color.Gold.ToArgb (), button.BackColor.ToArgb ());
+            Assert.Equal (System.Drawing.Color.DarkRed.ToArgb (), button.ForeColor.ToArgb ());
         }
 
         // Telerik centres column header text by default; the compat columns inherited WinForms' left alignment.
@@ -614,6 +691,30 @@ namespace Majorsilence.Forms.Tests
             var expected = DataGridView.DefaultSelectionStyle.GetBackgroundColor ();
             Assert.Equal (expected, bitmap.GetPixel (selected.Left + selected.Width / 2, selected.Top + selected.Height / 2));
             Assert.NotEqual (expected, bitmap.GetPixel (other.Left + other.Width / 2, other.Top + other.Height / 2));
+        }
+
+        // Upstream wraps column header captions (the header style's WrapMode defaults to True) and, with
+        // ColumnHeadersHeightSizeMode.AutoSize, sizes the header band to the tallest wrapped caption. AutoSize
+        // was stored and ignored and captions drew on one line, so "Payment Made" in a narrow column was cut.
+        [Fact]
+        public void AutoSize_headers_grow_to_fit_a_wrapped_caption ()
+        {
+            using var deterministic = HeadlessRenderer.UseDeterministic ();
+            using var grid = new DataGridView { ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize };
+            grid.Columns.Add ("a", "Short");
+            grid.Columns[0].Width = 200;
+
+            var one_line = grid.ColumnHeadersHeight;
+
+            grid.Columns.Add ("b", "Payment Made");
+            grid.Columns[1].Width = 40;   // too narrow for the caption on one line
+
+            Assert.True (grid.HeaderWraps);
+            Assert.True (grid.ColumnHeadersHeight > one_line * 3 / 2, $"{grid.ColumnHeadersHeight} is not two lines (one is {one_line})");
+
+            // An explicit no-wrap header style keeps one line.
+            grid.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.False;
+            Assert.Equal (one_line, grid.ColumnHeadersHeight);
         }
 
         // Upstream holds no rows without columns, so a fresh grid with no columns shows only its background. Here it

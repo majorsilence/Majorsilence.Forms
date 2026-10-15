@@ -31,6 +31,11 @@ namespace Majorsilence.Forms.Tests
             using var form = new Form { ClientSize = new Size (300, 80), FormBorderStyle = FormBorderStyle.None };
             control.Location = new Point (20, 10);
             control.Size = new Size (240, 50);
+
+            // Focus elsewhere: a shown form now focuses its first control, as upstream's does. The decoy
+            // sits clear of both sample points and takes first focus, so only the Focus () below moves it.
+            form.Controls.Add (new Button { Location = new Point (270, 60), Size = new Size (20, 15), TabIndex = 0 });
+            control.TabIndex = 1;
             form.Controls.Add (control);
             form.Show ();
 

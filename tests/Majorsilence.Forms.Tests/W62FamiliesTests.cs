@@ -109,6 +109,11 @@ namespace Majorsilence.Forms.Tests
             box.SelectedIndex = 0;
 
             form = new Form { Width = 250, Height = 200 };
+
+            // Focus elsewhere: a shown form now focuses its first control, as upstream's does. These
+            // tests need the box unfocused until they focus it themselves.
+            form.Controls.Add (new Button { Left = 160, Top = 10, Width = 60, TabIndex = 0 });
+            box.TabIndex = 1;
             form.Controls.Add (box);
             form.Show ();
 

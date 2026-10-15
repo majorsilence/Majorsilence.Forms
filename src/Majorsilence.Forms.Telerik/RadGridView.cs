@@ -485,6 +485,9 @@ namespace Majorsilence.Forms.Telerik
         // filtering); otherwise filtering is the filtering row.
         internal bool ShowsHeaderFilterButtons => EnableFiltering && MasterTemplate.ShowHeaderCellButtons;
 
+        // Telerik's header cells keep one line and end a caption that does not fit with "..." (see the renderer).
+        internal override bool HeaderWraps => false;
+
         // EnableFiltering / ShowFilteringRow / ShowHeaderCellButtons changed on the template.
         internal void OnFilteringLayoutChanged ()
         {
@@ -713,7 +716,16 @@ namespace Majorsilence.Forms.Telerik
         public GridDescriptorCollection<GridViewSummaryItem> GroupSummaryItems { get; } = new ();
 
         /// <inheritdoc/>
-        protected override int ContentTopOffset => ShowGroupPanel ? LogicalToDeviceUnits (GroupPanelLogicalHeight) : 0;
+        protected override int ContentTopOffset => ShowsGroupPanel ? LogicalToDeviceUnits (GroupPanelLogicalHeight) : 0;
+
+        // Telerik shows the group panel and the filtering row only once the grid has columns: an empty grid
+        // waiting for its data is just its "No data to display" text.
+        internal bool ShowsGroupPanel => ShowGroupPanel && ((DataGridView) this).Columns.Count > 0;
+
+        internal bool ShowsFilterRow => ShowFilterRow && ((DataGridView) this).Columns.Count > 0;
+
+        /// <summary>The text an empty grid shows in its rows area, as Telerik's does.</summary>
+        internal const string NoDataText = "No data to display";
 
         /// <summary>Logical height of the inline filter row.</summary>
         internal const int FilterRowLogicalHeight = 26;
@@ -735,7 +747,7 @@ namespace Majorsilence.Forms.Telerik
         }
 
         /// <summary>Device-pixel height of the filter-row band (0 when hidden). Used by the renderer.</summary>
-        internal int FilterRowBandHeight => ShowFilterRow ? LogicalToDeviceUnits (FilterRowLogicalHeight) : 0;
+        internal int FilterRowBandHeight => ShowsFilterRow ? LogicalToDeviceUnits (FilterRowLogicalHeight) : 0;
 
         /// <inheritdoc/>
         protected internal override int HeaderExtraHeight => FilterRowBandHeight;
@@ -863,7 +875,7 @@ namespace Majorsilence.Forms.Telerik
             => FilterDescriptors.Any (f => f.IsActive && NameMatches (f.PropertyName, column));
 
         /// <summary>Device-pixel height of the group panel band (0 when hidden). Used by the renderer.</summary>
-        internal int GroupPanelBandHeight => ShowGroupPanel ? LogicalToDeviceUnits (GroupPanelLogicalHeight) : 0;
+        internal int GroupPanelBandHeight => ShowsGroupPanel ? LogicalToDeviceUnits (GroupPanelLogicalHeight) : 0;
 
         // ── Public grouping / filtering API ──
 
@@ -1615,7 +1627,7 @@ namespace Majorsilence.Forms.Telerik
                 var content = GetContentArea ();
 
                 // 1) Group panel band (above the header).
-                if (ShowGroupPanel && device.Y < content.Top) {
+                if (ShowsGroupPanel && device.Y < content.Top) {
                     HandleGroupPanelMouseDown (device);
                     return;
                 }
@@ -1648,7 +1660,7 @@ namespace Majorsilence.Forms.Telerik
                 }
 
                 // 2b) Filter row band (below the header): open the inline filter editor for the column.
-                if (ShowFilterRow) {
+                if (ShowsFilterRow) {
                     var bandTop = content.Top + (ColumnHeadersVisible ? ScaledHeaderHeight : 0);
                     if (device.Y >= bandTop && device.Y < bandTop + FilterRowBandHeight) {
                         var fcol = GetColumnAtLocation (device);
@@ -1705,7 +1717,7 @@ namespace Majorsilence.Forms.Telerik
                 if (DragActive) {
                     DragLocation = device;
                     var content = GetContentArea ();
-                    DragOverGroupPanel = ShowGroupPanel && EnableGrouping && device.Y < content.Top;
+                    DragOverGroupPanel = ShowsGroupPanel && EnableGrouping && device.Y < content.Top;
                     DragTargetColumn = DragOverGroupPanel ? -1 : GetColumnAtLocation (device);
                     Invalidate ();
                     return;

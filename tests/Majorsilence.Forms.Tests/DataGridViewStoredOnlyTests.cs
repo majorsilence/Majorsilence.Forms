@@ -32,6 +32,11 @@ namespace Majorsilence.Forms.Tests
                 grid.Rows.Add ();
 
             form = new Form { Width = 300, Height = 200 };
+
+            // Focus elsewhere: a shown form now focuses its first control, as upstream's does. The
+            // HideSelection tests need the grid unfocused.
+            form.Controls.Add (new Button { Left = 210, Top = 10, Width = 60, TabIndex = 0 });
+            grid.TabIndex = 1;
             form.Controls.Add (grid);
             form.Show ();
             PaintSurface.Render (grid).Dispose ();

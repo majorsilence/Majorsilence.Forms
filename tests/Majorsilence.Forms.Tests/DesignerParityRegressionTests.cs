@@ -21,7 +21,11 @@ namespace Majorsilence.Forms.Tests
             HeadlessRenderer.Use ();
 
             using var form = new Form { ClientSize = new Size (300, 100), BackColor = Color.White, ForeColor = SystemColors.HighlightText };
-            var button = new Button { Bounds = new Rectangle (10, 10, 96, 26), Text = "Login", ForeColor = SystemColors.ControlText };
+            var button = new Button { Bounds = new Rectangle (10, 10, 96, 26), Text = "Login", ForeColor = SystemColors.ControlText, TabIndex = 1 };
+
+            // Focus elsewhere: a shown form now focuses its first control, as upstream's does. This guards
+            // the unfocused paint path; a focused Button resolves through its :focus style instead.
+            form.Controls.Add (new Button { Bounds = new Rectangle (150, 10, 96, 26), TabIndex = 0 });
             form.Controls.Add (button);
             form.Show ();
 
@@ -37,7 +41,11 @@ namespace Majorsilence.Forms.Tests
             HeadlessRenderer.Use ();
 
             using var form = new Form { ClientSize = new Size (300, 100) };
-            var button = new Button { Bounds = new Rectangle (10, 10, 96, 26), Text = "Go", BackColor = Color.Gold };
+            var button = new Button { Bounds = new Rectangle (10, 10, 96, 26), Text = "Go", BackColor = Color.Gold, TabIndex = 1 };
+
+            // Focus elsewhere: a shown form now focuses its first control, as upstream's does. This guards
+            // the unfocused paint path; a focused Button resolves through its :focus style instead.
+            form.Controls.Add (new Button { Bounds = new Rectangle (150, 10, 96, 26), TabIndex = 0 });
             form.Controls.Add (button);
             form.Show ();
 
