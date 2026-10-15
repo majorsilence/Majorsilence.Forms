@@ -1084,8 +1084,11 @@ Practical rules, learned the boring way:
   a bug report nobody can action.
 - **Golden-image a handful of screens, not all of them.** They catch layout and theming regressions; they
   also fail on every intentional pixel change, so keep the set small and high-value.
-- **Fonts differ across OSes.** Pin golden images to one platform in CI (Linux is the cheapest) rather
-  than maintaining a baseline per OS.
+- **Fonts differ across machines.** Call `HeadlessRenderer.UseDeterministic ()` instead of `Use ()` in
+  pixel tests: every form draws the custom title bar (macOS otherwise uses system decorations) and the UI
+  and default fonts are the bundled Noto Sans rather than whatever the machine has installed. Each OS's
+  Skia still anti-aliases text a little differently, so either pin golden images to one platform in CI
+  (Linux is the cheapest) or keep a baseline per OS.
 - **Don't golden-image at `MF_HEADLESS_SCALE=2`** unless you also keep a 2× baseline — assert layout
   *proportionally* in scaled runs instead, and keep pixel comparison at scale 1.
 
