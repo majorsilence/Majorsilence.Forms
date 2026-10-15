@@ -1033,6 +1033,18 @@ Public Sub GreetForm_matches_its_golden_image()
 End Sub
 ```
 
+A byte compare fails on any anti-aliasing difference at all. `PixelComparison` compares pixel by pixel
+with a per-channel tolerance instead, and can draw the differences for the CI artifact:
+
+```csharp
+var result = PixelComparison.Compare (expected, actual);       // channelTolerance: 8 by default
+if (!result.IsWithin (0.0001)) {                                // at most 0.01 % of pixels differ
+    File.WriteAllBytes (Path.ChangeExtension (goldenPath, ".actual.png"), actual);
+    File.WriteAllBytes (Path.ChangeExtension (goldenPath, ".diff.png"), result.CreateDiffPng () ?? actual);
+    Assert.Fail ($"{goldenPath}: {result}");
+}
+```
+
 Practical rules, learned the boring way:
 
 - **Regenerate deliberately, never automatically.** An `UPDATE_GOLDEN=1` env gate (or the equivalent in
