@@ -153,6 +153,22 @@ namespace Majorsilence.Forms.Headless
         }
 
         /// <summary>
+        /// Installs the headless backend, as <see cref="Use"/>, and makes renders independent of the machine:
+        /// every form draws the custom title bar (macOS otherwise uses system decorations), and the UI font,
+        /// the bold UI font and the default control font are the bundled Noto Sans rather than whatever the
+        /// machine resolves "Segoe UI" or "sans-serif" to. A baseline made on one machine then matches a
+        /// render on another, up to the anti-aliasing each OS's Skia build does.
+        /// </summary>
+        /// <returns>Disposing it restores the chrome policy and fonts there were before.</returns>
+        /// <remarks>Call it before creating the forms under test: the chrome is chosen when a form is
+        /// constructed. Culture-dependent text (numbers, dates) still follows the thread's culture.</remarks>
+        public static System.IDisposable UseDeterministic ()
+        {
+            Use ();
+            return DeterministicRendering.Enable ();
+        }
+
+        /// <summary>
         /// Whether the window currently owns a shown OS window — what <c>Form.TopLevel</c> decides.
         /// </summary>
         public static bool OwnsShownWindow (WindowBase window)

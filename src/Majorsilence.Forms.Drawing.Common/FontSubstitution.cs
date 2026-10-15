@@ -118,6 +118,10 @@ namespace Majorsilence.Forms.Drawing
             return result;
         }
 
+        /// <summary>The bundled faces of a family (any style), whatever the platform has installed.</summary>
+        internal static IReadOnlyList<SKTypeface> EmbeddedFaces(string familyName)
+            => _embedded.Where(e => string.Equals(e.Key.Item1, familyName, StringComparison.OrdinalIgnoreCase)).Select(e => e.Value).ToList();
+
         /// <summary>
         /// Resolves a font family name to an SKTypeface, trying cross-platform substitutes
         /// and finally bundled embedded fonts when the requested font is not installed.

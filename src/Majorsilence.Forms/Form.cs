@@ -78,6 +78,7 @@ namespace Majorsilence.Forms
             // fails in CI. This has cost two round trips already. Same shape as the backend's
             // MF_HEADLESS_SCALE, and inert unless the variable is set.
             if (OperatingSystemCompat.IsMacOS ()
+                && !DeterministicRendering.ForceCustomChrome
                 && Environment.GetEnvironmentVariable ("MF_FORCE_CUSTOM_CHROME") != "1")
                 UseSystemDecorations = true;
 
