@@ -112,6 +112,9 @@ namespace Majorsilence.Forms.Telerik
             // what the Telerik-typed SelectionMode reports; the WinForms default underneath selects cells.
             base.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
 
+            // Telerik's grid is white below its last row, not the WinForms grid's AppWorkspace.
+            BackgroundColor = System.Drawing.Color.Empty;
+
             // Descriptor changes (add/remove/clear) rebuild the displayed view.
             SortDescriptors.Changed = () => { SyncSortGlyphs (); RebuildView (); };
             GroupDescriptors.Changed = () => { _seenGroupKeys.Clear (); RefreshLayout (); RebuildView (); };
@@ -2089,6 +2092,11 @@ namespace Majorsilence.Forms.Telerik
 
             _suspendRebuild = true;
             try {
+                // A layout saved by Telerik's own grid (RadGridView/MasterTemplate/Columns) -- what an app
+                // that ran on Telerik has in its stored layouts.
+                if (root.Element ("MasterTemplate")?.Element ("Columns") is { } telerik_columns)
+                    ApplyTelerikColumns (telerik_columns);
+
                 // Columns: width / visibility / order.
                 var cols = root.Element ("Columns")?.Elements ("Column").ToList () ?? new List<XElement> ();
                 foreach (var ce in cols) {
@@ -2151,6 +2159,36 @@ namespace Majorsilence.Forms.Telerik
         private static ListSortDirection ParseDirection (string? value)
             => string.Equals (value, "Descending", StringComparison.OrdinalIgnoreCase)
                 ? ListSortDirection.Descending : ListSortDirection.Ascending;
+
+        // Telerik's layout lists one element per column (named for the column's type) in display order,
+        // carrying only the properties that differ from their defaults; an absent Width keeps the column's.
+        private void ApplyTelerikColumns (XElement columns)
+        {
+            var order = new List<string> ();
+
+            foreach (var ce in columns.Elements ()) {
+                var name = (string?) ce.Attribute ("Name") ?? (string?) ce.Attribute ("FieldName");
+                if (string.IsNullOrEmpty (name))
+                    continue;
+
+                order.Add (name!);
+
+                var col = ColumnByName (name!);
+                if (col is null)
+                    continue;
+
+                if (int.TryParse ((string?) ce.Attribute ("Width"), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var w))
+                    col.Width = w;
+                if (bool.TryParse ((string?) ce.Attribute ("IsVisible"), out var vis))
+                    col.Visible = vis;
+                if (bool.TryParse ((string?) ce.Attribute ("ReadOnly"), out var read_only))
+                    col.ReadOnly = read_only;
+                if ((string?) ce.Attribute ("HeaderText") is { } header)
+                    col.HeaderText = header;
+            }
+
+            ApplyColumnOrder (order);
+        }
 
         private void ApplyColumnOrder (List<string> namesInOrder)
         {
@@ -3229,6 +3267,10 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Base Telerik-compat grid column. Adds the Telerik column member names on top of <see cref="DataGridViewColumn"/>.</summary>
     public class GridViewColumn : DataGridViewColumn
     {
+        // Telerik shows an unformatted value as "{0}" does -- a date with its time, even at midnight -- not
+        // through the WinForms grid's TypeConverter.
+        internal override bool DisplaysThroughTypeConverter => false;
+
         /// <summary>Initializes a new instance of the <see cref="GridViewColumn"/> class.</summary>
         /// <remarks>Telerik centres a column's header text (HeaderTextAlignment defaults to MiddleCenter);
         /// the WinForms default this inherited put every header at the left.</remarks>
@@ -3489,9 +3531,10 @@ namespace Majorsilence.Forms.Telerik
     public class GridViewDecimalColumn : GridViewDataColumn
     {
         /// <summary>Initializes a new instance.</summary>
-        public GridViewDecimalColumn () { }
+        /// <remarks>Right-aligned, as Telerik's decimal column is by default.</remarks>
+        public GridViewDecimalColumn () { TextAlignment = ContentAlignment.MiddleRight; }
         /// <summary>Initializes a new instance bound to the specified field.</summary>
-        public GridViewDecimalColumn (string fieldName) { FieldName = fieldName; Name = fieldName; }
+        public GridViewDecimalColumn (string fieldName) : this () { FieldName = fieldName; Name = fieldName; }
         /// <summary>Gets or sets the number of decimal places. Stub.</summary>
         public int DecimalPlaces { get; set; } = 2;
         /// <summary>Gets or sets the maximum value. Stub.</summary>

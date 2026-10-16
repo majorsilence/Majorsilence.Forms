@@ -723,16 +723,47 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void With_no_BackgroundColor_the_band_below_the_rows_keeps_the_theme ()
+        public void By_default_the_band_below_the_rows_is_AppWorkspace ()
         {
-            // GUARD, not proof, and a recorded deviation: upstream defaults BackgroundColor to
-            // AppWorkspace. Here the default stays Empty so an unthemed grid looks as it did; the fill
-            // happens only when the app sets a colour.
+            // As upstream's default BackgroundColor. The default used to be Empty, which left the band the
+            // theme's colour: a grid read as one long white list where upstream shows where the rows end.
             var grid = Grid (out var form, rows: 1, columns: 1);
             using var _form = form;
 
             try {
-                Assert.True (grid.BackgroundColor.IsEmpty);
+                Assert.Equal (SystemColors.AppWorkspace, grid.BackgroundColor);
+
+                using var bitmap = Render (grid);
+                var last = grid.GetCellBounds (0, 0);
+                var content = grid.GetContentArea ();
+                var below = new Rectangle (content.Left + 2, last.Bottom + 2, content.Width - 4, Math.Max (1, content.Bottom - last.Bottom - 4));
+
+                Assert.True (CountIn (bitmap, below, SK (SystemColors.AppWorkspace)) > below.Width * below.Height / 2,
+                    "the band below the last row should be AppWorkspace");
+            } finally {
+                form.Close ();
+            }
+        }
+
+        [Fact]
+        public void Right_of_the_last_column_is_the_background_beside_the_header_and_the_rows ()
+        {
+            // As upstream paints it: the rows and the header band end with the last column. Every row used to
+            // run on to the grid's right edge in the cell colour.
+            var grid = Grid (out var form, rows: 2, columns: 1);
+            using var _form = form;
+
+            try {
+                using var bitmap = Render (grid);
+                var cell = grid.GetCellBounds (0, 0);
+                var content = grid.GetContentArea ();
+                var beside_row = new Rectangle (cell.Right + 4, cell.Top + 2, content.Right - cell.Right - 8, cell.Height - 4);
+                var beside_header = new Rectangle (cell.Right + 4, content.Top + 2, content.Right - cell.Right - 8, cell.Top - content.Top - 4);
+
+                Assert.True (CountIn (bitmap, beside_row, SK (SystemColors.AppWorkspace)) > beside_row.Width * beside_row.Height / 2,
+                    "beside the first row should be AppWorkspace");
+                Assert.True (CountIn (bitmap, beside_header, SK (SystemColors.AppWorkspace)) > beside_header.Width * beside_header.Height / 2,
+                    "beside the header band should be AppWorkspace");
             } finally {
                 form.Close ();
             }

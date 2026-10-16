@@ -343,6 +343,27 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (System.Drawing.Color.Red.ToArgb (), box.BackColor.ToArgb ());
         }
 
+        [Theory]
+        [InlineData (false)]
+        [InlineData (true)]
+        public void A_disabled_box_paints_the_control_background_whatever_its_BackColor (bool own_colour)
+        {
+            // As the native edit control upstream wraps paints a disabled box. A designer-built "description"
+            // box (BackColor = Window, Enabled = False) drew as an editable white field.
+            using var box = Box ("x");
+            if (own_colour)
+                box.BackColor = System.Drawing.Color.White;
+
+            box.Enabled = false;
+
+            using (var bitmap = PaintSurface.Render (box, 1f))
+                Assert.Equal (Theme.BackgroundColor, bitmap.GetPixel (box.Width - 4, box.Height / 2));
+
+            // ...and the colour it was given is still what it reports.
+            if (own_colour)
+                Assert.Equal (System.Drawing.Color.White.ToArgb (), box.BackColor.ToArgb ());
+        }
+
         // ── TXT-27 ──────────────────────────────────────────────────────────────────────────────────
 
         [Fact]

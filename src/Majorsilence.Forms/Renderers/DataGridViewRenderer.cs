@@ -23,6 +23,16 @@ namespace Majorsilence.Forms.Renderers
             // Draw rows
             RenderRows (control, e, content);
 
+            // Right of the last column is the grid's background too, beside the header band and every row,
+            // as upstream paints it. Right-pinned columns run to the edge, so they leave no such band.
+            if (!control.BackgroundColor.IsEmpty && control.Columns.Count > 0 && control.RightPinnedColumnsWidth == 0) {
+                var columns_right = content.Left + (control.RowHeadersVisible ? control.ScaledRowHeadersWidth : 0)
+                    + control.TotalColumnsWidth - control.HorizontalScrollOffset;
+
+                if (columns_right < content.Right)
+                    e.Canvas.FillRectangle (new Rectangle (columns_right, content.Top, content.Right - columns_right, content.Height), ToSK (control.BackgroundColor));
+            }
+
             e.Canvas.Restore ();
         }
 
@@ -219,9 +229,12 @@ namespace Majorsilence.Forms.Renderers
                 y += row_height;
             }
 
-            // Below the last row is the grid's BACKGROUND, not more grid. Filled only when the app set
-            // one: the default stays the theme's, so an unthemed grid looks as it did (DGV-22, recorded
-            // as a deviation -- upstream defaults to AppWorkspace).
+            // Below the last row is the grid's BACKGROUND, not more grid: AppWorkspace by default, as
+            // upstream (DGV-22). An empty BackgroundColor leaves the theme's colour there. A grid with
+            // nothing in it draws no header band either (see Render), so all of it is background.
+            if (control.Columns.Count == 0 && control.Rows.Count == 0)
+                y = contentArea.Top;
+
             if (!control.BackgroundColor.IsEmpty && y < contentArea.Bottom)
                 e.Canvas.FillRectangle (new Rectangle (contentArea.Left, y, contentArea.Width, contentArea.Bottom - y), ToSK (control.BackgroundColor));
         }

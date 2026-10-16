@@ -1113,8 +1113,10 @@ namespace Majorsilence.Forms
             }
 
             // Only the colour differs; anything else Control's background pass does (an image, a
-            // transparent box, the disabled state's own colour) stays with it.
-            if (!PaintsReadOnlyBackground || !Enabled || BackgroundImage is not null) {
+            // transparent box) stays with it. A disabled box is painted in the control background
+            // whatever its BackColor, as the native edit control upstream wraps paints it -- though its
+            // BackColor still reports the colour it was given, as upstream's does.
+            if (!(PaintsReadOnlyBackground || !Enabled) || BackgroundImage is not null) {
                 base.OnPaintBackground (e);
                 return;
             }

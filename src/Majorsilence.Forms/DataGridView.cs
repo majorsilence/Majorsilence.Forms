@@ -1036,7 +1036,8 @@ namespace Majorsilence.Forms
 
         private bool multi_select = true;
 
-        /// <summary>Gets or sets the background color of the DataGridView. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the colour of the grid's background, below the last row:
+        /// <see cref="SystemColors.AppWorkspace"/> by default, as upstream.</summary>
         public System.Drawing.Color BackgroundColor {
             get => background_color;
             set {
@@ -1049,7 +1050,7 @@ namespace Majorsilence.Forms
             }
         }
 
-        private System.Drawing.Color background_color = System.Drawing.Color.Empty;
+        private System.Drawing.Color background_color = SystemColors.AppWorkspace;
 
         /// <summary>Gets or sets the color of the grid lines. Stub in Majorsilence.Forms.</summary>
         public System.Drawing.Color GridColor {
@@ -3564,7 +3565,7 @@ namespace Majorsilence.Forms
                 // For a DateTime that is DateTimeConverter: the short date alone at midnight, short date and
                 // short time otherwise, empty for DateTime.MinValue. ToString () always appends the time, so a
                 // bound date column read "11-16-2017 12:00:00 AM" where upstream shows "11-16-2017".
-                if (value is DateTime date) {
+                if (value is DateTime date && (column?.DisplaysThroughTypeConverter ?? true)) {
                     if (date == DateTime.MinValue)
                         return string.Empty;
 

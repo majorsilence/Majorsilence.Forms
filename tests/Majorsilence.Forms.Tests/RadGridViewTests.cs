@@ -63,6 +63,13 @@ namespace Majorsilence.Forms.Tests
         // typed as GridViewDataColumn, so a base WinForms column makes the indexer and the enumerator
         // throw InvalidCastException the moment app code formats the grid after binding.
         [Fact]
+        public void The_grid_below_its_last_row_is_not_the_WinForms_workspace ()
+        {
+            // Telerik's grid is white below its rows. The WinForms grid underneath defaults to AppWorkspace.
+            Assert.True (new RadGridView ().BackgroundColor.IsEmpty);
+        }
+
+        [Fact]
         public void BoundColumns_AreTelerikShaped ()
         {
             var table = new DataTable ();
@@ -554,6 +561,65 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal ("Salary", grid.Columns[0].Name);
             Assert.Equal ("Name", grid.Columns[1].Name);
             Assert.Equal ("Dept", grid.Columns[2].Name);
+        }
+
+        [Fact]
+        public void A_layout_saved_by_Telerik_orders_sizes_and_captions_the_columns ()
+        {
+            // Telerik's own layout XML, as an app that ran on Telerik has stored it: one element per column in
+            // display order, with only the properties that differ from their defaults. It was ignored, so a
+            // bound check-box column the layout puts first stayed last, out of view, and no saved width applied.
+            var table = new DataTable ();
+            table.Columns.Add ("receiptnum", typeof (string));
+            table.Columns.Add ("clerk", typeof (string));
+            table.Columns.Add ("Deposit", typeof (bool));
+            table.Rows.Add ("2020477249", "RO", true);
+
+            using var grid = new RadGridView { DataSource = table };
+            var deposit_width = grid.Columns["Deposit"]!.Width;
+
+            grid.LoadLayoutFromString (
+                "<RadGridView Cursor=\"Default\"><MasterTemplate AllowAddNewRow=\"False\"><Columns>" +
+                "<Telerik.WinControls.UI.GridViewCheckBoxColumn FieldName=\"Deposit\" Name=\"Deposit\" IsVisible=\"True\" HeaderText=\"Include\" />" +
+                "<Telerik.WinControls.UI.GridViewTextBoxColumn Width=\"91\" FieldName=\"receiptnum\" Name=\"receiptnum\" IsVisible=\"True\" ReadOnly=\"True\" HeaderText=\"Receipt\" />" +
+                "<Telerik.WinControls.UI.GridViewTextBoxColumn FieldName=\"clerk\" Name=\"clerk\" IsVisible=\"False\" HeaderText=\"clerk\" />" +
+                "</Columns></MasterTemplate></RadGridView>");
+
+            Assert.Equal (new[] { "Deposit", "receiptnum", "clerk" }, grid.Columns.Select (c => c.Name).ToArray ());
+            Assert.Equal ("Include", grid.Columns["Deposit"]!.HeaderText);
+            Assert.Equal (deposit_width, grid.Columns["Deposit"]!.Width);
+            Assert.Equal (91, grid.Columns["receiptnum"]!.Width);
+            Assert.True (grid.Columns["receiptnum"]!.ReadOnly);
+            Assert.Equal ("Receipt", grid.Columns["receiptnum"]!.HeaderText);
+            Assert.False (grid.Columns["clerk"]!.IsVisible);
+        }
+
+        [Fact]
+        public void An_unformatted_date_shows_its_time_as_Telerik_shows_it ()
+        {
+            // Telerik formats a value as "{0}" does, so a midnight date keeps its time; the WinForms grid's
+            // TypeConverter drops it, which is what a bound date column showed here.
+            var table = new DataTable ();
+            table.Columns.Add ("date", typeof (DateTime));
+            var midnight = new DateTime (2020, 12, 7);
+            table.Rows.Add (midnight);
+
+            using var grid = new RadGridView { DataSource = table };
+
+            Assert.Equal (midnight.ToString (), ((DataGridView) grid).Rows[0].Cells["date"].FormattedValue);
+        }
+
+        [Fact]
+        public void A_decimal_column_is_right_aligned_by_default ()
+        {
+            // As Telerik's GridViewDecimalColumn is: a stored layout that never mentions TextAlignment still
+            // shows amounts at the right of the cell.
+            Assert.Equal (ContentAlignment.MiddleRight, new GridViewDecimalColumn ("Amount").TextAlignment);
+
+            var table = new DataTable ();
+            table.Columns.Add ("amount", typeof (decimal));
+            using var grid = new RadGridView { DataSource = table };
+            Assert.Equal (ContentAlignment.MiddleRight, grid.Columns["amount"]!.TextAlignment);
         }
 
         [Fact]

@@ -24,11 +24,12 @@ namespace Majorsilence.Forms
         // window-list/Next purposes and is independent of the Controls indices.
         private readonly List<MdiChildWindow> frames = new ();
 
-        /// <summary>Gets the default style for all MDI client areas: the workspace behind the child windows.</summary>
+        /// <summary>Gets the default style for all MDI client areas: the workspace behind the child windows,
+        /// <see cref="SystemColors.AppWorkspace"/> as upstream's.</summary>
         /// <remarks>The workspace colour used to be written into each instance in its constructor, so an
         /// <c>MdiClient { ... }</c> theme rule could not reach it (#100).</remarks>
         public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle,
-            (style) => style.BackgroundColor = Theme.ControlMidColor);
+            (style) => style.BackgroundColor = SystemColors.AppWorkspace.ToSKColor ());
 
         /// <inheritdoc/>
         public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
