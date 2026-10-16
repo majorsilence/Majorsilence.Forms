@@ -73,7 +73,7 @@ namespace Majorsilence.Forms.Tests
                 // The frame draws its caption and border again, around the content.
                 var frame = child.MdiHost!.Size;
                 Assert.Equal (new Size (2 * MdiChildWindow.FrameBorder, MdiChildWindow.CaptionHeight + 2 * MdiChildWindow.FrameBorder),
-                    new Size (frame.Width - child.Size.Width, frame.Height - child.Size.Height));
+                    new Size (frame.Width - child.ClientSize.Width, frame.Height - child.ClientSize.Height));
             }
         }
 
@@ -114,7 +114,7 @@ namespace Majorsilence.Forms.Tests
             child.WindowState = FormWindowState.Maximized;
             child.Show ();
 
-            Assert.Equal (parent.MdiClientControl!.DisplayRectangle.Height - MdiChildWindow.CaptionHeight - 2 * MdiChildWindow.FrameBorder, child.Size.Height);
+            Assert.Equal (parent.MdiClientControl!.DisplayRectangle.Height - MdiChildWindow.CaptionHeight - 2 * MdiChildWindow.FrameBorder, child.ClientSize.Height);
             Assert.Equal ("Designer", parent.DisplayTitle);
         }
     }

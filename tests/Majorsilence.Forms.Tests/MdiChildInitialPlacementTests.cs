@@ -123,6 +123,47 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (16, grid.CellFallbackFont ().Size);
         }
 
+        // MinimumSize bounds the whole window, caption included, as upstream's does. A designer form whose
+        // MinimumSize sat just above its ClientSize was clamped back up when hosted, opening a caption's height
+        // taller than designed. With native chrome (macOS) the caption is not in Size at all, so the minimum grew the
+        // form before it was hosted and the designed client size was lost.
+        [Theory]
+        [InlineData (false)]
+        [InlineData (true)]
+        public void A_minimum_size_counts_the_caption_it_no_longer_draws (bool nativeChrome)
+        {
+            var (parent, client) = Container ();
+            var child = new Form { UseSystemDecorations = nativeChrome };
+            child.MdiParent = parent;
+            child.ClientSize = new Size (300, 200);
+            child.MinimumSize = new Size (300, 220);   // whole-window size: below ClientSize plus the caption
+            child.Show ();
+
+            Assert.Equal (new Size (300, 200), child.ClientSize);
+        }
+
+        // An MDI child's Size is its whole window -- caption and borders -- and ClientSize the content inside, as
+        // upstream's are. Size reported the content, so an app that saved form.Size and restored it on the next
+        // open grew the child by its chrome every time.
+        [Fact]
+        public void A_childs_size_is_its_whole_window ()
+        {
+            var (parent, client) = Container ();
+            var child = new Form { MdiParent = parent, Size = new Size (400, 300) };
+            child.Show ();
+
+            var chrome = new Size (2 * MdiChildWindow.FrameBorder, MdiChildWindow.CaptionHeight + 2 * MdiChildWindow.FrameBorder);
+            Assert.Equal (new Size (400, 300), child.Size);
+            Assert.Equal (new Size (400 - chrome.Width, 300 - chrome.Height), child.ClientSize);
+
+            // Saved and restored: the same window comes back.
+            var saved = child.Size;
+            child.Size = new Size (500, 350);
+            child.Size = saved;
+            Assert.Equal (saved, child.Size);
+            Assert.Equal (saved, child.MdiHost!.Size);
+        }
+
         // Upstream opens a Manual-positioned child at the Location assigned before Show; here every child
         // was centred regardless, so code placing a child explicitly had no effect.
         [Fact]

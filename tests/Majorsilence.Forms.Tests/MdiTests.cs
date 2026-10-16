@@ -225,8 +225,8 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (new Point (0, 0), child.Location);
             // Content fills the client minus the frame chrome.
             var area = parent.MdiClientControl!.DisplayRectangle;
-            Assert.Equal (area.Width - 2 * MdiChildWindow.FrameBorder, child.Size.Width);
-            Assert.Equal (area.Height - MdiChildWindow.CaptionHeight - 2 * MdiChildWindow.FrameBorder, child.Size.Height);
+            Assert.Equal (area.Width - 2 * MdiChildWindow.FrameBorder, child.ClientSize.Width);
+            Assert.Equal (area.Height - MdiChildWindow.CaptionHeight - 2 * MdiChildWindow.FrameBorder, child.ClientSize.Height);
         }
 
         // Regression: a hosted child owns no OS window, so every keystroke arrives at the CONTAINER.
