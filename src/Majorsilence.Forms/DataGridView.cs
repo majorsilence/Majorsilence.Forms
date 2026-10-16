@@ -2297,7 +2297,9 @@ namespace Majorsilence.Forms
             column.HeaderText = member;
             column.Name = member;
             column.DataPropertyName = member;
-            column.Width = EstimateColumnWidth (member);
+
+            // The column's default width (100), as upstream gives every generated column; it used to be
+            // estimated from the header's length, so a bound grid's columns came out unevenly sized.
             return column;
         }
 
@@ -2583,11 +2585,6 @@ namespace Majorsilence.Forms
         }
 
         // Estimates a column width based on header text length.
-        private static int EstimateColumnWidth (string headerText)
-        {
-            return Math.Max (80, headerText.Length * 10 + 20);
-        }
-
         /// <inheritdoc/>
         // Tracks the cell the pointer is currently over, so CellMouseEnter/CellMouseLeave fire once per
         // cell transition. Kept separate from HoveredRowIndex (row highlight) to detect transitions.
