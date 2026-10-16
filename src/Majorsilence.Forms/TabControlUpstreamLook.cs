@@ -24,9 +24,13 @@ namespace Majorsilence.Forms
         internal bool UsesUpstreamTabs
             => ControlPaint.UsesUpstreamGlyphs
                && Appearance == TabAppearance.Normal
-               && Alignment == TabAlignment.Top
+               && Alignment is TabAlignment.Top or TabAlignment.Bottom
                && !IsOwnerDrawn
                && TabStripVisible;
+
+        // Upstream's tabs below the page (Alignment = Bottom): the frame's bottom edge runs along the top of
+        // the strip and the tabs hang from it, the selected one open up into the page.
+        internal bool UpstreamTabsBelow => Alignment == TabAlignment.Bottom;
 
         /// <summary>The tab padding in effect: as set, else upstream's (6, 3) default under its look.</summary>
         internal System.Drawing.Point EffectiveTabPadding
@@ -51,11 +55,12 @@ namespace Majorsilence.Forms
                 return;
 
             // Upstream's DisplayRectangle: the page is inset from the frame on three sides and starts
-            // below the strip, which already includes the tabs' 2px origin and the frame's top edge.
-            var top = TabStrip.Height;
+            // below the strip, which already includes the tabs' 2px origin and the frame's top edge --
+            // or, with the tabs below, starts at the inset and ends above the strip.
+            var top = UpstreamTabsBelow ? UpstreamPageInset : TabStrip.Height;
             var bounds = new System.Drawing.Rectangle (UpstreamPageInset, top,
                 System.Math.Max (0, Width - 2 * UpstreamPageInset),
-                System.Math.Max (0, Height - top - UpstreamPageInset));
+                System.Math.Max (0, Height - TabStrip.Height - UpstreamPageInset));
 
             foreach (var page in TabPages)
                 if (page.Bounds != bounds)
@@ -75,8 +80,10 @@ namespace Majorsilence.Forms
             // The frame around the page: its top edge runs along the bottom of the tabs, two pixels up
             // from where the page starts, and a light band shows between it and the page.
             var scale = (float) e.Scaling;
-            var top = (TabStrip.Height - UpstreamTabOrigin) * scale;
-            var frame = new SKRect (0.5f * scale, top + 0.5f * scale, ScaledWidth - 0.5f * scale, ScaledHeight - 0.5f * scale);
+            var strip = (TabStrip.Height - UpstreamTabOrigin) * scale;
+            var frame = UpstreamTabsBelow
+                ? new SKRect (0.5f * scale, 0.5f * scale, ScaledWidth - 0.5f * scale, ScaledHeight - strip - 0.5f * scale)
+                : new SKRect (0.5f * scale, strip + 0.5f * scale, ScaledWidth - 0.5f * scale, ScaledHeight - 0.5f * scale);
 
             using var paint = new SKPaint { Color = UpstreamSelectedTabFill };
             e.Canvas.DrawRect (frame, paint);
