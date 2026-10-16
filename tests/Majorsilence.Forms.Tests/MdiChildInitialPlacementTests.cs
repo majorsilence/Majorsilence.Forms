@@ -125,12 +125,17 @@ namespace Majorsilence.Forms.Tests
 
         // MinimumSize bounds the whole window, caption included, as upstream's does. A designer form whose
         // MinimumSize sat just above its ClientSize was clamped back up when hosted, opening a caption's height
-        // taller than designed.
-        [Fact]
-        public void A_minimum_size_counts_the_caption_it_no_longer_draws ()
+        // taller than designed. With native chrome (macOS) the caption is not in Size at all, so the minimum grew the
+        // form before it was hosted and the designed client size was lost.
+        [Theory]
+        [InlineData (false)]
+        [InlineData (true)]
+        public void A_minimum_size_counts_the_caption_it_no_longer_draws (bool nativeChrome)
         {
             var (parent, client) = Container ();
-            var child = new Form { MdiParent = parent, ClientSize = new Size (300, 200) };
+            var child = new Form { UseSystemDecorations = nativeChrome };
+            child.MdiParent = parent;
+            child.ClientSize = new Size (300, 200);
             child.MinimumSize = new Size (300, 220);   // whole-window size: below ClientSize plus the caption
             child.Show ();
 

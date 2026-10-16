@@ -928,7 +928,7 @@ namespace Majorsilence.Forms
 
                     var size = Size;
                     if (!value.IsEmpty && (size.Width > value.Width || size.Height > value.Height))
-                        Size = new System.Drawing.Size (Math.Min (size.Width, value.Width), Math.Min (size.Height, value.Height));
+                        ClampSize (new System.Drawing.Size (Math.Min (size.Width, value.Width), Math.Min (size.Height, value.Height)));
 
                     OnMaximumSizeChanged (EventArgs.Empty);
                 }
@@ -949,11 +949,20 @@ namespace Majorsilence.Forms
 
                     var size = Size;
                     if (size.Width < value.Width || size.Height < value.Height)
-                        Size = new System.Drawing.Size (Math.Max (size.Width, value.Width), Math.Max (size.Height, value.Height));
+                        ClampSize (new System.Drawing.Size (Math.Max (size.Width, value.Width), Math.Max (size.Height, value.Height)));
 
                     OnMinimumSizeChanged (EventArgs.Empty);
                 }
             }
+        }
+
+        // Resizes the form into its minimum and maximum. A clamp is not the application choosing a whole-window
+        // size, so a size that came from ClientSize still counts as one.
+        private void ClampSize (System.Drawing.Size size)
+        {
+            var from_client_size = size_set_from_client_size;
+            Size = size;
+            size_set_from_client_size = from_client_size;
         }
 
         private void ApplyMinMaxSize ()
@@ -1355,10 +1364,16 @@ namespace Majorsilence.Forms
 
             Size = new System.Drawing.Size (x, y + NonClientCaptionHeight);
             size_set_from_client_size = true;
+            client_size_set = new System.Drawing.Size (x, y);
         }
 
         // Whether the size last assigned came from ClientSize, and so has the caption's height added to it.
         private bool size_set_from_client_size;
+
+        // The ClientSize last assigned, which an MDI child is hosted at. Not read back from Size: with native
+        // chrome (macOS) the caption is outside Size, so a MinimumSize just above the client size has already
+        // grown the form by the time it is hosted.
+        private System.Drawing.Size client_size_set;
 
         /// <summary>Gets or sets the automatic scaling mode.</summary>
         /// <remarks>
@@ -2155,20 +2170,15 @@ namespace Majorsilence.Forms
         // Configures this form for being hosted as an MDI child: no self-drawn title bar/border (the frame
         // draws them) and no window-edge resize routing (the frame handles resize).
         //
-        // A size assigned through ClientSize includes the caption a top-level window would draw
-        // (SetClientSizeCore adds it), which the MDI frame draws instead. It comes off as the caption is
-        // hidden -- the two together, so the form's own layout never sees the taller area: otherwise every
-        // designer-sized child (ClientSize = ...) opened a caption's height taller than designed, its
-        // controls over a blank band at the bottom. A Size assignment is the hosted content size, as before.
+        // A form sized through ClientSize is hosted at that client size, the caption a top-level window would
+        // draw coming off as the caption is hidden -- the two together, so the form's own layout never sees the
+        // taller area: otherwise every designer-sized child (ClientSize = ...) opened a caption's height taller
+        // than designed, its controls over a blank band at the bottom. A Size assignment is the whole window,
+        // so the MDI frame's chrome comes off it.
         private void PrepareAsMdiChild ()
         {
-            // What the window gives up to the frame that now draws its chrome. A size set through ClientSize
-            // has only the caption a top-level window would draw added to it, so only that comes off and the
-            // designed client area is kept. A size set as Size is the whole window, as upstream's is, so the
-            // MDI frame's caption and borders come off it.
-            var shrink = size_set_from_client_size
-                ? new System.Drawing.Size (0, TitleBar.Visible ? NonClientCaptionHeight : 0)
-                : new System.Drawing.Size (2 * MdiChildWindow.FrameBorder, MdiChildWindow.CaptionHeight + 2 * MdiChildWindow.FrameBorder);
+            // The MDI frame's caption and borders, which now surround the form's content.
+            var chrome = new System.Drawing.Size (2 * MdiChildWindow.FrameBorder, MdiChildWindow.CaptionHeight + 2 * MdiChildWindow.FrameBorder);
 
             // Hidden and shrunk under one suspended layout, so the single pass that follows sees only the
             // final client area -- the designed one. Laid out in between, the form's anchored controls
@@ -2177,19 +2187,27 @@ namespace Majorsilence.Forms
             SuspendLayout ();
             PrepareAsHostedChild ();
 
-            if (shrink != System.Drawing.Size.Empty) {
-                // MinimumSize/MaximumSize bound the whole window, as upstream's do; hosted, the chrome is the
-                // frame's, so the bounds come down with the size. Left as they were, a designer form with a
-                // MinimumSize just above its ClientSize was clamped back up and opened taller than designed.
-                if (!minimum_size.IsEmpty)
-                    Backend.MinimumSize = new System.Drawing.Size (Math.Max (0, minimum_size.Width - shrink.Width), Math.Max (0, minimum_size.Height - shrink.Height));
-                if (!maximum_size.IsEmpty)
-                    Backend.MaximumSize = new System.Drawing.Size (Math.Max (1, maximum_size.Width - shrink.Width), Math.Max (1, maximum_size.Height - shrink.Height));
+            // MinimumSize/MaximumSize bound the whole window, as upstream's do; hosted, the chrome is the
+            // frame's, so the content's bounds are the window's less the frame's. Left as they were, a designer
+            // form with a MinimumSize just above its ClientSize was clamped back up and opened taller than designed.
+            // Lowered before the resize below, which they would otherwise clamp.
+            if (!minimum_size.IsEmpty)
+                Backend.MinimumSize = new System.Drawing.Size (Math.Max (0, minimum_size.Width - chrome.Width), Math.Max (0, minimum_size.Height - chrome.Height));
+            if (!maximum_size.IsEmpty)
+                Backend.MaximumSize = new System.Drawing.Size (Math.Max (1, maximum_size.Width - chrome.Width), Math.Max (1, maximum_size.Height - chrome.Height));
 
-                var size = Size;
-                var keep = size_set_from_client_size;
-                Size = new System.Drawing.Size (Math.Max (1, size.Width - shrink.Width), Math.Max (1, size.Height - shrink.Height));
-                size_set_from_client_size = keep;
+            // A form sized through ClientSize keeps the client area it was designed with. A size set as Size is
+            // the whole window, as upstream's is, so the frame's caption and borders come off it.
+            var size = Size;
+            var content = size_set_from_client_size
+                ? client_size_set
+                : new System.Drawing.Size (size.Width - chrome.Width, size.Height - chrome.Height);
+            content = new System.Drawing.Size (Math.Max (1, content.Width), Math.Max (1, content.Height));
+
+            if (content != size) {
+                var from_client_size = size_set_from_client_size;
+                Size = content;
+                size_set_from_client_size = from_client_size;
             }
 
             ResumeLayout (true);
