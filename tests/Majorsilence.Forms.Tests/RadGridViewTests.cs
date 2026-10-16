@@ -606,7 +606,7 @@ namespace Majorsilence.Forms.Tests
 
             using var grid = new RadGridView { DataSource = table };
 
-            Assert.Equal (midnight.ToString (), ((DataGridView) grid).Rows[0].Cells["date"].FormattedValue);
+            Assert.Equal (midnight.ToString (), ((DataGridView) grid).Rows[0].Cells["date"]!.FormattedValue);
         }
 
         [Fact]

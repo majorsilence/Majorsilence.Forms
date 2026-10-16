@@ -687,9 +687,13 @@ namespace Majorsilence.Forms.Renderers
                 && cellStyle is { } sel && !sel.SelectionBackColor.IsEmpty)
                 e.Canvas.FillRectangle (bounds, ToSK (sel.SelectionBackColor));
 
+            // A link keeps its link colour on the highlight, as upstream's link cell paints it.
+            var is_link = rowIndex >= 0 && rowIndex < control.Rows.Count && columnIndex >= 0
+                && columnIndex < control.Rows[rowIndex].Cells.Count && control.Rows[rowIndex].Cells[columnIndex] is DataGridViewLinkCell;
+
             var fg = in_selection && cellStyle is { } sel_fg_style && !sel_fg_style.SelectionForeColor.IsEmpty
                 ? ToSK (sel_fg_style.SelectionForeColor)
-                : in_selection && DataGridView.DefaultSelectionStyle.ForegroundColor is { } selection_fg
+                : in_selection && !is_link && DataGridView.DefaultSelectionStyle.ForegroundColor is { } selection_fg
                     ? selection_fg
                     : cellStyle?.ForegroundColor ?? control.DefaultCellStyle.ForegroundColor ?? control.GetEffectiveForegroundColor ();
             var (ambient_font, ambient_size) = control.CellFallbackFont ();
@@ -947,9 +951,12 @@ namespace Majorsilence.Forms.Renderers
             var box = new Rectangle (cx, cy, size, size);
 
             // Flat: no box outline. The tick still draws, so a checked flat cell is still readable --
-            // suppressing both would make the cell say nothing at all.
-            if (!flat)
+            // suppressing both would make the cell say nothing at all. The box keeps its own face on a
+            // selected row, as upstream's check box does; the tick was lost on the highlight without it.
+            if (!flat) {
+                e.Canvas.FillRectangle (box, Theme.ControlLowColor);
                 e.Canvas.DrawRectangle (box, Theme.BorderLowColor);
+            }
 
             if (state == CheckState.Checked) {
                 var inset = box;

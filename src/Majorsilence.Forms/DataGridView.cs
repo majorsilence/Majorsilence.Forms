@@ -830,11 +830,14 @@ namespace Majorsilence.Forms
         /// <summary>
         /// The default style of the selection: the selected row's background and (when set) text
         /// colour, and the outline (border colour and width) of the selected cell in cell-select mode.
-        /// CSS: <c>DataGridView::selection</c>.
+        /// CSS: <c>DataGridView::selection</c>. Upstream's colours by default: the selection is
+        /// <see cref="SystemColors.Highlight"/> with <see cref="SystemColors.HighlightText"/> text, as
+        /// upstream's DefaultCellStyle.SelectionBackColor/SelectionForeColor are.
         /// </summary>
         public static readonly ControlStyle DefaultSelectionStyle = new ControlStyle (null,
             (style) => {
-                style.BackgroundColor = Theme.ControlHighlightLowColor;
+                style.BackgroundColor = SystemColors.Highlight.ToSKColor ();
+                style.ForegroundColor = SystemColors.HighlightText.ToSKColor ();
                 style.Border.Color = Theme.AccentColor;
                 style.Border.Width = 2;
             });
@@ -2419,6 +2422,24 @@ namespace Majorsilence.Forms
             SetInitialCurrentCell ();
         }
 
+        private bool HasSelectedElement ()
+        {
+            foreach (DataGridViewColumn column in Columns)
+                if (column.Selected)
+                    return true;
+
+            foreach (DataGridViewRow row in Rows) {
+                if (row.Selected)
+                    return true;
+
+                foreach (DataGridViewCell cell in row.Cells)
+                    if (cell.Selected)
+                        return true;
+            }
+
+            return false;
+        }
+
         // WinForms/Telerik make the first cell current as soon as a data source with rows is bound, so
         // grid.CurrentRow / grid.CurrentCell are non-null immediately -- app code very commonly reads
         // CurrentRow.Cells["..."] right after binding. Only seed a selection when none exists; never
@@ -2442,7 +2463,9 @@ namespace Majorsilence.Forms
             // row.Selected/cell.Selected rather than the current-cell indices, so seeding the indices
             // alone would leave a freshly bound grid with a current row that is not highlighted.
             // Written through the core setters, silently, for the reason above -- no events mid-bind.
-            if (!seeded)
+            // A rebind keeps the current indices but rebuilds the rows unselected, so the current cell
+            // is selected again then too, as upstream's is -- unless something is still selected.
+            if (!seeded && HasSelectedElement ())
                 return;
 
             if (CellSelectsColumn) {

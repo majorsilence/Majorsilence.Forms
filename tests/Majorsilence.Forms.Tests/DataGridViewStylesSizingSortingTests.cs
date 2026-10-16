@@ -746,6 +746,92 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void A_selected_row_is_painted_in_upstreams_highlight ()
+        {
+            // SystemColors.Highlight with HighlightText, as upstream's DefaultCellStyle selects. The theme's
+            // pale control highlight was hard to tell from an unselected row.
+            var grid = Grid (out var form, rows: 2, columns: 1);
+            using var _form = form;
+
+            try {
+                grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+                grid.ClearSelection ();
+                grid.Rows[1].Selected = true;
+
+                using var bitmap = Render (grid);
+                var cell = grid.GetCellBounds (1, 0);
+                var inner = new Rectangle (cell.Left + 2, cell.Top + 2, cell.Width - 4, cell.Height - 4);
+
+                Assert.True (CountIn (bitmap, inner, SK (SystemColors.Highlight)) > inner.Width * inner.Height / 2,
+                    "the selected row should be filled with Highlight");
+                // Antialiased glyphs blend into the fill, so the text is "lighter than the fill, never dark":
+                // dark ink is what the cell's own black text used to draw on the highlight.
+                int light = 0, dark = 0;
+                for (var x = inner.Left; x < inner.Right; x++)
+                    for (var y = inner.Top; y < inner.Bottom; y++) {
+                        var px = bitmap.GetPixel (x, y);
+                        if (px.Red > 0xC0 && px.Green > 0xC0)
+                            light++;
+                        else if (px.Red < 0x40 && px.Green < 0x40 && px.Blue < 0x40)
+                            dark++;
+                    }
+
+                Assert.True (light > 0, "the selected row's text should be HighlightText");
+                Assert.Equal (0, dark);
+            } finally {
+                form.Close ();
+            }
+        }
+
+        [Fact]
+        public void Rebinding_selects_the_current_cell_again ()
+        {
+            // As upstream does: binding a grid to a filtered view of the table it already shows rebuilt its rows
+            // unselected and left the current cell unhighlighted.
+            HeadlessRenderer.Use ();
+            using var form = new Form { Width = 400, Height = 300 };
+            var grid = new DataGridView { Width = 300, Height = 200 };
+            form.Controls.Add (grid);
+            form.Show ();
+
+            var table = new DataTable ();
+            table.Columns.Add ("code", typeof (string));
+            table.Rows.Add ("0101");
+            table.Rows.Add ("0104");
+
+            grid.DataSource = table;
+            Assert.True (grid.Rows[0].Cells[0].Selected);   // precondition: the first bind selects it
+
+            grid.DataSource = new DataView (table, "code <> ''", "code", DataViewRowState.CurrentRows);
+
+            Assert.True (grid.Rows[0].Cells[0].Selected);
+            Assert.Single (grid.SelectedCells.Cast<DataGridViewCell> ());
+        }
+
+        [Fact]
+        public void A_check_box_keeps_its_face_on_a_selected_row ()
+        {
+            // As upstream's check box glyph does. The tick was drawn straight onto the highlight, where the
+            // accent tick on the Highlight row could not be seen.
+            HeadlessRenderer.Use ();
+            using var form = new Form { Width = 400, Height = 300 };
+            var grid = new DataGridView { Width = 300, Height = 200, SelectionMode = DataGridViewSelectionMode.FullRowSelect };
+            grid.Columns.Add (new DataGridViewCheckBoxColumn { Name = "Include", Width = 60 });
+            grid.Rows.Add (true);
+            form.Controls.Add (grid);
+            form.Show ();
+            grid.Rows[0].Selected = true;
+
+            using var bitmap = Render (grid);
+            var cell = grid.GetCellBounds (0, 0);
+            var centre = new Rectangle (cell.Left + cell.Width / 2 - 2, cell.Top + cell.Height / 2 - 2, 4, 4);
+            var face_ring = new Rectangle (cell.Left + cell.Width / 2 - cell.Height / 2 + 4, cell.Top + 4, cell.Height - 8, cell.Height - 8);
+
+            Assert.True (CountIn (bitmap, face_ring, Theme.ControlLowColor) > 0, "the box should keep its face");
+            Assert.True (CountIn (bitmap, centre, Theme.AccentColor) > 0, "the tick should still be drawn");
+        }
+
+        [Fact]
         public void Right_of_the_last_column_is_the_background_beside_the_header_and_the_rows ()
         {
             // As upstream paints it: the rows and the header band end with the last column. Every row used to
