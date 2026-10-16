@@ -738,7 +738,7 @@ namespace Majorsilence.Forms.Tests
                 var content = grid.GetContentArea ();
                 var below = new Rectangle (content.Left + 2, last.Bottom + 2, content.Width - 4, Math.Max (1, content.Bottom - last.Bottom - 4));
 
-                Assert.True (CountIn (bitmap, below, SK (SystemColors.AppWorkspace)) > below.Width * below.Height / 2,
+                Assert.True (CountIn (bitmap, below, SystemColors.AppWorkspace.ToSKColor ()) > below.Width * below.Height / 2,
                     "the band below the last row should be AppWorkspace");
             } finally {
                 form.Close ();
@@ -762,7 +762,7 @@ namespace Majorsilence.Forms.Tests
                 var cell = grid.GetCellBounds (1, 0);
                 var inner = new Rectangle (cell.Left + 2, cell.Top + 2, cell.Width - 4, cell.Height - 4);
 
-                Assert.True (CountIn (bitmap, inner, SK (SystemColors.Highlight)) > inner.Width * inner.Height / 2,
+                Assert.True (CountIn (bitmap, inner, SystemColors.Highlight.ToSKColor ()) > inner.Width * inner.Height / 2,
                     "the selected row should be filled with Highlight");
                 // Antialiased glyphs blend into the fill, so the text is "lighter than the fill, never dark":
                 // dark ink is what the cell's own black text used to draw on the highlight.
@@ -846,9 +846,9 @@ namespace Majorsilence.Forms.Tests
                 var beside_row = new Rectangle (cell.Right + 4, cell.Top + 2, content.Right - cell.Right - 8, cell.Height - 4);
                 var beside_header = new Rectangle (cell.Right + 4, content.Top + 2, content.Right - cell.Right - 8, cell.Top - content.Top - 4);
 
-                Assert.True (CountIn (bitmap, beside_row, SK (SystemColors.AppWorkspace)) > beside_row.Width * beside_row.Height / 2,
+                Assert.True (CountIn (bitmap, beside_row, SystemColors.AppWorkspace.ToSKColor ()) > beside_row.Width * beside_row.Height / 2,
                     "beside the first row should be AppWorkspace");
-                Assert.True (CountIn (bitmap, beside_header, SK (SystemColors.AppWorkspace)) > beside_header.Width * beside_header.Height / 2,
+                Assert.True (CountIn (bitmap, beside_header, SystemColors.AppWorkspace.ToSKColor ()) > beside_header.Width * beside_header.Height / 2,
                     "beside the header band should be AppWorkspace");
             } finally {
                 form.Close ();
