@@ -37,16 +37,18 @@ namespace Majorsilence.Forms
         internal Func<int, bool>? SelectionChanging;
 
         /// <inheritdoc/>
-        public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle,
-            (style) => {
-                style.BackgroundColor = Theme.BackgroundColor;
-            });
+        /// <remarks>No background of its own: behind and beside the tabs is whatever the tab control stands
+        /// on, as upstream's tab control shows its parent there. A <c>TabStrip</c> CSS rule can still set one.</remarks>
+        public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle);
 
         // Part styles for the tabs themselves (CSS `TabStrip::item`, `::item:hover`, `::selected`).
         // Hover and selected layer on the item style, so a colour set on `::item` carries into both.
 
-        /// <summary>The default style of a tab: an optional background and the caption colour (unset = the strip's ambient text colour).</summary>
-        public static readonly ControlStyle DefaultItemStyle = new ControlStyle (null, _ => { });
+        /// <summary>The default style of a tab: its face and the caption colour (unset = the strip's ambient text colour).</summary>
+        /// <remarks>Each tab has a face of its own, as upstream's do, now that the strip around the tabs shows
+        /// what the tab control stands on.</remarks>
+        public static readonly ControlStyle DefaultItemStyle = new ControlStyle (null,
+            (style) => style.BackgroundColor = Theme.BackgroundColor);
 
         /// <summary>
         /// The default style of a hovered tab. CSS: <c>TabStrip::item:hover</c>. A tab inside a

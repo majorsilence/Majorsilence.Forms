@@ -635,6 +635,56 @@ namespace Majorsilence.Forms.Tests
             Assert.True (lastInk >= 0 && height <= grid.LogicalToDeviceUnits (3), $"the header ends at x={lastInk} on a {height}px stroke, not a dot");
         }
 
+        // A DataGridView header whose style does not wrap ends a caption that does not fit with "...", as
+        // upstream's single-line header does; it was cut off mid-letter ("Prepayme").
+        [Fact]
+        public void A_header_that_does_not_wrap_ends_in_an_ellipsis ()
+        {
+            using var deterministic = HeadlessRenderer.UseDeterministic ();
+
+            using var form = new Form { Size = new System.Drawing.Size (300, 200) };
+            var grid = new DataGridView { Left = 0, Top = 0, Width = 200, Height = 100, RowHeadersVisible = false };
+            grid.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.False;
+            grid.Columns.Add ("a", new string ('l', 60));
+            grid.Columns[0].Width = 50;
+            grid.AllowUserToAddRows = false;
+            form.Controls.Add (grid);
+
+            form.Show ();
+            HeadlessRenderer.CapturePng (form);
+            HeadlessRenderer.CapturePng (form);
+            var buffer = typeof (Control).GetMethod ("GetBackBuffer",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+            var bitmap = (SkiaSharp.SKBitmap) buffer.Invoke (grid, null)!;
+
+            var bottom = grid.ScaledHeaderHeight;
+            bool Dark (int x, int y) => bitmap.GetPixel (x, y) is var c && c.Red < 110 && c.Green < 110 && c.Blue < 110;
+            var lastInk = -1;
+            for (var x = 2; x < grid.LogicalToDeviceUnits (48); x++)
+                for (var y = 3; y < bottom - 3; y++)
+                    if (Dark (x, y)) { lastInk = x; break; }
+            var height = 0;
+            for (var y = 3; y < bottom - 3; y++)
+                if (lastInk >= 0 && Dark (lastInk, y))
+                    height++;
+
+            Assert.True (lastInk >= 0 && height <= grid.LogicalToDeviceUnits (3), $"the header ends at x={lastInk} on a {height}px stroke, not a dot");
+        }
+
+        // Every column a bound grid generates is the column default's 100 wide, as upstream's are; they used
+        // to be estimated from the header's length, so the same grid came out with uneven columns.
+        [Fact]
+        public void A_generated_column_has_the_default_width ()
+        {
+            var table = new System.Data.DataTable ();
+            table.Columns.Add ("id", typeof (int));
+            table.Columns.Add ("a_long_column_name", typeof (string));
+
+            using var grid = new DataGridView { DataSource = table };
+
+            Assert.All (System.Linq.Enumerable.Cast<DataGridViewColumn> (grid.Columns), c => Assert.Equal (100, c.Width));
+        }
+
         // Upstream's picker frames the text and the drop-down button together. Here the button face was
         // filled edge to edge over the border, so the frame stopped where the button began.
         [Fact]

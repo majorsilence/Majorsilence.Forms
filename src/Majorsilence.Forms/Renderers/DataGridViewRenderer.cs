@@ -144,8 +144,10 @@ namespace Majorsilence.Forms.Renderers
             // The header CELL's value, which HeaderText is a view of (DGV-24) -- in any type, as upstream paints it.
             // Wrapped onto further lines when headers wrap (upstream's default), unless this renderer ends a
             // caption that does not fit with an ellipsis instead.
+            // A header that does not wrap ends a caption too long for it with an ellipsis, as upstream's
+            // single-line header (TextFormatFlags.EndEllipsis) does; it used to be cut off mid-letter.
             var header_lines = control.HeaderWraps && !HeaderTextEllipsis ? (int?) null : 1;
-            e.Canvas.DrawText (column.HeaderDisplayText, font, control.LogicalToDeviceUnits (font_size), text_bounds, fg, column.HeaderAlignment, maxLines: header_lines, ellipsis: HeaderTextEllipsis);
+            e.Canvas.DrawText (column.HeaderDisplayText, font, control.LogicalToDeviceUnits (font_size), text_bounds, fg, column.HeaderAlignment, maxLines: header_lines, ellipsis: HeaderTextEllipsis || !control.HeaderWraps);
 
             // Draw sort indicator
             if (column.SortOrder != SortOrder.None)
