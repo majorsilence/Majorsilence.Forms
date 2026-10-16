@@ -194,12 +194,15 @@ namespace Majorsilence.Forms
             if (item is null || string.IsNullOrEmpty (member))
                 return null;
 
-            var descriptor = TypeDescriptor.GetProperties (item)[member];
+            // Case-insensitive, as upstream's binding resolves a member (PropertyDescriptorCollection.Find
+            // with ignoreCase): a DisplayMember of "Description" over a "description" column showed every
+            // item as "System.Data.DataRowView".
+            var descriptor = TypeDescriptor.GetProperties (item).Find (member, ignoreCase: true);
 
             if (descriptor is not null)
                 return descriptor.GetValue (item);
 
-            return item.GetType ().GetProperty (member)?.GetValue (item);
+            return item.GetType ().GetProperty (member, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.IgnoreCase)?.GetValue (item);
         }
 
         /// <summary>

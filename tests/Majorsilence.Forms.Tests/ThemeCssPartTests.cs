@@ -182,6 +182,20 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void A_selection_rule_rethemes_the_grid_and_a_built_in_restores_upstreams_highlight ()
+        {
+            Theme.LoadFromCss ("DataGridView::selection { background-color: #102030; color: #405060; }");
+
+            Assert.Equal (new SKColor (0x10, 0x20, 0x30), DataGridView.DefaultSelectionStyle.GetBackgroundColor ());
+            Assert.Equal (new SKColor (0x40, 0x50, 0x60), DataGridView.DefaultSelectionStyle.ForegroundColor);
+
+            Theme.SetBuiltInTheme (BuiltInTheme.Dark);
+
+            Assert.Equal (SystemColors.Highlight.ToSKColor (), DataGridView.DefaultSelectionStyle.GetBackgroundColor ());
+            Assert.Equal (SystemColors.HighlightText.ToSKColor (), DataGridView.DefaultSelectionStyle.ForegroundColor);
+        }
+
+        [Fact]
         public void PartHover_LayersOnThePart ()
         {
             // A colour on ::item carries into ::item:hover unless the hover rule overrides it.
@@ -198,8 +212,11 @@ namespace Majorsilence.Forms.Tests
 
             Assert.Equal (new SKColor (0x0f, 0x0e, 0x0d), ListBox.DefaultSelectionStyle.GetBackgroundColor ());
             Assert.Equal (new SKColor (0x0f, 0x0e, 0x0d), TreeView.DefaultSelectionStyle.GetBackgroundColor ());
-            Assert.Equal (new SKColor (0x0f, 0x0e, 0x0d), DataGridView.DefaultSelectionStyle.GetBackgroundColor ());
             Assert.Equal (new SKColor (0x0c, 0x0b, 0x0a), TabStrip.DefaultSelectedItemStyle.Border.Bottom.GetColor ());
+
+            // A grid's selection is upstream's Highlight rather than a theme token; a DataGridView::selection
+            // rule is what re-themes it.
+            Assert.Equal (SystemColors.Highlight.ToSKColor (), DataGridView.DefaultSelectionStyle.GetBackgroundColor ());
         }
 
         // ---- pixels ------------------------------------------------------------------------------------

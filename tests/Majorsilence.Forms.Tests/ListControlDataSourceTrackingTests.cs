@@ -115,5 +115,26 @@ namespace Majorsilence.Forms.Tests
             Assert.Single (list.Items);
             Assert.Equal ("Grace", ((Person)list.Items[0]!).Name);
         }
+
+        [Fact]
+        public void Display_and_value_members_match_a_column_whatever_its_case ()
+        {
+            // As upstream's binding resolves them (PropertyDescriptorCollection.Find, ignoring case): a
+            // DisplayMember of "Description" over a "description" column showed "System.Data.DataRowView".
+            HeadlessRenderer.Use ();
+
+            var table = new System.Data.DataTable ();
+            table.Columns.Add ("code", typeof (string));
+            table.Columns.Add ("description", typeof (string));
+            table.Rows.Add ("PP", "PP - Prepayment");
+
+            using var combo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, DataSource = table };
+            combo.DisplayMember = "Description";
+            combo.ValueMember = "Code";
+            combo.SelectedIndex = 0;
+
+            Assert.Equal ("PP - Prepayment", combo.GetItemText (combo.SelectedItem));
+            Assert.Equal ("PP", combo.SelectedValue);
+        }
     }
 }

@@ -830,11 +830,14 @@ namespace Majorsilence.Forms
         /// <summary>
         /// The default style of the selection: the selected row's background and (when set) text
         /// colour, and the outline (border colour and width) of the selected cell in cell-select mode.
-        /// CSS: <c>DataGridView::selection</c>.
+        /// CSS: <c>DataGridView::selection</c>. Upstream's colours by default: the selection is
+        /// <see cref="SystemColors.Highlight"/> with <see cref="SystemColors.HighlightText"/> text, as
+        /// upstream's DefaultCellStyle.SelectionBackColor/SelectionForeColor are.
         /// </summary>
         public static readonly ControlStyle DefaultSelectionStyle = new ControlStyle (null,
             (style) => {
-                style.BackgroundColor = Theme.ControlHighlightLowColor;
+                style.BackgroundColor = SystemColors.Highlight.ToSKColor ();
+                style.ForegroundColor = SystemColors.HighlightText.ToSKColor ();
                 style.Border.Color = Theme.AccentColor;
                 style.Border.Width = 2;
             });
@@ -1036,7 +1039,8 @@ namespace Majorsilence.Forms
 
         private bool multi_select = true;
 
-        /// <summary>Gets or sets the background color of the DataGridView. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the colour of the grid's background, below the last row:
+        /// <see cref="SystemColors.AppWorkspace"/> by default, as upstream.</summary>
         public System.Drawing.Color BackgroundColor {
             get => background_color;
             set {
@@ -1049,7 +1053,7 @@ namespace Majorsilence.Forms
             }
         }
 
-        private System.Drawing.Color background_color = System.Drawing.Color.Empty;
+        private System.Drawing.Color background_color = SystemColors.AppWorkspace;
 
         /// <summary>Gets or sets the color of the grid lines. Stub in Majorsilence.Forms.</summary>
         public System.Drawing.Color GridColor {
@@ -2418,6 +2422,24 @@ namespace Majorsilence.Forms
             SetInitialCurrentCell ();
         }
 
+        private bool HasSelectedElement ()
+        {
+            foreach (DataGridViewColumn column in Columns)
+                if (column.Selected)
+                    return true;
+
+            foreach (DataGridViewRow row in Rows) {
+                if (row.Selected)
+                    return true;
+
+                foreach (DataGridViewCell cell in row.Cells)
+                    if (cell.Selected)
+                        return true;
+            }
+
+            return false;
+        }
+
         // WinForms/Telerik make the first cell current as soon as a data source with rows is bound, so
         // grid.CurrentRow / grid.CurrentCell are non-null immediately -- app code very commonly reads
         // CurrentRow.Cells["..."] right after binding. Only seed a selection when none exists; never
@@ -2441,7 +2463,9 @@ namespace Majorsilence.Forms
             // row.Selected/cell.Selected rather than the current-cell indices, so seeding the indices
             // alone would leave a freshly bound grid with a current row that is not highlighted.
             // Written through the core setters, silently, for the reason above -- no events mid-bind.
-            if (!seeded)
+            // A rebind keeps the current indices but rebuilds the rows unselected, so the current cell
+            // is selected again then too, as upstream's is -- unless something is still selected.
+            if (!seeded && HasSelectedElement ())
                 return;
 
             if (CellSelectsColumn) {
@@ -3564,7 +3588,7 @@ namespace Majorsilence.Forms
                 // For a DateTime that is DateTimeConverter: the short date alone at midnight, short date and
                 // short time otherwise, empty for DateTime.MinValue. ToString () always appends the time, so a
                 // bound date column read "11-16-2017 12:00:00 AM" where upstream shows "11-16-2017".
-                if (value is DateTime date) {
+                if (value is DateTime date && (column?.DisplaysThroughTypeConverter ?? true)) {
                     if (date == DateTime.MinValue)
                         return string.Empty;
 

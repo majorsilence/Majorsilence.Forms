@@ -12,6 +12,10 @@ namespace Majorsilence.Forms
         private DataGridView? owner;
         private DataGridViewCellStyle default_cell_style = new DataGridViewCellStyle ();
 
+        // Whether a value with no format string is shown as its TypeConverter shows it (a midnight date as
+        // the date alone), as upstream's grid shows it. A Telerik-compat column formats with "{0}" instead.
+        internal virtual bool DisplaysThroughTypeConverter => true;
+
         /// <summary>
         /// Initializes a new instance of the DataGridViewColumn class.
         /// </summary>
