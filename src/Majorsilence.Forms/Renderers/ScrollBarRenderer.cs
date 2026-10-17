@@ -83,7 +83,9 @@ namespace Majorsilence.Forms.Renderers
             var hovered = control.IsHovering && control.Enabled;
             var colour = control.Enabled ? ScrollBar.UpstreamThumb : Theme.ForegroundDisabledColor;
 
-            if (hovered) {
+            // A disabled bar -- a text box's, with nothing to scroll -- shows its arrows greyed and no thumb,
+            // as Windows 11 draws it; it used to show an empty track.
+            if (hovered || !control.Enabled) {
                 DrawUpstreamArrow (e, GetDecrementArrowBounds (control), colour, vertical, decrement: true);
                 DrawUpstreamArrow (e, GetIncrementArrowBounds (control), colour, vertical, decrement: false);
             }

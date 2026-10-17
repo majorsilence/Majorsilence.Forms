@@ -44,6 +44,33 @@ namespace Majorsilence.Forms.Tests
             => Assert.Equal (2, ThumbColumns (true));
 
         [Fact]
+        public void A_disabled_bar_shows_its_arrows ()
+        {
+            // As Windows 11 draws a disabled bar -- a multiline text box's, with nothing to scroll: greyed
+            // arrows at both ends and no thumb. It showed an empty track.
+            try {
+                Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font ("Segoe UI", 9f));
+                HeadlessRenderer.Use ();
+                using var form = new Form { FormBorderStyle = FormBorderStyle.None, ClientSize = new Size (100, 200) };
+                var bar = new VScrollBar { Location = new Point (10, 10), Size = new Size (17, 150), Maximum = 100, LargeChange = 10, Enabled = false };
+                form.Controls.Add (bar);
+                form.Show ();
+
+                using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 100, 200));
+                var scale = bitmap.Width / 100f;
+
+                int Ink (int top) => Enumerable.Range ((int) (bar.Left * scale), (int) (bar.Width * scale))
+                    .Sum (x => Enumerable.Range ((int) (top * scale), (int) (14 * scale)).Count (y => bitmap.GetPixel (x, y) != ScrollBar.UpstreamTrack));
+
+                Assert.True (Ink (bar.Top + 1) > 0, "the up arrow");
+                Assert.True (Ink (bar.Bottom - 15) > 0, "the down arrow");
+                Assert.Equal (0, Ink (bar.Top + 60));   // and no thumb between them
+            } finally {
+                Application.SetDefaultFont (null!);
+            }
+        }
+
+        [Fact]
         public void Without_a_chosen_font_the_theme_scroll_bar_is_kept ()
             => Assert.NotEqual (2, ThumbColumns (false));
     }
