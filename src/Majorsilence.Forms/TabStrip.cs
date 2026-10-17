@@ -266,12 +266,24 @@ namespace Majorsilence.Forms
             if (size_mode == TabSizeMode.FillToRight)
                 FillRowsToRight (widths, rows, avail);
 
+            // The row holding the selected tab sits next to the page, the others rotating in order, as
+            // upstream's multi-row tab control places them: below the rest with the tabs on top, above
+            // them with the tabs below. The selected tab's row used to stay where it filled, so a selected
+            // first tab sat in the top row, away from its page.
+            var selected_row = Tabs.SelectedIndex >= 0 && Tabs.SelectedIndex < Tabs.Count ? rows[Tabs.SelectedIndex] : -1;
+            var below = owner is { Alignment: TabAlignment.Bottom };
+
+            int DisplayRow (int r)
+                => selected_row < 0 || RowCount < 2 ? r
+                    : below ? (r - selected_row + RowCount) % RowCount
+                    : (r - selected_row - 1 + 2 * RowCount) % RowCount;
+
             var offset = 0;
             for (var i = 0; i < Tabs.Count; i++) {
                 if (i > 0 && rows[i] != rows[i - 1])
                     offset = 0;
 
-                Tabs[i].SetBounds (TabOrigin + offset, TabOrigin + rows[i] * row_height, widths[i], row_height);
+                Tabs[i].SetBounds (TabOrigin + offset, TabOrigin + DisplayRow (rows[i]) * row_height, widths[i], row_height);
                 offset += widths[i];
             }
 
@@ -584,6 +596,10 @@ namespace Majorsilence.Forms
 
                 Tabs.SelectedIndex = value;
                 OnSelectedTabChanged (EventArgs.Empty);
+
+                // Over several rows, the selected tab's row moves next to the page.
+                if (RowCount > 1)
+                    PerformLayout ();
 
                 EnsureTabVisible (value);
                 Invalidate ();

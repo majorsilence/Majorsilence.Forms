@@ -33,5 +33,40 @@ namespace Majorsilence.Forms.Tests
             var on_tab = bitmap.GetPixel ((int) ((tabs.Left + row.Left + 3) * scale), (int) ((tabs.Top + row.Top + 3) * scale));
             Assert.Equal (Theme.BackgroundColor, on_tab);
         }
+
+        [Theory]
+        [InlineData (false)]
+        [InlineData (true)]
+        public void Over_several_rows_the_selected_tabs_row_sits_next_to_the_page (bool upstream_look)
+        {
+            // As upstream's multi-row tab control places it. The selected first tab stayed in the top row,
+            // and under the upstream look its box ran down over the row below, hiding the first tabs there.
+            try {
+                if (upstream_look)
+                    Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 9f));
+
+                HeadlessRenderer.Use ();
+                using var form = new Form { FormBorderStyle = FormBorderStyle.None, ClientSize = new Size (400, 300) };
+                var tabs = new TabControl { Location = new Point (0, 0), Size = new Size (200, 200), Multiline = true };
+                for (var i = 0; i < 6; i++)
+                    tabs.TabPages.Add (new TabPage ($"Page number {i}"));
+                form.Controls.Add (tabs);
+                form.Show ();
+                HeadlessRenderer.CapturePng (form, 400, 300);
+
+                Assert.True (tabs.RowCount > 1, "precondition: the tabs wrap");
+                var bottom_row = tabs.GetTabRect (0).Top;
+                Assert.True (tabs.GetTabRect (tabs.TabCount - 1).Top < bottom_row, "the selected first tab's row is nearest the page");
+
+                tabs.SelectedIndex = tabs.TabCount - 1;
+                HeadlessRenderer.CapturePng (form, 400, 300);
+
+                Assert.Equal (bottom_row, tabs.GetTabRect (tabs.TabCount - 1).Top);
+                Assert.True (tabs.GetTabRect (0).Top < bottom_row, "the first row moves away from the page");
+            } finally {
+                if (upstream_look)
+                    Application.SetDefaultFont (null!);
+            }
+        }
     }
 }

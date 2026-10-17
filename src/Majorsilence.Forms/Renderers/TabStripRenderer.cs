@@ -79,7 +79,11 @@ namespace Majorsilence.Forms.Renderers
                 }
 
                 var b = control.LogicalToDeviceUnits (item.Bounds);
-                DrawUpstreamTab (e, paint, new SkiaSharp.SKRect (b.Left, b.Top, b.Right, frame_top + scale), TabControl.UpstreamTabFill, scale, closed: true);
+
+                // A tab in the row next to the page stands on the frame's edge; one in a row further out
+                // keeps its own height, rather than running down over the rows below it.
+                var tab_bottom = b.Bottom >= frame_top - scale ? frame_top + scale : b.Bottom;
+                DrawUpstreamTab (e, paint, new SkiaSharp.SKRect (b.Left, b.Top, b.Right, tab_bottom), TabControl.UpstreamTabFill, scale, closed: true);
                 DrawUpstreamCaption (control, item, b, e);
             }
 
@@ -117,7 +121,8 @@ namespace Majorsilence.Forms.Renderers
                 }
 
                 var b = control.LogicalToDeviceUnits (item.Bounds);
-                DrawUpstreamTabBelow (e, paint, new SkiaSharp.SKRect (b.Left, frame_bottom, b.Right, b.Bottom), TabControl.UpstreamTabFill, scale, closed: true);
+                var tab_top = b.Top <= frame_bottom + scale ? frame_bottom : b.Top;
+                DrawUpstreamTabBelow (e, paint, new SkiaSharp.SKRect (b.Left, tab_top, b.Right, b.Bottom), TabControl.UpstreamTabFill, scale, closed: true);
                 DrawUpstreamCaption (control, item, b, e);
             }
 

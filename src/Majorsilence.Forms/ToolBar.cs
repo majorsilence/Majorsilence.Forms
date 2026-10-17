@@ -180,8 +180,10 @@ namespace Majorsilence.Forms
         protected override Size DefaultSize => new Size (600, 34);
 
         /// <inheritdoc/>
+        /// <remarks>A background of its own, as upstream's tool strip paints one whatever its parent's colour.</remarks>
         public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle,
           (style) => {
+              style.BackgroundColor = Theme.BackgroundColor;
               style.Border.Bottom.Width = 1;
           });
 

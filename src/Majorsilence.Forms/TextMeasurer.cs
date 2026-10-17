@@ -90,7 +90,8 @@ namespace Majorsilence.Forms
             int MaxLines,          // -1 represents null
             bool Ellipsis,
             int MnemonicIndex,
-            int Rasterisation);    // -1 for the default; see CreateTextBlock
+            int Rasterisation,     // -1 for the default; see CreateTextBlock
+            int Decoration);       // DecorationUnderline / DecorationStrikeout over the whole text
 
         // Paint-safe TextBlock cache. TextBlock layout is idempotent; Paint() is read-only (painting one block on
         // several threads at once is covered by TextBlockConcurrentPaintTests). Reusing cached instances
@@ -176,7 +177,14 @@ namespace Majorsilence.Forms
             }
         }
 
-        internal static TextBlock CreateTextBlock (string text, SKTypeface font, int fontSize, Size maxSize, TextAlignment alignment = TextAlignment.Auto, SKColor color = new SKColor (), int? maxLines = null, bool ellipsis = false, int mnemonicIndex = -1, int rasterisation = -1)
+        // A font's Underline and Strikeout, which the typeface (family, weight, slant) does not carry.
+        internal const int DecorationUnderline = 1;
+        internal const int DecorationStrikeout = 2;
+
+        internal static int DecorationOf (Majorsilence.Forms.Drawing.Font? font)
+            => font is null ? 0 : (font.Underline ? DecorationUnderline : 0) | (font.Strikeout ? DecorationStrikeout : 0);
+
+        internal static TextBlock CreateTextBlock (string text, SKTypeface font, int fontSize, Size maxSize, TextAlignment alignment = TextAlignment.Auto, SKColor color = new SKColor (), int? maxLines = null, bool ellipsis = false, int mnemonicIndex = -1, int rasterisation = -1, int decoration = 0)
         {
             // rasterisation keys the cache only. RichTextKit builds each run's SKTextBlob on the FIRST
             // paint, with that paint's edging and hinting, and reuses it for every later paint -- so a
@@ -189,15 +197,15 @@ namespace Majorsilence.Forms
                 text = text.Replace ("\r", "»");
             }
 
-            var key = new TextBlockKey (text, font, fontSize, maxSize.Width, maxSize.Height, alignment, (uint)color, maxLines ?? -1, ellipsis, mnemonicIndex, rasterisation);
+            var key = new TextBlockKey (text, font, fontSize, maxSize.Width, maxSize.Height, alignment, (uint)color, maxLines ?? -1, ellipsis, mnemonicIndex, rasterisation, decoration);
 
             if (_blocks.TryGet (key, out var cached))
                 return cached;
 
-            return _blocks.Add (key, LayOut (text, font, fontSize, maxSize, alignment, color, maxLines, ellipsis, mnemonicIndex));
+            return _blocks.Add (key, LayOut (text, font, fontSize, maxSize, alignment, color, maxLines, ellipsis, mnemonicIndex, decoration));
         }
 
-        private static TextBlock LayOut (string text, SKTypeface font, int fontSize, Size maxSize, TextAlignment alignment, SKColor color, int? maxLines, bool ellipsis, int mnemonicIndex)
+        private static TextBlock LayOut (string text, SKTypeface font, int fontSize, Size maxSize, TextAlignment alignment, SKColor color, int? maxLines, bool ellipsis, int mnemonicIndex, int decoration = 0)
         {
             var tb = new TextBlock {
                 MaxWidth = maxLines.GetValueOrDefault () == 1 ? (float?)null : maxSize.Width,
@@ -220,7 +228,9 @@ namespace Majorsilence.Forms
                 TextColor = color,
                 FontWeight = face.Weight,
                 FontItalic = face.Italic,
-                LetterSpacing = spacing
+                LetterSpacing = spacing,
+                Underline = (decoration & DecorationUnderline) != 0 ? UnderlineStyle.Solid : UnderlineStyle.None,
+                StrikeThrough = (decoration & DecorationStrikeout) != 0 ? StrikeThroughStyle.Solid : StrikeThroughStyle.None
             };
 
             // Underline the mnemonic character (the access key) by splitting the text into a
@@ -233,7 +243,8 @@ namespace Majorsilence.Forms
                     FontWeight = face.Weight,
                     FontItalic = face.Italic,
                     LetterSpacing = spacing,
-                    Underline = UnderlineStyle.Solid
+                    Underline = UnderlineStyle.Solid,
+                    StrikeThrough = styleNormal.StrikeThrough
                 };
 
                 if (mnemonicIndex > 0)
@@ -549,7 +560,7 @@ namespace Majorsilence.Forms
 
             // The key CreateTextBlock (text, font, fontSize, maxSize) would use; MeasureText's text never has its
             // line breaks replaced, as that is only done for a one-line block.
-            var key = new TextBlockKey (text, font, fontSize, maxSize.Width, maxSize.Height, TextAlignment.Auto, 0, -1, false, -1, -1);
+            var key = new TextBlockKey (text, font, fontSize, maxSize.Width, maxSize.Height, TextAlignment.Auto, 0, -1, false, -1, -1, 0);
             if (_sizes.TryGet (key, out var size))
                 return size;
 

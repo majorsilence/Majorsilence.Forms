@@ -485,7 +485,9 @@ namespace Majorsilence.Forms
         /// unparented control -- which is <see cref="Visible"/>, as upstream -- could take focus that
         /// no window tracks (CTL-14).
         /// </remarks>
-        public bool CanFocus => IsHandleCreated && Visible && Enabled && CanSelect;
+        /// <remarks>False while the control's window is raising Load: upstream's form is not on screen yet
+        /// then, so Focus () in a Load handler does nothing (Select () and ActiveControl are remembered).</remarks>
+        public bool CanFocus => IsHandleCreated && Visible && Enabled && CanSelect && FindWindow () is not { raising_load: true };
 
         /// <summary>Gets whether the caller must use Invoke to call the control (always false on UI thread).</summary>
         public bool InvokeRequired => !Platform.Backend.CheckAccess ();

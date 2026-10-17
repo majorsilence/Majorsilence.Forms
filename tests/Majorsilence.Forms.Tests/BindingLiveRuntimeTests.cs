@@ -93,6 +93,33 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void Binding_to_an_empty_table_leaves_the_controls_value ()
+        {
+            // As upstream: a binding to a list with no current row is not bound yet, so adding it pushes
+            // nothing. A form that binds its fields to an empty table and sets their defaults had every
+            // default wiped -- dates blank, check boxes cleared.
+            var table = new System.Data.DataTable ();
+            table.Columns.Add ("Name", typeof (string));
+            table.Columns.Add ("Active", typeof (bool));
+
+            using var box = Box ();
+            box.Text = "default";
+            box.DataBindings.Add ("Text", table, "Name");
+
+            using var check = new CheckBox { Checked = true };
+            check.DataBindings.Add ("Checked", table, "Active");
+
+            Assert.Equal ("default", box.Text);
+            Assert.True (check.Checked);
+
+            // ...and the first row, once there is one, is shown as before.
+            table.Rows.Add ("Ada", false);
+
+            Assert.Equal ("Ada", box.Text);
+            Assert.False (check.Checked);
+        }
+
+        [Fact]
         public void Deleting_the_current_row_announces_the_next_one ()   // BND-02
         {
             var source = new BindingSource {

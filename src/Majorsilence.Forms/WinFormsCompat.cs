@@ -2828,6 +2828,16 @@ namespace Majorsilence.Forms
     /// <summary>Represents a panel that can host ToolStrip controls. Stub in Majorsilence.Forms.</summary>
     public partial class ToolStripPanel : Panel
     {
+        /// <summary>The default style of a tool strip panel.</summary>
+        /// <remarks>A background of its own, as upstream's panel is painted by the tool strip renderer
+        /// whatever its parent's colour: beside a strip only as wide as its buttons, a panel on a dark grey
+        /// form showed dark grey.</remarks>
+        public new static ControlStyle DefaultStyle = new ControlStyle (Panel.DefaultStyle,
+            (style) => style.BackgroundColor = Theme.BackgroundColor);
+
+        /// <inheritdoc/>
+        public override ControlStyle Style { get; } = new ControlStyle (DefaultStyle);
+
         /// <summary>Gets or sets whether the strips in this panel can be dragged between its rows.</summary>
         /// <remarks>Read as of W6 mechanisms: a locked panel refuses the grip drag that rafts a strip
         /// from one row to another. <c>Join</c> still moves a strip, because that is the programmatic

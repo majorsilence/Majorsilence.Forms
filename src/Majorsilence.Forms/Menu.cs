@@ -32,7 +32,10 @@ namespace Majorsilence.Forms
         public new global::Majorsilence.Forms.MenuItemCollection Items => RootItems;
 
         /// <inheritdoc/>
-        public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle);
+        /// <remarks>A background of its own, as upstream's menu strip paints one whatever the form's colour:
+        /// a form with <c>BackColor = DarkGray</c> drew its menu bar dark grey.</remarks>
+        public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle,
+            (style) => style.BackgroundColor = Theme.BackgroundColor);
 
         // Part styles for the items (CSS `Menu::item` and `Menu::item:hover`). The hover style
         // layers on the item style, so an item text colour carries into the hovered state.
