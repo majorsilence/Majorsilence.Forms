@@ -235,7 +235,13 @@ namespace Majorsilence.Forms
             set => SetValue (nameof (ForegroundDisabledColor), value);
         }
 
-        private static T GetValue<T> (string name) => (T)values[name];
+        // A ThemeScope made current by the control tree being painted, laid out or handling input wins
+        // over the application theme for the tokens it sets (see ThemeScope).
+        private static T GetValue<T> (string name)
+            => ThemeScope.Current is { } scope && scope.TryGetValue (name, out var scoped) ? (T)scoped : (T)values[name];
+
+        // The application theme's value, ignoring any current ThemeScope.
+        internal static object GetGlobalValue (string name) => values[name];
 
         /// <summary>
         /// A smaller font size generally used for lists of items.
@@ -273,6 +279,24 @@ namespace Majorsilence.Forms
             BeginUpdate ();
             try {
 
+            FillBuiltInTheme (values, theme);
+
+            // A built-in theme resets everything a theme can set, and a CSS theme's control rules are
+            // part of that (Theme.Css.cs). Runs after the colors so the re-run type defaults read them.
+            ClearStyleSheetRules ();
+
+            RaiseThemeChanged ();
+            } finally {
+                // Always balance BeginUpdate even if a ThemeChanged subscriber threw while resuming --
+                // a leaked suspend count silently suppresses every later theme broadcast in the process.
+                EndUpdate ();
+            }
+        }
+
+        // The values a built-in theme sets: into the global table, or a ThemeScope's (whose `values`
+        // parameter deliberately shadows the global one, so the palette below is written once).
+        internal static void FillBuiltInTheme (IDictionary<string, object> values, BuiltInTheme theme)
+        {
             values[nameof (UIFont)] = default_ui_font;
             values[nameof (UIFontBold)] = default_ui_font_bold;
             values[nameof (FontSize)] = default_font_size;
@@ -407,22 +431,13 @@ namespace Majorsilence.Forms
                     values[nameof (WarningHighlightColor)] = new SKColor (232, 17, 35);
                     break;
             }
-
-            // A built-in theme resets everything a theme can set, and a CSS theme's control rules are
-            // part of that (Theme.Css.cs). Runs after the colors so the re-run type defaults read them.
-            ClearStyleSheetRules ();
-
-            RaiseThemeChanged ();
-            } finally {
-                // Always balance BeginUpdate even if a ThemeChanged subscriber threw while resuming --
-                // a leaked suspend count silently suppresses every later theme broadcast in the process.
-                EndUpdate ();
-            }
         }
 
         private static void InvokeThemeChanged ()
         {
             TextMeasurer.ClearTextBlockCache ();
+            // A scope inherits every token it does not set, so its controls' styles follow this change too.
+            ThemeScope.RefreshAll ();
             ThemeChanged?.Invoke (null, EventArgs.Empty);
             Application.DoThemeChanged ();
             RaiseStyleSheetApplied ();
@@ -500,6 +515,15 @@ namespace Majorsilence.Forms
             Drawing.Text.PrivateFontRegistry.Add (value);
             registered = value;
             return value;
+        }
+
+        // A ThemeScope's font: registered privately like UIFont's, but never removed, since any number of
+        // scopes may use it.
+        internal static SKTypeface RegisterScopedFont (SKTypeface value)
+        {
+            if (value is not null && !IsInstalled (value))
+                Drawing.Text.PrivateFontRegistry.Add (value);
+            return value!;
         }
 
         private static bool IsInstalled (SKTypeface typeface)

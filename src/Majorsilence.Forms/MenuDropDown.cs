@@ -238,6 +238,8 @@ namespace Majorsilence.Forms
                 popup.Controls.Add (this);
             }
 
+            popup.ScopeOwner = parent;
+
             LayoutItems ();
 
             // width/height come from the items' preferred sizes, which are already logical (each is run

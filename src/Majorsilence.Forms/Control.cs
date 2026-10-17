@@ -2274,6 +2274,7 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void RaiseClick (MouseEventArgs e)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             // If something has the mouse captured, they get all the events
             var captured = Controls.FindCapturedChild ();
 
@@ -2336,6 +2337,7 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void RaiseDoubleClick (MouseEventArgs e)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             // If something has the mouse captured, they get all the events
             var captured = Controls.FindCapturedChild ();
 
@@ -2357,6 +2359,7 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void RaiseKeyDown (KeyEventArgs e)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             if (this is ControlAdapter adapter) {
                 // A panel-hosted form owns its own focus chain, so it has to see the key before the Tab
                 // handling below -- otherwise Tab inside the hosted form would move focus among the
@@ -2404,6 +2407,7 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void RaiseKeyPress (KeyPressEventArgs e)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             if (this is ControlAdapter adapter) {
                 // Ahead of the Tab handling, for the same reason as RaiseKeyDown.
                 if (adapter.SelectedControl is FormHost host) {
@@ -2449,6 +2453,7 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void RaiseMouseDown (MouseEventArgs e)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             var child = Controls.FindVisibleChildAt (e.Location);
 
             if (child != null)
@@ -2547,6 +2552,7 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void RaiseKeyUp (KeyEventArgs e)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             if (this is ControlAdapter adapter) {
                 if (adapter.SelectedControl is FormHost host) {
                     e.Handled = host.ForwardKeyUp (e.KeyData);
@@ -2565,6 +2571,7 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void RaiseMouseEnter (MouseEventArgs e)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             var child = Controls.FindVisibleChildAt (e.Location);
 
             if (child != null) {
@@ -2619,6 +2626,7 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void RaiseMouseLeave (EventArgs e)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             // Leaving from over a child leaves only the child: this control was already left when the
             // pointer moved onto it.
             if (current_mouse_in != null)
@@ -2633,6 +2641,7 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void RaiseMouseMove (MouseEventArgs e)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             // If something has the mouse captured, they get all the events
             var captured = Controls.FindCapturedChild ();
 
@@ -2694,6 +2703,7 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void RaiseMouseUp (MouseEventArgs e)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             // If something has the mouse captured, they get all the events
             var captured = Controls.FindCapturedChild ();
 
@@ -2867,6 +2877,7 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void RaisePaint (PaintEventArgs e)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             // Clear the dirty flag BEFORE painting (not after): a paint handler that calls
             // Invalidate() on itself synchronously (e.g. an async double-buffering handler whose
             // await completes synchronously) must have that request survive. Clearing afterward
@@ -2912,6 +2923,7 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void RaisePaintBackground (PaintEventArgs e)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             // An OnPaintBackground override is application paint code too (EVT-37).
             using (e.LogicalSpace ())
                 OnPaintBackground (e);

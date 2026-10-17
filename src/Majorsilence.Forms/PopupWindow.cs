@@ -3,9 +3,13 @@ namespace Majorsilence.Forms
     /// <summary>
     /// Represents a popup window used for things like ComboBoxes and context menus.
     /// </summary>
-    public class PopupWindow : WindowBase
+    public partial class PopupWindow : WindowBase
     {
         private readonly WindowBase parent_form;
+
+        // The control the popup is showing for, when not its AccessibleOwner (a menu's drop-down); its
+        // ThemeScope is the popup's.
+        internal Control? ScopeOwner { get; set; }
 
         // False for a tool tip: it is never interacted with, so it must not take activation from the
         // window it describes. An activating tip popped up under the pointer on hover and the next

@@ -44,8 +44,9 @@ namespace Majorsilence.Forms
 
         private SKTypeface font => font_override ?? textbox.GetEffectiveFont ();
         private TextAlignment alignment = TextAlignment.Left;
-        private SKColor placeholder_font_color = Theme.ForegroundDisabledColor;
-        private SKColor selection_color = Theme.TextSelectionBackgroundColor;
+        // null until set: the theme's colour, read when used so a later theme or a ThemeScope applies
+        private SKColor? placeholder_font_color;
+        private SKColor? selection_color;
 
         private static readonly string[] invalid_singleline_characters = ["\r", "\n"];
 
@@ -360,14 +361,14 @@ namespace Majorsilence.Forms
             return hit;
         }
 
-        public TextSelection GetTextSelection () => new TextSelection (selection_start, selection_end, selection_color);
+        public TextSelection GetTextSelection () => new TextSelection (selection_start, selection_end, SelectionColor);
 
         /// <summary>
         /// The height of one line of this box's text, for when there is no text: an empty text block measures 0,
         /// which would leave nothing to centre a single line on or to size the caret from.
         /// </summary>
         internal int EmptyLineHeight
-            => (int)TextMeasurer.CreateTextBlock ("l", font, textbox.CurrentFontSize, TextMeasurer.MaxSize, alignment, placeholder_font_color, 1).MeasuredHeight;
+            => (int)TextMeasurer.CreateTextBlock ("l", font, textbox.CurrentFontSize, TextMeasurer.MaxSize, alignment, PlaceholderFontColor, 1).MeasuredHeight;
 
         public TextBlock GetTextBlock ()
         {
@@ -396,7 +397,7 @@ namespace Majorsilence.Forms
                          : unbounded;
             var color = !Enabled ? Theme.ForegroundDisabledColor :
                         Text.HasValue () ? textbox.GetEffectiveForegroundColor () :
-                                placeholder_font_color;
+                                PlaceholderFontColor;
 
             var block = textbox.Colorizer is { } colorizer && DisplayText.HasValue ()
                 ? BuildColorizedTextBlock (colorizer, max_size, color)
@@ -769,7 +770,7 @@ namespace Majorsilence.Forms
         }
 
         public SKColor PlaceholderFontColor {
-            get => placeholder_font_color;
+            get => placeholder_font_color ?? Theme.ForegroundDisabledColor;
             set {
                 if (placeholder_font_color != value) {
                     placeholder_font_color = value;
@@ -812,7 +813,7 @@ namespace Majorsilence.Forms
         public string SelectedText => IsTextSelected ? text.Substring (Math.Min (selection_start, selection_end), SelectionLength) : string.Empty;
 
         public SKColor SelectionColor {
-            get => selection_color;
+            get => selection_color ?? Theme.TextSelectionBackgroundColor;
             set {
                 if (selection_color != value) {
                     selection_color = value;
