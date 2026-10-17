@@ -630,7 +630,10 @@ scope.Reset (nameof (Theme.AccentColor));                     // follow Theme ag
 - **What it covers.** The control (or window) and its children. A dialog with no scope of its own uses
   its `Owner`'s (or the window it was shown over with `ShowDialog (owner)`), an MDI child its parent's,
   and a drop-down, context menu or tool tip the scope of the control it opened for -- so a combo box in a
-  scoped panel of an unscoped window gets a scoped list.
+  scoped panel of an unscoped window gets a scoped list. Failing all of those, a window created while a
+  scope was current uses it: a dialog or message box opened from a scoped control's click, menu or key
+  handler looks like that control even when its owner is an unscoped host window (or there is none, as
+  when the control is hosted in another toolkit).
 - **What it overrides.** Only the tokens it sets; `SetBuiltInTheme` and `LoadFromCss`/`ApplyStyleSheet`
   set all of them. Every other token follows `Theme`, including later changes. The application's CSS
   control rules apply inside a scope until the scope has a theme of its own (`SetBuiltInTheme` or a

@@ -37,6 +37,10 @@ namespace Majorsilence.Forms
         protected WindowBase ()
         {
             Majorsilence.Forms.Backends.Platform.Backend.Initialize ();
+
+            // A dialog or message box is created by the handler that opens it, which runs under the
+            // opener's ThemeScope; see ResolveThemeScope.
+            opened_under_scope = Majorsilence.Forms.ThemeScope.Current;
         }
 
         /// <summary>

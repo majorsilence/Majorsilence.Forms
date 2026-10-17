@@ -44,10 +44,17 @@ namespace Majorsilence.Forms
         // Kept after the dialog closes, unlike Form's own dialog_parent, so a reshown dialog keeps it.
         internal WindowBase? scope_dialog_parent;
 
+        // ThemeScope.Current when this window was created: the scope of the control whose click, menu or
+        // key handler opened it. Used when nothing in the owner chain has a scope -- a scoped control
+        // inside an unscoped window opens a dialog owned by that window, or by no window at all when it
+        // is hosted in another toolkit, and the dialog should still look like the control.
+        private readonly ThemeScope? opened_under_scope;
+
         /// <summary>
         /// Gets or sets a theme for this window in place of the application-wide <see cref="Theme"/>. When
         /// null (the default) a dialog uses its owner's, an MDI child its parent's, and a drop-down or tool
-        /// tip the scope of the control it opened for.
+        /// tip the scope of the control it opened for. Failing those, a window created while a scope was
+        /// current -- a dialog opened from a scoped control's event handler -- uses that scope.
         /// </summary>
         public ThemeScope? ThemeScope {
             get => theme_scope;
@@ -68,16 +75,14 @@ namespace Majorsilence.Forms
             if (theme_scope is not null)
                 return theme_scope;
 
-            switch (this) {
-                case Form { Owner: { } owner }:
-                    return owner.ResolveThemeScope ();
-                case Form { MdiParent: { } mdiParent }:
-                    return mdiParent.ResolveThemeScope ();
-                case PopupWindow popup:
-                    return popup.ResolveOwnerThemeScope ();
-            }
+            var inherited = this switch {
+                Form { Owner: { } owner } => owner.ResolveThemeScope (),
+                Form { MdiParent: { } mdiParent } => mdiParent.ResolveThemeScope (),
+                PopupWindow popup => popup.ResolveOwnerThemeScope (),
+                _ => scope_dialog_parent?.ResolveThemeScope (),
+            };
 
-            return scope_dialog_parent?.ResolveThemeScope ();
+            return inherited ?? opened_under_scope;
         }
     }
 
