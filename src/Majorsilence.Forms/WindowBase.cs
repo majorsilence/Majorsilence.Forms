@@ -698,6 +698,7 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void RenderFrame (SkiaSharp.SKCanvas canvas, int physW, int physH, double scaling)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             // Every backend reaches here with the window's current scale, so this is where a move to a
             // monitor of another scale is first seen -- ahead of the frame, so handlers that rescale
             // fonts or cached art do it before anything is drawn.
@@ -1611,6 +1612,7 @@ namespace Majorsilence.Forms
         // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal void HandlePointerPressed (MouseButtons button, int x, int y, Keys keys)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             TrackModifierKeys (keys);
             try {
                 HandlePointerPressedCore (button, x, y, keys);
@@ -1652,6 +1654,7 @@ namespace Majorsilence.Forms
         // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal void HandlePointerReleased (MouseButtons button, int x, int y, Keys keys)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             TrackModifierKeys (keys);
             try {
                 Control.BeginRelease ();
@@ -1751,6 +1754,7 @@ namespace Majorsilence.Forms
         // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal void HandlePointerMoved (MouseButtons buttons, int x, int y, Keys keys)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             TrackModifierKeys (keys);
             try {
                 HandlePointerMovedCore (buttons, x, y, keys);
@@ -1792,6 +1796,7 @@ namespace Majorsilence.Forms
         // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal void HandlePointerWheel (MouseButtons buttons, int x, int y, System.Drawing.Point delta, Keys keys)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             TrackModifierKeys (keys);
             try {
                 HandlePointerWheelCore (buttons, x, y, delta, keys);
@@ -2011,6 +2016,7 @@ namespace Majorsilence.Forms
         // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal void HandlePointerExited (MouseButtons buttons, int x, int y, Keys keys)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             try {
                 HandlePointerExitedCore (buttons, x, y, keys);
             } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
@@ -2159,6 +2165,7 @@ namespace Majorsilence.Forms
         // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal bool HandleKeyDown (Keys keys)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             TrackModifierKeys (keys);
             try {
                 return HandleKeyDownCore (keys);
@@ -2256,6 +2263,7 @@ namespace Majorsilence.Forms
         // through Application.ThreadException when a handler is attached, and propagates otherwise.
         internal bool HandleKeyUp (Keys keys)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             TrackModifierKeys (keys);
             try {
                 return HandleKeyUpCore (keys);
@@ -2312,6 +2320,7 @@ namespace Majorsilence.Forms
         // See HandlePointerPressed: the same exception boundary, for text input.
         internal bool HandleTextInput (string text)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             try {
                 return HandleTextInputCore (text);
             } catch (Exception ex) when (Application.RaiseThreadException (ex)) {
@@ -2697,6 +2706,7 @@ namespace Majorsilence.Forms
             // position (so CenterParent placed the dialog somewhere arbitrary) while leaving the real
             // window it lives in still accepting input.
             var parentWindow = parent.PresentationWindow;
+            scope_dialog_parent = parent;
 
             PrepareForFirstShowIfNeeded ();
             SetWindowStartupLocation (parentWindow);
@@ -2989,6 +2999,7 @@ namespace Majorsilence.Forms
         /// <remarks>The overload designer-generated and container code actually calls.</remarks>
         public void PerformLayout (Control? affectedControl, string? affectedProperty)
         {
+            using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
             SyncAdapterBounds ();
             adapter.PerformLayout (affectedControl, affectedProperty);
 

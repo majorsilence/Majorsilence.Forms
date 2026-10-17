@@ -11,6 +11,9 @@ namespace Majorsilence.Forms
 
         private SKColor? color;
         private int? width;
+        private int? radius, top_left_radius, top_right_radius, bottom_right_radius, bottom_left_radius;
+        private ControlBorderLineStyle? line_style;
+        private readonly BorderSideStyle left, top, right, bottom;
 
         /// <summary>
         /// Initializes a new instance of the ControlBorderStyle class.
@@ -19,28 +22,52 @@ namespace Majorsilence.Forms
         {
             _parent = parent;
 
-            Left = new BorderSideStyle (_parent?.Left);
-            Top = new BorderSideStyle (_parent?.Top);
-            Right = new BorderSideStyle (_parent?.Right);
-            Bottom = new BorderSideStyle (_parent?.Bottom);
+            // the raw sides: the public getters can answer for a ThemeScope (see Active)
+            left = new BorderSideStyle (_parent?.left) { OwnerBorder = this, Side = 0 };
+            top = new BorderSideStyle (_parent?.top) { OwnerBorder = this, Side = 1 };
+            right = new BorderSideStyle (_parent?.right) { OwnerBorder = this, Side = 2 };
+            bottom = new BorderSideStyle (_parent?.bottom) { OwnerBorder = this, Side = 3 };
+        }
+
+        // The type-level ControlStyle this border belongs to, or null (see ControlStyle.ScopedTwin).
+        internal ControlStyle? Owner { get; set; }
+
+        // This border, or under a ThemeScope the scope's twin of it, whose values reads return.
+        private ControlBorderStyle Active => Owner?.ScopedTwin?.Border ?? this;
+
+        internal BorderSideStyle SideAt (int side) => side switch { 0 => left, 1 => top, 2 => right, _ => bottom };
+
+        // For ControlStyle.RebuildAsTwin: this border's own values become `source`'s (or none).
+        internal void CopyValuesFrom (ControlBorderStyle? source)
+        {
+            color = source?.color;
+            width = source?.width;
+            radius = source?.radius;
+            top_left_radius = source?.top_left_radius;
+            top_right_radius = source?.top_right_radius;
+            bottom_right_radius = source?.bottom_right_radius;
+            bottom_left_radius = source?.bottom_left_radius;
+            line_style = source?.line_style;
+            for (int i = 0; i < 4; i++)
+                SideAt (i).CopyValuesFrom (source?.SideAt (i));
         }
 
         /// <summary>
         /// Gets the styles for the bottom border.
         /// </summary>
-        public BorderSideStyle Bottom { get; }
+        public BorderSideStyle Bottom => Active.bottom;
 
         /// <summary>
         /// Gets or sets the color of all sides of the border.
         /// </summary>
         public SKColor? Color {
-            get => color;
+            get => Active.color;
             set {
                 color = value;
-                Left.Color = value;
-                Right.Color = value;
-                Top.Color = value;
-                Bottom.Color = value;
+                left.Color = value;
+                right.Color = value;
+                top.Color = value;
+                bottom.Color = value;
             }
         }
 
@@ -99,49 +126,49 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets the styles for the left border.
         /// </summary>
-        public BorderSideStyle Left { get; }
+        public BorderSideStyle Left => Active.left;
 
         /// <summary>
         /// Gets or sets the radius for all border corners.
         /// </summary>
-        public int? Radius { get; set; }
+        public int? Radius { get => Active.radius; set => radius = value; }
 
         /// <summary>Gets or sets the radius of the top-left corner only; wins over <see cref="Radius"/> (#286).</summary>
-        public int? TopLeftRadius { get; set; }
+        public int? TopLeftRadius { get => Active.top_left_radius; set => top_left_radius = value; }
 
         /// <summary>Gets or sets the radius of the top-right corner only; wins over <see cref="Radius"/> (#286).</summary>
-        public int? TopRightRadius { get; set; }
+        public int? TopRightRadius { get => Active.top_right_radius; set => top_right_radius = value; }
 
         /// <summary>Gets or sets the radius of the bottom-right corner only; wins over <see cref="Radius"/> (#286).</summary>
-        public int? BottomRightRadius { get; set; }
+        public int? BottomRightRadius { get => Active.bottom_right_radius; set => bottom_right_radius = value; }
 
         /// <summary>Gets or sets the radius of the bottom-left corner only; wins over <see cref="Radius"/> (#286).</summary>
-        public int? BottomLeftRadius { get; set; }
+        public int? BottomLeftRadius { get => Active.bottom_left_radius; set => bottom_left_radius = value; }
 
         /// <summary>Gets or sets whether the border is drawn solid or dashed; null inherits (#286).</summary>
-        public ControlBorderLineStyle? LineStyle { get; set; }
+        public ControlBorderLineStyle? LineStyle { get => Active.line_style; set => line_style = value; }
 
         /// <summary>
         /// Gets the styles for the right border.
         /// </summary>
-        public BorderSideStyle Right { get; }
+        public BorderSideStyle Right => Active.right;
 
         /// <summary>
         /// Gets the styles for the top border.
         /// </summary>
-        public BorderSideStyle Top { get; }
+        public BorderSideStyle Top => Active.top;
 
         /// <summary>
         /// Gets or sets the width of all sides of the border.
         /// </summary>
         public int? Width {
-            get => width;
+            get => Active.width;
             set {
                 width = value;
-                Left.Width = value;
-                Right.Width = value;
-                Top.Width = value;
-                Bottom.Width = value;
+                left.Width = value;
+                right.Width = value;
+                top.Width = value;
+                bottom.Width = value;
             }
         }
     }
@@ -168,10 +195,26 @@ namespace Majorsilence.Forms
         /// </summary>
         public BorderSideStyle (BorderSideStyle? parent) => _parent = parent;
 
+        private SKColor? color;
+        private int? width;
+
+        // The border this side belongs to and which side it is, so a ThemeScope can answer for it.
+        internal ControlBorderStyle? OwnerBorder { get; set; }
+        internal int Side { get; set; }
+
+        // This side, or under a ThemeScope the same side of the scope's twin border.
+        private BorderSideStyle Active => OwnerBorder?.Owner?.ScopedTwin?.Border.SideAt (Side) ?? this;
+
+        internal void CopyValuesFrom (BorderSideStyle? source)
+        {
+            color = source?.color;
+            width = source?.width;
+        }
+
         /// <summary>
         /// Gets or sets the color of this side of the border.
         /// </summary>
-        public SKColor? Color { get; set; }
+        public SKColor? Color { get => Active.color; set => color = value; }
 
         /// <summary>
         /// Gets the computed color of this side of the border.
@@ -181,7 +224,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the width of this side of the border.
         /// </summary>
-        public int? Width { get; set; }
+        public int? Width { get => Active.width; set => width = value; }
 
         /// <summary>
         /// Gets the computed width of this side of the border.

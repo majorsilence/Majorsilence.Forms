@@ -244,6 +244,13 @@ namespace Majorsilence.Forms
                 ApplyPropertyElement (element);
         }
 
+        // A registered theme's definition (a ThemeStyleSheet or an XElement), or null; for ThemeScope.
+        internal static object? GetRegisteredTheme (string name)
+        {
+            lock (_lock)
+                return registered_themes.TryGetValue (name, out var definition) ? definition : null;
+        }
+
         // Shared by XML and CSS themes. `error` builds the exception matching the format of the theme
         // that named the base, so an XML theme keeps throwing ThemeXmlException and a CSS one
         // ThemeCssException.

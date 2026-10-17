@@ -22,9 +22,12 @@ namespace Majorsilence.Forms
             _parent = parent;
             _setDefaults = setDefaults;
 
-            Border = new ControlBorderStyle (parent?.Border);
+            border = new ControlBorderStyle (parent?.border) { Owner = this };
 
-            setDefaults (this);
+            // A type's static styles are created lazily, possibly while a ThemeScope is current; their
+            // values are the application theme's regardless.
+            using (ThemeScope.Push (null))
+                setDefaults (this);
 
             Theme.ThemeChanged += (o, e) => ApplyDefaults ();
         }
@@ -37,7 +40,52 @@ namespace Majorsilence.Forms
         {
             _parent = parent;
 
-            Border = new ControlBorderStyle (parent?.Border);
+            border = new ControlBorderStyle (parent?.border);
+        }
+
+        // A style outside any chain and not type-level: Clone and the DataGridViewCellStyle conversion.
+        private ControlStyle ()
+        {
+            border = new ControlBorderStyle (null);
+        }
+
+        // A ThemeScope's stand-in for a type-level style; see ScopedTwin.
+        private ControlStyle (bool scopedTwin)
+        {
+            is_twin = scopedTwin;
+            border = new ControlBorderStyle (null);
+        }
+
+        // --- ThemeScope ----------------------------------------------------------------------------
+        //
+        // A type-level style (one with declared defaults, e.g. Button.DefaultStyle) holds the application
+        // theme's values. While a ThemeScope is current, reading its theme-derived values (colours, font,
+        // border, shadow) reads the scope's twin of it instead: a value bag built by running the same
+        // defaults with the scope current, then the scope's CSS rules. Every chain still walks the original
+        // styles, so renderers that read Button.DefaultStyle directly, and instance styles whose parent is
+        // it, follow the scope with no changes. Setting a value always sets this style's own.
+
+        private readonly bool is_twin;
+
+        internal ControlStyle? ScopedTwin
+            => _setDefaults is not null && !is_twin && ThemeScope.Current is { } scope ? scope.TwinOf (this) : null;
+
+        internal static ControlStyle CreateScopedTwin (ControlStyle original) => new ControlStyle (scopedTwin: true);
+
+        // Rebuilds this twin of `original` (with its scope current): the original's own values first when
+        // `copyOriginal` (values an application set on the type-level style directly carry over), then the
+        // declared defaults, which now read the scope's tokens, then `rules`.
+        internal void RebuildAsTwin (ControlStyle original, Action<ControlStyle>? rules, bool copyOriginal)
+        {
+            background_color = copyOriginal ? original.background_color : null;
+            foreground_color = copyOriginal ? original.foreground_color : null;
+            font = copyOriginal ? original.font : null;
+            font_size = copyOriginal ? original.font_size : null;
+            box_shadow = copyOriginal ? original.box_shadow : null;
+            border.CopyValuesFrom (copyOriginal ? original.border : null);
+
+            original._setDefaults?.Invoke (this);
+            rules?.Invoke (this);
         }
 
         /// <summary>
@@ -53,8 +101,12 @@ namespace Majorsilence.Forms
         // "CSS overrides the type's defaults" hold both at apply time and after later theme changes.
         private void ApplyDefaults ()
         {
-            _setDefaults?.Invoke (this);
-            StyleSheetRules?.Invoke (this);
+            // ThemeChanged can be raised from code running under a scope (an event handler); the type's
+            // own values are the application theme's.
+            using (ThemeScope.Push (null)) {
+                _setDefaults?.Invoke (this);
+                StyleSheetRules?.Invoke (this);
+            }
         }
 
         /// <summary>
@@ -67,12 +119,12 @@ namespace Majorsilence.Forms
         {
             StyleSheetRules = rules;
 
-            BackgroundColor = null;
-            ForegroundColor = null;
-            Font = null;
-            FontSize = null;
-            BoxShadow = null;
-            Border.ClearValues ();
+            background_color = null;
+            foreground_color = null;
+            font = null;
+            font_size = null;
+            box_shadow = null;
+            border.ClearValues ();
 
             ApplyDefaults ();
         }
@@ -87,12 +139,16 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the background color.
         /// </summary>
-        public SKColor? BackgroundColor { get; set; }
+        public SKColor? BackgroundColor { get => (ScopedTwin ?? this).background_color; set => background_color = value; }
+
+        private SKColor? background_color;
 
         /// <summary>
         /// Provides access to border style properties.
         /// </summary>
-        public ControlBorderStyle Border { get; }
+        public ControlBorderStyle Border => (ScopedTwin ?? this).border;
+
+        private readonly ControlBorderStyle border;
 
         /// <summary>
         /// Gets or sets a hard, offset, no-blur shadow painted behind the control (see
@@ -100,7 +156,9 @@ namespace Majorsilence.Forms
         /// (#285); unlike <see cref="BackgroundColor"/> there is no theme default, so a style chain
         /// that never sets one paints no shadow at all.
         /// </summary>
-        public ControlBoxShadow? BoxShadow { get; set; }
+        public ControlBoxShadow? BoxShadow { get => (ScopedTwin ?? this).box_shadow; set => box_shadow = value; }
+
+        private ControlBoxShadow? box_shadow;
 
         /// <summary>
         /// Gets the shadow this style chain resolves to: this style's own <see cref="BoxShadow"/> if
@@ -111,17 +169,23 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the font.
         /// </summary>
-        public SKTypeface? Font { get; set; }
+        public SKTypeface? Font { get => (ScopedTwin ?? this).font; set => font = value; }
+
+        private SKTypeface? font;
 
         /// <summary>
         /// Gets or sets the font size.
         /// </summary>
-        public int? FontSize { get; set; }
+        public int? FontSize { get => (ScopedTwin ?? this).font_size; set => font_size = value; }
+
+        private int? font_size;
 
         /// <summary>
         /// Gets or sets the foreground color.
         /// </summary>
-        public SKColor? ForegroundColor { get; set; }
+        public SKColor? ForegroundColor { get => (ScopedTwin ?? this).foreground_color; set => foreground_color = value; }
+
+        private SKColor? foreground_color;
 
         /// <summary>
         /// Gets the computed background color.
@@ -234,7 +298,7 @@ namespace Majorsilence.Forms
         /// from. The copy is detached from the parent chain deliberately: it carries the values resolved at
         /// the time of the call, which is what a caller mutating a clone expects.
         /// </remarks>
-        public ControlStyle Clone () => new ControlStyle (null, _ => { }) {
+        public ControlStyle Clone () => new ControlStyle () {
             BackColor = BackColor,
             ForeColor = ForeColor,
             SelectionBackColor = SelectionBackColor,
@@ -276,7 +340,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public static implicit operator ControlStyle (DataGridViewCellStyle style)
         {
-            var result = new ControlStyle (null, _ => { }) {
+            var result = new ControlStyle () {
                 BackColor = style.BackColor,
                 ForeColor = style.ForeColor,
                 SelectionBackColor = style.SelectionBackColor,

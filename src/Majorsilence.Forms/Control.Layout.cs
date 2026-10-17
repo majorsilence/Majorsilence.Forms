@@ -425,6 +425,7 @@ public partial class Control
 
     internal void PerformLayout (LayoutEventArgs args)
     {
+        using var theme_scope_entered = Majorsilence.Forms.ThemeScope.EnterFor (this);
         Debug.Assert (args is not null, "This method should never be called with null args.");
 
         if (layout_suspend_count > 0) {
