@@ -45,6 +45,49 @@ namespace Majorsilence.Forms.Tests
             });
 
         [Fact]
+        public void With_the_tabs_below_the_page_sits_at_upstream_s_display_rectangle ()
+            => WithChosenFont (true, tabs => {
+                // Mirrored: the page is inset 4px from the frame's top and sides and ends above the strip.
+                // Bottom tabs kept the theme's edge-to-edge page, so every control on one sat 4px left.
+                var row = tabs.GetTabRect (0);
+                Assert.Equal (tabs.Font.Height + 4, row.Height);
+
+                var strip = row.Height + 4;
+                Assert.Equal (new Rectangle (4, 4, 300 - 8, 200 - strip - 4), tabs.TabPages[0].Bounds);
+                Assert.Equal (200 - strip, tabs.TabStrip.Top);
+            }, tabs => tabs.Alignment = TabAlignment.Bottom);
+
+        [Fact]
+        public void With_the_tabs_below_the_selected_tab_opens_up_into_the_page ()
+        {
+            // As upstream draws it: the frame's bottom edge runs along the top of the strip, and the
+            // selected tab covers it so the tab and the page read as one.
+            try {
+                Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 9f));
+                HeadlessRenderer.Use ();
+                using var form = new Form { FormBorderStyle = FormBorderStyle.None, ClientSize = new Size (400, 300) };
+                var tabs = new TabControl { Location = new Point (0, 0), Size = new Size (300, 200), Alignment = TabAlignment.Bottom };
+                tabs.TabPages.Add (new TabPage ("General"));
+                tabs.TabPages.Add (new TabPage ("Maps"));
+                form.Controls.Add (tabs);
+                form.Show ();
+
+                using var bitmap = SkiaSharp.SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 400, 300));
+                var scale = bitmap.Width / 400f;
+                var strip_top = tabs.TabStrip.Top;
+                var selected = tabs.GetTabRect (0);
+                var other = tabs.GetTabRect (1);
+                var edge_y = (int) ((strip_top + 1.5f) * scale);
+
+                // The frame edge shows above the unselected tab, and not above the selected one.
+                Assert.Equal (TabControl.UpstreamTabBorder, bitmap.GetPixel ((int) ((other.Left + other.Width / 2) * scale), edge_y));
+                Assert.Equal (TabControl.UpstreamSelectedTabFill, bitmap.GetPixel ((int) ((selected.Left + selected.Width / 2) * scale), edge_y));
+            } finally {
+                Application.SetDefaultFont (null!);
+            }
+        }
+
+        [Fact]
         public void A_tab_is_as_wide_as_its_caption_and_the_default_padding ()
             => WithChosenFont (true, tabs => {
                 var caption = TextMeasurer.MeasureText ("General", tabs.TabStrip.GetEffectiveFont (), tabs.TabStrip.GetEffectiveFontSize ()).Width;

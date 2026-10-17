@@ -947,6 +947,14 @@ namespace Majorsilence.Forms.Renderers
 
         private static void RenderCheckBoxCell (PaintEventArgs e, Rectangle bounds, CheckState state, bool flat = false)
         {
+            // Under the upstream look a cell shows the check box glyph a CheckBox does, as upstream's cell
+            // draws the system check box.
+            if (!flat && ControlPaint.UsesUpstreamGlyphs) {
+                var glyph = e.LogicalToDeviceUnits (13);
+                ControlPaint.DrawCheckBox (e, new Rectangle (bounds.Left + (bounds.Width - glyph) / 2, bounds.Top + (bounds.Height - glyph) / 2, glyph, glyph), state);
+                return;
+            }
+
             var size = Math.Min (bounds.Width, bounds.Height) - 6;
             var cx = bounds.Left + (bounds.Width - size) / 2;
             var cy = bounds.Top + (bounds.Height - size) / 2;

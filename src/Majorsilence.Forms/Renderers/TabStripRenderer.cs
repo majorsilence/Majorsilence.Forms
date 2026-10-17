@@ -57,6 +57,11 @@ namespace Majorsilence.Forms.Renderers
 
             using var paint = new SkiaSharp.SKPaint { IsAntialias = false };
 
+            if (control.OwnerTabControl is { UpstreamTabsBelow: true }) {
+                RenderUpstreamBelow (control, e, paint, scale, width);
+                return;
+            }
+
             // The frame's top edge, its sides, and the light band between it and the page.
             paint.Color = TabControl.UpstreamSelectedTabFill;
             e.Canvas.DrawRect (new SkiaSharp.SKRect (0, frame_top, width, control.ScaledHeight), paint);
@@ -88,6 +93,56 @@ namespace Majorsilence.Forms.Renderers
                 if (control.Selected && control.ShowFocusCues)
                     e.Canvas.DrawFocusRectangle (Rectangle.Inflate (b, -e.LogicalToDeviceUnits (2), -e.LogicalToDeviceUnits (2)), e.LogicalToDeviceUnits (1));
             }
+        }
+
+        // The same tabs below the page (Alignment = Bottom), mirrored: the frame's bottom edge runs along the
+        // top of the strip, each tab hangs from it, and the selected tab drops 2px and opens up into the page.
+        private static void RenderUpstreamBelow (TabStrip control, PaintEventArgs e, SkiaSharp.SKPaint paint, float scale, int width)
+        {
+            var frame_bottom = TabControl.UpstreamTabOrigin * scale;
+
+            paint.Color = TabControl.UpstreamSelectedTabFill;
+            e.Canvas.DrawRect (new SkiaSharp.SKRect (0, 0, width, frame_bottom), paint);
+            paint.Color = TabControl.UpstreamTabBorder;
+            e.Canvas.DrawRect (new SkiaSharp.SKRect (0, frame_bottom - scale, width, frame_bottom), paint);
+            e.Canvas.DrawRect (new SkiaSharp.SKRect (0, 0, scale, frame_bottom), paint);
+            e.Canvas.DrawRect (new SkiaSharp.SKRect (width - scale, 0, width, frame_bottom), paint);
+
+            TabStripItem? selected = null;
+
+            foreach (var item in control.Tabs) {
+                if (item.Selected) {
+                    selected = item;
+                    continue;
+                }
+
+                var b = control.LogicalToDeviceUnits (item.Bounds);
+                DrawUpstreamTabBelow (e, paint, new SkiaSharp.SKRect (b.Left, frame_bottom, b.Right, b.Bottom), TabControl.UpstreamTabFill, scale, closed: true);
+                DrawUpstreamCaption (control, item, b, e);
+            }
+
+            if (selected is not null) {
+                var b = control.LogicalToDeviceUnits (selected.Bounds);
+                var drop = TabControl.UpstreamTabOrigin * scale;
+                DrawUpstreamTabBelow (e, paint, new SkiaSharp.SKRect (b.Left - drop, frame_bottom - 2 * scale, b.Right + drop, b.Bottom + drop),
+                    TabControl.UpstreamSelectedTabFill, scale, closed: false);
+                DrawUpstreamCaption (control, selected, b, e);
+
+                if (control.Selected && control.ShowFocusCues)
+                    e.Canvas.DrawFocusRectangle (Rectangle.Inflate (b, -e.LogicalToDeviceUnits (2), -e.LogicalToDeviceUnits (2)), e.LogicalToDeviceUnits (1));
+            }
+        }
+
+        // A tab below the page: outlined on the left, bottom and right; the selected tab's top is open.
+        private static void DrawUpstreamTabBelow (PaintEventArgs e, SkiaSharp.SKPaint paint, SkiaSharp.SKRect box, SkiaSharp.SKColor fill, float scale, bool closed)
+        {
+            paint.Color = fill;
+            e.Canvas.DrawRect (box, paint);
+
+            paint.Color = TabControl.UpstreamTabBorder;
+            e.Canvas.DrawRect (new SkiaSharp.SKRect (box.Left, box.Bottom - scale, box.Right, box.Bottom), paint);
+            e.Canvas.DrawRect (new SkiaSharp.SKRect (box.Left, box.Top + (closed ? 0 : scale), box.Left + scale, box.Bottom), paint);
+            e.Canvas.DrawRect (new SkiaSharp.SKRect (box.Right - scale, box.Top + (closed ? 0 : scale), box.Right, box.Bottom), paint);
         }
 
         // A tab box: filled, outlined on the left, top and right. An unselected tab's bottom is the frame
