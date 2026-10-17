@@ -155,20 +155,30 @@ namespace Majorsilence.Forms
             Invalidate ();
         }
 
+        // The colour properties default to theme tokens, read when painted, so the grid follows Theme (and
+        // a ThemeScope) until one is set; setting Color.Empty returns to the theme. They used to default to
+        // fixed SystemColors, which no theme reaches: a dark theme kept a white grid.
+        private static Color ThemeColor (SkiaSharp.SKColor c) => Color.FromArgb (c.Alpha, c.Red, c.Green, c.Blue);
+
         /// <summary>Gets or sets the background of the value view.</summary>
-        public Color ViewBackColor { get; set; } = SystemColors.Window;
+        public Color ViewBackColor { get => _viewBackColor ?? ThemeColor (Theme.ControlLowColor); set => _viewBackColor = value.IsEmpty ? null : value; }
+        private Color? _viewBackColor;
 
         /// <summary>Gets or sets the foreground of the value view.</summary>
-        public Color ViewForeColor { get; set; } = SystemColors.WindowText;
+        public Color ViewForeColor { get => _viewForeColor ?? ThemeColor (Theme.ForegroundColor); set => _viewForeColor = value.IsEmpty ? null : value; }
+        private Color? _viewForeColor;
 
         /// <summary>Gets or sets the background of the help pane.</summary>
-        public Color HelpBackColor { get; set; } = SystemColors.Control;
+        public Color HelpBackColor { get => _helpBackColor ?? ThemeColor (Theme.BackgroundColor); set => _helpBackColor = value.IsEmpty ? null : value; }
+        private Color? _helpBackColor;
 
         /// <summary>Gets or sets the foreground of the help pane.</summary>
-        public Color HelpForeColor { get; set; } = SystemColors.ControlText;
+        public Color HelpForeColor { get => _helpForeColor ?? ThemeColor (Theme.ForegroundColor); set => _helpForeColor = value.IsEmpty ? null : value; }
+        private Color? _helpForeColor;
 
         /// <summary>Gets or sets the colour of the grid lines.</summary>
-        public Color LineColor { get; set; } = SystemColors.InactiveBorder;
+        public Color LineColor { get => _lineColor ?? ThemeColor (Theme.ControlMidColor); set => _lineColor = value.IsEmpty ? null : value; }
+        private Color? _lineColor;
 
         /// <summary>Gets or sets whether the help pane is shown under the view.</summary>
         /// <remarks>Real as of W6 mechanisms: the pane shows the selected property's display name and

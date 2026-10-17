@@ -383,43 +383,55 @@ namespace Majorsilence.Forms
         public bool UseCompatibleTextRendering { get; set; }
 
         /// <summary>Gets or sets the colour of category headings.</summary>
-        public Color CategoryForeColor { get; set; } = SystemColors.ControlText;
+        public Color CategoryForeColor { get => _categoryForeColor ?? ThemeColor (Theme.ForegroundColor); set => _categoryForeColor = value.IsEmpty ? null : value; }
+        private Color? _categoryForeColor;
 
         /// <summary>Gets or sets the colour of the line under a category heading.</summary>
-        public Color CategorySplitterColor { get; set; } = SystemColors.Control;
+        public Color CategorySplitterColor { get => _categorySplitterColor ?? ThemeColor (Theme.BackgroundColor); set => _categorySplitterColor = value.IsEmpty ? null : value; }
+        private Color? _categorySplitterColor;
 
         /// <summary>Gets or sets the colour of a property that cannot be edited.</summary>
-        public Color DisabledItemForeColor { get; set; } = SystemColors.GrayText;
+        public Color DisabledItemForeColor { get => _disabledItemForeColor ?? ThemeColor (Theme.ForegroundDisabledColor); set => _disabledItemForeColor = value.IsEmpty ? null : value; }
+        private Color? _disabledItemForeColor;
 
         /// <summary>Gets or sets the colour of the help pane's border.</summary>
-        public Color HelpBorderColor { get; set; } = SystemColors.ControlDark;
+        public Color HelpBorderColor { get => _helpBorderColor ?? ThemeColor (Theme.BorderLowColor); set => _helpBorderColor = value.IsEmpty ? null : value; }
+        private Color? _helpBorderColor;
 
         /// <summary>Gets or sets the colour of the grid's border.</summary>
-        public Color ViewBorderColor { get; set; } = SystemColors.ControlDark;
+        public Color ViewBorderColor { get => _viewBorderColor ?? ThemeColor (Theme.BorderLowColor); set => _viewBorderColor = value.IsEmpty ? null : value; }
+        private Color? _viewBorderColor;
 
         /// <summary>Gets or sets the background colour of the selected row while the grid has focus.</summary>
-        public Color SelectedItemWithFocusBackColor { get; set; } = SystemColors.Highlight;
+        public Color SelectedItemWithFocusBackColor { get => _selectedItemWithFocusBackColor ?? ThemeColor (Theme.AccentColor); set => _selectedItemWithFocusBackColor = value.IsEmpty ? null : value; }
+        private Color? _selectedItemWithFocusBackColor;
 
         /// <summary>Gets or sets the text colour of the selected row while the grid has focus.</summary>
-        public Color SelectedItemWithFocusForeColor { get; set; } = SystemColors.HighlightText;
+        public Color SelectedItemWithFocusForeColor { get => _selectedItemWithFocusForeColor ?? ThemeColor (Theme.ForegroundColorOnAccent); set => _selectedItemWithFocusForeColor = value.IsEmpty ? null : value; }
+        private Color? _selectedItemWithFocusForeColor;
 
         /// <summary>Gets or sets the background colour of the commands pane.</summary>
-        public Color CommandsBackColor { get; set; } = SystemColors.Control;
+        public Color CommandsBackColor { get => _commandsBackColor ?? ThemeColor (Theme.BackgroundColor); set => _commandsBackColor = value.IsEmpty ? null : value; }
+        private Color? _commandsBackColor;
 
         /// <summary>Gets or sets the text colour of the commands pane.</summary>
         public Color CommandsForeColor { get; set; } = SystemColors.ControlText;
 
         /// <summary>Gets or sets the border colour of the commands pane.</summary>
-        public Color CommandsBorderColor { get; set; } = SystemColors.ControlDark;
+        public Color CommandsBorderColor { get => _commandsBorderColor ?? ThemeColor (Theme.BorderLowColor); set => _commandsBorderColor = value.IsEmpty ? null : value; }
+        private Color? _commandsBorderColor;
 
         /// <summary>Gets or sets the colour of a link in the commands pane.</summary>
-        public Color CommandsLinkColor { get; set; } = SystemColors.HotTrack;
+        public Color CommandsLinkColor { get => _commandsLinkColor ?? ThemeColor (Theme.AccentColor); set => _commandsLinkColor = value.IsEmpty ? null : value; }
+        private Color? _commandsLinkColor;
 
         /// <summary>Gets or sets the colour of a link being clicked in the commands pane.</summary>
-        public Color CommandsActiveLinkColor { get; set; } = SystemColors.HotTrack;
+        public Color CommandsActiveLinkColor { get => _commandsActiveLinkColor ?? ThemeColor (Theme.AccentColor); set => _commandsActiveLinkColor = value.IsEmpty ? null : value; }
+        private Color? _commandsActiveLinkColor;
 
         /// <summary>Gets or sets the colour of a disabled link in the commands pane.</summary>
-        public Color CommandsDisabledLinkColor { get; set; } = SystemColors.GrayText;
+        public Color CommandsDisabledLinkColor { get => _commandsDisabledLinkColor ?? ThemeColor (Theme.ForegroundDisabledColor); set => _commandsDisabledLinkColor = value.IsEmpty ? null : value; }
+        private Color? _commandsDisabledLinkColor;
 
         /// <summary>Gets where a context menu opens when raised from the keyboard.</summary>
         public Point ContextMenuDefaultLocation => new Point (Width / 2, Height / 2);
