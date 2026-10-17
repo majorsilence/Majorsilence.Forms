@@ -2706,7 +2706,7 @@ namespace Majorsilence.Forms
             // position (so CenterParent placed the dialog somewhere arbitrary) while leaving the real
             // window it lives in still accepting input.
             var parentWindow = parent.PresentationWindow;
-            dialog_parent = parent;
+            scope_dialog_parent = parent;
 
             PrepareForFirstShowIfNeeded ();
             SetWindowStartupLocation (parentWindow);

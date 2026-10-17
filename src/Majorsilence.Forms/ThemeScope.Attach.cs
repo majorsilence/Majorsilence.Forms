@@ -41,7 +41,8 @@ namespace Majorsilence.Forms
         private ThemeScope? theme_scope;
 
         // The window a dialog was shown over (ShowDialog); its scope is the dialog's when it has none.
-        internal WindowBase? dialog_parent;
+        // Kept after the dialog closes, unlike Form's own dialog_parent, so a reshown dialog keeps it.
+        internal WindowBase? scope_dialog_parent;
 
         /// <summary>
         /// Gets or sets a theme for this window in place of the application-wide <see cref="Theme"/>. When
@@ -76,7 +77,7 @@ namespace Majorsilence.Forms
                     return popup.ResolveOwnerThemeScope ();
             }
 
-            return dialog_parent?.ResolveThemeScope ();
+            return scope_dialog_parent?.ResolveThemeScope ();
         }
     }
 

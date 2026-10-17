@@ -1156,6 +1156,7 @@ namespace Majorsilence.Forms
             Modal = true;
 
             dialog_parent = parent;
+            scope_dialog_parent = parent;
             Application.ModalStack.Push (this);
 
             // A modal dialog is owned by the form it was shown against, as upstream's ShowDialog does.
