@@ -48,8 +48,8 @@ public class FocusSequenceTests
             Location = new Point (10, 10 + (tabIndex * 40)),
         };
 
-    // Upstream cannot focus a control on a form that is not displayed yet, so Focus() inside a Load
-    // handler is a no-op there and the focus events arrive after the window is up. This fork marks the
+    // Upstream cannot focus a control on a form that is not displayed yet: a control Select ()ed in a Load
+    // handler becomes the active control, and its focus events arrive after the window is up. This fork marks the
     // window visible before Load (so a Load handler sees a real client rectangle), which used to let the
     // whole Leave/LostFocus/Enter/GotFocus sequence run inside Load -- against handlers whose own fields
     // are still being set up, and for a control that had never actually had focus.
@@ -81,8 +81,8 @@ public class FocusSequenceTests
 
         form.Load += (_, _) => {
             in_load = true;
-            a.Focus ();
-            b.Focus ();
+            a.Select ();
+            b.Select ();
             in_load = false;
         };
 
@@ -129,8 +129,8 @@ public class FocusSequenceTests
 
         form.Load += (_, _) => {
             in_load = true;
-            a.Focus ();
-            b.Focus ();
+            a.Select ();
+            b.Select ();
             in_load = false;
         };
 
@@ -140,6 +140,78 @@ public class FocusSequenceTests
         Assert.Equal (new[] { "b.GotFocus" }, raised);
         Assert.True (b.Focused);
         Assert.False (a.Focused);
+    }
+
+    // The same for an MDI child, which loads from its own branch of Form.TryShowHosted; focus asked for
+    // there ran the control's GotFocus inside Load.
+    [Fact]
+    public void Focus_from_a_Load_handler_is_deferred_for_an_MDI_child ()
+    {
+        HeadlessRenderer.Use ();
+
+        using var parent = new Form { Size = new Size (800, 600), IsMdiContainer = true };
+        parent.Show ();
+
+        var child = new Form { MdiParent = parent, ClientSize = new Size (300, 200) };
+        var a = AddBox (child, 0);
+        var b = AddBox (child, 1);
+
+        var during_load = new System.Collections.Generic.List<string> ();
+        var raised = new System.Collections.Generic.List<string> ();
+        var in_load = false;
+
+        void Record (string name)
+        {
+            raised.Add (name);
+
+            if (in_load)
+                during_load.Add (name);
+        }
+
+        a.GotFocus += (_, _) => Record ("a.GotFocus");
+        b.GotFocus += (_, _) => Record ("b.GotFocus");
+
+        child.Load += (_, _) => {
+            in_load = true;
+            b.Select ();
+            in_load = false;
+        };
+
+        child.Show ();
+
+        Assert.Empty (during_load);
+        Assert.Equal (new[] { "b.GotFocus" }, raised);
+        Assert.True (b.Focused);
+    }
+
+    // Focus () itself does nothing in Load, as upstream's: the form is not on screen yet, so CanFocus is
+    // false, and the request is not replayed afterwards (Select () and ActiveControl are). A designer-built
+    // MDI child whose async Load called Focus () on its first field ran that field's GotFocus against data
+    // Load had not loaded yet, and threw.
+    [Fact]
+    public void Focus_from_a_Load_handler_does_nothing ()
+    {
+        HeadlessRenderer.Use ();
+
+        using var form = new Form { Size = new Size (400, 300) };
+        var a = AddBox (form, 0);
+        var b = AddBox (form, 1);
+
+        bool? focused = null, can_focus = null;
+        var b_got_focus = 0;
+        b.GotFocus += (_, _) => b_got_focus++;
+
+        form.Load += (_, _) => {
+            can_focus = b.CanFocus;
+            focused = b.Focus ();
+        };
+
+        form.Show ();
+
+        Assert.False (can_focus);
+        Assert.False (focused);
+        Assert.Equal (0, b_got_focus);
+        Assert.True (a.Focused);   // the form focuses its first control, as it does with no request at all
     }
 
     [Fact]

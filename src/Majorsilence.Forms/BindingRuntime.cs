@@ -107,7 +107,14 @@ namespace Majorsilence.Forms
 
             SubscribeToSource ();
             SubscribeToTarget ();
-            ReadValue ();
+
+            // Upstream pushes once the binding is bound, and a binding to a list with no current row is not
+            // bound yet -- so binding a field to an empty table leaves the value the form already gave it.
+            // That is what a list that EMPTIES later does not do (ReadValue's Count == 0 branch, BND-02).
+            // Pushing the empty value here blanked every date and cleared every check box on a form that
+            // binds its fields to an empty table and then sets their defaults.
+            if (BindingManagerBase is not { Count: 0 })
+                ReadValue ();
         }
 
         // Called when the binding is removed from a component's collection.

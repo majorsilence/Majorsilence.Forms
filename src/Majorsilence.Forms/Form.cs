@@ -2255,7 +2255,7 @@ namespace Majorsilence.Forms
                 frame.Visible = true;
                 Application.OpenForms.Add (this);
 
-                ShowHostedSequence (EnsureLoaded);
+                ShowHostedSequence (RaiseLoadDeferringFocus);
 
                 frame.Invalidate ();
                 return true;
@@ -2278,7 +2278,9 @@ namespace Majorsilence.Forms
             client.AddChild (this);
             Application.OpenForms.Add (this);
 
-            ShowHostedSequence (EnsureLoaded);
+            // Focus asked for in Load is held until it returns, as for any other form: a child's Load
+            // focusing its first field ran that field's GotFocus against data Load had yet to load.
+            ShowHostedSequence (RaiseLoadDeferringFocus);
 
             if (client.ActiveChild == this)
                 FocusFirstControlIfNone ();
