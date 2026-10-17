@@ -612,6 +612,40 @@ dotnet run --project samples/ThemeStudio -- Themes/ocean.css   # open a file and
   matched pair with one accent and identical control rules, so an app can switch modes without anything
   moving), `ocean.css`, `graphite.css`, `paper.css` and `parchment.css`.
 
+## Scoped themes
+
+`Theme` is application-wide. A `ThemeScope` themes one window, or one control and everything inside it,
+while the rest of the application keeps `Theme` -- for a component embedded in a host app (a report
+designer inside a WPF app) or two documents side by side in different themes.
+
+```csharp
+var scope = new ThemeScope ();
+scope.LoadFromCss (File.ReadAllText ("Themes/ocean.css"));   // or scope.SetBuiltInTheme (BuiltInTheme.Dark)
+designerControl.ThemeScope = scope;                           // or form.ThemeScope = scope
+
+scope.AccentColor = SKColors.Orange;                          // one token; the controls repaint
+scope.Reset (nameof (Theme.AccentColor));                     // follow Theme again
+```
+
+- **What it covers.** The control (or window) and its children. A dialog with no scope of its own uses
+  its `Owner`'s (or the window it was shown over with `ShowDialog (owner)`), an MDI child its parent's,
+  and a drop-down, context menu or tool tip the scope of the control it opened for -- so a combo box in a
+  scoped panel of an unscoped window gets a scoped list.
+- **What it overrides.** Only the tokens it sets; `SetBuiltInTheme` and `LoadFromCss`/`ApplyStyleSheet`
+  set all of them. Every other token follows `Theme`, including later changes. The application's CSS
+  control rules apply inside a scope until the scope has a theme of its own (`SetBuiltInTheme` or a
+  stylesheet), whose rules then replace them there. A scoped stylesheet may `extends` a built-in theme or
+  a CSS theme registered with `Theme.RegisterThemeCss`, not an XML one.
+- **What it leaves alone.** `Theme`'s values, `Theme.ThemeChanged`, `Theme.CurrentStyleSheets` and the
+  WinForms/Avalonia bridges. A scope raises its own `Changed` event (once per `BeginUpdate`/`EndUpdate`).
+- **Custom painting.** While Majorsilence.Forms paints, lays out or delivers input to a control, its
+  scope is `ThemeScope.Current` and every `Theme` property reads through it, so `OnPaint` code reading
+  `Theme.AccentColor` follows the scope unchanged; so do `Button.DefaultStyle` and the other type-level
+  styles. Code running outside those paths -- a timer, a background thread -- sees the application theme;
+  wrap it in `using (scope.Enter ()) { ... }` to read the scope's values.
+- **Cost.** An application that never creates a scope pays one static read per paint, layout and input
+  event.
+
 ## Real System.Windows.Forms apps
 
 The same stylesheet can restyle **real WinForms controls** in a mixed migration app through

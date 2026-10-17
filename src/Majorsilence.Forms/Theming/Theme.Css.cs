@@ -212,7 +212,8 @@ namespace Majorsilence.Forms
 
         // --- internals -------------------------------------------------------------------------
 
-        internal static object GetTokenValue (ThemeCssToken token) => values[token.PropertyName];
+        internal static object GetTokenValue (ThemeCssToken token)
+            => ThemeScope.Current is { } scope && scope.TryGetValue (token.PropertyName, out var scoped) ? scoped : values[token.PropertyName];
 
         internal static void SetTokenValue (ThemeCssToken token, object value) => values[token.PropertyName] = value;
 
