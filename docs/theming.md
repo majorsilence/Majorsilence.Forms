@@ -272,16 +272,63 @@ Button:active {
 - In code, the same thing is `ControlStyle.Transition` (a `ControlTransition`), and the curves are
   `Majorsilence.Forms.Animation.Easing.CubicBezier`, `Steps`, `Ease` and friends.
 
+### 6. Modern values
+
+The value syntax follows current CSS, so values copied from a design system or a web stylesheet work.
+
+```css
+:root {
+  --brand: oklch(60% 0.24 240);
+  --brand-tint: color-mix(in oklch, white 80%, var(--brand));
+  --accent-color: light-dark(#0b5cad, #5aa9ff);
+}
+
+Button {
+  --button-bg: var(--brand);
+  background-color: var(--button-bg);
+  border-radius: calc(0.375rem + 1px);
+  color: white;
+}
+
+Button:hover {
+  --button-bg: oklch(from var(--brand) calc(l * .9) calc(c * 1.15) h);
+}
+```
+
+- **Units and arithmetic.** `rem` is `--root-font-size` (16px unless a theme sets it, a browser's root
+  font size), so a `0.375rem` radius copied from a web stylesheet keeps its size. `calc()`, `min()`,
+  `max()`, `clamp()` and parentheses combine lengths, times, numbers and angles; a length token inside
+  one stays live (`calc(var(--font-size) / 2)`). Put spaces around `+` and `-`, as CSS requires.
+- **Colour functions.** `hwb()`, `lab()`, `lch()`, `oklab()`, `oklch()` and `color()` (`srgb`,
+  `srgb-linear`, `display-p3`, `xyz`, `xyz-d50`, `xyz-d65`) in their space-separated form, with `none`,
+  `calc()` and `/ alpha`. A colour outside sRGB is brought in by CSS's gamut-mapping algorithm, which
+  lowers chroma rather than clipping, so it keeps its hue.
+- **`color-mix(in <space> [<method> hue], a [p%], b [p%])`** mixes in any of those spaces (plus `hsl`
+  and `hwb`), premultiplied by alpha; percentages that add up to less than 100% leave the result that
+  much transparent. An achromatic colour (white, grey) takes the other colour's hue, so
+  `color-mix(in oklch, white 80%, var(--brand))` is a tint of the brand colour.
+- **Relative colours** -- `oklch(from <color> l c h)`, `rgb(from <color> r g b / 50%)`, and the same for
+  every function -- name the origin's channels, which `calc()` can change. The origin can be a token,
+  and the result follows it.
+- **`light-dark(light, dark)`** picks by the theme in effect: dark when its `--background-color` is
+  darker than mid-grey. One sheet then works whether it `extends Light` or `extends Dark`.
+- **Variables inside a rule.** A control rule can declare its own custom properties. They are visible to
+  every rule for the same control type and part, and a state rule that sets one changes every
+  declaration of the base rule that reads it: above, `Button:hover` only sets `--button-bg`, and the
+  hovered button's background follows. (CSS's cascade does exactly this; host appliers see the result as
+  ordinary `:hover` declarations.) A `:root` variable means what it means on `:root`, whatever rule reads
+  it, and a rule cannot set a theme token -- those are theme-wide.
+
 ### Values
 
 | Kind | Accepted forms | Notes |
 |---|---|---|
-| color | `#rgb` `#rgba` `#rrggbb` `#rrggbbaa` · `rgb(r, g, b)` `rgba(r, g, b, a)` · `rgb(r g b / a)` · `hsl(h, s%, l%)` `hsla(...)` · the 148 CSS colour names · `transparent` · `var(--x)` | Alpha is 0–1 (or a percentage). In hex, **alpha comes last** (`#rrggbbaa`) — the opposite of the `#AARRGGBB` order the XML format uses. |
-| length | `14px` or `14` | Whole **pixels**, at 100% scaling. `pt`, `em`, `rem` and `%` are rejected, because every size in a Majorsilence.Forms style is a pixel value. |
+| color | `#rgb` `#rgba` `#rrggbb` `#rrggbbaa` · `rgb(r, g, b)` `rgba(r, g, b, a)` · `rgb(r g b / a)` · `hsl(h, s%, l%)` `hsla(...)` · `hwb()` `lab()` `lch()` `oklab()` `oklch()` · `color(display-p3 1 0 0)` · `color-mix(in oklch, a 30%, b)` · relative colours `oklch(from var(--x) l c h)` · `light-dark(a, b)` · the 148 CSS colour names · `transparent` · `var(--x)` | Alpha is 0–1 (or a percentage). In hex, **alpha comes last** (`#rrggbbaa`) — the opposite of the `#AARRGGBB` order the XML format uses. See [Modern values](#6-modern-values). |
+| length | `14px` or `14` · `0.875rem` · `calc(1rem - 2px)` · `min()` `max()` `clamp()` | **Pixels**, at 100% scaling, rounded to whole pixels. `1rem` is `--root-font-size` (16px by default). `pt`, `em` and `%` are rejected: every size in a style is a pixel value, and `em` would depend on an inherited font size a type rule cannot know. |
 | font family list | `"Segoe UI", "Noto Sans", sans-serif` | Quoted or bare names, comma-separated. The first family the machine has is used, and a font registered with `PrivateFontCollection` counts as one it has; a generic name (`sans-serif`, `serif`, `monospace`) is handed to the OS font matcher. |
 | time | `150ms` · `.15s` | A transition duration or delay. The unit is required, as in CSS. |
 | timing function | `ease` · `cubic-bezier(.22, 1, .36, 1)` · `steps(4, jump-start)` | The easing of a transition. |
-| `var(--name)` | `var(--brand)` · `var(--brand, #333)` | Substitutes a `:root` variable, or a token. A token reference inside a control rule stays **live**: `Button:hover { background-color: var(--accent-color); }` follows later changes to `Theme.AccentColor`. |
+| `var(--name)` | `var(--brand)` · `var(--brand, #333)` | Substitutes a variable -- the rule's own, then `:root`'s -- or a token. A token reference inside a control rule stays **live**: `Button:hover { background-color: var(--accent-color); }` follows later changes to `Theme.AccentColor`. |
 
 ### What is *not* supported, and what happens if you write it
 
@@ -301,7 +348,9 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `DataGridView::header:hover { color: red; }` | Headers do not react to hover. | `:hover` on parts: `Menu::item`, `ToolBar::item`, `MenuDropDown::item`, `TabStrip::item`. |
 | `ScrollBar::thumb { font-size: 12px; }` | A part accepts only the properties its renderer reads. | See the part's **Accepts** column; the thumb takes `background-color`, `border-*`, `border-radius`. |
 | `TextBox:hover { color: red; }` | `TextBox` does not repaint on hover. | Only `Button`, `LinkLabel`, `TrackBar` take `:hover`. |
-| `Button { font-size: 12pt; }` | Sizes are pixels. | `font-size: 16px;` |
+| `Button { font-size: 12pt; }` | Sizes are pixels. | `font-size: 16px;` or `font-size: 1rem;` |
+| `Button { font-size: 1.2em; }` | `em` is relative to an inherited font size, which a type rule cannot know. | `rem` (relative to `--root-font-size`) or `px`. |
+| `Button { color: currentcolor; }` | A type rule has no element whose colour it could follow. | `var(--foreground-color)`. |
 | `Button { color: red !important; }` | There is no cascade to override. | Put the declaration later in the file. |
 | `@import url(base.css);` | No file inclusion. | Register the base theme, then `@theme "X" extends Base;`. |
 | `@media (prefers-color-scheme: dark) { }` | No media queries. | Register two themes and pick one in code. |
@@ -313,7 +362,7 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `Button { background: red; }` | Only the longhand is recognised (`background` would imply images/gradients). | `background-color: red;` |
 | `Button { color: linear-gradient(red, blue); }` | Gradients and images are not colours. | A flat colour. |
 | `:root { color: red; }` | `:root` takes tokens only. | `Form { color: red; }` or `--foreground-color`. |
-| `Button { --pad: 4px; }` | Variables are declared in `:root` only. | Move the declaration to `:root`; use `var(--pad)` here. |
+| `Button { --accent-color: red; }` | A theme token is theme-wide; a rule cannot override it for one control type. | Set it in `:root`, or declare a variable of your own: `Button { --button-accent: red; }`. |
 <!-- END UNSUPPORTED -->
 
 ## Reference
@@ -344,6 +393,7 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `--warning-highlight-color` | color | `WarningHighlightColor` | The colour of a destructive affordance. | The custom title bar's Close button when hovered; PictureBox error state. |
 | `--font-size` | length (px) | `FontSize` | The pixel size of text drawn with the theme font. | Menu, ToolBar, StatusStrip, MenuDropDown, TreeView, NumericUpDown, NavigationPane and the custom title bar. Button/Label/TextBox text uses the ambient font instead -- set that with a `Form { font-size }` rule. |
 | `--item-font-size` | length (px) | `ItemFontSize` | A smaller pixel size for dense item text. | DataGridView cells, ListView items, Ribbon items. Telerik: RadGridView. |
+| `--root-font-size` | length (px) | `RootFontSize` | What one 'rem' is, in pixels: 16px by default, a browser's root font size, so a rem copied from a web stylesheet keeps its size. Changes no font by itself. | Every rem in the theme: lengths, calc() and font sizes written in rem. |
 | `--ui-font` | font family list | `UIFont` | The theme font family (regular weight). | Menu, ToolBar, StatusStrip, MenuDropDown, DataGridView, ListView, NavigationPane and the custom title bar. Button/Label/TextBox text uses the ambient font instead -- set that with a `Form { font-family }` rule. Telerik: RadGridView. |
 | `--ui-font-bold` | font family list | `UIFontBold` | The theme font family used where text is bold. Resolved at bold weight. | DataGridView column headers, MonthCalendar title, NavigationPane group headers. Telerik: RadGridView. |
 
@@ -635,6 +685,8 @@ with, and edit the rest:
   --font-size: 14px;
   /* A smaller pixel size for dense item text. */
   --item-font-size: 12px;
+  /* What one 'rem' is, in pixels: 16px by default, a browser's root font size, so a rem copied from a web stylesheet keeps its size. Changes no font by itself. */
+  --root-font-size: 16px;
   /* The theme font family (regular weight). */
   --ui-font: "Segoe UI", "Noto Sans", sans-serif;
   /* The theme font family used where text is bold. Resolved at bold weight. */

@@ -185,6 +185,12 @@ namespace Majorsilence.Forms
             private readonly Dictionary<string, RawDeclaration> _variables = new (StringComparer.OrdinalIgnoreCase);
             private readonly HashSet<string> _usedVariables = new (StringComparer.OrdinalIgnoreCase);
 
+            // Custom properties declared inside control rules, per (type, part, pseudo-class) -- see CompileControlRules -- the scope
+            // the declaration being compiled resolves var() in (null: :root only), and which of them anything read.
+            private readonly Dictionary<string, Dictionary<string, RawDeclaration>> _ruleVariables = new (StringComparer.Ordinal);
+            private Dictionary<string, RawDeclaration>? _scope;
+            private readonly HashSet<RawDeclaration> _usedRuleVariables = new ();
+
             public Parser (string css)
             {
                 _tokens = new ThemeCssTokenizer (css, _diagnostics).Tokenize ();
@@ -634,9 +640,8 @@ namespace Majorsilence.Forms
                         Advance ();
                         return null;
                     case CssTokenKind.OpenParen:
-                        Error (token, "Unexpected '('.");
-                        Advance ();
-                        return null;
+                        // A parenthesised group, which only means something inside calc(): an anonymous function.
+                        return ReadFunction ();
                     case CssTokenKind.AtKeyword:
                         Error (token, $"Unexpected '@{token.Value}' inside a declaration value.");
                         Advance ();
@@ -660,7 +665,7 @@ namespace Majorsilence.Forms
 
                 while (true) {
                     if (Current.Is (CssTokenKind.EndOfFile) || Current.Is (CssTokenKind.Semicolon) || Current.Is (CssTokenKind.CloseBrace)) {
-                        Error (start, $"'{start.Value}(' is missing its closing ')'.");
+                        Error (start, start.Is (CssTokenKind.OpenParen) ? "'(' is missing its closing ')'." : $"'{start.Value}(' is missing its closing ')'.");
                         return null;
                     }
 
@@ -689,7 +694,7 @@ namespace Majorsilence.Forms
                 if (group.Count > 0 || groups.Count > 0)
                     groups.Add (group);
 
-                return new CssFunction (start.Value, groups, start.Line, start.Column, raw);
+                return new CssFunction (start.Is (CssTokenKind.OpenParen) ? string.Empty : start.Value, groups, start.Line, start.Column, raw);
             }
 
             // ---- semantics -----------------------------------------------------------------------
@@ -779,16 +784,133 @@ namespace Majorsilence.Forms
             private static ThemeCssToken? TokenReferenceOf (List<CssComponent> value)
                 => value.Count == 1 && value[0] is CssTokenRef reference ? reference.Token : null;
 
-            private void CompileControlRules (List<ControlRule> rules)
+            // The key of the rules a custom property declared in a control rule is visible to: the same control type and part, in the
+            // same state. A base rule's variables are visible in its state rules too (see ScopeFor), as they cascade in CSS.
+            private static string ScopeKey (RawSelector selector, bool withPseudo)
+                => $"{selector.TypeName?.ToLowerInvariant ()}::{selector.Part?.ToLowerInvariant ()}:{(withPseudo ? selector.Pseudo?.ToLowerInvariant () : null)}";
+
+            private static readonly Dictionary<string, RawDeclaration> no_rule_variables = new ();
+            private readonly Dictionary<string, Dictionary<string, RawDeclaration>> _scopes = new (StringComparer.Ordinal);
+
+            // The variables a selector's declarations see: the base rule's for its type and part, overridden by its own state's.
+            private Dictionary<string, RawDeclaration> ScopeFor (RawSelector selector)
+            {
+                var key = ScopeKey (selector, true);
+
+                if (_scopes.TryGetValue (key, out var scope))
+                    return scope;
+
+                _ruleVariables.TryGetValue (ScopeKey (selector, false), out var baseVariables);
+                Dictionary<string, RawDeclaration>? stateVariables = null;
+                if (selector.Pseudo is not null)
+                    _ruleVariables.TryGetValue (key, out stateVariables);
+
+                if (baseVariables is null && stateVariables is null) {
+                    scope = no_rule_variables;
+                } else {
+                    scope = new Dictionary<string, RawDeclaration> (StringComparer.OrdinalIgnoreCase);
+                    foreach (var pair in (IEnumerable<KeyValuePair<string, RawDeclaration>>?) baseVariables ?? Array.Empty<KeyValuePair<string, RawDeclaration>> ())
+                        scope[pair.Key] = pair.Value;
+                    foreach (var pair in (IEnumerable<KeyValuePair<string, RawDeclaration>>?) stateVariables ?? Array.Empty<KeyValuePair<string, RawDeclaration>> ())
+                        scope[pair.Key] = pair.Value;
+                }
+
+                return _scopes[key] = scope;
+            }
+
+            private void CollectRuleVariables ()
             {
                 foreach (var rule in _rules) {
                     if (rule.Selectors.Any (s => s.IsRoot))
                         continue;
 
-                    // Compile the declarations once, then attach them to every selector in the list.
-                    var compiled = CompileDeclarations (rule.Declarations);
+                    foreach (var declaration in rule.Declarations) {
+                        if (!IsCustomProperty (declaration.Name))
+                            continue;
+
+                        if (ThemeCssReference.FindToken (declaration.Name) is { } token) {
+                            Error (declaration.Line, declaration.Column,
+                                $"'{token.Name}' is a theme token, which is theme-wide: set it in ':root {{ {token.Name}: ...; }}'. A rule can declare its own variables under other names, e.g. '--{declaration.Name.Substring (2)}-local'.");
+                            continue;
+                        }
+
+                        foreach (var selector in rule.Selectors) {
+                            if (selector.Error is not null || selector.TypeName is null)
+                                continue;
+
+                            var key = ScopeKey (selector, true);
+                            if (!_ruleVariables.TryGetValue (key, out var variables))
+                                _ruleVariables[key] = variables = new Dictionary<string, RawDeclaration> (StringComparer.OrdinalIgnoreCase);
+                            variables[declaration.Name] = declaration;
+                        }
+                    }
+                }
+            }
+
+            // Compiles `declarations` with `scope` for var(), reporting diagnostics only when `report` is set: a comma-separated selector
+            // list compiles once per selector, since each may see different rule variables, but its mistakes are reported once.
+            private CompiledDeclarations CompileInScope (List<RawDeclaration> declarations, Dictionary<string, RawDeclaration> scope, bool report)
+            {
+                var count = _diagnostics.Count;
+                _scope = scope;
+
+                try {
+                    return CompileDeclarations (declarations);
+                } finally {
+                    _scope = null;
+                    if (!report)
+                        _diagnostics.RemoveRange (count, _diagnostics.Count - count);
+                }
+            }
+
+            // Whether `value` reads one of `names`, directly or through a rule variable in `scope`. :root variables are resolved in :root's
+            // own scope, so a rule cannot change what they mean.
+            private static bool References (List<CssComponent> value, ICollection<string> names, Dictionary<string, RawDeclaration> scope, HashSet<string> visiting)
+            {
+                foreach (var component in value) {
+                    if (component is not CssFunction fn)
+                        continue;
+
+                    if (fn.Name.Equals ("var", StringComparison.OrdinalIgnoreCase) && fn.Arguments.Count > 0 && fn.Arguments[0].Count == 1 && fn.Arguments[0][0] is CssIdent { Name: var name }) {
+                        if (names.Contains (name))
+                            return true;
+                        if (scope.TryGetValue (name, out var variable) && visiting.Add (name) && References (variable.Value, names, scope, visiting))
+                            return true;
+                        if (fn.Arguments.Count > 1 && References (fn.Arguments[1], names, scope, visiting))
+                            return true;
+                        continue;
+                    }
+
+                    foreach (var group in fn.Arguments)
+                        if (References (group, names, scope, visiting))
+                            return true;
+                }
+
+                return false;
+            }
+
+            private void CompileControlRules (List<ControlRule> rules)
+            {
+                CollectRuleVariables ();
+
+                // The state variants (selector key with its pseudo-class) whose own variables have already been folded back into the base
+                // rule's declarations; see below.
+                var cascaded = new HashSet<string> (StringComparer.Ordinal);
+
+                foreach (var rule in _rules) {
+                    if (rule.Selectors.Any (s => s.IsRoot))
+                        continue;
+
+                    var declarations = rule.Declarations.Where (d => !IsCustomProperty (d.Name)).ToList ();
+                    var firstScope = ScopeFor (rule.Selectors[0]);
+
+                    // Compile the declarations once, reporting their mistakes, then again for any selector in the list that sees other variables.
+                    var first = CompileInScope (declarations, firstScope, report: true);
 
                     foreach (var raw in rule.Selectors) {
+                        var scope = raw.Error is null ? ScopeFor (raw) : firstScope;
+                        var compiled = ReferenceEquals (scope, firstScope) ? first : CompileInScope (declarations, scope, report: false);
+
                         if (raw.Error is not null) {
                             Error (raw.Line, raw.Column, raw.Error);
                             continue;
@@ -896,6 +1018,28 @@ namespace Majorsilence.Forms
                             accepts = property => !property.StartsWith ("transition", StringComparison.Ordinal);
                         }
 
+                        // A state rule that overrides a variable changes every base declaration that reads it, as the cascade does in CSS:
+                        // 'Button { background-color: var(--bg); } Button:hover { --bg: navy; }' makes the hovered button navy. Those
+                        // declarations are compiled again with the state's variables and applied to the state style ahead of its own rule.
+                        if (raw.Pseudo is not null && _ruleVariables.TryGetValue (ScopeKey (raw, true), out var overridden) && cascaded.Add (ScopeKey (raw, true))) {
+                            var baseKey = ScopeKey (raw, false);
+                            var inherited = _rules
+                                .Where (r => !r.Selectors.Any (s => s.IsRoot) && r.Selectors.Any (s => s.Error is null && s.Pseudo is null && ScopeKey (s, false) == baseKey))
+                                .SelectMany (r => r.Declarations)
+                                .Where (d => !IsCustomProperty (d.Name) && References (d.Value, overridden.Keys, scope, new HashSet<string> (StringComparer.OrdinalIgnoreCase)))
+                                .ToList ();
+
+                            if (inherited.Count > 0) {
+                                var (cascadeActions, cascadeModel) = CompileInScope (inherited, scope, report: false).Build (accepts);
+
+                                if (cascadeActions.Count > 0)
+                                    rules.Add (new ControlRule (selector, part, hover, active, disabled, focus, style => {
+                                        foreach (var action in cascadeActions)
+                                            action (style);
+                                    }, new ThemeCssRule (selector, part, hover, active, disabled, focus, cascadeModel, raw.Line, raw.Column)));
+                            }
+                        }
+
                         var (actions, model) = compiled.Build (accepts);
 
                         if (actions.Count == 0)
@@ -982,11 +1126,9 @@ namespace Majorsilence.Forms
                 foreach (var declaration in declarations) {
                     var name = declaration.Name.ToLowerInvariant ();
 
-                    if (IsCustomProperty (declaration.Name)) {
-                        Error (declaration.Line, declaration.Column,
-                            $"'{declaration.Name}': custom properties can only be declared in ':root'. To use one here, write var({declaration.Name}) as a value.");
+                    // A rule's own custom properties are its variables (CollectRuleVariables), not declarations.
+                    if (IsCustomProperty (declaration.Name))
                         continue;
-                    }
 
                     if (name == "transition-behavior") {
                         Error (declaration.Line, declaration.Column,
@@ -1617,6 +1759,23 @@ namespace Majorsilence.Forms
 
                     var name = nameIdent.Name;
 
+                    if (_scope is not null && _scope.TryGetValue (name, out var ruleVariable)) {
+                        if (!visiting.Add (name)) {
+                            Error (fn, $"'{name}' refers to itself (directly or through other variables).");
+                            return null;
+                        }
+
+                        _usedRuleVariables.Add (ruleVariable);
+                        var substitutedLocal = Substitute (ruleVariable.Value, visiting, declaration);
+                        visiting.Remove (name);
+
+                        if (substitutedLocal is null)
+                            return null;
+
+                        result.AddRange (substitutedLocal);
+                        continue;
+                    }
+
                     if (_variables.TryGetValue (name, out var variable)) {
                         if (!visiting.Add (name)) {
                             Error (fn, $"'{name}' refers to itself (directly or through other variables).");
@@ -1624,7 +1783,12 @@ namespace Majorsilence.Forms
                         }
 
                         _usedVariables.Add (name);
+
+                        // A :root variable means what it means on :root, whatever rule reads it.
+                        var outer = _scope;
+                        _scope = null;
                         var substituted = Substitute (variable.Value, visiting, declaration);
+                        _scope = outer;
                         visiting.Remove (name);
 
                         if (substituted is null)
@@ -1694,6 +1858,14 @@ namespace Majorsilence.Forms
 
             private void WarnUnusedVariables ()
             {
+                foreach (var declaration in _ruleVariables.Values.SelectMany (v => v.Values).Distinct ()) {
+                    if (_usedRuleVariables.Contains (declaration))
+                        continue;
+
+                    Warning (declaration.Line, declaration.Column,
+                        $"'{declaration.Name}' is declared but never used: nothing in this rule, its control's other rules or their states reads var({declaration.Name}).");
+                }
+
                 foreach (var variable in _variables.Values) {
                     if (_usedVariables.Contains (variable.Name))
                         continue;

@@ -90,9 +90,10 @@ namespace Majorsilence.Forms
     internal static class ThemeCssValues
     {
         public const string ColorSyntaxHelp =
-            "Use #rgb, #rrggbb, #rrggbbaa, rgb(r, g, b), rgba(r, g, b, a), hsl(h, s%, l%), a CSS color name, 'transparent', or var(--token).";
+            "Use #rgb, #rrggbb, #rrggbbaa, rgb(), hsl(), hwb(), lab(), lch(), oklab(), oklch(), color(display-p3 ...), color-mix(in oklch, a, b), "
+            + "light-dark(light, dark), a CSS color name, 'transparent', or var(--token).";
 
-        public const string LengthSyntaxHelp = "Lengths are whole pixels: write e.g. '14px' or '14'.";
+        public const string LengthSyntaxHelp = "Lengths are pixels: write e.g. '14px', '14', '0.875rem' (1rem is --root-font-size, 16px by default) or calc(1rem + 2px).";
 
         public const string BoxShadowSyntaxHelp =
             "box-shadow is a hard, offset shadow only: '<horizontal-offset> <vertical-offset> <color>', e.g. 'box-shadow: 4px 4px #2b1b4d;'. "
@@ -136,6 +137,10 @@ namespace Majorsilence.Forms
                         color = Constant (named);
                         return true;
                     }
+                    if (string.Equals (ident.Name, "currentcolor", StringComparison.OrdinalIgnoreCase)) {
+                        error = "'currentcolor' is not supported: a type rule has no element whose colour it could follow. Use var(--foreground-color) for the theme's text colour.";
+                        return false;
+                    }
                     error = $"'{ident.Name}' is not a CSS color name. {ColorSyntaxHelp}"
                         + Suggest (ident.Name, NamedColors.Keys);
                     return false;
@@ -159,58 +164,7 @@ namespace Majorsilence.Forms
         }
 
         private static bool TryParseColorFunction (CssFunction fn, out Func<SKColor> color, out string? error)
-        {
-            color = null!;
-            error = null;
-
-            var name = fn.Name.ToLowerInvariant ();
-
-            if (name is not ("rgb" or "rgba" or "hsl" or "hsla")) {
-                error = name == "var"
-                    ? $"'{fn.Raw}' could not be resolved."
-                    : $"'{fn.Name}()' is not a supported color function. {ColorSyntaxHelp}";
-                return false;
-            }
-
-            // Accept both the legacy comma form rgb(1, 2, 3, 0.5) and the modern space form rgb(1 2 3 / 0.5).
-            var numbers = new List<CssNumber> ();
-
-            foreach (var group in fn.Arguments)
-                foreach (var component in group) {
-                    if (component is CssNumber n)
-                        numbers.Add (n);
-                    else if (component is CssDelim { Value: '/' })
-                        continue;
-                    else {
-                        error = $"'{fn.Raw}' is not a valid color: '{component.Raw}' is not a number. Example: {(name.StartsWith ("hsl", StringComparison.Ordinal) ? "hsl(210, 60%, 50%)" : "rgb(42, 138, 208)")}.";
-                        return false;
-                    }
-                }
-
-            if (numbers.Count is not (3 or 4)) {
-                error = $"'{fn.Raw}' is not a valid color: expected 3 components plus an optional alpha, got {numbers.Count}.";
-                return false;
-            }
-
-            byte alpha = 255;
-
-            if (numbers.Count == 4)
-                alpha = numbers[3].IsPercentage ? ClampByte (numbers[3].Value * 2.55) : ClampByte (numbers[3].Value * 255);
-
-            if (name.StartsWith ("rgb", StringComparison.Ordinal)) {
-                var r = numbers[0].IsPercentage ? ClampByte (numbers[0].Value * 2.55) : ClampByte (numbers[0].Value);
-                var g = numbers[1].IsPercentage ? ClampByte (numbers[1].Value * 2.55) : ClampByte (numbers[1].Value);
-                var b = numbers[2].IsPercentage ? ClampByte (numbers[2].Value * 2.55) : ClampByte (numbers[2].Value);
-                color = Constant (new SKColor (r, g, b, alpha));
-                return true;
-            }
-
-            var hue = (float) (((numbers[0].Value % 360) + 360) % 360);
-            var sat = (float) MathCompat.Clamp (numbers[1].Value, 0, 100);
-            var light = (float) MathCompat.Clamp (numbers[2].Value, 0, 100);
-            color = Constant (SKColor.FromHsl (hue, sat, light, alpha));
-            return true;
-        }
+            => ThemeCssColorFunctions.TryParse (fn, out color, out error);
 
         private static byte ClampByte (double value) => (byte) MathCompat.Clamp (Math.Round (value), 0, 255);
 
@@ -260,9 +214,18 @@ namespace Majorsilence.Forms
             }
 
             switch (components[0]) {
+                // rem computes; em and pt go the same way for their specific explanations.
+                case CssNumber relative when relative.Unit.ToLowerInvariant () is "rem" or "em" or "pt":
+                    return TryParseComputedLength (relative, out length, out error, allowNegative);
+
+                case CssFunction fn when ThemeCssCalc.IsMathFunction (fn):
+                    return TryParseComputedLength (fn, out length, out error, allowNegative);
+
                 case CssNumber number:
                     if (number.Unit.Length > 0 && !string.Equals (number.Unit, "px", StringComparison.OrdinalIgnoreCase)) {
-                        error = $"Unsupported unit '{number.Unit}' in '{number.Raw}'. {LengthSyntaxHelp} Points, em, rem and percentages are not supported because every Majorsilence.Forms style size is a pixel value.";
+                        error = number.IsPercentage
+                            ? $"'{number.Raw}': percentages are not supported -- a theme length has nothing to be a percentage of. {LengthSyntaxHelp}"
+                            : $"Unsupported unit '{number.Unit}' in '{number.Raw}'. {LengthSyntaxHelp} Points and em are not supported: every size is a pixel value, and em would depend on an inherited font size a type rule cannot know.";
                         return false;
                     }
                     if (number.Value < 0 && !allowNegative) {
@@ -286,6 +249,35 @@ namespace Majorsilence.Forms
                     error = $"'{components[0].Raw}' is not a valid length. {LengthSyntaxHelp}";
                     return false;
             }
+        }
+
+        // A length written in rem or with calc(): evaluated live (a rem follows --root-font-size, a length token its token) and rounded
+        // to whole pixels when applied.
+        private static bool TryParseComputedLength (CssComponent component, out Func<int> length, out string? error, bool allowNegative)
+        {
+            length = null!;
+
+            if (!ThemeCssCalc.TryCompile (component, null, out var value, out error)) {
+                error = $"'{component.Raw}': {error}";
+                return false;
+            }
+
+            // A plain number is accepted as pixels, the same as a bare '14' outside calc().
+            if (value.Unit is not (CalcUnit.Length or CalcUnit.Number)) {
+                error = $"'{component.Raw}' is {ThemeCssCalc.Describe (value.Unit)}, not a length. {LengthSyntaxHelp}";
+                return false;
+            }
+
+            if (value.IsConstant && value.Evaluate () < 0 && !allowNegative) {
+                error = $"'{component.Raw}' is negative; lengths must be zero or positive.";
+                return false;
+            }
+
+            var evaluate = value.Evaluate;
+            length = allowNegative
+                ? () => (int) Math.Round (evaluate ())
+                : () => Math.Max (0, (int) Math.Round (evaluate ()));
+            return true;
         }
 
         // ---- box-shadow (#285) --------------------------------------------------------------------
@@ -359,12 +351,31 @@ namespace Majorsilence.Forms
 
         /// <summary>Whether <paramref name="component"/> is a number with a time unit, which is how the transition shorthand tells times apart.</summary>
         public static bool IsTime (CssComponent component)
-            => component is CssNumber { Unit: { } unit } && (unit.Equals ("s", StringComparison.OrdinalIgnoreCase) || unit.Equals ("ms", StringComparison.OrdinalIgnoreCase));
+            => component is CssNumber { Unit: { } unit } && (unit.Equals ("s", StringComparison.OrdinalIgnoreCase) || unit.Equals ("ms", StringComparison.OrdinalIgnoreCase))
+               || (ThemeCssCalc.IsMathFunction (component) && ThemeCssCalc.TryCompile (component, null, out var value, out _) && value.Unit == CalcUnit.Time);
 
         public static bool TryParseTime (CssComponent component, bool allowNegative, out TimeSpan time, out string? error)
         {
             time = TimeSpan.Zero;
             error = null;
+
+            if (ThemeCssCalc.IsMathFunction (component)) {
+                if (!ThemeCssCalc.TryCompile (component, null, out var computed, out error)) {
+                    error = $"'{component.Raw}': {error}";
+                    return false;
+                }
+                if (computed.Unit != CalcUnit.Time) {
+                    error = $"'{component.Raw}' is {ThemeCssCalc.Describe (computed.Unit)}, not a time. {TimeSyntaxHelp}";
+                    return false;
+                }
+                var ms = computed.Evaluate ();
+                if (ms < 0 && !allowNegative) {
+                    error = $"'{component.Raw}' is negative; a duration must be zero or positive (only a delay may be negative).";
+                    return false;
+                }
+                time = TimeSpan.FromTicks ((long) Math.Round (ms * TimeSpan.TicksPerMillisecond));
+                return true;
+            }
 
             if (component is not CssNumber number) {
                 error = $"'{component.Raw}' is not a time. {TimeSyntaxHelp}";

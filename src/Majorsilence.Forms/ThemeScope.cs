@@ -423,6 +423,9 @@ namespace Majorsilence.Forms
         /// <summary>See <see cref="Theme.ItemFontSize"/>.</summary>
         public int ItemFontSize { get => Get<int> (nameof (ItemFontSize)); set => Set (nameof (ItemFontSize), value); }
 
+        /// <summary>See <see cref="Theme.RootFontSize"/>.</summary>
+        public int RootFontSize { get => Get<int> (nameof (RootFontSize)); set => Set (nameof (RootFontSize), value); }
+
         /// <summary>See <see cref="Theme.TextSelectionBackgroundColor"/>.</summary>
         public SKColor TextSelectionBackgroundColor { get => Get<SKColor> (nameof (TextSelectionBackgroundColor)); set => Set (nameof (TextSelectionBackgroundColor), value); }
 
