@@ -216,6 +216,17 @@ namespace Majorsilence.Forms
             private readonly List<RawRule> _allRules = new ();
             private List<RawRule> _rules = new ();
 
+            // @keyframes blocks as parsed, and as compiled for the media environment at hand (animation-name looks them up).
+            private sealed class RawKeyframes
+            {
+                public string Name = string.Empty;
+                public CssToken At;
+                public List<(List<double> Offsets, RawRule Block)> Frames = new ();
+            }
+
+            private readonly List<RawKeyframes> _allKeyframes = new ();
+            private readonly Dictionary<string, ControlKeyframes> _keyframes = new (StringComparer.Ordinal);
+
             // The @media condition(s) the rules being parsed sit inside.
             private Func<MediaEnvironment, bool>? _media;
             private string? _mediaText;
@@ -265,12 +276,14 @@ namespace Majorsilence.Forms
                     _ruleVariables.Clear ();
                     _scopes.Clear ();
                     _usedRuleVariables.Clear ();
+                    _keyframes.Clear ();
 
                     var tokens = new List<TokenDeclaration> ();
                     var rules = new List<ControlRule> ();
 
                     CollectVariables ();
                     CompileRoot (tokens);
+                    CompileKeyframes ();
                     CompileControlRules (rules);
                     WarnUnusedVariables ();
                     var variables = CompileVariables ();
@@ -327,8 +340,19 @@ namespace Majorsilence.Forms
                     return;
                 }
 
+                if (string.Equals (at.Value, "keyframes", StringComparison.OrdinalIgnoreCase)) {
+                    ParseKeyframesRule (at);
+                    return;
+                }
+
+                if (at.Value.EndsWith ("-keyframes", StringComparison.OrdinalIgnoreCase)) {
+                    Error (at, $"'@{at.Value}' is a vendor-prefixed form; write '@keyframes'.");
+                    SkipAtRuleBody ();
+                    return;
+                }
+
                 if (!string.Equals (at.Value, "theme", StringComparison.OrdinalIgnoreCase)) {
-                    Error (at, $"'@{at.Value}' is not supported. The at-rules are '@theme \"Name\" extends Base;' and '@media (prefers-color-scheme: dark) {{ ... }}'. "
+                    Error (at, $"'@{at.Value}' is not supported. The at-rules are '@theme \"Name\" extends Base;', '@media (prefers-color-scheme: dark) {{ ... }}' and '@keyframes name {{ ... }}'. "
                         + "There is no @import (register base themes separately and use 'extends') and no @font-face (use a font family installed on the machine, or PrivateFontCollection).");
                     SkipAtRuleBody ();
                     return;
@@ -381,6 +405,145 @@ namespace Majorsilence.Forms
 
                 Error (Current, $"Unexpected '{Current.Raw}' in the '@theme' declaration; expected ';'. The form is @theme \"Name\" [extends Base];");
                 SkipAtRuleBody ();
+            }
+
+            // @keyframes <name> { from { ... } 50% { ... } to { ... } }
+            private void ParseKeyframesRule (CssToken at)
+            {
+                if (_media is not null) {
+                    Error (at, "'@keyframes' cannot be inside '@media'; declare it at the top level and choose it with animation-name inside the @media block.");
+                    SkipAtRuleBody ();
+                    return;
+                }
+
+                string name;
+
+                if (Current.Is (CssTokenKind.Ident) || Current.Is (CssTokenKind.String)) {
+                    name = Current.Value;
+                    Advance ();
+                } else {
+                    Error (at, "'@keyframes' must be followed by a name: @keyframes pulse { from { ... } to { ... } }.");
+                    SkipAtRuleBody ();
+                    return;
+                }
+
+                if (name.Equals ("none", StringComparison.OrdinalIgnoreCase) || name.Equals ("initial", StringComparison.OrdinalIgnoreCase)) {
+                    Error (at, $"'{name}' cannot name keyframes: animation-name: {name} means something else.");
+                    SkipAtRuleBody ();
+                    return;
+                }
+
+                if (!Current.Is (CssTokenKind.OpenBrace)) {
+                    Error (Current, $"Expected '{{' after '@keyframes {name}'.");
+                    SkipAtRuleBody ();
+                    return;
+                }
+
+                Advance ();
+                var keyframes = new RawKeyframes { Name = name, At = at };
+
+                while (true) {
+                    if (Current.Is (CssTokenKind.EndOfFile)) {
+                        Error (Current, $"Unexpected end of file: '@keyframes {name}' is missing its '}}'.");
+                        break;
+                    }
+
+                    if (Current.Is (CssTokenKind.CloseBrace)) {
+                        Advance ();
+                        break;
+                    }
+
+                    var selectorStart = Current;
+                    var offsets = new List<double> ();
+                    var valid = true;
+
+                    while (!Current.Is (CssTokenKind.OpenBrace) && !Current.Is (CssTokenKind.EndOfFile) && !Current.Is (CssTokenKind.CloseBrace)) {
+                        var token = Current;
+                        Advance ();
+
+                        if (token.Is (CssTokenKind.Comma))
+                            continue;
+                        if (token.IsIdent ("from"))
+                            offsets.Add (0);
+                        else if (token.IsIdent ("to"))
+                            offsets.Add (1);
+                        else if (token.Is (CssTokenKind.Number) && token.Value == "%" && token.Number is >= 0 and <= 100)
+                            offsets.Add (token.Number / 100);
+                        else
+                            valid = false;
+                    }
+
+                    if (!Current.Is (CssTokenKind.OpenBrace)) {
+                        Error (selectorStart, $"Expected a keyframe block like '50% {{ opacity: .5; }}' in '@keyframes {name}'.");
+                        continue;
+                    }
+
+                    Advance ();
+                    var block = new RawRule ();
+                    ParseDeclarations (block);
+
+                    if (!valid || offsets.Count == 0) {
+                        Error (selectorStart, $"A keyframe is selected by 'from', 'to' or a percentage from 0% to 100%, e.g. '0%, 50% {{ ... }}'.");
+                        continue;
+                    }
+
+                    keyframes.Frames.Add ((offsets, block));
+                }
+
+                _allKeyframes.Add (keyframes);
+            }
+
+            // Compiles every @keyframes for the media environment at hand: each keyframe's declarations become a style-setting action,
+            // and a keyframe that lists several offsets is one keyframe at each.
+            private void CompileKeyframes ()
+            {
+                foreach (var raw in _allKeyframes) {
+                    var frames = new List<ControlKeyframe> ();
+
+                    foreach (var (offsets, block) in raw.Frames) {
+                        ControlTimingFunction? timing = null;
+                        var declarations = new List<RawDeclaration> ();
+
+                        foreach (var declaration in block.Declarations) {
+                            if (declaration.Name.Equals ("animation-timing-function", StringComparison.OrdinalIgnoreCase)) {
+                                string? timingError = null;
+                                if (declaration.Value.Count == 1 && ThemeCssValues.TryParseTimingFunction (declaration.Value[0], out var parsed, out timingError))
+                                    timing = parsed;
+                                else
+                                    Error (declaration.Line, declaration.Column, $"'animation-timing-function': {timingError ?? "one timing function, e.g. ease-out."}");
+                                continue;
+                            }
+
+                            if (IsCustomProperty (declaration.Name)) {
+                                Error (declaration.Line, declaration.Column, $"'{declaration.Name}': a keyframe cannot declare variables; declare them in ':root' or the control's rule.");
+                                continue;
+                            }
+
+                            declarations.Add (declaration);
+                        }
+
+                        var compiled = CompileInScope (declarations, no_rule_variables, report: true);
+
+                        foreach (var item in compiled.Items)
+                            if (!ControlTransition.IsAnimatable (item.Model.Property) || item.Model.Property == "all")
+                                Error (item.Model.Line, item.Model.Column,
+                                    $"'{item.Model.Property}' cannot be animated: a keyframe takes the properties a transition can move -- {string.Join (", ", ControlTransition.AnimatableProperties)}.");
+
+                        var (actions, model) = compiled.Build (property => ControlTransition.IsAnimatable (property) && property != "all");
+                        var properties = model.Select (d => d.Property).Distinct ().ToArray ();
+                        var captured = actions;
+                        Action<ControlStyle> apply = style => {
+                            foreach (var action in captured)
+                                action (style);
+                        };
+
+                        foreach (var offset in offsets)
+                            frames.Add (new ControlKeyframe (offset, apply, properties, timing));
+                    }
+
+                    // Stable: keyframes at the same offset keep their source order, so the later one wins, as in CSS.
+                    _keyframes[raw.Name] = new ControlKeyframes (raw.Name, frames.Select ((f, i) => (f, i)).OrderBy (p => p.f.Offset).ThenBy (p => p.i).Select (p => p.f).ToArray ());
+                }
             }
 
             // @media <query> { <rules> } -- the rules inside apply only while the query matches; @media blocks may nest.
@@ -1158,13 +1321,16 @@ namespace Majorsilence.Forms
                         // A window is not composited by a parent, so it has no opacity of its own to fade and nothing draws an outline
                         // around it.
                         if (part is null && selector.ControlType is { } windowType && typeof (WindowBase).IsAssignableFrom (windowType)) {
-                            static bool Composited (string property) => property == "opacity" || property.StartsWith ("outline", StringComparison.Ordinal);
+                            static bool Composited (string property)
+                                => property == "opacity" || property.StartsWith ("outline", StringComparison.Ordinal) || property.StartsWith ("animation", StringComparison.Ordinal);
                             var reported = new HashSet<(int, int)> ();
                             foreach (var item in compiled.Items)
                                 if (Composited (item.Model.Property) && reported.Add ((item.Model.Line, item.Model.Column)))
                                     Error (item.Model.Line, item.Model.Column, item.Model.Property == "opacity"
                                         ? $"'opacity' does not apply to {selector.Name}, a window: nothing composites a window onto another surface. Set Form.Opacity in code."
-                                        : $"'outline' does not apply to {selector.Name}, a window: an outline is drawn by the parent, and a window has none.");
+                                        : item.Model.Property.StartsWith ("animation", StringComparison.Ordinal)
+                                            ? $"'animation' does not apply to {selector.Name}, a window: a window's own style does not animate. Animate the controls on it."
+                                            : $"'outline' does not apply to {selector.Name}, a window: an outline is drawn by the parent, and a window has none.");
                             var inner = accepts;
                             accepts = property => !Composited (property) && (inner is null || inner (property));
                         }
@@ -1485,6 +1651,21 @@ namespace Majorsilence.Forms
                             CompileTransitionShorthand (value, declaration, compiled);
                             break;
 
+                        case "animation":
+                            CompileAnimationShorthand (value, declaration, compiled);
+                            break;
+
+                        case "animation-name":
+                        case "animation-duration":
+                        case "animation-timing-function":
+                        case "animation-delay":
+                        case "animation-iteration-count":
+                        case "animation-direction":
+                        case "animation-fill-mode":
+                        case "animation-play-state":
+                            CompileAnimationLonghand (name, value, declaration, compiled);
+                            break;
+
                         case "transition-property":
                         case "transition-duration":
                         case "transition-timing-function":
@@ -1796,6 +1977,307 @@ namespace Majorsilence.Forms
             }
 
             // One declaration per longhand set, so a host applier sees the four longhands, never the shorthand.
+            // ---- animations ----------------------------------------------------------------------
+
+            private sealed class AnimationLists
+            {
+                public List<ControlKeyframes>? Names;
+                public List<TimeSpan>? Durations;
+                public List<ControlTimingFunction>? Timings;
+                public List<TimeSpan>? Delays;
+                public List<double>? Iterations;
+                public List<ControlAnimationDirection>? Directions;
+                public List<ControlAnimationFillMode>? Fills;
+                public List<bool>? Paused;
+            }
+
+            private static ControlAnimationDirection? DirectionOf (string word) => word.ToLowerInvariant () switch {
+                "normal" => ControlAnimationDirection.Normal,
+                "reverse" => ControlAnimationDirection.Reverse,
+                "alternate" => ControlAnimationDirection.Alternate,
+                "alternate-reverse" => ControlAnimationDirection.AlternateReverse,
+                _ => null
+            };
+
+            private static ControlAnimationFillMode? FillOf (string word) => word.ToLowerInvariant () switch {
+                "none" => ControlAnimationFillMode.None,
+                "forwards" => ControlAnimationFillMode.Forwards,
+                "backwards" => ControlAnimationFillMode.Backwards,
+                "both" => ControlAnimationFillMode.Both,
+                _ => null
+            };
+
+            private static bool? PausedOf (string word) => word.ToLowerInvariant () switch {
+                "running" => false,
+                "paused" => true,
+                _ => null
+            };
+
+            private bool TryFindKeyframes (CssComponent component, out ControlKeyframes? keyframes, out string? error)
+            {
+                keyframes = null;
+                error = null;
+                var name = component switch { CssIdent ident => ident.Name, CssString text => text.Value, _ => null };
+
+                if (name is null) {
+                    error = $"'{component.Raw}' is not a keyframes name.";
+                    return false;
+                }
+
+                if (_keyframes.TryGetValue (name, out keyframes))
+                    return true;
+
+                error = $"there is no '@keyframes {name}' in this sheet.{ThemeCssValues.Suggest (name, _keyframes.Keys)} Declare it in the same sheet: @keyframes {name} {{ from {{ ... }} to {{ ... }} }}.";
+                return false;
+            }
+
+            private static bool TryParseIterations (CssComponent component, out double count, out string? error)
+            {
+                error = null;
+                count = 1;
+
+                if (component is CssIdent { Name: var word } && word.Equals ("infinite", StringComparison.OrdinalIgnoreCase)) {
+                    count = double.PositiveInfinity;
+                    return true;
+                }
+
+                if (component is CssNumber { Unit.Length: 0, Value: >= 0 } number) {
+                    count = number.Value;
+                    return true;
+                }
+
+                error = $"'{component.Raw}' is not an iteration count: a number of times (0 or more, fractions allowed) or 'infinite'.";
+                return false;
+            }
+
+            private void CompileAnimationLonghand (string name, List<CssComponent> value, RawDeclaration declaration, CompiledDeclarations compiled)
+            {
+                var groups = ThemeCssValues.SplitCommas (value);
+                var lists = new AnimationLists ();
+                string? error = null;
+
+                if (groups.Any (g => g.Count != 1)) {
+                    Error (declaration.Line, declaration.Column, $"'{name}': '{ThemeCssValues.Join (value)}' is not a comma-separated list of single values.");
+                    return;
+                }
+
+                foreach (var group in groups) {
+                    var component = group[0];
+                    var word = (component as CssIdent)?.Name ?? string.Empty;
+
+                    switch (name) {
+                        case "animation-name":
+                            lists.Names ??= new ();
+                            if (word.Equals ("none", StringComparison.OrdinalIgnoreCase) && groups.Count == 1)
+                                break;
+                            if (TryFindKeyframes (component, out var frames, out error))
+                                lists.Names.Add (frames!);
+                            break;
+                        case "animation-duration":
+                        case "animation-delay":
+                            if (ThemeCssValues.TryParseTime (component, name == "animation-delay", out var time, out error))
+                                (name == "animation-delay" ? lists.Delays ??= new () : lists.Durations ??= new ()).Add (time);
+                            break;
+                        case "animation-timing-function":
+                            if (ThemeCssValues.TryParseTimingFunction (component, out var timing, out error))
+                                (lists.Timings ??= new ()).Add (timing);
+                            break;
+                        case "animation-iteration-count":
+                            if (TryParseIterations (component, out var count, out error))
+                                (lists.Iterations ??= new ()).Add (count);
+                            break;
+                        case "animation-direction":
+                            if (DirectionOf (word) is { } direction)
+                                (lists.Directions ??= new ()).Add (direction);
+                            else
+                                error = $"'{component.Raw}' is not a direction: normal, reverse, alternate or alternate-reverse.";
+                            break;
+                        case "animation-fill-mode":
+                            if (FillOf (word) is { } fill)
+                                (lists.Fills ??= new ()).Add (fill);
+                            else
+                                error = $"'{component.Raw}' is not a fill mode: none, forwards, backwards or both.";
+                            break;
+                        default:
+                            if (PausedOf (word) is { } paused)
+                                (lists.Paused ??= new ()).Add (paused);
+                            else
+                                error = $"'{component.Raw}' is not a play state: running or paused.";
+                            break;
+                    }
+
+                    if (error is not null) {
+                        Error (declaration.Line, declaration.Column, $"'{name}': {error}");
+                        return;
+                    }
+                }
+
+                AddAnimation (lists, declaration, compiled);
+            }
+
+            // animation: [ <duration> || <timing-function> || <delay> || <iteration-count> || <direction> || <fill-mode> || <play-state> || <name> ]#
+            private void CompileAnimationShorthand (List<CssComponent> value, RawDeclaration declaration, CompiledDeclarations compiled)
+            {
+                var lists = new AnimationLists {
+                    Names = new (), Durations = new (), Timings = new (), Delays = new (), Iterations = new (), Directions = new (), Fills = new (), Paused = new ()
+                };
+                var groups = ThemeCssValues.SplitCommas (value);
+
+                void Fail (string message) => Error (declaration.Line, declaration.Column, $"'animation': {message}");
+
+                foreach (var group in groups) {
+                    ControlKeyframes? frames = null;
+                    var none = false;
+                    TimeSpan? duration = null, delay = null;
+                    ControlTimingFunction? timing = null;
+                    double? iterations = null;
+                    ControlAnimationDirection? direction = null;
+                    ControlAnimationFillMode? fill = null;
+                    bool? paused = null;
+
+                    foreach (var component in group) {
+                        string? error;
+                        var word = (component as CssIdent)?.Name ?? string.Empty;
+
+                        if (ThemeCssValues.IsTime (component)) {
+                            if (duration is null) {
+                                if (!ThemeCssValues.TryParseTime (component, false, out var d, out error)) {
+                                    Fail (error!);
+                                    return;
+                                }
+                                duration = d;
+                            } else if (delay is null) {
+                                ThemeCssValues.TryParseTime (component, true, out var l, out _);
+                                delay = l;
+                            } else {
+                                Fail ($"'{component.Raw}' is a third time in one entry; an entry takes a duration and then, optionally, a delay.");
+                                return;
+                            }
+                            continue;
+                        }
+
+                        if (ThemeCssValues.LooksLikeTiming (component) && timing is null) {
+                            if (!ThemeCssValues.TryParseTimingFunction (component, out var t, out error)) {
+                                Fail (error!);
+                                return;
+                            }
+                            timing = t;
+                            continue;
+                        }
+
+                        // A bare number or 'infinite' is the iteration count; the keywords are taken before a name, as CSS does.
+                        if (iterations is null && (component is CssNumber { Unit.Length: 0 } || word.Equals ("infinite", StringComparison.OrdinalIgnoreCase))) {
+                            if (!TryParseIterations (component, out var count, out error)) {
+                                Fail (error!);
+                                return;
+                            }
+                            iterations = count;
+                            continue;
+                        }
+
+                        if (direction is null && DirectionOf (word) is { } dir) {
+                            direction = dir;
+                            continue;
+                        }
+
+                        if (fill is null && FillOf (word) is { } f && !word.Equals ("none", StringComparison.OrdinalIgnoreCase)) {
+                            fill = f;
+                            continue;
+                        }
+
+                        if (paused is null && PausedOf (word) is { } p) {
+                            paused = p;
+                            continue;
+                        }
+
+                        if (word.Equals ("none", StringComparison.OrdinalIgnoreCase) && frames is null && !none) {
+                            none = true;
+                            continue;
+                        }
+
+                        if (frames is not null || none) {
+                            Fail ($"'{component.Raw}' is a second name in one entry; separate animations with commas.");
+                            return;
+                        }
+
+                        if (!TryFindKeyframes (component, out frames, out error)) {
+                            Fail (error!);
+                            return;
+                        }
+                    }
+
+                    if (frames is null && !none) {
+                        Fail ($"'{ThemeCssValues.Join (group)}' names no keyframes; an entry is e.g. 'pulse 1s ease-in-out infinite'.");
+                        return;
+                    }
+
+                    if (frames is not null)
+                        lists.Names.Add (frames);
+                    lists.Durations.Add (duration ?? TimeSpan.Zero);
+                    lists.Timings.Add (timing ?? ControlTimingFunction.Ease);
+                    lists.Delays.Add (delay ?? TimeSpan.Zero);
+                    lists.Iterations.Add (iterations ?? 1);
+                    lists.Directions.Add (direction ?? ControlAnimationDirection.Normal);
+                    lists.Fills.Add (fill ?? ControlAnimationFillMode.None);
+                    lists.Paused.Add (paused ?? false);
+                }
+
+                AddAnimation (lists, declaration, compiled);
+            }
+
+            private static string Keyword (ControlAnimationDirection direction) => direction switch {
+                ControlAnimationDirection.Reverse => "reverse",
+                ControlAnimationDirection.Alternate => "alternate",
+                ControlAnimationDirection.AlternateReverse => "alternate-reverse",
+                _ => "normal"
+            };
+
+            private static string Keyword (ControlAnimationFillMode fill) => fill.ToString ().ToLowerInvariant ();
+
+            // One declaration per longhand set, so a host applier sees the longhands, never the shorthand.
+            private static void AddAnimation (AnimationLists lists, RawDeclaration declaration, CompiledDeclarations compiled)
+            {
+                void Add (string property, ThemeCssValue model, Action<ControlStyle> action)
+                    => compiled.Items.Add (new CompiledDeclaration (new ThemeCssDeclaration (property, () => model, null, declaration.Line, declaration.Column)) { Action = action });
+
+                static ControlAnimation Current (ControlStyle s) => s.Animation ?? new ControlAnimation ();
+                static ThemeCssValue Words (IEnumerable<string> words) => ThemeCssValue.ListOf (words.Select (ThemeCssValue.KeywordOf).ToArray ());
+
+                if (lists.Names is { } names) {
+                    var items = names.ToArray ();
+                    Add ("animation-name", Words (items.Select (k => k.Name)), s => s.Animation = Current (s).With (keyframes: items));
+                }
+                if (lists.Durations is { } durations) {
+                    var items = durations.ToArray ();
+                    Add ("animation-duration", ThemeCssValue.ListOf (items.Select (ThemeCssValue.Time).ToArray ()), s => s.Animation = Current (s).With (durations: items));
+                }
+                if (lists.Timings is { } timings) {
+                    var items = timings.ToArray ();
+                    Add ("animation-timing-function", ThemeCssValue.ListOf (items.Select (ThemeCssValue.Timing).ToArray ()), s => s.Animation = Current (s).With (timingFunctions: items));
+                }
+                if (lists.Delays is { } delays) {
+                    var items = delays.ToArray ();
+                    Add ("animation-delay", ThemeCssValue.ListOf (items.Select (ThemeCssValue.Time).ToArray ()), s => s.Animation = Current (s).With (delays: items));
+                }
+                if (lists.Iterations is { } iterations) {
+                    var items = iterations.ToArray ();
+                    Add ("animation-iteration-count", ThemeCssValue.ListOf (items.Select (c => double.IsPositiveInfinity (c) ? ThemeCssValue.KeywordOf ("infinite") : ThemeCssValue.NumberOf (c)).ToArray ()),
+                        s => s.Animation = Current (s).With (iterationCounts: items));
+                }
+                if (lists.Directions is { } directions) {
+                    var items = directions.ToArray ();
+                    Add ("animation-direction", Words (items.Select (Keyword)), s => s.Animation = Current (s).With (directions: items));
+                }
+                if (lists.Fills is { } fills) {
+                    var items = fills.ToArray ();
+                    Add ("animation-fill-mode", Words (items.Select (Keyword)), s => s.Animation = Current (s).With (fillModes: items));
+                }
+                if (lists.Paused is { } paused) {
+                    var items = paused.ToArray ();
+                    Add ("animation-play-state", Words (items.Select (p => p ? "paused" : "running")), s => s.Animation = Current (s).With (paused: items));
+                }
+            }
+
             private static void AddTransition (TransitionLists lists, RawDeclaration declaration, CompiledDeclarations compiled)
             {
                 void Add (string property, ThemeCssValue model, Action<ControlStyle> action)

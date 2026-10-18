@@ -404,6 +404,50 @@ Form { background-color: var(--page); }
   which `Application.SystemColorMode` now reports as well); a backend that cannot tell answers light. A
   `ThemeScope` evaluates its sheet's queries when it is applied, but does not re-apply on a change.
 
+### 9. Keyframe animations
+
+```css
+@keyframes pulse {
+  from { opacity: 1; }
+  50%  { opacity: .55; animation-timing-function: ease-in; }
+  to   { opacity: 1; }
+}
+
+@keyframes attention {
+  to { box-shadow: 0 0 0 4px rgb(220 53 69 / 50%); }
+}
+
+ProgressBar {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+Button:focus-visible {
+  animation: attention 300ms ease-out forwards;
+}
+```
+
+- `@keyframes <name> { ... }` lists keyframes selected by `from`, `to` or percentages (a comma list
+  makes one keyframe at each). A keyframe sets any property a transition can move, and may set its own
+  `animation-timing-function` for the stretch that starts at it. A property a keyframe list leaves out
+  of `from` or `to` animates from or to the control's own style -- above, `attention` grows a shadow
+  out of whatever the button has.
+- `animation` is the shorthand for `animation-name`, `-duration`, `-timing-function`, `-delay`,
+  `-iteration-count` (a number, fractions allowed, or `infinite`), `-direction` (`normal`, `reverse`,
+  `alternate`, `alternate-reverse`), `-fill-mode` (`none`, `forwards`, `backwards`, `both`) and
+  `-play-state` (`running`, `paused`). Lists line up by index, as for transitions, and each longhand is
+  inherited separately, so `Button:disabled { animation-play-state: paused; }` pauses the button's
+  animation.
+- An animation starts when the control first shows the rule's style or enters it; the same name across
+  a state change keeps running, a new name starts again, and a sheet without it stops it. Its values win
+  over the style's own and over a transition's, as in CSS.
+- The keyframes must be in the same sheet as the rule that names them, at the top level (not inside
+  `@media`: choose the animation in `@media` with `animation-name` instead).
+- An infinite animation stops asking for frames while its control is off screen and resumes when it is
+  painted again. When the user prefers reduced motion no animation runs; a sheet can also say what to
+  do instead with `@media (prefers-reduced-motion: reduce)`.
+- Animations run on any control the parent composites -- not on windows, which do not animate their own
+  style, and not on parts. In code, the same thing is `ControlStyle.Animation` (a `ControlAnimation`).
+
 ### Values
 
 | Kind | Accepted forms | Notes |
@@ -441,6 +485,8 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `@media (min-width: 600px) { }` | A theme applies to every window at once, so there is no one viewport size to test. | `@media` takes `prefers-color-scheme` and `prefers-reduced-motion`; size-dependent appearance belongs in layout code. |
 | `Panel { background-image: url(a.png); }` | A theme has no file to load an image from. | A gradient, or `Control.BackgroundImage` in code. |
 | `Form { opacity: .9; }` | Nothing composites a window onto another surface. | `Form.Opacity` in code. |
+| `@keyframes grow { to { font-size: 20px; } }` | Keyframes animate what a transition can: paint-only values, not layout or fonts. | Animate `opacity`, colours, `box-shadow`, the outline or the radii. |
+| `Panel { animation: spin 1s; }` | No `@keyframes spin` in the sheet. | Declare the keyframes in the same sheet. |
 | `Button { margin: 4px; }` | Layout is not themable; only colours, borders and fonts are. | Set `Padding`/`Margin` in code. |
 | `Button { border: 1px dotted red; }` | Borders are solid or dashed. | `border: 1px dashed red;` |
 | `Button { transition: border-width 1s; }` | A border's width moves the client area, and with it the children, every frame. | Transition `border-color`, or a `box-shadow`. |
@@ -655,6 +701,15 @@ A rule for the selector these follow styles their background and border; the con
 | `transition-duration` | <time># | How long each transition takes: '150ms' or '.15s'. The n-th duration goes with the n-th property; a shorter list repeats. |
 | `transition-timing-function` | <timing-function># | The easing: linear, ease (the default), ease-in, ease-out, ease-in-out, step-start, step-end, cubic-bezier(x1, y1, x2, y2), steps(n[, position]). linear() stop lists are not supported. |
 | `transition-delay` | <time># | How long each transition waits before it starts; a negative delay starts it part-way through. |
+| `animation` | [<name> || <duration> || <timing-function> || <delay> || <iteration-count> || <direction> || <fill-mode> || <play-state>]# | none | Plays '@keyframes' while the control is in this rule's state, e.g. 'animation: pulse 1.2s ease-in-out infinite alternate;'. Shorthand for the eight animation-* longhands; the first time is the duration, the second the delay. The keyframes must be in the same sheet. Animates the same properties as transition, wins over it, and does not run when the user prefers reduced motion. Not on windows or parts. |
+| `animation-name` | none | <keyframes-name># | Which '@keyframes' play. Changing the name restarts the animation; keeping it lets it run on across a state change. |
+| `animation-duration` | <time># | How long one iteration takes. |
+| `animation-timing-function` | <timing-function># | The easing between keyframes; a keyframe can set its own with animation-timing-function inside it. |
+| `animation-delay` | <time># | How long it waits before starting; negative starts part-way through. |
+| `animation-iteration-count` | <number> | infinite | How many times it runs; fractions stop part-way. An infinite one pauses while its control is off screen. |
+| `animation-direction` | normal | reverse | alternate | alternate-reverse | Which way the iterations run. |
+| `animation-fill-mode` | none | forwards | backwards | both | Whether the first keyframe applies during the delay (backwards) and the last stays after the end (forwards). |
+| `animation-play-state` | running | paused | A paused animation holds its starting frame. |
 <!-- END GENERATED: reference -->
 
 Two things to know about **fonts**, because they are the one place the tokens and the rules meet:

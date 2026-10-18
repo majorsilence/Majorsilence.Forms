@@ -115,7 +115,8 @@ namespace Majorsilence.Forms.Theming.Avalonia
             ("outline-offset", "Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam."),
         };
 
-        private static readonly string[] transition_properties = { "transition-property", "transition-duration", "transition-timing-function", "transition-delay" };
+        private static readonly string[] transition_properties = { "transition-property", "transition-duration", "transition-timing-function", "transition-delay",
+            "animation-name", "animation-duration", "animation-timing-function", "animation-delay", "animation-iteration-count", "animation-direction", "animation-fill-mode", "animation-play-state" };
 
         private static readonly string[] issue_286_properties = {
             "border-style", "border-top-left-radius", "border-top-right-radius", "border-bottom-right-radius", "border-bottom-left-radius"
@@ -230,7 +231,7 @@ namespace Majorsilence.Forms.Theming.Avalonia
             const string NoBoxShadowTarget = "No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam).";
             // Avalonia has Transitions, but Fluent's state colours live in template resources, which a Transitions setter on the control
             // does not reach; a half-working mapping would animate some brushes and switch others.
-            const string NoTransitionTarget = "Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate.";
+            const string NoTransitionTarget = "Not mapped yet: Fluent's hover and pressed colours are template resources, which Avalonia's Transitions and Animations set on the control do not reach.";
 
             // ---- Buttons -----------------------------------------------------------------------------
             Map ("Button", "Button, ToggleButton", "Colours go to the Fluent Button*/ToggleButton* resources (so every state follows); geometry and fonts are style setters.");

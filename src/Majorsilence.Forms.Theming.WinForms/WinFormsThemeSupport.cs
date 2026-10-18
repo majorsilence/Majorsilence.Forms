@@ -102,7 +102,8 @@ namespace Majorsilence.Forms.Theming.WinForms
             ("outline-offset", "System.Windows.Forms has no outline; the focus rectangle is drawn by each control."),
         };
 
-        private static readonly string[] transition_properties = { "transition-property", "transition-duration", "transition-timing-function", "transition-delay" };
+        private static readonly string[] transition_properties = { "transition-property", "transition-duration", "transition-timing-function", "transition-delay",
+            "animation-name", "animation-duration", "animation-timing-function", "animation-delay", "animation-iteration-count", "animation-direction", "animation-fill-mode", "animation-play-state" };
 
         private static readonly string[] font_properties = { "font-family", "font-size", "font-weight", "font-style" };
 
@@ -429,7 +430,7 @@ namespace Majorsilence.Forms.Theming.WinForms
             }
 
             // CSS transitions: real WinForms controls repaint a state change at once, and there is no paint hook to blend two looks.
-            const string NoTransition = "System.Windows.Forms controls repaint a state change at once; there is no seam to animate between two looks.";
+            const string NoTransition = "System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look.";
 
             foreach (var mapping in mappings) {
                 if (mapping.WinFormsTypes is null)

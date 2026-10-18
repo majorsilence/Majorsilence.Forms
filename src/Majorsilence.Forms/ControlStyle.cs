@@ -84,6 +84,7 @@ namespace Majorsilence.Forms
             font_size = copyOriginal ? original.font_size : null;
             box_shadows = copyOriginal ? original.box_shadows : null;
             transition = copyOriginal ? original.transition : null;
+            animation = copyOriginal ? original.animation : null;
             opacity = copyOriginal ? original.opacity : null;
             background_gradients = copyOriginal ? original.background_gradients : null;
             outline_width = copyOriginal ? original.outline_width : null;
@@ -133,8 +134,10 @@ namespace Majorsilence.Forms
             font_size = null;
             box_shadows = null;
             transition = null;
+            animation = null;
             opacity = null;
             background_gradients = null;
+            Generation++;
             outline_width = null;
             outline_style = null;
             outline_color = null;
@@ -269,8 +272,35 @@ namespace Majorsilence.Forms
             }
         }
 
-        // Set once any style anywhere gets a transition; until then Control.CurrentStyle tracks no state changes at all.
+        // Set once any style anywhere gets a transition or an animation; until then Control.CurrentStyle tracks no state changes at all.
         internal static bool TransitionsInUse { get; private set; }
+
+        /// <summary>
+        /// Gets or sets the keyframe animations a control plays while it is in this style -- the CSS <c>animation</c> property (see
+        /// <see cref="ControlAnimation"/>) -- or null to inherit. Each of its lists left null is inherited separately.
+        /// </summary>
+        public ControlAnimation? Animation {
+            get => (ScopedTwin ?? this).animation;
+            set {
+                animation = value;
+                Generation++;
+                if (value is not null)
+                    TransitionsInUse = true;
+            }
+        }
+
+        private ControlAnimation? animation;
+
+        // Bumped whenever a stylesheet is applied or an animation is set, so a running control can tell, with one integer comparison
+        // per read of CurrentStyle, that the animation its style resolves to may have changed.
+        internal static int Generation { get; private set; }
+
+        /// <summary>Gets the animation this style chain resolves to, each list from the nearest style that sets it, or null.</summary>
+        public ControlAnimation? GetAnimation ()
+        {
+            var parent = _parent?.GetAnimation ();
+            return Animation is { } own ? own.Inherit (parent) : parent;
+        }
 
         private ControlTransition? transition;
 

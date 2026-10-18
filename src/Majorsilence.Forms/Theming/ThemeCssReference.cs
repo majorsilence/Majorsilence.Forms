@@ -483,6 +483,17 @@ namespace Majorsilence.Forms
             new ThemeCssProperty ("transition-timing-function", "<timing-function>#",
                 "The easing: linear, ease (the default), ease-in, ease-out, ease-in-out, step-start, step-end, cubic-bezier(x1, y1, x2, y2), steps(n[, position]). linear() stop lists are not supported."),
             new ThemeCssProperty ("transition-delay", "<time>#", "How long each transition waits before it starts; a negative delay starts it part-way through."),
+            new ThemeCssProperty ("animation", "[<name> || <duration> || <timing-function> || <delay> || <iteration-count> || <direction> || <fill-mode> || <play-state>]# | none",
+                "Plays '@keyframes' while the control is in this rule's state, e.g. 'animation: pulse 1.2s ease-in-out infinite alternate;'. Shorthand for the eight animation-* longhands; "
+                + "the first time is the duration, the second the delay. The keyframes must be in the same sheet. Animates the same properties as transition, wins over it, and does not run when the user prefers reduced motion. Not on windows or parts."),
+            new ThemeCssProperty ("animation-name", "none | <keyframes-name>#", "Which '@keyframes' play. Changing the name restarts the animation; keeping it lets it run on across a state change."),
+            new ThemeCssProperty ("animation-duration", "<time>#", "How long one iteration takes."),
+            new ThemeCssProperty ("animation-timing-function", "<timing-function>#", "The easing between keyframes; a keyframe can set its own with animation-timing-function inside it."),
+            new ThemeCssProperty ("animation-delay", "<time>#", "How long it waits before starting; negative starts part-way through."),
+            new ThemeCssProperty ("animation-iteration-count", "<number> | infinite", "How many times it runs; fractions stop part-way. An infinite one pauses while its control is off screen."),
+            new ThemeCssProperty ("animation-direction", "normal | reverse | alternate | alternate-reverse", "Which way the iterations run."),
+            new ThemeCssProperty ("animation-fill-mode", "none | forwards | backwards | both", "Whether the first keyframe applies during the delay (backwards) and the last stays after the end (forwards)."),
+            new ThemeCssProperty ("animation-play-state", "running | paused", "A paused animation holds its starting frame."),
         };
 
         /// <summary>
@@ -499,13 +510,15 @@ namespace Majorsilence.Forms
             "box-shadow", "opacity", "background-image",
             "outline", "outline-width", "outline-style", "outline-color", "outline-offset",
             "transition", "transition-property", "transition-duration", "transition-timing-function", "transition-delay",
+            "animation", "animation-name", "animation-duration", "animation-timing-function", "animation-delay",
+            "animation-iteration-count", "animation-direction", "animation-fill-mode", "animation-play-state",
         };
 
         /// <summary>
         /// The shorthand properties: a rule may write them, but the parser expands each into longhands, so a host applier and
         /// <see cref="ThemeCssRule.Declarations"/> only ever see <see cref="LonghandNames"/>.
         /// </summary>
-        public static IReadOnlyList<string> ShorthandNames { get; } = new[] { "border", "outline", "transition" };
+        public static IReadOnlyList<string> ShorthandNames { get; } = new[] { "border", "outline", "transition", "animation" };
 
         /// <summary>Every property a parsed rule's declarations can carry: <see cref="PropertyNames"/> without the <see cref="ShorthandNames"/>.</summary>
         public static IReadOnlyList<string> LonghandNames { get; } = PropertyNames.Except (ShorthandNames).ToArray ();

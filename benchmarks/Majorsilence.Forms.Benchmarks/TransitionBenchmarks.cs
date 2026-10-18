@@ -48,3 +48,45 @@ public class TransitionBenchmarks
     [BenchmarkCategory (AllocationGate.Category)]
     public void HoverTransitionFrame () => HeadlessRenderer.AnimationClock.Step ();
 }
+
+// A keyframe animation that runs for ever -- a spinner, a pulse -- costs a frame on every display refresh for the life of the window, so
+// a frame of one must not allocate either.
+[MemoryDiagnoser]
+public class KeyframeAnimationBenchmarks
+{
+    private Form form = null!;
+    private Panel panel = null!;
+
+    [GlobalSetup]
+    public void Setup ()
+    {
+        Theme.LoadFromCss (@"
+            @keyframes pulse {
+                from { background-color: #000000; opacity: 1; box-shadow: 0 0 0 0 #ff0000; }
+                50% { background-color: #808080; opacity: .5; box-shadow: 0 0 4px 2px #ff0000; }
+                to { background-color: #ffffff; opacity: 1; box-shadow: 0 0 0 0 #ff0000; }
+            }
+            Panel { animation: pulse 1s ease-in-out infinite alternate; }");
+
+        form = new Form { ClientSize = new Size (300, 200) };
+        panel = new Panel { Location = new Point (20, 20), Size = new Size (120, 40) };
+        form.Controls.Add (panel);
+        form.Show ();
+        Frame.Render (form, 300, 200);
+        HeadlessRenderer.AnimationClock.Step ();
+
+        if (!panel.IsStyleAnimationRunning)
+            throw new InvalidOperationException ("The animation did not start.");
+    }
+
+    [GlobalCleanup]
+    public void Cleanup ()
+    {
+        form.Dispose ();
+        Theme.SetBuiltInTheme (BuiltInTheme.Light);
+    }
+
+    [Benchmark]
+    [BenchmarkCategory (AllocationGate.Category)]
+    public void KeyframeAnimationFrame () => HeadlessRenderer.AnimationClock.Step ();
+}

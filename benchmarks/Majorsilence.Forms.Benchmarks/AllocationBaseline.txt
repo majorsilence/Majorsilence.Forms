@@ -27,6 +27,7 @@ GraphicsAllocationBenchmarks.DrawStringSolid: 488021 B
 GraphicsAllocationBenchmarks.GradientFill: 256083 B
 GraphicsAllocationBenchmarks.SetClipRegion: 144005 B
 GraphicsAllocationBenchmarks.TableBorders: 21 B
+KeyframeAnimationBenchmarks.KeyframeAnimationFrame: 0 B
 LayoutBenchmarks.AnchoredLayoutPass(ChildCount=10): 1120 B
 LayoutBenchmarks.AnchoredLayoutPass(ChildCount=100): 10481 B
 LayoutBenchmarks.AnchoredLayoutPass(ChildCount=1000): 104090 B
