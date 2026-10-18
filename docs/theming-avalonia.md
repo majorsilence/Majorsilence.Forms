@@ -510,74 +510,98 @@ Unsupported rows are reported as diagnostics when a stylesheet uses them — nev
 | `Form` | `border-width`, `border-color`, `border-radius`, `border-top-width`, `border-right-width`, `border-bottom-width`, `border-left-width`, `border-top-color`, `border-right-color`, `border-bottom-color`, `border-left-color` | The window frame is drawn by the OS (or Avalonia's own chrome, which has no border seam). |
 | `Button` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
 | `Button:hover` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `Button` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
+| `Button:hover` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `Button` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `Button:hover` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `Button` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `Button:hover` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `CheckBox` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `CheckBox` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `CheckBox` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `CheckBox` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `ComboBox` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `ComboBox` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `ComboBox` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `ComboBox` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `DataGridView` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `DataGridView` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `DataGridView` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `DataGridView` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `Form` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `Form` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `Form` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `Form` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `Label` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `Label` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `Label` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `Label` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `LinkLabel` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
 | `LinkLabel:hover` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `LinkLabel` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
+| `LinkLabel:hover` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `LinkLabel` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `LinkLabel:hover` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `LinkLabel` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `LinkLabel:hover` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `ListBox` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `ListBox` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `ListBox` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `ListBox` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `Menu` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `Menu` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `Menu` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `Menu` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `MenuDropDown` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `MenuDropDown` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `MenuDropDown` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `MenuDropDown` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `MonthCalendar` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `MonthCalendar` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `MonthCalendar` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `MonthCalendar` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `NumericUpDown` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `NumericUpDown` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `NumericUpDown` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `NumericUpDown` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `RadioButton` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `RadioButton` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `RadioButton` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `RadioButton` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `ScrollBar` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `ScrollBar` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `ScrollBar` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `ScrollBar` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `SplitContainer` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `SplitContainer` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `SplitContainer` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `SplitContainer` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `Splitter` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `Splitter` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `Splitter` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `Splitter` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `TabControl` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TabControl` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `TabControl` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `TabControl` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `TabStrip` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TabStrip` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `TabStrip` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `TabStrip` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `TextBox` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TextBox` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `TextBox` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `TextBox` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `TrackBar` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
 | `TrackBar:hover` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TrackBar` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
+| `TrackBar:hover` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `TrackBar` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `TrackBar:hover` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `TrackBar` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `TrackBar:hover` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `TreeView` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TreeView` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `TreeView` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `TreeView` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 <!-- END GENERATED: avalonia-support -->

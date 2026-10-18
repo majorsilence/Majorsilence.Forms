@@ -60,6 +60,15 @@ namespace Majorsilence.Forms
         /// <summary>For <see cref="ThemeCssValueKind.FontStyle"/>: <c>normal</c>, <c>italic</c> or <c>oblique</c>.</summary>
         public string FontStyle { get; private set; }
 
+        /// <summary>For <see cref="ThemeCssValueKind.Time"/>: the time in milliseconds (a delay may be negative).</summary>
+        public double Milliseconds { get; private set; }
+
+        /// <summary>For <see cref="ThemeCssValueKind.TimingFunction"/>: the function as CSS spells it, e.g. <c>ease-in-out</c> or <c>cubic-bezier(0.22, 1, 0.36, 1)</c>.</summary>
+        public string TimingFunction => FontStyle;
+
+        /// <summary>For <see cref="ThemeCssValueKind.List"/>: the elements, in order.</summary>
+        public IReadOnlyList<ThemeCssValue> Items { get; private set; } = Array.Empty<ThemeCssValue> ();
+
         internal static ThemeCssValue Color (uint argb) => new (ThemeCssValueKind.Color) { Argb = argb };
 
         internal static ThemeCssValue Length (int pixels) => new (ThemeCssValueKind.Length) { Pixels = pixels };
@@ -71,6 +80,12 @@ namespace Majorsilence.Forms
         internal static ThemeCssValue Style (string style) => new (ThemeCssValueKind.FontStyle) { FontStyle = style };
 
         internal static ThemeCssValue KeywordOf (string keyword) => new (ThemeCssValueKind.Keyword) { FontStyle = keyword };
+
+        internal static ThemeCssValue Time (TimeSpan time) => new (ThemeCssValueKind.Time) { Milliseconds = time.TotalMilliseconds };
+
+        internal static ThemeCssValue Timing (ControlTimingFunction timing) => new (ThemeCssValueKind.TimingFunction) { FontStyle = timing.Css };
+
+        internal static ThemeCssValue ListOf (IReadOnlyList<ThemeCssValue> items) => new (ThemeCssValueKind.List) { Items = items };
 
         internal static ThemeCssValue Shadow (ControlBoxShadow shadow) => new (ThemeCssValueKind.BoxShadow) {
             Pixels = shadow.OffsetX, OffsetY = shadow.OffsetY, Argb = (uint) shadow.Color
@@ -92,6 +107,10 @@ namespace Majorsilence.Forms
                     return FontStyle;
                 case ThemeCssValueKind.BoxShadow:
                     return $"{Pixels}px {OffsetY}px {FormatColor ()}";
+                case ThemeCssValueKind.Time:
+                    return Milliseconds.ToString ("0.###", CultureInfo.InvariantCulture) + "ms";
+                case ThemeCssValueKind.List:
+                    return Items.Count == 0 ? "none" : string.Join (", ", Items.Select (i => i.ToString ()));
                 default:
                     return FontStyle;
             }

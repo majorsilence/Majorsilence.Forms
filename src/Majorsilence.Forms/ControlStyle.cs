@@ -82,6 +82,7 @@ namespace Majorsilence.Forms
             font = copyOriginal ? original.font : null;
             font_size = copyOriginal ? original.font_size : null;
             box_shadow = copyOriginal ? original.box_shadow : null;
+            transition = copyOriginal ? original.transition : null;
             border.CopyValuesFrom (copyOriginal ? original.border : null);
 
             original._setDefaults?.Invoke (this);
@@ -124,6 +125,7 @@ namespace Majorsilence.Forms
             font = null;
             font_size = null;
             box_shadow = null;
+            transition = null;
             border.ClearValues ();
 
             ApplyDefaults ();
@@ -165,6 +167,35 @@ namespace Majorsilence.Forms
         /// set, otherwise the nearest ancestor's, otherwise null.
         /// </summary>
         public ControlBoxShadow? GetBoxShadow () => BoxShadow ?? _parent?.GetBoxShadow ();
+
+        /// <summary>
+        /// Gets or sets how a control animates into this style when it enters it -- the CSS <c>transition</c> property (see
+        /// <see cref="ControlTransition"/>) -- or null to inherit the parent style's. Each of its lists left null is inherited separately,
+        /// so a <c>Button:active</c> rule that sets only a duration keeps the properties a <c>Button</c> rule chose.
+        /// </summary>
+        public ControlTransition? Transition {
+            get => (ScopedTwin ?? this).transition;
+            set {
+                transition = value;
+                if (value is not null)
+                    TransitionsInUse = true;
+            }
+        }
+
+        // Set once any style anywhere gets a transition; until then Control.CurrentStyle tracks no state changes at all.
+        internal static bool TransitionsInUse { get; private set; }
+
+        private ControlTransition? transition;
+
+        /// <summary>
+        /// Gets the transition this style chain resolves to, each list from the nearest style that sets it, or null when no style in
+        /// the chain sets any.
+        /// </summary>
+        public ControlTransition? GetTransition ()
+        {
+            var parent = _parent?.GetTransition ();
+            return Transition is { } own ? own.Inherit (parent) : parent;
+        }
 
         /// <summary>
         /// Gets or sets the font.
@@ -310,6 +341,7 @@ namespace Majorsilence.Forms
             FontSize = FontSize,
             BackgroundColor = BackgroundColor,
             ForegroundColor = ForegroundColor,
+            Transition = Transition,
         };
 
         /// <summary>

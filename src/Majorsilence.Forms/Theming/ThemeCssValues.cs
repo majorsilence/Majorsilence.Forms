@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using Majorsilence.Forms.Animation;
 using SkiaSharp;
 
 namespace Majorsilence.Forms
@@ -334,6 +335,159 @@ namespace Majorsilence.Forms
         /// are joined with a space), separated by commas. A var() of a font token contributes that
         /// token's family at apply time.
         /// </summary>
+        // ---- transitions -------------------------------------------------------------------------
+
+        public const string TimeSyntaxHelp = "Times take a unit: '150ms' or '.15s'.";
+
+        public const string TimingSyntaxHelp =
+            "Timing functions are linear, ease, ease-in, ease-out, ease-in-out, step-start, step-end, cubic-bezier(x1, y1, x2, y2) "
+            + "(x1 and x2 between 0 and 1) or steps(n[, jump-start | jump-end | jump-none | jump-both | start | end]).";
+
+        /// <summary>Splits a declaration value at its top-level commas; each element is the components between two commas.</summary>
+        public static List<List<CssComponent>> SplitCommas (List<CssComponent> components)
+        {
+            var groups = new List<List<CssComponent>> { new () };
+
+            foreach (var component in components)
+                if (component is CssDelim { Value: ',' })
+                    groups.Add (new List<CssComponent> ());
+                else
+                    groups[groups.Count - 1].Add (component);
+
+            return groups;
+        }
+
+        /// <summary>Whether <paramref name="component"/> is a number with a time unit, which is how the transition shorthand tells times apart.</summary>
+        public static bool IsTime (CssComponent component)
+            => component is CssNumber { Unit: { } unit } && (unit.Equals ("s", StringComparison.OrdinalIgnoreCase) || unit.Equals ("ms", StringComparison.OrdinalIgnoreCase));
+
+        public static bool TryParseTime (CssComponent component, bool allowNegative, out TimeSpan time, out string? error)
+        {
+            time = TimeSpan.Zero;
+            error = null;
+
+            if (component is not CssNumber number) {
+                error = $"'{component.Raw}' is not a time. {TimeSyntaxHelp}";
+                return false;
+            }
+
+            if (number.Unit.Length == 0) {
+                error = $"'{number.Raw}' has no unit; a time needs one, as in CSS: '{number.Raw}ms' or '{number.Raw}s'.";
+                return false;
+            }
+
+            double milliseconds;
+
+            if (number.Unit.Equals ("ms", StringComparison.OrdinalIgnoreCase))
+                milliseconds = number.Value;
+            else if (number.Unit.Equals ("s", StringComparison.OrdinalIgnoreCase))
+                milliseconds = number.Value * 1000.0;
+            else {
+                error = $"'{number.Raw}' is not a time: '{number.Unit}' is not a time unit. {TimeSyntaxHelp}";
+                return false;
+            }
+
+            if (milliseconds < 0 && !allowNegative) {
+                error = $"'{number.Raw}' is negative; a duration must be zero or positive (only a delay may be negative).";
+                return false;
+            }
+
+            time = TimeSpan.FromTicks ((long) Math.Round (milliseconds * TimeSpan.TicksPerMillisecond));
+            return true;
+        }
+
+        private static readonly string[] timing_keywords = { "linear", "ease", "ease-in", "ease-out", "ease-in-out", "step-start", "step-end" };
+
+        /// <summary>Whether <paramref name="component"/> spells a timing function (a keyword or one of the functions), valid or not.</summary>
+        public static bool LooksLikeTiming (CssComponent component)
+            => component switch {
+                CssIdent ident => timing_keywords.Contains (ident.Name, StringComparer.OrdinalIgnoreCase),
+                CssFunction fn => fn.Name.Equals ("cubic-bezier", StringComparison.OrdinalIgnoreCase)
+                                  || fn.Name.Equals ("steps", StringComparison.OrdinalIgnoreCase)
+                                  || fn.Name.Equals ("linear", StringComparison.OrdinalIgnoreCase),
+                _ => false
+            };
+
+        public static bool TryParseTimingFunction (CssComponent component, out ControlTimingFunction timing, out string? error)
+        {
+            timing = ControlTimingFunction.Ease;
+            error = null;
+
+            switch (component) {
+                case CssIdent ident:
+                    switch (ident.Name.ToLowerInvariant ()) {
+                        case "linear": timing = ControlTimingFunction.Linear; return true;
+                        case "ease": timing = ControlTimingFunction.Ease; return true;
+                        case "ease-in": timing = ControlTimingFunction.EaseIn; return true;
+                        case "ease-out": timing = ControlTimingFunction.EaseOut; return true;
+                        case "ease-in-out": timing = ControlTimingFunction.EaseInOut; return true;
+                        case "step-start": timing = ControlTimingFunction.StepStart; return true;
+                        case "step-end": timing = ControlTimingFunction.StepEnd; return true;
+                    }
+                    error = $"'{ident.Name}' is not a timing function.{Suggest (ident.Name, timing_keywords)} {TimingSyntaxHelp}";
+                    return false;
+
+                case CssFunction fn when fn.Name.Equals ("cubic-bezier", StringComparison.OrdinalIgnoreCase): {
+                    var numbers = fn.Arguments.Select (g => g.Count == 1 && g[0] is CssNumber { Unit.Length: 0 } n ? n : null).ToList ();
+
+                    if (numbers.Count != 4 || numbers.Any (n => n is null)) {
+                        error = $"'{fn.Raw}' needs exactly four plain numbers, comma-separated: cubic-bezier(x1, y1, x2, y2), e.g. cubic-bezier(0.22, 1, 0.36, 1).";
+                        return false;
+                    }
+
+                    var x1 = numbers[0]!.Value;
+                    var x2 = numbers[2]!.Value;
+
+                    if (x1 is < 0 or > 1 || x2 is < 0 or > 1) {
+                        error = $"'{fn.Raw}': x1 and x2 (the first and third numbers) must be between 0 and 1, so the curve moves forward in time; only the y values may overshoot.";
+                        return false;
+                    }
+
+                    timing = ControlTimingFunction.CubicBezier ((float) x1, (float) numbers[1]!.Value, (float) x2, (float) numbers[3]!.Value);
+                    return true;
+                }
+
+                case CssFunction fn when fn.Name.Equals ("steps", StringComparison.OrdinalIgnoreCase): {
+                    if (fn.Arguments.Count is < 1 or > 2 || fn.Arguments[0].Count != 1 || fn.Arguments[0][0] is not CssNumber { Unit.Length: 0 } count
+                        || count.Value != Math.Floor (count.Value) || count.Value < 1) {
+                        error = $"'{fn.Raw}' needs a whole number of steps of at least 1, then optionally a position: steps(4) or steps(4, jump-start).";
+                        return false;
+                    }
+
+                    var position = StepPosition.JumpEnd;
+
+                    if (fn.Arguments.Count == 2) {
+                        var word = fn.Arguments[1].Count == 1 && fn.Arguments[1][0] is CssIdent p ? p.Name.ToLowerInvariant () : string.Empty;
+                        switch (word) {
+                            case "jump-start": case "start": position = StepPosition.JumpStart; break;
+                            case "jump-end": case "end": position = StepPosition.JumpEnd; break;
+                            case "jump-none": position = StepPosition.JumpNone; break;
+                            case "jump-both": position = StepPosition.JumpBoth; break;
+                            default:
+                                error = $"'{fn.Raw}': the step position is jump-start, jump-end, jump-none, jump-both, start or end.";
+                                return false;
+                        }
+                    }
+
+                    if (position == StepPosition.JumpNone && count.Value < 2) {
+                        error = $"'{fn.Raw}': steps(n, jump-none) needs at least 2 steps.";
+                        return false;
+                    }
+
+                    timing = ControlTimingFunction.Steps ((int) count.Value, position);
+                    return true;
+                }
+
+                case CssFunction fn when fn.Name.Equals ("linear", StringComparison.OrdinalIgnoreCase):
+                    error = $"'{fn.Raw}': the linear() stop-list function is not supported. Use the 'linear' keyword, or cubic-bezier() for a curve.";
+                    return false;
+
+                default:
+                    error = $"'{component.Raw}' is not a timing function. {TimingSyntaxHelp}";
+                    return false;
+            }
+        }
+
         public static bool TryParseFontFamilies (List<CssComponent> components, out Func<IReadOnlyList<string>> families, out string? error)
         {
             families = null!;
@@ -492,6 +646,11 @@ namespace Majorsilence.Forms
             ThemeCssValueKind.Length => "length",
             ThemeCssValueKind.FontWeight => "font-weight",
             ThemeCssValueKind.FontStyle => "font-style",
+            ThemeCssValueKind.Time => "time",
+            ThemeCssValueKind.TimingFunction => "timing function",
+            ThemeCssValueKind.List => "list",
+            ThemeCssValueKind.Keyword => "keyword",
+            ThemeCssValueKind.BoxShadow => "box-shadow",
             _ => "font-family"
         };
 

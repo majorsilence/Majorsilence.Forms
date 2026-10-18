@@ -93,6 +93,8 @@ namespace Majorsilence.Forms.Theming.WinForms
     /// </summary>
     public static class WinFormsThemeSupport
     {
+        private static readonly string[] transition_properties = { "transition-property", "transition-duration", "transition-timing-function", "transition-delay" };
+
         private static readonly string[] font_properties = { "font-family", "font-size", "font-weight", "font-style" };
 
         private static readonly string[] side_properties = {
@@ -414,6 +416,21 @@ namespace Majorsilence.Forms.Theming.WinForms
 
                     if (ThemeCssReference.FindSelector (mapping.Selector)?.SupportsHover == true)
                         entries.Add (new WinFormsThemeSupportEntry (mapping.Selector, null, true, property, WinFormsThemeSupportLevel.Unsupported, note));
+                }
+            }
+
+            // CSS transitions: real WinForms controls repaint a state change at once, and there is no paint hook to blend two looks.
+            const string NoTransition = "System.Windows.Forms controls repaint a state change at once; there is no seam to animate between two looks.";
+
+            foreach (var mapping in mappings) {
+                if (mapping.WinFormsTypes is null)
+                    continue;
+
+                foreach (var property in transition_properties) {
+                    entries.Add (new WinFormsThemeSupportEntry (mapping.Selector, null, false, property, WinFormsThemeSupportLevel.Unsupported, NoTransition));
+
+                    if (ThemeCssReference.FindSelector (mapping.Selector)?.SupportsHover == true)
+                        entries.Add (new WinFormsThemeSupportEntry (mapping.Selector, null, true, property, WinFormsThemeSupportLevel.Unsupported, NoTransition));
                 }
             }
 

@@ -224,6 +224,54 @@ ScrollBar::arrow            { background-color: #2c2c30; color: #9aa0ab; }
   `tree.Style.SelectedItemBackgroundColor`), the same way `button.Style.BackgroundColor` wins over a `Button` rule.
 - Selectors without parts (`Button`, `TextBox`, ...) reject `::`; the error lists the controls that have them.
 
+### 5. Transitions
+
+A `transition` animates the change into a state instead of switching at once: hover a button and its
+background fades to the hover colour.
+
+```css
+Button {
+  background-color: var(--control-mid-color);
+  transition: background-color 150ms ease-in-out, border-color 150ms, box-shadow .2s cubic-bezier(.22, 1, .36, 1);
+}
+
+Button:hover {
+  background-color: var(--accent-color);
+}
+
+Button:active {
+  box-shadow: 0px 0px #2b1b4d;
+  transition-duration: 60ms;
+}
+```
+
+- `transition` is the shorthand for `transition-property`, `transition-duration`,
+  `transition-timing-function` and `transition-delay`. Each comma-separated entry is
+  `[property] [duration] [timing-function] [delay]` in any order; the first time is the duration, the
+  second the delay. What an entry leaves out is CSS's default: `all`, `0s`, `ease`, `0s`.
+- The longhands take comma lists that line up by index -- the n-th property uses the n-th duration,
+  timing function and delay -- and a shorter list repeats, as in CSS.
+- As in CSS, the transition that runs is the one on the **style being entered**. A `Button` rule's
+  transition covers every state change, because every state style inherits from it; a state rule can
+  override part of it. Above, `Button:active` changes only the duration, so pressing is quick while the
+  properties and easing still come from the `Button` rule. Each longhand is inherited separately.
+- **Animatable:** `background-color`, `color`, the border colours, the corner radii (`border-radius`
+  and its per-corner forms) and `box-shadow`, or `all` of them. `border-width` is rejected: a border's
+  width decides where the control's client area starts, so animating it would move the children every
+  frame. Fonts and `border-style` have no in-between values, so they are rejected too.
+- **Timing functions:** `linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`, `step-start`,
+  `step-end`, `cubic-bezier(x1, y1, x2, y2)` (x1 and x2 between 0 and 1; the y values may overshoot) and
+  `steps(n[, jump-start | jump-end | jump-none | jump-both | start | end])`.
+- A change cut short reverses from what is on screen: leaving a button half way through its hover fade
+  fades back from the half-way colour.
+- Transitions run on the controls that change state -- the selectors with a `yes` in a pseudo-class
+  column of the reference (`Button`, `LinkLabel`, `TextBox`, `TrackBar`) -- and are rejected elsewhere.
+  Parts do not take them.
+- When the user has asked the system for **reduced motion**, every transition is an instant change, as a
+  browser does under `prefers-reduced-motion`.
+- In code, the same thing is `ControlStyle.Transition` (a `ControlTransition`), and the curves are
+  `Majorsilence.Forms.Animation.Easing.CubicBezier`, `Steps`, `Ease` and friends.
+
 ### Values
 
 | Kind | Accepted forms | Notes |
@@ -231,6 +279,8 @@ ScrollBar::arrow            { background-color: #2c2c30; color: #9aa0ab; }
 | color | `#rgb` `#rgba` `#rrggbb` `#rrggbbaa` · `rgb(r, g, b)` `rgba(r, g, b, a)` · `rgb(r g b / a)` · `hsl(h, s%, l%)` `hsla(...)` · the 148 CSS colour names · `transparent` · `var(--x)` | Alpha is 0–1 (or a percentage). In hex, **alpha comes last** (`#rrggbbaa`) — the opposite of the `#AARRGGBB` order the XML format uses. |
 | length | `14px` or `14` | Whole **pixels**, at 100% scaling. `pt`, `em`, `rem` and `%` are rejected, because every size in a Majorsilence.Forms style is a pixel value. |
 | font family list | `"Segoe UI", "Noto Sans", sans-serif` | Quoted or bare names, comma-separated. The first family the machine has is used, and a font registered with `PrivateFontCollection` counts as one it has; a generic name (`sans-serif`, `serif`, `monospace`) is handed to the OS font matcher. |
+| time | `150ms` · `.15s` | A transition duration or delay. The unit is required, as in CSS. |
+| timing function | `ease` · `cubic-bezier(.22, 1, .36, 1)` · `steps(4, jump-start)` | The easing of a transition. |
 | `var(--name)` | `var(--brand)` · `var(--brand, #333)` | Substitutes a `:root` variable, or a token. A token reference inside a control rule stays **live**: `Button:hover { background-color: var(--accent-color); }` follows later changes to `Theme.AccentColor`. |
 
 ### What is *not* supported, and what happens if you write it
@@ -257,6 +307,9 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `@media (prefers-color-scheme: dark) { }` | No media queries. | Register two themes and pick one in code. |
 | `Button { margin: 4px; }` | Layout is not themable; only colours, borders and fonts are. | Set `Padding`/`Margin` in code. |
 | `Button { border: 1px dotted red; }` | Borders are solid or dashed. | `border: 1px dashed red;` |
+| `Button { transition: border-width 1s; }` | A border's width moves the client area, and with it the children, every frame. | Transition `border-color`, or a `box-shadow`. |
+| `Button { transition: color 1s allow-discrete; }` | `transition-behavior` only matters for properties that change in one step, and no themable property does. | Leave it out. |
+| `Label { transition: color 1s; }` | `Label` never changes state, so a transition would never run. | Transitions run on `Button`, `LinkLabel`, `TextBox`, `TrackBar`. |
 | `Button { background: red; }` | Only the longhand is recognised (`background` would imply images/gradients). | `background-color: red;` |
 | `Button { color: linear-gradient(red, blue); }` | Gradients and images are not colours. | A flat colour. |
 | `:root { color: red; }` | `:root` takes tokens only. | `Form { color: red; }` or `--foreground-color`. |
@@ -443,8 +496,8 @@ A rule for the selector these follow styles their background and border; the con
 |---|---|---|
 | `background-color` | color | The control's background. |
 | `color` | color | The control's text (foreground) colour. |
-| `border` | [width] [solid \| dashed \| none] [color] | Shorthand for border-width, border-style and border-color, in any order. Borders are solid or dashed; 'none' is width 0. |
-| `border-style` | solid \| dashed | How the border line is drawn: a continuous line or dashes (each dash and gap three times the border width). dotted, double, groove, ridge, inset and outset are rejected. |
+| `border` | [width] [solid | dashed | none] [color] | Shorthand for border-width, border-style and border-color, in any order. Borders are solid or dashed; 'none' is width 0. |
+| `border-style` | solid | dashed | How the border line is drawn: a continuous line or dashes (each dash and gap three times the border width). dotted, double, groove, ridge, inset and outset are rejected. |
 | `border-width` | length | The width of all four border sides, in pixels. |
 | `border-color` | color | The colour of all four border sides. |
 | `border-radius` | length{1,4} | The corner radius, in pixels. One value applies to all four corners; two to top-left/bottom-right and top-right/bottom-left; three to top-left, top-right/bottom-left and bottom-right; four to top-left, top-right, bottom-right, bottom-left. When any corner is greater than 0 all four sides are drawn with the same width and colour. Elliptical radii ('/') are not supported. |
@@ -453,9 +506,14 @@ A rule for the selector these follow styles their background and border; the con
 | `border-top-color` | color | The colour of one side. Also border-right-color, border-bottom-color, border-left-color. |
 | `font-family` | family list | The typeface. The first family the machine has is used, and a font registered with PrivateFontCollection counts as one it has; generic names (sans-serif, serif, monospace) are passed to the OS font matcher. |
 | `font-size` | length | The text size in pixels (not points). |
-| `font-weight` | normal \| bold \| 100..900 | The weight. Without a font-family in the same rule, the default UI font family is used at that weight. |
-| `font-style` | normal \| italic \| oblique | The slant. Without a font-family in the same rule, the default UI font family is used. |
+| `font-weight` | normal | bold | 100..900 | The weight. Without a font-family in the same rule, the default UI font family is used at that weight. |
+| `font-style` | normal | italic | oblique | The slant. Without a font-family in the same rule, the default UI font family is used. |
 | `box-shadow` | <horizontal-offset> <vertical-offset> <color> | A hard, offset shadow behind the control's own shape -- no blur, no spread, no 'inset'. Exactly three components, in that order, e.g. 'box-shadow: 4px 4px #2b1b4d;'; a negative offset shifts the shadow left/up instead of right/down. A fourth component (a blur radius, a spread, 'inset') is rejected, not silently dropped. |
+| `transition` | [<property> || <duration> || <timing-function> || <delay>]# | none | Animates the change into this rule's state: shorthand for the four transition-* longhands, one comma-separated entry per property, e.g. 'transition: background-color 150ms ease-out, box-shadow 200ms;'. In an entry the first time is the duration and the second the delay; a missing property is 'all', a missing duration 0s, a missing timing function 'ease'. Runs on controls with pseudo-classes, and not at all when the user prefers reduced motion. |
+| `transition-property` | none | all | <property># | Which properties animate. Animatable: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, border-radius, border-top-left-radius, border-top-right-radius, border-bottom-right-radius, border-bottom-left-radius, box-shadow. Border widths are rejected (they move the client area, and with it the children); fonts and border-style have no in-between values. |
+| `transition-duration` | <time># | How long each transition takes: '150ms' or '.15s'. The n-th duration goes with the n-th property; a shorter list repeats. |
+| `transition-timing-function` | <timing-function># | The easing: linear, ease (the default), ease-in, ease-out, ease-in-out, step-start, step-end, cubic-bezier(x1, y1, x2, y2), steps(n[, position]). linear() stop lists are not supported. |
+| `transition-delay` | <time># | How long each transition waits before it starts; a negative delay starts it part-way through. |
 <!-- END GENERATED: reference -->
 
 Two things to know about **fonts**, because they are the one place the tokens and the rules meet:

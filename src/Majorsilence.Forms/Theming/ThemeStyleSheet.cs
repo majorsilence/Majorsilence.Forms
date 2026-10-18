@@ -883,7 +883,20 @@ namespace Majorsilence.Forms
                                 if (!part.Accepts (item.Model.Property))
                                     Error (item.Model.Line, item.Model.Column, $"'{item.Model.Property}' does not apply to {selector.Name}::{part.Name}; it accepts: {string.Join (", ", part.Properties)}.");
 
-                        var (actions, model) = compiled.Build (part is null ? null : part.Accepts);
+                        // A transition animates a change of state style; a control that never changes state would never run it.
+                        Func<string, bool>? accepts = part is null ? null : part.Accepts;
+                        if (part is null && !(selector.SupportsHover || selector.SupportsActive || selector.SupportsDisabled || selector.SupportsFocus)) {
+                            // The shorthand expands to four longhands from one declaration; report it once.
+                            var reported = new HashSet<(int, int)> ();
+                            foreach (var item in compiled.Items)
+                                if (item.Model.Property.StartsWith ("transition", StringComparison.Ordinal) && reported.Add ((item.Model.Line, item.Model.Column)))
+                                    Error (item.Model.Line, item.Model.Column,
+                                        $"'{(compiled.Items.Count (i => i.Model.Line == item.Model.Line && i.Model.Column == item.Model.Column && i.Model.Property.StartsWith ("transition", StringComparison.Ordinal)) > 1 ? "transition" : item.Model.Property)}' has no effect on {selector.Name}: a transition animates a change between state styles, and {selector.Name} has none. "
+                                        + $"Transitions run on: {string.Join (", ", ThemeCssReference.Selectors.Where (s => s.SupportsHover || s.SupportsActive || s.SupportsDisabled || s.SupportsFocus).Select (s => s.Name))}.");
+                            accepts = property => !property.StartsWith ("transition", StringComparison.Ordinal);
+                        }
+
+                        var (actions, model) = compiled.Build (accepts);
 
                         if (actions.Count == 0)
                             continue;
@@ -972,6 +985,12 @@ namespace Majorsilence.Forms
                     if (IsCustomProperty (declaration.Name)) {
                         Error (declaration.Line, declaration.Column,
                             $"'{declaration.Name}': custom properties can only be declared in ':root'. To use one here, write var({declaration.Name}) as a value.");
+                        continue;
+                    }
+
+                    if (name == "transition-behavior") {
+                        Error (declaration.Line, declaration.Column,
+                            "'transition-behavior' is not supported: it only matters for properties that change in one step (display, visibility), and no themable property does. Leave it out.");
                         continue;
                     }
 
@@ -1110,10 +1129,263 @@ namespace Majorsilence.Forms
                             else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
+
+                        case "transition":
+                            CompileTransitionShorthand (value, declaration, compiled);
+                            break;
+
+                        case "transition-property":
+                        case "transition-duration":
+                        case "transition-timing-function":
+                        case "transition-delay":
+                            CompileTransitionLonghand (name, value, declaration, compiled);
+                            break;
+
                     }
                 }
 
                 return compiled;
+            }
+
+            // ---- transitions ---------------------------------------------------------------------
+
+            // The four longhands of one transition, after parsing; the shorthand fills every one (with CSS's initial values where it
+            // leaves one out), a longhand fills only its own.
+            private sealed class TransitionLists
+            {
+                public List<string>? Properties;
+                public List<TimeSpan>? Durations;
+                public List<ControlTimingFunction>? Timings;
+                public List<TimeSpan>? Delays;
+            }
+
+            private void CompileTransitionLonghand (string name, List<CssComponent> value, RawDeclaration declaration, CompiledDeclarations compiled)
+            {
+                var groups = ThemeCssValues.SplitCommas (value);
+                var lists = new TransitionLists ();
+                string? error = null;
+
+                if (groups.Any (g => g.Count != 1)) {
+                    Error (declaration.Line, declaration.Column, $"'{name}': '{ThemeCssValues.Join (value)}' is not a comma-separated list of single values, e.g. '{name}: {Example (name)};'.");
+                    return;
+                }
+
+                switch (name) {
+                    case "transition-property":
+                        lists.Properties = new List<string> ();
+                        if (groups.Count == 1 && groups[0][0] is CssIdent { Name: var only } && only.Equals ("none", StringComparison.OrdinalIgnoreCase))
+                            break;
+                        foreach (var group in groups)
+                            if (!TryParseTransitionProperty (group[0], out var property, out error))
+                                break;
+                            else
+                                lists.Properties.Add (property);
+                        break;
+
+                    case "transition-duration":
+                    case "transition-delay":
+                        var times = new List<TimeSpan> ();
+                        foreach (var group in groups) {
+                            if (!ThemeCssValues.TryParseTime (group[0], name == "transition-delay", out var time, out error))
+                                break;
+                            times.Add (time);
+                        }
+                        if (name == "transition-delay")
+                            lists.Delays = times;
+                        else
+                            lists.Durations = times;
+                        break;
+
+                    default:
+                        lists.Timings = new List<ControlTimingFunction> ();
+                        foreach (var group in groups) {
+                            if (!ThemeCssValues.TryParseTimingFunction (group[0], out var timing, out error))
+                                break;
+                            lists.Timings.Add (timing);
+                        }
+                        break;
+                }
+
+                if (error is not null) {
+                    Error (declaration.Line, declaration.Column, $"'{name}': {error}");
+                    return;
+                }
+
+                AddTransition (lists, declaration, compiled);
+            }
+
+            private static string Example (string name) => name switch {
+                "transition-property" => "background-color, border-color",
+                "transition-duration" => "150ms, 300ms",
+                "transition-delay" => "0s, 50ms",
+                _ => "ease-out, linear"
+            };
+
+            private bool TryParseTransitionProperty (CssComponent component, out string property, out string? error)
+            {
+                property = string.Empty;
+                error = null;
+
+                if (component is not CssIdent ident) {
+                    error = $"'{component.Raw}' is not a property name.";
+                    return false;
+                }
+
+                var name = ident.Name.ToLowerInvariant ();
+
+                if (name == "none") {
+                    error = "'none' can only be the whole value, meaning no property transitions; it cannot be one entry of a list.";
+                    return false;
+                }
+
+                if (ControlTransition.IsAnimatable (name)) {
+                    property = name;
+                    return true;
+                }
+
+                if (name is "border-width" or "border-top-width" or "border-right-width" or "border-bottom-width" or "border-left-width" or "border") {
+                    error = $"'{ident.Name}' cannot transition: a border's width decides where a control's client area starts, so animating it would move the control's children every frame. Transition border-color instead.";
+                    return false;
+                }
+
+                if (ThemeCssReference.PropertyNames.Contains (name)) {
+                    error = $"'{ident.Name}' cannot transition: it has no in-between values a theme can paint (fonts and border-style change in one step). Animatable: all, {string.Join (", ", ControlTransition.AnimatableProperties)}.";
+                    return false;
+                }
+
+                error = $"Unknown property '{ident.Name}'.{ThemeCssValues.Suggest (name, ControlTransition.AnimatableProperties.Append ("all"))} Animatable: all, {string.Join (", ", ControlTransition.AnimatableProperties)}.";
+                return false;
+            }
+
+            // transition: [ <property> || <duration> || <timing-function> || <delay> ]#
+            private void CompileTransitionShorthand (List<CssComponent> value, RawDeclaration declaration, CompiledDeclarations compiled)
+            {
+                var groups = ThemeCssValues.SplitCommas (value);
+                var lists = new TransitionLists {
+                    Properties = new List<string> (),
+                    Durations = new List<TimeSpan> (),
+                    Timings = new List<ControlTimingFunction> (),
+                    Delays = new List<TimeSpan> (),
+                };
+
+                void Fail (string message) => Error (declaration.Line, declaration.Column, $"'transition': {message}");
+
+                foreach (var group in groups) {
+                    if (group.Count == 0) {
+                        Fail ("an entry of the list is empty; write e.g. 'transition: background-color 150ms ease-out, color 150ms;'.");
+                        return;
+                    }
+
+                    string? property = null;
+                    TimeSpan? duration = null, delay = null;
+                    ControlTimingFunction? timing = null;
+                    var isNone = false;
+
+                    foreach (var component in group) {
+                        string? error;
+
+                        if (ThemeCssValues.IsTime (component)) {
+                            if (duration is null) {
+                                if (!ThemeCssValues.TryParseTime (component, false, out var d, out error)) {
+                                    Fail (error!);
+                                    return;
+                                }
+                                duration = d;
+                            } else if (delay is null) {
+                                ThemeCssValues.TryParseTime (component, true, out var l, out _);
+                                delay = l;
+                            } else {
+                                Fail ($"'{component.Raw}' is a third time in one entry; an entry takes a duration and then, optionally, a delay.");
+                                return;
+                            }
+                            continue;
+                        }
+
+                        if (ThemeCssValues.LooksLikeTiming (component)) {
+                            if (timing is not null) {
+                                Fail ($"'{component.Raw}' is a second timing function in one entry.");
+                                return;
+                            }
+                            if (!ThemeCssValues.TryParseTimingFunction (component, out var t, out error)) {
+                                Fail (error!);
+                                return;
+                            }
+                            timing = t;
+                            continue;
+                        }
+
+                        if (component is CssIdent { Name: var word } && (word.Equals ("allow-discrete", StringComparison.OrdinalIgnoreCase) || word.Equals ("normal", StringComparison.OrdinalIgnoreCase))) {
+                            Fail ($"'{word}' (transition-behavior) is not supported: it only matters for properties that change in one step, and no themable property does. Leave it out.");
+                            return;
+                        }
+
+                        if (component is CssNumber { Unit.Length: 0 } bare) {
+                            Fail ($"'{bare.Raw}' has no unit; a time needs one: '{bare.Raw}ms' or '{bare.Raw}s'.");
+                            return;
+                        }
+
+                        if (property is not null || isNone) {
+                            Fail ($"'{component.Raw}' is a second property name in one entry; separate transitions with commas.");
+                            return;
+                        }
+
+                        if (component is CssIdent { Name: var none } && none.Equals ("none", StringComparison.OrdinalIgnoreCase)) {
+                            if (groups.Count > 1) {
+                                Fail ("'none' cannot be one entry of a list; write 'transition: none;' on its own to turn transitions off.");
+                                return;
+                            }
+                            isNone = true;
+                            continue;
+                        }
+
+                        if (!TryParseTransitionProperty (component, out var p, out var propertyError)) {
+                            Fail (propertyError!);
+                            return;
+                        }
+                        property = p;
+                    }
+
+                    if (!isNone)
+                        lists.Properties.Add (property ?? "all");
+                    lists.Durations.Add (duration ?? TimeSpan.Zero);
+                    lists.Timings.Add (timing ?? ControlTimingFunction.Ease);
+                    lists.Delays.Add (delay ?? TimeSpan.Zero);
+                }
+
+                AddTransition (lists, declaration, compiled);
+            }
+
+            // One declaration per longhand set, so a host applier sees the four longhands, never the shorthand.
+            private static void AddTransition (TransitionLists lists, RawDeclaration declaration, CompiledDeclarations compiled)
+            {
+                void Add (string property, ThemeCssValue model, Action<ControlStyle> action)
+                    => compiled.Items.Add (new CompiledDeclaration (new ThemeCssDeclaration (property, () => model, null, declaration.Line, declaration.Column)) { Action = action });
+
+                static ControlTransition Current (ControlStyle s) => s.Transition ?? new ControlTransition ();
+
+                if (lists.Properties is { } properties) {
+                    var items = properties.ToArray ();
+                    Add ("transition-property", ThemeCssValue.ListOf (items.Select (ThemeCssValue.KeywordOf).ToArray ()),
+                        s => s.Transition = Current (s).With (properties: items));
+                }
+
+                if (lists.Durations is { } durations) {
+                    var items = durations.ToArray ();
+                    Add ("transition-duration", ThemeCssValue.ListOf (items.Select (ThemeCssValue.Time).ToArray ()),
+                        s => s.Transition = Current (s).With (durations: items));
+                }
+
+                if (lists.Timings is { } timings) {
+                    var items = timings.ToArray ();
+                    Add ("transition-timing-function", ThemeCssValue.ListOf (items.Select (ThemeCssValue.Timing).ToArray ()),
+                        s => s.Transition = Current (s).With (timingFunctions: items));
+                }
+
+                if (lists.Delays is { } delays) {
+                    var items = delays.ToArray ();
+                    Add ("transition-delay", ThemeCssValue.ListOf (items.Select (ThemeCssValue.Time).ToArray ()),
+                        s => s.Transition = Current (s).With (delays: items));
+                }
             }
 
             private static Action<ControlStyle> BorderColorSetter (string property, Func<SKColor> color) => property switch {

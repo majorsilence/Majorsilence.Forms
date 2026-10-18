@@ -65,3 +65,4 @@ TextMeasurerCacheBenchmarks.Hit: 0 B
 TextMeasurerCacheBenchmarks.HitSingleLine: 0 B
 ThemeBenchmarks.ParseCss: 41936 B
 ThemeBenchmarks.ReadValues: 0 B
+TransitionBenchmarks.HoverTransitionFrame: 0 B

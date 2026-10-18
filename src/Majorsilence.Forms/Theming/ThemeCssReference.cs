@@ -35,7 +35,19 @@ namespace Majorsilence.Forms
         /// A CSS keyword from a short fixed list (#286): <c>solid</c> or <c>dashed</c>. Only appears on
         /// the <c>border-style</c> control-rule declaration.
         /// </summary>
-        Keyword
+        Keyword,
+
+        /// <summary>A time, <c>150ms</c> or <c>.15s</c>: an element of a <c>transition-duration</c> or <c>transition-delay</c> list.</summary>
+        Time,
+
+        /// <summary>A CSS timing function -- <c>ease</c>, <c>cubic-bezier(...)</c>, <c>steps(...)</c>: an element of a <c>transition-timing-function</c> list.</summary>
+        TimingFunction,
+
+        /// <summary>
+        /// A comma-separated list (<see cref="ThemeCssValue.Items"/>): the value of each <c>transition-*</c> longhand. A
+        /// <c>transition-property</c> list holds <see cref="Keyword"/> values (property names, or <c>all</c>; empty for <c>none</c>).
+        /// </summary>
+        List
     }
 
     /// <summary>
@@ -425,6 +437,17 @@ namespace Majorsilence.Forms
                 "A hard, offset shadow behind the control's own shape -- no blur, no spread, no 'inset'. Exactly three components, in that order, "
                 + "e.g. 'box-shadow: 4px 4px #2b1b4d;'; a negative offset shifts the shadow left/up instead of right/down. A fourth component "
                 + "(a blur radius, a spread, 'inset') is rejected, not silently dropped."),
+            new ThemeCssProperty ("transition", "[<property> || <duration> || <timing-function> || <delay>]# | none",
+                "Animates the change into this rule's state: shorthand for the four transition-* longhands, one comma-separated entry per property, "
+                + "e.g. 'transition: background-color 150ms ease-out, box-shadow 200ms;'. In an entry the first time is the duration and the second the delay; "
+                + "a missing property is 'all', a missing duration 0s, a missing timing function 'ease'. Runs on controls with pseudo-classes, and not at all when the user prefers reduced motion."),
+            new ThemeCssProperty ("transition-property", "none | all | <property>#",
+                "Which properties animate. Animatable: " + string.Join (", ", ControlTransition.AnimatableProperties)
+                + ". Border widths are rejected (they move the client area, and with it the children); fonts and border-style have no in-between values."),
+            new ThemeCssProperty ("transition-duration", "<time>#", "How long each transition takes: '150ms' or '.15s'. The n-th duration goes with the n-th property; a shorter list repeats."),
+            new ThemeCssProperty ("transition-timing-function", "<timing-function>#",
+                "The easing: linear, ease (the default), ease-in, ease-out, ease-in-out, step-start, step-end, cubic-bezier(x1, y1, x2, y2), steps(n[, position]). linear() stop lists are not supported."),
+            new ThemeCssProperty ("transition-delay", "<time>#", "How long each transition waits before it starts; a negative delay starts it part-way through."),
         };
 
         /// <summary>
@@ -439,7 +462,17 @@ namespace Majorsilence.Forms
             "border-top-color", "border-right-color", "border-bottom-color", "border-left-color",
             "font-family", "font-size", "font-weight", "font-style",
             "box-shadow",
+            "transition", "transition-property", "transition-duration", "transition-timing-function", "transition-delay",
         };
+
+        /// <summary>
+        /// The shorthand properties: a rule may write them, but the parser expands each into longhands, so a host applier and
+        /// <see cref="ThemeCssRule.Declarations"/> only ever see <see cref="LonghandNames"/>.
+        /// </summary>
+        public static IReadOnlyList<string> ShorthandNames { get; } = new[] { "border", "transition" };
+
+        /// <summary>Every property a parsed rule's declarations can carry: <see cref="PropertyNames"/> without the <see cref="ShorthandNames"/>.</summary>
+        public static IReadOnlyList<string> LonghandNames { get; } = PropertyNames.Except (ShorthandNames).ToArray ();
 
         /// <summary>
         /// The pseudo-classes a selector may carry: <c>:hover</c>, <c>:active</c>, <c>:disabled</c> and
@@ -621,7 +654,7 @@ namespace Majorsilence.Forms
             _ => "font family list"
         };
 
-        private static string Escape (string text) => text.Replace ("|", "\\|");
+        private static string Escape (string text) => text.Replace ("|", "|");
 
         /// <summary>Converts <c>AccentColor2</c> to <c>accent-color-2</c> and <c>UIFontBold</c> to <c>ui-font-bold</c>.</summary>
         public static string ToKebabCase (string name)

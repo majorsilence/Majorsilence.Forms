@@ -534,25 +534,31 @@ namespace Majorsilence.Forms
         /// mid-drag under capture), then <c>:focus</c>. A selector without its own CSS rule for a state
         /// resolves through that state's <c>Style*</c> chain to the same values as <see cref="Style"/>,
         /// so a control nobody has themed for a state behaves exactly as before this existed (#285).
+        /// <para>
+        /// While a CSS <c>transition</c> (<see cref="ControlStyle.Transition"/>) is moving the control from one state's look to the
+        /// next, this is a style in between the two, chained to the state's own style.
+        /// </para>
         /// </remarks>
-        public virtual ControlStyle CurrentStyle {
-            get {
-                if (!Enabled)
-                    return StyleDisabled;
+        public virtual ControlStyle CurrentStyle => ApplyStyleTransition (ResolveStateStyle ());
 
-                if (IsHovering)
-                    return StyleHover;
+        // The state style CurrentStyle is for, before any transition blends it with the previous one.
+        private ControlStyle ResolveStateStyle ()
+        {
+            if (!Enabled)
+                return StyleDisabled;
 
-                if (IsPressed)
-                    return StyleActive;
+            if (IsHovering)
+                return StyleHover;
 
-                // Only a type that has its own :focus style. Everyone else's StyleFocus is a copy of Control's default, which knows nothing of
-                // the type's own look or of a theme rule for it, so a focused TextBox, ListBox or CheckBox lost its border and fill (#366).
-                if (Focused && UsesFocusStyle)
-                    return StyleFocus;
+            if (IsPressed)
+                return StyleActive;
 
-                return Style;
-            }
+            // Only a type that has its own :focus style. Everyone else's StyleFocus is a copy of Control's default, which knows nothing of
+            // the type's own look or of a theme rule for it, so a focused TextBox, ListBox or CheckBox lost its border and fill (#366).
+            if (Focused && UsesFocusStyle)
+                return StyleFocus;
+
+            return Style;
         }
 
         // Whether this control, an ancestor, or -- for a control on a hosted form (MDI child, panel-hosted) --
@@ -566,8 +572,10 @@ namespace Majorsilence.Forms
             return (FindWindow () as Form)?.AmbientFontHost?.HasAmbientFontChoice () ?? false;
         }
 
-        // Whether CurrentStyle is this control's StyleFocus right now (see CurrentStyle).
-        private bool IsInFocusStyle => ReferenceEquals (CurrentStyle, StyleFocus) && UsesFocusStyle;
+        // Whether CurrentStyle is this control's StyleFocus right now (see CurrentStyle), counting a transition into it.
+        private bool IsInFocusStyle => IsFocusStyle (CurrentStyle);
+
+        private bool IsFocusStyle (ControlStyle style) => ReferenceEquals (TransitionTargetOf (style), StyleFocus) && UsesFocusStyle;
 
         /// <summary>
         /// Whether this control type has a <see cref="StyleFocus"/> of its own (a <c>Type:focus</c> rule in a theme) that
@@ -1947,7 +1955,10 @@ namespace Majorsilence.Forms
         /// window's background (WinForms ambience terminates at Form.BackColor) and only then the
         /// theme default.
         /// </summary>
-        internal SKColor GetEffectiveBackgroundColor ()
+        internal SKColor GetEffectiveBackgroundColor () => EffectiveBackgroundColorFor (CurrentStyle);
+
+        // The same resolution for a given current style, so a transition can resolve both of its ends the way painting will.
+        private SKColor EffectiveBackgroundColorFor (ControlStyle current)
         {
             // A control with no colour of its own takes upstream's default for its type where it has
             // one that differs from the theme's (see UpstreamDefaultBackColor).
@@ -1957,10 +1968,10 @@ namespace Majorsilence.Forms
             // The control's own BackColor outlasts focus, as upstream's does: a type's :focus style chains to
             // the type default, not to this instance, so a focused button with an explicit BackColor drew the
             // default face instead.
-            if (Style.BackgroundColor is { } own_back && IsInFocusStyle)
+            if (Style.BackgroundColor is { } own_back && IsFocusStyle (current))
                 return own_back;
 
-            var chain = CurrentStyle.TryGetBackgroundColor ();
+            var chain = current.TryGetBackgroundColor ();
             if (chain is not null)
                 return chain.Value;
 
@@ -1992,13 +2003,15 @@ namespace Majorsilence.Forms
         /// default. Drawing resolves through here too, so what <see cref="ForeColor"/> reports and
         /// what is painted cannot disagree.
         /// </summary>
-        internal SKColor GetEffectiveForegroundColor ()
+        internal SKColor GetEffectiveForegroundColor () => EffectiveForegroundColorFor (CurrentStyle);
+
+        private SKColor EffectiveForegroundColorFor (ControlStyle current)
         {
             // As for BackColor: the control's own ForeColor outlasts focus.
-            if (Style.ForegroundColor is { } own_fore && IsInFocusStyle)
+            if (Style.ForegroundColor is { } own_fore && IsFocusStyle (current))
                 return own_fore;
 
-            var chain = CurrentStyle.TryGetForegroundColor ();
+            var chain = current.TryGetForegroundColor ();
             if (chain is not null)
                 return chain.Value;
 
@@ -2058,7 +2071,7 @@ namespace Majorsilence.Forms
         private ControlStyle? StateStyle {
             get {
                 var current = CurrentStyle;
-                return ReferenceEquals (current, Style) ? null : current;
+                return ReferenceEquals (TransitionTargetOf (current), Style) ? null : current;
             }
         }
 

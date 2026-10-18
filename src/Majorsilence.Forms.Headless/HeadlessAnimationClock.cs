@@ -12,6 +12,10 @@ namespace Majorsilence.Forms.Headless
         private readonly object gate = new ();
         private List<Action<TimeSpan>> pending = [];
 
+        // The list a frame's due requests were in, emptied and kept for the next frame's swap, so stepping the clock allocates nothing
+        // of its own -- an allocation benchmark of an animation frame (TransitionBenchmarks) then measures only the animation.
+        private List<Action<TimeSpan>> spare = [];
+
         /// <summary>Gets the length of one frame when <see cref="Step"/> is not told otherwise: one sixtieth of a second.</summary>
         public static TimeSpan DefaultFrameInterval { get; } = TimeSpan.FromTicks (TimeSpan.TicksPerSecond / 60);
 
@@ -51,11 +55,15 @@ namespace Majorsilence.Forms.Headless
                 List<Action<TimeSpan>> due;
                 lock (gate) {
                     due = pending;
-                    pending = [];
+                    pending = spare;
                 }
 
                 foreach (var callback in due)
                     callback (Now);
+
+                due.Clear ();
+                lock (gate)
+                    spare = due;
             }
         }
 
