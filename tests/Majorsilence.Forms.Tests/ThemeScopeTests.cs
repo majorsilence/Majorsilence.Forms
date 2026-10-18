@@ -213,6 +213,47 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void A_dialog_opened_from_a_scoped_control_takes_its_scope_when_its_owner_has_none ()
+        {
+            HeadlessRenderer.Use ();
+            var scope = new ThemeScope ();
+
+            // a scoped control inside an unscoped window -- an embedded designer
+            using var host = new Form ();
+            var panel = new Panel { Dock = DockStyle.Fill, ThemeScope = scope };
+            var button = new Button ();
+            panel.Controls.Add (button);
+            host.Controls.Add (panel);
+            host.Show ();
+
+            Form? dialog = null;
+            button.Click += (_, _) => dialog = new Form { Owner = host };
+            button.RaiseClick (new MouseEventArgs (MouseButtons.Left, 1, 1, 1, System.Drawing.Point.Empty));
+
+            Assert.NotNull (dialog);
+            using (dialog)
+                Assert.Same (scope, dialog!.ResolveThemeScope ());
+        }
+
+        [Fact]
+        public void An_owner_scope_wins_over_the_scope_a_window_was_created_under ()
+        {
+            var opener = new ThemeScope ();
+            var owners = new ThemeScope ();
+            using var owner = new Form { ThemeScope = owners };
+
+            Form dialog;
+            using (opener.Enter ())
+                dialog = new Form { Owner = owner };
+
+            using (dialog)
+                Assert.Same (owners, dialog.ResolveThemeScope ());
+
+            using var unrelated = new Form ();
+            Assert.Null (unrelated.ResolveThemeScope ());
+        }
+
+        [Fact]
         public void A_scoped_font_lays_out_as_the_same_application_font_does ()
         {
             HeadlessRenderer.Use ();
