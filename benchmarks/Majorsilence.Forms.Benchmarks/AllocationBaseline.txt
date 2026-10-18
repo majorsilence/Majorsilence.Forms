@@ -63,6 +63,6 @@ TextMeasureBenchmarks.WordsViaRegions(Text=Quarterly results for the northern re
 TextMeasureBenchmarks.WordsViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 888 B
 TextMeasurerCacheBenchmarks.Hit: 0 B
 TextMeasurerCacheBenchmarks.HitSingleLine: 0 B
-ThemeBenchmarks.ParseCss: 41936 B
+ThemeBenchmarks.ParseCss: 44400 B
 ThemeBenchmarks.ReadValues: 0 B
 TransitionBenchmarks.HoverTransitionFrame: 0 B

@@ -35,9 +35,10 @@ namespace Majorsilence.Forms
         public static SystemColorMode ColorMode { get; private set; } = SystemColorMode.Classic;
 
         /// <summary>Gets the colour mode the operating system asks for.</summary>
-        /// <remarks>Classic: the backends do not surface the OS appearance setting, so reporting Dark
-        /// here would be a guess. <see cref="SetColorMode"/> is how an application chooses.</remarks>
-        public static SystemColorMode SystemColorMode => SystemColorMode.Classic;
+        /// <remarks>Dark when the backend reports a dark operating-system appearance
+        /// (<see cref="SystemInformation.PrefersDarkColorScheme"/>), else Classic, as upstream reports a light one.
+        /// <see cref="SetColorMode"/> is how an application chooses.</remarks>
+        public static SystemColorMode SystemColorMode => SystemInformation.PrefersDarkColorScheme ? SystemColorMode.Dark : SystemColorMode.Classic;
 
         /// <summary>Gets whether the application is currently rendering in dark mode.</summary>
         public static bool IsDarkModeEnabled

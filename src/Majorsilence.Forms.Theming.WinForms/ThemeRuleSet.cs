@@ -98,6 +98,11 @@ namespace Majorsilence.Forms.Theming.WinForms
 
             foreach (var sheet in chain)
                 foreach (var rule in sheet.Rules) {
+                    // Only :hover has WinForms seams; an :active, :disabled, :focus or :focus-visible rule would otherwise merge into
+                    // the at-rest key and override the base rule (BuildDiagnostics reports it instead).
+                    if (rule.Active || rule.Disabled || rule.Focus || rule.FocusVisible)
+                        continue;
+
                     var key = (rule.Selector.Name, rule.Part?.Name, rule.Hover);
 
                     if (!set.rules.TryGetValue (key, out var declarations)) {

@@ -273,6 +273,46 @@ namespace Majorsilence.Forms
                 current_stylesheets = applied;
                 pending_stylesheet_notification = applied;
             }
+
+            WatchMediaPreferences (applied);
+        }
+
+        // A sheet with @media rules applies differently when the system's colour scheme or reduced-motion setting changes, so while one
+        // is in effect the theme listens to the backend for both and applies the sheet again (which raises ThemeChanged and
+        // StyleSheetApplied, so host appliers follow too).
+        private static Backends.IReducedMotionSource? media_motion_source;
+        private static Backends.IColorSchemeSource? media_scheme_source;
+
+        private static void WatchMediaPreferences (IReadOnlyList<ThemeStyleSheet> chain)
+        {
+            var watch = chain.Any (s => s.UsesMediaQueries);
+            var backend = Backends.Platform.Backend;
+
+            var motion = watch ? backend as Backends.IReducedMotionSource : null;
+            if (!ReferenceEquals (motion, media_motion_source)) {
+                if (media_motion_source is not null)
+                    media_motion_source.PrefersReducedMotionChanged -= OnMediaPreferenceChanged;
+                media_motion_source = motion;
+                if (motion is not null)
+                    motion.PrefersReducedMotionChanged += OnMediaPreferenceChanged;
+            }
+
+            var scheme = watch ? backend as Backends.IColorSchemeSource : null;
+            if (!ReferenceEquals (scheme, media_scheme_source)) {
+                if (media_scheme_source is not null)
+                    media_scheme_source.PrefersDarkColorSchemeChanged -= OnMediaPreferenceChanged;
+                media_scheme_source = scheme;
+                if (scheme is not null)
+                    scheme.PrefersDarkColorSchemeChanged += OnMediaPreferenceChanged;
+            }
+        }
+
+        private static void OnMediaPreferenceChanged (object? sender, EventArgs e)
+        {
+            var chain = CurrentStyleSheets;
+
+            if (chain.Count > 0 && chain.Any (s => s.UsesMediaQueries))
+                ApplyStyleSheet (chain[chain.Count - 1]);
         }
 
         // Called from InvokeThemeChanged, after ThemeChanged and the repaint marking.
@@ -301,6 +341,8 @@ namespace Majorsilence.Forms
                 current_stylesheets = Array.Empty<ThemeStyleSheet> ();
                 pending_stylesheet_notification = null;
             }
+
+            WatchMediaPreferences (Array.Empty<ThemeStyleSheet> ());
         }
     }
 }

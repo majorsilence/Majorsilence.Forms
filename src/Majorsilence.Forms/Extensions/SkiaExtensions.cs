@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+using System.Collections.Generic;
+using System.Drawing;
 using System.Runtime.Versioning;
 using SkiaSharp;
 
@@ -42,47 +43,180 @@ namespace Majorsilence.Forms
         public static void DrawBackground (this SKCanvas canvas, Rectangle bounds, ControlStyle style, SKColor backgroundColor)
         {
             var radii = CornerRadii.Of (style.Border);
+            var shadows = style.GetBoxShadows ();
+            var layers = style.GetBackgroundGradients ();
+            var borderWidth = style.Border.GetWidth ();
 
-            if (style.GetBoxShadow () is { } shadow) {
-                var (fx, fy, fw, fh) = ShadowFace (bounds.Width, bounds.Height, shadow);
+            if (shadows.Count > 0) {
+                var (fx, fy, fw, fh) = ShadowFace (bounds.Width, bounds.Height, shadows);
 
-                // Shadow first, the control's own face on top -- a positive offset (the only direction
+                // Shadows first, the control's own face on top -- a positive offset (the only direction
                 // alert-buddy's own design brief uses, "4px down and right") leaves the face flush with
                 // the near corner and only the shadow's own sliver showing past its far edge, which is
-                // what reads as a flat, hard, offset shadow with no blur (#285). The strip the offset
-                // claims outside the face is left transparent, exactly like a Transparent control, so
+                // what reads as a flat, hard, offset shadow with no blur (#285). The strip the shadows
+                // claim outside the face is left transparent, exactly like a Transparent control, so
                 // whatever sits behind this one shows through it -- the space an app using box-shadow is
-                // expected to have reserved for it.
+                // expected to have reserved for it. CSS paints the first shadow on top, so they are drawn
+                // last to first.
                 canvas.Clear (SKColors.Transparent);
 
-                if (radii.Any) {
-                    FillRoundedRectangle (canvas, fx + shadow.OffsetX, fy + shadow.OffsetY, fw, fh, shadow.Color, radii, 0);
-                    FillRoundedRectangle (canvas, fx, fy, fw - style.Border.GetWidth (), fh - style.Border.GetWidth (), backgroundColor, radii, style.Border.GetWidth ());
-                } else {
-                    canvas.FillRectangle (fx + shadow.OffsetX, fy + shadow.OffsetY, fw, fh, shadow.Color);
+                for (var i = shadows.Count - 1; i >= 0; i--)
+                    if (!shadows[i].Inset)
+                        DrawOuterShadow (canvas, fx, fy, fw, fh, radii, shadows[i]);
+
+                if (radii.Any)
+                    FillRoundedRectangle (canvas, fx, fy, fw - borderWidth, fh - borderWidth, backgroundColor, radii, borderWidth);
+                else
                     canvas.FillRectangle (fx, fy, fw, fh, backgroundColor);
-                }
+
+                DrawBackgroundLayers (canvas, fx, fy, fw, fh, radii, layers);
+
+                // Inset shadows sit above the background and below the border, as CSS paints them.
+                for (var i = shadows.Count - 1; i >= 0; i--)
+                    if (shadows[i].Inset)
+                        DrawInsetShadow (canvas, fx, fy, fw, fh, radii, borderWidth, shadows[i]);
 
                 return;
             }
 
             if (radii.Any) {
                 canvas.Clear (SKColors.Transparent);
-                FillRoundedRectangle (canvas, 0, 0, bounds.Width - style.Border.GetWidth (), bounds.Height - style.Border.GetWidth (), backgroundColor, radii, style.Border.GetWidth ());
+                FillRoundedRectangle (canvas, 0, 0, bounds.Width - borderWidth, bounds.Height - borderWidth, backgroundColor, radii, borderWidth);
+                DrawBackgroundLayers (canvas, 0, 0, bounds.Width, bounds.Height, radii, layers);
                 return;
             }
 
             canvas.Clear (backgroundColor);
+            DrawBackgroundLayers (canvas, 0, 0, bounds.Width, bounds.Height, radii, layers);
         }
 
-        // Where box-shadow (#285) puts the control's own "face" once an offset has claimed a strip on
-        // its near side: the face shrinks by |offset| and shifts away from the shadow so the two never
-        // overlap incorrectly. A positive offset leaves the face flush with the top-left corner (the
-        // shadow peeks out past its bottom-right edge); a negative one is the mirror image. Shared by
-        // DrawBackground and DrawBorder so the border always lines up with the shrunk face.
-        private static (int X, int Y, int Width, int Height) ShadowFace (int width, int height, ControlBoxShadow shadow)
-            => (Math.Max (0, -shadow.OffsetX), Math.Max (0, -shadow.OffsetY),
-                Math.Max (0, width - Math.Abs (shadow.OffsetX)), Math.Max (0, height - Math.Abs (shadow.OffsetY)));
+        // Where the control's own "face" sits once its outer shadows have claimed room for themselves: each side gives up however
+        // far the furthest shadow reaches past it (offset, spread and blur together), and the face moves away from the shadows so
+        // the two never overlap incorrectly. A hard shadow with a positive offset leaves the face flush with the top-left corner and
+        // the shadow peeking out past its bottom-right edge; a negative one is the mirror image (#285). Shared by DrawBackground and
+        // DrawBorder so the border always lines up with the face.
+        private static (int X, int Y, int Width, int Height) ShadowFace (int width, int height, IReadOnlyList<ControlBoxShadow> shadows)
+        {
+            int left = 0, top = 0, right = 0, bottom = 0;
+
+            foreach (var shadow in shadows) {
+                if (shadow.Inset)
+                    continue;
+
+                var reach = shadow.Spread + shadow.Blur;
+                left = Math.Max (left, reach - shadow.OffsetX);
+                right = Math.Max (right, reach + shadow.OffsetX);
+                top = Math.Max (top, reach - shadow.OffsetY);
+                bottom = Math.Max (bottom, reach + shadow.OffsetY);
+            }
+
+            return (left, top, Math.Max (0, width - left - right), Math.Max (0, height - top - bottom));
+        }
+
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, SKMaskFilter> blur_filters = new ();
+
+        // CSS's blur radius is twice the standard deviation of the Gaussian it describes.
+        private static SKMaskFilter BlurFilter (int blur) => blur_filters.GetOrAdd (blur, b => SKMaskFilter.CreateBlur (SKBlurStyle.Normal, b / 2f));
+
+        private static void DrawOuterShadow (SKCanvas canvas, int fx, int fy, int fw, int fh, CornerRadii radii, ControlBoxShadow shadow)
+        {
+            // The hard shadow the property started as, drawn exactly as it always was.
+            if (shadow.Blur == 0 && shadow.Spread == 0) {
+                if (radii.Any)
+                    FillRoundedRectangle (canvas, fx + shadow.OffsetX, fy + shadow.OffsetY, fw, fh, shadow.Color, radii, 0);
+                else
+                    canvas.FillRectangle (fx + shadow.OffsetX, fy + shadow.OffsetY, fw, fh, shadow.Color);
+                return;
+            }
+
+            var spread = shadow.Spread;
+            var grown = radii.Grow (spread);
+            using var shape = RoundRectOf (fx + shadow.OffsetX - spread, fy + shadow.OffsetY - spread, Math.Max (0, fw + 2 * spread), Math.Max (0, fh + 2 * spread), grown);
+            using var face = RoundRectOf (fx, fy, fw, fh, radii);
+            using var paint = new SKPaint { Color = shadow.Color, IsAntialias = true, MaskFilter = shadow.Blur > 0 ? BlurFilter (shadow.Blur) : null };
+
+            // A shadow is never seen through the face, even a translucent one, as in CSS.
+            canvas.Save ();
+            canvas.ClipRoundRect (face, SKClipOperation.Difference, antialias: true);
+            canvas.DrawRoundRect (shape, paint);
+            canvas.Restore ();
+        }
+
+        private static void DrawInsetShadow (SKCanvas canvas, int fx, int fy, int fw, int fh, CornerRadii radii, int borderWidth, ControlBoxShadow shadow)
+        {
+            // Cast inside the padding box: everything inside the face except a hole the shape of the face, moved by the offset and
+            // shrunk by the spread, then blurred.
+            var inner = radii.Grow (-borderWidth);
+            float ix = fx + borderWidth, iy = fy + borderWidth, iw = Math.Max (0, fw - 2 * borderWidth), ih = Math.Max (0, fh - 2 * borderWidth);
+            using var clip = RoundRectOf (ix, iy, iw, ih, inner);
+
+            var spread = shadow.Spread;
+            using var hole = RoundRectOf (ix + shadow.OffsetX + spread, iy + shadow.OffsetY + spread, Math.Max (0, iw - 2 * spread), Math.Max (0, ih - 2 * spread), inner.Grow (-spread));
+
+            var margin = shadow.Blur + Math.Abs (shadow.OffsetX) + Math.Abs (shadow.OffsetY) + Math.Abs (spread) + 1;
+            using var path = new SKPath { FillType = SKPathFillType.EvenOdd };
+            path.AddRect (new SKRect (ix - margin, iy - margin, ix + iw + margin, iy + ih + margin));
+            path.AddRoundRect (hole);
+
+            using var paint = new SKPaint { Color = shadow.Color, IsAntialias = true, MaskFilter = shadow.Blur > 0 ? BlurFilter (shadow.Blur) : null };
+
+            canvas.Save ();
+            canvas.ClipRoundRect (clip, SKClipOperation.Intersect, antialias: true);
+            canvas.DrawPath (path, paint);
+            canvas.Restore ();
+        }
+
+        /// <summary>
+        /// Draws a control's outline (CSS <c>outline</c>) onto its parent's canvas: a ring around the control's face, which sits at
+        /// (<paramref name="x"/>, <paramref name="y"/>) and is <paramref name="width"/> by <paramref name="height"/>, pushed out by the
+        /// outline offset and following its corner radii.
+        /// </summary>
+        internal static void DrawOutline (this SKCanvas canvas, float x, float y, int width, int height, ControlStyle style)
+        {
+            var line = style.GetOutlineStyle ();
+            var thickness = style.GetOutlineWidth ();
+
+            if (line == ControlOutlineStyle.None || thickness <= 0)
+                return;
+
+            var shadows = style.GetBoxShadows ();
+            var (fx, fy, fw, fh) = shadows.Count > 0 ? ShadowFace (width, height, shadows) : (0, 0, width, height);
+
+            // The stroke is centred on a line half its width outside the offset edge, so its inside edge is exactly `offset` out.
+            var out_by = style.GetOutlineOffset () + thickness / 2f;
+            var radii = CornerRadii.Of (style.Border).Grow ((int) Math.Round (out_by));
+
+            using var effect = line == ControlOutlineStyle.Dashed ? DashEffect (thickness) : null;
+            using var paint = new SKPaint { Color = style.GetOutlineColor (), IsStroke = true, IsAntialias = true, StrokeWidth = thickness, PathEffect = effect };
+            using var rect = RoundRectOf (x + fx - out_by, y + fy - out_by, Math.Max (0, fw + 2 * out_by), Math.Max (0, fh + 2 * out_by), radii);
+
+            canvas.DrawRoundRect (rect, paint);
+        }
+
+        // background-image gradient layers, over the background colour and inside the face's rounded shape; CSS paints the first
+        // layer on top, so they are drawn last to first.
+        private static void DrawBackgroundLayers (SKCanvas canvas, int x, int y, int width, int height, CornerRadii radii, IReadOnlyList<ControlGradient> layers)
+        {
+            if (layers.Count == 0 || width <= 0 || height <= 0)
+                return;
+
+            var rect = new SKRect (x, y, x + width, y + height);
+            using var clip = radii.Any ? RoundRectOf (x, y, width, height, radii) : null;
+
+            canvas.Save ();
+            if (clip is not null)
+                canvas.ClipRoundRect (clip, SKClipOperation.Intersect, antialias: true);
+
+            for (var i = layers.Count - 1; i >= 0; i--) {
+                using var shader = layers[i].CreateShader (rect);
+                if (shader is null)
+                    continue;
+                using var paint = new SKPaint { Shader = shader, IsAntialias = true };
+                canvas.DrawRect (rect, paint);
+            }
+
+            canvas.Restore ();
+        }
 
         // The SKColor helpers here made a new SKPaint per call, and renderers call them for every border, grid line,
         // background and glyph they paint: 28 % of a DataGridView scroll repaint was its cell borders, mostly making
@@ -138,7 +272,8 @@ namespace Majorsilence.Forms
             // box-shadow (#285) shrinks the control's own face away from the full bounds (see
             // ShadowFace/DrawBackground); the border has to be drawn around that same smaller rect, or
             // it would ring the shadow as well as the face. Without a shadow this is (0, 0, bounds).
-            var (fx, fy, fw, fh) = style.GetBoxShadow () is { } shadow ? ShadowFace (bounds.Width, bounds.Height, shadow) : (0, 0, bounds.Width, bounds.Height);
+            var shadows = style.GetBoxShadows ();
+            var (fx, fy, fw, fh) = shadows.Count > 0 ? ShadowFace (bounds.Width, bounds.Height, shadows) : (0, 0, bounds.Width, bounds.Height);
 
             if (radii.Any) {
                 DrawRoundedRectangle (canvas, fx, fy, fw - style.Border.GetWidth (), fh - style.Border.GetWidth (), style.Border.GetColor (), radii, style.Border.GetWidth (), dashed);
@@ -180,6 +315,12 @@ namespace Majorsilence.Forms
 
             public static CornerRadii Of (ControlBorderStyle border)
                 => new (border.GetTopLeftRadius (), border.GetTopRightRadius (), border.GetBottomRightRadius (), border.GetBottomLeftRadius ());
+
+            // CSS grows a rounded corner by the spread of a shadow cast from it, and never below zero; a square corner stays square.
+            public CornerRadii Grow (int by)
+                => new (Corner (TopLeft, by), Corner (TopRight, by), Corner (BottomRight, by), Corner (BottomLeft, by));
+
+            private static int Corner (int radius, int by) => radius == 0 ? 0 : Math.Max (0, radius + by);
         }
 
         // A dash and a gap each three border-widths long: the CSS 'dashed' look closely enough, and

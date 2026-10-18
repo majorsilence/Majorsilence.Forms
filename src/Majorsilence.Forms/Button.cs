@@ -124,6 +124,12 @@ namespace Majorsilence.Forms
         public new static readonly ControlStyle DefaultStyleFocus = new ControlStyle (DefaultStyle);
 
         /// <summary>
+        /// Gets the default style for all controls of this type while focused with focus cues showing -- the CSS
+        /// <c>:focus-visible</c> pseudo-class: focus the user reached with the keyboard. It inherits from <see cref="DefaultStyleFocus"/>.
+        /// </summary>
+        public new static readonly ControlStyle DefaultStyleFocusVisible = new ControlStyle (DefaultStyleFocus);
+
+        /// <summary>
         /// Gets or sets a value that is returned to the parent form when the button is clicked.
         /// </summary>
         public DialogResult DialogResult { get; set; }
@@ -293,6 +299,9 @@ namespace Majorsilence.Forms
 
         /// <inheritdoc/>
         public override ControlStyle StyleFocus { get; } = new ControlStyle (DefaultStyleFocus);
+
+        /// <inheritdoc/>
+        public override ControlStyle StyleFocusVisible { get; } = new ControlStyle (DefaultStyleFocusVisible);
 
         internal override bool UsesFocusStyle => true;
 

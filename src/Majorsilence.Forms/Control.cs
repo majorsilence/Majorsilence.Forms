@@ -555,8 +555,10 @@ namespace Majorsilence.Forms
 
             // Only a type that has its own :focus style. Everyone else's StyleFocus is a copy of Control's default, which knows nothing of
             // the type's own look or of a theme rule for it, so a focused TextBox, ListBox or CheckBox lost its border and fill (#366).
+            // :focus-visible is focus the window shows cues for -- WinForms' keyboard-cues state, which turns on once the keyboard is
+            // used, as a browser's heuristic does.
             if (Focused && UsesFocusStyle)
-                return StyleFocus;
+                return ShowFocusCues || FocusIsAlwaysVisible ? StyleFocusVisible : StyleFocus;
 
             return Style;
         }
@@ -575,7 +577,15 @@ namespace Majorsilence.Forms
         // Whether CurrentStyle is this control's StyleFocus right now (see CurrentStyle), counting a transition into it.
         private bool IsInFocusStyle => IsFocusStyle (CurrentStyle);
 
-        private bool IsFocusStyle (ControlStyle style) => ReferenceEquals (TransitionTargetOf (style), StyleFocus) && UsesFocusStyle;
+        private bool IsFocusStyle (ControlStyle style)
+        {
+            // UsesFocusStyle first: the base StyleFocusVisible is made on first read, and most controls never need it.
+            if (!UsesFocusStyle)
+                return false;
+
+            var target = TransitionTargetOf (style);
+            return ReferenceEquals (target, StyleFocus) || ReferenceEquals (target, StyleFocusVisible);
+        }
 
         /// <summary>
         /// Whether this control type has a <see cref="StyleFocus"/> of its own (a <c>Type:focus</c> rule in a theme) that
@@ -583,6 +593,9 @@ namespace Majorsilence.Forms
         /// the same focused as not.
         /// </summary>
         internal virtual bool UsesFocusStyle => false;
+
+        // Whether this control's focus always counts as :focus-visible, whatever focused it (a text input).
+        internal virtual bool FocusIsAlwaysVisible => false;
 
         /// <summary>
         /// Gets or sets the mouse cursor to be shown when the mouse is over the control.
@@ -702,6 +715,12 @@ namespace Majorsilence.Forms
         /// (the CSS <c>:focus</c> pseudo-class, #285).
         /// </summary>
         public static readonly ControlStyle DefaultStyleFocus = new ControlStyle (DefaultStyle);
+
+        /// <summary>
+        /// Gets the default style for all controls of this type while focused with focus cues showing (the CSS
+        /// <c>:focus-visible</c> pseudo-class). It inherits from <see cref="DefaultStyleFocus"/>.
+        /// </summary>
+        public static readonly ControlStyle DefaultStyleFocusVisible = new ControlStyle (DefaultStyleFocus);
 
         /// <summary>
         /// Removes focus from the control.
@@ -1895,13 +1914,34 @@ namespace Majorsilence.Forms
                         e.Canvas.ClipPath (path, SKClipOperation.Intersect, antialias: true);
                     }
 
-                    e.Canvas.DrawBitmap (buffer, left, top);
+                    e.Canvas.DrawBitmap (buffer, left, top, ChildPaint (control));
                     e.Canvas.Restore ();
+                    e.Canvas.DrawOutline (left, top, control.ScaledSize.Width, control.ScaledSize.Height, control.CurrentStyle);
                     continue;
                 }
 
-                e.Canvas.DrawBitmap (buffer, left, top);
+                e.Canvas.DrawBitmap (buffer, left, top, ChildPaint (control));
+
+                // A CSS outline is drawn outside the control, so by its parent, over it; it takes no room.
+                e.Canvas.DrawOutline (left, top, control.ScaledSize.Width, control.ScaledSize.Height, control.CurrentStyle);
             }
+        }
+
+        [ThreadStatic]
+        private static SKPaint? t_child_paint;
+
+        // The paint a child's surface is composited with: none for an opaque child, a translucent one for a child whose style sets
+        // opacity (the CSS property), which therefore fades its whole subtree, as CSS's does.
+        private static SKPaint? ChildPaint (Control child)
+        {
+            var opacity = child.CurrentStyle.GetOpacity ();
+
+            if (opacity >= 1f)
+                return null;
+
+            var paint = t_child_paint ??= new SKPaint ();
+            paint.Color = SKColors.White.WithAlpha ((byte) Math.Round (Math.Max (0f, opacity) * 255));
+            return paint;
         }
 
         /// <summary>
@@ -3309,6 +3349,14 @@ namespace Majorsilence.Forms
         /// <see cref="Focused"/> is true (the CSS <c>:focus</c> pseudo-class, #285).
         /// </summary>
         public virtual ControlStyle StyleFocus { get; } = new ControlStyle (DefaultStyleFocus);
+
+        private ControlStyle? instance_style_focus_visible;
+
+        /// <summary>
+        /// Gets the ControlStyle properties for this instance of the Control while it is focused and its window shows focus cues (the
+        /// CSS <c>:focus-visible</c> pseudo-class): focus the user reached with the keyboard. It inherits from <see cref="StyleFocus"/>.
+        /// </summary>
+        public virtual ControlStyle StyleFocusVisible => instance_style_focus_visible ??= new ControlStyle (StyleFocus);
 
         /// <summary>
         ///  Suspends the layout logic for the control.

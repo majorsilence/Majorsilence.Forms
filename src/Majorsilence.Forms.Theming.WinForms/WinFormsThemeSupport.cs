@@ -93,6 +93,15 @@ namespace Majorsilence.Forms.Theming.WinForms
     /// </summary>
     public static class WinFormsThemeSupport
     {
+        private static readonly (string Property, string Note)[] effect_properties = {
+            ("opacity", "System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity."),
+            ("background-image", "System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw."),
+            ("outline-width", "System.Windows.Forms has no outline; the focus rectangle is drawn by each control."),
+            ("outline-style", "System.Windows.Forms has no outline; the focus rectangle is drawn by each control."),
+            ("outline-color", "System.Windows.Forms has no outline; the focus rectangle is drawn by each control."),
+            ("outline-offset", "System.Windows.Forms has no outline; the focus rectangle is drawn by each control."),
+        };
+
         private static readonly string[] transition_properties = { "transition-property", "transition-duration", "transition-timing-function", "transition-delay" };
 
         private static readonly string[] font_properties = { "font-family", "font-size", "font-weight", "font-style" };
@@ -388,7 +397,7 @@ namespace Majorsilence.Forms.Theming.WinForms
             // A single explicit sweep instead: System.Windows.Forms has no concept of a hard, offset,
             // no-blur drop shadow without an owner-drawn control, so it is Unsupported everywhere,
             // never Approximate or Native, for every selector real WinForms has a counterpart for.
-            const string NoBoxShadow = "System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one.";
+            const string NoBoxShadow = "System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one.";
 
             foreach (var mapping in mappings) {
                 if (mapping.WinFormsTypes is null)
@@ -431,6 +440,20 @@ namespace Majorsilence.Forms.Theming.WinForms
 
                     if (ThemeCssReference.FindSelector (mapping.Selector)?.SupportsHover == true)
                         entries.Add (new WinFormsThemeSupportEntry (mapping.Selector, null, true, property, WinFormsThemeSupportLevel.Unsupported, NoTransition));
+                }
+            }
+
+            // The paint effects: System.Windows.Forms composites child windows opaquely, has no outline concept and paints its own
+            // backgrounds, so none of them has a seam without owner-drawing every control.
+            foreach (var mapping in mappings) {
+                if (mapping.WinFormsTypes is null)
+                    continue;
+
+                foreach (var (property, note) in effect_properties) {
+                    entries.Add (new WinFormsThemeSupportEntry (mapping.Selector, null, false, property, WinFormsThemeSupportLevel.Unsupported, note));
+
+                    if (ThemeCssReference.FindSelector (mapping.Selector)?.SupportsHover == true)
+                        entries.Add (new WinFormsThemeSupportEntry (mapping.Selector, null, true, property, WinFormsThemeSupportLevel.Unsupported, note));
                 }
             }
 

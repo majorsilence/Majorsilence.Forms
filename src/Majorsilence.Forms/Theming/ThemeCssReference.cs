@@ -26,8 +26,8 @@ namespace Majorsilence.Forms
         FontStyle,
 
         /// <summary>
-        /// A hard, offset, no-blur shadow (#285): an offset pair plus a color. Only appears on the
-        /// <c>box-shadow</c> control-rule declaration, never on a <c>:root</c> token.
+        /// One shadow (#285): offsets, blur, spread, inset and a colour. Only appears on the <c>box-shadow</c> control-rule
+        /// declaration (several shadows are a <see cref="List"/> of these), never on a <c>:root</c> token.
         /// </summary>
         BoxShadow,
 
@@ -36,6 +36,12 @@ namespace Majorsilence.Forms
         /// the <c>border-style</c> control-rule declaration.
         /// </summary>
         Keyword,
+
+        /// <summary>A plain number, e.g. an <c>opacity</c> between 0 and 1 (a percentage is converted).</summary>
+        Number,
+
+        /// <summary>A gradient, one layer of <c>background-image</c>; <see cref="ThemeCssValue.Css"/> is its CSS text.</summary>
+        Image,
 
         /// <summary>A time, <c>150ms</c> or <c>.15s</c>: an element of a <c>transition-duration</c> or <c>transition-delay</c> list.</summary>
         Time,
@@ -93,8 +99,10 @@ namespace Majorsilence.Forms
     public sealed class ThemeCssSelector
     {
         internal ThemeCssSelector (string name, string description, Func<ControlStyle> getStyle, Func<ControlStyle>? getHoverStyle = null,
-            Func<ControlStyle>? getActiveStyle = null, Func<ControlStyle>? getDisabledStyle = null, Func<ControlStyle>? getFocusStyle = null)
+            Func<ControlStyle>? getActiveStyle = null, Func<ControlStyle>? getDisabledStyle = null, Func<ControlStyle>? getFocusStyle = null,
+            Func<ControlStyle>? getFocusVisibleStyle = null)
         {
+            GetFocusVisibleStyle = getFocusVisibleStyle;
             Name = name;
             Description = description;
             GetStyle = getStyle;
@@ -155,6 +163,12 @@ namespace Majorsilence.Forms
         /// <summary>Whether <c>Name:focus</c> is meaningful (#285) -- only controls that repaint when focused.</summary>
         public bool SupportsFocus => GetFocusStyle is not null;
 
+        /// <summary>Whether <c>Name:focus-visible</c> is meaningful -- the controls with <c>:focus</c>.</summary>
+        public bool SupportsFocusVisible => GetFocusVisibleStyle is not null;
+
+        /// <summary>Whether the control changes appearance for any state, so a <c>transition</c> on it can run.</summary>
+        public bool HasStates => SupportsHover || SupportsActive || SupportsDisabled || SupportsFocus || SupportsFocusVisible;
+
         /// <summary>Derived controls that share this type's default style and therefore this rule.</summary>
         /// <remarks>Computed from the real inheritance tree as of #100: every public control whose nearest
         /// ancestor with a selector is this one. It used to be a hand-written list that named four or five
@@ -174,6 +188,7 @@ namespace Majorsilence.Forms
         internal Func<ControlStyle>? GetActiveStyle { get; }
         internal Func<ControlStyle>? GetDisabledStyle { get; }
         internal Func<ControlStyle>? GetFocusStyle { get; }
+        internal Func<ControlStyle>? GetFocusVisibleStyle { get; }
 
         /// <summary>The type's default <see cref="ControlStyle"/> -- what a <c>Type { ... }</c> rule sets.</summary>
         public ControlStyle Style => GetStyle ();
@@ -189,6 +204,9 @@ namespace Majorsilence.Forms
 
         /// <summary>The type's default focus style -- what a <c>Type:focus { ... }</c> rule sets -- or null (#285).</summary>
         public ControlStyle? FocusStyle => GetFocusStyle?.Invoke ();
+
+        /// <summary>The type's default focus-visible style -- what a <c>Type:focus-visible { ... }</c> rule sets -- or null.</summary>
+        public ControlStyle? FocusVisibleStyle => GetFocusVisibleStyle?.Invoke ();
 
         /// <summary>Finds a part by name (case-insensitive), or null.</summary>
         public ThemeCssPart? FindPart (string name)
@@ -315,8 +333,9 @@ namespace Majorsilence.Forms
 
         /// <summary>The control type selectors a theme can target.</summary>
         public static IReadOnlyList<ThemeCssSelector> Selectors { get; } = new[] {
-            new ThemeCssSelector ("Button", "Push buttons. Hovering applies the :hover rule on top of the normal one. Supports :active, :disabled and :focus.",
-                () => Button.DefaultStyle, () => Button.DefaultStyleHover, () => Button.DefaultStyleActive, () => Button.DefaultStyleDisabled, () => Button.DefaultStyleFocus),
+            new ThemeCssSelector ("Button", "Push buttons. Hovering applies the :hover rule on top of the normal one. Supports :active, :disabled, :focus and :focus-visible.",
+                () => Button.DefaultStyle, () => Button.DefaultStyleHover, () => Button.DefaultStyleActive, () => Button.DefaultStyleDisabled, () => Button.DefaultStyleFocus,
+                () => Button.DefaultStyleFocusVisible),
             new ThemeCssSelector ("CheckBox", "Check boxes: the text and the box glyph's surround.", () => CheckBox.DefaultStyle),
             new ThemeCssSelector ("ComboBox", "Drop-down selectors (the closed box; the open list is a ListBox).", () => ComboBox.DefaultStyle),
             new ThemeCssSelector ("DataGridView", "Data grids: the control background and border. Cells follow the tokens (--control-low-color, --border-low-color); headers, selection and alternating rows are parts.", () => DataGridView.DefaultStyle)
@@ -339,8 +358,9 @@ namespace Majorsilence.Forms
             new ThemeCssSelector ("GroupBox", "Titled group frames: the border colour is the frame, color is the caption.", () => GroupBox.DefaultStyle),
             new ThemeCssSelector ("HostedSurface", "A Majorsilence.Forms surface embedded in an Avalonia or Uno host. Transparent by default so the host shows through; a background-color rule makes it opaque.", () => HostedSurface.DefaultStyle),
             new ThemeCssSelector ("Label", "Static text.", () => Label.DefaultStyle),
-            new ThemeCssSelector ("LinkLabel", "Hyperlink text; color is the link colour. Supports :hover, :active, :disabled and :focus.",
-                () => LinkLabel.DefaultStyle, () => LinkLabel.DefaultStyleHover, () => LinkLabel.DefaultStyleActive, () => LinkLabel.DefaultStyleDisabled, () => LinkLabel.DefaultStyleFocus),
+            new ThemeCssSelector ("LinkLabel", "Hyperlink text; color is the link colour. Supports :hover, :active, :disabled, :focus and :focus-visible.",
+                () => LinkLabel.DefaultStyle, () => LinkLabel.DefaultStyleHover, () => LinkLabel.DefaultStyleActive, () => LinkLabel.DefaultStyleDisabled, () => LinkLabel.DefaultStyleFocus,
+                () => LinkLabel.DefaultStyleFocusVisible),
             new ThemeCssSelector ("ListBox", "Single-column lists (also the ComboBox drop-down list). The selected item is the ::selection part.",
                 () => ListBox.DefaultStyle)
                 .WithParts (
@@ -388,14 +408,15 @@ namespace Majorsilence.Forms
                         () => TabStrip.DefaultItemStyle, () => TabStrip.DefaultItemHoverStyle, "background-color", "color"),
                     new ThemeCssPart ("selected", "The selected tab: optional background, caption colour, and the accent underline (border-bottom-color, border-bottom-width; default --accent-color-2, 3px).",
                         () => TabStrip.DefaultSelectedItemStyle, null, "background-color", "color", "border-bottom-color", "border-bottom-width")),
-            new ThemeCssSelector ("TextBox", "Text inputs. Selected text uses --text-selection-background-color. Supports :focus, for a focus ring.", () => TextBox.DefaultStyle,
-                getFocusStyle: () => TextBox.DefaultStyleFocus),
+            new ThemeCssSelector ("TextBox", "Text inputs. Selected text uses --text-selection-background-color. Supports :focus and :focus-visible, for a focus ring (a text box always counts as :focus-visible when focused, as in a browser).", () => TextBox.DefaultStyle,
+                getFocusStyle: () => TextBox.DefaultStyleFocus, getFocusVisibleStyle: () => TextBox.DefaultStyleFocusVisible),
             new ThemeCssSelector ("ToolBar", "Tool bars. Items are the ::item part; :hover also covers a checked (toggled) item.", () => ToolBar.DefaultStyle)
                 .WithParts (
                     new ThemeCssPart ("item", "A tool bar item: text colour and optional background; :hover is the hovered, open or checked item.",
                         () => ToolBar.DefaultItemStyle, () => ToolBar.DefaultItemHoverStyle, "background-color", "color")),
-            new ThemeCssSelector ("TrackBar", "Sliders. Supports :hover, :active, :disabled and :focus.",
-                () => TrackBar.DefaultStyle, () => TrackBar.DefaultStyleHover, () => TrackBar.DefaultStyleActive, () => TrackBar.DefaultStyleDisabled, () => TrackBar.DefaultStyleFocus),
+            new ThemeCssSelector ("TrackBar", "Sliders. Supports :hover, :active, :disabled, :focus and :focus-visible.",
+                () => TrackBar.DefaultStyle, () => TrackBar.DefaultStyleHover, () => TrackBar.DefaultStyleActive, () => TrackBar.DefaultStyleDisabled, () => TrackBar.DefaultStyleFocus,
+                () => TrackBar.DefaultStyleFocusVisible),
             new ThemeCssSelector ("TreeView", "Tree views. The selected node is the ::selection part.", () => TreeView.DefaultStyle)
                 .WithParts (
                     new ThemeCssPart ("selection", "The selected node's background and, when set, its text colour.",
@@ -436,10 +457,21 @@ namespace Majorsilence.Forms
             new ThemeCssProperty ("font-size", "length", "The text size in pixels (not points)."),
             new ThemeCssProperty ("font-weight", "normal | bold | 100..900", "The weight. Without a font-family in the same rule, the default UI font family is used at that weight."),
             new ThemeCssProperty ("font-style", "normal | italic | oblique", "The slant. Without a font-family in the same rule, the default UI font family is used."),
-            new ThemeCssProperty ("box-shadow", "<horizontal-offset> <vertical-offset> <color>",
-                "A hard, offset shadow behind the control's own shape -- no blur, no spread, no 'inset'. Exactly three components, in that order, "
-                + "e.g. 'box-shadow: 4px 4px #2b1b4d;'; a negative offset shifts the shadow left/up instead of right/down. A fourth component "
-                + "(a blur radius, a spread, 'inset') is rejected, not silently dropped."),
+            new ThemeCssProperty ("box-shadow", "none | [inset] <offset-x> <offset-y> [<blur> [<spread>]] <color>#",
+                "Shadows with the control's own shape, the first on top: an outer one behind the face, an inset one inside it over the background. "
+                + "e.g. 'box-shadow: 4px 4px #2b1b4d;' (hard and offset) or '0 1px 3px rgb(0 0 0 / 20%), inset 0 0 0 1px #fff'. The colour is required. "
+                + "A control cannot paint outside itself, so the face shrinks to leave room for outer shadows on each side they reach."),
+            new ThemeCssProperty ("background-image", "none | <gradient>#",
+                "Gradient layers over the background colour, inside the control's rounded face, the first on top: linear-gradient(), radial-gradient(), conic-gradient() and their repeating- forms, "
+                + "e.g. 'linear-gradient(to bottom, #ffffff, #e6e6e6)'. Stops take lengths, percentages (angles for conic) and two positions for a hard band; "
+                + "url() images and transition hints are not supported. 'background' (the shorthand) stays an error."),
+            new ThemeCssProperty ("outline", "[width] [solid | dashed | auto | none] [color]",
+                "A ring drawn around the control, outside it, by its parent: it takes no room and moves nothing -- the usual focus ring, e.g. 'Button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }'. "
+                + "Shorthand for outline-width (thin 1px, medium 3px, thick 5px), outline-style and outline-color (the text colour when omitted). It follows the corner radii. Not on windows or parts."),
+            new ThemeCssProperty ("outline-offset", "length", "How far outside the control's edge the outline sits; negative draws it inside."),
+            new ThemeCssProperty ("opacity", "<number> | <percentage>",
+                "How opaque the control is, 0 to 1 (or 0% to 100%), children included: its parent composites it translucent, e.g. 'Button:disabled { opacity: .65; }'. "
+                + "Hit-testing is unchanged. Not on windows (Form, PopupWindow, HostedSurface): a window's own opacity is Form.Opacity."),
             new ThemeCssProperty ("transition", "[<property> || <duration> || <timing-function> || <delay>]# | none",
                 "Animates the change into this rule's state: shorthand for the four transition-* longhands, one comma-separated entry per property, "
                 + "e.g. 'transition: background-color 150ms ease-out, box-shadow 200ms;'. In an entry the first time is the duration and the second the delay; "
@@ -464,7 +496,8 @@ namespace Majorsilence.Forms
             "border-top-width", "border-right-width", "border-bottom-width", "border-left-width",
             "border-top-color", "border-right-color", "border-bottom-color", "border-left-color",
             "font-family", "font-size", "font-weight", "font-style",
-            "box-shadow",
+            "box-shadow", "opacity", "background-image",
+            "outline", "outline-width", "outline-style", "outline-color", "outline-offset",
             "transition", "transition-property", "transition-duration", "transition-timing-function", "transition-delay",
         };
 
@@ -472,7 +505,7 @@ namespace Majorsilence.Forms
         /// The shorthand properties: a rule may write them, but the parser expands each into longhands, so a host applier and
         /// <see cref="ThemeCssRule.Declarations"/> only ever see <see cref="LonghandNames"/>.
         /// </summary>
-        public static IReadOnlyList<string> ShorthandNames { get; } = new[] { "border", "transition" };
+        public static IReadOnlyList<string> ShorthandNames { get; } = new[] { "border", "outline", "transition" };
 
         /// <summary>Every property a parsed rule's declarations can carry: <see cref="PropertyNames"/> without the <see cref="ShorthandNames"/>.</summary>
         public static IReadOnlyList<string> LonghandNames { get; } = PropertyNames.Except (ShorthandNames).ToArray ();
@@ -482,7 +515,7 @@ namespace Majorsilence.Forms
         /// <c>:focus</c> (#285), and only on the selectors (and, for <c>:hover</c>, the parts) that
         /// support the one written.
         /// </summary>
-        public static IReadOnlyList<string> PseudoClasses { get; } = new[] { "hover", "active", "disabled", "focus" };
+        public static IReadOnlyList<string> PseudoClasses { get; } = new[] { "hover", "active", "disabled", "focus", "focus-visible" };
 
         /// <summary>Every <c>(selector, part)</c> pair a theme can address as <c>Selector::part</c>.</summary>
         public static IEnumerable<(ThemeCssSelector Selector, ThemeCssPart Part)> Parts
@@ -601,10 +634,10 @@ namespace Majorsilence.Forms
             sb.AppendLine ();
             sb.AppendLine ("### Selectors (control type names)");
             sb.AppendLine ();
-            sb.AppendLine ("| Selector | `:hover` | `:active` | `:disabled` | `:focus` | Also styles | Notes |");
-            sb.AppendLine ("|---|---|---|---|---|---|---|");
+            sb.AppendLine ("| Selector | `:hover` | `:active` | `:disabled` | `:focus` | `:focus-visible` | Also styles | Notes |");
+            sb.AppendLine ("|---|---|---|---|---|---|---|---|");
             foreach (var selector in Selectors)
-                sb.AppendLine ($"| `{selector.Name}` | {(selector.SupportsHover ? "yes" : "no")} | {(selector.SupportsActive ? "yes" : "no")} | {(selector.SupportsDisabled ? "yes" : "no")} | {(selector.SupportsFocus ? "yes" : "no")} | {(selector.AlsoAppliesTo.Count == 0 ? "" : string.Join (", ", selector.AlsoAppliesTo.Select (a => $"`{a}`")))} | {Escape (selector.Description)} |");
+                sb.AppendLine ($"| `{selector.Name}` | {(selector.SupportsHover ? "yes" : "no")} | {(selector.SupportsActive ? "yes" : "no")} | {(selector.SupportsDisabled ? "yes" : "no")} | {(selector.SupportsFocus ? "yes" : "no")} | {(selector.SupportsFocusVisible ? "yes" : "no")} | {(selector.AlsoAppliesTo.Count == 0 ? "" : string.Join (", ", selector.AlsoAppliesTo.Select (a => $"`{a}`")))} | {Escape (selector.Description)} |");
 
             sb.AppendLine ();
             sb.AppendLine ("### Telerik controls (`Majorsilence.Forms.Telerik`)");

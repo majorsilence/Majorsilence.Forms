@@ -1,4 +1,5 @@
-﻿using SkiaSharp;
+using System.Collections.Generic;
+using SkiaSharp;
 
 namespace Majorsilence.Forms
 {
@@ -81,8 +82,14 @@ namespace Majorsilence.Forms
             foreground_color = copyOriginal ? original.foreground_color : null;
             font = copyOriginal ? original.font : null;
             font_size = copyOriginal ? original.font_size : null;
-            box_shadow = copyOriginal ? original.box_shadow : null;
+            box_shadows = copyOriginal ? original.box_shadows : null;
             transition = copyOriginal ? original.transition : null;
+            opacity = copyOriginal ? original.opacity : null;
+            background_gradients = copyOriginal ? original.background_gradients : null;
+            outline_width = copyOriginal ? original.outline_width : null;
+            outline_style = copyOriginal ? original.outline_style : null;
+            outline_color = copyOriginal ? original.outline_color : null;
+            outline_offset = copyOriginal ? original.outline_offset : null;
             border.CopyValuesFrom (copyOriginal ? original.border : null);
 
             original._setDefaults?.Invoke (this);
@@ -124,8 +131,14 @@ namespace Majorsilence.Forms
             foreground_color = null;
             font = null;
             font_size = null;
-            box_shadow = null;
+            box_shadows = null;
             transition = null;
+            opacity = null;
+            background_gradients = null;
+            outline_width = null;
+            outline_style = null;
+            outline_color = null;
+            outline_offset = null;
             border.ClearValues ();
 
             ApplyDefaults ();
@@ -153,20 +166,94 @@ namespace Majorsilence.Forms
         private readonly ControlBorderStyle border;
 
         /// <summary>
-        /// Gets or sets a hard, offset, no-blur shadow painted behind the control (see
-        /// <see cref="ControlBoxShadow"/>), or null for none. Set by the CSS <c>box-shadow</c> property
-        /// (#285); unlike <see cref="BackgroundColor"/> there is no theme default, so a style chain
-        /// that never sets one paints no shadow at all.
+        /// Gets or sets the style's one shadow (see <see cref="ControlBoxShadow"/>), or null to inherit: the first of
+        /// <see cref="BoxShadows"/>, for a style with a single shadow. Setting it replaces the list with that one shadow. Set by the CSS
+        /// <c>box-shadow</c> property (#285); unlike <see cref="BackgroundColor"/> there is no theme default, so a style chain that
+        /// never sets one paints no shadow at all.
         /// </summary>
-        public ControlBoxShadow? BoxShadow { get => (ScopedTwin ?? this).box_shadow; set => box_shadow = value; }
-
-        private ControlBoxShadow? box_shadow;
+        public ControlBoxShadow? BoxShadow {
+            get => BoxShadows is { Count: > 0 } shadows ? shadows[0] : null;
+            set => box_shadows = value is { } shadow ? new[] { shadow } : null;
+        }
 
         /// <summary>
-        /// Gets the shadow this style chain resolves to: this style's own <see cref="BoxShadow"/> if
-        /// set, otherwise the nearest ancestor's, otherwise null.
+        /// Gets or sets the style's shadows, painted first on top as in CSS, or null to inherit; an empty list is CSS's
+        /// <c>box-shadow: none</c>, which overrides an inherited shadow.
         /// </summary>
-        public ControlBoxShadow? GetBoxShadow () => BoxShadow ?? _parent?.GetBoxShadow ();
+        public IReadOnlyList<ControlBoxShadow>? BoxShadows { get => (ScopedTwin ?? this).box_shadows; set => box_shadows = value; }
+
+        private IReadOnlyList<ControlBoxShadow>? box_shadows;
+
+        /// <summary>
+        /// Gets the first shadow this style chain resolves to (see <see cref="GetBoxShadows"/>), or null when it has none.
+        /// </summary>
+        public ControlBoxShadow? GetBoxShadow () => GetBoxShadows () is { Count: > 0 } shadows ? shadows[0] : null;
+
+        /// <summary>
+        /// Gets the shadows this style chain resolves to: this style's own <see cref="BoxShadows"/> if set, otherwise the nearest
+        /// ancestor's, otherwise none.
+        /// </summary>
+        public IReadOnlyList<ControlBoxShadow> GetBoxShadows () => BoxShadows ?? _parent?.GetBoxShadows () ?? Array.Empty<ControlBoxShadow> ();
+
+        /// <summary>
+        /// Gets or sets the outline's width in pixels, or null to inherit -- the CSS <c>outline-width</c>. An outline is a ring drawn
+        /// around the control, outside it, by its parent; it takes no room and does not move anything (see <see cref="OutlineStyle"/>).
+        /// </summary>
+        public int? OutlineWidth { get => (ScopedTwin ?? this).outline_width; set => outline_width = value; }
+
+        private int? outline_width;
+
+        /// <summary>Gets or sets whether and how the outline is drawn, or null to inherit -- the CSS <c>outline-style</c>. None by default.</summary>
+        public ControlOutlineStyle? OutlineStyle { get => (ScopedTwin ?? this).outline_style; set => outline_style = value; }
+
+        private ControlOutlineStyle? outline_style;
+
+        /// <summary>Gets or sets the outline's colour, or null to inherit -- the CSS <c>outline-color</c>; the text colour when nothing sets it.</summary>
+        public SKColor? OutlineColor { get => (ScopedTwin ?? this).outline_color; set => outline_color = value; }
+
+        private SKColor? outline_color;
+
+        /// <summary>Gets or sets how far outside the control's edge the outline is drawn (negative draws it inside), or null to inherit -- the CSS <c>outline-offset</c>.</summary>
+        public int? OutlineOffset { get => (ScopedTwin ?? this).outline_offset; set => outline_offset = value; }
+
+        private int? outline_offset;
+
+        /// <summary>Gets the outline width this chain resolves to: 3 pixels (CSS's 'medium') when none sets it.</summary>
+        public int GetOutlineWidth () => OutlineWidth ?? _parent?.GetOutlineWidth () ?? 3;
+
+        /// <summary>Gets the outline style this chain resolves to: <see cref="ControlOutlineStyle.None"/> when none sets it.</summary>
+        public ControlOutlineStyle GetOutlineStyle () => OutlineStyle ?? _parent?.GetOutlineStyle () ?? ControlOutlineStyle.None;
+
+        /// <summary>Gets the outline colour this chain resolves to: the text colour when none sets it.</summary>
+        public SKColor GetOutlineColor () => OutlineColor ?? _parent?.TryGetOutlineColor () ?? GetForegroundColor ();
+
+        private SKColor? TryGetOutlineColor () => OutlineColor ?? _parent?.TryGetOutlineColor ();
+
+        /// <summary>Gets the outline offset this chain resolves to: 0 when none sets it.</summary>
+        public int GetOutlineOffset () => OutlineOffset ?? _parent?.GetOutlineOffset () ?? 0;
+
+        /// <summary>
+        /// Gets or sets gradient layers painted over the background colour, inside the control's rounded face -- the CSS
+        /// <c>background-image</c> property's gradients, the first layer on top -- or null to inherit. An empty list is
+        /// <c>background-image: none</c>, which overrides an inherited one.
+        /// </summary>
+        public IReadOnlyList<ControlGradient>? BackgroundGradients { get => (ScopedTwin ?? this).background_gradients; set => background_gradients = value; }
+
+        private IReadOnlyList<ControlGradient>? background_gradients;
+
+        /// <summary>Gets the gradient layers this style chain resolves to: the nearest style's <see cref="BackgroundGradients"/>, otherwise none.</summary>
+        public IReadOnlyList<ControlGradient> GetBackgroundGradients () => BackgroundGradients ?? _parent?.GetBackgroundGradients () ?? Array.Empty<ControlGradient> ();
+
+        /// <summary>
+        /// Gets or sets how opaque the control is, 0 (invisible) to 1, or null to inherit -- the CSS <c>opacity</c> property. It applies
+        /// to the whole control, children included, when its parent composites it; it does not change hit-testing.
+        /// </summary>
+        public float? Opacity { get => (ScopedTwin ?? this).opacity; set => opacity = value is { } v ? (float) MathCompat.Clamp (v, 0.0, 1.0) : null; }
+
+        private float? opacity;
+
+        /// <summary>Gets the opacity this style chain resolves to: the nearest style's <see cref="Opacity"/>, otherwise 1.</summary>
+        public float GetOpacity () => Opacity ?? _parent?.GetOpacity () ?? 1f;
 
         /// <summary>
         /// Gets or sets how a control animates into this style when it enters it -- the CSS <c>transition</c> property (see

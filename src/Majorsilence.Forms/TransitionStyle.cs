@@ -60,7 +60,8 @@ namespace Majorsilence.Forms
             "background-color", "color",
             "border-color", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color",
             "border-radius", "border-top-left-radius", "border-top-right-radius", "border-bottom-right-radius", "border-bottom-left-radius",
-            "box-shadow",
+            "box-shadow", "opacity",
+            "outline-color", "outline-width", "outline-offset",
         };
 
         /// <summary>Whether <paramref name="property"/> is <c>all</c> or one of <see cref="AnimatableProperties"/> (case-insensitive).</summary>

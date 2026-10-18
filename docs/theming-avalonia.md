@@ -508,99 +508,171 @@ Unsupported rows are reported as diagnostics when a stylesheet uses them — nev
 | `Splitter` | `color`, `border-width`, `border-color`, `border-radius`, `border-top-width`, `border-right-width`, `border-bottom-width`, `border-left-width`, `border-top-color`, `border-right-color`, `border-bottom-color`, `border-left-color`, `font-family`, `font-size`, `font-weight`, `font-style` | A GridSplitter is a plain bar. |
 | `MonthCalendar` | `border-width`, `border-radius`, `border-top-width`, `border-right-width`, `border-bottom-width`, `border-left-width`, `border-top-color`, `border-right-color`, `border-bottom-color`, `border-left-color` | The calendar grid has a fixed Fluent geometry. |
 | `Form` | `border-width`, `border-color`, `border-radius`, `border-top-width`, `border-right-width`, `border-bottom-width`, `border-left-width`, `border-top-color`, `border-right-color`, `border-bottom-color`, `border-left-color` | The window frame is drawn by the OS (or Avalonia's own chrome, which has no border seam). |
-| `Button` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
-| `Button:hover` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `Button` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `Button:hover` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `Button` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `Button:hover` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `Button` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `Button:hover` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `Button` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
+| `Button:hover` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `Button` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `Button:hover` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `Button` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `Button:hover` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `Button` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `Button:hover` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
-| `CheckBox` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `CheckBox` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `CheckBox` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `CheckBox` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `CheckBox` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `CheckBox` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `CheckBox` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `CheckBox` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
-| `ComboBox` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `ComboBox` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `ComboBox` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `ComboBox` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `ComboBox` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `ComboBox` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `ComboBox` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `ComboBox` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
-| `DataGridView` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `DataGridView` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `DataGridView` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `DataGridView` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `DataGridView` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `DataGridView` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `DataGridView` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `DataGridView` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
-| `Form` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `Form` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `Form` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `Form` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `Form` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `Form` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `Form` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `Form` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
-| `Label` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `Label` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `Label` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `Label` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `Label` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `Label` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `Label` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `Label` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
-| `LinkLabel` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
-| `LinkLabel:hover` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `LinkLabel` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `LinkLabel:hover` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `LinkLabel` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `LinkLabel:hover` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `LinkLabel` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `LinkLabel:hover` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `LinkLabel` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
+| `LinkLabel:hover` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `LinkLabel` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `LinkLabel:hover` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `LinkLabel` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `LinkLabel:hover` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `LinkLabel` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `LinkLabel:hover` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
-| `ListBox` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `ListBox` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `ListBox` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `ListBox` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `ListBox` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `ListBox` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `ListBox` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `ListBox` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
-| `Menu` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `Menu` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `Menu` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `Menu` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `Menu` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `Menu` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `Menu` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `Menu` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
-| `MenuDropDown` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `MenuDropDown` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `MenuDropDown` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `MenuDropDown` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `MenuDropDown` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `MenuDropDown` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `MenuDropDown` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `MenuDropDown` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
-| `MonthCalendar` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `MonthCalendar` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `MonthCalendar` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `MonthCalendar` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `MonthCalendar` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `MonthCalendar` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `MonthCalendar` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `MonthCalendar` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
-| `NumericUpDown` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `NumericUpDown` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `NumericUpDown` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `NumericUpDown` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `NumericUpDown` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `NumericUpDown` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `NumericUpDown` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `NumericUpDown` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
-| `RadioButton` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `RadioButton` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `RadioButton` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `RadioButton` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `RadioButton` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `RadioButton` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `RadioButton` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `RadioButton` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
-| `ScrollBar` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `ScrollBar` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `ScrollBar` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `ScrollBar` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `ScrollBar` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `ScrollBar` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `ScrollBar` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `ScrollBar` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
-| `SplitContainer` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `SplitContainer` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `SplitContainer` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `SplitContainer` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `SplitContainer` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `SplitContainer` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `SplitContainer` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `SplitContainer` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
-| `Splitter` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `Splitter` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `Splitter` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `Splitter` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `Splitter` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `Splitter` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `Splitter` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `Splitter` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
-| `TabControl` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TabControl` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `TabControl` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `TabControl` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `TabControl` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `TabControl` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `TabControl` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `TabControl` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
-| `TabStrip` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TabStrip` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `TabStrip` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `TabStrip` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `TabStrip` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `TabStrip` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `TabStrip` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `TabStrip` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
-| `TextBox` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TextBox` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `TextBox` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `TextBox` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `TextBox` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `TextBox` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `TextBox` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `TextBox` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
-| `TrackBar` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
-| `TrackBar:hover` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TrackBar` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `TrackBar:hover` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `TrackBar` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `TrackBar:hover` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `TrackBar` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `TrackBar:hover` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `TrackBar` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
+| `TrackBar:hover` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `TrackBar` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `TrackBar:hover` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `TrackBar` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `TrackBar:hover` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `TrackBar` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
 | `TrackBar:hover` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |
-| `TreeView` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow. |
+| `TreeView` | `box-shadow` | No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam). |
+| `TreeView` | `opacity` | Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up. |
+| `TreeView` | `background-image` | Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up. |
+| `TreeView` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam. |
 | `TreeView` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay` | Not mapped yet: Fluent's hover and pressed colours are template resources, which an Avalonia Transitions setter on the control does not animate. |
 | `TreeView` | `border-style` | Avalonia borders are solid; there is no dashed-border seam. |
 | `TreeView` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius. |

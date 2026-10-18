@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Majorsilence.Forms.Animation;
 using Majorsilence.Forms.Layout;
 using SkiaSharp;
@@ -24,6 +25,8 @@ namespace Majorsilence.Forms
             "border-left-color", "border-top-color", "border-right-color", "border-bottom-color",
             "border-top-left-radius", "border-top-right-radius", "border-bottom-right-radius", "border-bottom-left-radius",
             "box-shadow",
+            "opacity",
+            "outline-color", "outline-width", "outline-offset",
         };
 
         private const int ChannelBackground = 0;
@@ -31,20 +34,33 @@ namespace Majorsilence.Forms
         private const int ChannelBorderColor = 2;    // + side, in BorderSideStyle order: left, top, right, bottom
         private const int ChannelRadius = 6;         // + corner: top-left, top-right, bottom-right, bottom-left
         private const int ChannelShadow = 10;
-        private const int ChannelCount = 11;
+        private const int ChannelOpacity = 11;
+        private const int ChannelOutlineColor = 12;
+        private const int ChannelOutlineWidth = 13;
+        private const int ChannelOutlineOffset = 14;
+        private const int ChannelCount = 15;
 
         private struct TransitionChannel
         {
             public bool Active;
             public SKColor FromColor, ToColor;
             public int FromLength, ToLength;
-            public ControlBoxShadow FromShadow, ToShadow;
+            public float FromNumber, ToNumber;
+            public ControlBoxShadow[]? FromShadows, ToShadows, Shadows;
             public TimeSpan Duration, Delay;
             public EasingFunction Easing;
         }
 
         private sealed class StyleTransitionState
         {
+            public StyleTransitionState (Control owner) => Owner = owner;
+
+            public Control Owner { get; }
+
+            // The frame callback is a method of this state, not a lambda in ApplyStyleTransition: a lambda capturing a local makes the
+            // compiler allocate its closure on every call of the method, which is every read of CurrentStyle.
+            public void Frame (TimeSpan timestamp) => Owner.OnStyleTransitionFrame (this, timestamp);
+
             public ControlStyle? Target;                     // the state style last resolved
             public ControlStyle? Blend;                      // the in-between style while a transition runs, else null
             public readonly TransitionChannel[] Channels = new TransitionChannel[ChannelCount];
@@ -85,7 +101,7 @@ namespace Majorsilence.Forms
                 return target;
 
             if (Properties.GetObject (s_styleTransitionProperty) is not StyleTransitionState state) {
-                state = new StyleTransitionState ();
+                state = new StyleTransitionState (this);
                 Properties.SetObject (s_styleTransitionProperty, state);
             }
 
@@ -148,7 +164,7 @@ namespace Majorsilence.Forms
 
             if (!state.FrameRequested) {
                 state.FrameRequested = true;
-                RequestAnimationFrame (state.OnFrame ??= timestamp => OnStyleTransitionFrame (state, timestamp));
+                RequestAnimationFrame (state.OnFrame ??= state.Frame);
             }
 
             return state.Blend;
@@ -209,12 +225,55 @@ namespace Majorsilence.Forms
                     channel.ToLength = CornerOf (to.Border, index - ChannelRadius);
                     return channel.FromLength != channel.ToLength;
 
+                case ChannelOpacity:
+                    channel.FromNumber = from.GetOpacity ();
+                    channel.ToNumber = to.GetOpacity ();
+                    return channel.FromNumber != channel.ToNumber;
+
+                case ChannelOutlineColor:
+                    channel.FromColor = from.GetOutlineColor ();
+                    channel.ToColor = to.GetOutlineColor ();
+                    return channel.FromColor != channel.ToColor;
+
+                case ChannelOutlineWidth:
+                    channel.FromLength = from.GetOutlineWidth ();
+                    channel.ToLength = to.GetOutlineWidth ();
+                    return channel.FromLength != channel.ToLength;
+
+                case ChannelOutlineOffset:
+                    channel.FromLength = from.GetOutlineOffset ();
+                    channel.ToLength = to.GetOutlineOffset ();
+                    return channel.FromLength != channel.ToLength;
+
                 default:
-                    // CSS interpolates "no shadow" as a zero-offset transparent one, so a shadow grows out of, or shrinks into, nothing.
-                    channel.FromShadow = from.GetBoxShadow () ?? default;
-                    channel.ToShadow = to.GetBoxShadow () ?? default;
-                    return channel.FromShadow != channel.ToShadow;
+                    return ReadShadows (from.GetBoxShadows (), to.GetBoxShadows (), ref channel);
             }
+        }
+
+        // Shadow lists move pairwise, the shorter one padded with zero-length transparent shadows, so a shadow grows out of, or
+        // shrinks into, nothing -- CSS's rule. A pair where one is inset and the other not has no in-between, so the list switches.
+        private static bool ReadShadows (IReadOnlyList<ControlBoxShadow> from, IReadOnlyList<ControlBoxShadow> to, ref TransitionChannel channel)
+        {
+            if (from.SequenceEqual (to))
+                return false;
+
+            var count = Math.Max (from.Count, to.Count);
+            var a = new ControlBoxShadow[count];
+            var b = new ControlBoxShadow[count];
+
+            for (var i = 0; i < count; i++) {
+                var inset = i < from.Count ? from[i].Inset : to[i].Inset;
+                a[i] = i < from.Count ? from[i] : new ControlBoxShadow (0, 0, 0, 0, SKColors.Transparent, inset);
+                b[i] = i < to.Count ? to[i] : new ControlBoxShadow (0, 0, 0, 0, SKColors.Transparent, a[i].Inset);
+
+                if (a[i].Inset != b[i].Inset)
+                    return false;
+            }
+
+            channel.FromShadows = a;
+            channel.ToShadows = b;
+            channel.Shadows = new ControlBoxShadow[count];
+            return true;
         }
 
         private static BorderSideStyle SideOf (ControlBorderStyle border, int side) => side switch {
@@ -260,11 +319,32 @@ namespace Majorsilence.Forms
                     case < ChannelShadow:
                         SetCorner (border, i - ChannelRadius, Math.Max (0, InterpolateLength (channel.FromLength, channel.ToLength, progress)));
                         break;
+                    case ChannelOpacity:
+                        blend.Opacity = channel.FromNumber + (channel.ToNumber - channel.FromNumber) * progress;
+                        break;
+                    case ChannelOutlineColor:
+                        blend.OutlineColor = InterpolateColor (channel.FromColor, channel.ToColor, progress);
+                        break;
+                    case ChannelOutlineWidth:
+                        blend.OutlineWidth = Math.Max (0, InterpolateLength (channel.FromLength, channel.ToLength, progress));
+                        break;
+                    case ChannelOutlineOffset:
+                        blend.OutlineOffset = InterpolateLength (channel.FromLength, channel.ToLength, progress);
+                        break;
                     default:
-                        blend.BoxShadow = new ControlBoxShadow (
-                            InterpolateLength (channel.FromShadow.OffsetX, channel.ToShadow.OffsetX, progress),
-                            InterpolateLength (channel.FromShadow.OffsetY, channel.ToShadow.OffsetY, progress),
-                            InterpolateColor (channel.FromShadow.Color, channel.ToShadow.Color, progress));
+                        var shadows = channel.Shadows!;
+                        for (var k = 0; k < shadows.Length; k++) {
+                            var a = channel.FromShadows![k];
+                            var b = channel.ToShadows![k];
+                            shadows[k] = new ControlBoxShadow (
+                                InterpolateLength (a.OffsetX, b.OffsetX, progress),
+                                InterpolateLength (a.OffsetY, b.OffsetY, progress),
+                                Math.Max (0, InterpolateLength (a.Blur, b.Blur, progress)),
+                                InterpolateLength (a.Spread, b.Spread, progress),
+                                InterpolateColor (a.Color, b.Color, progress),
+                                a.Inset);
+                        }
+                        blend.BoxShadows = shadows;
                         break;
                 }
             }
@@ -285,8 +365,20 @@ namespace Majorsilence.Forms
                 case < ChannelShadow:
                     SetCorner (blend.Border, index - ChannelRadius, null);
                     break;
+                case ChannelOpacity:
+                    blend.Opacity = null;
+                    break;
+                case ChannelOutlineColor:
+                    blend.OutlineColor = null;
+                    break;
+                case ChannelOutlineWidth:
+                    blend.OutlineWidth = null;
+                    break;
+                case ChannelOutlineOffset:
+                    blend.OutlineOffset = null;
+                    break;
                 default:
-                    blend.BoxShadow = null;
+                    blend.BoxShadows = null;
                     break;
             }
         }

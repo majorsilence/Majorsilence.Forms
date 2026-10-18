@@ -22,7 +22,7 @@ namespace Majorsilence.Forms.Headless
     /// (2) a reference second backend proving the <see cref="IPlatformBackend"/>/<see cref="IWindowBackend"/>
     /// seam is genuinely toolkit-agnostic — the same shape a real Uno backend follows.
     /// </summary>
-    public sealed partial class HeadlessPlatformBackend : IPlatformBackend, IAnimationFrameSource, IReducedMotionSource, IAudioBackend, IKeepScreenAwakeBackend, IItemPickerBackend, IModalLoopSupport, IDisposable
+    public sealed partial class HeadlessPlatformBackend : IPlatformBackend, IAnimationFrameSource, IReducedMotionSource, IColorSchemeSource, IAudioBackend, IKeepScreenAwakeBackend, IItemPickerBackend, IModalLoopSupport, IDisposable
     {
         /// <summary>Gets the animation frames, which run only when stepped by hand.</summary>
         public HeadlessAnimationClock AnimationClock { get; } = new ();
@@ -46,6 +46,23 @@ namespace Majorsilence.Forms.Headless
 
         /// <inheritdoc/>
         public event EventHandler? PrefersReducedMotionChanged;
+
+        private bool prefersDarkColorScheme;
+
+        /// <summary>Gets or sets the answer <see cref="SystemInformation.PrefersDarkColorScheme"/> reports while this backend is active, for a test to set directly.</summary>
+        public bool PrefersDarkColorScheme {
+            get => prefersDarkColorScheme;
+            set {
+                if (prefersDarkColorScheme == value)
+                    return;
+
+                prefersDarkColorScheme = value;
+                PrefersDarkColorSchemeChanged?.Invoke (this, EventArgs.Empty);
+            }
+        }
+
+        /// <inheritdoc/>
+        public event EventHandler? PrefersDarkColorSchemeChanged;
 
         /// <summary>Gets or sets the answer <see cref="Application.KeepScreenAwake"/> reports while this backend is active, for a test to assert directly instead of a real OS sleep-inhibit to observe.</summary>
         public bool KeepScreenAwake { get; set; }

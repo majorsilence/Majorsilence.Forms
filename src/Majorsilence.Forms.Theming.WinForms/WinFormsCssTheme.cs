@@ -262,6 +262,14 @@ namespace Majorsilence.Forms.Theming.WinForms
 
                     var ruleText = rule.Selector.Name + (rule.Part is null ? "" : "::" + rule.Part.Name) + (rule.Hover ? ":hover" : "");
 
+                    if (rule.Active || rule.Disabled || rule.Focus || rule.FocusVisible) {
+                        var stateText = rule.Selector.Name + (rule.Active ? ":active" : rule.Disabled ? ":disabled" : rule.Focus ? ":focus" : ":focus-visible");
+                        if (seen.Add ("state:" + stateText))
+                            found.Add (new ThemeCssDiagnostic (ThemeCssSeverity.Info, rule.Line, rule.Column,
+                                $"'{stateText}' has no System.Windows.Forms counterpart (only :hover maps); the rule styles Majorsilence.Forms controls only."));
+                        continue;
+                    }
+
                     if (mapping.WinFormsTypes is null) {
                         if (seen.Add ("selector:" + rule.Selector.Name))
                             found.Add (new ThemeCssDiagnostic (ThemeCssSeverity.Info, rule.Line, rule.Column,

@@ -33,8 +33,9 @@ namespace Majorsilence.Forms
 
         internal sealed class ControlRule
         {
-            public ControlRule (ThemeCssSelector selector, ThemeCssPart? part, bool hover, bool active, bool disabled, bool focus, Action<ControlStyle> apply, ThemeCssRule model)
+            public ControlRule (ThemeCssSelector selector, ThemeCssPart? part, bool hover, bool active, bool disabled, bool focus, bool focusVisible, Action<ControlStyle> apply, ThemeCssRule model)
             {
+                FocusVisible = focusVisible;
                 Selector = selector;
                 Part = part;
                 Hover = hover;
@@ -51,6 +52,7 @@ namespace Majorsilence.Forms
             public bool Active { get; }
             public bool Disabled { get; }
             public bool Focus { get; }
+            public bool FocusVisible { get; }
             public Action<ControlStyle> Apply { get; }
             public ThemeCssRule Model { get; }
 
@@ -66,6 +68,8 @@ namespace Majorsilence.Forms
                     return Selector.GetDisabledStyle! ();
                 if (Focus)
                     return Selector.GetFocusStyle! ();
+                if (FocusVisible)
+                    return Selector.GetFocusVisibleStyle! ();
                 if (Hover)
                     return Selector.GetHoverStyle! ();
 
@@ -73,17 +77,44 @@ namespace Majorsilence.Forms
             }
         }
 
-        private ThemeStyleSheet (string? name, string? baseName, List<TokenDeclaration> tokens, List<ControlRule> rules, List<ThemeCssVariable> variables, List<ThemeCssDiagnostic> diagnostics)
+        // One compilation of the sheet for one media environment. A sheet without @media has exactly one; a sheet with @media has one
+        // for each combination of the preferences a query can test (MediaEnvironment.All), and reads the one for the current settings.
+        internal sealed class Variant
         {
-            Variables = variables;
+            public Variant (List<TokenDeclaration> tokens, List<ControlRule> rules, List<ThemeCssVariable> variables)
+            {
+                TokenDeclarations = tokens;
+                ControlRules = rules;
+                Variables = variables;
+                Tokens = tokens.Select (t => t.Model).ToList ();
+                Rules = rules.Select (r => r.Model).ToList ();
+            }
+
+            public List<TokenDeclaration> TokenDeclarations { get; }
+            public List<ControlRule> ControlRules { get; }
+            public List<ThemeCssVariable> Variables { get; }
+            public List<ThemeCssTokenValue> Tokens { get; }
+            public List<ThemeCssRule> Rules { get; }
+        }
+
+        private readonly Variant[] variants;
+
+        private ThemeStyleSheet (string? name, string? baseName, Variant[] variants, List<ThemeCssDiagnostic> diagnostics)
+        {
             Name = name;
             BaseName = baseName;
-            TokenDeclarations = tokens;
-            ControlRules = rules;
+            this.variants = variants;
             Diagnostics = diagnostics;
-            Tokens = tokens.Select (t => t.Model).ToList ();
-            Rules = rules.Select (r => r.Model).ToList ();
         }
+
+        private Variant CurrentVariant => variants.Length == 1 ? variants[0] : variants[MediaEnvironment.Current.Index];
+
+        /// <summary>
+        /// Whether the sheet has <c>@media</c> rules, so what it applies depends on the system's colour scheme and reduced-motion
+        /// settings. <see cref="Tokens"/>, <see cref="Rules"/> and <see cref="Variables"/> then describe what applies under the
+        /// current settings, and <see cref="Theme"/> applies the sheet again when they change.
+        /// </summary>
+        public bool UsesMediaQueries => variants.Length > 1;
 
         /// <summary>The name from the <c>@theme</c> header, or null when the sheet has none.</summary>
         public string? Name { get; }
@@ -97,7 +128,7 @@ namespace Majorsilence.Forms
         /// <summary>Whether any diagnostic is an error.</summary>
         public bool HasErrors => Diagnostics.Any (d => d.Severity == ThemeCssSeverity.Error);
 
-        /// <summary>How many <c>:root</c> token declarations parsed successfully.</summary>
+        /// <summary>How many <c>:root</c> token declarations parsed successfully (under the current media settings).</summary>
         public int TokenCount => TokenDeclarations.Count;
 
         /// <summary>How many control rules (one per selector in a comma list) parsed successfully.</summary>
@@ -109,24 +140,24 @@ namespace Majorsilence.Forms
         /// renderers (System.Windows.Forms, Avalonia) reads the sheet through this and <see cref="Rules"/>
         /// instead of re-parsing the CSS, so there is one grammar and one set of diagnostics.
         /// </summary>
-        public IReadOnlyList<ThemeCssTokenValue> Tokens { get; }
+        public IReadOnlyList<ThemeCssTokenValue> Tokens => CurrentVariant.Tokens;
 
         /// <summary>
         /// The control rules that parsed -- one per selector in a comma list -- with shorthands expanded
         /// to longhands and <c>var()</c> references resolved (and kept live, see
         /// <see cref="ThemeCssDeclaration.TokenReference"/>).
         /// </summary>
-        public IReadOnlyList<ThemeCssRule> Rules { get; }
+        public IReadOnlyList<ThemeCssRule> Rules => CurrentVariant.Rules;
 
         /// <summary>
         /// The author variables declared in <c>:root</c> (custom properties that are not theme tokens),
         /// in source order, with their resolved values. Majorsilence.Forms controls ignore them except
         /// through <c>var()</c>; host appliers may publish them (see <see cref="ThemeCssVariable"/>).
         /// </summary>
-        public IReadOnlyList<ThemeCssVariable> Variables { get; }
+        public IReadOnlyList<ThemeCssVariable> Variables => CurrentVariant.Variables;
 
-        internal List<TokenDeclaration> TokenDeclarations { get; }
-        internal List<ControlRule> ControlRules { get; }
+        internal List<TokenDeclaration> TokenDeclarations => CurrentVariant.TokenDeclarations;
+        internal List<ControlRule> ControlRules => CurrentVariant.ControlRules;
 
         /// <summary>
         /// Parses a CSS theme. Never throws for bad input: problems are collected in
@@ -167,6 +198,8 @@ namespace Majorsilence.Forms
         {
             public List<RawSelector> Selectors = new ();
             public List<RawDeclaration> Declarations = new ();
+            public Func<MediaEnvironment, bool>? Media;   // the enclosing @media condition(s), or null
+            public string? MediaText;
         }
 
         private sealed class Parser
@@ -179,7 +212,13 @@ namespace Majorsilence.Forms
             private string? _baseName;
             private CssToken? _headerToken;
 
-            private readonly List<RawRule> _rules = new ();
+            // Every rule parsed, and the ones compiled for the media environment at hand (see Parse).
+            private readonly List<RawRule> _allRules = new ();
+            private List<RawRule> _rules = new ();
+
+            // The @media condition(s) the rules being parsed sit inside.
+            private Func<MediaEnvironment, bool>? _media;
+            private string? _mediaText;
 
             // ':root' custom properties that are not theme tokens: the author's own variables.
             private readonly Dictionary<string, RawDeclaration> _variables = new (StringComparer.OrdinalIgnoreCase);
@@ -209,18 +248,48 @@ namespace Majorsilence.Forms
             {
                 ParseRules ();
 
-                var tokens = new List<TokenDeclaration> ();
-                var rules = new List<ControlRule> ();
+                // The syntax is read once; what the rules mean is compiled once per media environment, since an @media block can
+                // redefine variables and tokens that everything else reads.
+                var diagnostics = new List<ThemeCssDiagnostic> (_diagnostics);
+                _diagnostics.Clear ();
 
-                CollectVariables ();
-                CompileRoot (tokens);
-                CompileControlRules (rules);
-                WarnUnusedVariables ();
-                var variables = CompileVariables ();
+                var environments = _allRules.Any (r => r.Media is not null) ? MediaEnvironment.All : new[] { default (MediaEnvironment) };
+                var variants = new Variant[environments.Length];
+                var perVariant = new List<List<ThemeCssDiagnostic>> ();
 
-                var diagnostics = _diagnostics.OrderBy (d => d.Line).ThenBy (d => d.Column).ToList ();
+                for (var i = 0; i < environments.Length; i++) {
+                    var environment = environments[i];
+                    _rules = _allRules.Where (r => r.Media is null || r.Media (environment)).ToList ();
+                    _variables.Clear ();
+                    _usedVariables.Clear ();
+                    _ruleVariables.Clear ();
+                    _scopes.Clear ();
+                    _usedRuleVariables.Clear ();
 
-                return new ThemeStyleSheet (_name, _baseName, tokens, rules, variables, diagnostics);
+                    var tokens = new List<TokenDeclaration> ();
+                    var rules = new List<ControlRule> ();
+
+                    CollectVariables ();
+                    CompileRoot (tokens);
+                    CompileControlRules (rules);
+                    WarnUnusedVariables ();
+                    var variables = CompileVariables ();
+
+                    variants[i] = new Variant (tokens, rules, variables);
+                    perVariant.Add (new List<ThemeCssDiagnostic> (_diagnostics));
+                    _diagnostics.Clear ();
+                }
+
+                // A mistake in any environment is reported; a warning only when it holds in every one (a variable read only under
+                // dark mode is not "never used").
+                static string Key (ThemeCssDiagnostic d) => $"{d.Line}:{d.Column}:{d.Severity}:{d.Message}";
+                var seen = new HashSet<string> ();
+
+                foreach (var diagnostic in perVariant.SelectMany (v => v))
+                    if ((diagnostic.Severity != ThemeCssSeverity.Warning || perVariant.All (v => v.Any (d => Key (d) == Key (diagnostic)))) && seen.Add (Key (diagnostic)))
+                        diagnostics.Add (diagnostic);
+
+                return new ThemeStyleSheet (_name, _baseName, variants, diagnostics.OrderBy (d => d.Line).ThenBy (d => d.Column).ToList ());
             }
 
             // ---- syntax --------------------------------------------------------------------------
@@ -253,9 +322,20 @@ namespace Majorsilence.Forms
                 var at = Current;
                 Advance ();
 
+                if (string.Equals (at.Value, "media", StringComparison.OrdinalIgnoreCase)) {
+                    ParseMediaRule (at);
+                    return;
+                }
+
                 if (!string.Equals (at.Value, "theme", StringComparison.OrdinalIgnoreCase)) {
-                    Error (at, $"'@{at.Value}' is not supported. The only at-rule is '@theme \"Name\" extends Base;'. "
-                        + "There is no @import (register base themes separately and use 'extends'), no @media, and no @font-face (use a font family installed on the machine).");
+                    Error (at, $"'@{at.Value}' is not supported. The at-rules are '@theme \"Name\" extends Base;' and '@media (prefers-color-scheme: dark) {{ ... }}'. "
+                        + "There is no @import (register base themes separately and use 'extends') and no @font-face (use a font family installed on the machine, or PrivateFontCollection).");
+                    SkipAtRuleBody ();
+                    return;
+                }
+
+                if (_media is not null) {
+                    Error (at, "'@theme' cannot be inside '@media'; it names the whole sheet. Put it at the top.");
                     SkipAtRuleBody ();
                     return;
                 }
@@ -301,6 +381,69 @@ namespace Majorsilence.Forms
 
                 Error (Current, $"Unexpected '{Current.Raw}' in the '@theme' declaration; expected ';'. The form is @theme \"Name\" [extends Base];");
                 SkipAtRuleBody ();
+            }
+
+            // @media <query> { <rules> } -- the rules inside apply only while the query matches; @media blocks may nest.
+            private void ParseMediaRule (CssToken at)
+            {
+                var query = new List<CssToken> ();
+
+                while (!Current.Is (CssTokenKind.OpenBrace)) {
+                    if (Current.Is (CssTokenKind.EndOfFile) || Current.Is (CssTokenKind.Semicolon) || Current.Is (CssTokenKind.CloseBrace)) {
+                        Error (at, "'@media' needs a block: @media (prefers-color-scheme: dark) { Button { ... } }.");
+                        if (Current.Is (CssTokenKind.Semicolon))
+                            Advance ();
+                        return;
+                    }
+
+                    query.Add (Current);
+                    Advance ();
+                }
+
+                if (!ThemeCssMedia.TryCompile (query, out var condition, out var error)) {
+                    Error (at, error!);
+                    SkipBlock ();
+                    return;
+                }
+
+                var text = string.Join (" ", query.Select (t => t.Raw)).Replace ("( ", "(").Replace (" )", ")").Replace (" :", ":");
+
+                if (!MediaEnvironment.All.Any (condition))
+                    Warning (at.Line, at.Column, $"'@media {text}' never matches (a theme is never used for print), so the rules inside never apply.");
+
+                var outerMedia = _media;
+                var outerText = _mediaText;
+                _media = outerMedia is null ? condition : env => outerMedia (env) && condition (env);
+                _mediaText = outerText is null ? text : $"{outerText} and {text}";
+
+                Advance ();   // '{'
+
+                while (true) {
+                    if (Current.Is (CssTokenKind.EndOfFile)) {
+                        Error (Current, "Unexpected end of file: the '@media' block is missing its '}'.");
+                        break;
+                    }
+
+                    if (Current.Is (CssTokenKind.CloseBrace)) {
+                        Advance ();
+                        break;
+                    }
+
+                    if (Current.Is (CssTokenKind.Semicolon)) {
+                        Advance ();
+                        continue;
+                    }
+
+                    if (Current.Is (CssTokenKind.AtKeyword)) {
+                        ParseAtRule ();
+                        continue;
+                    }
+
+                    ParseQualifiedRule ();
+                }
+
+                _media = outerMedia;
+                _mediaText = outerText;
             }
 
             private bool TryReadName (out string name)
@@ -371,11 +514,11 @@ namespace Majorsilence.Forms
                     Advance ();
                 }
 
-                var rule = new RawRule { Selectors = ParseSelectorList (selectorTokens, start) };
+                var rule = new RawRule { Selectors = ParseSelectorList (selectorTokens, start), Media = _media, MediaText = _mediaText };
 
                 Advance ();   // '{'
                 ParseDeclarations (rule);
-                _rules.Add (rule);
+                _allRules.Add (rule);
             }
 
             private static string Describe (List<CssToken> tokens, CssToken fallback)
@@ -742,7 +885,7 @@ namespace Majorsilence.Forms
                         var resolve = CompileTokenValue (token, value, declaration, out var model);
 
                         if (resolve is not null && model is not null)
-                            tokens.Add (new TokenDeclaration (token, resolve, new ThemeCssTokenValue (token, model, TokenReferenceOf (value), declaration.Line, declaration.Column)));
+                            tokens.Add (new TokenDeclaration (token, resolve, new ThemeCssTokenValue (token, model, TokenReferenceOf (value), declaration.Line, declaration.Column) { media_text = rule.MediaText }));
                     }
                 }
             }
@@ -947,17 +1090,19 @@ namespace Majorsilence.Forms
                         var active = false;
                         var disabled = false;
                         var focus = false;
+                        var focusVisible = false;
 
                         if (raw.Pseudo is not null) {
                             var pseudo = raw.Pseudo.ToLowerInvariant ();
 
-                            if (pseudo is not ("hover" or "active" or "disabled" or "focus")) {
+                            if (pseudo is not ("hover" or "active" or "disabled" or "focus" or "focus-visible")) {
                                 var hint = pseudo switch {
-                                    "focus-visible" => " Use ':focus'.",
+                                    "focus-within" => " A rule styles one control type, not its container; use ':focus' on the control.",
                                     "pressed" => " Use ':active'.",
+                                    "checked" => " A checked state is not styleable yet.",
                                     _ => string.Empty
                                 };
-                                Error (raw.Line, raw.Column, $"':{raw.Pseudo}' is not supported; the pseudo-classes are ':hover', ':active', ':disabled' and ':focus'.{hint}");
+                                Error (raw.Line, raw.Column, $"':{raw.Pseudo}' is not supported; the pseudo-classes are ':hover', ':active', ':disabled', ':focus' and ':focus-visible'.{hint}");
                                 continue;
                             }
 
@@ -982,6 +1127,7 @@ namespace Majorsilence.Forms
                                     "hover" => s.SupportsHover,
                                     "active" => s.SupportsActive,
                                     "disabled" => s.SupportsDisabled,
+                                    "focus-visible" => s.SupportsFocusVisible,
                                     _ => s.SupportsFocus,
                                 };
 
@@ -995,6 +1141,7 @@ namespace Majorsilence.Forms
                                 active = pseudo == "active";
                                 disabled = pseudo == "disabled";
                                 focus = pseudo == "focus";
+                                focusVisible = pseudo == "focus-visible";
                             }
                         }
 
@@ -1007,15 +1154,30 @@ namespace Majorsilence.Forms
 
                         // A transition animates a change of state style; a control that never changes state would never run it.
                         Func<string, bool>? accepts = part is null ? null : part.Accepts;
-                        if (part is null && !(selector.SupportsHover || selector.SupportsActive || selector.SupportsDisabled || selector.SupportsFocus)) {
+
+                        // A window is not composited by a parent, so it has no opacity of its own to fade and nothing draws an outline
+                        // around it.
+                        if (part is null && selector.ControlType is { } windowType && typeof (WindowBase).IsAssignableFrom (windowType)) {
+                            static bool Composited (string property) => property == "opacity" || property.StartsWith ("outline", StringComparison.Ordinal);
+                            var reported = new HashSet<(int, int)> ();
+                            foreach (var item in compiled.Items)
+                                if (Composited (item.Model.Property) && reported.Add ((item.Model.Line, item.Model.Column)))
+                                    Error (item.Model.Line, item.Model.Column, item.Model.Property == "opacity"
+                                        ? $"'opacity' does not apply to {selector.Name}, a window: nothing composites a window onto another surface. Set Form.Opacity in code."
+                                        : $"'outline' does not apply to {selector.Name}, a window: an outline is drawn by the parent, and a window has none.");
+                            var inner = accepts;
+                            accepts = property => !Composited (property) && (inner is null || inner (property));
+                        }
+                        if (part is null && !selector.HasStates) {
                             // The shorthand expands to four longhands from one declaration; report it once.
                             var reported = new HashSet<(int, int)> ();
                             foreach (var item in compiled.Items)
                                 if (item.Model.Property.StartsWith ("transition", StringComparison.Ordinal) && reported.Add ((item.Model.Line, item.Model.Column)))
                                     Error (item.Model.Line, item.Model.Column,
                                         $"'{(compiled.Items.Count (i => i.Model.Line == item.Model.Line && i.Model.Column == item.Model.Column && i.Model.Property.StartsWith ("transition", StringComparison.Ordinal)) > 1 ? "transition" : item.Model.Property)}' has no effect on {selector.Name}: a transition animates a change between state styles, and {selector.Name} has none. "
-                                        + $"Transitions run on: {string.Join (", ", ThemeCssReference.Selectors.Where (s => s.SupportsHover || s.SupportsActive || s.SupportsDisabled || s.SupportsFocus).Select (s => s.Name))}.");
-                            accepts = property => !property.StartsWith ("transition", StringComparison.Ordinal);
+                                        + $"Transitions run on: {string.Join (", ", ThemeCssReference.Selectors.Where (s => s.HasStates).Select (s => s.Name))}.");
+                            var before = accepts;
+                            accepts = property => !property.StartsWith ("transition", StringComparison.Ordinal) && (before is null || before (property));
                         }
 
                         // A state rule that overrides a variable changes every base declaration that reads it, as the cascade does in CSS:
@@ -1033,10 +1195,10 @@ namespace Majorsilence.Forms
                                 var (cascadeActions, cascadeModel) = CompileInScope (inherited, scope, report: false).Build (accepts);
 
                                 if (cascadeActions.Count > 0)
-                                    rules.Add (new ControlRule (selector, part, hover, active, disabled, focus, style => {
+                                    rules.Add (new ControlRule (selector, part, hover, active, disabled, focus, focusVisible, style => {
                                         foreach (var action in cascadeActions)
                                             action (style);
-                                    }, new ThemeCssRule (selector, part, hover, active, disabled, focus, cascadeModel, raw.Line, raw.Column)));
+                                    }, new ThemeCssRule (selector, part, hover, active, disabled, focus, cascadeModel, raw.Line, raw.Column) { FocusVisible = focusVisible, media_text = rule.MediaText }));
                             }
                         }
 
@@ -1046,10 +1208,10 @@ namespace Majorsilence.Forms
                             continue;
 
                         var captured = actions;
-                        rules.Add (new ControlRule (selector, part, hover, active, disabled, focus, style => {
+                        rules.Add (new ControlRule (selector, part, hover, active, disabled, focus, focusVisible, style => {
                             foreach (var action in captured)
                                 action (style);
-                        }, new ThemeCssRule (selector, part, hover, active, disabled, focus, model, raw.Line, raw.Column)));
+                        }, new ThemeCssRule (selector, part, hover, active, disabled, focus, model, raw.Line, raw.Column) { FocusVisible = focusVisible, media_text = rule.MediaText }));
                     }
                 }
             }
@@ -1266,8 +1428,55 @@ namespace Majorsilence.Forms
                             break;
 
                         case "box-shadow":
-                            if (ThemeCssValues.TryParseBoxShadow (value, out var boxShadow, out error))
-                                Add (() => ThemeCssValue.Shadow (boxShadow ()), s => s.BoxShadow = boxShadow ());
+                            if (ThemeCssValues.TryParseBoxShadows (value, out var boxShadows, out error))
+                                Add (() => ThemeCssValue.Shadows (boxShadows ()), s => s.BoxShadows = boxShadows ());
+                            else
+                                Error (declaration.Line, declaration.Column, $"'{name}': {error}");
+                            break;
+
+                        case "background-image":
+                            if (ThemeCssGradients.TryParse (value, out var gradients, out error))
+                                Add (() => ThemeCssValue.Images (gradients ()), s => s.BackgroundGradients = gradients ());
+                            else
+                                Error (declaration.Line, declaration.Column, $"'{name}': {error}");
+                            break;
+
+                        case "outline":
+                            CompileOutlineShorthand (value, declaration, compiled);
+                            break;
+
+                        case "outline-width":
+                            if (TryParseOutlineWidth (value, out var outlineWidth, out error))
+                                Add (() => ThemeCssValue.Length (outlineWidth ()), s => s.OutlineWidth = outlineWidth ());
+                            else
+                                Error (declaration.Line, declaration.Column, $"'{name}': {error}");
+                            break;
+
+                        case "outline-style":
+                            error = null;
+                            if (value.Count == 1 && TryParseOutlineStyle (value[0], out var outlineStyle, out error))
+                                Add (() => ThemeCssValue.KeywordOf (OutlineKeyword (outlineStyle)), s => s.OutlineStyle = outlineStyle);
+                            else
+                                Error (declaration.Line, declaration.Column, $"'{name}': {error ?? "one keyword: solid, dashed, auto or none."}");
+                            break;
+
+                        case "outline-color":
+                            if (ThemeCssValues.TryParseColor (value, out var outlineColor, out error))
+                                Add (() => ThemeCssValue.Color ((uint) outlineColor ()), s => s.OutlineColor = outlineColor ());
+                            else
+                                Error (declaration.Line, declaration.Column, $"'{name}': {error}");
+                            break;
+
+                        case "outline-offset":
+                            if (ThemeCssValues.TryParseLength (value, out var outlineOffset, out error, allowNegative: true))
+                                Add (() => ThemeCssValue.Length (outlineOffset ()), s => s.OutlineOffset = outlineOffset ());
+                            else
+                                Error (declaration.Line, declaration.Column, $"'{name}': {error}");
+                            break;
+
+                        case "opacity":
+                            if (ThemeCssValues.TryParseOpacity (value, out var opacity, out error))
+                                Add (() => ThemeCssValue.NumberOf (opacity ()), s => s.Opacity = opacity ());
                             else
                                 Error (declaration.Line, declaration.Column, $"'{name}': {error}");
                             break;
@@ -1287,6 +1496,95 @@ namespace Majorsilence.Forms
                 }
 
                 return compiled;
+            }
+
+            // ---- outline ------------------------------------------------------------------------
+
+            private static string OutlineKeyword (ControlOutlineStyle style) => style switch {
+                ControlOutlineStyle.Solid => "solid",
+                ControlOutlineStyle.Dashed => "dashed",
+                _ => "none"
+            };
+
+            private static bool TryParseOutlineStyle (CssComponent component, out ControlOutlineStyle style, out string? error)
+            {
+                style = ControlOutlineStyle.None;
+                error = null;
+
+                switch ((component as CssIdent)?.Name.ToLowerInvariant ()) {
+                    case "none": return true;
+                    case "solid": case "auto": style = ControlOutlineStyle.Solid; return true;
+                    case "dashed": style = ControlOutlineStyle.Dashed; return true;
+                    case "dotted": case "double": case "groove": case "ridge": case "inset": case "outset":
+                        error = $"the '{component.Raw}' outline style is not supported; outlines are solid, dashed, auto (drawn solid) or none.";
+                        return false;
+                    default:
+                        error = $"'{component.Raw}' is not an outline style; use solid, dashed, auto or none.";
+                        return false;
+                }
+            }
+
+            private static bool TryParseOutlineWidth (List<CssComponent> value, out Func<int> width, out string? error)
+            {
+                if (value.Count == 1 && value[0] is CssIdent { Name: var keyword }) {
+                    int? px = keyword.ToLowerInvariant () switch { "thin" => 1, "medium" => 3, "thick" => 5, _ => null };
+                    if (px is { } fixedWidth) {
+                        width = () => fixedWidth;
+                        error = null;
+                        return true;
+                    }
+                }
+
+                return ThemeCssValues.TryParseLength (value, out width, out error);
+            }
+
+            // outline: [width] [style] [color], in any order; what it leaves out goes back to CSS's initial value.
+            private void CompileOutlineShorthand (List<CssComponent> value, RawDeclaration declaration, CompiledDeclarations compiled)
+            {
+                Func<int>? width = null;
+                ControlOutlineStyle? style = null;
+                Func<SKColor>? color = null;
+
+                foreach (var component in value) {
+                    if (style is null && component is CssIdent && TryParseOutlineStyle (component, out var parsedStyle, out var styleError)) {
+                        style = parsedStyle;
+                        continue;
+                    }
+
+                    if (width is null && (component is CssNumber || ThemeCssCalc.IsMathFunction (component) || component is CssIdent { Name: "thin" or "medium" or "thick" })) {
+                        if (!TryParseOutlineWidth (new List<CssComponent> { component }, out var parsedWidth, out var widthError)) {
+                            Error (declaration.Line, declaration.Column, $"'outline': {widthError}");
+                            return;
+                        }
+                        width = parsedWidth;
+                        continue;
+                    }
+
+                    if (color is null && ThemeCssValues.TryParseColor (new List<CssComponent> { component }, out var parsedColor, out var colorError)) {
+                        color = parsedColor;
+                        continue;
+                    }
+
+                    var unknown = component is CssIdent && !ThemeCssValues.TryParseColor (new List<CssComponent> { component }, out _, out _)
+                        && !TryParseOutlineStyle (component, out _, out var reason) ? reason : null;
+                    Error (declaration.Line, declaration.Column, unknown is not null
+                        ? $"'outline': {unknown}"
+                        : $"'outline': '{component.Raw}' is not an outline width, style or colour. The form is 'outline: 2px solid #0d6efd;'.");
+                    return;
+                }
+
+                var resolvedWidth = width ?? (() => 3);
+                var resolvedStyle = style ?? ControlOutlineStyle.None;
+                var reference = TokenReferenceOf (value);
+
+                void Add (string property, Func<ThemeCssValue> model, Action<ControlStyle> action)
+                    => compiled.Items.Add (new CompiledDeclaration (new ThemeCssDeclaration (property, model, reference, declaration.Line, declaration.Column)) { Action = action });
+
+                Add ("outline-width", () => ThemeCssValue.Length (resolvedWidth ()), s => s.OutlineWidth = resolvedWidth ());
+                Add ("outline-style", () => ThemeCssValue.KeywordOf (OutlineKeyword (resolvedStyle)), s => s.OutlineStyle = resolvedStyle);
+
+                if (color is { } c)
+                    Add ("outline-color", () => ThemeCssValue.Color ((uint) c ()), s => s.OutlineColor = c ());
             }
 
             // ---- transitions ---------------------------------------------------------------------

@@ -101,6 +101,16 @@ namespace Majorsilence.Forms.Theming.Avalonia
 
                     var ruleText = rule.Selector.Name + (rule.Part is null ? "" : "::" + rule.Part.Name) + (rule.Hover ? ":hover" : "");
 
+                    // Only :hover has an Avalonia seam (the PointerOver resources). An :active, :disabled, :focus or :focus-visible rule
+                    // used to fall through to here and land on the control's at-rest look, overriding the base rule.
+                    if (rule.Active || rule.Disabled || rule.Focus || rule.FocusVisible) {
+                        var stateText = rule.Selector.Name + (rule.Active ? ":active" : rule.Disabled ? ":disabled" : rule.Focus ? ":focus" : ":focus-visible");
+                        if (seen.Add ("state:" + stateText))
+                            build.Diagnostics.Add (new ThemeCssDiagnostic (ThemeCssSeverity.Info, rule.Line, rule.Column,
+                                $"'{stateText}' has no Avalonia counterpart (only :hover maps); the rule styles Majorsilence.Forms controls only."));
+                        continue;
+                    }
+
                     if (mapping.AvaloniaTypes is null) {
                         if (seen.Add ("selector:" + rule.Selector.Name))
                             build.Diagnostics.Add (new ThemeCssDiagnostic (ThemeCssSeverity.Info, rule.Line, rule.Column,

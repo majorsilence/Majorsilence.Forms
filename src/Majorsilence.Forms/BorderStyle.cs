@@ -173,6 +173,19 @@ namespace Majorsilence.Forms
         }
     }
 
+    /// <summary>Whether and how a control's outline is drawn (the CSS <c>outline-style</c> subset a theme accepts).</summary>
+    public enum ControlOutlineStyle
+    {
+        /// <summary>No outline (the default).</summary>
+        None,
+
+        /// <summary>A continuous line. CSS's <c>auto</c> draws this too.</summary>
+        Solid,
+
+        /// <summary>A dashed line, dash and gap each three times the outline width.</summary>
+        Dashed
+    }
+
     /// <summary>How a border's line is drawn (the CSS <c>border-style</c> subset a theme accepts, #286).</summary>
     public enum ControlBorderLineStyle
     {

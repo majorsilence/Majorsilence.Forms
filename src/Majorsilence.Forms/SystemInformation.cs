@@ -218,6 +218,29 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>
+        /// Gets whether the operating system's appearance is dark -- what a CSS theme's <c>@media (prefers-color-scheme: dark)</c>
+        /// asks. False when the active backend cannot answer.
+        /// </summary>
+        /// <remarks>The Headless backend answers through its <c>HeadlessRenderer.PrefersDarkColorScheme</c> test hook and the Avalonia
+        /// backend from Avalonia's platform colour values; a backend that does not implement <see cref="Backends.IColorSchemeSource"/>
+        /// answers false.</remarks>
+        public static bool PrefersDarkColorScheme
+            => Backends.Platform.Backend is Backends.IColorSchemeSource source && source.PrefersDarkColorScheme;
+
+        /// <summary>Raised, on the UI thread, when <see cref="PrefersDarkColorScheme"/> changes, on a backend that can tell.</summary>
+        /// <remarks>As <see cref="PrefersReducedMotionChanged"/>: it reads <see cref="Backends.Platform.Backend"/> when you subscribe.</remarks>
+        public static event EventHandler? PrefersDarkColorSchemeChanged {
+            add {
+                if (Backends.Platform.Backend is Backends.IColorSchemeSource source)
+                    source.PrefersDarkColorSchemeChanged += value;
+            }
+            remove {
+                if (Backends.Platform.Backend is Backends.IColorSchemeSource source)
+                    source.PrefersDarkColorSchemeChanged -= value;
+            }
+        }
+
         /// <summary>Gets whether the process is running in a context that can interact with a user.</summary>
         /// <remarks>Answers from <see cref="Application.UserInteractive"/>, so the two cannot disagree.</remarks>
         public static bool UserInteractive => Application.UserInteractive;

@@ -96,8 +96,8 @@ namespace Majorsilence.Forms
         public const string LengthSyntaxHelp = "Lengths are pixels: write e.g. '14px', '14', '0.875rem' (1rem is --root-font-size, 16px by default) or calc(1rem + 2px).";
 
         public const string BoxShadowSyntaxHelp =
-            "box-shadow is a hard, offset shadow only: '<horizontal-offset> <vertical-offset> <color>', e.g. 'box-shadow: 4px 4px #2b1b4d;'. "
-            + "There is no blur radius or spread -- exactly those three components, in that order, nothing more -- and no 'inset', gradients or images.";
+            "A shadow is '[inset] <offset-x> <offset-y> [<blur> [<spread>]] <color>', and box-shadow is a comma-separated list of them or 'none', "
+            + "e.g. 'box-shadow: 0 1px 3px rgb(0 0 0 / 20%), inset 0 0 0 1px #fff;'.";
 
         private static readonly ConcurrentDictionary<string, SKTypeface> typefaces = new (StringComparer.OrdinalIgnoreCase);
 
@@ -283,50 +283,153 @@ namespace Majorsilence.Forms
         // ---- box-shadow (#285) --------------------------------------------------------------------
 
         /// <summary>
-        /// Parses a <c>box-shadow</c> value: exactly <c>&lt;horizontal-offset&gt; &lt;vertical-offset&gt;
-        /// &lt;color&gt;</c>, nothing more. A fourth component -- a blur radius, a spread, or the
-        /// 'inset' keyword -- is rejected with a diagnostic naming what was found, rather than parsed
-        /// loosely and silently ignored: the acceptance criterion this subset is built on is that a
-        /// declaration it cannot honour is never a silent no-op.
+        /// Parses a <c>box-shadow</c> value: <c>none</c>, or a comma-separated list of shadows, each
+        /// <c>[inset] &lt;offset-x&gt; &lt;offset-y&gt; [&lt;blur&gt; [&lt;spread&gt;]] &lt;color&gt;</c> with the colour and
+        /// <c>inset</c> on either side of the lengths, as CSS allows. The colour is required: CSS's default is <c>currentcolor</c>,
+        /// which a type rule has no element for.
         /// </summary>
-        public static bool TryParseBoxShadow (List<CssComponent> components, out Func<ControlBoxShadow> shadow, out string? error)
+        public static bool TryParseBoxShadows (List<CssComponent> components, out Func<IReadOnlyList<ControlBoxShadow>> shadows, out string? error)
+        {
+            shadows = null!;
+            error = null;
+
+            if (components.Count == 1 && components[0] is CssIdent { Name: var none } && none.Equals ("none", StringComparison.OrdinalIgnoreCase)) {
+                var empty = Array.Empty<ControlBoxShadow> ();
+                shadows = () => empty;
+                return true;
+            }
+
+            var parsed = new List<Func<ControlBoxShadow>> ();
+
+            foreach (var group in SplitCommas (components)) {
+                if (!TryParseOneShadow (group, out var shadow, out error))
+                    return false;
+                parsed.Add (shadow);
+            }
+
+            var thunks = parsed.ToArray ();
+            shadows = () => {
+                var result = new ControlBoxShadow[thunks.Length];
+                for (var i = 0; i < thunks.Length; i++)
+                    result[i] = thunks[i] ();
+                return result;
+            };
+            return true;
+        }
+
+        private static bool TryParseOneShadow (List<CssComponent> components, out Func<ControlBoxShadow> shadow, out string? error)
         {
             shadow = null!;
             error = null;
 
-            if (components.Count != 3) {
-                error = components.Count > 3
-                    ? $"'{Join (components)}' has {components.Count} components. {BoxShadowSyntaxHelp}"
-                    : $"'{Join (components)}' has only {components.Count}. {BoxShadowSyntaxHelp}";
+            if (components.Count == 0) {
+                error = $"an entry of the list is empty. {BoxShadowSyntaxHelp}";
                 return false;
             }
 
-            if (!TryParseLength (new List<CssComponent> { components[0] }, out var offsetX, out var xError, allowNegative: true)) {
-                error = $"box-shadow's horizontal offset: {xError}";
+            var inset = false;
+            Func<SKColor>? color = null;
+            var lengths = new List<Func<int>> ();
+            var lengthsDone = false;
+
+            for (var i = 0; i < components.Count; i++) {
+                var component = components[i];
+
+                if (component is CssIdent { Name: var word } && word.Equals ("inset", StringComparison.OrdinalIgnoreCase)) {
+                    if (inset) {
+                        error = $"'inset' is written twice. {BoxShadowSyntaxHelp}";
+                        return false;
+                    }
+                    inset = true;
+                    lengthsDone |= lengths.Count > 0;
+                    continue;
+                }
+
+                if (IsShadowLength (component)) {
+                    if (lengthsDone) {
+                        error = $"'{Join (components)}': the lengths of a shadow are written together, not split by its colour or 'inset'. {BoxShadowSyntaxHelp}";
+                        return false;
+                    }
+
+                    var index = lengths.Count;
+                    if (index == 4) {
+                        error = $"'{Join (components)}' has a fifth length; a shadow takes two offsets, then an optional blur and spread. {BoxShadowSyntaxHelp}";
+                        return false;
+                    }
+
+                    var part = index switch { 0 => "horizontal offset", 1 => "vertical offset", 2 => "blur radius", _ => "spread" };
+
+                    if (!TryParseLength (new List<CssComponent> { component }, out var length, out var lengthError, allowNegative: index != 2)) {
+                        error = $"box-shadow's {part}: {lengthError}";
+                        return false;
+                    }
+
+                    lengths.Add (length);
+                    continue;
+                }
+
+                if (color is not null) {
+                    error = $"'{component.Raw}': a shadow takes one colour. {BoxShadowSyntaxHelp}";
+                    return false;
+                }
+
+                if (!TryParseColor (new List<CssComponent> { component }, out var parsedColor, out var colorError)) {
+                    error = lengths.Count < 2
+                        ? $"box-shadow's horizontal offset: '{component.Raw}' is neither a length nor a colour. {BoxShadowSyntaxHelp}"
+                        : $"box-shadow's color: {colorError}";
+                    return false;
+                }
+
+                color = parsedColor;
+                lengthsDone |= lengths.Count > 0;
+            }
+
+            if (lengths.Count < 2) {
+                error = $"'{Join (components)}' has {(lengths.Count == 0 ? "no offsets" : "only one offset")}. {BoxShadowSyntaxHelp}";
                 return false;
             }
 
-            if (!TryParseLength (new List<CssComponent> { components[1] }, out var offsetY, out var yError, allowNegative: true)) {
-                error = $"box-shadow's vertical offset: {yError}";
+            if (color is null) {
+                error = $"'{Join (components)}' has no colour. CSS's default is currentcolor, which a type rule has no element for; write one, e.g. rgb(0 0 0 / 15%). {BoxShadowSyntaxHelp}";
                 return false;
             }
 
-            if (!TryParseColor (new List<CssComponent> { components[2] }, out var color, out var colorError)) {
-                error = $"box-shadow's color: {colorError}";
-                return false;
-            }
+            var x = lengths[0];
+            var y = lengths[1];
+            var blur = lengths.Count > 2 ? lengths[2] : null;
+            var spread = lengths.Count > 3 ? lengths[3] : null;
+            var c = color;
 
-            shadow = () => new ControlBoxShadow (offsetX (), offsetY (), color ());
+            shadow = () => new ControlBoxShadow (x (), y (), blur?.Invoke () ?? 0, spread?.Invoke () ?? 0, c (), inset);
             return true;
         }
 
-        // ---- fonts -------------------------------------------------------------------------------
+        // A length a shadow can start with: a number (bare zero, px, rem) or a math function. Not a colour.
+        private static bool IsShadowLength (CssComponent component)
+            => component is CssNumber || ThemeCssCalc.IsMathFunction (component) || component is CssTokenRef { Token.Kind: ThemeCssValueKind.Length };
 
-        /// <summary>
-        /// Parses a font-family list: quoted strings and/or bare identifiers (multi-word unquoted names
-        /// are joined with a space), separated by commas. A var() of a font token contributes that
-        /// token's family at apply time.
-        /// </summary>
+        /// <summary>Parses an opacity: a number from 0 to 1 or a percentage, possibly computed; out-of-range values are clamped, as in CSS.</summary>
+        public static bool TryParseOpacity (List<CssComponent> components, out Func<float> opacity, out string? error)
+        {
+            opacity = null!;
+
+            if (components.Count != 1) {
+                error = $"'{Join (components)}' is not an opacity: write a number from 0 to 1, or a percentage, e.g. 0.65 or 65%.";
+                return false;
+            }
+
+            if (!ThemeCssCalc.TryCompile (components[0], null, out var value, out error) || value.Unit is not (CalcUnit.Number or CalcUnit.Percent)) {
+                error = $"'{components[0].Raw}' is not an opacity: write a number from 0 to 1, or a percentage, e.g. 0.65 or 65%.";
+                return false;
+            }
+
+            var evaluate = value.Evaluate;
+            var scale = value.Unit == CalcUnit.Percent ? 0.01 : 1.0;
+            opacity = () => (float) MathCompat.Clamp (evaluate () * scale, 0, 1);
+            error = null;
+            return true;
+        }
+
         // ---- transitions -------------------------------------------------------------------------
 
         public const string TimeSyntaxHelp = "Times take a unit: '150ms' or '.15s'.";
@@ -499,6 +602,13 @@ namespace Majorsilence.Forms
             }
         }
 
+        // ---- fonts -------------------------------------------------------------------------------
+
+        /// <summary>
+        /// Parses a font-family list: quoted strings and/or bare identifiers (multi-word unquoted names
+        /// are joined with a space), separated by commas. A var() of a font token contributes that
+        /// token's family at apply time.
+        /// </summary>
         public static bool TryParseFontFamilies (List<CssComponent> components, out Func<IReadOnlyList<string>> families, out string? error)
         {
             families = null!;
@@ -658,6 +768,8 @@ namespace Majorsilence.Forms
             ThemeCssValueKind.FontWeight => "font-weight",
             ThemeCssValueKind.FontStyle => "font-style",
             ThemeCssValueKind.Time => "time",
+            ThemeCssValueKind.Number => "number",
+            ThemeCssValueKind.Image => "image",
             ThemeCssValueKind.TimingFunction => "timing function",
             ThemeCssValueKind.List => "list",
             ThemeCssValueKind.Keyword => "keyword",
