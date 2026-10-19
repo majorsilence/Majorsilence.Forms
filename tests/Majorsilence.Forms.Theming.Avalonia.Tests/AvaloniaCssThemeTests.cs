@@ -74,6 +74,19 @@ namespace Majorsilence.Forms.Theming.Avalonia.Tests
             Assert.Equal (13.0, Resource ("ControlContentThemeFontSize"));
         });
 
+        // A state Avalonia has no seam for must not land on the at-rest look: Button:active used to overwrite ButtonBackground.
+        [Fact]
+        public Task StateRulesWithoutASeam_DoNotOverrideTheBaseRule () => Headless.Run (() => {
+            var sheet = ThemeStyleSheet.Parse (@"
+                Button { background-color: #112233; }
+                Button:active { background-color: #ff0000; }
+                Button:focus-visible { background-color: #00ff00; }");
+            AvaloniaCssTheme.Apply (sheet);
+
+            Assert.Equal (Color.Parse ("#112233"), BrushColor (Resource ("ButtonBackground")));
+            Assert.Contains (AvaloniaCssTheme.Diagnostics, d => d.Message.Contains ("'Button:active' has no Avalonia counterpart"));
+        });
+
         [Fact]
         public Task Apply_PressedFill_IsTheHoverFillSlightlyDarker () => Headless.Run (() => {
             AvaloniaCssTheme.Apply (Sheet);

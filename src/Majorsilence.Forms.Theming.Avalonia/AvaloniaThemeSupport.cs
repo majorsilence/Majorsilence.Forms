@@ -106,6 +106,18 @@ namespace Majorsilence.Forms.Theming.Avalonia
         private static readonly string[] font_properties = { "font-family", "font-size", "font-weight", "font-style" };
 
         // Added in #286, after every row was complete for the properties that existed then.
+        private static readonly (string Property, string Note)[] effect_properties = {
+            ("opacity", "Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up."),
+            ("background-image", "Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up."),
+            ("outline-width", "Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam."),
+            ("outline-style", "Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam."),
+            ("outline-color", "Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam."),
+            ("outline-offset", "Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam."),
+        };
+
+        private static readonly string[] transition_properties = { "transition-property", "transition-duration", "transition-timing-function", "transition-delay",
+            "animation-name", "animation-duration", "animation-timing-function", "animation-delay", "animation-iteration-count", "animation-direction", "animation-fill-mode", "animation-play-state" };
+
         private static readonly string[] issue_286_properties = {
             "border-style", "border-top-left-radius", "border-top-right-radius", "border-bottom-right-radius", "border-bottom-left-radius"
         };
@@ -216,7 +228,10 @@ namespace Majorsilence.Forms.Theming.Avalonia
             const string NoCornerRadiusTarget = "No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius.";
             const string NoBorderStyleTarget = "Avalonia borders are solid; there is no dashed-border seam.";
 
-            const string NoBoxShadowTarget = "No Avalonia mapping is wired up yet for Majorsilence.Forms' hard, offset box-shadow.";
+            const string NoBoxShadowTarget = "No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam).";
+            // Avalonia has Transitions, but Fluent's state colours live in template resources, which a Transitions setter on the control
+            // does not reach; a half-working mapping would animate some brushes and switch others.
+            const string NoTransitionTarget = "Not mapped yet: Fluent's hover and pressed colours are template resources, which Avalonia's Transitions and Animations set on the control do not reach.";
 
             // ---- Buttons -----------------------------------------------------------------------------
             Map ("Button", "Button, ToggleButton", "Colours go to the Fluent Button*/ToggleButton* resources (so every state follows); geometry and fonts are style setters.");
@@ -447,6 +462,18 @@ namespace Majorsilence.Forms.Theming.Avalonia
                 Add (selector.Name, null, false, "box-shadow", AvaloniaThemeSupportLevel.Unsupported, NoBoxShadowTarget, Array.Empty<AvaloniaTarget> ());
                 if (selector.SupportsHover)
                     Add (selector.Name, null, true, "box-shadow", AvaloniaThemeSupportLevel.Unsupported, NoBoxShadowTarget, Array.Empty<AvaloniaTarget> ());
+
+                foreach (var (property, note) in effect_properties) {
+                    Add (selector.Name, null, false, property, AvaloniaThemeSupportLevel.Unsupported, note, Array.Empty<AvaloniaTarget> ());
+                    if (selector.SupportsHover)
+                        Add (selector.Name, null, true, property, AvaloniaThemeSupportLevel.Unsupported, note, Array.Empty<AvaloniaTarget> ());
+                }
+
+                foreach (var property in transition_properties) {
+                    Add (selector.Name, null, false, property, AvaloniaThemeSupportLevel.Unsupported, NoTransitionTarget, Array.Empty<AvaloniaTarget> ());
+                    if (selector.SupportsHover)
+                        Add (selector.Name, null, true, property, AvaloniaThemeSupportLevel.Unsupported, NoTransitionTarget, Array.Empty<AvaloniaTarget> ());
+                }
 
                 foreach (var property in issue_286_properties) {
                     var note = property == "border-style" ? NoBorderStyleTarget : NoCornerRadiusTarget;

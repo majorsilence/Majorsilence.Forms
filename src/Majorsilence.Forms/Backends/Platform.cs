@@ -30,6 +30,19 @@ namespace Majorsilence.Forms.Backends
         /// </summary>
         public static IPlatformBackend? ConfiguredBackend => _backend;
 
+        // The backend, resolving the default as Backend does, or null when there is none -- for the settings a theme asks about
+        // (reduced motion, the colour scheme), which a process with no Majorsilence.Forms backend at all, such as a real WinForms app
+        // applying a CSS theme to its own controls, must answer with the default instead of throwing.
+        internal static IPlatformBackend? TryGetBackend ()
+        {
+            if (_backend is not null)
+                return _backend;
+
+            var type = Type.GetType (DefaultBackendTypeName);
+
+            return type is null ? null : _backend = (IPlatformBackend) Activator.CreateInstance (type)!;
+        }
+
         private static IPlatformBackend ResolveDefaultBackend ()
         {
             var type = Type.GetType (DefaultBackendTypeName);

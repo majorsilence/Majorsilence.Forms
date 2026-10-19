@@ -132,6 +132,14 @@ HeadlessRenderer.AnimationClock.Step (5, TimeSpan.FromMilliseconds (100));
 // values is 0, 25, 50, 75, 100
 ```
 
+## In a theme: CSS transitions and keyframes
+
+A theme can animate without code. `transition` fades a control between its state styles (hover, press,
+focus) and `@keyframes` with `animation` plays a looping or one-off animation; both run on these same
+display frames and respect reduced motion. See "Transitions" and "Keyframe animations" in
+[theming.md](theming.md). The CSS timing functions are also here for code: `Easing.Ease`, `EaseIn`,
+`EaseOut`, `EaseInOut`, `Easing.CubicBezier (x1, y1, x2, y2)` and `Easing.Steps (n, position)`.
+
 ## Reduced motion
 
 `SystemInformation.PrefersReducedMotion` answers whether the user has asked for reduced motion, so an app can skip or shorten an

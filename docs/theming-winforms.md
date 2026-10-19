@@ -397,37 +397,37 @@ Unsupported rows are reported as diagnostics when a stylesheet uses them — nev
 | `ScrollBar::thumb` | `background-color`, `color`, `border-width`, `border-color`, `border-radius`, `border-top-width`, `border-right-width`, `border-bottom-width`, `border-left-width`, `border-top-color`, `border-right-color`, `border-bottom-color`, `border-left-color`, `font-family`, `font-size`, `font-weight`, `font-style` | The thumb is native-drawn. |
 | `ScrollBar::arrow` | `background-color`, `color`, `border-width`, `border-color`, `border-radius`, `border-top-width`, `border-right-width`, `border-bottom-width`, `border-left-width`, `border-top-color`, `border-right-color`, `border-bottom-color`, `border-left-color`, `font-family`, `font-size`, `font-weight`, `font-style` | The arrows are native-drawn. |
 | `PropertyGrid` | `border-width`, `border-radius`, `border-top-width`, `border-right-width`, `border-bottom-width`, `border-left-width`, `border-top-color`, `border-right-color`, `border-bottom-color`, `border-left-color` | The grid draws no themable outer border. |
-| `Form` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `Button` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `Button:hover` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `Label` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `LinkLabel` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `LinkLabel:hover` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `TextBox` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `NumericUpDown` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `ComboBox` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `CheckBox` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `RadioButton` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `Panel` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `GroupBox` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `SplitContainer` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `Splitter` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `PictureBox` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `ListBox` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `ListView` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `TreeView` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `DataGridView` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `Menu` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `MenuDropDown` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `ToolBar` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `StatusBar` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `TabControl` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `TabStrip` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `TrackBar` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `TrackBar:hover` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `MonthCalendar` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `ScrollBar` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
-| `PropertyGrid` | `box-shadow` | System.Windows.Forms has no concept of an offset, no-blur drop shadow; there is no owner-draw path wired up for one. |
+| `Form` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `Button` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `Button:hover` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `Label` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `LinkLabel` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `LinkLabel:hover` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `TextBox` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `NumericUpDown` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `ComboBox` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `CheckBox` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `RadioButton` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `Panel` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `GroupBox` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `SplitContainer` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `Splitter` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `PictureBox` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `ListBox` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `ListView` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `TreeView` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `DataGridView` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `Menu` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `MenuDropDown` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `ToolBar` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `StatusBar` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `TabControl` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `TabStrip` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `TrackBar` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `TrackBar:hover` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `MonthCalendar` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `ScrollBar` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
+| `PropertyGrid` | `box-shadow` | System.Windows.Forms has no concept of a drop shadow on a control; there is no owner-draw path wired up for one. |
 | `Form` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
 | `Form` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
 | `Button` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
@@ -490,6 +490,130 @@ Unsupported rows are reported as diagnostics when a stylesheet uses them — nev
 | `ScrollBar` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
 | `PropertyGrid` | `border-style` | System.Windows.Forms draws solid borders; there is no dashed-border path wired up. |
 | `PropertyGrid` | `border-top-left-radius`, `border-top-right-radius`, `border-bottom-right-radius`, `border-bottom-left-radius` | The rounded Region that stands in for border-radius takes one radius for every corner; use a single border-radius. |
+| `Form` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `Button` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `Button:hover` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `Label` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `LinkLabel` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `LinkLabel:hover` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `TextBox` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `NumericUpDown` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `ComboBox` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `CheckBox` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `RadioButton` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `Panel` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `GroupBox` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `SplitContainer` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `Splitter` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `PictureBox` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `ListBox` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `ListView` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `TreeView` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `DataGridView` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `Menu` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `MenuDropDown` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `ToolBar` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `StatusBar` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `TabControl` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `TabStrip` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `TrackBar` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `TrackBar:hover` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `MonthCalendar` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `ScrollBar` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `PropertyGrid` | `transition-property`, `transition-duration`, `transition-timing-function`, `transition-delay`, `animation-name`, `animation-duration`, `animation-timing-function`, `animation-delay`, `animation-iteration-count`, `animation-direction`, `animation-fill-mode`, `animation-play-state` | System.Windows.Forms controls repaint a state change at once, and paint themselves; there is no seam to animate their look. |
+| `Form` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `Form` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `Form` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `Button` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `Button:hover` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `Button` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `Button:hover` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `Button` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `Button:hover` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `Label` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `Label` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `Label` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `LinkLabel` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `LinkLabel:hover` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `LinkLabel` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `LinkLabel:hover` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `LinkLabel` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `LinkLabel:hover` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `TextBox` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `TextBox` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `TextBox` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `NumericUpDown` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `NumericUpDown` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `NumericUpDown` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `ComboBox` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `ComboBox` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `ComboBox` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `CheckBox` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `CheckBox` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `CheckBox` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `RadioButton` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `RadioButton` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `RadioButton` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `Panel` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `Panel` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `Panel` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `GroupBox` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `GroupBox` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `GroupBox` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `SplitContainer` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `SplitContainer` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `SplitContainer` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `Splitter` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `Splitter` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `Splitter` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `PictureBox` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `PictureBox` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `PictureBox` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `ListBox` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `ListBox` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `ListBox` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `ListView` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `ListView` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `ListView` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `TreeView` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `TreeView` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `TreeView` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `DataGridView` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `DataGridView` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `DataGridView` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `Menu` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `Menu` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `Menu` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `MenuDropDown` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `MenuDropDown` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `MenuDropDown` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `ToolBar` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `ToolBar` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `ToolBar` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `StatusBar` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `StatusBar` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `StatusBar` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `TabControl` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `TabControl` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `TabControl` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `TabStrip` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `TabStrip` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `TabStrip` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `TrackBar` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `TrackBar:hover` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `TrackBar` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `TrackBar:hover` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `TrackBar` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `TrackBar:hover` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `MonthCalendar` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `MonthCalendar` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `MonthCalendar` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `ScrollBar` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `ScrollBar` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `ScrollBar` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
+| `PropertyGrid` | `opacity` | System.Windows.Forms child controls are separate windows composited opaquely; only a Form has Opacity. |
+| `PropertyGrid` | `background-image` | System.Windows.Forms paints its own backgrounds; there is no gradient seam without owner draw. |
+| `PropertyGrid` | `outline-width`, `outline-style`, `outline-color`, `outline-offset` | System.Windows.Forms has no outline; the focus rectangle is drawn by each control. |
 <!-- END GENERATED: winforms-support -->
 
 ## Out of scope

@@ -101,7 +101,9 @@ test that fails when code and document drift. Set the named variable and run the
 ## Theming, in one paragraph
 
 A theme is a strict CSS subset (`docs/theming.md`): `:root { --token: v }` sets a `Theme` property;
-`Type { prop: v }` / `Type:hover` / `Type::part` set a control type's default `ControlStyle`.
+`Type { prop: v }` / `Type:hover` / `Type::part` set a control type's default `ControlStyle`;
+`@media (prefers-color-scheme / prefers-reduced-motion)`, `transition` and `@keyframes` are supported
+(classes and ids are a proposal, `docs/theming-selectors-plan.md`).
 `ThemeStyleSheet.Parse` never throws — it collects `ThemeCssDiagnostic`s and keeps the valid rest — and
 exposes a host-neutral model (`Tokens`, `Rules`) that other hosts consume instead of re-parsing.
 `ThemeCssReference` is the single description of the grammar; extend it (selector, part, property) and

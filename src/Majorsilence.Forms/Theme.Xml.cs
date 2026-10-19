@@ -40,7 +40,7 @@ namespace Majorsilence.Forms
         };
 
         private static readonly HashSet<string> int_properties = new (StringComparer.Ordinal) {
-            nameof (FontSize), nameof (ItemFontSize)
+            nameof (FontSize), nameof (ItemFontSize), nameof (RootFontSize)
         };
 
         private static readonly HashSet<string> font_properties = new (StringComparer.Ordinal) {

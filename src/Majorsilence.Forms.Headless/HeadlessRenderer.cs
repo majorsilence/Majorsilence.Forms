@@ -35,6 +35,17 @@ namespace Majorsilence.Forms.Headless
         }
 
         /// <summary>
+        /// Gets or sets what <see cref="SystemInformation.PrefersDarkColorScheme"/> reports while the Headless backend is active, so a
+        /// test can stand in for the operating system's dark appearance. Setting a new value raises the change event. Call
+        /// <see cref="Use"/> first.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The Headless backend is not the active platform.</exception>
+        public static bool PrefersDarkColorScheme {
+            get => Backend.PrefersDarkColorScheme;
+            set => Backend.PrefersDarkColorScheme = value;
+        }
+
+        /// <summary>
         /// Gets every <see cref="Media.SoundPlayer"/>/<see cref="Media.SystemSounds"/> play request the active Headless backend has
         /// recorded, in order, so a test can assert what was asked for without a real audio engine. Call <see cref="Use"/> first.
         /// </summary>

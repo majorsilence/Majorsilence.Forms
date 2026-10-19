@@ -51,6 +51,15 @@ namespace Majorsilence.Forms
         /// <summary>For <see cref="ThemeCssValueKind.BoxShadow"/>: the vertical offset in pixels.</summary>
         public int OffsetY { get; private set; }
 
+        /// <summary>For <see cref="ThemeCssValueKind.BoxShadow"/>: the blur radius in pixels (0 for a hard edge).</summary>
+        public int Blur { get; private set; }
+
+        /// <summary>For <see cref="ThemeCssValueKind.BoxShadow"/>: the spread in pixels.</summary>
+        public int Spread { get; private set; }
+
+        /// <summary>For <see cref="ThemeCssValueKind.BoxShadow"/>: whether the shadow is <c>inset</c>.</summary>
+        public bool Inset { get; private set; }
+
         /// <summary>For <see cref="ThemeCssValueKind.FontFamily"/>: the family list in preference order, as written.</summary>
         public IReadOnlyList<string> FontFamilies { get; private set; }
 
@@ -59,6 +68,21 @@ namespace Majorsilence.Forms
 
         /// <summary>For <see cref="ThemeCssValueKind.FontStyle"/>: <c>normal</c>, <c>italic</c> or <c>oblique</c>.</summary>
         public string FontStyle { get; private set; }
+
+        /// <summary>For <see cref="ThemeCssValueKind.Image"/>: the gradient as CSS spells it.</summary>
+        public string Css => FontStyle;
+
+        /// <summary>For <see cref="ThemeCssValueKind.Number"/>: the number.</summary>
+        public double Number { get; private set; }
+
+        /// <summary>For <see cref="ThemeCssValueKind.Time"/>: the time in milliseconds (a delay may be negative).</summary>
+        public double Milliseconds { get; private set; }
+
+        /// <summary>For <see cref="ThemeCssValueKind.TimingFunction"/>: the function as CSS spells it, e.g. <c>ease-in-out</c> or <c>cubic-bezier(0.22, 1, 0.36, 1)</c>.</summary>
+        public string TimingFunction => FontStyle;
+
+        /// <summary>For <see cref="ThemeCssValueKind.List"/>: the elements, in order.</summary>
+        public IReadOnlyList<ThemeCssValue> Items { get; private set; } = Array.Empty<ThemeCssValue> ();
 
         internal static ThemeCssValue Color (uint argb) => new (ThemeCssValueKind.Color) { Argb = argb };
 
@@ -72,9 +96,25 @@ namespace Majorsilence.Forms
 
         internal static ThemeCssValue KeywordOf (string keyword) => new (ThemeCssValueKind.Keyword) { FontStyle = keyword };
 
+        internal static ThemeCssValue Images (IReadOnlyList<ControlGradient> layers)
+            => layers.Count == 1 ? new ThemeCssValue (ThemeCssValueKind.Image) { FontStyle = layers[0].Css }
+                : ListOf (layers.Select (l => new ThemeCssValue (ThemeCssValueKind.Image) { FontStyle = l.Css }).ToArray ());
+
+        internal static ThemeCssValue NumberOf (double number) => new (ThemeCssValueKind.Number) { Number = number };
+
+        internal static ThemeCssValue Time (TimeSpan time) => new (ThemeCssValueKind.Time) { Milliseconds = time.TotalMilliseconds };
+
+        internal static ThemeCssValue Timing (ControlTimingFunction timing) => new (ThemeCssValueKind.TimingFunction) { FontStyle = timing.Css };
+
+        internal static ThemeCssValue ListOf (IReadOnlyList<ThemeCssValue> items) => new (ThemeCssValueKind.List) { Items = items };
+
         internal static ThemeCssValue Shadow (ControlBoxShadow shadow) => new (ThemeCssValueKind.BoxShadow) {
-            Pixels = shadow.OffsetX, OffsetY = shadow.OffsetY, Argb = (uint) shadow.Color
+            Pixels = shadow.OffsetX, OffsetY = shadow.OffsetY, Blur = shadow.Blur, Spread = shadow.Spread, Inset = shadow.Inset, Argb = (uint) shadow.Color
         };
+
+        // One shadow is a BoxShadow value, as it always was; several (or 'none') are a list of them.
+        internal static ThemeCssValue Shadows (IReadOnlyList<ControlBoxShadow> shadows)
+            => shadows.Count == 1 ? Shadow (shadows[0]) : ListOf (shadows.Select (Shadow).ToArray ());
 
         /// <summary>The value spelled the way the stylesheet would write it.</summary>
         public override string ToString ()
@@ -91,7 +131,13 @@ namespace Majorsilence.Forms
                 case ThemeCssValueKind.Keyword:
                     return FontStyle;
                 case ThemeCssValueKind.BoxShadow:
-                    return $"{Pixels}px {OffsetY}px {FormatColor ()}";
+                    return $"{(Inset ? "inset " : "")}{Pixels}px {OffsetY}px{(Blur != 0 || Spread != 0 ? $" {Blur}px" : "")}{(Spread != 0 ? $" {Spread}px" : "")} {FormatColor ()}";
+                case ThemeCssValueKind.Number:
+                    return Number.ToString ("0.###", CultureInfo.InvariantCulture);
+                case ThemeCssValueKind.Time:
+                    return Milliseconds.ToString ("0.###", CultureInfo.InvariantCulture) + "ms";
+                case ThemeCssValueKind.List:
+                    return Items.Count == 0 ? "none" : string.Join (", ", Items.Select (i => i.ToString ()));
                 default:
                     return FontStyle;
             }
@@ -182,8 +228,19 @@ namespace Majorsilence.Forms
         /// <summary>Whether this is the <c>:focus</c> variant -- <c>Control.Focused</c> true (#285). Never set on a part.</summary>
         public bool Focus { get; }
 
+        /// <summary>Whether this is the <c>:focus-visible</c> variant -- focused with the window's focus cues showing. Never set on a part.</summary>
+        public bool FocusVisible { get; internal set; }
+
         /// <summary>The expanded declarations in source order.</summary>
         public IReadOnlyList<ThemeCssDeclaration> Declarations { get; }
+
+        /// <summary>
+        /// The <c>@media</c> query the rule sits inside, e.g. <c>(prefers-color-scheme: dark)</c>, or null. A sheet's
+        /// <see cref="ThemeStyleSheet.Rules"/> only lists the rules whose query matches the current settings.
+        /// </summary>
+        public string? Media => media_text;
+
+        internal string? media_text;
 
         /// <summary>The 1-based line of the selector in the source.</summary>
         public int Line { get; }
@@ -206,6 +263,8 @@ namespace Majorsilence.Forms
                 sb.Append (":disabled");
             else if (Focus)
                 sb.Append (":focus");
+            else if (FocusVisible)
+                sb.Append (":focus-visible");
             sb.Append (" { ");
             foreach (var declaration in Declarations)
                 sb.Append (declaration).Append (' ');
@@ -280,6 +339,11 @@ namespace Majorsilence.Forms
 
         /// <summary>The other token this one was written as <c>var(--token)</c> of, or null for a literal.</summary>
         public ThemeCssToken? TokenReference { get; }
+
+        /// <summary>The <c>@media</c> query the declaration sits inside, or null (see <see cref="ThemeCssRule.Media"/>).</summary>
+        public string? Media => media_text;
+
+        internal string? media_text;
 
         /// <summary>The 1-based line of the declaration in the source.</summary>
         public int Line { get; }

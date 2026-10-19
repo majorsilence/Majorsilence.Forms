@@ -27,6 +27,7 @@ GraphicsAllocationBenchmarks.DrawStringSolid: 488021 B
 GraphicsAllocationBenchmarks.GradientFill: 256083 B
 GraphicsAllocationBenchmarks.SetClipRegion: 144005 B
 GraphicsAllocationBenchmarks.TableBorders: 21 B
+KeyframeAnimationBenchmarks.KeyframeAnimationFrame: 0 B
 LayoutBenchmarks.AnchoredLayoutPass(ChildCount=10): 1120 B
 LayoutBenchmarks.AnchoredLayoutPass(ChildCount=100): 10481 B
 LayoutBenchmarks.AnchoredLayoutPass(ChildCount=1000): 104090 B
@@ -63,5 +64,6 @@ TextMeasureBenchmarks.WordsViaRegions(Text=Quarterly results for the northern re
 TextMeasureBenchmarks.WordsViaRegions(Text=Quarterly results for the northern region, adjusted for seasonality and one-off items, Dpi=96): 888 B
 TextMeasurerCacheBenchmarks.Hit: 0 B
 TextMeasurerCacheBenchmarks.HitSingleLine: 0 B
-ThemeBenchmarks.ParseCss: 41936 B
+ThemeBenchmarks.ParseCss: 44400 B
 ThemeBenchmarks.ReadValues: 0 B
+TransitionBenchmarks.HoverTransitionFrame: 0 B

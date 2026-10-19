@@ -194,14 +194,14 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets whether the user has asked for reduced motion: Android's animator duration scale at zero, iOS's Reduce Motion, Windows'
         /// client-area animation setting, macOS's reduce-motion, or GNOME's <c>enable-animations</c>. False when the active backend
-        /// cannot answer (the conservative default every member on this page uses, for the same reason: it never suppresses an
+        /// cannot answer or no backend is configured (the conservative default every member on this page uses, for the same reason: it never suppresses an
         /// animation nobody asked to suppress).
         /// </summary>
         /// <remarks>Only the Headless backend's (via its <c>HeadlessRenderer.PrefersReducedMotion</c> test hook) and the Avalonia
         /// backend's answer is real; a third-party backend that does not implement <see cref="Backends.IReducedMotionSource"/> answers
         /// false. See "Reduced motion" in docs/backends.md for which platforms are read and how.</remarks>
         public static bool PrefersReducedMotion
-            => Backends.Platform.Backend is Backends.IReducedMotionSource source && source.PrefersReducedMotion;
+            => Backends.Platform.TryGetBackend () is Backends.IReducedMotionSource source && source.PrefersReducedMotion;
 
         /// <summary>Raised, on the UI thread, when <see cref="PrefersReducedMotion"/> changes, on a backend that can tell.</summary>
         /// <remarks>Subscribing while the active backend cannot answer is harmless: the event is simply never raised. As with every
@@ -209,12 +209,35 @@ namespace Majorsilence.Forms
         /// life of the app, matching how <see cref="Application.RunOnUIThread"/> and the rest of this class already work.</remarks>
         public static event EventHandler? PrefersReducedMotionChanged {
             add {
-                if (Backends.Platform.Backend is Backends.IReducedMotionSource source)
+                if (Backends.Platform.TryGetBackend () is Backends.IReducedMotionSource source)
                     source.PrefersReducedMotionChanged += value;
             }
             remove {
-                if (Backends.Platform.Backend is Backends.IReducedMotionSource source)
+                if (Backends.Platform.TryGetBackend () is Backends.IReducedMotionSource source)
                     source.PrefersReducedMotionChanged -= value;
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the operating system's appearance is dark -- what a CSS theme's <c>@media (prefers-color-scheme: dark)</c>
+        /// asks. False when the active backend cannot answer or no backend is configured.
+        /// </summary>
+        /// <remarks>The Headless backend answers through its <c>HeadlessRenderer.PrefersDarkColorScheme</c> test hook and the Avalonia
+        /// backend from Avalonia's platform colour values; a backend that does not implement <see cref="Backends.IColorSchemeSource"/>
+        /// answers false.</remarks>
+        public static bool PrefersDarkColorScheme
+            => Backends.Platform.TryGetBackend () is Backends.IColorSchemeSource source && source.PrefersDarkColorScheme;
+
+        /// <summary>Raised, on the UI thread, when <see cref="PrefersDarkColorScheme"/> changes, on a backend that can tell.</summary>
+        /// <remarks>As <see cref="PrefersReducedMotionChanged"/>: it reads <see cref="Backends.Platform.Backend"/> when you subscribe.</remarks>
+        public static event EventHandler? PrefersDarkColorSchemeChanged {
+            add {
+                if (Backends.Platform.TryGetBackend () is Backends.IColorSchemeSource source)
+                    source.PrefersDarkColorSchemeChanged += value;
+            }
+            remove {
+                if (Backends.Platform.TryGetBackend () is Backends.IColorSchemeSource source)
+                    source.PrefersDarkColorSchemeChanged -= value;
             }
         }
 

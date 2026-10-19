@@ -545,13 +545,13 @@ namespace Majorsilence.Forms.Tests
         [InlineData ("TextBox:hover { color: red; }", "'TextBox:hover' is not supported")]
         [InlineData ("TextBox:disabled { color: red; }", "'TextBox:disabled' is not supported")]
         [InlineData ("TextBox:active { color: red; }", "'TextBox:active' is not supported")]
-        [InlineData ("Button:oops { color: red; }", "the pseudo-classes are ':hover', ':active', ':disabled' and ':focus'")]
+        [InlineData ("Button:oops { color: red; }", "the pseudo-classes are ':hover', ':active', ':disabled', ':focus' and ':focus-visible'")]
         [InlineData ("Button:pressed { color: red; }", "Use ':active'")]
         [InlineData ("DataGridView::header:active { color: red; }", "a part only supports ':hover'")]
-        [InlineData ("Button { box-shadow: 4px 4px; }", "box-shadow is a hard, offset shadow only")]
-        [InlineData ("Button { box-shadow: 4px 4px 8px red; }", "box-shadow is a hard, offset shadow only")]
-        [InlineData ("Button { box-shadow: 4px 4px red inset; }", "box-shadow is a hard, offset shadow only")]
-        [InlineData ("Button { box-shadow: red 4px 4px; }", "box-shadow's horizontal offset")]
+        [InlineData ("Button { box-shadow: 4px 4px; }", "has no colour")]
+        [InlineData ("Button { box-shadow: 4px 4px 8px 2px 1px red; }", "fifth length")]
+        [InlineData ("Button { box-shadow: inset inset 4px 4px red; }", "'inset' is written twice")]
+        [InlineData ("Button { box-shadow: red 4px; }", "only one offset")]
         [InlineData ("Button { box-shadow: linear-gradient(red, blue) 4px 4px; }", "box-shadow's horizontal offset")]
         [InlineData ("Button { box-shadow: 4px 4px linear-gradient(red, blue); }", "is not a supported color function")]
         [InlineData ("* { color: red; }", "universal selector")]
@@ -559,14 +559,14 @@ namespace Majorsilence.Forms.Tests
         [InlineData ("#main { color: red; }", "class or id selector")]
         [InlineData ("Panel Button { color: red; }", "descendant and combinator selectors are not supported")]
         [InlineData ("Panel > Button { color: red; }", "descendant and combinator selectors are not supported")]
-        [InlineData ("Button { font-size: 12pt; }", "Unsupported unit 'pt'")]
-        [InlineData ("Button { font-size: 1.2em; }", "Unsupported unit 'em'")]
+        [InlineData ("Button { font-size: 12pt; }", "points are not supported")]
+        [InlineData ("Button { font-size: 1.2em; }", "'em' is relative to the inherited font size")]
         [InlineData ("Button { color: red !important; }", "'!important' is not supported")]
         [InlineData ("@import url(x.css);", "'@import' is not supported")]
-        [InlineData ("@media (min-width: 100px) { Button { color: red; } }", "'@media' is not supported")]
+        [InlineData ("@media (min-width: 100px) { Button { color: red; } }", "'min-width' is not supported")]
         [InlineData ("Button { Label { color: red; } }", "Nested blocks are not supported")]
         [InlineData (":root { color: red; }", "':root' only accepts theme tokens")]
-        [InlineData ("Button { --x: red; }", "custom properties can only be declared in ':root'")]
+        [InlineData ("Button { --accent-color: red; }", "is a theme token, which is theme-wide")]
         [InlineData ("Button { color: red;", "a '}' is missing")]
         [InlineData ("/* open comment", "Unterminated comment")]
         [InlineData ("Button { color: #12345; }", "is not a valid hex color")]
@@ -769,9 +769,9 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void Reference_PseudoClasses_ListsAllFour ()
+        public void Reference_PseudoClasses_ListsAllFive ()
         {
-            Assert.Equal (new[] { "hover", "active", "disabled", "focus" }, ThemeCssReference.PseudoClasses);
+            Assert.Equal (new[] { "hover", "active", "disabled", "focus", "focus-visible" }, ThemeCssReference.PseudoClasses);
         }
 
         [Fact]

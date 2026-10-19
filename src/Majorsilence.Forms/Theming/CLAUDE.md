@@ -11,7 +11,10 @@ User docs: `docs/theming.md` (reference tables generated from `ThemeCssReference
 | `ThemeCssModel.cs` | Host-neutral model: `ThemeCssValue` (ARGB / px / families / weight / slant — no Skia types), `ThemeCssDeclaration` (live value when written as `var()`), `ThemeCssRule`, `ThemeCssTokenValue`. |
 | `Theme.Css.cs` | `Theme.RegisterThemeCss`, `LoadFromCss`, `ApplyStyleSheet`, `ExportCss`, `StyleSheetApplied` (raised after `ThemeChanged`, what host bridges subscribe to), `CurrentStyleSheets`. |
 | `ThemeCssDiagnostic.cs` | `Warning` / `Error` / `Info` + `ThemeCssException`. `Info` is for host appliers ("no WinForms counterpart"), never the parser. |
-| `ThemeCssPart.cs`, `ThemeCssValues.cs`, `ThemeCssTokenizer.cs` | Parts (`Type::part`), value parsing (colours, lengths, fonts), tokens. |
+| `ThemeCssPart.cs`, `ThemeCssValues.cs`, `ThemeCssTokenizer.cs` | Parts (`Type::part`), value parsing (colours, lengths, fonts, times, timing functions, shadows), tokens. |
+| `ThemeCssCalc.cs` | `calc()`/`min()`/`max()`/`clamp()`, units (`rem` reads `Theme.RootFontSize`), relative-colour channel names. Every unit conversion lives here. |
+| `ThemeCssColorFunctions.cs`, `ThemeCssColorSpaces.cs` | CSS Color 4/5 functions, `color-mix()`, relative colours, `light-dark()`; colour-space conversions and CSS's gamut mapping. |
+| `ThemeCssGradients.cs`, `ThemeCssMedia.cs` | `background-image` gradients (painted by `../GradientStyle.cs`); `@media` queries over `MediaEnvironment`. |
 
 ## Rules
 
@@ -28,3 +31,10 @@ User docs: `docs/theming.md` (reference tables generated from `ThemeCssReference
   `src/Majorsilence.Forms.Theming.WinForms/WinFormsThemeSupport.cs` (its completeness tests fail otherwise).
 - Every ```css block in `docs/theming.md` must parse without errors (a test checks) unless fenced as
   ```css invalid.
+- A sheet with `@media` is compiled once per `MediaEnvironment` (four of them) from one syntax pass;
+  `Tokens`/`Rules`/`ControlRules` read the current one. Anything compiled per sheet (keyframes, rule
+  variables) must be reset per variant in `Parser.Parse`.
+- Transitions and animations run in `../Control.StyleTransitions.cs`, keyed off `CurrentStyle`. A new
+  animatable property needs a channel there and an entry in `ControlTransition.AnimatableProperties`.
+  Frames must not allocate (`TransitionBenchmarks`, `KeyframeAnimationBenchmarks` gate it) -- beware
+  lambdas capturing locals in that hot path.

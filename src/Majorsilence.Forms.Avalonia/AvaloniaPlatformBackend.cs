@@ -11,7 +11,7 @@ namespace Majorsilence.Forms.Backends
     /// The default <see cref="IPlatformBackend"/>: hosts Majorsilence.Forms on Avalonia 12. Application
     /// bootstrap and the message loop are delegated to Avalonia's <see cref="Dispatcher"/>.
     /// </summary>
-    public sealed class AvaloniaPlatformBackend : IPlatformBackend, IWebViewFactory, IReducedMotionSource, IAudioBackend, IModalLoopSupport
+    public sealed class AvaloniaPlatformBackend : IPlatformBackend, IWebViewFactory, IReducedMotionSource, IColorSchemeSource, IAudioBackend, IModalLoopSupport
 #if BROWSER
         , IAsyncPlatformBackend
 #endif
@@ -279,6 +279,30 @@ namespace Majorsilence.Forms.Backends
 
         /// <inheritdoc/>
         public void DoEvents () => Dispatcher.UIThread.RunJobs ();
+
+        // ── IColorSchemeSource ───────────────────────────────────────────────────────────────────────
+        // Avalonia reads the OS appearance on every platform it runs on, and raises ColorValuesChanged when it moves, so this needs
+        // no polling of its own. Subscribed to lazily, the first time anyone listens: Application.Current may not exist earlier.
+
+        private EventHandler? colorSchemeChanged;
+        private Avalonia.Platform.IPlatformSettings? colorSchemeSettings;
+
+        /// <inheritdoc/>
+        public bool PrefersDarkColorScheme
+            => Avalonia.Application.Current?.PlatformSettings?.GetColorValues ().ThemeVariant == Avalonia.Platform.PlatformThemeVariant.Dark;
+
+        /// <inheritdoc/>
+        public event EventHandler? PrefersDarkColorSchemeChanged {
+            add {
+                colorSchemeChanged += value;
+
+                if (colorSchemeSettings is null && Avalonia.Application.Current?.PlatformSettings is { } settings) {
+                    colorSchemeSettings = settings;
+                    settings.ColorValuesChanged += (_, _) => colorSchemeChanged?.Invoke (this, EventArgs.Empty);
+                }
+            }
+            remove => colorSchemeChanged -= value;
+        }
 
         // ── IReducedMotionSource ─────────────────────────────────────────────────────────────────────
         // Android and iOS push real change notifications (a ContentObserver, an NSNotificationCenter observer), so those two rows

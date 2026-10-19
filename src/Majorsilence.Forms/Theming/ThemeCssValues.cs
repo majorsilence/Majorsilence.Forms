@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using Majorsilence.Forms.Animation;
 using SkiaSharp;
 
 namespace Majorsilence.Forms
@@ -89,13 +90,14 @@ namespace Majorsilence.Forms
     internal static class ThemeCssValues
     {
         public const string ColorSyntaxHelp =
-            "Use #rgb, #rrggbb, #rrggbbaa, rgb(r, g, b), rgba(r, g, b, a), hsl(h, s%, l%), a CSS color name, 'transparent', or var(--token).";
+            "Use #rgb, #rrggbb, #rrggbbaa, rgb(), hsl(), hwb(), lab(), lch(), oklab(), oklch(), color(display-p3 ...), color-mix(in oklch, a, b), "
+            + "light-dark(light, dark), a CSS color name, 'transparent', or var(--token).";
 
-        public const string LengthSyntaxHelp = "Lengths are whole pixels: write e.g. '14px' or '14'.";
+        public const string LengthSyntaxHelp = "Lengths are pixels: write e.g. '14px', '14', '0.875rem' (1rem is --root-font-size, 16px by default) or calc(1rem + 2px).";
 
         public const string BoxShadowSyntaxHelp =
-            "box-shadow is a hard, offset shadow only: '<horizontal-offset> <vertical-offset> <color>', e.g. 'box-shadow: 4px 4px #2b1b4d;'. "
-            + "There is no blur radius or spread -- exactly those three components, in that order, nothing more -- and no 'inset', gradients or images.";
+            "A shadow is '[inset] <offset-x> <offset-y> [<blur> [<spread>]] <color>', and box-shadow is a comma-separated list of them or 'none', "
+            + "e.g. 'box-shadow: 0 1px 3px rgb(0 0 0 / 20%), inset 0 0 0 1px #fff;'.";
 
         private static readonly ConcurrentDictionary<string, SKTypeface> typefaces = new (StringComparer.OrdinalIgnoreCase);
 
@@ -135,6 +137,10 @@ namespace Majorsilence.Forms
                         color = Constant (named);
                         return true;
                     }
+                    if (string.Equals (ident.Name, "currentcolor", StringComparison.OrdinalIgnoreCase)) {
+                        error = "'currentcolor' is not supported: a type rule has no element whose colour it could follow. Use var(--foreground-color) for the theme's text colour.";
+                        return false;
+                    }
                     error = $"'{ident.Name}' is not a CSS color name. {ColorSyntaxHelp}"
                         + Suggest (ident.Name, NamedColors.Keys);
                     return false;
@@ -158,58 +164,7 @@ namespace Majorsilence.Forms
         }
 
         private static bool TryParseColorFunction (CssFunction fn, out Func<SKColor> color, out string? error)
-        {
-            color = null!;
-            error = null;
-
-            var name = fn.Name.ToLowerInvariant ();
-
-            if (name is not ("rgb" or "rgba" or "hsl" or "hsla")) {
-                error = name == "var"
-                    ? $"'{fn.Raw}' could not be resolved."
-                    : $"'{fn.Name}()' is not a supported color function. {ColorSyntaxHelp}";
-                return false;
-            }
-
-            // Accept both the legacy comma form rgb(1, 2, 3, 0.5) and the modern space form rgb(1 2 3 / 0.5).
-            var numbers = new List<CssNumber> ();
-
-            foreach (var group in fn.Arguments)
-                foreach (var component in group) {
-                    if (component is CssNumber n)
-                        numbers.Add (n);
-                    else if (component is CssDelim { Value: '/' })
-                        continue;
-                    else {
-                        error = $"'{fn.Raw}' is not a valid color: '{component.Raw}' is not a number. Example: {(name.StartsWith ("hsl", StringComparison.Ordinal) ? "hsl(210, 60%, 50%)" : "rgb(42, 138, 208)")}.";
-                        return false;
-                    }
-                }
-
-            if (numbers.Count is not (3 or 4)) {
-                error = $"'{fn.Raw}' is not a valid color: expected 3 components plus an optional alpha, got {numbers.Count}.";
-                return false;
-            }
-
-            byte alpha = 255;
-
-            if (numbers.Count == 4)
-                alpha = numbers[3].IsPercentage ? ClampByte (numbers[3].Value * 2.55) : ClampByte (numbers[3].Value * 255);
-
-            if (name.StartsWith ("rgb", StringComparison.Ordinal)) {
-                var r = numbers[0].IsPercentage ? ClampByte (numbers[0].Value * 2.55) : ClampByte (numbers[0].Value);
-                var g = numbers[1].IsPercentage ? ClampByte (numbers[1].Value * 2.55) : ClampByte (numbers[1].Value);
-                var b = numbers[2].IsPercentage ? ClampByte (numbers[2].Value * 2.55) : ClampByte (numbers[2].Value);
-                color = Constant (new SKColor (r, g, b, alpha));
-                return true;
-            }
-
-            var hue = (float) (((numbers[0].Value % 360) + 360) % 360);
-            var sat = (float) MathCompat.Clamp (numbers[1].Value, 0, 100);
-            var light = (float) MathCompat.Clamp (numbers[2].Value, 0, 100);
-            color = Constant (SKColor.FromHsl (hue, sat, light, alpha));
-            return true;
-        }
+            => ThemeCssColorFunctions.TryParse (fn, out color, out error);
 
         private static byte ClampByte (double value) => (byte) MathCompat.Clamp (Math.Round (value), 0, 255);
 
@@ -259,9 +214,18 @@ namespace Majorsilence.Forms
             }
 
             switch (components[0]) {
+                // rem computes; em and pt go the same way for their specific explanations.
+                case CssNumber relative when relative.Unit.ToLowerInvariant () is "rem" or "em" or "pt":
+                    return TryParseComputedLength (relative, out length, out error, allowNegative);
+
+                case CssFunction fn when ThemeCssCalc.IsMathFunction (fn):
+                    return TryParseComputedLength (fn, out length, out error, allowNegative);
+
                 case CssNumber number:
                     if (number.Unit.Length > 0 && !string.Equals (number.Unit, "px", StringComparison.OrdinalIgnoreCase)) {
-                        error = $"Unsupported unit '{number.Unit}' in '{number.Raw}'. {LengthSyntaxHelp} Points, em, rem and percentages are not supported because every Majorsilence.Forms style size is a pixel value.";
+                        error = number.IsPercentage
+                            ? $"'{number.Raw}': percentages are not supported -- a theme length has nothing to be a percentage of. {LengthSyntaxHelp}"
+                            : $"Unsupported unit '{number.Unit}' in '{number.Raw}'. {LengthSyntaxHelp} Points and em are not supported: every size is a pixel value, and em would depend on an inherited font size a type rule cannot know.";
                         return false;
                     }
                     if (number.Value < 0 && !allowNegative) {
@@ -287,44 +251,355 @@ namespace Majorsilence.Forms
             }
         }
 
+        // A length written in rem or with calc(): evaluated live (a rem follows --root-font-size, a length token its token) and rounded
+        // to whole pixels when applied.
+        private static bool TryParseComputedLength (CssComponent component, out Func<int> length, out string? error, bool allowNegative)
+        {
+            length = null!;
+
+            if (!ThemeCssCalc.TryCompile (component, null, out var value, out error)) {
+                error = $"'{component.Raw}': {error}";
+                return false;
+            }
+
+            // A plain number is accepted as pixels, the same as a bare '14' outside calc().
+            if (value.Unit is not (CalcUnit.Length or CalcUnit.Number)) {
+                error = $"'{component.Raw}' is {ThemeCssCalc.Describe (value.Unit)}, not a length. {LengthSyntaxHelp}";
+                return false;
+            }
+
+            if (value.IsConstant && value.Evaluate () < 0 && !allowNegative) {
+                error = $"'{component.Raw}' is negative; lengths must be zero or positive.";
+                return false;
+            }
+
+            var evaluate = value.Evaluate;
+            length = allowNegative
+                ? () => (int) Math.Round (evaluate ())
+                : () => Math.Max (0, (int) Math.Round (evaluate ()));
+            return true;
+        }
+
         // ---- box-shadow (#285) --------------------------------------------------------------------
 
         /// <summary>
-        /// Parses a <c>box-shadow</c> value: exactly <c>&lt;horizontal-offset&gt; &lt;vertical-offset&gt;
-        /// &lt;color&gt;</c>, nothing more. A fourth component -- a blur radius, a spread, or the
-        /// 'inset' keyword -- is rejected with a diagnostic naming what was found, rather than parsed
-        /// loosely and silently ignored: the acceptance criterion this subset is built on is that a
-        /// declaration it cannot honour is never a silent no-op.
+        /// Parses a <c>box-shadow</c> value: <c>none</c>, or a comma-separated list of shadows, each
+        /// <c>[inset] &lt;offset-x&gt; &lt;offset-y&gt; [&lt;blur&gt; [&lt;spread&gt;]] &lt;color&gt;</c> with the colour and
+        /// <c>inset</c> on either side of the lengths, as CSS allows. The colour is required: CSS's default is <c>currentcolor</c>,
+        /// which a type rule has no element for.
         /// </summary>
-        public static bool TryParseBoxShadow (List<CssComponent> components, out Func<ControlBoxShadow> shadow, out string? error)
+        public static bool TryParseBoxShadows (List<CssComponent> components, out Func<IReadOnlyList<ControlBoxShadow>> shadows, out string? error)
+        {
+            shadows = null!;
+            error = null;
+
+            if (components.Count == 1 && components[0] is CssIdent { Name: var none } && none.Equals ("none", StringComparison.OrdinalIgnoreCase)) {
+                var empty = Array.Empty<ControlBoxShadow> ();
+                shadows = () => empty;
+                return true;
+            }
+
+            var parsed = new List<Func<ControlBoxShadow>> ();
+
+            foreach (var group in SplitCommas (components)) {
+                if (!TryParseOneShadow (group, out var shadow, out error))
+                    return false;
+                parsed.Add (shadow);
+            }
+
+            var thunks = parsed.ToArray ();
+            shadows = () => {
+                var result = new ControlBoxShadow[thunks.Length];
+                for (var i = 0; i < thunks.Length; i++)
+                    result[i] = thunks[i] ();
+                return result;
+            };
+            return true;
+        }
+
+        private static bool TryParseOneShadow (List<CssComponent> components, out Func<ControlBoxShadow> shadow, out string? error)
         {
             shadow = null!;
             error = null;
 
-            if (components.Count != 3) {
-                error = components.Count > 3
-                    ? $"'{Join (components)}' has {components.Count} components. {BoxShadowSyntaxHelp}"
-                    : $"'{Join (components)}' has only {components.Count}. {BoxShadowSyntaxHelp}";
+            if (components.Count == 0) {
+                error = $"an entry of the list is empty. {BoxShadowSyntaxHelp}";
                 return false;
             }
 
-            if (!TryParseLength (new List<CssComponent> { components[0] }, out var offsetX, out var xError, allowNegative: true)) {
-                error = $"box-shadow's horizontal offset: {xError}";
+            var inset = false;
+            Func<SKColor>? color = null;
+            var lengths = new List<Func<int>> ();
+            var lengthsDone = false;
+
+            for (var i = 0; i < components.Count; i++) {
+                var component = components[i];
+
+                if (component is CssIdent { Name: var word } && word.Equals ("inset", StringComparison.OrdinalIgnoreCase)) {
+                    if (inset) {
+                        error = $"'inset' is written twice. {BoxShadowSyntaxHelp}";
+                        return false;
+                    }
+                    inset = true;
+                    lengthsDone |= lengths.Count > 0;
+                    continue;
+                }
+
+                if (IsShadowLength (component)) {
+                    if (lengthsDone) {
+                        error = $"'{Join (components)}': the lengths of a shadow are written together, not split by its colour or 'inset'. {BoxShadowSyntaxHelp}";
+                        return false;
+                    }
+
+                    var index = lengths.Count;
+                    if (index == 4) {
+                        error = $"'{Join (components)}' has a fifth length; a shadow takes two offsets, then an optional blur and spread. {BoxShadowSyntaxHelp}";
+                        return false;
+                    }
+
+                    var part = index switch { 0 => "horizontal offset", 1 => "vertical offset", 2 => "blur radius", _ => "spread" };
+
+                    if (!TryParseLength (new List<CssComponent> { component }, out var length, out var lengthError, allowNegative: index != 2)) {
+                        error = $"box-shadow's {part}: {lengthError}";
+                        return false;
+                    }
+
+                    lengths.Add (length);
+                    continue;
+                }
+
+                if (color is not null) {
+                    error = $"'{component.Raw}': a shadow takes one colour. {BoxShadowSyntaxHelp}";
+                    return false;
+                }
+
+                if (!TryParseColor (new List<CssComponent> { component }, out var parsedColor, out var colorError)) {
+                    error = lengths.Count < 2
+                        ? $"box-shadow's horizontal offset: '{component.Raw}' is neither a length nor a colour. {BoxShadowSyntaxHelp}"
+                        : $"box-shadow's color: {colorError}";
+                    return false;
+                }
+
+                color = parsedColor;
+                lengthsDone |= lengths.Count > 0;
+            }
+
+            if (lengths.Count < 2) {
+                error = $"'{Join (components)}' has {(lengths.Count == 0 ? "no offsets" : "only one offset")}. {BoxShadowSyntaxHelp}";
                 return false;
             }
 
-            if (!TryParseLength (new List<CssComponent> { components[1] }, out var offsetY, out var yError, allowNegative: true)) {
-                error = $"box-shadow's vertical offset: {yError}";
+            if (color is null) {
+                error = $"'{Join (components)}' has no colour. CSS's default is currentcolor, which a type rule has no element for; write one, e.g. rgb(0 0 0 / 15%). {BoxShadowSyntaxHelp}";
                 return false;
             }
 
-            if (!TryParseColor (new List<CssComponent> { components[2] }, out var color, out var colorError)) {
-                error = $"box-shadow's color: {colorError}";
-                return false;
-            }
+            var x = lengths[0];
+            var y = lengths[1];
+            var blur = lengths.Count > 2 ? lengths[2] : null;
+            var spread = lengths.Count > 3 ? lengths[3] : null;
+            var c = color;
 
-            shadow = () => new ControlBoxShadow (offsetX (), offsetY (), color ());
+            shadow = () => new ControlBoxShadow (x (), y (), blur?.Invoke () ?? 0, spread?.Invoke () ?? 0, c (), inset);
             return true;
+        }
+
+        // A length a shadow can start with: a number (bare zero, px, rem) or a math function. Not a colour.
+        private static bool IsShadowLength (CssComponent component)
+            => component is CssNumber || ThemeCssCalc.IsMathFunction (component) || component is CssTokenRef { Token.Kind: ThemeCssValueKind.Length };
+
+        /// <summary>Parses an opacity: a number from 0 to 1 or a percentage, possibly computed; out-of-range values are clamped, as in CSS.</summary>
+        public static bool TryParseOpacity (List<CssComponent> components, out Func<float> opacity, out string? error)
+        {
+            opacity = null!;
+
+            if (components.Count != 1) {
+                error = $"'{Join (components)}' is not an opacity: write a number from 0 to 1, or a percentage, e.g. 0.65 or 65%.";
+                return false;
+            }
+
+            if (!ThemeCssCalc.TryCompile (components[0], null, out var value, out error) || value.Unit is not (CalcUnit.Number or CalcUnit.Percent)) {
+                error = $"'{components[0].Raw}' is not an opacity: write a number from 0 to 1, or a percentage, e.g. 0.65 or 65%.";
+                return false;
+            }
+
+            var evaluate = value.Evaluate;
+            var scale = value.Unit == CalcUnit.Percent ? 0.01 : 1.0;
+            opacity = () => (float) MathCompat.Clamp (evaluate () * scale, 0, 1);
+            error = null;
+            return true;
+        }
+
+        // ---- transitions -------------------------------------------------------------------------
+
+        public const string TimeSyntaxHelp = "Times take a unit: '150ms' or '.15s'.";
+
+        public const string TimingSyntaxHelp =
+            "Timing functions are linear, ease, ease-in, ease-out, ease-in-out, step-start, step-end, cubic-bezier(x1, y1, x2, y2) "
+            + "(x1 and x2 between 0 and 1) or steps(n[, jump-start | jump-end | jump-none | jump-both | start | end]).";
+
+        /// <summary>Splits a declaration value at its top-level commas; each element is the components between two commas.</summary>
+        public static List<List<CssComponent>> SplitCommas (List<CssComponent> components)
+        {
+            var groups = new List<List<CssComponent>> { new () };
+
+            foreach (var component in components)
+                if (component is CssDelim { Value: ',' })
+                    groups.Add (new List<CssComponent> ());
+                else
+                    groups[groups.Count - 1].Add (component);
+
+            return groups;
+        }
+
+        /// <summary>Whether <paramref name="component"/> is a number with a time unit, which is how the transition shorthand tells times apart.</summary>
+        public static bool IsTime (CssComponent component)
+            => component is CssNumber { Unit: { } unit } && (unit.Equals ("s", StringComparison.OrdinalIgnoreCase) || unit.Equals ("ms", StringComparison.OrdinalIgnoreCase))
+               || (ThemeCssCalc.IsMathFunction (component) && ThemeCssCalc.TryCompile (component, null, out var value, out _) && value.Unit == CalcUnit.Time);
+
+        public static bool TryParseTime (CssComponent component, bool allowNegative, out TimeSpan time, out string? error)
+        {
+            time = TimeSpan.Zero;
+            error = null;
+
+            if (ThemeCssCalc.IsMathFunction (component)) {
+                if (!ThemeCssCalc.TryCompile (component, null, out var computed, out error)) {
+                    error = $"'{component.Raw}': {error}";
+                    return false;
+                }
+                if (computed.Unit != CalcUnit.Time) {
+                    error = $"'{component.Raw}' is {ThemeCssCalc.Describe (computed.Unit)}, not a time. {TimeSyntaxHelp}";
+                    return false;
+                }
+                var ms = computed.Evaluate ();
+                if (ms < 0 && !allowNegative) {
+                    error = $"'{component.Raw}' is negative; a duration must be zero or positive (only a delay may be negative).";
+                    return false;
+                }
+                time = TimeSpan.FromTicks ((long) Math.Round (ms * TimeSpan.TicksPerMillisecond));
+                return true;
+            }
+
+            if (component is not CssNumber number) {
+                error = $"'{component.Raw}' is not a time. {TimeSyntaxHelp}";
+                return false;
+            }
+
+            if (number.Unit.Length == 0) {
+                error = $"'{number.Raw}' has no unit; a time needs one, as in CSS: '{number.Raw}ms' or '{number.Raw}s'.";
+                return false;
+            }
+
+            double milliseconds;
+
+            if (number.Unit.Equals ("ms", StringComparison.OrdinalIgnoreCase))
+                milliseconds = number.Value;
+            else if (number.Unit.Equals ("s", StringComparison.OrdinalIgnoreCase))
+                milliseconds = number.Value * 1000.0;
+            else {
+                error = $"'{number.Raw}' is not a time: '{number.Unit}' is not a time unit. {TimeSyntaxHelp}";
+                return false;
+            }
+
+            if (milliseconds < 0 && !allowNegative) {
+                error = $"'{number.Raw}' is negative; a duration must be zero or positive (only a delay may be negative).";
+                return false;
+            }
+
+            time = TimeSpan.FromTicks ((long) Math.Round (milliseconds * TimeSpan.TicksPerMillisecond));
+            return true;
+        }
+
+        private static readonly string[] timing_keywords = { "linear", "ease", "ease-in", "ease-out", "ease-in-out", "step-start", "step-end" };
+
+        /// <summary>Whether <paramref name="component"/> spells a timing function (a keyword or one of the functions), valid or not.</summary>
+        public static bool LooksLikeTiming (CssComponent component)
+            => component switch {
+                CssIdent ident => timing_keywords.Contains (ident.Name, StringComparer.OrdinalIgnoreCase),
+                CssFunction fn => fn.Name.Equals ("cubic-bezier", StringComparison.OrdinalIgnoreCase)
+                                  || fn.Name.Equals ("steps", StringComparison.OrdinalIgnoreCase)
+                                  || fn.Name.Equals ("linear", StringComparison.OrdinalIgnoreCase),
+                _ => false
+            };
+
+        public static bool TryParseTimingFunction (CssComponent component, out ControlTimingFunction timing, out string? error)
+        {
+            timing = ControlTimingFunction.Ease;
+            error = null;
+
+            switch (component) {
+                case CssIdent ident:
+                    switch (ident.Name.ToLowerInvariant ()) {
+                        case "linear": timing = ControlTimingFunction.Linear; return true;
+                        case "ease": timing = ControlTimingFunction.Ease; return true;
+                        case "ease-in": timing = ControlTimingFunction.EaseIn; return true;
+                        case "ease-out": timing = ControlTimingFunction.EaseOut; return true;
+                        case "ease-in-out": timing = ControlTimingFunction.EaseInOut; return true;
+                        case "step-start": timing = ControlTimingFunction.StepStart; return true;
+                        case "step-end": timing = ControlTimingFunction.StepEnd; return true;
+                    }
+                    error = $"'{ident.Name}' is not a timing function.{Suggest (ident.Name, timing_keywords)} {TimingSyntaxHelp}";
+                    return false;
+
+                case CssFunction fn when fn.Name.Equals ("cubic-bezier", StringComparison.OrdinalIgnoreCase): {
+                    var numbers = fn.Arguments.Select (g => g.Count == 1 && g[0] is CssNumber { Unit.Length: 0 } n ? n : null).ToList ();
+
+                    if (numbers.Count != 4 || numbers.Any (n => n is null)) {
+                        error = $"'{fn.Raw}' needs exactly four plain numbers, comma-separated: cubic-bezier(x1, y1, x2, y2), e.g. cubic-bezier(0.22, 1, 0.36, 1).";
+                        return false;
+                    }
+
+                    var x1 = numbers[0]!.Value;
+                    var x2 = numbers[2]!.Value;
+
+                    if (x1 is < 0 or > 1 || x2 is < 0 or > 1) {
+                        error = $"'{fn.Raw}': x1 and x2 (the first and third numbers) must be between 0 and 1, so the curve moves forward in time; only the y values may overshoot.";
+                        return false;
+                    }
+
+                    timing = ControlTimingFunction.CubicBezier ((float) x1, (float) numbers[1]!.Value, (float) x2, (float) numbers[3]!.Value);
+                    return true;
+                }
+
+                case CssFunction fn when fn.Name.Equals ("steps", StringComparison.OrdinalIgnoreCase): {
+                    if (fn.Arguments.Count is < 1 or > 2 || fn.Arguments[0].Count != 1 || fn.Arguments[0][0] is not CssNumber { Unit.Length: 0 } count
+                        || count.Value != Math.Floor (count.Value) || count.Value < 1) {
+                        error = $"'{fn.Raw}' needs a whole number of steps of at least 1, then optionally a position: steps(4) or steps(4, jump-start).";
+                        return false;
+                    }
+
+                    var position = StepPosition.JumpEnd;
+
+                    if (fn.Arguments.Count == 2) {
+                        var word = fn.Arguments[1].Count == 1 && fn.Arguments[1][0] is CssIdent p ? p.Name.ToLowerInvariant () : string.Empty;
+                        switch (word) {
+                            case "jump-start": case "start": position = StepPosition.JumpStart; break;
+                            case "jump-end": case "end": position = StepPosition.JumpEnd; break;
+                            case "jump-none": position = StepPosition.JumpNone; break;
+                            case "jump-both": position = StepPosition.JumpBoth; break;
+                            default:
+                                error = $"'{fn.Raw}': the step position is jump-start, jump-end, jump-none, jump-both, start or end.";
+                                return false;
+                        }
+                    }
+
+                    if (position == StepPosition.JumpNone && count.Value < 2) {
+                        error = $"'{fn.Raw}': steps(n, jump-none) needs at least 2 steps.";
+                        return false;
+                    }
+
+                    timing = ControlTimingFunction.Steps ((int) count.Value, position);
+                    return true;
+                }
+
+                case CssFunction fn when fn.Name.Equals ("linear", StringComparison.OrdinalIgnoreCase):
+                    error = $"'{fn.Raw}': the linear() stop-list function is not supported. Use the 'linear' keyword, or cubic-bezier() for a curve.";
+                    return false;
+
+                default:
+                    error = $"'{component.Raw}' is not a timing function. {TimingSyntaxHelp}";
+                    return false;
+            }
         }
 
         // ---- fonts -------------------------------------------------------------------------------
@@ -492,6 +767,13 @@ namespace Majorsilence.Forms
             ThemeCssValueKind.Length => "length",
             ThemeCssValueKind.FontWeight => "font-weight",
             ThemeCssValueKind.FontStyle => "font-style",
+            ThemeCssValueKind.Time => "time",
+            ThemeCssValueKind.Number => "number",
+            ThemeCssValueKind.Image => "image",
+            ThemeCssValueKind.TimingFunction => "timing function",
+            ThemeCssValueKind.List => "list",
+            ThemeCssValueKind.Keyword => "keyword",
+            ThemeCssValueKind.BoxShadow => "box-shadow",
             _ => "font-family"
         };
 

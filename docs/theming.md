@@ -138,26 +138,32 @@ TextBox, ComboBox { border: 1px solid #808080; }
 ```
 
 - A selector is a **control type name** from the table below, optionally one pseudo-class (`:hover`,
-  `:active`, `:disabled` or `:focus`), or a comma-separated list of those. Type names are matched
-  case-insensitively.
+  `:active`, `:disabled`, `:focus` or `:focus-visible`), or a comma-separated list of those. Type names
+  are matched case-insensitively.
 - A rule sets the type's static default style (`Button.DefaultStyle`). Every instance that has not set
   the same property in code (`button.Style.BackgroundColor = ...`, or WinForms `BackColor`) picks it
   up; explicit per-control values still win, as in WinForms.
 - Each pseudo-class is available only on the controls whose **:hover** / **:active** / **:disabled** /
-  **:focus** column in the reference says `yes` -- currently `Button`, `LinkLabel` and `TrackBar` take
-  all four; everything else takes none. A pseudo-class's style is layered on the normal rule, so e.g.
-  a `Button:active` rule only needs the properties that change, and exactly one state wins when more
-  than one applies at once (disabled, then hover, then active/pressed, then focus -- see
-  `Control.CurrentStyle`).
+  **:focus** / **:focus-visible** column in the reference says `yes` -- currently `Button`, `LinkLabel`
+  and `TrackBar` take all five, `TextBox` takes `:focus` and `:focus-visible`; everything else takes
+  none. A pseudo-class's style is layered on the normal rule, so e.g. a `Button:active` rule only needs
+  the properties that change, and exactly one state wins when more than one applies at once (disabled,
+  then hover, then active/pressed, then focus -- see `Control.CurrentStyle`).
+- `:focus-visible` is focus the user reached with the keyboard: the control is focused **and** its
+  window shows focus cues, which WinForms turns on once Tab is pressed -- the same idea as a browser's
+  heuristic. It layers on `:focus`, so `Button:focus-visible { outline: ... }` adds a focus ring to the
+  focus style only for keyboard users. A focused `TextBox` always counts, as a text field does in a
+  browser.
 - Later declarations replace earlier ones, within a rule and across rules. There is no specificity,
   no cascade, and no `!important`.
 - Derived controls without their own default style follow their base type's rule (`Panel` also styles
   `FlowLayoutPanel`, `TableLayoutPanel`, `TabPage`; `TextBox` also styles `DateTimePicker`; `ListBox`
   also styles `CheckedListBox`).
-- `box-shadow` is a control-rule property, not a pseudo-class, and applies to any selector: a hard,
-  offset, no-blur shadow painted behind the control's own shape, e.g. `box-shadow: 4px 4px #2b1b4d;`.
-  It accepts exactly `<horizontal-offset> <vertical-offset> <color>` -- no blur radius, no spread, no
-  `inset` -- so pairing it with a pressed `:active` rule (a smaller or zero offset) is how a "hard
+- `box-shadow` is a control-rule property, not a pseudo-class, and applies to any selector: shadows
+  painted with the control's own shape -- CSS's full form, `[inset] <x> <y> [<blur> [<spread>]] <color>`,
+  as a comma-separated list or `none` (see [Effects](#7-effects)). The simplest is a hard, offset,
+  no-blur shadow, e.g. `box-shadow: 4px 4px #2b1b4d;`, and pairing it with a pressed `:active` rule (a
+  smaller or zero offset) is how a "hard
   shadow that collapses on press" look is built entirely in CSS:
 
 ```css
@@ -224,14 +230,234 @@ ScrollBar::arrow            { background-color: #2c2c30; color: #9aa0ab; }
   `tree.Style.SelectedItemBackgroundColor`), the same way `button.Style.BackgroundColor` wins over a `Button` rule.
 - Selectors without parts (`Button`, `TextBox`, ...) reject `::`; the error lists the controls that have them.
 
+### 5. Transitions
+
+A `transition` animates the change into a state instead of switching at once: hover a button and its
+background fades to the hover colour.
+
+```css
+Button {
+  background-color: var(--control-mid-color);
+  transition: background-color 150ms ease-in-out, border-color 150ms, box-shadow .2s cubic-bezier(.22, 1, .36, 1);
+}
+
+Button:hover {
+  background-color: var(--accent-color);
+}
+
+Button:active {
+  box-shadow: 0px 0px #2b1b4d;
+  transition-duration: 60ms;
+}
+```
+
+- `transition` is the shorthand for `transition-property`, `transition-duration`,
+  `transition-timing-function` and `transition-delay`. Each comma-separated entry is
+  `[property] [duration] [timing-function] [delay]` in any order; the first time is the duration, the
+  second the delay. What an entry leaves out is CSS's default: `all`, `0s`, `ease`, `0s`.
+- The longhands take comma lists that line up by index -- the n-th property uses the n-th duration,
+  timing function and delay -- and a shorter list repeats, as in CSS.
+- As in CSS, the transition that runs is the one on the **style being entered**. A `Button` rule's
+  transition covers every state change, because every state style inherits from it; a state rule can
+  override part of it. Above, `Button:active` changes only the duration, so pressing is quick while the
+  properties and easing still come from the `Button` rule. Each longhand is inherited separately.
+- **Animatable:** `background-color`, `color`, the border colours, the corner radii (`border-radius`
+  and its per-corner forms) and `box-shadow`, or `all` of them. `border-width` is rejected: a border's
+  width decides where the control's client area starts, so animating it would move the children every
+  frame. Fonts and `border-style` have no in-between values, so they are rejected too.
+- **Timing functions:** `linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`, `step-start`,
+  `step-end`, `cubic-bezier(x1, y1, x2, y2)` (x1 and x2 between 0 and 1; the y values may overshoot) and
+  `steps(n[, jump-start | jump-end | jump-none | jump-both | start | end])`.
+- A change cut short reverses from what is on screen: leaving a button half way through its hover fade
+  fades back from the half-way colour.
+- Transitions run on the controls that change state -- the selectors with a `yes` in a pseudo-class
+  column of the reference (`Button`, `LinkLabel`, `TextBox`, `TrackBar`) -- and are rejected elsewhere.
+  Parts do not take them.
+- When the user has asked the system for **reduced motion**, every transition is an instant change, as a
+  browser does under `prefers-reduced-motion`.
+- In code, the same thing is `ControlStyle.Transition` (a `ControlTransition`), and the curves are
+  `Majorsilence.Forms.Animation.Easing.CubicBezier`, `Steps`, `Ease` and friends.
+
+### 6. Modern values
+
+The value syntax follows current CSS, so values copied from a design system or a web stylesheet work.
+
+```css
+:root {
+  --brand: oklch(60% 0.24 240);
+  --brand-tint: color-mix(in oklch, white 80%, var(--brand));
+  --accent-color: light-dark(#0b5cad, #5aa9ff);
+}
+
+Button {
+  --button-bg: var(--brand);
+  background-color: var(--button-bg);
+  border-radius: calc(0.375rem + 1px);
+  color: white;
+}
+
+Button:hover {
+  --button-bg: oklch(from var(--brand) calc(l * .9) calc(c * 1.15) h);
+}
+```
+
+- **Units and arithmetic.** `rem` is `--root-font-size` (16px unless a theme sets it, a browser's root
+  font size), so a `0.375rem` radius copied from a web stylesheet keeps its size. `calc()`, `min()`,
+  `max()`, `clamp()` and parentheses combine lengths, times, numbers and angles; a length token inside
+  one stays live (`calc(var(--font-size) / 2)`). Put spaces around `+` and `-`, as CSS requires.
+- **Colour functions.** `hwb()`, `lab()`, `lch()`, `oklab()`, `oklch()` and `color()` (`srgb`,
+  `srgb-linear`, `display-p3`, `xyz`, `xyz-d50`, `xyz-d65`) in their space-separated form, with `none`,
+  `calc()` and `/ alpha`. A colour outside sRGB is brought in by CSS's gamut-mapping algorithm, which
+  lowers chroma rather than clipping, so it keeps its hue.
+- **`color-mix(in <space> [<method> hue], a [p%], b [p%])`** mixes in any of those spaces (plus `hsl`
+  and `hwb`), premultiplied by alpha; percentages that add up to less than 100% leave the result that
+  much transparent. An achromatic colour (white, grey) takes the other colour's hue, so
+  `color-mix(in oklch, white 80%, var(--brand))` is a tint of the brand colour.
+- **Relative colours** -- `oklch(from <color> l c h)`, `rgb(from <color> r g b / 50%)`, and the same for
+  every function -- name the origin's channels, which `calc()` can change. The origin can be a token,
+  and the result follows it.
+- **`light-dark(light, dark)`** picks by the theme in effect: dark when its `--background-color` is
+  darker than mid-grey. One sheet then works whether it `extends Light` or `extends Dark`.
+- **Variables inside a rule.** A control rule can declare its own custom properties. They are visible to
+  every rule for the same control type and part, and a state rule that sets one changes every
+  declaration of the base rule that reads it: above, `Button:hover` only sets `--button-bg`, and the
+  hovered button's background follows. (CSS's cascade does exactly this; host appliers see the result as
+  ordinary `:hover` declarations.) A `:root` variable means what it means on `:root`, whatever rule reads
+  it, and a rule cannot set a theme token -- those are theme-wide.
+
+### 7. Effects
+
+```css
+Button {
+  background-color: #0d6efd;
+  background-image: linear-gradient(to bottom, rgb(255 255 255 / 15%), transparent);
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 30%), inset 0 1px 0 rgb(255 255 255 / 15%);
+  transition: box-shadow 150ms, opacity 150ms;
+}
+
+Button:focus-visible {
+  outline: 2px solid #86b7fe;
+  outline-offset: 2px;
+}
+
+Button:disabled {
+  opacity: .65;
+}
+```
+
+- **`opacity`** (0 to 1, or a percentage) fades the whole control, children included, as its parent
+  composites it. It does not change hit-testing. A window's opacity is `Form.Opacity`, so windows reject
+  it.
+- **`box-shadow`** takes CSS's whole form: `[inset] <x> <y> [<blur> [<spread>]] <color>`, a
+  comma-separated list (the first on top), or `none`. A blur softens the edge; a spread grows (or, if
+  negative, shrinks) the shadow first; an `inset` shadow is cast inside the face, over the background.
+  The colour is required -- CSS's default is `currentcolor`, which a type rule has no element for.
+  **A control cannot paint outside itself**, so an outer shadow takes room inside the control's bounds:
+  the face shrinks by however far the shadows reach past it on each side (offset, spread and blur
+  together). Size a control with a shadow to leave that room.
+- **`outline`** (`outline-width`, `outline-style`, `outline-color`, `outline-offset`) is a ring drawn
+  around the control by its parent, outside the control: it takes no room and moves nothing, which makes
+  it the usual focus ring. It follows the corner radii. Its style is `none` until a rule says `solid`,
+  `dashed` or `auto` -- as in CSS, an outline with only a width and a colour draws nothing. Its colour is
+  the text colour when no rule sets one.
+- **`background-image`** takes gradients: `linear-gradient()` (an angle or `to <side or corner>`),
+  `radial-gradient()` (`circle` or `ellipse`, a size keyword or lengths, `at <position>`),
+  `conic-gradient()` (`from <angle>`, `at <position>`) and their `repeating-` forms, layered over the
+  background colour inside the face's rounded shape. Stops take lengths and percentages (angles for a
+  conic) and two positions for a hard band; colours interpolate premultiplied, so fading to
+  `transparent` fades the colour out instead of through grey. Image URLs, transition hints and
+  `in <colorspace>` are rejected. `background`, the shorthand, stays an error.
+- `opacity`, the outline's colour, width and offset, and every part of a shadow list can be
+  transitioned. Shadow lists move pair by pair, the shorter padded with transparent shadows.
+
+### 8. Media queries
+
+```css
+:root { --page: #ffffff; }
+
+@media (prefers-color-scheme: dark) {
+  :root { --page: #1e1e1e; --accent-color: #5aa9ff; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  Button { transition: none; }
+}
+
+Form { background-color: var(--page); }
+```
+
+- `@media` takes the two user preferences a desktop theme can know: `prefers-color-scheme` (`light` or
+  `dark`, the operating system's appearance) and `prefers-reduced-motion` (`reduce` or
+  `no-preference`; `(prefers-reduced-motion)` alone means `reduce`). Queries combine with `and`, `or`,
+  `not` and commas, after an optional `all`, `screen` or `print` media type (`print` never matches: a
+  theme is not used for printing). Blocks may nest.
+- Anything can go inside -- `:root` tokens and variables, control rules, rule variables -- and it means
+  what it would in CSS: above, every `var(--page)` follows the dark override.
+- The theme applies the sheet again when either preference changes, so a running application follows
+  the system; host appliers follow too. `ThemeStyleSheet.UsesMediaQueries` says whether a sheet depends
+  on them, and its `Rules` and `Tokens` describe what applies under the current settings (each rule's
+  `Media` says which query it sits in).
+- Size, input-device and the other media features are errors that say why: there is no one viewport
+  for a theme that styles every window, and the backends do not report the rest.
+- The operating system's appearance is read by the Avalonia backend (`SystemInformation.PrefersDarkColorScheme`,
+  which `Application.SystemColorMode` now reports as well); a backend that cannot tell answers light. A
+  `ThemeScope` evaluates its sheet's queries when it is applied, but does not re-apply on a change.
+
+### 9. Keyframe animations
+
+```css
+@keyframes pulse {
+  from { opacity: 1; }
+  50%  { opacity: .55; animation-timing-function: ease-in; }
+  to   { opacity: 1; }
+}
+
+@keyframes attention {
+  to { box-shadow: 0 0 0 4px rgb(220 53 69 / 50%); }
+}
+
+ProgressBar {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+Button:focus-visible {
+  animation: attention 300ms ease-out forwards;
+}
+```
+
+- `@keyframes <name> { ... }` lists keyframes selected by `from`, `to` or percentages (a comma list
+  makes one keyframe at each). A keyframe sets any property a transition can move, and may set its own
+  `animation-timing-function` for the stretch that starts at it. A property a keyframe list leaves out
+  of `from` or `to` animates from or to the control's own style -- above, `attention` grows a shadow
+  out of whatever the button has.
+- `animation` is the shorthand for `animation-name`, `-duration`, `-timing-function`, `-delay`,
+  `-iteration-count` (a number, fractions allowed, or `infinite`), `-direction` (`normal`, `reverse`,
+  `alternate`, `alternate-reverse`), `-fill-mode` (`none`, `forwards`, `backwards`, `both`) and
+  `-play-state` (`running`, `paused`). Lists line up by index, as for transitions, and each longhand is
+  inherited separately, so `Button:disabled { animation-play-state: paused; }` pauses the button's
+  animation.
+- An animation starts when the control first shows the rule's style or enters it; the same name across
+  a state change keeps running, a new name starts again, and a sheet without it stops it. Its values win
+  over the style's own and over a transition's, as in CSS.
+- The keyframes must be in the same sheet as the rule that names them, at the top level (not inside
+  `@media`: choose the animation in `@media` with `animation-name` instead).
+- An infinite animation stops asking for frames while its control is off screen and resumes when it is
+  painted again. When the user prefers reduced motion no animation runs; a sheet can also say what to
+  do instead with `@media (prefers-reduced-motion: reduce)`.
+- Animations run on any control the parent composites -- not on windows, which do not animate their own
+  style, and not on parts. In code, the same thing is `ControlStyle.Animation` (a `ControlAnimation`).
+
 ### Values
 
 | Kind | Accepted forms | Notes |
 |---|---|---|
-| color | `#rgb` `#rgba` `#rrggbb` `#rrggbbaa` · `rgb(r, g, b)` `rgba(r, g, b, a)` · `rgb(r g b / a)` · `hsl(h, s%, l%)` `hsla(...)` · the 148 CSS colour names · `transparent` · `var(--x)` | Alpha is 0–1 (or a percentage). In hex, **alpha comes last** (`#rrggbbaa`) — the opposite of the `#AARRGGBB` order the XML format uses. |
-| length | `14px` or `14` | Whole **pixels**, at 100% scaling. `pt`, `em`, `rem` and `%` are rejected, because every size in a Majorsilence.Forms style is a pixel value. |
+| color | `#rgb` `#rgba` `#rrggbb` `#rrggbbaa` · `rgb(r, g, b)` `rgba(r, g, b, a)` · `rgb(r g b / a)` · `hsl(h, s%, l%)` `hsla(...)` · `hwb()` `lab()` `lch()` `oklab()` `oklch()` · `color(display-p3 1 0 0)` · `color-mix(in oklch, a 30%, b)` · relative colours `oklch(from var(--x) l c h)` · `light-dark(a, b)` · the 148 CSS colour names · `transparent` · `var(--x)` | Alpha is 0–1 (or a percentage). In hex, **alpha comes last** (`#rrggbbaa`) — the opposite of the `#AARRGGBB` order the XML format uses. See [Modern values](#6-modern-values). |
+| length | `14px` or `14` · `0.875rem` · `calc(1rem - 2px)` · `min()` `max()` `clamp()` | **Pixels**, at 100% scaling, rounded to whole pixels. `1rem` is `--root-font-size` (16px by default). `pt`, `em` and `%` are rejected: every size in a style is a pixel value, and `em` would depend on an inherited font size a type rule cannot know. |
 | font family list | `"Segoe UI", "Noto Sans", sans-serif` | Quoted or bare names, comma-separated. The first family the machine has is used, and a font registered with `PrivateFontCollection` counts as one it has; a generic name (`sans-serif`, `serif`, `monospace`) is handed to the OS font matcher. |
-| `var(--name)` | `var(--brand)` · `var(--brand, #333)` | Substitutes a `:root` variable, or a token. A token reference inside a control rule stays **live**: `Button:hover { background-color: var(--accent-color); }` follows later changes to `Theme.AccentColor`. |
+| time | `150ms` · `.15s` | A transition duration or delay. The unit is required, as in CSS. |
+| timing function | `ease` · `cubic-bezier(.22, 1, .36, 1)` · `steps(4, jump-start)` | The easing of a transition. |
+| `var(--name)` | `var(--brand)` · `var(--brand, #333)` | Substitutes a variable -- the rule's own, then `:root`'s -- or a token. A token reference inside a control rule stays **live**: `Button:hover { background-color: var(--accent-color); }` follows later changes to `Theme.AccentColor`. |
 
 ### What is *not* supported, and what happens if you write it
 
@@ -246,21 +472,30 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `Panel Button { color: red; }` | A rule applies to every control of the type, wherever it sits. | `Button { color: red; }` |
 | `TextBox:disabled { color: gray; }` | `TextBox` does not change appearance for that state; only `Button`, `LinkLabel`, `TrackBar` take `:disabled`. | `:root { --foreground-disabled-color: gray; }`, which every disabled control's text already follows. |
 | `Button:oops { color: gray; }` | The pseudo-classes are `:hover`, `:active`, `:disabled` and `:focus`. | Pick one of those four. |
-| `Button { box-shadow: 4px 4px 8px red; }` | `box-shadow` is a hard, offset shadow only -- no blur radius or spread, so a fourth component is rejected rather than silently dropped. | `box-shadow: 4px 4px red;` |
+| `Button { box-shadow: 4px 4px; }` | A shadow needs a colour: CSS's default is `currentcolor`, which a type rule has no element for. | `box-shadow: 4px 4px rgb(0 0 0 / 25%);` |
 | `Button::icon { color: red; }` | `Button` has no separately styleable parts; parts exist only where a renderer paints a distinct piece. | `Button { color: red; }`; the reference lists the controls with parts. |
 | `DataGridView::header:hover { color: red; }` | Headers do not react to hover. | `:hover` on parts: `Menu::item`, `ToolBar::item`, `MenuDropDown::item`, `TabStrip::item`. |
 | `ScrollBar::thumb { font-size: 12px; }` | A part accepts only the properties its renderer reads. | See the part's **Accepts** column; the thumb takes `background-color`, `border-*`, `border-radius`. |
 | `TextBox:hover { color: red; }` | `TextBox` does not repaint on hover. | Only `Button`, `LinkLabel`, `TrackBar` take `:hover`. |
-| `Button { font-size: 12pt; }` | Sizes are pixels. | `font-size: 16px;` |
+| `Button { font-size: 12pt; }` | Sizes are pixels. | `font-size: 16px;` or `font-size: 1rem;` |
+| `Button { font-size: 1.2em; }` | `em` is relative to an inherited font size, which a type rule cannot know. | `rem` (relative to `--root-font-size`) or `px`. |
+| `Button { color: currentcolor; }` | A type rule has no element whose colour it could follow. | `var(--foreground-color)`. |
 | `Button { color: red !important; }` | There is no cascade to override. | Put the declaration later in the file. |
 | `@import url(base.css);` | No file inclusion. | Register the base theme, then `@theme "X" extends Base;`. |
-| `@media (prefers-color-scheme: dark) { }` | No media queries. | Register two themes and pick one in code. |
+| `@media (min-width: 600px) { }` | A theme applies to every window at once, so there is no one viewport size to test. | `@media` takes `prefers-color-scheme` and `prefers-reduced-motion`; size-dependent appearance belongs in layout code. |
+| `Panel { background-image: url(a.png); }` | A theme has no file to load an image from. | A gradient, or `Control.BackgroundImage` in code. |
+| `Form { opacity: .9; }` | Nothing composites a window onto another surface. | `Form.Opacity` in code. |
+| `@keyframes grow { to { font-size: 20px; } }` | Keyframes animate what a transition can: paint-only values, not layout or fonts. | Animate `opacity`, colours, `box-shadow`, the outline or the radii. |
+| `Panel { animation: spin 1s; }` | No `@keyframes spin` in the sheet. | Declare the keyframes in the same sheet. |
 | `Button { margin: 4px; }` | Layout is not themable; only colours, borders and fonts are. | Set `Padding`/`Margin` in code. |
 | `Button { border: 1px dotted red; }` | Borders are solid or dashed. | `border: 1px dashed red;` |
+| `Button { transition: border-width 1s; }` | A border's width moves the client area, and with it the children, every frame. | Transition `border-color`, or a `box-shadow`. |
+| `Button { transition: color 1s allow-discrete; }` | `transition-behavior` only matters for properties that change in one step, and no themable property does. | Leave it out. |
+| `Label { transition: color 1s; }` | `Label` never changes state, so a transition would never run. | Transitions run on `Button`, `LinkLabel`, `TextBox`, `TrackBar`. |
 | `Button { background: red; }` | Only the longhand is recognised (`background` would imply images/gradients). | `background-color: red;` |
 | `Button { color: linear-gradient(red, blue); }` | Gradients and images are not colours. | A flat colour. |
 | `:root { color: red; }` | `:root` takes tokens only. | `Form { color: red; }` or `--foreground-color`. |
-| `Button { --pad: 4px; }` | Variables are declared in `:root` only. | Move the declaration to `:root`; use `var(--pad)` here. |
+| `Button { --accent-color: red; }` | A theme token is theme-wide; a rule cannot override it for one control type. | Set it in `:root`, or declare a variable of your own: `Button { --button-accent: red; }`. |
 <!-- END UNSUPPORTED -->
 
 ## Reference
@@ -291,59 +526,60 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `--warning-highlight-color` | color | `WarningHighlightColor` | The colour of a destructive affordance. | The custom title bar's Close button when hovered; PictureBox error state. |
 | `--font-size` | length (px) | `FontSize` | The pixel size of text drawn with the theme font. | Menu, ToolBar, StatusStrip, MenuDropDown, TreeView, NumericUpDown, NavigationPane and the custom title bar. Button/Label/TextBox text uses the ambient font instead -- set that with a `Form { font-size }` rule. |
 | `--item-font-size` | length (px) | `ItemFontSize` | A smaller pixel size for dense item text. | DataGridView cells, ListView items, Ribbon items. Telerik: RadGridView. |
+| `--root-font-size` | length (px) | `RootFontSize` | What one 'rem' is, in pixels: 16px by default, a browser's root font size, so a rem copied from a web stylesheet keeps its size. Changes no font by itself. | Every rem in the theme: lengths, calc() and font sizes written in rem. |
 | `--ui-font` | font family list | `UIFont` | The theme font family (regular weight). | Menu, ToolBar, StatusStrip, MenuDropDown, DataGridView, ListView, NavigationPane and the custom title bar. Button/Label/TextBox text uses the ambient font instead -- set that with a `Form { font-family }` rule. Telerik: RadGridView. |
 | `--ui-font-bold` | font family list | `UIFontBold` | The theme font family used where text is bold. Resolved at bold weight. | DataGridView column headers, MonthCalendar title, NavigationPane group headers. Telerik: RadGridView. |
 
 ### Selectors (control type names)
 
-| Selector | `:hover` | `:active` | `:disabled` | `:focus` | Also styles | Notes |
-|---|---|---|---|---|---|---|
-| `Button` | yes | yes | yes | yes | `RadButton`, `RadDropDownButton` | Push buttons. Hovering applies the :hover rule on top of the normal one. Supports :active, :disabled and :focus. |
-| `CheckBox` | no | no | no | no | `RadCheckBox`, `RadToggleSwitch` | Check boxes: the text and the box glyph's surround. |
-| `ComboBox` | no | no | no | no | `CompatComboBox`, `DataGridViewComboBoxEditingControl`, `RadCheckedDropDownList`, `RadDropDownList` | Drop-down selectors (the closed box; the open list is a ListBox). |
-| `DataGridView` | no | no | no | no | `RadGridView` | Data grids: the control background and border. Cells follow the tokens (--control-low-color, --border-low-color); headers, selection and alternating rows are parts. |
-| `DateTimePicker` | no | no | no | no | `RadDateTimePicker` | Date pickers: background-color is behind the date text; the drop button and the check box follow the tokens. |
-| `Form` | no | no | no | no | `ColorDialog`, `FontDialog`, `MessageBoxForm`, `PageSetupDialog`, `PrintDialog`, `PrintPreviewDialog`, `RadDesktopAlertPopup`, `RadForm`, `RadRibbonForm`, `RadTabbedForm`, `SchedulerPrintSettingsDialog`, `ThreadExceptionDialog` | The window. background-color is the window background; border sets the window frame on platforms that draw their own; font-family / font-size / color here become the ambient defaults every child control inherits when it sets none of its own. |
-| `FormTitleBar` | no | no | no | no |  | The title bar a window draws for itself (every platform but macOS, which uses the system's). background-color is the bar, color the caption text. On macOS's merged title bar it blends with the window background instead. |
-| `GroupBox` | no | no | no | no | `RadGroupBox` | Titled group frames: the border colour is the frame, color is the caption. |
-| `HostedSurface` | no | no | no | no |  | A Majorsilence.Forms surface embedded in an Avalonia or Uno host. Transparent by default so the host shows through; a background-color rule makes it opaque. |
-| `Label` | no | no | no | no | `RadLabel` | Static text. |
-| `LinkLabel` | yes | yes | yes | yes | `RadLinkLabel` | Hyperlink text; color is the link colour. Supports :hover, :active, :disabled and :focus. |
-| `ListBox` | no | no | no | no | `CheckedListBox`, `RadListControl`, `RichListBox` | Single-column lists (also the ComboBox drop-down list). The selected item is the ::selection part. |
-| `ListView` | no | no | no | no |  | Icon / detail lists. The selected item is the ::selection part. |
-| `MdiClient` | no | no | no | no |  | The workspace of an MDI parent form, behind its child windows: background-color is the workspace colour. |
-| `Menu` | no | no | no | no | `MainMenu`, `MenuStrip`, `MenuStripClickThrough`, `RadMenu` | The menu bar. Items are the ::item part; they paint on the strip's background unless ::item sets one. |
-| `MenuDropDown` | no | no | no | no | `ContextMenu`, `ContextMenuStrip`, `ToolStripDropDown`, `ToolStripDropDownMenu`, `ToolStripOverflow` | Drop-down and context menus. Items are the ::item part. |
-| `MonthCalendar` | no | no | no | no | `RadCalendar` | The calendar grid; the selected day uses --accent-color. |
-| `NavigationPane` | no | no | no | no |  | The Outlook-style side navigation bar. |
-| `NumericUpDown` | no | no | no | no |  | Numeric spinners. |
-| `Panel` | no | no | no | no | `Card`, `ContainerControl`, `DataGrid`, `DocumentContainer`, `DocumentTabStrip`, `DomainUpDown`, `FlowLayoutPanel`, `LayoutControlGroup`, `LayoutControlItem`, `NavigationHost`, `RadCollapsiblePanel`, `RadDock`, `RadLayoutControl`, `RadPageViewPage`, `RadPanel`, `RadScrollablePanel`, `RadScrollablePanelContainer`, `SplitPanel`, `SplitterPanel`, `StackPanel`, `TabPage`, `TableLayoutPanel`, `ToolStripContainer`, `ToolStripContentPanel`, `ToolStripPanel`, `ToolTabStrip`, `UserControl` | Plain containers, including layout panels and tab pages. |
-| `PictureBox` | no | no | no | no |  | Image boxes. |
-| `PopupWindow` | no | no | no | no |  | Floating popup windows -- a combo box's list, a tool tip, a menu host: background-color is the popup behind its content. |
-| `PrintPreviewControl` | no | no | no | no |  | Print previews: background-color is the surround the pages sit on; the pages themselves are paper and stay white. |
-| `ProgressBar` | no | no | no | no | `RadWaitingBar` | Progress bars: background-color is the track and border its frame; the fill is --accent-color-2. |
-| `PropertyGrid` | no | no | no | no | `RadPropertyGrid` | Property editors. |
-| `RadioButton` | no | no | no | no | `RadRadioButton` | Radio buttons. |
-| `Ribbon` | no | no | no | no |  | The ribbon; items paint on its background and highlight with --control-highlight-low-color / --control-highlight-mid-color. |
-| `ScrollBar` | no | no | no | no | `HScrollBar`, `HorizontalScrollBar`, `VScrollBar`, `VerticalScrollBar` | Scroll bars: background-color is the track; the grip and the arrow buttons are the ::thumb and ::arrow parts. |
-| `SplitContainer` | no | no | no | no | `RadSplitContainer` | Split containers (the splitter bar between the two panels). |
-| `Splitter` | no | no | no | no |  | Stand-alone splitter bars. |
-| `StatusBar` | no | no | no | no |  | The status bar along the bottom of a form. |
-| `StatusStrip` | no | no | no | no |  | Status strips (the ToolStrip-based status bar): background-color is the strip, border-top its seam with the form above. |
-| `TabControl` | no | no | no | no | `RadPageView` | Tab controls: the frame around the pages (the tab headers are a TabStrip, the pages are Panels). |
-| `TabStrip` | no | no | no | no |  | The row of tab headers. Tabs are the ::item part (with :hover) and the current one the ::selected part. |
-| `TextBox` | no | no | no | yes | `DataGridViewTextBoxEditingControl`, `MaskedTextBox`, `RadTextBox`, `RadTextBoxControl`, `RadTimePicker`, `RichTextBox`, `TimePicker` | Text inputs. Selected text uses --text-selection-background-color. Supports :focus, for a focus ring. |
-| `ToolBar` | no | no | no | no | `BindingNavigator`, `ToolStrip`, `ToolStripClickThrough` | Tool bars. Items are the ::item part; :hover also covers a checked (toggled) item. |
-| `TrackBar` | yes | yes | yes | yes |  | Sliders. Supports :hover, :active, :disabled and :focus. |
-| `TreeView` | no | no | no | no | `RadTreeView` | Tree views. The selected node is the ::selection part. |
-| `DockWindowBase` | no | no | no | no | `DockWindow`, `DocumentWindow`, `ToolWindow` | Telerik dock windows (tool, document and plain dock windows): background-color is the window behind its content, which is --background-color by default rather than the form's. |
-| `RadCommandBar` | no | no | no | no |  | Telerik command bars: background-color is the bar behind its strips. |
-| `RadPdfViewerNavigator` | no | no | no | no |  | The Telerik PDF viewer's navigation toolbar. |
-| `RadRibbonBar` | no | no | no | no |  | Telerik ribbon bars: background-color is the ribbon behind its tabs and groups. |
-| `RadScheduler` | no | no | no | no |  | The Telerik scheduler's agenda view: background-color is behind the appointment list. |
-| `RadSchedulerNavigator` | no | no | no | no |  | The Telerik scheduler's navigation bar. |
-| `RadStatusStrip` | no | no | no | no |  | Telerik status strips along the bottom of a form. |
-| `RichTextEditorRibbonBar` | no | no | no | no |  | The Telerik rich text editor's ribbon bar. |
+| Selector | `:hover` | `:active` | `:disabled` | `:focus` | `:focus-visible` | Also styles | Notes |
+|---|---|---|---|---|---|---|---|
+| `Button` | yes | yes | yes | yes | yes | `RadButton`, `RadDropDownButton` | Push buttons. Hovering applies the :hover rule on top of the normal one. Supports :active, :disabled, :focus and :focus-visible. |
+| `CheckBox` | no | no | no | no | no | `RadCheckBox`, `RadToggleSwitch` | Check boxes: the text and the box glyph's surround. |
+| `ComboBox` | no | no | no | no | no | `CompatComboBox`, `DataGridViewComboBoxEditingControl`, `RadCheckedDropDownList`, `RadDropDownList` | Drop-down selectors (the closed box; the open list is a ListBox). |
+| `DataGridView` | no | no | no | no | no | `RadGridView` | Data grids: the control background and border. Cells follow the tokens (--control-low-color, --border-low-color); headers, selection and alternating rows are parts. |
+| `DateTimePicker` | no | no | no | no | no | `RadDateTimePicker` | Date pickers: background-color is behind the date text; the drop button and the check box follow the tokens. |
+| `Form` | no | no | no | no | no | `ColorDialog`, `FontDialog`, `MessageBoxForm`, `PageSetupDialog`, `PrintDialog`, `PrintPreviewDialog`, `RadDesktopAlertPopup`, `RadForm`, `RadRibbonForm`, `RadTabbedForm`, `SchedulerPrintSettingsDialog`, `ThreadExceptionDialog` | The window. background-color is the window background; border sets the window frame on platforms that draw their own; font-family / font-size / color here become the ambient defaults every child control inherits when it sets none of its own. |
+| `FormTitleBar` | no | no | no | no | no |  | The title bar a window draws for itself (every platform but macOS, which uses the system's). background-color is the bar, color the caption text. On macOS's merged title bar it blends with the window background instead. |
+| `GroupBox` | no | no | no | no | no | `RadGroupBox` | Titled group frames: the border colour is the frame, color is the caption. |
+| `HostedSurface` | no | no | no | no | no |  | A Majorsilence.Forms surface embedded in an Avalonia or Uno host. Transparent by default so the host shows through; a background-color rule makes it opaque. |
+| `Label` | no | no | no | no | no | `RadLabel` | Static text. |
+| `LinkLabel` | yes | yes | yes | yes | yes | `RadLinkLabel` | Hyperlink text; color is the link colour. Supports :hover, :active, :disabled, :focus and :focus-visible. |
+| `ListBox` | no | no | no | no | no | `CheckedListBox`, `RadListControl`, `RichListBox` | Single-column lists (also the ComboBox drop-down list). The selected item is the ::selection part. |
+| `ListView` | no | no | no | no | no |  | Icon / detail lists. The selected item is the ::selection part. |
+| `MdiClient` | no | no | no | no | no |  | The workspace of an MDI parent form, behind its child windows: background-color is the workspace colour. |
+| `Menu` | no | no | no | no | no | `MainMenu`, `MenuStrip`, `MenuStripClickThrough`, `RadMenu` | The menu bar. Items are the ::item part; they paint on the strip's background unless ::item sets one. |
+| `MenuDropDown` | no | no | no | no | no | `ContextMenu`, `ContextMenuStrip`, `ToolStripDropDown`, `ToolStripDropDownMenu`, `ToolStripOverflow` | Drop-down and context menus. Items are the ::item part. |
+| `MonthCalendar` | no | no | no | no | no | `RadCalendar` | The calendar grid; the selected day uses --accent-color. |
+| `NavigationPane` | no | no | no | no | no |  | The Outlook-style side navigation bar. |
+| `NumericUpDown` | no | no | no | no | no |  | Numeric spinners. |
+| `Panel` | no | no | no | no | no | `Card`, `ContainerControl`, `DataGrid`, `DocumentContainer`, `DocumentTabStrip`, `DomainUpDown`, `FlowLayoutPanel`, `LayoutControlGroup`, `LayoutControlItem`, `NavigationHost`, `RadCollapsiblePanel`, `RadDock`, `RadLayoutControl`, `RadPageViewPage`, `RadPanel`, `RadScrollablePanel`, `RadScrollablePanelContainer`, `SplitPanel`, `SplitterPanel`, `StackPanel`, `TabPage`, `TableLayoutPanel`, `ToolStripContainer`, `ToolStripContentPanel`, `ToolStripPanel`, `ToolTabStrip`, `UserControl` | Plain containers, including layout panels and tab pages. |
+| `PictureBox` | no | no | no | no | no |  | Image boxes. |
+| `PopupWindow` | no | no | no | no | no |  | Floating popup windows -- a combo box's list, a tool tip, a menu host: background-color is the popup behind its content. |
+| `PrintPreviewControl` | no | no | no | no | no |  | Print previews: background-color is the surround the pages sit on; the pages themselves are paper and stay white. |
+| `ProgressBar` | no | no | no | no | no | `RadWaitingBar` | Progress bars: background-color is the track and border its frame; the fill is --accent-color-2. |
+| `PropertyGrid` | no | no | no | no | no | `RadPropertyGrid` | Property editors. |
+| `RadioButton` | no | no | no | no | no | `RadRadioButton` | Radio buttons. |
+| `Ribbon` | no | no | no | no | no |  | The ribbon; items paint on its background and highlight with --control-highlight-low-color / --control-highlight-mid-color. |
+| `ScrollBar` | no | no | no | no | no | `HScrollBar`, `HorizontalScrollBar`, `VScrollBar`, `VerticalScrollBar` | Scroll bars: background-color is the track; the grip and the arrow buttons are the ::thumb and ::arrow parts. |
+| `SplitContainer` | no | no | no | no | no | `RadSplitContainer` | Split containers (the splitter bar between the two panels). |
+| `Splitter` | no | no | no | no | no |  | Stand-alone splitter bars. |
+| `StatusBar` | no | no | no | no | no |  | The status bar along the bottom of a form. |
+| `StatusStrip` | no | no | no | no | no |  | Status strips (the ToolStrip-based status bar): background-color is the strip, border-top its seam with the form above. |
+| `TabControl` | no | no | no | no | no | `RadPageView` | Tab controls: the frame around the pages (the tab headers are a TabStrip, the pages are Panels). |
+| `TabStrip` | no | no | no | no | no |  | The row of tab headers. Tabs are the ::item part (with :hover) and the current one the ::selected part. |
+| `TextBox` | no | no | no | yes | yes | `DataGridViewTextBoxEditingControl`, `MaskedTextBox`, `RadTextBox`, `RadTextBoxControl`, `RadTimePicker`, `RichTextBox`, `TimePicker` | Text inputs. Selected text uses --text-selection-background-color. Supports :focus and :focus-visible, for a focus ring (a text box always counts as :focus-visible when focused, as in a browser). |
+| `ToolBar` | no | no | no | no | no | `BindingNavigator`, `ToolStrip`, `ToolStripClickThrough` | Tool bars. Items are the ::item part; :hover also covers a checked (toggled) item. |
+| `TrackBar` | yes | yes | yes | yes | yes |  | Sliders. Supports :hover, :active, :disabled, :focus and :focus-visible. |
+| `TreeView` | no | no | no | no | no | `RadTreeView` | Tree views. The selected node is the ::selection part. |
+| `DockWindowBase` | no | no | no | no | no | `DockWindow`, `DocumentWindow`, `ToolWindow` | Telerik dock windows (tool, document and plain dock windows): background-color is the window behind its content, which is --background-color by default rather than the form's. |
+| `RadCommandBar` | no | no | no | no | no |  | Telerik command bars: background-color is the bar behind its strips. |
+| `RadPdfViewerNavigator` | no | no | no | no | no |  | The Telerik PDF viewer's navigation toolbar. |
+| `RadRibbonBar` | no | no | no | no | no |  | Telerik ribbon bars: background-color is the ribbon behind its tabs and groups. |
+| `RadScheduler` | no | no | no | no | no |  | The Telerik scheduler's agenda view: background-color is behind the appointment list. |
+| `RadSchedulerNavigator` | no | no | no | no | no |  | The Telerik scheduler's navigation bar. |
+| `RadStatusStrip` | no | no | no | no | no |  | Telerik status strips along the bottom of a form. |
+| `RichTextEditorRibbonBar` | no | no | no | no | no |  | The Telerik rich text editor's ribbon bar. |
 
 ### Telerik controls (`Majorsilence.Forms.Telerik`)
 
@@ -443,8 +679,8 @@ A rule for the selector these follow styles their background and border; the con
 |---|---|---|
 | `background-color` | color | The control's background. |
 | `color` | color | The control's text (foreground) colour. |
-| `border` | [width] [solid \| dashed \| none] [color] | Shorthand for border-width, border-style and border-color, in any order. Borders are solid or dashed; 'none' is width 0. |
-| `border-style` | solid \| dashed | How the border line is drawn: a continuous line or dashes (each dash and gap three times the border width). dotted, double, groove, ridge, inset and outset are rejected. |
+| `border` | [width] [solid | dashed | none] [color] | Shorthand for border-width, border-style and border-color, in any order. Borders are solid or dashed; 'none' is width 0. |
+| `border-style` | solid | dashed | How the border line is drawn: a continuous line or dashes (each dash and gap three times the border width). dotted, double, groove, ridge, inset and outset are rejected. |
 | `border-width` | length | The width of all four border sides, in pixels. |
 | `border-color` | color | The colour of all four border sides. |
 | `border-radius` | length{1,4} | The corner radius, in pixels. One value applies to all four corners; two to top-left/bottom-right and top-right/bottom-left; three to top-left, top-right/bottom-left and bottom-right; four to top-left, top-right, bottom-right, bottom-left. When any corner is greater than 0 all four sides are drawn with the same width and colour. Elliptical radii ('/') are not supported. |
@@ -453,9 +689,27 @@ A rule for the selector these follow styles their background and border; the con
 | `border-top-color` | color | The colour of one side. Also border-right-color, border-bottom-color, border-left-color. |
 | `font-family` | family list | The typeface. The first family the machine has is used, and a font registered with PrivateFontCollection counts as one it has; generic names (sans-serif, serif, monospace) are passed to the OS font matcher. |
 | `font-size` | length | The text size in pixels (not points). |
-| `font-weight` | normal \| bold \| 100..900 | The weight. Without a font-family in the same rule, the default UI font family is used at that weight. |
-| `font-style` | normal \| italic \| oblique | The slant. Without a font-family in the same rule, the default UI font family is used. |
-| `box-shadow` | <horizontal-offset> <vertical-offset> <color> | A hard, offset shadow behind the control's own shape -- no blur, no spread, no 'inset'. Exactly three components, in that order, e.g. 'box-shadow: 4px 4px #2b1b4d;'; a negative offset shifts the shadow left/up instead of right/down. A fourth component (a blur radius, a spread, 'inset') is rejected, not silently dropped. |
+| `font-weight` | normal | bold | 100..900 | The weight. Without a font-family in the same rule, the default UI font family is used at that weight. |
+| `font-style` | normal | italic | oblique | The slant. Without a font-family in the same rule, the default UI font family is used. |
+| `box-shadow` | none | [inset] <offset-x> <offset-y> [<blur> [<spread>]] <color># | Shadows with the control's own shape, the first on top: an outer one behind the face, an inset one inside it over the background. e.g. 'box-shadow: 4px 4px #2b1b4d;' (hard and offset) or '0 1px 3px rgb(0 0 0 / 20%), inset 0 0 0 1px #fff'. The colour is required. A control cannot paint outside itself, so the face shrinks to leave room for outer shadows on each side they reach. |
+| `background-image` | none | <gradient># | Gradient layers over the background colour, inside the control's rounded face, the first on top: linear-gradient(), radial-gradient(), conic-gradient() and their repeating- forms, e.g. 'linear-gradient(to bottom, #ffffff, #e6e6e6)'. Stops take lengths, percentages (angles for conic) and two positions for a hard band; url() images and transition hints are not supported. 'background' (the shorthand) stays an error. |
+| `outline` | [width] [solid | dashed | auto | none] [color] | A ring drawn around the control, outside it, by its parent: it takes no room and moves nothing -- the usual focus ring, e.g. 'Button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }'. Shorthand for outline-width (thin 1px, medium 3px, thick 5px), outline-style and outline-color (the text colour when omitted). It follows the corner radii. Not on windows or parts. |
+| `outline-offset` | length | How far outside the control's edge the outline sits; negative draws it inside. |
+| `opacity` | <number> | <percentage> | How opaque the control is, 0 to 1 (or 0% to 100%), children included: its parent composites it translucent, e.g. 'Button:disabled { opacity: .65; }'. Hit-testing is unchanged. Not on windows (Form, PopupWindow, HostedSurface): a window's own opacity is Form.Opacity. |
+| `transition` | [<property> || <duration> || <timing-function> || <delay>]# | none | Animates the change into this rule's state: shorthand for the four transition-* longhands, one comma-separated entry per property, e.g. 'transition: background-color 150ms ease-out, box-shadow 200ms;'. In an entry the first time is the duration and the second the delay; a missing property is 'all', a missing duration 0s, a missing timing function 'ease'. Runs on controls with pseudo-classes, and not at all when the user prefers reduced motion. |
+| `transition-property` | none | all | <property># | Which properties animate. Animatable: background-color, color, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, border-radius, border-top-left-radius, border-top-right-radius, border-bottom-right-radius, border-bottom-left-radius, box-shadow, opacity, outline-color, outline-width, outline-offset. Border widths are rejected (they move the client area, and with it the children); fonts and border-style have no in-between values. |
+| `transition-duration` | <time># | How long each transition takes: '150ms' or '.15s'. The n-th duration goes with the n-th property; a shorter list repeats. |
+| `transition-timing-function` | <timing-function># | The easing: linear, ease (the default), ease-in, ease-out, ease-in-out, step-start, step-end, cubic-bezier(x1, y1, x2, y2), steps(n[, position]). linear() stop lists are not supported. |
+| `transition-delay` | <time># | How long each transition waits before it starts; a negative delay starts it part-way through. |
+| `animation` | [<name> || <duration> || <timing-function> || <delay> || <iteration-count> || <direction> || <fill-mode> || <play-state>]# | none | Plays '@keyframes' while the control is in this rule's state, e.g. 'animation: pulse 1.2s ease-in-out infinite alternate;'. Shorthand for the eight animation-* longhands; the first time is the duration, the second the delay. The keyframes must be in the same sheet. Animates the same properties as transition, wins over it, and does not run when the user prefers reduced motion. Not on windows or parts. |
+| `animation-name` | none | <keyframes-name># | Which '@keyframes' play. Changing the name restarts the animation; keeping it lets it run on across a state change. |
+| `animation-duration` | <time># | How long one iteration takes. |
+| `animation-timing-function` | <timing-function># | The easing between keyframes; a keyframe can set its own with animation-timing-function inside it. |
+| `animation-delay` | <time># | How long it waits before starting; negative starts part-way through. |
+| `animation-iteration-count` | <number> | infinite | How many times it runs; fractions stop part-way. An infinite one pauses while its control is off screen. |
+| `animation-direction` | normal | reverse | alternate | alternate-reverse | Which way the iterations run. |
+| `animation-fill-mode` | none | forwards | backwards | both | Whether the first keyframe applies during the delay (backwards) and the last stays after the end (forwards). |
+| `animation-play-state` | running | paused | A paused animation holds its starting frame. |
 <!-- END GENERATED: reference -->
 
 Two things to know about **fonts**, because they are the one place the tokens and the rules meet:
@@ -577,6 +831,8 @@ with, and edit the rest:
   --font-size: 14px;
   /* A smaller pixel size for dense item text. */
   --item-font-size: 12px;
+  /* What one 'rem' is, in pixels: 16px by default, a browser's root font size, so a rem copied from a web stylesheet keeps its size. Changes no font by itself. */
+  --root-font-size: 16px;
   /* The theme font family (regular weight). */
   --ui-font: "Segoe UI", "Noto Sans", sans-serif;
   /* The theme font family used where text is bold. Resolved at bold weight. */

@@ -11,7 +11,7 @@ namespace Majorsilence.Forms.Theming.WinForms.Tests
     // have an explicit answer for WinForms, and docs/theming-winforms.md must show exactly that answer.
     public class WinFormsThemeSupportTests
     {
-        private static readonly string[] Longhands = MF.ThemeCssReference.PropertyNames.Where (p => p != "border").ToArray ();
+        private static readonly string[] Longhands = MF.ThemeCssReference.LonghandNames.ToArray ();
 
         [Fact]
         public void EverySelector_HasAMapping ()

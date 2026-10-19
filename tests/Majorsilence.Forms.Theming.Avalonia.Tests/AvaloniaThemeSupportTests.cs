@@ -19,7 +19,7 @@ namespace Majorsilence.Forms.Theming.Avalonia.Tests
     // with the type the applier writes, and docs/theming-avalonia.md must show exactly that answer.
     public class AvaloniaThemeSupportTests
     {
-        private static readonly string[] Longhands = MF.ThemeCssReference.PropertyNames.Where (p => p != "border").ToArray ();
+        private static readonly string[] Longhands = MF.ThemeCssReference.LonghandNames.ToArray ();
 
         [Fact]
         public void EverySelector_HasAMapping ()

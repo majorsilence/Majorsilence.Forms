@@ -33,6 +33,9 @@ namespace Majorsilence.Forms
         private const int default_font_size = 14;
         private const int default_item_font_size = 12;
 
+        // A browser's root font size, so a 'rem' copied from a web stylesheet means here what it means there.
+        private const int default_root_font_size = 16;
+
         static Theme ()
         {
             CachingFontMapper.Install ();
@@ -252,6 +255,15 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// The size, in pixels, that one CSS <c>rem</c> stands for in a theme: <c>1.5rem</c> is one and a half times it. 16 by default, a
+        /// browser's root font size, so a value copied from a web stylesheet keeps its size. It does not change any control's font.
+        /// </summary>
+        public static int RootFontSize {
+            get => GetValue<int> (nameof (RootFontSize));
+            set => SetValue (nameof (RootFontSize), value);
+        }
+
+        /// <summary>
         /// The color used as the background for selected text.
         /// </summary>
         public static SKColor TextSelectionBackgroundColor {
@@ -301,6 +313,7 @@ namespace Majorsilence.Forms
             values[nameof (UIFontBold)] = default_ui_font_bold;
             values[nameof (FontSize)] = default_font_size;
             values[nameof (ItemFontSize)] = default_item_font_size;
+            values[nameof (RootFontSize)] = default_root_font_size;
 
             // TODO: BuiltInTheme.Default should detect the OS setting. Currently it just uses Light.
             switch (theme) {

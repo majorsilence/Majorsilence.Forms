@@ -64,6 +64,7 @@ StyleHover
 StyleActive
 StyleDisabled
 StyleFocus
+StyleFocusVisible
 
 # N/A -- Majorsilence.Forms-internal plumbing, not WinForms surface.
 InvokeGotFocus/2
