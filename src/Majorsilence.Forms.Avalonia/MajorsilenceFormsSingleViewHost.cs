@@ -980,15 +980,31 @@ namespace Majorsilence.Forms
 
         // ── IWindowBackend ───────────────────────────────────────────────────────────────────────────
 
+        // Location is in screen coordinates -- device pixels, what PointToScreen answers, so a drop-down
+        // placed under its button lands there -- but the root Canvas lays its children out in Avalonia's
+        // device-independent units. Setting one as the other put every popup and secondary window at
+        // RenderScaling times its place: off the right of a phone screen (2.625 on a Pixel 7), where no
+        // menu, drop-down or dialog was ever seen, and unnoticed in a browser at a pixel ratio of 1.
         System.Drawing.Point IWindowBackend.Location {
             get => _location;
             set {
                 _location = value;
                 if (!_isRoot) {
-                    Canvas.SetLeft (this, value.X);
-                    Canvas.SetTop (this, value.Y);
+                    var place = ScreenToRootCanvas (value);
+                    Canvas.SetLeft (this, place.X);
+                    Canvas.SetTop (this, place.Y);
                 }
             }
+        }
+
+        // A screen point (device pixels) in the root Canvas's own units, through the TopLevel as PointToClient
+        // does. Before the root is in a TopLevel there is no scale to go by: the point is used as it is.
+        private static AvPoint ScreenToRootCanvas (System.Drawing.Point screen)
+        {
+            if (MainHost is not { } root || TopLevel.GetTopLevel (root) is not { } top)
+                return new AvPoint (screen.X, screen.Y);
+            var inTop = top.PointToClient (new PixelPoint (screen.X, screen.Y));
+            return top.TranslatePoint (inTop, root) ?? inTop;
         }
 
         System.Drawing.Size IWindowBackend.Size {
