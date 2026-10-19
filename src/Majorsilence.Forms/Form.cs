@@ -55,6 +55,7 @@ namespace Majorsilence.Forms
             // z-order as the docking order"), so the last child added is docked first. Adding the Fill
             // last would have let it claim the whole window before the caption had taken its strip.
             client_area = adapter.Controls.AddImplicitControl (new FormClientArea (this));
+            adapter.SelectedControlChanged += (_, focused) => UpdateDefaultButton (focused);
             TitleBar = adapter.Controls.AddImplicitControl (new FormTitleBar ());
 
             Resizeable = true;
@@ -235,15 +236,30 @@ namespace Majorsilence.Forms
                 // SMP-07: the setter was a bare auto-property, so NotifyDefault -- which exists, and
                 // sets the IsDefault flag a renderer can draw the heavier border from -- was never
                 // called by anything. The default button on every dialog looked like all the others,
-                // leaving no way to see which one Enter would press. Upstream's UpdateDefaultButton
-                // does exactly this pair of calls.
-                accept_button?.NotifyDefault (false);
+                // leaving no way to see which one Enter would press.
                 accept_button = value;
-                accept_button?.NotifyDefault (true);
+                UpdateDefaultButton (adapter.SelectedControl);
             }
         }
 
         private IButtonControl? accept_button;
+
+        // The button the form shows as its default, as upstream's Form.UpdateDefaultButton chooses it on every
+        // focus change: the focused control when that is a button, the AcceptButton otherwise. Only the
+        // AcceptButton was ever told, so a focused button looked like any other.
+        private IButtonControl? default_button;
+
+        private void UpdateDefaultButton (Control? focused)
+        {
+            var target = focused as IButtonControl ?? accept_button;
+
+            if (ReferenceEquals (default_button, target))
+                return;
+
+            default_button?.NotifyDefault (false);
+            default_button = target;
+            default_button?.NotifyDefault (true);
+        }
 
         /// <summary>Gets or sets whether the form can be maximized.</summary>
         public bool AllowMaximize {

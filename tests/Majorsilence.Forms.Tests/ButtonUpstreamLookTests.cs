@@ -22,9 +22,12 @@ namespace Majorsilence.Forms.Tests
 
                 HeadlessRenderer.Use ();
                 using var form = new Form { FormBorderStyle = FormBorderStyle.None, ClientSize = new Size (120, 40) };
-                var button = new Button { Text = "OK", Location = new Point (10, 5), Size = new Size (90, 28) };
+                var button = new Button { Text = "OK", Location = new Point (10, 5), Size = new Size (90, 28), TabIndex = 1 };
                 configure?.Invoke (button);
                 form.Controls.Add (button);
+
+                // Takes the focus on Show, so the button is not the default just for being focused.
+                form.Controls.Add (new TextBox { Location = new Point (110, 30), Size = new Size (6, 6), TabIndex = 0 });
                 if (isDefault)
                     form.AcceptButton = button;
                 form.Show ();
@@ -57,6 +60,38 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void Another_button_is_outlined_in_grey ()
             => Assert.Equal (0, Pixels (chooseFont: true, isDefault: false).accent);
+
+        // As upstream's Form.UpdateDefaultButton: the focused button is the form's default button, whatever
+        // AcceptButton says, so it is outlined in the accent. Only the AcceptButton ever was.
+        [Fact]
+        public void The_focused_button_is_the_default_one ()
+        {
+            try {
+                Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 9f));
+                HeadlessRenderer.Use ();
+                using var form = new Form { FormBorderStyle = FormBorderStyle.None, ClientSize = new Size (300, 60) };
+                var ok = new Button { Text = "OK", Location = new Point (10, 5), TabIndex = 1 };
+                var cancel = new Button { Text = "Cancel", Location = new Point (110, 5), TabIndex = 2 };
+                var field = new TextBox { Location = new Point (210, 5), TabIndex = 0 };
+                form.Controls.Add (ok);
+                form.Controls.Add (cancel);
+                form.Controls.Add (field);
+                form.AcceptButton = ok;
+                form.Show ();
+
+                Assert.True (ok.IsDefault);   // the text box has the focus: the AcceptButton is the default
+
+                cancel.Select ();
+                Assert.True (cancel.IsDefault);
+                Assert.False (ok.IsDefault);
+
+                field.Select ();
+                Assert.True (ok.IsDefault);
+                Assert.False (cancel.IsDefault);
+            } finally {
+                Application.SetDefaultFont (null!);
+            }
+        }
 
         [Fact]
         public void A_button_with_its_own_back_colour_keeps_it ()
