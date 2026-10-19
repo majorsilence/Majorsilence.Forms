@@ -52,7 +52,8 @@ namespace Majorsilence.Forms.Renderers
                 + grid.FilterRowBandHeight;
             var area = new Rectangle (content.Left, top, content.Width, Math.Max (0, content.Bottom - top));
 
-            e.Canvas.DrawText (RadGridView.NoDataText, Theme.UIFont, grid.LogicalToDeviceUnits (Theme.ItemFontSize), area,
+            // In the grid's own font, as Telerik's: a 12pt grid said so in the theme's small item font.
+            e.Canvas.DrawText (RadGridView.NoDataText, grid.GetEffectiveFont (), grid.LogicalToDeviceUnits (grid.GetEffectiveFontSize ()), area,
                 grid.Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor, ContentAlignment.MiddleCenter, maxLines: 1);
         }
 

@@ -440,6 +440,40 @@ namespace Majorsilence.Forms.Tests
             Assert.True (grid.FilterRowBandHeight > 0);
         }
 
+        // Telerik writes "No data to display" in the grid's own font; it was always the theme's small item font,
+        // so a designer's 12pt grid said it in 8pt.
+        [Fact]
+        public void An_empty_RadGridViews_no_data_text_is_in_the_grids_font ()
+        {
+            int InkHeight (float points)
+            {
+                using var deterministic = HeadlessRenderer.UseDeterministic ();
+                using var form = new Form { Size = new System.Drawing.Size (400, 300) };
+                var grid = new Majorsilence.Forms.Telerik.RadGridView { Left = 0, Top = 0, Width = 300, Height = 200 };
+                grid.Font = new DFont (grid.Font.Name, points);
+                form.Controls.Add (grid);
+                form.Show ();
+                HeadlessRenderer.CapturePng (form);
+                HeadlessRenderer.CapturePng (form);
+                var buffer = typeof (Control).GetMethod ("GetBackBuffer",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+                var bitmap = (SkiaSharp.SKBitmap) buffer.Invoke (grid, null)!;
+
+                int top = -1, bottom = -1;
+                for (var y = 0; y < bitmap.Height; y++)
+                    for (var x = 0; x < bitmap.Width; x++)
+                        if (bitmap.GetPixel (x, y) is var c && c.Red < 100 && c.Green < 100 && c.Blue < 100) {
+                            if (top < 0) top = y;
+                            bottom = y;
+                            break;
+                        }
+
+                return bottom - top;
+            }
+
+            Assert.True (InkHeight (16f) > InkHeight (8f) * 3 / 2, "the text follows the grid's font size");
+        }
+
         // Selecting a container control in tab order passes the focus on to its own first control, as
         // upstream's ContainerControl.Select (directed) does. A UserControl wrapping a TextBox (a date
         // field, say) took the focus itself, so the TextBox inside never got it, nor its Enter event.
@@ -830,6 +864,25 @@ namespace Majorsilence.Forms.Tests
 
             // An explicit no-wrap header style keeps one line.
             grid.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.False;
+            Assert.Equal (one_line, grid.ColumnHeadersHeight);
+        }
+
+        // Upstream's header text breaks only between words: a one-word caption too wide for its column stays on
+        // one line. Here the layout split the word, so "EmpCode" read "EmpCod" over "e" and the header band grew.
+        [Fact]
+        public void A_one_word_caption_too_wide_for_its_column_is_not_split ()
+        {
+            using var deterministic = HeadlessRenderer.UseDeterministic ();
+            using var grid = new DataGridView { ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize };
+            grid.Columns.Add ("a", "Short");
+            grid.Columns[0].Width = 200;
+
+            var one_line = grid.ColumnHeadersHeight;
+
+            grid.Columns.Add ("b", "EmpCode");
+            grid.Columns[1].Width = 40;   // too narrow for the word
+
+            Assert.True (grid.HeaderWraps);
             Assert.Equal (one_line, grid.ColumnHeadersHeight);
         }
 
