@@ -1,0 +1,140 @@
+/* CSS Showcase: the newer parts of the theme CSS in one sheet (docs/theming.md, sections 5-9).
+   Run the sample with this file's path and edit it while the window is open -- every save re-applies:
+     dotnet run --project samples/CssShowcase -- samples/CssShowcase/showcase.css */
+@theme "Showcase" extends Light;
+
+/* Modern values: an oklch brand colour, shades derived from it with relative colours and color-mix(),
+   and rem lengths (1rem is --root-font-size). */
+:root {
+  --brand: oklch(56% 0.2 262);
+  --brand-strong: oklch(from var(--brand) calc(l - 0.08) c h);
+  --brand-ring: color-mix(in oklch, var(--brand) 45%, transparent);
+  --page: #f3f5fa;
+  --card: #ffffff;
+  --ink: #1c2230;
+  --line: #d6dce8;
+
+  --accent-color: var(--brand);
+  --accent-color-2: var(--brand);
+  --background-color: var(--page);
+  --control-low-color: var(--card);
+  --control-mid-color: #e9edf5;
+  --control-mid-high-color: #dde2ed;
+  --border-low-color: var(--line);
+  --foreground-color: var(--ink);
+  --font-size: 14px;
+}
+
+/* Media queries: follow the operating system's light or dark appearance while the app runs. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --brand: oklch(68% 0.17 262);
+    --page: #10131a;
+    --card: #1a1f2b;
+    --ink: #e5e8f0;
+    --line: #2d3446;
+    --control-mid-color: #252b3a;
+    --control-mid-high-color: #2f3647;
+  }
+}
+
+Form {
+  background-color: var(--page);
+}
+
+/* Cards: rounded corners and a soft, layered, blurred shadow. */
+Panel {
+  background-color: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgb(16 24 40 / 6%), 0 4px 10px rgb(16 24 40 / 8%);
+}
+
+Label {
+  color: var(--ink);
+}
+
+/* Buttons: a gradient sheen, an inset highlight, a rule variable that :hover and :active override,
+   transitions between the states, a keyboard-only focus ring and a faded disabled state. Every state's
+   outer shadow reaches equally far: a shadow takes room inside the control, so a longer one on :hover
+   would shrink the button. */
+Button {
+  --button-bg: var(--brand);
+  background-color: var(--button-bg);
+  background-image: linear-gradient(to bottom, rgb(255 255 255 / 18%), transparent);
+  color: white;
+  border: 1px solid var(--brand-strong);
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 5px rgb(0 0 0 / 18%), inset 0 1px 0 rgb(255 255 255 / 25%);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition: background-color 180ms ease-out, box-shadow 180ms ease-out, opacity 250ms, outline-color 150ms;
+}
+
+Button:hover {
+  --button-bg: oklch(from var(--brand) calc(l + 0.07) c h);
+  box-shadow: 0 2px 5px rgb(0 0 0 / 35%), inset 0 1px 0 rgb(255 255 255 / 25%);
+}
+
+Button:active {
+  --button-bg: var(--brand-strong);
+  box-shadow: 0 2px 5px rgb(0 0 0 / 8%), inset 0 2px 4px rgb(0 0 0 / 35%);
+  transition-duration: 60ms;
+}
+
+Button:focus-visible {
+  outline-color: var(--brand-ring);
+  animation: focus-ring 220ms ease-out;
+}
+
+Button:disabled {
+  opacity: .45;
+}
+
+/* Text boxes: a focus ring drawn as an outline, so it takes no room and nothing moves. */
+TextBox {
+  background-color: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 0.375rem;
+  outline: 3px solid transparent;
+  outline-offset: 0;
+  transition: border-color 150ms, outline-color 150ms;
+}
+
+TextBox:focus {
+  border-color: var(--brand);
+  outline-color: var(--brand-ring);
+}
+
+LinkLabel {
+  color: var(--brand);
+  transition: color 200ms ease-in-out;
+}
+
+LinkLabel:hover {
+  color: oklch(from var(--brand) calc(l - 0.15) calc(c * 1.2) calc(h + 40));
+}
+
+/* Keyframe animations: the focus ring springs in, and the progress bar breathes forever. */
+@keyframes focus-ring {
+  from { outline-offset: 7px; outline-color: transparent; }
+  to   { outline-offset: 2px; }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .55; }
+}
+
+ProgressBar {
+  background-color: var(--control-mid-color);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  animation: breathe 1.8s ease-in-out infinite;
+}
+
+/* Users who ask for reduced motion get no animation (the framework already does this; the sheet can
+   also say what to do instead). */
+@media (prefers-reduced-motion: reduce) {
+  ProgressBar { animation: none; opacity: .8; }
+}

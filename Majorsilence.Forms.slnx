@@ -10,6 +10,7 @@
   <Folder Name="/Samples/">
     <Project Path="samples/AutomationTarget/AutomationTarget.csproj" />
     <Project Path="samples/ControlGallery/ControlGallery.csproj" />
+    <Project Path="samples/CssShowcase/CssShowcase.csproj" />
     <Project Path="samples/EmbeddingAvalonia/EmbeddingAvalonia.csproj" />
     <Project Path="samples/EmbeddingGtk4/EmbeddingGtk4.csproj" />
     <Project Path="samples/EmbeddingUno/EmbeddingUno.csproj" />
