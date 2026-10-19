@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>$(_TargetFramework)</TargetFramework>
+    <RootNamespace>CssShowcase</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Avalonia\Majorsilence.Forms.Avalonia.csproj" />
+    <!-- For the render-headless switch: renders the window to a PNG with no display. -->
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.Headless\Majorsilence.Forms.Headless.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="showcase.css" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

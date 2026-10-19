@@ -36,6 +36,7 @@ runner that has only one of the two workloads — pass `-p:EnableAndroidTarget=t
 | [`Outlaw`](#outlaw) | An Outlook clone | Windows, macOS, Linux |
 | [`PointOfSale`](#pointofsale) | A full client/server LOB app | Windows, macOS, Linux |
 | [`ThemeStudio`](#themestudio) | Live CSS theme editor and preview | Windows, macOS, Linux |
+| [`CssShowcase`](#cssshowcase) | One small window styled by the newer theme CSS: transitions, gradients, shadows, focus rings, `@media`, `@keyframes` | Windows, macOS, Linux |
 | [`EmbeddingAvalonia` / `EmbeddingUno` / `EmbeddingWinForms` / `EmbeddingGtk4`](#embeddingavalonia--embeddinguno--embeddingwinforms--embeddinggtk4) | Majorsilence.Forms hosted *inside* a native app | Desktop (WinForms: Windows only; Gtk4: needs GTK 4) |
 | [`WinFormsInterop`](#winformsinterop-windows-only) | Bi-directional `System.Windows.Forms` interop | Windows |
 | [`WinFormsCompatDemo`](#winformscompatdemo) | Source-generated `System.Windows.Forms` namespace, no real WinForms assembly | Windows, macOS, Linux |
@@ -360,6 +361,26 @@ exist only on the Avalonia backend, so a headless render shows a note there inst
 matched light/dark pair sharing one accent and identical control rules, so an app can switch modes
 without anything moving), `ocean.css` (deep blue), `graphite.css` (neutral dark, amber accent, flat
 controls), `paper.css` and `parchment.css` (warm light themes with serif body text).
+
+### CssShowcase
+
+A small sign-in-and-settings window whose whole look comes from one stylesheet,
+[`samples/CssShowcase/showcase.css`](../samples/CssShowcase/showcase.css), written with the newer parts of
+the [theme CSS](theming.md): an `oklch()` brand colour with shades derived by relative colours and
+`color-mix()`, `rem` sizes, gradient and inset-highlight buttons whose `:hover` / `:active` rules only
+change a rule variable and fade between states with `transition`, a keyboard-only `:focus-visible`
+outline that springs in with `@keyframes`, text boxes with an outline focus ring, cards with layered
+blurred shadows, a progress bar that breathes with an infinite animation, and a dark palette under
+`@media (prefers-color-scheme: dark)` that follows the operating system while the app runs.
+
+```bash
+dotnet run --project samples/CssShowcase                                       # the copy beside the app
+dotnet run --project samples/CssShowcase -- samples/CssShowcase/showcase.css   # edit the file; each save re-applies
+dotnet run --project samples/CssShowcase -- --render-headless out.png [--dark] [--hover] [--focus]
+```
+
+The last form renders the window to a PNG with no display -- dark mode, the first button hovered, or
+keyboard focus moved with Tab -- and exits non-zero if the sheet has errors.
 
 ### ThemeStudio.WinForms
 
