@@ -195,7 +195,7 @@ namespace Majorsilence.Forms
                 return;
             // The working area is in device pixels; the dialog lays out in the owner's logical units.
             var room = owner.DeviceToLogicalUnits (screen.WorkingArea.Width) - 2 * ScreenMargin - (icon_box.Visible ? icon_box.Width : 0);
-            var fitted = Math.Clamp (room, MinTextWidth, MaxTextWidth);
+            var fitted = Math.Max (MinTextWidth, Math.Min (MaxTextWidth, room));   // no Math.Clamp on netstandard2.0
             if (fitted == max_text_width)
                 return;
             max_text_width = fitted;
