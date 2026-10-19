@@ -47,6 +47,25 @@ namespace Majorsilence.Forms.Tests
         private static System.Collections.Generic.IEnumerable<Control> Descendants (System.Collections.Generic.IEnumerable<Control> controls)
             => controls.SelectMany (c => new[] { c }.Concat (Descendants (c.Controls.Cast<Control> ())));
 
+        // MessageBox.ShowAsync (text) with no owner, as an app on a single view calls it: the box fits the screen.
+        [Fact]
+        public void Without_an_owner_it_fits_the_screen_too ()
+        {
+            var phone = new Rectangle (0, 0, 411, 880);
+            Headless.Screens = [new ScreenInfo ("Phone", phone, new Rectangle (0, 24, 411, 832), isPrimary: true)];
+            using var main = new Form { Location = Point.Empty, Size = phone.Size, StartPosition = FormStartPosition.Manual };
+            main.Show ();
+            Cursor.Position = new Point (200, 400);
+
+            _ = MessageBox.ShowAsync (string.Join (" ", Enumerable.Repeat ("A sentence that goes on.", 12)), "Long", MessageBoxButtons.OKCancel);
+            var box = Application.OpenForms.OfType<MessageBoxForm> ().Single ();
+            try {
+                Assert.True (box.ScreenBounds.Width <= 411, $"the box is {box.ScreenBounds.Width} wide on a 411 screen");
+            } finally {
+                box.Close ();
+            }
+        }
+
         [Fact]
         public void A_desktop_screen_keeps_the_usual_width ()
         {

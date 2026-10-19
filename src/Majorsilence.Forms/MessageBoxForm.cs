@@ -191,10 +191,14 @@ namespace Majorsilence.Forms
         /// </summary>
         internal void FitWithin (Form? owner)
         {
-            if (owner is null || Screen.FromControl (owner) is not { } screen)
+            // Without an owner the box centres on the screen under the pointer (CenterToScreen), so it fits that one;
+            // any open form converts units, as they share the screen's scale.
+            var reference = owner ?? Application.OpenForms.OfType<Form> ().FirstOrDefault (f => f is not MessageBoxForm && f.Visible);
+            var screen = owner is not null ? Screen.FromControl (owner) : Screen.FromPoint (Cursor.Position) ?? Screen.PrimaryScreen;
+            if (reference is null || screen is null)
                 return;
-            // The working area is in device pixels; the dialog lays out in the owner's logical units.
-            var room = owner.DeviceToLogicalUnits (screen.WorkingArea.Width) - 2 * ScreenMargin - (icon_box.Visible ? icon_box.Width : 0);
+            // The working area is in device pixels; the dialog lays out in logical units.
+            var room = reference.DeviceToLogicalUnits (screen.WorkingArea.Width) - 2 * ScreenMargin - (icon_box.Visible ? icon_box.Width : 0);
             var fitted = Math.Max (MinTextWidth, Math.Min (MaxTextWidth, room));   // no Math.Clamp on netstandard2.0
             if (fitted == max_text_width)
                 return;
