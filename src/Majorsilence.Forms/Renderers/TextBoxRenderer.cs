@@ -138,8 +138,7 @@ namespace Majorsilence.Forms.Renderers
         /// the absence of ES_NOHIDESEL, which controls the painting and nothing else. An editor that
         /// sets <c>HideSelection = false</c> to keep the highlight visible now gets it.</remarks>
         protected TextSelection GetTextSelection (TextBox control)
-            => !control.Selected && control.HideSelection ? TextSelection.Empty
-                                                          : control.document.GetTextSelection ();
+            => !control.ShowsSelection ? TextSelection.Empty : control.document.GetTextSelection ();
 
         /// <summary>
         /// Updates the TextBox's scroll bars.

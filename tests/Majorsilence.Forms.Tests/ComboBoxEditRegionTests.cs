@@ -315,6 +315,53 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (combo.EditAreaDeviceBounds, painted);
         }
 
+        // As upstream's: an editable combo that gets the focus other than by a mouse press selects its text, and
+        // the highlight is painted while the combo has the keyboard. A DropDown combo first in tab order opened
+        // with its text unselected; the edit region painted a selection only while it was itself focused,
+        // which it never is while the combo holds the focus.
+        [Fact]
+        public void An_editable_combo_selects_its_text_when_it_gets_the_focus ()
+        {
+            HeadlessRenderer.Use ();
+            using var form = new Form { Size = new System.Drawing.Size (400, 300) };
+            var combo = new ComboBox { TabIndex = 0, Width = 200 };
+            combo.Items.Add ("Payroll bank account");
+            var box = new TextBox { TabIndex = 1, Top = 40 };
+            form.Controls.Add (combo);
+            form.Controls.Add (box);
+            form.Load += (_, _) => combo.SelectedIndex = 0;
+            form.Show ();
+
+            Assert.True (combo.Focused);
+            Assert.Equal (0, combo.SelectionStart);
+            Assert.Equal (combo.Text.Length, combo.SelectionLength);
+            Assert.True (combo.EditRegion.ShowsSelection);
+
+            box.Select ();
+            Assert.False (combo.EditRegion.ShowsSelection);   // kept, but not painted, once the focus leaves
+            Assert.Equal (combo.Text.Length, combo.SelectionLength);
+        }
+
+        [Fact]
+        public void A_selection_the_program_set_is_kept_when_the_combo_gets_the_focus ()
+        {
+            HeadlessRenderer.Use ();
+            using var form = new Form { Size = new System.Drawing.Size (400, 300) };
+            var box = new TextBox { TabIndex = 0 };
+            var combo = new ComboBox { TabIndex = 1, Width = 200, Top = 40 };
+            combo.Items.Add ("Payroll bank account");
+            form.Controls.Add (box);
+            form.Controls.Add (combo);
+            form.Show ();
+
+            combo.SelectedIndex = 0;
+            combo.Select (2, 3);
+            combo.Select ();
+
+            Assert.Equal (2, combo.SelectionStart);
+            Assert.Equal (3, combo.SelectionLength);
+        }
+
         private sealed class ProbeRenderer : ComboBoxRenderer
         {
             internal System.Drawing.Rectangle TextArea (ComboBox control, PaintEventArgs e) => GetTextArea (control, e);

@@ -359,6 +359,10 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <summary>Whether the selection is painted: while the box has the keyboard, or always without
+        /// <see cref="TextBoxBase.HideSelection"/>.</summary>
+        internal virtual bool ShowsSelection => Selected || !HideSelection;
+
         /// <inheritdoc/>
         /// <remarks>
         /// Does NOT clear the selection. It used to, and every focus move runs through here (see

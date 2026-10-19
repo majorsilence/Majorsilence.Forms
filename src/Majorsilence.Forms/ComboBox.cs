@@ -72,6 +72,10 @@ namespace Majorsilence.Forms
                 Style.Border.Width = 0;
             }
 
+            // The keyboard is on the combo, not on this region, so the region's own focus would never show
+            // the selection upstream's focused combo shows in its edit.
+            internal override bool ShowsSelection => base.ShowsSelection || owner.HasKeyboardFocus;
+
             /// <inheritdoc/>
             protected override void OnKeyDown (KeyEventArgs e)
             {
@@ -332,6 +336,29 @@ namespace Majorsilence.Forms
 
                 Height = height_before_simple > 0 ? height_before_simple : DefaultSize.Height;
             }
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>An editable combo selects its text when it gets the focus other than by a mouse press, as
+        /// upstream's does (the native combo selects its edit's text on focus), unless the program chose a
+        /// selection. A DropDown combo first in tab order opened with its text unselected.</remarks>
+        protected override void OnGotFocus (EventArgs e)
+        {
+            base.OnGotFocus (e);
+
+            if (IsEditable && MouseButtons == MouseButtons.None && edit.SelectionLength == 0)
+                edit.SelectAll ();
+
+            edit.Invalidate ();
+        }
+
+        /// <inheritdoc/>
+        protected override void OnLostFocus (EventArgs e)
+        {
+            base.OnLostFocus (e);
+
+            // The selection stays; it only stops being painted (HideSelection), as for a text box.
+            edit.Invalidate ();
         }
 
         /// <summary>Whether the keyboard is on this combo: on the control itself or in its edit region.</summary>
