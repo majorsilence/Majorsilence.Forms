@@ -285,8 +285,10 @@ namespace Majorsilence.Forms
 
         private static void WatchMediaPreferences (IReadOnlyList<ThemeStyleSheet> chain)
         {
+            // Only a sheet with @media asks for the backend: SetBuiltInTheme runs this from Theme's static constructor, and a host with no
+            // Majorsilence.Forms backend (a real WinForms app) has none to resolve.
             var watch = chain.Any (s => s.UsesMediaQueries);
-            var backend = Backends.Platform.Backend;
+            var backend = watch ? Backends.Platform.TryGetBackend () : null;
 
             var motion = watch ? backend as Backends.IReducedMotionSource : null;
             if (!ReferenceEquals (motion, media_motion_source)) {
