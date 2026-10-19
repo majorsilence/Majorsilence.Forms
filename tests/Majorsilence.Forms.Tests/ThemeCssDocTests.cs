@@ -138,5 +138,23 @@ namespace Majorsilence.Forms.Tests
             foreach (var css in rows)
                 Assert.True (ThemeStyleSheet.Parse (css).HasErrors, $"documented as unsupported but parsed cleanly: {css}");
         }
+
+        [Fact]
+        public void SampleStyleSheets_ParseWithoutDiagnostics ()
+        {
+            // The sample themes are what people copy from, so a parser change that breaks one should fail
+            // here rather than in someone's app. Warnings count too: a sample should be clean.
+            var samples = Path.Combine (Path.GetDirectoryName (Path.GetDirectoryName (LocateDoc ()))!, "samples");
+            var sheets = Directory.GetFiles (Path.Combine (samples, "ThemeStudio", "Themes"), "*.css")
+                .Append (Path.Combine (samples, "CssShowcase", "showcase.css"))
+                .ToList ();
+
+            Assert.True (sheets.Count >= 5, $"expected the sample themes, found {sheets.Count}");
+
+            foreach (var path in sheets) {
+                var sheet = ThemeStyleSheet.Parse (File.ReadAllText (path));
+                Assert.True (sheet.Diagnostics.Count == 0, $"{Path.GetFileName (path)}:\n{string.Join ("\n", sheet.Diagnostics)}");
+            }
+        }
     }
 }
