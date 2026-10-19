@@ -3285,6 +3285,46 @@ namespace Majorsilence.Forms
         // long caption takes a second line; only an explicit False keeps it on one.
         internal virtual bool HeaderWraps => ColumnHeadersDefaultCellStyle.WrapMode != DataGridViewTriState.False;
 
+        // A caption broken into lines the way upstream's word-breaking header text breaks it: between words
+        // only, a word too wide for the line keeping a line to itself rather than being split. The layout splits
+        // such a word mid-way, so a one-word caption a few pixels too wide ("EmpCode") read "EmpCod" over "e"
+        // and its header band grew a line. layoutWidth is the width that lays the result out unbroken: the
+        // given width, or the widest line when a word overflows it.
+        internal static string BreakBetweenWords (string text, SkiaSharp.SKTypeface font, int fontSize, int width, out int layoutWidth)
+        {
+            layoutWidth = width;
+            var words = text.Split ((char[]?) null, StringSplitOptions.RemoveEmptyEntries);
+            var overflows = false;
+
+            foreach (var word in words)
+                overflows |= TextMeasurer.MeasureText (word, font, fontSize).Width > width;
+
+            // Every word fits: the layout already breaks only between words.
+            if (!overflows || text.Contains ('\n'))
+                return text;
+
+            var lines = new List<string> ();
+            var line = string.Empty;
+
+            foreach (var word in words) {
+                var candidate = line.Length == 0 ? word : line + " " + word;
+
+                if (line.Length > 0 && TextMeasurer.MeasureText (candidate, font, fontSize).Width > width) {
+                    lines.Add (line);
+                    line = word;
+                } else {
+                    line = candidate;
+                }
+            }
+
+            lines.Add (line);
+
+            foreach (var l in lines)
+                layoutWidth = Math.Max (layoutWidth, (int) Math.Ceiling (TextMeasurer.MeasureText (l, font, fontSize).Width) + 1);
+
+            return string.Join ("\n", lines);
+        }
+
         // The header band's logical height: as set, or with ColumnHeadersHeightSizeMode.AutoSize the tallest
         // header as it wraps in its column, as upstream sizes it. AutoSize was stored and ignored, so a
         // designer's two-line headers were cut to their first line's worth. Re-measured only when what the
@@ -3334,8 +3374,9 @@ namespace Majorsilence.Forms
 
                 var text = column.HeaderDisplayText;
                 var width = Math.Max (1, column.Width - 12);   // the renderer insets header text 6px a side
+                var broken = HeaderWraps ? BreakBetweenWords (text, font, size, width, out width) : text;
                 var measured = HeaderWraps
-                    ? TextMeasurer.MeasureText (text.Length > 0 ? text : "X", font, size, new Size (width, int.MaxValue))
+                    ? TextMeasurer.MeasureText (broken.Length > 0 ? broken : "X", font, size, new Size (width, int.MaxValue))
                     : TextMeasurer.MeasureText (text.Length > 0 ? text : "X", font, size);
 
                 tallest = Math.Max (tallest, (int) Math.Ceiling (measured.Height));

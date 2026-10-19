@@ -146,8 +146,17 @@ namespace Majorsilence.Forms.Renderers
             // caption that does not fit with an ellipsis instead.
             // A header that does not wrap ends a caption too long for it with an ellipsis, as upstream's
             // single-line header (TextFormatFlags.EndEllipsis) does; it used to be cut off mid-letter.
-            var header_lines = control.HeaderWraps && !HeaderTextEllipsis ? (int?) null : 1;
-            e.Canvas.DrawText (column.HeaderDisplayText, font, control.LogicalToDeviceUnits (font_size), text_bounds, fg, column.HeaderAlignment, maxLines: header_lines, ellipsis: HeaderTextEllipsis || !control.HeaderWraps);
+            var scaled_size = control.LogicalToDeviceUnits (font_size);
+            var wraps = control.HeaderWraps && !HeaderTextEllipsis;
+            var caption = column.HeaderDisplayText;
+
+            // Wrapped between words only, as upstream's header text: a word too wide keeps a line to itself.
+            if (wraps) {
+                caption = DataGridView.BreakBetweenWords (caption, font, scaled_size, text_bounds.Width, out var layout_width);
+                text_bounds.Width = layout_width;
+            }
+
+            e.Canvas.DrawText (caption, font, scaled_size, text_bounds, fg, column.HeaderAlignment, maxLines: wraps ? null : 1, ellipsis: HeaderTextEllipsis || !control.HeaderWraps);
 
             // Draw sort indicator
             if (column.SortOrder != SortOrder.None)
