@@ -166,6 +166,9 @@ namespace Majorsilence.Forms
 
         // The widest the message runs before it wraps, and the tallest the dialog grows.
         private const int MaxTextWidth = 560;
+
+        // MaxTextWidth, or less on a screen narrower than the dialog would be (a phone): see FitWithin.
+        private int max_text_width = MaxTextWidth;
         private const int MaxClientHeight = 700;
 
         // Upstream's metrics, measured from the system message box at 96 DPI: the 32px glyph sits 21px
@@ -182,6 +185,27 @@ namespace Majorsilence.Forms
         private const int ButtonGap = 6;
         private const int ButtonMargin = 15;
 
+        /// <summary>
+        /// Wraps the message narrower when the owner's screen cannot hold the usual width -- a phone, about 400
+        /// units across, against the 560 the text otherwise runs to -- so the dialog and its buttons stay on it.
+        /// </summary>
+        internal void FitWithin (Form? owner)
+        {
+            if (owner is null || Screen.FromControl (owner) is not { } screen)
+                return;
+            // The working area is in device pixels; the dialog lays out in the owner's logical units.
+            var room = owner.DeviceToLogicalUnits (screen.WorkingArea.Width) - 2 * ScreenMargin - (icon_box.Visible ? icon_box.Width : 0);
+            var fitted = Math.Clamp (room, MinTextWidth, MaxTextWidth);
+            if (fitted == max_text_width)
+                return;
+            max_text_width = fitted;
+            CalculateDialogSize ();
+        }
+
+        // Room kept between the dialog and the screen's edges, and the narrowest the text is wrapped to.
+        private const int ScreenMargin = 12;
+        private const int MinTextWidth = 160;
+
         // Sizes the dialog to its message, as upstream's message box does: the text's own width up to a
         // wrapping limit, its wrapped height, and never narrower than the button row. A fixed 400x200
         // (stepped up by line count) left a one-line error floating in empty space, and still cut off
@@ -189,7 +213,7 @@ namespace Majorsilence.Forms
         private void CalculateDialogSize ()
         {
             var icon_width = icon_box.Visible ? icon_box.Width : 0;
-            var text = label.GetPreferredSize (new Size (MaxTextWidth - label.Padding.Horizontal, 0));
+            var text = label.GetPreferredSize (new Size (max_text_width - label.Padding.Horizontal, 0));
 
             var buttons = button_panel.Controls.GetAllControls ().OfType<Button> ().ToList ();
             var buttons_width = buttons.Sum (b => b.Width + ButtonGap) - ButtonGap + 2 * ButtonMargin;

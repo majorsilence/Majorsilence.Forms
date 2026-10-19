@@ -347,7 +347,31 @@ namespace Majorsilence.Forms
                 : System.Drawing.Rectangle.Empty);
         }
 
-        private double Scale => TopLevel.GetTopLevel (this)?.RenderScaling ?? 1;
+        // A popup or dialog not yet in the visual tree has no TopLevel of its own; it will be shown in the root's,
+        // so it measures at the root's scale meanwhile rather than at 1 (which left a dialog's size, and so its
+        // centring, a scale factor off).
+        private double Scale => (TopLevel.GetTopLevel (this) ?? (MainHost is { } root ? TopLevel.GetTopLevel (root) : null))?.RenderScaling ?? 1;
+
+        /// <summary>
+        /// The one "screen" a single view has: the root's area in screen coordinates (device pixels, as
+        /// PointToScreen gives them), and as its working area that less the system bars and cut-outs (the safe area).
+        /// Null until the root has a TopLevel and a size.
+        /// </summary>
+        internal Backends.ScreenInfo? AsScreen ()
+        {
+            if (!_isRoot || TopLevel.GetTopLevel (this) is not { } top || Bounds.Width <= 0 || Bounds.Height <= 0)
+                return null;
+            var scale = top.RenderScaling;
+            var origin = top.PointToScreen (this.TranslatePoint (new AvPoint (0, 0), top) ?? new AvPoint (0, 0));
+            var bounds = new System.Drawing.Rectangle (origin.X, origin.Y, (int) Math.Round (Bounds.Width * scale), (int) Math.Round (Bounds.Height * scale));
+            var safe = _lastSafeArea.Left < 0 ? new Majorsilence.Forms.Padding (0) : _lastSafeArea;
+            int Px (int logical) => (int) Math.Round (logical * scale);
+            var working = new System.Drawing.Rectangle (
+                bounds.X + Px (safe.Left), bounds.Y + Px (safe.Top),
+                Math.Max (0, bounds.Width - Px (safe.Left) - Px (safe.Right)),
+                Math.Max (0, bounds.Height - Px (safe.Top) - Px (safe.Bottom)));
+            return new Backends.ScreenInfo ("Main", bounds, working, isPrimary: true);
+        }
 
         // ── Rendering ────────────────────────────────────────────────────────────────────────────────
         // RecordFrame() walks the Majorsilence scene on the UI thread and captures it as an immutable
