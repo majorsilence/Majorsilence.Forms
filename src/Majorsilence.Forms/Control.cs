@@ -1319,6 +1319,23 @@ namespace Majorsilence.Forms
         public Size DeviceToLogicalUnits (Size value)
             => new Size (DeviceToLogicalUnits (value.Width), DeviceToLogicalUnits (value.Height));
 
+        // A measured size in logical units that, converted back, holds what was measured: rounded up, not to
+        // the nearest unit. Rounding to the nearest could come back half a unit short -- 1.3 device pixels at
+        // a phone's 2.625 -- and text drawn into a box narrower than itself wraps its last letter.
+        internal Size DeviceToLogicalUnitsCovering (Size value)
+        {
+            var dpi = DeviceDpi;
+            if (dpi <= 0 || dpi == DpiHelper.LogicalDpi)
+                return value;
+            int Up (int device)
+            {
+                var logical = (int) Math.Ceiling (device * DpiHelper.LogicalDpi / dpi - 1e-9);
+                // LogicalToDeviceUnits rounds, so one more unit if that still falls short.
+                return LogicalToDeviceUnits (logical) < device ? logical + 1 : logical;
+            }
+            return new Size (Up (value.Width), Up (value.Height));
+        }
+
         // W6.3, the coordinate-space audit. Every public hit-test and rectangle-returning member is in
         // LOGICAL units -- the space Bounds and MouseEventArgs are in, so that the idiom an application
         // actually writes (`GetItemRectangle (i).Contains (e.Location)`) is right. Device pixels belong

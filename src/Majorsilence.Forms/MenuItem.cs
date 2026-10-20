@@ -144,20 +144,20 @@ namespace Majorsilence.Forms
             // ToolBar), so the ToolBar arm has to come last or it would swallow them.
             // Every renderer below measures text at the DEVICE font size, because that is what produces
             // correct glyph metrics, and returns a size in those units. Item bounds are logical, so the
-            // result is converted back here rather than in each renderer -- one place, and it cannot be
+            // result is converted back (rounded up, so the item still holds its text) here rather than in each renderer -- one place, and it cannot be
             // forgotten by the next renderer added. Identity at scaling 1, which is why device-sized
             // items looked right until a scaled display made them overflow the bar they sit in.
             if (owner is Menu menu && renderer is MenuRenderer menu_renderer)
-                return owner.DeviceToLogicalUnits (menu_renderer.GetPreferredItemSize (menu, this, proposedSize));
+                return owner.DeviceToLogicalUnitsCovering (menu_renderer.GetPreferredItemSize (menu, this, proposedSize));
 
             if (owner is MenuDropDown mdd && renderer is MenuDropDownRenderer mdd_renderer)
-                return MeasureOwnerDrawn (owner.DeviceToLogicalUnits (mdd_renderer.GetPreferredItemSize (mdd, this, proposedSize)));
+                return MeasureOwnerDrawn (owner.DeviceToLogicalUnitsCovering (mdd_renderer.GetPreferredItemSize (mdd, this, proposedSize)));
 
             if (owner is ToolBar tb && renderer is ToolBarRenderer tb_renderer)
-                return owner.DeviceToLogicalUnits (tb_renderer.GetPreferredItemSize (tb, this, proposedSize));
+                return owner.DeviceToLogicalUnitsCovering (tb_renderer.GetPreferredItemSize (tb, this, proposedSize));
 
             if (owner is Ribbon rb && renderer is RibbonRenderer rb_renderer)
-                return owner.DeviceToLogicalUnits (rb_renderer.GetPreferredItemSize (rb, this, proposedSize));
+                return owner.DeviceToLogicalUnitsCovering (rb_renderer.GetPreferredItemSize (rb, this, proposedSize));
 
             return proposedSize;
         }
