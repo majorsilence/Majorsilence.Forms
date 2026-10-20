@@ -26,14 +26,14 @@ namespace Majorsilence.Forms.Renderers
 
             // The text sits on whichever side the buttons are not (SMP-33): UpDownAlign was stored and
             // the button strip was always at the right-hand edge.
-            var buttons_left = control.UpDownAlign == LeftRightAlignment.Left;
+            var buttons_left = control.ButtonsOnLeft;
             var text_area = buttons_left
                 ? new Rectangle (inc_area.Right + 3, client.Y, client.Width - inc_area.Width - 3, client.Height)
                 : new Rectangle (client.X + 3, client.Y, client.Width - inc_area.Width - 3, client.Height);
 
             // And in whichever alignment TextAlign asks for -- right-aligned numeric columns were all
             // drawn left-aligned.
-            var alignment = control.TextAlign switch {
+            var alignment = control.EffectiveTextAlign switch {
                 HorizontalAlignment.Center => ContentAlignment.MiddleCenter,
                 HorizontalAlignment.Right => ContentAlignment.MiddleRight,
                 _ => ContentAlignment.MiddleLeft,
