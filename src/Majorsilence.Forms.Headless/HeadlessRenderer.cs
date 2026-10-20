@@ -125,6 +125,11 @@ namespace Majorsilence.Forms.Headless
 
             // Every test calls this first, on its own thread: that thread is the UI thread for the test (see ClaimUiThread).
             ((HeadlessPlatformBackend)Platform.ConfiguredBackend!).ClaimUiThread ();
+
+            // And with no mouse button held. Control.MouseButtons is process-wide, and a test that presses
+            // without releasing (to check what the press alone does) left it down for every later test --
+            // where code that acts only on a keyboard focus change, not a click, then saw a click.
+            Control.MouseButtons = MouseButtons.None;
         }
 
         /// <summary>

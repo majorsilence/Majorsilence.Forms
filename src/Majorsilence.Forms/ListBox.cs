@@ -94,10 +94,15 @@ namespace Majorsilence.Forms
 
         /// <summary>
         /// The default style of the selection highlight: the selected item's background and, when set,
-        /// its text colour. CSS: <c>ListBox::selection</c>.
+        /// its text colour. CSS: <c>ListBox::selection</c>. Upstream's colours by default: the native list
+        /// box fills a selected item with <see cref="SystemColors.Highlight"/> and draws its text in
+        /// <see cref="SystemColors.HighlightText"/>. It was the theme's pale control highlight.
         /// </summary>
         public static readonly ControlStyle DefaultSelectionStyle = new ControlStyle (null,
-            (style) => style.BackgroundColor = Theme.ControlHighlightLowColor);
+            (style) => {
+                style.BackgroundColor = SystemColors.Highlight.ToSKColor ();
+                style.ForegroundColor = SystemColors.HighlightText.ToSKColor ();
+            });
 
         private void EnsureItemVisible (int index)
         {
@@ -417,6 +422,11 @@ namespace Majorsilence.Forms
             // Bound objects, not display text -- see the matching comment in ComboBox.RefreshDataSource.
             foreach (var item in list)
                 Items.Add (item);
+
+            // Then on the source's current row, as upstream: bound in Load, the list showed nothing selected
+            // and never raised the SelectedIndexChanged its form fills the details from.
+            if (SelectionMode != SelectionMode.None)
+                source_tracker.SelectCurrent ();
         }
 
         // The height that would be needed to display all items.

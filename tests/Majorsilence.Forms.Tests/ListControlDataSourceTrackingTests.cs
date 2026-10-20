@@ -136,5 +136,62 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal ("PP - Prepayment", combo.GetItemText (combo.SelectedItem));
             Assert.Equal ("PP", combo.SelectedValue);
         }
+
+        private static System.Data.DataTable TwoPeople ()
+        {
+            var table = new System.Data.DataTable ();
+            table.Columns.Add ("name", typeof (string));
+            table.Rows.Add ("Ada");
+            table.Rows.Add ("Grace");
+            return table;
+        }
+
+        // Upstream's ListControl.DataManager_ItemChanged loads the items and then selects the source's current
+        // item, so a list bound on a shown form starts on the first row and raises SelectedIndexChanged -- the
+        // event forms fill their detail fields from. Here nothing was selected and the details stayed empty.
+        [Fact]
+        public void Binding_a_ListBox_on_a_form_selects_the_current_row ()
+        {
+            HeadlessRenderer.Use ();
+            using var form = new Form ();
+            var list = new ListBox ();
+            form.Controls.Add (list);
+            form.Show ();
+
+            var changes = 0;
+            list.SelectedIndexChanged += (s, e) => changes++;
+            list.DataSource = TwoPeople ();
+
+            Assert.Equal (0, list.SelectedIndex);
+            Assert.True (changes > 0, "SelectedIndexChanged was not raised");
+        }
+
+        [Fact]
+        public void Binding_a_ComboBox_on_a_form_selects_the_current_row ()
+        {
+            HeadlessRenderer.Use ();
+            using var form = new Form ();
+            var combo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
+            form.Controls.Add (combo);
+            form.Show ();
+
+            combo.DataSource = TwoPeople ();
+
+            Assert.Equal (0, combo.SelectedIndex);
+        }
+
+        [Fact]
+        public void A_ListBox_without_selection_stays_unselected_when_bound ()
+        {
+            HeadlessRenderer.Use ();
+            using var form = new Form ();
+            var list = new ListBox { SelectionMode = SelectionMode.None };
+            form.Controls.Add (list);
+            form.Show ();
+
+            list.DataSource = TwoPeople ();
+
+            Assert.Equal (-1, list.SelectedIndex);
+        }
     }
 }
