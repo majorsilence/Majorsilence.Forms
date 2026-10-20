@@ -2521,28 +2521,35 @@ namespace Majorsilence.Forms.Drawing
         {
             if (_canvas is null) return;
             using var paint = RentStrokePaint (pen);
-            using var path = new SKPath ();
-            path.MoveTo (rect.X + rect.Width / 2f, rect.Y + rect.Height / 2f);
-            path.AddArc (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), startAngle, sweepAngle);
-            path.Close ();
+            using var path = PiePath (rect.X, rect.Y, rect.Width, rect.Height, startAngle, sweepAngle);
             _canvas.DrawPath (path, paint);
         }
 
         /// <summary>Fills a pie section.</summary>
         public void FillPie (Majorsilence.Forms.Drawing.Brush brush, Rectangle rect, float startAngle, float sweepAngle)
-        {
-            if (_canvas is null) return;
-            using var paint = RentFillPaint (brush);
-            using var path = new SKPath ();
-            path.MoveTo (rect.X + rect.Width / 2f, rect.Y + rect.Height / 2f);
-            path.AddArc (new SKRect (rect.Left, rect.Top, rect.Right, rect.Bottom), startAngle, sweepAngle);
-            path.Close ();
-            _canvas.DrawPath (path, paint);
-        }
+            => FillPie (brush, rect.X, rect.Y, rect.Width, rect.Height, startAngle, sweepAngle);
 
         /// <summary>Fills a pie section with float coordinates.</summary>
         public void FillPie (Majorsilence.Forms.Drawing.Brush brush, float x, float y, float width, float height, float startAngle, float sweepAngle)
-            => FillPie (brush, new Rectangle ((int)x, (int)y, (int)width, (int)height), startAngle, sweepAngle);
+        {
+            if (_canvas is null) return;
+            using var paint = RentFillPaint (brush);
+            using var path = PiePath (x, y, width, height, startAngle, sweepAngle);
+            _canvas.DrawPath (path, paint);
+        }
+
+        // The wedge: centre, a line out to the arc, the arc, and back. ArcTo with
+        // forceMoveTo false joins the arc to the centre; AddArc starts a new contour at the
+        // arc instead, and the closed shape is then the arc and its chord - a circle segment,
+        // not a slice. GraphicsPath.AddPie builds it the same way.
+        private static SKPath PiePath (float x, float y, float width, float height, float startAngle, float sweepAngle)
+        {
+            var path = new SKPath ();
+            path.MoveTo (x + width / 2f, y + height / 2f);
+            path.ArcTo (new SKRect (x, y, x + width, y + height), startAngle, sweepAngle, forceMoveTo: false);
+            path.Close ();
+            return path;
+        }
 
         /// <summary>Draws a cubic Bezier curve.</summary>
         public void DrawBezier (Majorsilence.Forms.Drawing.Pen pen, PointF pt1, PointF pt2, PointF pt3, PointF pt4)
