@@ -276,7 +276,6 @@ Majorsilence.Forms.SplitContainer.AutoScrollMargin    -- upstream's SplitContain
 Majorsilence.Forms.SplitContainer.AutoScrollMinSize    -- see AutoScrollMargin: the container does not scroll
 Majorsilence.Forms.SplitContainer.AutoScrollPosition    -- see AutoScrollMargin: the container does not scroll
 Majorsilence.Forms.StatusBarPanel.Tag    -- user-data slot; upstream reads it nowhere either
-Majorsilence.Forms.TabPage.UseVisualStyleBackColor    -- GDI/visual-styles rendering switch; one text and theme pipeline here
 Majorsilence.Forms.TabStripItem.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.TaskDialogControl.Tag    -- user-data slot; upstream reads it nowhere either
 Majorsilence.Forms.TaskDialogPage.BoundDialog    -- framework-written (outbound state)
