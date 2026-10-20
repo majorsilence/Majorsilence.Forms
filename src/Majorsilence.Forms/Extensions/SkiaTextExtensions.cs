@@ -198,6 +198,47 @@ namespace Majorsilence.Forms
             }
 
             block.Paint (canvas, new SKPoint (location.X, location.Y), options);
+
+            if (!selection.IsEmpty () && selection.TextColor is { } text_colour)
+                RepaintSelectedText (canvas, block, location, selection, text_colour);
+        }
+
+        // Draws the selected text again in the selection's text colour, clipped to the selection, as upstream's edit
+        // control draws selected text in HighlightText: on a Highlight background the text's own (dark) colour all but
+        // vanished. The block is repainted through a colour filter, so each glyph keeps its antialiasing.
+        private static void RepaintSelectedText (SKCanvas canvas, TextBlock block, Point location, TextSelection selection, SKColor colour)
+        {
+            var start = Math.Min (selection.Start, selection.End);
+            var end = Math.Max (selection.Start, selection.End);
+            using var region = new SKPath ();
+
+            foreach (var line in block.Lines) {
+                var line_start = line.Start;
+                var line_end = line.Start + line.Length;
+
+                if (line_end <= start || line_start >= end)
+                    continue;
+
+                var from = block.GetCaretInfo (new CaretPosition (Math.Max (start, line_start))).CaretXCoord;
+                var to = block.GetCaretInfo (new CaretPosition (Math.Min (end, line_end))).CaretXCoord;
+
+                if (to < from)
+                    (from, to) = (to, from);
+
+                region.AddRect (new SKRect (location.X + from, location.Y + line.YCoord, location.X + to, location.Y + line.YCoord + line.Height));
+            }
+
+            if (region.IsEmpty)
+                return;
+
+            using var paint = new SKPaint { ColorFilter = SKColorFilter.CreateBlendMode (colour, SKBlendMode.SrcIn) };
+
+            canvas.Save ();
+            canvas.ClipPath (region, antialias: false);
+            canvas.SaveLayer (paint);
+            block.Paint (canvas, new SKPoint (location.X, location.Y), _defaultPaintOptions);
+            canvas.Restore ();
+            canvas.Restore ();
         }
 
         /// <summary>

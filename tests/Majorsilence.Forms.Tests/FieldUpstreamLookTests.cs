@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using Majorsilence.Forms.Headless;
 using SkiaSharp;
 using Xunit;
@@ -174,6 +174,44 @@ namespace Majorsilence.Forms.Tests
                     Assert.Equal (0xDC, darkest);
                 } else {
                     Assert.True (darkest < 0xDC, "the theme's frame was replaced without a chosen font");
+                }
+
+                return 0;
+            });
+
+        // Upstream's edit control selects in Highlight behind HighlightText. It was the theme's pale blue behind the
+        // text's own colour.
+        [Theory]
+        [InlineData (true)]
+        [InlineData (false)]
+        public void Selected_text_is_highlight_text_on_highlight (bool chooseFont)
+            => With (chooseFont, form => {
+                var box = new TextBox { Location = new Point (10, 10), Size = new Size (150, 20), Text = "8888 8888" };
+                form.Controls.Add (box);
+                box.Select ();
+                box.SelectAll ();
+
+                using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 300, 200));
+                var scale = bitmap.Width / 300f;
+                var highlight = SystemColors.Highlight.ToSKColor ();
+                int highlighted = 0, light_text = 0;
+                var dark_columns = new System.Collections.Generic.HashSet<int> ();
+
+                for (var x = (int) ((box.Left + 2) * scale); x < (int) ((box.Right - 2) * scale); x++)
+                    for (var y = (int) ((box.Top + 3) * scale); y < (int) ((box.Bottom - 3) * scale); y++) {
+                        var c = bitmap.GetPixel (x, y);
+                        if (c == highlight) highlighted++;
+                        else if (c.Red > 0xE0 && c.Green > 0xE0 && c.Blue > 0xE0 && highlighted > 0) light_text++;
+                        if (c.Red < 0x40 && c.Green < 0x40 && c.Blue < 0x40) dark_columns.Add (x);
+                    }
+
+                if (chooseFont) {
+                    Assert.True (highlighted > 50 * scale, $"{highlighted} Highlight pixels");
+                    Assert.True (light_text > 0, "no HighlightText glyphs");
+                    // Nothing dark but the caret, a single upright line, as upstream's focused box shows it.
+                    Assert.True (dark_columns.Count <= (int) System.Math.Ceiling (scale), $"dark text in {dark_columns.Count} columns");
+                } else {
+                    Assert.Equal (0, highlighted);
                 }
 
                 return 0;
