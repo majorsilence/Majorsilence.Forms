@@ -44,6 +44,15 @@ namespace Majorsilence.Forms
             up_down_buttons?.SetBounds (ButtonStripLeft, 0, ButtonWidth, Height);
         }
 
+        /// <inheritdoc/>
+        /// <remarks>Right-to-left mirrors the control (see <see cref="ButtonsOnLeft"/>), so the strip moves.</remarks>
+        protected override void OnRightToLeftChanged (EventArgs e)
+        {
+            base.OnRightToLeftChanged (e);
+            PerformLayout ();
+            Invalidate ();
+        }
+
         // The designer's ((ISupportInitialize)nud).BeginInit () reached two empty methods here while
         // the public pair sat beside them (SMP-35); both routes are now the same pair.
         void System.ComponentModel.ISupportInitialize.BeginInit () => BeginInit ();
@@ -247,7 +256,21 @@ namespace Majorsilence.Forms
 
         // The strip's x follows UpDownAlign (SMP-33): it was always Width - ButtonWidth, so
         // UpDownAlign = Left stored a value and moved nothing.
-        internal int ButtonStripLeft => UpDownAlign == LeftRightAlignment.Left ? 0 : Width - ButtonWidth;
+        internal int ButtonStripLeft => ButtonsOnLeft ? 0 : Width - ButtonWidth;
+
+        // Upstream mirrors an up-down control for RightToLeft (UpDownBase): the buttons go to the side UpDownAlign
+        // does not name, and the text's alignment flips. RightToLeft was ignored, so a right-to-left spin box kept
+        // its buttons on the right and its number on the left.
+        internal bool ButtonsOnLeft => (UpDownAlign == LeftRightAlignment.Left) ^ (RightToLeft == RightToLeft.Yes);
+
+        // TextAlign as laid out: mirrored for RightToLeft, as the edit control upstream hosts mirrors it.
+        internal HorizontalAlignment EffectiveTextAlign
+            => RightToLeft != RightToLeft.Yes ? TextAlign
+             : TextAlign switch {
+                 HorizontalAlignment.Left => HorizontalAlignment.Right,
+                 HorizontalAlignment.Right => HorizontalAlignment.Left,
+                 _ => TextAlign,
+             };
 
         internal Rectangle GetIncrementArea () => new Rectangle (ButtonStripLeft, 0, ButtonWidth, Height / 2);
         internal Rectangle GetDecrementArea () => new Rectangle (ButtonStripLeft, Height / 2, ButtonWidth, Height - Height / 2);
