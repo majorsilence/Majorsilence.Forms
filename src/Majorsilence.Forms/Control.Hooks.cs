@@ -25,8 +25,8 @@ public partial class Control
         (Events[s_backColorChangedEvent] as EventHandler)?.Invoke (this, e);
 
         if (Properties.GetObject (s_controlsCollectionProperty) is ControlCollection collection)
-            for (var i = 0; i < collection.Count; i++)
-                collection[i].OnParentBackColorChanged (e);
+            foreach (var child in collection.AmbientChildren ())
+                child.OnParentBackColorChanged (e);
     }
 
     /// <summary>
@@ -52,8 +52,8 @@ public partial class Control
         (Events[s_foreColorChangedEvent] as EventHandler)?.Invoke (this, e);
 
         if (Properties.GetObject (s_controlsCollectionProperty) is ControlCollection collection)
-            for (var i = 0; i < collection.Count; i++)
-                collection[i].OnParentForeColorChanged (e);
+            foreach (var child in collection.AmbientChildren ())
+                child.OnParentForeColorChanged (e);
     }
 
     /// <summary>
@@ -77,8 +77,8 @@ public partial class Control
         (Events[s_fontChangedEvent] as EventHandler)?.Invoke (this, e);
 
         if (Properties.GetObject (s_controlsCollectionProperty) is ControlCollection collection)
-            for (var i = 0; i < collection.Count; i++)
-                collection[i].OnParentFontChanged (e);
+            foreach (var child in collection.AmbientChildren ())
+                child.OnParentFontChanged (e);
 
         PerformLayout (this, nameof (Font));
     }
@@ -105,9 +105,9 @@ public partial class Control
         (Events[s_rightToLeftChangedEvent] as EventHandler)?.Invoke (this, e);
 
         if (Properties.GetObject (s_controlsCollectionProperty) is ControlCollection collection)
-            for (var i = 0; i < collection.Count; i++)
-                if (collection[i].right_to_left == RightToLeft.Inherit)
-                    collection[i].OnRightToLeftChanged (e);
+            foreach (var child in collection.AmbientChildren ())
+                if (child.right_to_left == RightToLeft.Inherit)
+                    child.OnRightToLeftChanged (e);
     }
 
     #endregion

@@ -42,6 +42,10 @@ namespace Majorsilence.Forms
             SetControlBehavior (ControlBehaviors.InvalidateOnTextChanged);
             SetControlBehavior (ControlBehaviors.Selectable, false);
 
+            // A label sizes itself (AdjustSize) rather than the anchor layout sizing it, as upstream's does: the anchor
+            // layout auto-sized it first, from anchors recorded at its old size, so a label anchored right grew left.
+            CommonProperties.SetSelfAutoSizeInDefaultLayout (this, true);
+
             _labelState[s_stateUseMnemonic] = 1;
 
             // SMP-14: upstream's Label has no Multiline property -- it ALWAYS word-wraps
@@ -142,9 +146,13 @@ namespace Majorsilence.Forms
         /// </remarks>
         private void AdjustSize ()
         {
-            if (!AutoSize)
+            // Only when upstream's ShouldSelfSize says so: in a container laid out by the default (dock and anchor)
+            // layout, not while unparented or in a flow or table layout, whose engine sizes it.
+            if (!AutoSize || !CommonProperties.ShouldSelfSize (this))
                 return;
 
+            // Measured in the form's theme scope, as a layout pass measures: its font may be the scope's.
+            using var theme_scope_entered = ThemeScope.EnterFor (this);
             var preferred = GetPreferredSize (Size.Empty);
 
             if (preferred != Size && preferred.Width > 0 && preferred.Height > 0)
@@ -182,6 +190,15 @@ namespace Majorsilence.Forms
         protected override void OnFontChanged (EventArgs e)
         {
             base.OnFontChanged (e);
+            AdjustSize ();
+        }
+
+        // A theme (or a form's theme scope) can change the font a label measures with without its Font changing; the
+        // label sizes itself, so it re-measures here as the layout used to do for it.
+        /// <inheritdoc/>
+        protected internal override void OnThemeChanged (EventArgs e)
+        {
+            base.OnThemeChanged (e);
             AdjustSize ();
         }
 

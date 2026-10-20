@@ -151,6 +151,18 @@ public partial class Control
         public bool Contains (Form form) =>
             form?.PanelHost is { } frame && control_list.Contains (frame);
 
+        // Every child, the implicit ones too, for the ambient properties a child inherits from its parent (font,
+        // colours, reading order). A form's controls sit in its client area, which is an implicit child of the
+        // window's root, so a cascade over the public children alone stopped there: Form.Font = 12pt never told a
+        // single control on the form, and an AutoSize label kept the size it had at the old font.
+        internal Control[] AmbientChildren ()
+        {
+            var all = new Control[control_list.Count + implicit_control_list.Count];
+            control_list.CopyTo (all, 0);
+            implicit_control_list.CopyTo (all, control_list.Count);
+            return all;
+        }
+
         internal T AddImplicitControl<T> (T item) where T : Control
         {
             // We do a lot less here for an implicit control because we control them
