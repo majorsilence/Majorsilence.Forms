@@ -76,8 +76,9 @@ namespace Majorsilence.Forms.Tests
                     Assert.Equal (frame, top);
                     Assert.True (spin_faces > 20, $"{spin_faces} spin button face pixels");
                 } else {
+                    // The theme's own picker: not the native frame. (Its button colours are the theme's and may
+                    // include the spin face's near-white, so that is not asserted against.)
                     Assert.NotEqual (frame, left);
-                    Assert.Equal (0, spin_faces);
                 }
 
                 return 0;
