@@ -723,23 +723,24 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void By_default_the_band_below_the_rows_is_AppWorkspace ()
+        public void By_default_the_band_below_the_rows_is_ControlDark ()
         {
-            // As upstream's default BackgroundColor. The default used to be Empty, which left the band the
-            // theme's colour: a grid read as one long white list where upstream shows where the rows end.
+            // As upstream's default BackgroundColor (s_defaultBackgroundColor, ControlDark). The default used to
+            // be Empty, which left the band the theme's colour: a grid read as one long white list where upstream
+            // shows where the rows end; then AppWorkspace, a few shades lighter than upstream's.
             var grid = Grid (out var form, rows: 1, columns: 1);
             using var _form = form;
 
             try {
-                Assert.Equal (SystemColors.AppWorkspace, grid.BackgroundColor);
+                Assert.Equal (SystemColors.ControlDark, grid.BackgroundColor);
 
                 using var bitmap = Render (grid);
                 var last = grid.GetCellBounds (0, 0);
                 var content = grid.GetContentArea ();
                 var below = new Rectangle (content.Left + 2, last.Bottom + 2, content.Width - 4, Math.Max (1, content.Bottom - last.Bottom - 4));
 
-                Assert.True (CountIn (bitmap, below, SystemColors.AppWorkspace.ToSKColor ()) > below.Width * below.Height / 2,
-                    "the band below the last row should be AppWorkspace");
+                Assert.True (CountIn (bitmap, below, SystemColors.ControlDark.ToSKColor ()) > below.Width * below.Height / 2,
+                    "the band below the last row should be ControlDark");
             } finally {
                 form.Close ();
             }
@@ -846,10 +847,10 @@ namespace Majorsilence.Forms.Tests
                 var beside_row = new Rectangle (cell.Right + 4, cell.Top + 2, content.Right - cell.Right - 8, cell.Height - 4);
                 var beside_header = new Rectangle (cell.Right + 4, content.Top + 2, content.Right - cell.Right - 8, cell.Top - content.Top - 4);
 
-                Assert.True (CountIn (bitmap, beside_row, SystemColors.AppWorkspace.ToSKColor ()) > beside_row.Width * beside_row.Height / 2,
-                    "beside the first row should be AppWorkspace");
-                Assert.True (CountIn (bitmap, beside_header, SystemColors.AppWorkspace.ToSKColor ()) > beside_header.Width * beside_header.Height / 2,
-                    "beside the header band should be AppWorkspace");
+                Assert.True (CountIn (bitmap, beside_row, SystemColors.ControlDark.ToSKColor ()) > beside_row.Width * beside_row.Height / 2,
+                    "beside the first row should be ControlDark");
+                Assert.True (CountIn (bitmap, beside_header, SystemColors.ControlDark.ToSKColor ()) > beside_header.Width * beside_header.Height / 2,
+                    "beside the header band should be ControlDark");
             } finally {
                 form.Close ();
             }

@@ -251,7 +251,7 @@ namespace Majorsilence.Forms.Renderers
                 y += row_height;
             }
 
-            // Below the last row is the grid's BACKGROUND, not more grid: AppWorkspace by default, as
+            // Below the last row is the grid's BACKGROUND, not more grid: ControlDark by default, as
             // upstream (DGV-22). An empty BackgroundColor leaves the theme's colour there. A grid with
             // nothing in it draws no header band either (see Render), so all of it is background.
             if (control.Columns.Count == 0 && control.Rows.Count == 0)
