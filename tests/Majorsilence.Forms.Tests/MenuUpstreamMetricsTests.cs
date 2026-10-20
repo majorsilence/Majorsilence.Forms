@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Linq;
 using Majorsilence.Forms.Headless;
@@ -68,6 +68,53 @@ namespace Majorsilence.Forms.Tests
                 }
             } finally {
                 Application.SetDefaultFont (null!);
+            }
+        }
+
+        // Its drop-downs take upstream's metrics too (ToolStripDropDownMenu): a (0, 1, 0, 1) item padding, items no
+        // shorter than a 16px check in its padding (22px for a 9pt font), and the caption between the 25px image
+        // margin plus 8px and 9px of padding and the arrow's 18px. They were 14/3-padded with 70px to spare, so each
+        // drop-down was taller and wider than upstream's.
+        [Fact]
+        public void An_app_wide_font_gives_its_drop_downs_upstream_metrics ()
+        {
+            try {
+                Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 9f));
+                var (form, menu, file) = Shell ();
+
+                using (form) {
+                    var open = new ToolStripMenuItem ("Open");
+                    file.DropDownItems.Add (open);
+                    file.DropDownItems.Add (new ToolStripMenuItem ("Save"));
+
+                    Assert.Equal (new Padding (0, 1, 0, 1), open.Padding);
+
+                    file.ShowDropDown ();
+                    var size = open.GetPreferredSize (Size.Empty);
+                    var text = TextMeasurer.MeasureText ("Open", menu.ItemTypeface, menu.LogicalToDeviceUnits (menu.ItemFontSize)).Width;
+                    var device = (int) Math.Round (text, 0, MidpointRounding.AwayFromZero) + menu.LogicalToDeviceUnits (25 + 8 + 9 + 10 + 8);
+
+                    Assert.Equal (22, size.Height);
+                    Assert.Equal (menu.DeviceToLogicalUnitsCovering (new Size (device, 0)).Width, size.Width);
+                }
+            } finally {
+                Application.SetDefaultFont (null!);
+            }
+        }
+
+        [Fact]
+        public void Without_a_chosen_font_drop_downs_keep_the_theme_metrics ()
+        {
+            var (form, _, file) = Shell ();
+
+            using (form) {
+                var open = new ToolStripMenuItem ("Open");
+                file.DropDownItems.Add (open);
+
+                Assert.Equal (new Padding (14, 3, 14, 3), open.Padding);
+
+                file.ShowDropDown ();
+                Assert.True (open.GetPreferredSize (Size.Empty).Width > 70, "the theme's 70px allowance is kept");
             }
         }
 

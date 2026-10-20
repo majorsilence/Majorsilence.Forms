@@ -7,6 +7,36 @@ namespace Majorsilence.Forms.Renderers
     /// </summary>
     public class MenuDropDownRenderer : Renderer<MenuDropDown>
     {
+        // A ported WinForms app (one that chose its font) gets upstream's drop-down metrics, as its menu bar
+        // gets upstream's (see MenuUpstreamMetricsTests), in logical pixels (ToolStripDropDownMenu.ScaleConstants):
+        // the image margin (24 plus its border pixel), the text's padding either side, the submenu arrow and the
+        // space after it, the smallest item (a 16px check in its 2px padding), and a drop-down item's own
+        // padding (ToolStripMenuItem's s_defaultDropDownPadding). Its items were sized from their bar padding
+        // (14, 3) and a fixed 70px allowance, so each drop-down was taller and wider than upstream's and its text
+        // further in. Apps that have not chosen a font keep the theme's metrics.
+        private const int UpstreamImageMarginWidth = 25;
+        private const int ThemeImageMarginWidth = 28;
+        private const int TextPaddingLeft = 8;
+        private const int TextPaddingRight = 9;
+        private const int ArrowWidth = 10;
+        private const int ArrowPaddingRight = 8;
+        private const int MinimumItemHeight = 20;
+        private static readonly Padding DropDownItemPadding = new Padding (0, 1, 0, 1);
+
+        private static bool UpstreamMetrics => ControlPaint.UsesUpstreamGlyphs;
+
+        private static int ImageMarginWidth => UpstreamMetrics ? UpstreamImageMarginWidth : ThemeImageMarginWidth;
+
+        // An item's padding on a drop-down: upstream's drop-down default unless the application assigned one.
+        private static Padding ItemPadding (MenuItem item)
+            => UpstreamMetrics ? item.AssignedPadding ?? DropDownItemPadding : item.Padding;
+
+        // Where an item's caption starts, from the item's left edge, in logical pixels.
+        private static int TextInset (MenuDropDown control, MenuItem item)
+            => UpstreamMetrics
+                ? (ShowsImageMargin (control) ? UpstreamImageMarginWidth : 0) + TextPaddingLeft + ItemPadding (item).Left
+                : ShowsImageMargin (control) ? ThemeImageMarginWidth : 6;
+
         /// <inheritdoc/>
         protected override void Render (MenuDropDown control, PaintEventArgs e)
         {
@@ -17,7 +47,7 @@ namespace Majorsilence.Forms.Renderers
 
             // The icon gutter, offered once for the whole drop-down as upstream does.
             if (ShowsImageMargin (control))
-                StripRendererBridge.ImageMargin (control, new Rectangle (0, 0, e.LogicalToDeviceUnits (28), control.DeviceClientRectangle.Height), e);
+                StripRendererBridge.ImageMargin (control, new Rectangle (0, 0, e.LogicalToDeviceUnits (ImageMarginWidth), control.DeviceClientRectangle.Height), e);
 
             foreach (var item in control.Items) {
                 if (!item.Visible)
@@ -104,7 +134,7 @@ namespace Majorsilence.Forms.Renderers
             // device and the box it was measured against was logical, so at scaling 2 the caption
             // landed past the item's right edge whatever the property said. TSM-41 is what made it
             // expressible.
-            bounds.X += e.LogicalToDeviceUnits (ShowsImageMargin (control) ? 28 : 6);
+            bounds.X += e.LogicalToDeviceUnits (TextInset (control, item));
             if (StripRendererBridge.Text (control, item, item.Text, bounds, font_color, e) is { } tp) {
                 bounds = tp.rect;
                 font_color = tp.colour;
@@ -177,13 +207,34 @@ namespace Majorsilence.Forms.Renderers
             if (item is ToolStripSeparator tss)
                 return GetPreferredSeparatorItemSize (control, tss, proposedSize);
 
-            var padding = control.LogicalToDeviceUnits (item.Padding);
+            var padding = control.LogicalToDeviceUnits (ItemPadding (item));
             var (item_typeface, item_font_size) = StripItemFont.Resolve (item, control);
             var font_size = control.LogicalToDeviceUnits (item_font_size);
             var text_size = TextMeasurer.MeasureText (Mnemonics.Strip (item.Text), item_typeface, font_size);
+            var text_width = (int)Math.Round (text_size.Width, 0, MidpointRounding.AwayFromZero);
+            var text_height = (int)Math.Round (text_size.Height, 0, MidpointRounding.AwayFromZero);
 
-            return new Size ((int)Math.Round (text_size.Width, 0, MidpointRounding.AwayFromZero) + padding.Horizontal + control.LogicalToDeviceUnits (70), (int)Math.Round (text_size.Height, 0, MidpointRounding.AwayFromZero) + control.LogicalToDeviceUnits (8));
+            if (!UpstreamMetrics)
+                return new Size (text_width + padding.Horizontal + control.LogicalToDeviceUnits (70), text_height + control.LogicalToDeviceUnits (8));
+
+            // A shortcut is laid out after the caption, a tab's width further on, as upstream measures it.
+            if (item is ToolStripMenuItem { ShortcutDisplayText: { Length: > 0 } shortcut }) {
+                var shortcut_size = TextMeasurer.MeasureText (shortcut, item_typeface, font_size);
+                text_width += control.LogicalToDeviceUnits (ShortcutGap) + (int)Math.Ceiling (shortcut_size.Width);
+                text_height = Math.Max (text_height, (int)Math.Round (shortcut_size.Height, 0, MidpointRounding.AwayFromZero));
+            }
+
+            // Upstream: the image margin, the text in its padding, then room for the submenu arrow -- kept on
+            // every item, so the column lines up whether or not an item has a submenu.
+            var margin = ShowsImageMargin (control) ? ImageMarginWidth : 0;
+            var chrome = control.LogicalToDeviceUnits (margin + TextPaddingLeft + TextPaddingRight + ArrowWidth + ArrowPaddingRight);
+            var height = Math.Max (text_height + control.LogicalToDeviceUnits (2), control.LogicalToDeviceUnits (MinimumItemHeight));
+
+            return new Size (text_width + chrome + padding.Horizontal, height + padding.Vertical);
         }
+
+        // The space between a caption and its shortcut: a tab, as upstream measures it with TextRenderer.
+        private const int ShortcutGap = 24;
 
         /// <summary>
         /// Gets the preferred size of a ToolStripSeparator.

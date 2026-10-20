@@ -1459,6 +1459,9 @@ namespace Majorsilence.Forms
         protected override Padding DefaultPadding
             => IsOnPlainToolStrip ? new Padding (2)
              // A menu bar under upstream's metrics (Menu.UpstreamFont): upstream's top-level menu item padding.
+             // On a drop-down under upstream's metrics (see MenuDropDownRenderer): upstream's drop-down item padding.
+             // Asked first: until its drop-down is built, a submenu item's owner is still the menu bar.
+             : IsOnDropDown ? ControlPaint.UsesUpstreamGlyphs ? new Padding (0, 1, 0, 1) : base.DefaultPadding
              : OwnerControl is Menu { UpstreamFont: not null } ? new Padding (4, 0, 4, 0)
              : base.DefaultPadding;
 
