@@ -50,6 +50,10 @@ namespace Majorsilence.Forms
 
         private static readonly string[] invalid_singleline_characters = ["\r", "\n"];
 
+        // The margin centre- and right-aligned text keeps from the right edge, in logical pixels: what the
+        // left edge's padding and the glyph's side bearing leave left-aligned text.
+        private const int RightMargin = 2;
+
         internal TextBoxDocument (TextBox textbox)
         {
             this.textbox = textbox;
@@ -375,6 +379,11 @@ namespace Majorsilence.Forms
             var font_size = textbox.CurrentFontSize;
             var typeface = font;
             var shows_placeholder = text.Length == 0 && ShowsPlaceholder;
+
+            // The width is in device pixels, so it follows the scale as the font size does: a box sized
+            // before it had a window was measured at scale 1, and on a scale-2 display its centred and
+            // right-aligned text aligned to half the box until something resized it.
+            Width = textbox.WrapWidth;
             if (cached_text_block != null && cached_text_block_font_size == font_size && ReferenceEquals (cached_text_block_font, typeface)
                 && cached_text_block_placeholder == shows_placeholder)
                 return cached_text_block;
@@ -390,8 +399,10 @@ namespace Majorsilence.Forms
             // bounded to the visible width even when wrapping is off. For a multiline box that means
             // non-left-aligned text still wraps with WordWrap = false; left-aligned, which is what a
             // log view or a code view uses, does not (TXT-11).
+            // The right edge they align to keeps a margin, as the native edit control's does on both sides:
+            // right-aligned text (a currency field) ran up against the border.
             var unbounded = alignment == TextAlignment.Left ? TextMeasurer.MaxSize
-                          : new Size (Math.Max (width, 1), int.MaxValue);
+                          : new Size (Math.Max (width - textbox.LogicalToDeviceUnits (RightMargin), 1), int.MaxValue);
             var max_size = multiline && !textbox.WordWrap ? unbounded
                          : multiline ? new Size (width, int.MaxValue)
                          : unbounded;

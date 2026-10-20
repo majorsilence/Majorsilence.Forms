@@ -3898,6 +3898,11 @@ namespace Majorsilence.Forms
 
 
         /// <summary>Gets or sets the visual style of the grid's border.</summary>
+        /// <remarks>
+        /// FixedSingle by default, as upstream's, and drawn as upstream draws it: a FixedSingle frame is
+        /// the window frame colour (black), None has no frame. The property was stored and ignored, with
+        /// a Fixed3D default, so every grid had the theme's pale grey line.
+        /// </remarks>
         public BorderStyle BorderStyle {
             get => border_style;
             set {
@@ -3905,12 +3910,17 @@ namespace Majorsilence.Forms
                     return;
 
                 border_style = value;
+                ApplyBorderStyle (value);
                 OnBorderStyleChanged (EventArgs.Empty);
                 Invalidate ();
             }
         }
 
-        private BorderStyle border_style = BorderStyle.Fixed3D;
+        private BorderStyle border_style = BorderStyle.FixedSingle;
+
+        /// <inheritdoc/>
+        internal override SkiaSharp.SKColor? UpstreamDefaultBorderColor
+            => border_style == BorderStyle.FixedSingle ? SystemColors.WindowFrame.ToSKColor () : null;
 
         /// <summary>Raised after the grid scrolls, by the user or by code, in either direction.</summary>
         /// <remarks>
