@@ -15,6 +15,9 @@ namespace Majorsilence.Forms
         internal static readonly SKColor Control = new SKColor (0xF0, 0xF0, 0xF0);
         internal static readonly SKColor TextBoxOutline = new SKColor (0xEC, 0xEC, 0xEC);
         internal static readonly SKColor TextBoxBottom = new SKColor (0x83, 0x83, 0x83);
+
+        // A focused text box's bottom edge: two pixels of the accent, in place of the grey line.
+        internal static readonly SKColor TextBoxFocusBottom = new SKColor (0x00, 0x67, 0xC0);
         internal static readonly SKColor ListBoxOutline = new SKColor (0x82, 0x87, 0x90);
 
         // A drop-down list is drawn like a push button: near-white face, light outline, darker bottom.
@@ -63,6 +66,13 @@ namespace Majorsilence.Forms
             // Read-only and disabled boxes show SystemColors.Control, as upstream's do.
             var face = !Enabled || ReadOnly && Style.BackgroundColor is null ? FieldUpstreamLook.Control : GetEffectiveBackgroundColor ();
             FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, face, FieldUpstreamLook.TextBoxOutline, FieldUpstreamLook.TextBoxBottom);
+
+            // With the keyboard focus, upstream's box underlines itself in the accent, two pixels deep.
+            if (Selected && Enabled) {
+                using var paint = new SKPaint { Color = FieldUpstreamLook.TextBoxFocusBottom };
+                var line = 2 * (float) e.Scaling;
+                e.Canvas.DrawRect (new SKRect (0, ScaledHeight - line, ScaledWidth, ScaledHeight), paint);
+            }
         }
 
         /// <inheritdoc/>
