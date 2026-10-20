@@ -118,7 +118,6 @@ Majorsilence.Forms.DataGridTextBoxColumn.FormatInfo    -- upstream ships the Dat
 Majorsilence.Forms.DataGridTextBoxColumn.NullText    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
 Majorsilence.Forms.DataGridTextBoxColumn.PropertyDescriptor    -- upstream ships the DataGrid family as binary-compat stubs; nothing reads these there either
 Majorsilence.Forms.DataGridTextBoxColumn.TextBox    -- framework-written (outbound state)
-Majorsilence.Forms.DataGridView.EnableHeadersVisualStyles    -- framework-written (outbound state)
 Majorsilence.Forms.DataGridViewBand.Index    -- framework-written owner/index slot; the grid keeps its own indices
 Majorsilence.Forms.DataGridViewCell.ColumnInfo    -- framework-written owner/index slot; the grid keeps its own indices
 Majorsilence.Forms.DataGridViewCellEditEventArgs.Cancel    -- not an upstream type and nothing raises it; CellBeginEdit uses DataGridViewCellCancelEventArgs, whose Cancel is honoured, and DataError.Cancel is honoured as of W6 mechanisms

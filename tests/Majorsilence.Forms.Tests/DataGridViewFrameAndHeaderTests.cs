@@ -11,10 +11,11 @@ namespace Majorsilence.Forms.Tests
         private static SKBitmap Capture (Form form)
             => SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 300, 200));
 
-        // Upstream's grid is FixedSingle by default, a frame in the window frame colour (black). The property
-        // was stored and ignored with a Fixed3D default, so every grid had the theme's pale grey line.
+        // Upstream's grid is FixedSingle by default, the window border style's frame, drawn black. The property
+        // was stored and ignored with a Fixed3D default, so every grid had the theme's pale grey line; then it was
+        // drawn in WindowFrame, the (grey) grid line colour.
         [Fact]
-        public void A_grid_is_framed_in_the_window_frame_colour_by_default ()
+        public void A_grid_is_framed_in_black_by_default ()
         {
             HeadlessRenderer.Use ();
             using var form = new Form { FormBorderStyle = FormBorderStyle.None, ClientSize = new Size (300, 200) };
@@ -26,9 +27,72 @@ namespace Majorsilence.Forms.Tests
 
             using var bitmap = Capture (form);
             var scale = bitmap.Width / 300f;
-            var frame = SystemColors.WindowFrame.ToSKColor ();
+            var frame = SKColors.Black;
 
             Assert.Equal (frame, bitmap.GetPixel ((int) (grid.Left * scale), (int) ((grid.Top + 100) * scale)));
+        }
+
+        // Upstream's grid lines are WindowFrame by default (DefaultGridColor). GridColor was Empty, which drew the theme's
+        // paler line.
+        [Fact]
+        public void Grid_lines_are_window_frame_by_default ()
+        {
+            HeadlessRenderer.Use ();
+            using var form = new Form { FormBorderStyle = FormBorderStyle.None, ClientSize = new Size (300, 200) };
+            var grid = new DataGridView { Location = new Point (10, 10), Size = new Size (280, 120), RowHeadersVisible = false, AllowUserToAddRows = false };
+            grid.Columns.Add ("a", "A");
+            grid.Columns.Add ("b", "B");
+            grid.Rows.Add ("x", "y");
+            form.Controls.Add (grid);
+            form.Show ();
+            grid.ClearSelection ();
+
+            Assert.Equal (SystemColors.WindowFrame, grid.GridColor);
+
+            using var bitmap = Capture (form);
+            var scale = bitmap.Width / 300f;
+            var cell = grid.GetCellBounds (0, 0);   // device pixels, within the grid
+            var origin = grid.PointToScreen (Point.Empty);
+            var form_origin = form.PointToScreen (Point.Empty);
+
+            Assert.Equal (SystemColors.WindowFrame.ToSKColor (),
+                bitmap.GetPixel (origin.X - form_origin.X + cell.Right - 1, origin.Y - form_origin.Y + cell.Top + cell.Height / 2));
+        }
+
+        private static SKColor HeaderPixel (bool chooseFont, bool visualStyles)
+        {
+            try {
+                if (chooseFont)
+                    Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 9f));
+
+                HeadlessRenderer.Use ();
+                using var form = new Form { FormBorderStyle = FormBorderStyle.None, ClientSize = new Size (300, 200) };
+                var grid = new DataGridView { Location = new Point (10, 10), Size = new Size (280, 120), RowHeadersVisible = false, EnableHeadersVisualStyles = visualStyles };
+                grid.ColumnHeadersDefaultCellStyle.BackColor = Color.MidnightBlue;
+                grid.Columns.Add ("a", "");
+                grid.Columns[0].Width = 100;
+                form.Controls.Add (grid);
+                form.Show ();
+
+                using var bitmap = Capture (form);
+                var origin = grid.PointToScreen (Point.Empty);
+                var form_origin = form.PointToScreen (Point.Empty);
+                var scale = bitmap.Width / 300f;
+
+                return bitmap.GetPixel (origin.X - form_origin.X + (int) (50 * scale), origin.Y - form_origin.Y + (int) (grid.ColumnHeadersHeight / 2 * scale));
+            } finally {
+                Application.SetDefaultFont (null!);
+            }
+        }
+
+        // Upstream's EnableHeadersVisualStyles draws the theme's header items, white under Windows 11, whatever the header
+        // style's BackColor; turned off, the header style is used. It was stored and ignored.
+        [Fact]
+        public void Visual_style_headers_are_the_themes_and_ignore_the_header_style ()
+        {
+            Assert.Equal (SKColors.White, HeaderPixel (chooseFont: true, visualStyles: true));
+            Assert.Equal (Color.MidnightBlue.ToSKColor (), HeaderPixel (chooseFont: true, visualStyles: false));
+            Assert.Equal (Color.MidnightBlue.ToSKColor (), HeaderPixel (chooseFont: false, visualStyles: true));
         }
 
         [Fact]

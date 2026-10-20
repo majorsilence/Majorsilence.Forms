@@ -1056,7 +1056,9 @@ namespace Majorsilence.Forms
 
         private System.Drawing.Color background_color = SystemColors.ControlDark;
 
-        /// <summary>Gets or sets the color of the grid lines. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets the color of the grid lines.</summary>
+        /// <remarks><see cref="SystemColors.WindowFrame"/> by default, upstream's DefaultGridColor. It was Empty, which
+        /// drew the theme's paler line.</remarks>
         public System.Drawing.Color GridColor {
             get => grid_color;
             set {
@@ -1069,7 +1071,7 @@ namespace Majorsilence.Forms
             }
         }
 
-        private System.Drawing.Color grid_color = System.Drawing.Color.Empty;
+        private System.Drawing.Color grid_color = SystemColors.WindowFrame;
 
         /// <summary>Gets or sets the edit mode of the DataGridView. Stub in Majorsilence.Forms.</summary>
         public DataGridViewEditMode EditMode {
@@ -3921,8 +3923,10 @@ namespace Majorsilence.Forms
         private BorderStyle border_style = BorderStyle.FixedSingle;
 
         /// <inheritdoc/>
+        // Upstream's FixedSingle grid has the window border style's frame, drawn black. It was WindowFrame, the
+        // (grey) grid line colour.
         internal override SkiaSharp.SKColor? UpstreamDefaultBorderColor
-            => border_style == BorderStyle.FixedSingle ? SystemColors.WindowFrame.ToSKColor () : null;
+            => border_style == BorderStyle.FixedSingle ? SkiaSharp.SKColors.Black : null;
 
         /// <summary>Raised after the grid scrolls, by the user or by code, in either direction.</summary>
         /// <remarks>
