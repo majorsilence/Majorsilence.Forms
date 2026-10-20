@@ -38,7 +38,7 @@ namespace Majorsilence.Forms
     /// Derives from <see cref="Canvas"/> so it can also overlay native Avalonia controls hosted inside the
     /// Majorsilence scene via <see cref="NativeControlHost"/> (the airspace interop model).
     /// </summary>
-    public class MajorsilenceFormsPresenter : Canvas, IWindowBackend, Backends.IPickedFileBackend, INativeControlHostBackend, IDisposable
+    public class MajorsilenceFormsPresenter : Canvas, IWindowBackend, Backends.IPickedFileBackend, Backends.ISavedFileBackend, INativeControlHostBackend, IDisposable
     {
         private readonly HostedSurface _host;
         private WriteableBitmap? _framebuffer;
@@ -497,6 +497,16 @@ namespace Majorsilence.Forms
             => (await PickFilesAsync (request)).Select (f => f.ToPickedFile ()).ToArray ();
 
         async System.Threading.Tasks.Task<string?> IWindowBackend.ShowSaveFileDialog (Backends.SaveFileRequest request)
+            => (await PickSaveFileAsync (request))?.GetFullPath ();
+
+        // The chosen file as something to write: on Android, iOS and in the browser it has no
+        // path, and only the storage file can open it.
+        async System.Threading.Tasks.Task<Backends.SavedFile?> Backends.ISavedFileBackend.ShowSaveFilePicker (Backends.SaveFileRequest request)
+            => await PickSaveFileAsync (request) is { } file
+                ? new Backends.SavedFile (file.Name, file.GetFullPath (), async _ => await file.OpenWriteAsync ())
+                : null;
+
+        private async System.Threading.Tasks.Task<Avalonia.Platform.Storage.IStorageFile?> PickSaveFileAsync (Backends.SaveFileRequest request)
         {
             var top = TopLevel.GetTopLevel (this);
             if (top is null) return null;
@@ -511,7 +521,7 @@ namespace Majorsilence.Forms
                 // The filter FilterIndex names is the one the picker opens on (SVC-24).
                 SuggestedFileType = request.FilterIndex >= 1 && request.FilterIndex <= types.Length ? types[request.FilterIndex - 1] : null
             });
-            return result?.GetFullPath ();
+            return result;
         }
 
         async System.Threading.Tasks.Task<string?> IWindowBackend.ShowOpenFolderDialog (Backends.FolderDialogRequest request)

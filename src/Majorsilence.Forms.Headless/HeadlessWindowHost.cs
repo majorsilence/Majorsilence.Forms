@@ -11,7 +11,7 @@ namespace Majorsilence.Forms.Headless
     /// offscreen SkiaSharp surface. Geometry/appearance are plain in-memory state; input and
     /// chrome operations are no-ops. Mirrors the structure a real (Uno/Avalonia) window host follows.
     /// </summary>
-    internal sealed class HeadlessWindowHost : IWindowBackend, IPickedFileBackend, IMaximizedBoundsBackend
+    internal sealed class HeadlessWindowHost : IWindowBackend, IPickedFileBackend, ISavedFileBackend, IMaximizedBoundsBackend
     {
         private readonly WindowBase _owner;
         private Size _size = new (800, 600);
@@ -213,6 +213,11 @@ namespace Majorsilence.Forms.Headless
 
         public Task<string?> ShowSaveFileDialog (SaveFileRequest request)
             => Task.FromResult (HeadlessRenderer.SaveFileResponse?.Invoke (request));
+
+        public Task<SavedFile?> ShowSaveFilePicker (SaveFileRequest request)
+            => HeadlessRenderer.SaveFilePickResponse is { } respond
+                ? Task.FromResult (respond (request))
+                : Task.FromResult (HeadlessRenderer.SaveFileResponse?.Invoke (request) is { } path ? SavedFile.FromPath (path) : null);
         public Task<string?> ShowOpenFolderDialog (FolderDialogRequest request)
             => Task.FromResult (HeadlessRenderer.OpenFolderResponse?.Invoke (request));
 

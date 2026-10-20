@@ -540,12 +540,19 @@ namespace Majorsilence.Forms
         public bool ExpandedMode { get; set; } = true;
 
         /// <summary>Creates or truncates the chosen file and opens it for writing.</summary>
+        /// <remarks>A file the platform gives no path (Android, iOS) is opened through its picker when that
+        /// completes at once; one that cannot be opened synchronously (the browser) needs
+        /// <see cref="OpenFileAsync"/>.</remarks>
         public Stream OpenFile ()
         {
             if (string.IsNullOrEmpty (FileName))
                 throw new InvalidOperationException ("No file has been chosen.");
 
-            return File.Create (FileName);
+            // Never block on it: a browser write completes on the UI thread this would be holding.
+            var open = OpenFileAsync ();
+            if (!open.IsCompleted)
+                throw new PlatformNotSupportedException ("This file can only be written asynchronously; use OpenFileAsync.");
+            return open.GetAwaiter ().GetResult ();
         }
     }
 

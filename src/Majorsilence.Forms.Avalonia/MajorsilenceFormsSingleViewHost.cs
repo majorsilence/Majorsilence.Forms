@@ -54,7 +54,7 @@ namespace Majorsilence.Forms
     /// window activation) -- only losing focus to something outside the app entirely is unhandled.
     /// </summary>
     [System.Diagnostics.CodeAnalysis.SuppressMessage ("Design", "CA1001", Justification = "_scene SKPictures are disposed in IWindowBackend.Close/DetachedFromVisualTree; there is no owning Window to dispose through here.")]
-    internal sealed class MajorsilenceFormsSingleViewHost : Canvas, IWindowBackend, Backends.IPickedFileBackend, INativeControlHostBackend, IAnimationFrameSource
+    internal sealed class MajorsilenceFormsSingleViewHost : Canvas, IWindowBackend, Backends.IPickedFileBackend, Backends.ISavedFileBackend, INativeControlHostBackend, IAnimationFrameSource
     {
         internal static MajorsilenceFormsSingleViewHost? MainHost { get; private set; }
 
@@ -1280,6 +1280,16 @@ namespace Majorsilence.Forms
             => (await PickFilesAsync (request)).Select (f => f.ToPickedFile ()).ToArray ();
 
         async System.Threading.Tasks.Task<string?> IWindowBackend.ShowSaveFileDialog (Backends.SaveFileRequest request)
+            => (await PickSaveFileAsync (request))?.GetFullPath ();
+
+        // The chosen file as something to write: on Android, iOS and in the browser it has no
+        // path, and only the storage file can open it.
+        async System.Threading.Tasks.Task<Backends.SavedFile?> Backends.ISavedFileBackend.ShowSaveFilePicker (Backends.SaveFileRequest request)
+            => await PickSaveFileAsync (request) is { } file
+                ? new Backends.SavedFile (file.Name, file.GetFullPath (), async _ => await file.OpenWriteAsync ())
+                : null;
+
+        private async System.Threading.Tasks.Task<Avalonia.Platform.Storage.IStorageFile?> PickSaveFileAsync (Backends.SaveFileRequest request)
         {
             var top = TopLevel.GetTopLevel (this);
             if (top is null) return null;
@@ -1294,7 +1304,7 @@ namespace Majorsilence.Forms
                 // The filter FilterIndex names is the one the picker opens on (SVC-24).
                 SuggestedFileType = request.FilterIndex >= 1 && request.FilterIndex <= types.Length ? types[request.FilterIndex - 1] : null
             });
-            return result?.GetFullPath ();
+            return result;
         }
 
         async System.Threading.Tasks.Task<string?> IWindowBackend.ShowOpenFolderDialog (Backends.FolderDialogRequest request)
