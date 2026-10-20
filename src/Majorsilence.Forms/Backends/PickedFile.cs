@@ -55,3 +55,52 @@ namespace Majorsilence.Forms.Backends
         Task<PickedFile[]> ShowOpenFilePicker (OpenFileRequest request);
     }
 }
+
+namespace Majorsilence.Forms.Backends
+{
+    /// <summary>
+    /// A file chosen in a save-file picker, with a way to write it. On Android, iOS and in the browser the
+    /// picker hands back a document with no local path that <see cref="System.IO.File"/> could create;
+    /// <see cref="OpenWriteAsync"/> writes it through the platform.
+    /// </summary>
+    public sealed class SavedFile
+    {
+        private readonly Func<CancellationToken, Task<Stream>> open_write;
+
+        /// <summary>Initializes a saved file.</summary>
+        /// <param name="name">The file's name with its extension, as the picker showed it.</param>
+        /// <param name="path">The full local path, or null where the platform has none.</param>
+        /// <param name="openWrite">Creates or truncates the file and opens it for writing.</param>
+        public SavedFile (string name, string? path, Func<CancellationToken, Task<Stream>> openWrite)
+        {
+            Name = name ?? throw new ArgumentNullException (nameof (name));
+            Path = path;
+            open_write = openWrite ?? throw new ArgumentNullException (nameof (openWrite));
+        }
+
+        /// <summary>A saved file that is a local path.</summary>
+        public static SavedFile FromPath (string path)
+            => new SavedFile (System.IO.Path.GetFileName (path), path,
+                _ => Task.FromResult<Stream> (new FileStream (path, FileMode.Create, FileAccess.Write, FileShare.None, 4096, useAsync: true)));
+
+        /// <summary>The file's name with its extension, without any directory.</summary>
+        public string Name { get; }
+
+        /// <summary>The full local path, or null when the platform gives the file none (Android, iOS, the browser).</summary>
+        public string? Path { get; }
+
+        /// <summary>Creates or truncates the file and opens it for writing. The caller disposes the stream.</summary>
+        public Task<Stream> OpenWriteAsync (CancellationToken cancellationToken = default) => open_write (cancellationToken);
+    }
+
+    /// <summary>
+    /// Implemented by a backend whose save-file picker can hand back a file without a local path, so
+    /// <c>SaveFileDialog</c> can write it. A backend without it is asked for a path
+    /// (<see cref="IWindowBackend.ShowSaveFileDialog"/>), which is created on disk.
+    /// </summary>
+    public interface ISavedFileBackend
+    {
+        /// <summary>Shows a save-file picker; returns the chosen file, or null if cancelled.</summary>
+        Task<SavedFile?> ShowSaveFilePicker (SaveFileRequest request);
+    }
+}

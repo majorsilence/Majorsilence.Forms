@@ -108,6 +108,12 @@ namespace Majorsilence.Forms.Headless
         /// <summary>What a save-file picker on the headless backend returns; null (the default) cancels.</summary>
         public static System.Func<Majorsilence.Forms.Backends.SaveFileRequest, string?>? SaveFileResponse { get; set; }
 
+        /// <summary>
+        /// What a save-file picker returns as a writable file, as Android, iOS and the browser hand back a document
+        /// with no local path. Wins over <see cref="SaveFileResponse"/> when set; null (the default) falls back to it.
+        /// </summary>
+        public static System.Func<Majorsilence.Forms.Backends.SaveFileRequest, Majorsilence.Forms.Backends.SavedFile?>? SaveFilePickResponse { get; set; }
+
         /// <summary>What a folder picker on the headless backend returns for the request it is handed;
         /// null (the default) cancels. Lets a test see the request <c>FolderBrowserDialog</c> builds.</summary>
         public static System.Func<Majorsilence.Forms.Backends.FolderDialogRequest, string?>? OpenFolderResponse { get; set; }

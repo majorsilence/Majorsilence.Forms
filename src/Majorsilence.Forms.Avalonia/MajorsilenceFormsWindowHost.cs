@@ -31,7 +31,7 @@ namespace Majorsilence.Forms
     /// native-framebuffer approach and is reliable across all Avalonia 12 platforms.
     /// </summary>
     [System.Diagnostics.CodeAnalysis.SuppressMessage ("Design", "CA1001", Justification = "_framebuffer is disposed in OnClosed; Window lifecycle manages the call.")]
-    internal class MajorsilenceFormsWindowHost : Window, Majorsilence.Forms.Backends.IWindowBackend, Majorsilence.Forms.Backends.IPickedFileBackend, Majorsilence.Forms.Backends.INativeControlHostBackend,
+    internal class MajorsilenceFormsWindowHost : Window, Majorsilence.Forms.Backends.IWindowBackend, Majorsilence.Forms.Backends.IPickedFileBackend, Majorsilence.Forms.Backends.ISavedFileBackend, Majorsilence.Forms.Backends.INativeControlHostBackend,
         Majorsilence.Forms.Backends.IAnimationFrameSource
     {
         private readonly WindowBase _owner;
@@ -546,6 +546,16 @@ namespace Majorsilence.Forms
             => (await PickFilesAsync (request)).Select (f => f.ToPickedFile ()).ToArray ();
 
         async System.Threading.Tasks.Task<string?> Backends.IWindowBackend.ShowSaveFileDialog (Backends.SaveFileRequest request)
+            => (await PickSaveFileAsync (request))?.GetFullPath ();
+
+        // The chosen file as something to write: on Android, iOS and in the browser it has no
+        // path, and only the storage file can open it.
+        async System.Threading.Tasks.Task<Backends.SavedFile?> Backends.ISavedFileBackend.ShowSaveFilePicker (Backends.SaveFileRequest request)
+            => await PickSaveFileAsync (request) is { } file
+                ? new Backends.SavedFile (file.Name, file.GetFullPath (), async _ => await file.OpenWriteAsync ())
+                : null;
+
+        private async System.Threading.Tasks.Task<Avalonia.Platform.Storage.IStorageFile?> PickSaveFileAsync (Backends.SaveFileRequest request)
         {
             var types = MapFilters (request.Filters);
             var options = new Avalonia.Platform.Storage.FilePickerSaveOptions {
@@ -559,7 +569,7 @@ namespace Majorsilence.Forms
             };
 
             var result = await StorageProvider.SaveFilePickerAsync (options);
-            return result?.GetFullPath ();
+            return result;
         }
 
         async System.Threading.Tasks.Task<string?> Backends.IWindowBackend.ShowOpenFolderDialog (Backends.FolderDialogRequest request)
