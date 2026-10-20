@@ -1040,7 +1040,8 @@ namespace Majorsilence.Forms
         private bool multi_select = true;
 
         /// <summary>Gets or sets the colour of the grid's background, below the last row:
-        /// <see cref="SystemColors.AppWorkspace"/> by default, as upstream.</summary>
+        /// <see cref="SystemColors.ControlDark"/> by default, upstream's s_defaultBackgroundColor. It was
+        /// AppWorkspace, a few shades lighter than upstream's grids.</summary>
         public System.Drawing.Color BackgroundColor {
             get => background_color;
             set {
@@ -1053,7 +1054,7 @@ namespace Majorsilence.Forms
             }
         }
 
-        private System.Drawing.Color background_color = SystemColors.AppWorkspace;
+        private System.Drawing.Color background_color = SystemColors.ControlDark;
 
         /// <summary>Gets or sets the color of the grid lines. Stub in Majorsilence.Forms.</summary>
         public System.Drawing.Color GridColor {

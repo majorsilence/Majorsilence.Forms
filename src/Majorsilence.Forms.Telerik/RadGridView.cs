@@ -112,7 +112,7 @@ namespace Majorsilence.Forms.Telerik
             // what the Telerik-typed SelectionMode reports; the WinForms default underneath selects cells.
             base.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
 
-            // Telerik's grid is white below its last row, not the WinForms grid's AppWorkspace.
+            // Telerik's grid is white below its last row, not the WinForms grid's ControlDark.
             BackgroundColor = System.Drawing.Color.Empty;
 
             // Descriptor changes (add/remove/clear) rebuild the displayed view.
