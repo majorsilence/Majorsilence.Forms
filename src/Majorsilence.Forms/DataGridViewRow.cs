@@ -8,7 +8,14 @@ namespace Majorsilence.Forms
     /// </summary>
     public partial class DataGridViewRow
     {
-        private int height = 22;
+        private int height = DefaultHeight;
+
+        // Upstream's default row height: the application's default font's height plus 9 (DataGridViewRow.DefaultHeight),
+        // 22 for the classic 8.25pt font and 25 for the Segoe UI 9pt a ported app chooses. A fixed 22 fitted the
+        // classic font only, so an app that had chosen its font got rows a few pixels short of upstream's. Without
+        // a chosen font it stays 22: off Windows the classic family is a stand-in whose height is not upstream's.
+        internal static int DefaultHeight
+            => SystemFonts.DefaultFontOverride is { } font ? font.Height + 9 : 22;
         private DataGridView? owner;
 
         /// <summary>

@@ -1040,7 +1040,8 @@ namespace Majorsilence.Forms
         private bool multi_select = true;
 
         /// <summary>Gets or sets the colour of the grid's background, below the last row:
-        /// <see cref="SystemColors.AppWorkspace"/> by default, as upstream.</summary>
+        /// <see cref="SystemColors.ControlDark"/> by default, upstream's s_defaultBackgroundColor. It was
+        /// AppWorkspace, a few shades lighter than upstream's grids.</summary>
         public System.Drawing.Color BackgroundColor {
             get => background_color;
             set {
@@ -1053,7 +1054,7 @@ namespace Majorsilence.Forms
             }
         }
 
-        private System.Drawing.Color background_color = SystemColors.AppWorkspace;
+        private System.Drawing.Color background_color = SystemColors.ControlDark;
 
         /// <summary>Gets or sets the color of the grid lines. Stub in Majorsilence.Forms.</summary>
         public System.Drawing.Color GridColor {
@@ -3795,8 +3796,9 @@ namespace Majorsilence.Forms
         /// <remarks>Never without columns: upstream's grid holds no rows at all until it has a column ("Rows cannot be
         /// programmatically added to the DataGridView's rows collection when there are no columns"), so a fresh,
         /// column-less grid shows only its background rather than an empty new-row line. Rows added before any column
-        /// (which this grid tolerates) keep the new row.</remarks>
-        internal bool ShowsNewRow => AllowUserToAddRows && !read_only && (Columns.Count > 0 || Rows.Count > 0) && BoundListAllowsNew;
+        /// (which this grid tolerates) keep the new row. ReadOnly plays no part, as upstream's AllowUserToAddRowsInternal: a
+        /// read-only grid still shows its (uneditable) new row, where this hid it and the grid read as having no rows.</remarks>
+        internal bool ShowsNewRow => AllowUserToAddRows && (Columns.Count > 0 || Rows.Count > 0) && BoundListAllowsNew;
 
         // A bound list has the last word, as upstream's currency manager does: an IBindingList says
         // so itself; a plain list must at least be growable.
@@ -3898,6 +3900,11 @@ namespace Majorsilence.Forms
 
 
         /// <summary>Gets or sets the visual style of the grid's border.</summary>
+        /// <remarks>
+        /// FixedSingle by default, as upstream's, and drawn as upstream draws it: a FixedSingle frame is
+        /// the window frame colour (black), None has no frame. The property was stored and ignored, with
+        /// a Fixed3D default, so every grid had the theme's pale grey line.
+        /// </remarks>
         public BorderStyle BorderStyle {
             get => border_style;
             set {
@@ -3905,12 +3912,17 @@ namespace Majorsilence.Forms
                     return;
 
                 border_style = value;
+                ApplyBorderStyle (value);
                 OnBorderStyleChanged (EventArgs.Empty);
                 Invalidate ();
             }
         }
 
-        private BorderStyle border_style = BorderStyle.Fixed3D;
+        private BorderStyle border_style = BorderStyle.FixedSingle;
+
+        /// <inheritdoc/>
+        internal override SkiaSharp.SKColor? UpstreamDefaultBorderColor
+            => border_style == BorderStyle.FixedSingle ? SystemColors.WindowFrame.ToSKColor () : null;
 
         /// <summary>Raised after the grid scrolls, by the user or by code, in either direction.</summary>
         /// <remarks>

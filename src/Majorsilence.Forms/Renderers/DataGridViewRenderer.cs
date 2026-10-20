@@ -8,6 +8,9 @@ namespace Majorsilence.Forms.Renderers
     /// </summary>
     public class DataGridViewRenderer : Renderer<DataGridView>
     {
+        // Stands in for a trailing space so the layout counts it (see RenderCell).
+        private const char NoBreakSpace = '\u00A0';
+
         /// <inheritdoc/>
         protected override void Render (DataGridView control, PaintEventArgs e)
         {
@@ -151,12 +154,20 @@ namespace Majorsilence.Forms.Renderers
             var caption = column.HeaderDisplayText;
 
             // Wrapped between words only, as upstream's header text: a word too wide keeps a line to itself.
+            int? max_lines = 1;
+
             if (wraps) {
                 caption = DataGridView.BreakBetweenWords (caption, font, scaled_size, text_bounds.Width, out var layout_width);
                 text_bounds.Width = layout_width;
+
+                // Only the lines the band holds whole, aligned as the caption asks: upstream draws a wrapped caption
+                // taller than its header as just its first line(s), level with the other captions. All of it, the
+                // first line rode up out of line and a sliver of the next showed beneath.
+                var line = (int) TextMeasurer.MeasureText ("X", font, scaled_size).Height;
+                max_lines = line > 0 ? Math.Max (1, text_bounds.Height / line) : null;
             }
 
-            e.Canvas.DrawText (caption, font, scaled_size, text_bounds, fg, column.HeaderAlignment, maxLines: wraps ? null : 1, ellipsis: HeaderTextEllipsis || !control.HeaderWraps);
+            e.Canvas.DrawText (caption, font, scaled_size, text_bounds, fg, column.HeaderAlignment, maxLines: max_lines, ellipsis: HeaderTextEllipsis || !control.HeaderWraps);
 
             // Draw sort indicator
             if (column.SortOrder != SortOrder.None)
@@ -240,7 +251,7 @@ namespace Majorsilence.Forms.Renderers
                 y += row_height;
             }
 
-            // Below the last row is the grid's BACKGROUND, not more grid: AppWorkspace by default, as
+            // Below the last row is the grid's BACKGROUND, not more grid: ControlDark by default, as
             // upstream (DGV-22). An empty BackgroundColor leaves the theme's colour there. A grid with
             // nothing in it draws no header band either (see Render), so all of it is background.
             if (control.Columns.Count == 0 && control.Rows.Count == 0)
@@ -754,6 +765,14 @@ namespace Majorsilence.Forms.Renderers
 
                 // A single-line cell ends what does not fit with an ellipsis, as upstream's text box cell
                 // does (EndEllipsis whenever it is not wrapping); clipping mid-letter hid that it was cut.
+                // Trailing spaces count towards the width, as GDI's do: a value padded to its column's width (a
+                // fixed-length CHAR column) runs past the cell and ends in an ellipsis upstream. The layout here
+                // let trailing spaces hang past the edge, so the padded value fitted and showed none.
+                if (max_lines == 1 && value is { Length: > 0 } && char.IsWhiteSpace (value[^1])) {
+                    var trimmed = value.TrimEnd ();
+                    value = trimmed + new string (NoBreakSpace, value.Length - trimmed.Length);
+                }
+
                 e.Canvas.DrawText (value, font, scaled_font, text_bounds, fg, alignment, maxLines: max_lines, ellipsis: max_lines == 1);
 
                 // A link cell is underlined as well as coloured. LinkBehavior was stored on both the

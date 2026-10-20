@@ -2002,8 +2002,18 @@ namespace Majorsilence.Forms
             if (BackgroundImage is not null)
                 PaintBackgroundImage (e);
 
-            e.Canvas.DrawBorder (ScaledBounds, CurrentStyle);
+            // As for the background: upstream's frame colour for this type when the control has none of its own.
+            if (Style.Border.Color is null && UpstreamDefaultBorderColor is { } frame)
+                e.Canvas.DrawBorder (ScaledBounds, new ControlStyle (CurrentStyle) { Border = { Color = frame } });
+            else
+                e.Canvas.DrawBorder (ScaledBounds, CurrentStyle);
         }
+
+        /// <summary>
+        /// The border colour upstream gives this control when it has none of its own, where that differs
+        /// from the theme's: a grid's FixedSingle frame (SystemColors.WindowFrame). Null takes the theme's.
+        /// </summary>
+        internal virtual SKColor? UpstreamDefaultBorderColor => null;
 
         /// <summary>
         /// Resolves the control's effective background the way WinForms' ambient BackColor does: an

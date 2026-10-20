@@ -427,6 +427,33 @@ namespace Majorsilence.Forms.Tests
             }
         }
 
+        // Upstream mirrors an up-down control for RightToLeft (UpDownBase): the buttons go to the side UpDownAlign does
+        // not name and the text's alignment flips, so a right-to-left spin box has its buttons on the left and its number
+        // on the right. RightToLeft was ignored.
+        [Fact]
+        public void RightToLeft_mirrors_the_buttons_and_the_text ()
+        {
+            var spinner = Spinner (out var form);
+            using var _form = form;
+
+            try {
+                spinner.RightToLeft = RightToLeft.Yes;
+
+                Assert.Equal (0, spinner.GetIncrementArea ().Left);
+                Assert.Equal (0, spinner.GetDecrementArea ().Left);
+                Assert.Equal (HorizontalAlignment.Right, spinner.EffectiveTextAlign);
+
+                spinner.UpDownAlign = LeftRightAlignment.Left;
+
+                Assert.True (spinner.GetIncrementArea ().Left > spinner.Width / 2, "Left, mirrored, is the right-hand side");
+
+                spinner.TextAlign = HorizontalAlignment.Right;
+                Assert.Equal (HorizontalAlignment.Left, spinner.EffectiveTextAlign);
+            } finally {
+                form.Close ();
+            }
+        }
+
         [Fact]
         public void The_control_paints_with_its_own_font_not_the_themes ()
         {

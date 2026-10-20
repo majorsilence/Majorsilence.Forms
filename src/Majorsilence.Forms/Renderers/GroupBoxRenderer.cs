@@ -7,6 +7,9 @@ namespace Majorsilence.Forms.Renderers
     /// </summary>
     public class GroupBoxRenderer : Renderer<GroupBox>
     {
+        // The Windows 11 theme's group box frame, as measured from upstream.
+        internal static readonly SkiaSharp.SKColor UpstreamFrameColor = new SkiaSharp.SKColor (0xDC, 0xDC, 0xDC);
+
         /// <inheritdoc/>
         protected override void Render (GroupBox control, PaintEventArgs e)
         {
@@ -23,11 +26,15 @@ namespace Majorsilence.Forms.Renderers
 
             // Border rect starts below the midpoint of the title text
             var border = new Rectangle (bounds.X + 1, bounds.Y + border_top, bounds.Width - 2, bounds.Height - border_top - 1);
-            e.Canvas.DrawRectangle (border, Theme.BorderLowColor);
+
+            // A ported WinForms app (one that chose its font) gets the themed frame upstream draws under
+            // Windows 11's visual styles: one pale line, no etched highlight. Flat keeps its own line.
+            var themed = ControlPaint.UsesUpstreamGlyphs && control.FlatStyle != FlatStyle.Flat;
+            e.Canvas.DrawRectangle (border, themed ? UpstreamFrameColor : Theme.BorderLowColor);
 
             // FlatStyle (W6 mechanisms): the etched frame is the dark line with a highlight line one
             // pixel inside it, as GroupBoxRenderer upstream draws for every style but Flat.
-            if (control.FlatStyle != FlatStyle.Flat) {
+            if (control.FlatStyle != FlatStyle.Flat && !themed) {
                 var inner = new Rectangle (border.X + 1, border.Y + 1, border.Width - 2, border.Height - 2);
 
                 if (inner.Width > 0 && inner.Height > 0)

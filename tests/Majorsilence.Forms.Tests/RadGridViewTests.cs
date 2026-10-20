@@ -65,7 +65,7 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void The_grid_below_its_last_row_is_not_the_WinForms_workspace ()
         {
-            // Telerik's grid is white below its rows. The WinForms grid underneath defaults to AppWorkspace.
+            // Telerik's grid is white below its rows. The WinForms grid underneath defaults to ControlDark.
             Assert.True (new RadGridView ().BackgroundColor.IsEmpty);
         }
 

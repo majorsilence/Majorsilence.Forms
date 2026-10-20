@@ -83,6 +83,101 @@ namespace Majorsilence.Forms.Tests
                 return 0;
             });
 
+        // Upstream's Windows 11 text box underlines itself in the accent while it has the keyboard focus.
+        [Fact]
+        public void A_focused_text_box_is_underlined_in_the_accent ()
+            => With (true, form => {
+                var focused = new TextBox { Location = new Point (10, 10), Size = new Size (120, 20), TabIndex = 0 };
+                var other = new TextBox { Location = new Point (10, 60), Size = new Size (120, 20), TabIndex = 1 };
+                form.Controls.Add (focused);
+                form.Controls.Add (other);
+                focused.Select ();
+
+                using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 300, 200));
+                var scale = bitmap.Width / 300f;
+                var accent = new SKColor (0x00, 0x67, 0xC0);
+                SKColor Bottom (TextBox box, int up) => bitmap.GetPixel ((int) ((box.Left + box.Width / 2) * scale), (int) (box.Bottom * scale) - up);
+
+                Assert.True (focused.Focused);
+                Assert.Equal (accent, Bottom (focused, 1));
+                Assert.Equal (accent, Bottom (focused, (int) (2 * scale)));
+                Assert.NotEqual (accent, Bottom (other, 1));
+                return 0;
+            });
+
+        // The native edit control keeps the same margin on both sides: right-aligned text ends as far in from
+        // the right edge as left-aligned text starts from the left. Here right-aligned text ran to the edge.
+        [Fact]
+        public void Right_aligned_text_keeps_the_margin_left_aligned_text_has ()
+            => With (true, form => {
+                var left = new TextBox { Location = new Point (10, 10), Size = new Size (120, 20), Text = "8888" };
+                var right = new TextBox { Location = new Point (10, 60), Size = new Size (120, 20), Text = "8888", TextAlign = HorizontalAlignment.Right };
+                form.Controls.Add (left);
+                form.Controls.Add (right);
+                form.ActiveControl = null;
+
+                using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 300, 200));
+                var scale = bitmap.Width / 300f;
+
+                // The first and last columns holding dark (text) pixels across a box.
+                (int first, int last) Ink (TextBox box)
+                {
+                    int first = -1, last = -1;
+
+                    for (var x = (int) (box.Left * scale); x < (int) (box.Right * scale); x++)
+                        for (var y = (int) ((box.Top + 3) * scale); y < (int) ((box.Bottom - 3) * scale); y++)
+                            if (bitmap.GetPixel (x, y).Red < 0x80) {
+                                if (first < 0) first = x;
+                                last = x;
+                                break;
+                            }
+
+                    return (first, last);
+                }
+
+                var left_inset = Ink (left).first - (int) (left.Left * scale);
+                var right_inset = (int) (right.Right * scale) - 1 - Ink (right).last;
+
+                // The glyphs' own side bearings differ by platform font, so the two insets agree only roughly: the
+                // right one keeps at least the margin, and sits no further in than the left one does, give or take.
+                Assert.True (right_inset >= (int) (2 * scale) && right_inset <= left_inset + (int) (2 * scale), $"left {left_inset} right {right_inset} ink {Ink (right)} box {right.Bounds} scale {scale}");
+                return 0;
+            });
+
+        // Upstream's themed group box: one pale line round the frame. It was the classic etched pair, a dark
+        // grey line with a lighter one inside it.
+        [Theory]
+        [InlineData (true)]
+        [InlineData (false)]
+        public void A_group_box_frame_is_one_pale_line (bool chooseFont)
+            => With (chooseFont, form => {
+                var group = new GroupBox { Text = "Earning", Location = new Point (10, 10), Size = new Size (150, 100) };
+                form.Controls.Add (group);
+
+                using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 300, 200));
+                var scale = bitmap.Width / 300f;
+                var y = (int) ((group.Top + 60) * scale);
+                var pale = new SKColor (0xDC, 0xDC, 0xDC);
+                var darkest = (byte) 0xFF;
+                var has_pale = false;
+
+                // The left side of the frame, a few device pixels in from the box's edge.
+                for (var x = (int) (group.Left * scale); x < (int) ((group.Left + 4) * scale); x++) {
+                    var c = bitmap.GetPixel (x, y);
+                    has_pale |= c == pale;
+                    darkest = System.Math.Min (darkest, c.Red);
+                }
+
+                if (chooseFont) {
+                    Assert.True (has_pale, "no pale frame line");
+                    Assert.Equal (0xDC, darkest);
+                } else {
+                    Assert.True (darkest < 0xDC, "the theme's frame was replaced without a chosen font");
+                }
+
+                return 0;
+            });
+
         [Fact]
         public void A_list_box_is_a_white_field ()
             => With (true, form => {
