@@ -167,6 +167,15 @@ internal static class TextImageLayoutEngine
         var image_size = text_image_control.GetImage ()?.GetSize () ?? Size.Empty;
         var maxBounds = layout.Field;
 
+        // Upstream's push button lays its text and image out inside its border size (2px, one more for the default
+        // button) and a further 2px TextImageInset (ButtonBaseAdapter.CommonLayout, LayoutOptions). Under the
+        // upstream look the field here was the whole client area, so a TopLeft caption sat in the corner and a
+        // caption a few pixels too wide for upstream's narrower field stayed on one line where upstream wraps it.
+        if (control is Button { PaintsUpstreamLook: true } button) {
+            var inset = control.LogicalToDeviceUnits (2 + (button.IsDefault ? 1 : 0) + 2);
+            maxBounds = Rectangle.Inflate (maxBounds, -inset, -inset);
+        }
+
         var text_size = GetTextSize (control).ToSize ();
         text_size.Height++;
 

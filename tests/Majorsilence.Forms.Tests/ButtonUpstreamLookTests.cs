@@ -57,6 +57,40 @@ namespace Majorsilence.Forms.Tests
             Assert.True (accent > 100, $"{accent} accent outline pixels");
         }
 
+        // Upstream lays a push button's caption out inside its 2px border size and a 2px TextImageInset, so a TopLeft
+        // caption starts 4px in. Here it was laid out in the whole client area and sat in the corner.
+        [Fact]
+        public void A_top_left_caption_keeps_upstreams_inset ()
+        {
+            try {
+                Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 9f));
+                HeadlessRenderer.Use ();
+                using var form = new Form { FormBorderStyle = FormBorderStyle.None, ClientSize = new Size (120, 60) };
+                var dots = new Button { Text = "***", Location = new Point (10, 10), Size = new Size (40, 24), TextAlign = ContentAlignment.TopLeft };
+                var other = new Button { Text = "x", Location = new Point (70, 10), TabIndex = 0 };
+                form.Controls.Add (other);
+                form.Controls.Add (dots);
+                form.Show ();
+                other.Select ();
+
+                using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 120, 60));
+                var scale = bitmap.Width / 120f;
+                int left = int.MaxValue, top = int.MaxValue;
+
+                for (var x = (int) (dots.Left * scale); x < (int) (dots.Right * scale); x++)
+                    for (var y = (int) (dots.Top * scale); y < (int) (dots.Bottom * scale); y++)
+                        if (bitmap.GetPixel (x, y).Red < 0x60) {
+                            left = System.Math.Min (left, x - (int) (dots.Left * scale));
+                            top = System.Math.Min (top, y - (int) (dots.Top * scale));
+                        }
+
+                Assert.True (left >= (int) (4 * scale), $"the caption starts {left}px in");
+                Assert.True (top >= (int) (4 * scale), $"the caption starts {top}px down");
+            } finally {
+                Application.SetDefaultFont (null!);
+            }
+        }
+
         [Fact]
         public void Another_button_is_outlined_in_grey ()
             => Assert.Equal (0, Pixels (chooseFont: true, isDefault: false).accent);
