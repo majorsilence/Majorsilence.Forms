@@ -365,7 +365,10 @@ namespace Majorsilence.Forms
             return hit;
         }
 
-        public TextSelection GetTextSelection () => new TextSelection (selection_start, selection_end, SelectionColor);
+        public TextSelection GetTextSelection ()
+            => new TextSelection (selection_start, selection_end, SelectionColor) {
+                TextColor = selection_color is null && FieldUpstreamLook.Applies ? SystemColors.HighlightText.ToSKColor () : null,
+            };
 
         /// <summary>
         /// The height of one line of this box's text, for when there is no text: an empty text block measures 0,
@@ -823,8 +826,10 @@ namespace Majorsilence.Forms
 
         public string SelectedText => IsTextSelected ? text.Substring (Math.Min (selection_start, selection_end), SelectionLength) : string.Empty;
 
+        // Under the upstream look (an app that chose its font) a box selects as upstream's edit control does: Highlight
+        // behind HighlightText. It was the theme's pale blue behind the text's own colour.
         public SKColor SelectionColor {
-            get => selection_color ?? Theme.TextSelectionBackgroundColor;
+            get => selection_color ?? (FieldUpstreamLook.Applies ? SystemColors.Highlight.ToSKColor () : Theme.TextSelectionBackgroundColor);
             set {
                 if (selection_color != value) {
                     selection_color = value;

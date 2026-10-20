@@ -42,5 +42,10 @@ namespace Majorsilence.Forms
         /// Gets or sets the beginning of the text selection.
         /// </summary>
         public int Start { get; set; }
+
+        /// <summary>
+        /// Gets or sets the colour the selected text is drawn in, or null to keep the text's own colour.
+        /// </summary>
+        public SKColor? TextColor { get; set; }
     }
 }
