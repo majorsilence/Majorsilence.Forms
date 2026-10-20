@@ -336,6 +336,9 @@ namespace Majorsilence.Forms
             set => padding = value;
         }
 
+        // The padding the application assigned, or null while the item reads its default.
+        internal Padding? AssignedPadding => padding;
+
         /// <summary>
         /// Gets the padding used when <see cref="Padding"/> has not been assigned.
         /// </summary>
