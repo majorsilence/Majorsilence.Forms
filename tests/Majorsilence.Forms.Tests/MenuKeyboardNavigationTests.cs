@@ -385,6 +385,59 @@ namespace Majorsilence.Forms.Tests
             return (form, strip, file, recent, edit);
         }
 
+        // The colour at the middle of an item in an open drop-down, rendered on its own.
+        private static SkiaSharp.SKColor ItemColour (MenuDropDown dropDown, MenuItem item)
+        {
+            using var bitmap = PaintSurface.Render (dropDown);
+            var bounds = item.DeviceBounds;
+
+            return bitmap.GetPixel (bounds.Right - 6, bounds.Top + bounds.Height / 2);
+        }
+
+        // Right into a submenu selects its first item, and upstream highlights it as it would a hovered one. Here
+        // the selection was there but drawn as nothing, so the user could not see where the arrows would go.
+        [Fact]
+        public void The_item_Right_selects_in_a_submenu_is_highlighted ()
+        {
+            var (form, _, _, recent, _) = Nested ();
+            using var _form = form;
+
+            try {
+                HeadlessRenderer.KeyDown (form, Keys.Right);
+                var drop = recent.OpenDropDown!;
+                var one = drop.SelectedItem!;
+
+                Assert.Equal ("&One", one.Text);
+                Assert.False (one.Hovered);
+                Assert.Equal (MenuDropDown.DefaultItemHoverStyle.GetBackgroundColor (), ItemColour (drop, one));
+            } finally {
+                form.Close ();
+            }
+        }
+
+        // Under the upstream look (an app that chose its font) the selection is upstream's professional renderer's:
+        // Highlight at about a third over white, where the theme's grey stood.
+        [Fact]
+        public void Under_the_upstream_look_a_selected_item_takes_upstreams_selection_colour ()
+        {
+            try {
+                Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 9f));
+                var (form, _, _, recent, _) = Nested ();
+                using var _form = form;
+
+                try {
+                    HeadlessRenderer.KeyDown (form, Keys.Right);
+                    var drop = recent.OpenDropDown!;
+
+                    Assert.Equal (new SkiaSharp.SKColor (0xB3, 0xD7, 0xF3), ItemColour (drop, drop.SelectedItem!));
+                } finally {
+                    form.Close ();
+                }
+            } finally {
+                Application.SetDefaultFont (null!);
+            }
+        }
+
         [Fact]
         public void Right_opens_the_selected_items_submenu_and_the_arrows_then_move_inside_it ()
         {

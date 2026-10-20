@@ -25,6 +25,9 @@ namespace Majorsilence.Forms.Renderers
 
         private static bool UpstreamMetrics => ControlPaint.UsesUpstreamGlyphs;
 
+        // Upstream's selected drop-down item fill under Windows 11 (ProfessionalColorTable.MenuItemSelected), as measured.
+        internal static readonly SkiaSharp.SKColor UpstreamSelectionFill = new SkiaSharp.SKColor (0xB3, 0xD7, 0xF3);
+
         private static int ImageMarginWidth => UpstreamMetrics ? UpstreamImageMarginWidth : ThemeImageMarginWidth;
 
         // An item's padding on a drop-down: upstream's drop-down default unless the application assigned one.
@@ -81,11 +84,23 @@ namespace Majorsilence.Forms.Renderers
                 return;
 
             // Background
-            var item_style = item.Hovered || item.IsDropDownOpened ? MenuDropDown.DefaultItemHoverStyle : MenuDropDown.DefaultItemStyle;
+            // An item selected from the keyboard is highlighted as a hovered one is, as upstream's: Right into a
+            // submenu selects its first item, and that selection was drawn as nothing at all.
+            var highlighted = item.Hovered || item.Selected || item.IsDropDownOpened;
+            var item_style = highlighted ? MenuDropDown.DefaultItemHoverStyle : MenuDropDown.DefaultItemStyle;
             var background_color = item_style.GetBackgroundColor ();
 
-            if (!StripRendererBridge.ItemBackground (control, item, e))
+            if (!StripRendererBridge.ItemBackground (control, item, e)) {
                 e.Canvas.FillRectangle (item.DeviceBounds, background_color);
+
+                // Under the upstream look, upstream's professional renderer's selection: Highlight at about a third
+                // over the menu's white, inside a Highlight line, where the theme's grey stood.
+                if (highlighted && UpstreamMetrics && item.Enabled) {
+                    var cell = item.DeviceBounds;
+                    e.Canvas.FillRectangle (cell, UpstreamSelectionFill);
+                    e.Canvas.DrawRectangle (Rectangle.FromLTRB (cell.Left, cell.Top, cell.Right - 1, cell.Bottom - 1), SystemColors.Highlight.ToSKColor ());
+                }
+            }
 
             // A check mark goes in the image gutter, which is the 28px inset the text starts after.
             // Nothing drew one before, so a checked menu item was indistinguishable from an unchecked
