@@ -210,13 +210,13 @@ namespace Majorsilence.Forms.Tests
         {
             Theme.LoadFromCss (":root { --control-highlight-low-color: #0f0e0d; --accent-color-2: #0c0b0a; }");
 
-            Assert.Equal (new SKColor (0x0f, 0x0e, 0x0d), ListBox.DefaultSelectionStyle.GetBackgroundColor ());
             Assert.Equal (new SKColor (0x0f, 0x0e, 0x0d), TreeView.DefaultSelectionStyle.GetBackgroundColor ());
             Assert.Equal (new SKColor (0x0c, 0x0b, 0x0a), TabStrip.DefaultSelectedItemStyle.Border.Bottom.GetColor ());
 
-            // A grid's selection is upstream's Highlight rather than a theme token; a DataGridView::selection
-            // rule is what re-themes it.
+            // A grid's and a list box's selection are upstream's Highlight rather than a theme token; a
+            // DataGridView::selection or ListBox::selection rule is what re-themes them.
             Assert.Equal (SystemColors.Highlight.ToSKColor (), DataGridView.DefaultSelectionStyle.GetBackgroundColor ());
+            Assert.Equal (SystemColors.Highlight.ToSKColor (), ListBox.DefaultSelectionStyle.GetBackgroundColor ());
         }
 
         // ---- pixels ------------------------------------------------------------------------------------

@@ -132,6 +132,15 @@ namespace Majorsilence.Forms
                 Guard (() => manager.Position = index);
             }
 
+            /// <summary>Selects the source's current item in the control, after the control reloaded its items.</summary>
+            /// <remarks>As upstream's <c>ListControl.DataManager_ItemChanged</c> does after <c>SetItemsCore</c>: a
+            /// list bound on a shown form starts on the first row and raises its selection events.</remarks>
+            internal void SelectCurrent ()
+            {
+                if (manager is { Position: >= 0 } && manager.Position != currentSelection ())
+                    Guard (() => selectPosition (manager.Position));
+            }
+
             private void OnListChanged (object? sender, ListChangedEventArgs e) => Guard (() => {
                 reload ();
 
