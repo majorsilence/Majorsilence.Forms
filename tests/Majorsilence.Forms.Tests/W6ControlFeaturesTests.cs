@@ -597,6 +597,9 @@ public class W6ControlFeaturesTests
         var button = DropDownButton (out var form, out var strip);
 
         using (form) {
+            // Away from the screen's edges: a drop-down is kept on the screen, and this checks only where each
+            // direction puts it.
+            form.Location = new Point (600, 400);
             button.ShowDropDown ();
             var below = button.OpenDropDown!.LastShowLocation;
             var size = button.OpenDropDown!.PreferredPopupSize;
