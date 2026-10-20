@@ -100,6 +100,24 @@ namespace Majorsilence.Forms
             var rect = ButtonBounds;
             var border = LogicalToDeviceUnits (CurrentStyle.Border.GetWidth ());
             rect = Rectangle.FromLTRB (rect.Left, rect.Top + border, rect.Right - border, rect.Bottom - border);
+
+            // Upstream's spin buttons: two near-white faces in pale outlines, a pixel in from the frame.
+            if (PaintsUpstreamField && ShowUpDown) {
+                var px = LogicalToDeviceUnits (1);
+                var spin = Rectangle.FromLTRB (rect.Left, rect.Top + px, rect.Right - 2 * px, rect.Bottom - px);
+                var upper = new Rectangle (spin.X, spin.Y, spin.Width, spin.Height / 2);
+                var lower = Rectangle.FromLTRB (spin.Left, upper.Bottom, spin.Right, spin.Bottom);
+                var arrow = Enabled ? FieldUpstreamLook.Chevron : Theme.ForegroundDisabledColor;
+
+                foreach (var (button, direction) in new[] { (upper, ArrowDirection.Up), (lower, ArrowDirection.Down) }) {
+                    e.Canvas.FillRectangle (button.X, button.Y, button.Width, button.Height, FieldUpstreamLook.SpinFace);
+                    e.Canvas.DrawRectangle (Rectangle.FromLTRB (button.Left, button.Top, button.Right - px, button.Bottom - px), FieldUpstreamLook.SpinOutline);
+                    ControlPaint.DrawArrowGlyph (e, button, arrow, direction);
+                }
+
+                return;
+            }
+
             e.Canvas.FillRectangle (rect.X, rect.Y, rect.Width, rect.Height, Theme.ControlMidColor);
 
             if (ShowUpDown) {
@@ -127,8 +145,10 @@ namespace Majorsilence.Forms
 
             using var device = e.DeviceSpace ();
 
+            // The native picker's frame: one darker line all round. It was drawn as a text box's, its pale outline
+            // all but invisible on the control colour.
             var face = Enabled ? FieldUpstreamLook.Window : FieldUpstreamLook.Control;
-            FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, face, FieldUpstreamLook.TextBoxOutline, FieldUpstreamLook.TextBoxBottom);
+            FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, face, FieldUpstreamLook.PickerFrame, null);
         }
 
         // The optional-date check box: a box, and a tick when the date is set.

@@ -23,6 +23,12 @@ namespace Majorsilence.Forms
         internal static readonly SKColor ComboListBottom = new SKColor (0xBC, 0xBC, 0xBC);
         internal static readonly SKColor Chevron = new SKColor (0x6E, 0x6E, 0x6E);
 
+        // A date picker is the native control's: one darker line all round, and (ShowUpDown) spin buttons with a
+        // near-white face in a pale outline.
+        internal static readonly SKColor PickerFrame = new SKColor (0x8D, 0x8D, 0x8D);
+        internal static readonly SKColor SpinFace = new SKColor (0xFA, 0xFA, 0xFA);
+        internal static readonly SKColor SpinOutline = new SKColor (0xD2, 0xD2, 0xD2);
+
         internal static bool Applies => ControlPaint.UsesUpstreamGlyphs;
 
         // Fills the field and draws its 1px outline; bottom, when given, is the colour of the bottom edge.
