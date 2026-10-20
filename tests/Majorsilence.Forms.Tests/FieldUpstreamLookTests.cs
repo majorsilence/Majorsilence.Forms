@@ -47,6 +47,43 @@ namespace Majorsilence.Forms.Tests
                 return 0;
             });
 
+        // Upstream's date picker is the native control: one darker line all round (#8D8D8D under Windows 11) and, with
+        // ShowUpDown, spin buttons with a near-white face in a pale outline. It was drawn as a text box, its pale
+        // outline all but invisible on the control colour, and its spin buttons as the theme's flat face.
+        [Theory]
+        [InlineData (true)]
+        [InlineData (false)]
+        public void A_date_picker_has_the_native_frame_and_spin_buttons (bool chooseFont)
+            => With (chooseFont, form => {
+                var picker = new DateTimePicker { Location = new Point (10, 10), Size = new Size (120, 26), ShowUpDown = true };
+                form.Controls.Add (picker);
+
+                using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 300, 200));
+                var scale = bitmap.Width / 300f;
+                var frame = new SKColor (0x8D, 0x8D, 0x8D);
+                var mid = (int) ((picker.Top + picker.Height / 2) * scale);
+                var left = bitmap.GetPixel ((int) (picker.Left * scale), mid);
+                var top = bitmap.GetPixel ((int) ((picker.Left + 30) * scale), (int) (picker.Top * scale));
+                var spin_faces = 0;
+
+                for (var x = (int) ((picker.Right - 20) * scale); x < (int) (picker.Right * scale); x++)
+                    for (var y = (int) (picker.Top * scale); y < (int) (picker.Bottom * scale); y++)
+                        if (bitmap.GetPixel (x, y) == new SKColor (0xFA, 0xFA, 0xFA))
+                            spin_faces++;
+
+                if (chooseFont) {
+                    Assert.Equal (frame, left);
+                    Assert.Equal (frame, top);
+                    Assert.True (spin_faces > 20, $"{spin_faces} spin button face pixels");
+                } else {
+                    // The theme's own picker: not the native frame. (Its button colours are the theme's and may
+                    // include the spin face's near-white, so that is not asserted against.)
+                    Assert.NotEqual (frame, left);
+                }
+
+                return 0;
+            });
+
         // Upstream's Windows 11 text box underlines itself in the accent while it has the keyboard focus.
         [Fact]
         public void A_focused_text_box_is_underlined_in_the_accent ()
