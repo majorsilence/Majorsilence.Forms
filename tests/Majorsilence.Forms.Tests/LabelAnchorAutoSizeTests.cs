@@ -30,7 +30,7 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void A_right_anchored_auto_size_label_keeps_its_designer_gap_to_the_right ()
+        public void A_right_anchored_auto_size_label_keeps_its_designer_left_edge_as_it_grows ()
         {
             HeadlessRenderer.Use ();
             using var form = new Form ();
@@ -50,8 +50,12 @@ namespace Majorsilence.Forms.Tests
             form.PerformLayout ();
             form.Show ();
 
-            // The label's right edge stays where the designer anchored it: 50px in from the form's.
-            Assert.InRange (form.ClientSize.Width - label.Right, 40, 60);
+            // The label sized itself, as upstream's does, so it kept the designer's left edge and grew to the right
+            // (upstream's notice sits where the designer put it). It was moved left by the anchor layout, which sized it
+            // from the gap it had at the old font: x = 507. The right-hand gap is not asserted: it depends on how wide
+            // the platform's stand-in for Microsoft Sans Serif sets the text.
+            Assert.Equal (625, label.Left);
+            Assert.True (label.Width > 263, $"the label grew to the form's font ({label.Width})");
         }
     }
 }
