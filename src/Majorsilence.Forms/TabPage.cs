@@ -82,6 +82,37 @@
         }
 
         /// <summary>Gets or sets whether the tab page uses the visual style of the tab control.</summary>
-        public new bool UseVisualStyleBackColor { get; set; }
+        /// <remarks>Under the upstream look (an app that chose its font) a page with it set paints the Windows 11 tab
+        /// body (#F9F9F9) over its BackColor, as upstream's TabPage.OnPaintBackground does for a Normal tab control;
+        /// its children still take the BackColor as their ambient colour. It was stored and ignored, so a page whose
+        /// designer BackColor was navy painted navy all over.</remarks>
+        public new bool UseVisualStyleBackColor {
+            get => use_visual_style_back_color;
+            set {
+                use_visual_style_back_color = value;
+                Invalidate ();
+            }
+        }
+
+        private bool use_visual_style_back_color;
+
+        // The Windows 11 theme's tab body, as measured from upstream.
+        internal static readonly SkiaSharp.SKColor ThemedBodyColor = new SkiaSharp.SKColor (0xF9, 0xF9, 0xF9);
+
+        private bool PaintsThemedBody
+            => use_visual_style_back_color && ControlPaint.UsesUpstreamGlyphs && BackgroundImage is null
+               && Parent is TabControl { Appearance: TabAppearance.Normal };
+
+        /// <inheritdoc/>
+        protected override void OnPaintBackground (PaintEventArgs e)
+        {
+            if (!PaintsThemedBody) {
+                base.OnPaintBackground (e);
+                return;
+            }
+
+            using var device = e.DeviceSpace ();
+            e.Canvas.Clear (ThemedBodyColor);
+        }
     }
 }

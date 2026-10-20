@@ -3795,8 +3795,9 @@ namespace Majorsilence.Forms
         /// <remarks>Never without columns: upstream's grid holds no rows at all until it has a column ("Rows cannot be
         /// programmatically added to the DataGridView's rows collection when there are no columns"), so a fresh,
         /// column-less grid shows only its background rather than an empty new-row line. Rows added before any column
-        /// (which this grid tolerates) keep the new row.</remarks>
-        internal bool ShowsNewRow => AllowUserToAddRows && !read_only && (Columns.Count > 0 || Rows.Count > 0) && BoundListAllowsNew;
+        /// (which this grid tolerates) keep the new row. ReadOnly plays no part, as upstream's AllowUserToAddRowsInternal: a
+        /// read-only grid still shows its (uneditable) new row, where this hid it and the grid read as having no rows.</remarks>
+        internal bool ShowsNewRow => AllowUserToAddRows && (Columns.Count > 0 || Rows.Count > 0) && BoundListAllowsNew;
 
         // A bound list has the last word, as upstream's currency manager does: an IBindingList says
         // so itself; a plain list must at least be growable.
