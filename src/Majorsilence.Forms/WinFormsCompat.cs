@@ -996,8 +996,10 @@ namespace Majorsilence.Forms
             // that dialog, not behind it against the (input-blocked, likely out-of-view) main
             // window -- which reads as a silent hang. See Application.ModalStack.
             var parent = owner ?? Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
+            var form = new MessageBoxForm (caption, text, buttons, icon, defaultButton, options);
+            form.FitWithin (parent);
 
-            return (parent, new MessageBoxForm (caption, text, buttons, icon, defaultButton, options));
+            return (parent, form);
         }
 
         // The long Show overloads. Only the arguments this layer can act on change anything: the help

@@ -251,8 +251,25 @@ namespace Majorsilence.Forms
             popup.Size = new Size (width, height);
 
             Invalidate ();
+            location = KeepOnScreen (location, parent);
             LastShowLocation = location;
             popup.Show (location);
+        }
+
+        // Pulled back inside the working area of the screen it opens on, as WinForms' drop-downs are: a menu opened
+        // from a button near the right edge (a phone's toolbar) otherwise ran off the screen. Location is in
+        // device pixels and the size logical, so the size is scaled by the window's desktop scaling first.
+        private Point KeepOnScreen (Point location, Control parent)
+        {
+            if (Screen.FromPoint (location) is not { } screen)
+                return location;
+            var area = screen.WorkingArea;
+            var scale = parent.FindWindow () is WindowBase window ? window.DesktopScaling : 1;
+            var w = (int) Math.Ceiling (width * scale);
+            var h = (int) Math.Ceiling (height * scale);
+            var x = Math.Max (area.Left, Math.Min (location.X, area.Right - w));
+            var y = Math.Max (area.Top, Math.Min (location.Y, area.Bottom - h));
+            return new Point (x, y);
         }
 
         /// <inheritdoc/>

@@ -634,6 +634,12 @@ namespace Majorsilence.Forms.Backends
         /// <inheritdoc/>
         public ScreenInfo[] GetScreens ()
         {
+#if SINGLEVIEW
+            // No OS windows and no Screens here: the single view is the screen, so a dialog can centre in it and a
+            // message box can size itself to it.
+            if (MajorsilenceFormsSingleViewHost.MainHost?.AsScreen () is { } view)
+                return [view];
+#endif
             var lifetime = Avalonia.Application.Current?.ApplicationLifetime
                 as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
             var host = Application.OpenForms.FirstOrDefault ()?.Backend as MajorsilenceFormsWindowHost;
