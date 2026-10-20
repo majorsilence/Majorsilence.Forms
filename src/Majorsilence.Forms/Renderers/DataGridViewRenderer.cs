@@ -55,14 +55,15 @@ namespace Majorsilence.Forms.Renderers
 
             // Draw header background
             var header_rect = new Rectangle (contentArea.Left, y, contentArea.Width, header_height);
-            var header_bg = control.ColumnHeadersDefaultCellStyle.BackgroundColor ?? DataGridView.DefaultColumnHeaderStyle.GetBackgroundColor ();
+            var header_bg = ThemedHeaders (control) ? SKColors.White
+                : control.ColumnHeadersDefaultCellStyle.BackgroundColor ?? DataGridView.DefaultColumnHeaderStyle.GetBackgroundColor ();
             e.Canvas.FillRectangle (header_rect, header_bg);
 
             // Draw row header corner cell
             if (control.RowHeadersVisible) {
                 var corner_rect = new Rectangle (contentArea.Left, y, row_header_offset, header_height);
                 e.Canvas.FillRectangle (corner_rect, header_bg);
-                e.Canvas.DrawLine (corner_rect.Right - 1, corner_rect.Top, corner_rect.Right - 1, corner_rect.Bottom, DataGridView.DefaultColumnHeaderStyle.Border.Right.GetColor ());
+                e.Canvas.DrawLine (corner_rect.Right - 1, corner_rect.Top, corner_rect.Right - 1, corner_rect.Bottom, HeaderLineColor (control, DataGridView.DefaultColumnHeaderStyle.Border.Right.GetColor ()));
             }
 
             // Scrollable headers (clipped to the middle band), then pinned headers (left + right) on top.
@@ -92,7 +93,7 @@ namespace Majorsilence.Forms.Renderers
             }
 
             // Draw header bottom border
-            e.Canvas.DrawLine (contentArea.Left, y + header_height - 1, contentArea.Right, y + header_height - 1, DataGridView.DefaultColumnHeaderStyle.Border.Bottom.GetColor ());
+            e.Canvas.DrawLine (contentArea.Left, y + header_height - 1, contentArea.Right, y + header_height - 1, HeaderLineColor (control, DataGridView.DefaultColumnHeaderStyle.Border.Bottom.GetColor ()));
 
             RenderColumnRelocationFeedback (control, e);
         }
@@ -130,7 +131,7 @@ namespace Majorsilence.Forms.Renderers
         protected virtual void RenderColumnHeader (DataGridView control, DataGridViewColumn column, int columnIndex, Rectangle bounds, PaintEventArgs e)
         {
             // Draw right border
-            e.Canvas.DrawLine (bounds.Right - 1, bounds.Top, bounds.Right - 1, bounds.Bottom, Theme.BorderLowColor);
+            e.Canvas.DrawLine (bounds.Right - 1, bounds.Top, bounds.Right - 1, bounds.Bottom, HeaderLineColor (control, Theme.BorderLowColor));
 
             // Draw text, reserving room on the right for any glyphs (sort/filter funnel) a subclass draws.
             var text_bounds = bounds;
@@ -139,7 +140,8 @@ namespace Majorsilence.Forms.Renderers
             if (right_inset > 0)
                 text_bounds.Width = Math.Max (0, text_bounds.Width - right_inset);
 
-            var fg = control.ColumnHeadersDefaultCellStyle.ForegroundColor ?? DataGridView.DefaultColumnHeaderStyle.GetForegroundColor ();
+            var fg = ThemedHeaders (control) ? SystemColors.ControlText.ToSKColor ()
+                : control.ColumnHeadersDefaultCellStyle.ForegroundColor ?? DataGridView.DefaultColumnHeaderStyle.GetForegroundColor ();
             var fallback = control.HeaderFallbackFont ();
             var font = control.ColumnHeadersDefaultCellStyle.Font ?? fallback.Typeface;
             var font_size = control.ColumnHeadersDefaultCellStyle.FontSize ?? fallback.Size;
@@ -860,6 +862,16 @@ namespace Majorsilence.Forms.Renderers
             if (borderStyle.Top is not DataGridViewAdvancedCellBorderStyle.None and not DataGridViewAdvancedCellBorderStyle.NotSet)
                 e.Canvas.DrawLine (bounds.Left, bounds.Top, bounds.Right, bounds.Top, BorderColor (control, borderStyle.Top));
         }
+
+        // Upstream's EnableHeadersVisualStyles (ApplyVisualStylesToHeaderCells): the headers are the theme's header items,
+        // white under Windows 11 with the theme's text colour, whatever the header style says, and edged in the grid's
+        // lines. It was stored and ignored, so a ported app's headers kept the toolkit theme's grey. Under the upstream
+        // look only (an app that chose its font); an app turning it off gets its header style, as upstream.
+        private static bool ThemedHeaders (DataGridView control)
+            => control.EnableHeadersVisualStyles && ControlPaint.UsesUpstreamGlyphs;
+
+        private static SKColor HeaderLineColor (DataGridView control, SKColor theme)
+            => ThemedHeaders (control) && !control.GridColor.IsEmpty ? control.GridColor.ToSKColor () : theme;
 
         // System.Drawing color (the DataGridViewCellStyle surface) to the Skia color the canvas wants.
         private static SKColor ToSK (System.Drawing.Color color) => color.ToSKColor ();

@@ -546,7 +546,7 @@ namespace Majorsilence.Forms.Tests
             var x = grid.GetColumnDeviceLeft (0) + grid.LogicalToDeviceUnits (grid.Columns[0].Width) - 1;
             var y = grid.GetCellBounds (0, 0).Top + 2;
 
-            var lineColor = Theme.BorderLowColor;
+            var lineColor = grid.GridColor.ToSKColor ();
             Assert.Equal (lineColor, withBorders.GetPixel (x, y));
             Assert.NotEqual (lineColor, withoutBorders.GetPixel (x, y));
 

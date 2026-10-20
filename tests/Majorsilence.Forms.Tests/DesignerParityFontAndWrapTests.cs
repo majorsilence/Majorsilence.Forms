@@ -621,7 +621,9 @@ namespace Majorsilence.Forms.Tests
             var cell = grid.GetCellBounds (0, 0);
             bool Dark (int x, int y) => bitmap.GetPixel (x, y) is var c && c.Red < 128 && c.Green < 128;
             var lastInk = -1;
-            for (var x = cell.Left; x < cell.Right; x++)
+
+            // Short of the cell's grid line on its right edge, which is border rather than text.
+            for (var x = cell.Left; x < cell.Right - grid.LogicalToDeviceUnits (1); x++)
                 for (var y = cell.Top + 1; y < cell.Bottom - 1; y++)
                     if (Dark (x, y)) { lastInk = x; break; }
             var height = 0;

@@ -115,6 +115,11 @@ namespace Majorsilence.Forms.Telerik
             // Telerik's grid is white below its last row, not the WinForms grid's ControlDark.
             BackgroundColor = System.Drawing.Color.Empty;
 
+            // And its grid lines and frame are its theme's pale ones, not the WinForms grid's WindowFrame lines in a
+            // black FixedSingle frame.
+            GridColor = System.Drawing.Color.Empty;
+            BorderStyle = BorderStyle.Fixed3D;
+
             // Descriptor changes (add/remove/clear) rebuild the displayed view.
             SortDescriptors.Changed = () => { SyncSortGlyphs (); RebuildView (); };
             GroupDescriptors.Changed = () => { _seenGroupKeys.Clear (); RefreshLayout (); RebuildView (); };
