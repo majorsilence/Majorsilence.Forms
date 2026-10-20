@@ -114,6 +114,12 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void LayoutItems ()
         {
+            // The drop-down is created once and kept; items added since (an app rebuilding a menu, often from one
+            // of its own items' Click) had no ParentControl, so they were measured and drawn as tool bar items --
+            // a separator 8 wide, labels without their check margin -- and the drop-down came out too narrow.
+            foreach (var item in Items)
+                item.ParentControl = this;
+
             var visible_items = Items.Where (i => i.Visible).ToList ();
 
             if (visible_items.Count == 0)
