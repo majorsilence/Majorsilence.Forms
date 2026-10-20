@@ -56,9 +56,11 @@ public class W6NewRowAndToolBarTests
         Assert.Equal (-1, grid.NewRowIndex);
         Assert.Equal (Rectangle.Empty, grid.GetCellBounds (2, 0));
 
+        // ReadOnly does not take it away: upstream's AllowUserToAddRowsInternal reads AllowUserToAddRows and the data
+        // source only, so a read-only grid still shows its (uneditable) new row.
         grid.AllowUserToAddRows = true;
         grid.ReadOnly = true;
-        Assert.Equal (-1, grid.NewRowIndex);
+        Assert.Equal (2, grid.NewRowIndex);
     }
 
     [Fact]
