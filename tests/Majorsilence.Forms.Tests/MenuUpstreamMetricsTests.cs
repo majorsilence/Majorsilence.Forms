@@ -60,11 +60,11 @@ namespace Majorsilence.Forms.Tests
                     Assert.Equal (font.Height + 4 + 4, menu.Height);
 
                     // Text plus GDI's sixth-of-a-line padding each side, the item padding and its 2px border.
-                    // Measured and rounded in device pixels, as the renderer does, then taken back to logical:
-                    // rounding in logical units disagrees by a pixel at a fractional width under scale 2.
+                    // Measured and rounded in device pixels, as the renderer does, then taken back to logical, rounded up
+                    // so the item still holds its text (an odd device width under scale 2 would otherwise lose a pixel).
                     var text = TextMeasurer.MeasureText ("File", menu.ItemTypeface, menu.LogicalToDeviceUnits (menu.ItemFontSize)).Width;
                     var extra = menu.LogicalToDeviceUnits (2 * (int) Math.Ceiling (font.Height / 6.0) + 8 + 4);
-                    Assert.Equal (menu.DeviceToLogicalUnits ((int) Math.Ceiling (text) + extra), file.Bounds.Width);
+                    Assert.Equal (menu.DeviceToLogicalUnitsCovering (new Size ((int) Math.Ceiling (text) + extra, 0)).Width, file.Bounds.Width);
                 }
             } finally {
                 Application.SetDefaultFont (null!);
