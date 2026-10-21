@@ -16,6 +16,12 @@ namespace Majorsilence.Forms
         internal static readonly SKColor TextBoxOutline = new SKColor (0xEC, 0xEC, 0xEC);
         internal static readonly SKColor TextBoxBottom = new SKColor (0x83, 0x83, 0x83);
 
+        // A disabled text box: the light outline all round (its bottom a shade lighter) with a near-white line inside
+        // it, round the Control face. It kept the enabled box's dark bottom line, and on a Control background showed
+        // nothing else.
+        internal static readonly SKColor TextBoxDisabledBottom = new SKColor (0xED, 0xED, 0xED);
+        internal static readonly SKColor TextBoxDisabledInner = new SKColor (0xFB, 0xFB, 0xFB);
+
         // A focused text box's bottom edge: two pixels of the accent, in place of the grey line.
         internal static readonly SKColor TextBoxFocusBottom = new SKColor (0x00, 0x67, 0xC0);
         internal static readonly SKColor ListBoxOutline = new SKColor (0x82, 0x87, 0x90);
@@ -25,6 +31,13 @@ namespace Majorsilence.Forms
         internal static readonly SKColor ComboListOutline = new SKColor (0xD2, 0xD2, 0xD2);
         internal static readonly SKColor ComboListBottom = new SKColor (0xBC, 0xBC, 0xBC);
         internal static readonly SKColor Chevron = new SKColor (0x6E, 0x6E, 0x6E);
+
+        // Disabled, a drop-down list keeps a near-white face inside one light outline all round, and an editable
+        // drop-down a white one inside a mid-grey outline; the chevron of either is pale grey.
+        internal static readonly SKColor ComboListDisabledFace = new SKColor (0xFA, 0xFA, 0xFA);
+        internal static readonly SKColor ComboListDisabledOutline = new SKColor (0xEA, 0xEA, 0xEA);
+        internal static readonly SKColor ComboEditDisabledOutline = new SKColor (0xC8, 0xC8, 0xC8);
+        internal static readonly SKColor ChevronDisabled = new SKColor (0xBD, 0xBD, 0xBD);
 
         // A date picker is the native control's: one darker line all round, and (ShowUpDown) spin buttons with a
         // near-white face in a pale outline.
@@ -55,15 +68,20 @@ namespace Majorsilence.Forms
     {
         /// <inheritdoc/>
         internal override SKColor? UpstreamDefaultBackColor
-            => FieldUpstreamLook.Applies && Enabled && !ReadOnly ? FieldUpstreamLook.Window : null;
+            => FieldUpstreamLook.Applies && (Enabled || IsEmbeddedEdit) && !ReadOnly ? FieldUpstreamLook.Window : null;
 
-        private bool PaintsUpstreamField => FieldUpstreamLook.Applies && BorderStyle == BorderStyle.Fixed3D && BackgroundImage is null;
+        // A combo box's edit region: the combo paints the field round it, and upstream's edit is a borderless child
+        // with a white face, enabled or not. It painted a field of its own, forced to a text box's height, so its
+        // outline showed inside the combo's and its face covered part of the combo's bottom line.
+        internal virtual bool IsEmbeddedEdit => false;
+
+        private bool PaintsUpstreamField => FieldUpstreamLook.Applies && BorderStyle == BorderStyle.Fixed3D && BackgroundImage is null && !IsEmbeddedEdit;
 
         // Upstream's AutoSize height for a single-line box: the font's height plus the border and its
         // spacing (SystemInformation border size x 4 + 3), or the font's height alone without a border.
         private int UpstreamHeight => Font.Height + (BorderStyle == BorderStyle.None ? 0 : 7);
 
-        private bool SizesToUpstreamHeight => FieldUpstreamLook.Applies && !Multiline;
+        private bool SizesToUpstreamHeight => FieldUpstreamLook.Applies && !Multiline && !IsEmbeddedEdit;
 
         private void PaintUpstreamField (PaintEventArgs e)
         {
@@ -71,6 +89,17 @@ namespace Majorsilence.Forms
 
             // Read-only and disabled boxes show SystemColors.Control, as upstream's do.
             var face = !Enabled || ReadOnly && Style.BackgroundColor is null ? FieldUpstreamLook.Control : GetEffectiveBackgroundColor ();
+
+            if (!Enabled) {
+                FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, face, FieldUpstreamLook.TextBoxOutline, FieldUpstreamLook.TextBoxDisabledBottom);
+
+                // The near-white line just inside the outline.
+                var px = (float) e.Scaling;
+                using var inner = new SKPaint { Color = FieldUpstreamLook.TextBoxDisabledInner, IsStroke = true, StrokeWidth = px };
+                e.Canvas.DrawRect (new SKRect (px * 1.5f, px * 1.5f, ScaledWidth - px * 1.5f, ScaledHeight - px * 1.5f), inner);
+                return;
+            }
+
             FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, face, FieldUpstreamLook.TextBoxOutline, FieldUpstreamLook.TextBoxBottom);
 
             // With the keyboard focus, upstream's box underlines itself in the accent, two pixels deep.
@@ -112,7 +141,16 @@ namespace Majorsilence.Forms
 
             using var device = e.DeviceSpace ();
 
-            var face = Enabled ? GetEffectiveBackgroundColor () : FieldUpstreamLook.Control;
+            if (!Enabled) {
+                if (DropDownStyle == ComboBoxStyle.DropDownList)
+                    FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, FieldUpstreamLook.ComboListDisabledFace, FieldUpstreamLook.ComboListDisabledOutline, null);
+                else
+                    FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, FieldUpstreamLook.Window, FieldUpstreamLook.ComboEditDisabledOutline, null);
+
+                return;
+            }
+
+            var face = GetEffectiveBackgroundColor ();
 
             if (DropDownStyle == ComboBoxStyle.DropDownList)
                 FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, face, FieldUpstreamLook.ComboListOutline, FieldUpstreamLook.ComboListBottom);
@@ -129,7 +167,7 @@ namespace Majorsilence.Forms
             var left = width - 13 * px;
             var top = (height - 4 * px + 1) / 2;
 
-            using var paint = new SKPaint { Color = enabled ? FieldUpstreamLook.Chevron : Theme.ForegroundDisabledColor };
+            using var paint = new SKPaint { Color = enabled ? FieldUpstreamLook.Chevron : FieldUpstreamLook.ChevronDisabled };
 
             for (var step = 0; step < 4; step++) {
                 e.Canvas.DrawRect (SKRect.Create (left + step * px, top + step * px, px, px), paint);

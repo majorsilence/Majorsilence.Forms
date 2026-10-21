@@ -409,7 +409,7 @@ namespace Majorsilence.Forms
             var max_size = multiline && !textbox.WordWrap ? unbounded
                          : multiline ? new Size (width, int.MaxValue)
                          : unbounded;
-            var color = !Enabled ? Theme.ForegroundDisabledColor :
+            var color = !Enabled ? textbox.DisabledForeColor :
                         Text.HasValue () ? textbox.GetEffectiveForegroundColor () :
                                 PlaceholderFontColor;
 

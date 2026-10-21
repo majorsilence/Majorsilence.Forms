@@ -165,7 +165,9 @@ namespace Majorsilence.Forms.Renderers
 
         private static void DrawUpstreamCaption (TabStrip control, TabStripItem item, Rectangle bounds, PaintEventArgs e)
         {
-            var colour = !item.Enabled || !control.Enabled ? Theme.ForegroundDisabledColor : control.GetEffectiveForegroundColor ();
+            // Upstream's native tab control draws its tabs as it does enabled, a disabled control's and a disabled page's
+            // alike (the theme's disabled tab text is black too); only the theme's tabs grey out.
+            var colour = control.GetEffectiveForegroundColor ();
             var font_size = control.LogicalToDeviceUnits (control.GetEffectiveFontSize ());
 
             var text_bounds = bounds;

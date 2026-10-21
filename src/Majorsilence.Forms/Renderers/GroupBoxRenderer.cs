@@ -52,7 +52,7 @@ namespace Majorsilence.Forms.Renderers
                 var text_bounds = new Rectangle (text_x, bounds.Y, text_width, title_height);
                 // A GroupBox caption interprets the '&' mnemonic prefix.
                 e.Canvas.DrawMnemonicText (control.Text, font, font_size, text_bounds,
-                    control.Enabled ? control.GetEffectiveForegroundColor () : Theme.ForegroundDisabledColor,
+                    control.Enabled ? control.GetEffectiveForegroundColor () : control.DisabledForeColor,
                     ContentAlignment.MiddleLeft, maxLines: 1, ellipsis: false, underline: control.ShowKeyboardCues);
             }
         }

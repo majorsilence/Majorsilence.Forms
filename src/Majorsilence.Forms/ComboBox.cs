@@ -72,6 +72,8 @@ namespace Majorsilence.Forms
                 Style.Border.Width = 0;
             }
 
+            internal override bool IsEmbeddedEdit => true;
+
             // The keyboard is on the combo, not on this region, so the region's own focus would never show
             // the selection upstream's focused combo shows in its edit.
             internal override bool ShowsSelection => base.ShowsSelection || owner.HasKeyboardFocus;
