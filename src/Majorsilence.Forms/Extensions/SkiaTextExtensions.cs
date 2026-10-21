@@ -82,7 +82,7 @@ namespace Majorsilence.Forms
         /// <remarks>The control font's Underline and Strikeout are drawn, as upstream draws a control's text in
         /// an underlined or struck-out font.</remarks>
         public static void DrawText (this SKCanvas canvas, string text, Rectangle bounds, Control control, ContentAlignment alignment, int selectionStart = -1, int selectionEnd = -1, SKColor? selectionColor = null, int? maxLines = null, bool ellipsis = false)
-            => DrawText (canvas, text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, control.Enabled ? control.GetEffectiveForegroundColor () : Theme.ForegroundDisabledColor, alignment, selectionStart, selectionEnd, selectionColor, maxLines, ellipsis, paintOptions: null, TextMeasurer.DecorationOf (control.Font));
+            => DrawText (canvas, text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, control.Enabled ? control.GetEffectiveForegroundColor () : control.DisabledForeColor, alignment, selectionStart, selectionEnd, selectionColor, maxLines, ellipsis, paintOptions: null, TextMeasurer.DecorationOf (control.Font));
 
         /// <summary>
         /// Draws a string of text.
@@ -140,7 +140,7 @@ namespace Majorsilence.Forms
         /// <remarks>The access key is underlined only while the control's form shows keyboard cues
         /// (<see cref="Control.ShowKeyboardCues"/>).</remarks>
         public static void DrawMnemonicText (this SKCanvas canvas, string text, Rectangle bounds, Control control, ContentAlignment alignment, int? maxLines = null, bool ellipsis = false)
-            => canvas.DrawMnemonicText (text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, control.Enabled ? control.GetEffectiveForegroundColor () : Theme.ForegroundDisabledColor, alignment, maxLines, ellipsis, control.ShowKeyboardCues, TextMeasurer.DecorationOf (control.Font));
+            => canvas.DrawMnemonicText (text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, control.Enabled ? control.GetEffectiveForegroundColor () : control.DisabledForeColor, alignment, maxLines, ellipsis, control.ShowKeyboardCues, TextMeasurer.DecorationOf (control.Font));
 
         /// <summary>
         /// Draws a string of text, interpreting WinForms mnemonic prefixes: an ampersand marks the
@@ -245,6 +245,6 @@ namespace Majorsilence.Forms
         /// Draws a single line of text.
         /// </summary>
         public static void DrawTextLine (this SKCanvas canvas, string text, Rectangle bounds, Control control, ContentAlignment alignment, bool ellipsis = false)
-            => canvas.DrawText (text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, control.Enabled ? control.GetEffectiveForegroundColor () : Theme.ForegroundDisabledColor, alignment, maxLines: 1, ellipsis: ellipsis);
+            => canvas.DrawText (text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, control.Enabled ? control.GetEffectiveForegroundColor () : control.DisabledForeColor, alignment, maxLines: 1, ellipsis: ellipsis);
     }
 }

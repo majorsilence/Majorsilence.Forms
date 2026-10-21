@@ -1131,8 +1131,10 @@ namespace Majorsilence.Forms
             // Only the colour differs; anything else Control's background pass does (an image, a
             // transparent box) stays with it. A disabled box is painted in the control background
             // whatever its BackColor, as the native edit control upstream wraps paints it -- though its
-            // BackColor still reports the colour it was given, as upstream's does.
-            if (!(PaintsReadOnlyBackground || !Enabled) || BackgroundImage is not null) {
+            // BackColor still reports the colour it was given, as upstream's does. Under the upstream look a combo's
+            // edit region keeps its white face disabled too, as upstream's does.
+            var disabled_face = !Enabled && !(IsEmbeddedEdit && FieldUpstreamLook.Applies);
+            if (!(PaintsReadOnlyBackground || disabled_face) || BackgroundImage is not null) {
                 base.OnPaintBackground (e);
                 return;
             }

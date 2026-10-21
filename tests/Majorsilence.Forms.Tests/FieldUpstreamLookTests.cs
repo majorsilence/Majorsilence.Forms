@@ -265,6 +265,24 @@ namespace Majorsilence.Forms.Tests
                 return 0;
             });
 
+        // The combo paints the field; its edit region is a borderless child inside it. The region painted a text box's
+        // field of its own, forced to a text box's height, so its outline showed inside the combo's and its face broke
+        // the combo's dark bottom line under the text.
+        [Fact]
+        public void An_editable_combo_s_edit_region_paints_no_field_of_its_own ()
+            => With (true, form => {
+                var combo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown, Location = new Point (10, 10), Size = new Size (150, 23), Text = "Text" };
+                form.Controls.Add (combo);
+
+                using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 300, 200));
+                var scale = bitmap.Width / 300f;
+                var x = (int) ((combo.Left + 60) * scale);
+
+                Assert.Equal (new SKColor (0x83, 0x83, 0x83), bitmap.GetPixel (x, (int) ((combo.Bottom - 1) * scale)));
+                Assert.Equal (SKColors.White, bitmap.GetPixel (x, (int) ((combo.Top + 1) * scale)));
+                return 0;
+            });
+
         [Fact]
         public void Without_a_chosen_font_the_theme_combo_is_kept ()
             => With (false, form => {
