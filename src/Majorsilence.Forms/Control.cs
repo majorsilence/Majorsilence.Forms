@@ -2027,6 +2027,10 @@ namespace Majorsilence.Forms
         // The same resolution for a given current style, so a transition can resolve both of its ends the way painting will.
         private SKColor EffectiveBackgroundColorFor (ControlStyle current)
         {
+            // Where upstream's colour stands in for the control's own as well (see UpstreamAmbientBackColor).
+            if (UpstreamAmbientBackColor is { } ambient)
+                return ambient;
+
             // A control with no colour of its own takes upstream's default for its type where it has
             // one that differs from the theme's (see UpstreamDefaultBackColor).
             if (Style.BackgroundColor is null && UpstreamDefaultBackColor is { } upstream)
@@ -2061,6 +2065,12 @@ namespace Majorsilence.Forms
         /// chosen a font. Null takes the theme's.
         /// </summary>
         internal virtual SKColor? UpstreamDefaultBackColor => null;
+
+        /// <summary>
+        /// The background upstream paints this control with, and its children inherit, even where its own
+        /// colour is the default one assigned explicitly: a themed TabPage's body. Null where there is none.
+        /// </summary>
+        internal virtual SKColor? UpstreamAmbientBackColor => null;
 
         /// <summary>
         /// Resolves the control's effective foreground the way WinForms' ambient ForeColor does: an

@@ -67,6 +67,51 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (Navy.ToSKColor (), label);
         }
 
+        // With the default BackColor -- unset, or Control assigned -- upstream's page reports Color.Transparent, and the
+        // labels, check boxes and group boxes that inherit it show the body through. They inherited Control here, so each
+        // stood on the #F9F9F9 body in a #F0F0F0 box.
+        [Theory]
+        [InlineData (false)]
+        [InlineData (true)]
+        public void A_visual_style_page_with_the_default_colour_lends_its_children_the_body (bool assignControl)
+        {
+            try {
+                Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 9f));
+                HeadlessRenderer.Use ();
+                using var form = new Form { FormBorderStyle = FormBorderStyle.None, ClientSize = new Size (300, 200) };
+                var tabs = new TabControl { Location = new Point (0, 0), Size = new Size (300, 200) };
+                var page = new TabPage ("Information") { UseVisualStyleBackColor = true };
+                if (assignControl)
+                    page.BackColor = SystemColors.Control;
+                var label = new Label { Text = "", Location = new Point (10, 10), Size = new Size (60, 20) };
+                var check = new CheckBox { Text = "", Location = new Point (10, 40), Size = new Size (60, 20) };
+                var group = new GroupBox { Text = "", Location = new Point (10, 70), Size = new Size (120, 80) };
+                page.Controls.Add (label);
+                page.Controls.Add (check);
+                page.Controls.Add (group);
+                tabs.TabPages.Add (page);
+                form.Controls.Add (tabs);
+                form.Show ();
+
+                using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 300, 200));
+                var scale = bitmap.Width / 300f;
+                var form_origin = form.PointToScreen (Point.Empty);
+                SKColor At (Control c, int x, int y)
+                {
+                    var p = c.PointToScreen (Point.Empty);
+                    return bitmap.GetPixel (p.X - form_origin.X + (int) (x * scale), p.Y - form_origin.Y + (int) (y * scale));
+                }
+
+                var body = new SKColor (0xF9, 0xF9, 0xF9);
+                Assert.Equal (Color.Transparent, page.BackColor);
+                Assert.Equal (body, At (label, label.Width / 2, label.Height / 2));
+                Assert.Equal (body, At (check, check.Width - 4, check.Height / 2));
+                Assert.Equal (body, At (group, group.Width / 2, group.Height / 2));
+            } finally {
+                Application.SetDefaultFont (null!);
+            }
+        }
+
         [Fact]
         public void Without_a_chosen_font_the_page_keeps_its_back_colour ()
             => Assert.Equal (Navy.ToSKColor (), Pixels (chooseFont: false).page);
