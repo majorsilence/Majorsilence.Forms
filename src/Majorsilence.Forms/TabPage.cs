@@ -84,8 +84,9 @@
         /// <summary>Gets or sets whether the tab page uses the visual style of the tab control.</summary>
         /// <remarks>Under the upstream look (an app that chose its font) a page with it set paints the Windows 11 tab
         /// body (#F9F9F9) over its BackColor, as upstream's TabPage.OnPaintBackground does for a Normal tab control;
-        /// its children still take the BackColor as their ambient colour. It was stored and ignored, so a page whose
-        /// designer BackColor was navy painted navy all over.</remarks>
+        /// its children take a BackColor of its own as their ambient colour, and the body otherwise (see
+        /// <see cref="BackColor"/>). It was stored and ignored, so a page whose designer BackColor was navy painted
+        /// navy all over.</remarks>
         public new bool UseVisualStyleBackColor {
             get => use_visual_style_back_color;
             set {
@@ -102,6 +103,22 @@
         private bool PaintsThemedBody
             => use_visual_style_back_color && ControlPaint.UsesUpstreamGlyphs && BackgroundImage is null
                && Parent is TabControl { Appearance: TabAppearance.Normal };
+
+        // Upstream's TabPage.BackColor is Color.Transparent while it paints the themed body and its own colour is the
+        // default (unset, or SystemColors.Control), so the labels, check boxes and group boxes that inherit it show the
+        // body through. Here they inherited Control and stood on the body in grey boxes.
+        private bool BodyIsAmbient
+            => PaintsThemedBody && (Style.BackgroundColor is not { } own || own == SystemColors.Control.ToSKColor ());
+
+        /// <inheritdoc/>
+        /// <remarks>Color.Transparent while the page paints the themed tab body over a default BackColor, as upstream's;
+        /// its children then inherit the body.</remarks>
+        public override System.Drawing.Color BackColor {
+            get => BodyIsAmbient ? System.Drawing.Color.Transparent : base.BackColor;
+            set => base.BackColor = value;
+        }
+
+        internal override SkiaSharp.SKColor? UpstreamAmbientBackColor => BodyIsAmbient ? ThemedBodyColor : null;
 
         /// <inheritdoc/>
         protected override void OnPaintBackground (PaintEventArgs e)
