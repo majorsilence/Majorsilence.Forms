@@ -171,7 +171,14 @@ internal static class TextImageLayoutEngine
         // button) and a further 2px TextImageInset (ButtonBaseAdapter.CommonLayout, LayoutOptions). Under the
         // upstream look the field here was the whole client area, so a TopLeft caption sat in the corner and a
         // caption a few pixels too wide for upstream's narrower field stayed on one line where upstream wraps it.
-        if (control is Button { PaintsUpstreamLook: true } button) {
+        // A FlatStyle.System button is the native control, which lays its caption out 3px inside its bounds whether or
+        // not it is the default, with DrawText's unpadded measure: "Show Emails" in Segoe UI 9pt stays on one line down
+        // to a 72px button. Given the themed adapter's field it wrapped below 78px, showing "Show" alone on a 75px one.
+        // Measured from the bounds: the client area here is already inside a border, a default button's thicker.
+        if (control is Button { PaintsUpstreamLook: true, FlatStyle: FlatStyle.System }) {
+            var native = Rectangle.Inflate (new Rectangle (0, 0, control.ScaledWidth, control.ScaledHeight), -control.LogicalToDeviceUnits (3), -control.LogicalToDeviceUnits (3));
+            maxBounds = Rectangle.Intersect (maxBounds, native);
+        } else if (control is Button { PaintsUpstreamLook: true } button) {
             var inset = control.LogicalToDeviceUnits (2 + (button.IsDefault ? 1 : 0) + 2);
             maxBounds = Rectangle.Inflate (maxBounds, -inset, -inset);
         }

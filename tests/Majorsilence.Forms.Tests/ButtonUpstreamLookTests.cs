@@ -134,5 +134,41 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void Without_a_chosen_font_the_theme_button_is_kept ()
             => Assert.Equal (0, Pixels (chooseFont: false, isDefault: true).face);
+
+        // A FlatStyle.System button is the native control: its caption has all but 3px of the button each side, default or
+        // not, measured without TextRenderer's padding -- "Show Emails" in Segoe UI 9pt fits a 72px button. It was given
+        // the themed adapter's narrower field and wrapped below 78px, so a 75px button showed "Show" alone.
+        [Theory]
+        [InlineData (false)]
+        [InlineData (true)]
+        public void A_system_button_s_caption_has_all_but_3px_each_side (bool isDefault)
+        {
+            try {
+                Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 9f));
+                HeadlessRenderer.Use ();
+                using var form = new Form { FormBorderStyle = FormBorderStyle.None, ClientSize = new Size (200, 40) };
+                var system = new Button { Text = "Show Emails", FlatStyle = FlatStyle.System, Location = new Point (10, 5), TabIndex = 1 };
+                var standard = new Button { Text = "Show Emails", FlatStyle = FlatStyle.Standard, Location = new Point (100, 5), TabIndex = 2 };
+                form.Controls.Add (system);
+                form.Controls.Add (standard);
+                form.Controls.Add (new TextBox { Location = new Point (190, 30), Size = new Size (6, 6), TabIndex = 0 });
+                if (isDefault)
+                    form.AcceptButton = system;
+                form.Show ();
+
+                var advance = TextMeasurer.MeasureText ("Show Emails", system.GetEffectiveFont (), system.LogicalToDeviceUnits (system.GetEffectiveFontSize ())).Width;
+                var width = (int) System.Math.Ceiling (advance / (system.LogicalToDeviceUnits (100) / 100f)) + 6;
+                system.Size = new Size (width, 23);
+                standard.Size = new Size (width, 23);
+
+                Assert.True (Majorsilence.Forms.Layout.TextImageLayoutEngine.Layout (system).TextBounds.Width >= advance,
+                    $"a {width}px System button holds its {advance}px caption on one line");
+
+                // The themed (Standard) button keeps the adapter's narrower field.
+                Assert.True (Majorsilence.Forms.Layout.TextImageLayoutEngine.Layout (standard).TextBounds.Width < advance);
+            } finally {
+                Application.SetDefaultFont (null!);
+            }
+        }
     }
 }
