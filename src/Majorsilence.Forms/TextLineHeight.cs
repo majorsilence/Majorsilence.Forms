@@ -16,6 +16,7 @@ namespace Majorsilence.Forms
     internal static class TextLineHeight
     {
         private static readonly ConcurrentDictionary<(string Family, int Pixels, bool Bold, bool Italic), int> cache = new ();
+        private static readonly ConcurrentDictionary<(string Family, int Pixels, bool Bold, bool Italic), int> tab_cache = new ();
 
         /// <summary>The line height, in pixels at 96 DPI, of <paramref name="font"/>.</summary>
         internal static int Of (Majorsilence.Forms.Drawing.Font font)
@@ -24,9 +25,25 @@ namespace Majorsilence.Forms
             return cache.GetOrAdd ((font.Name, pixels, font.Bold, font.Italic), key => Measure (key.Family, key.Pixels, key.Bold, key.Italic, font));
         }
 
+        /// <summary>
+        /// The advance, in pixels at 96 DPI, GDI gives a tab in <paramref name="font"/> when it does not expand
+        /// tabs, which is how TextRenderer measures one: a drop-down menu reserves it between every caption and
+        /// its shortcut column.
+        /// </summary>
+        /// <remarks>
+        /// It is 1px in Microsoft Sans Serif and 1 or 2 in Segoe UI. Skia maps a tab to the font's missing-glyph
+        /// box (4 to 10px), so it cannot stand in; elsewhere there is no GDI and 1 does.
+        /// </remarks>
+        internal static int TabAdvanceOf (Majorsilence.Forms.Drawing.Font font)
+        {
+            var pixels = (int) System.Math.Round (font.SizeInPoints * 96f / 72f);
+            return tab_cache.GetOrAdd ((font.Name, pixels, font.Bold, font.Italic),
+                key => OperatingSystemCompat.IsWindows () && TryGdi (key.Family, key.Pixels, key.Bold, key.Italic, out _, out var tab) ? tab : 1);
+        }
+
         private static int Measure (string family, int pixels, bool bold, bool italic, Majorsilence.Forms.Drawing.Font font)
         {
-            if (OperatingSystemCompat.IsWindows () && TryGdi (family, pixels, bold, italic, out var height))
+            if (OperatingSystemCompat.IsWindows () && TryGdi (family, pixels, bold, italic, out var height, out _))
                 return height;
 
             using var sk = new SkiaSharp.SKFont (TypefaceCache.Resolve (font), pixels);
@@ -34,9 +51,10 @@ namespace Majorsilence.Forms
             return (int) (System.Math.Round (-metrics.Ascent) + System.Math.Round (metrics.Descent));
         }
 
-        private static bool TryGdi (string family, int pixels, bool bold, bool italic, out int height)
+        private static bool TryGdi (string family, int pixels, bool bold, bool italic, out int height, out int tab)
         {
             height = 0;
+            tab = 0;
 
             try {
                 var dc = CreateCompatibleDC (System.IntPtr.Zero);
@@ -52,12 +70,14 @@ namespace Majorsilence.Forms
                     try {
                         var old = SelectObject (dc, hfont);
                         var ok = GetTextMetricsW (dc, out var tm);
+                        var tab_ok = GetTextExtentPoint32W (dc, "	", 1, out var tab_size);
                         SelectObject (dc, old);
 
-                        if (!ok || tm.tmHeight <= 0)
+                        if (!ok || tm.tmHeight <= 0 || !tab_ok)
                             return false;
 
                         height = tm.tmHeight;
+                        tab = tab_size.cx;
                         return true;
                     } finally {
                         DeleteObject (hfont);
@@ -98,5 +118,14 @@ namespace Majorsilence.Forms
 
         [DllImport ("gdi32.dll", CharSet = CharSet.Unicode)]
         private static extern bool GetTextMetricsW (System.IntPtr dc, out TEXTMETRICW metrics);
+
+        [StructLayout (LayoutKind.Sequential)]
+        private struct SIZE
+        {
+            public int cx, cy;
+        }
+
+        [DllImport ("gdi32.dll", CharSet = CharSet.Unicode)]
+        private static extern bool GetTextExtentPoint32W (System.IntPtr dc, string text, int length, out SIZE size);
     }
 }

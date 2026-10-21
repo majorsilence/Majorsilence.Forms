@@ -74,7 +74,9 @@ namespace Majorsilence.Forms.Tests
         // Its drop-downs take upstream's metrics too (ToolStripDropDownMenu): a (0, 1, 0, 1) item padding, items no
         // shorter than a 16px check in its padding (22px for a 9pt font), and the caption between the 25px image
         // margin plus 8px and 9px of padding and the arrow's 18px. They were 14/3-padded with 70px to spare, so each
-        // drop-down was taller and wider than upstream's.
+        // drop-down was taller and wider than upstream's. The caption is measured as TextRenderer measures it, with
+        // GDI's padding, and followed by a tab while ShowShortcutKeys is on: WinForms' "Open" in Segoe UI 9pt is
+        // 36 + 7 + 60 = 103px wide.
         [Fact]
         public void An_app_wide_font_gives_its_drop_downs_upstream_metrics ()
         {
@@ -91,11 +93,92 @@ namespace Majorsilence.Forms.Tests
 
                     file.ShowDropDown ();
                     var size = open.GetPreferredSize (Size.Empty);
+                    var font = menu.UpstreamFont!;
+                    var gdi_padding = GdiPadding (font);
                     var text = TextMeasurer.MeasureText ("Open", menu.ItemTypeface, menu.LogicalToDeviceUnits (menu.ItemFontSize)).Width;
-                    var device = (int) Math.Round (text, 0, MidpointRounding.AwayFromZero) + menu.LogicalToDeviceUnits (25 + 8 + 9 + 10 + 8);
+                    var device = (int) Math.Round (text, 0, MidpointRounding.AwayFromZero)
+                        + menu.LogicalToDeviceUnits (gdi_padding + TextLineHeight.TabAdvanceOf (font) + gdi_padding + 25 + 8 + 9 + 10 + 8);
 
                     Assert.Equal (22, size.Height);
                     Assert.Equal (menu.DeviceToLogicalUnitsCovering (new Size (device, 0)).Width, size.Width);
+                }
+            } finally {
+                Application.SetDefaultFont (null!);
+            }
+        }
+
+        // TextRenderer's padding: a sixth of the line height on each side.
+        private static int GdiPadding (Majorsilence.Forms.Drawing.Font font) => 2 * (int) Math.Ceiling (font.Height / 6.0);
+
+        // A designer's MenuStrip.Font = Microsoft Sans Serif 12pt. Upstream sizes its drop-down items from GDI's line
+        // height (20px, where Skia's outline metrics give 18): 20 + 2 of text padding + 2 of item padding = 24, against
+        // 22 here, and its caption 189px wide with GDI's padding, plus a 9px tab. The drop-down was 18px narrower and
+        // 6px shorter than WinForms' for three items.
+        [Fact]
+        public void A_drop_down_is_sized_from_GDI_s_line_height_and_text_padding ()
+        {
+            try {
+                Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 9f));
+                var chosen = new Majorsilence.Forms.Drawing.Font ("Microsoft Sans Serif", 12f);
+                var (form, menu, file) = Shell (m => m.Font = chosen);
+
+                using (form) {
+                    var item = new ToolStripMenuItem ("Attribute Link To Vendors");
+                    var quiet = new ToolStripMenuItem ("Attribute Link To Vendors") { ShowShortcutKeys = false };
+                    var saved = new ToolStripMenuItem ("Attribute Link To Vendors") { ShortcutKeys = Keys.Control | Keys.S };
+                    file.DropDownItems.Add (item);
+                    file.DropDownItems.Add (quiet);
+                    file.DropDownItems.Add (saved);
+                    file.ShowDropDown ();
+
+                    var line = TextLineHeight.Of (chosen);
+                    if (OperatingSystem.IsWindows ())
+                        Assert.Equal (20, line);   // GDI's tmHeight; WinForms' item is 24px tall
+
+                    var size = item.GetPreferredSize (Size.Empty);
+                    Assert.Equal (Math.Max (line + 2, 20) + 2, size.Height);
+
+                    var gdi_padding = GdiPadding (chosen);
+                    var font_size = menu.LogicalToDeviceUnits (menu.ItemFontSize);
+                    int Measure (string text) => (int) Math.Round (TextMeasurer.MeasureText (text, menu.ItemTypeface, font_size).Width, 0, MidpointRounding.AwayFromZero);
+                    int Logical (int device) => menu.DeviceToLogicalUnitsCovering (new Size (device, 0)).Width;
+                    var caption = Measure ("Attribute Link To Vendors") + menu.LogicalToDeviceUnits (gdi_padding);
+                    var chrome = menu.LogicalToDeviceUnits (25 + 8 + 9 + 10 + 8);
+                    var tab = menu.LogicalToDeviceUnits (TextLineHeight.TabAdvanceOf (chosen) + gdi_padding);
+
+                    Assert.Equal (Logical (caption + tab + chrome), size.Width);
+                    Assert.Equal (Logical (caption + chrome), quiet.GetPreferredSize (Size.Empty).Width);
+                    Assert.Equal (Logical (caption + tab + Measure (saved.ShortcutDisplayText) + menu.LogicalToDeviceUnits (gdi_padding) + chrome),
+                        saved.GetPreferredSize (Size.Empty).Width);
+                }
+            } finally {
+                Application.SetDefaultFont (null!);
+            }
+        }
+
+        // TextRenderer draws the caption inset by GDI's padding too: WinForms' starts 24 + 8 + 4 = 36px into the item
+        // in Microsoft Sans Serif 12pt, where it was drawn 3px further left.
+        [Fact]
+        public void A_drop_down_caption_starts_after_GDI_s_padding ()
+        {
+            try {
+                Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 9f));
+                var chosen = new Majorsilence.Forms.Drawing.Font ("Microsoft Sans Serif", 12f);
+                var (form, menu, file) = Shell (m => m.Font = chosen);
+
+                using (form) {
+                    var item = new ToolStripMenuItem ("HHHH");
+                    file.DropDownItems.Add (item);
+                    file.ShowDropDown ();
+
+                    var drop = file.OpenDropDown!;
+                    using var bitmap = PaintSurface.Render (drop);
+                    var bounds = item.DeviceBounds;
+                    var first = Enumerable.Range (bounds.Left, bounds.Width)
+                        .First (x => Enumerable.Range (bounds.Top, bounds.Height).Any (y => bitmap.GetPixel (x, y).Red < 128));
+
+                    var inset = menu.LogicalToDeviceUnits (24 + 8 + GdiPadding (chosen) / 2);
+                    Assert.InRange (first - bounds.Left, inset, inset + menu.LogicalToDeviceUnits (3));
                 }
             } finally {
                 Application.SetDefaultFont (null!);
