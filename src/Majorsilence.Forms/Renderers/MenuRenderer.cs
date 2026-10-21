@@ -11,6 +11,11 @@ namespace Majorsilence.Forms.Renderers
         /// <inheritdoc/>
         protected override void Render (Menu control, PaintEventArgs e)
         {
+            // Under the upstream look the bar is shaded left to right, from Control to near-white.
+            if (MenuUpstreamLook.Applies)
+                MenuUpstreamLook.FillGradient (e, new Rectangle (0, 0, control.ScaledWidth, control.ScaledHeight), horizontal: true,
+                    MenuUpstreamLook.BarBegin, MenuUpstreamLook.BarEnd);
+
             foreach (var item in control.Items) {
                 if (!item.Visible)
                     continue;
@@ -133,11 +138,26 @@ namespace Majorsilence.Forms.Renderers
         {
             // Background
             var item_style = item.Hovered || item.IsDropDownOpened ? Menu.DefaultItemHoverStyle : Menu.DefaultItemStyle;
-            var background_color = item_style.TryGetBackgroundColor () ?? control.GetEffectiveBackgroundColor ();
-            e.Canvas.FillRectangle (item.DeviceBounds, background_color);
+
+            if (MenuUpstreamLook.Applies) {
+                // Upstream's open item is a near-white box, shaded down, in the grey line its drop-down carries on; a
+                // hovered one the selection blue inside the accent; any other shows the bar.
+                if (item.IsDropDownOpened) {
+                    MenuUpstreamLook.FillGradient (e, item.DeviceBounds, horizontal: false, MenuUpstreamLook.PressedBegin, MenuUpstreamLook.PressedEnd);
+                    MenuUpstreamLook.Frame (e, item.DeviceBounds, MenuUpstreamLook.Border);
+                } else if (item.Hovered && item.Enabled) {
+                    MenuUpstreamLook.Selection (e, item.DeviceBounds);
+                }
+
+                item_style = Menu.DefaultItemStyle;
+            } else {
+                var background_color = item_style.TryGetBackgroundColor () ?? control.GetEffectiveBackgroundColor ();
+                e.Canvas.FillRectangle (item.DeviceBounds, background_color);
+            }
 
             // Text
-            var font_color = item.Enabled ? item_style.GetForegroundColor () : Theme.ForegroundDisabledColor;
+            var font_color = item.Enabled ? item_style.GetForegroundColor ()
+                : MenuUpstreamLook.Applies ? MenuUpstreamLook.DisabledText : Theme.ForegroundDisabledColor;
             var font_size = e.LogicalToDeviceUnits (control.ItemFontSize);
 
             e.Canvas.DrawMnemonicText (item.Text, control.ItemTypeface, font_size, item.DeviceBounds, font_color, ContentAlignment.MiddleCenter, maxLines: null, ellipsis: false, underline: control.ShowKeyboardCues);
