@@ -14,7 +14,10 @@ namespace Majorsilence.Forms.Renderers
         // padding (ToolStripMenuItem's s_defaultDropDownPadding). Its items were sized from their bar padding
         // (14, 3) and a fixed 70px allowance, so each drop-down was taller and wider than upstream's and its text
         // further in. Apps that have not chosen a font keep the theme's metrics.
+        // The caption is laid out 25px in but drawn from 24 (the margin without its border pixel), GDI's padding
+        // further on.
         private const int UpstreamImageMarginWidth = 25;
+        private const int UpstreamCaptionMarginWidth = 24;
         private const int ThemeImageMarginWidth = 28;
         private const int TextPaddingLeft = 8;
         private const int TextPaddingRight = 9;
@@ -34,11 +37,22 @@ namespace Majorsilence.Forms.Renderers
         private static Padding ItemPadding (MenuItem item)
             => UpstreamMetrics ? item.AssignedPadding ?? DropDownItemPadding : item.Padding;
 
-        // Where an item's caption starts, from the item's left edge, in logical pixels.
+        // Where an item's caption starts, from the item's left edge, in logical pixels. Upstream draws it with
+        // TextRenderer, which insets it by GDI's padding as well.
         private static int TextInset (MenuDropDown control, MenuItem item)
             => UpstreamMetrics
-                ? (ShowsImageMargin (control) ? UpstreamImageMarginWidth : 0) + TextPaddingLeft + ItemPadding (item).Left
+                ? (ShowsImageMargin (control) ? UpstreamCaptionMarginWidth : 0) + TextPaddingLeft + ItemPadding (item).Left
+                    + GdiPadding (UpstreamFont (control, item)) / 2
                 : ShowsImageMargin (control) ? ThemeImageMarginWidth : 6;
+
+        // The font upstream measures an item with: its own, else its drop-down's chain's, else the drop-down's.
+        private static Majorsilence.Forms.Drawing.Font UpstreamFont (MenuDropDown control, MenuItem item)
+            => StripItemFont.ResolveFont (item, control) ?? control.Font;
+
+        // The padding TextRenderer measures a string with, in logical pixels: a sixth of the line height each side,
+        // as the menu bar measures its items.
+        private static int GdiPadding (Majorsilence.Forms.Drawing.Font font)
+            => 2 * (int) Math.Ceiling (font.Height / 6.0);
 
         /// <inheritdoc/>
         protected override void Render (MenuDropDown control, PaintEventArgs e)
@@ -232,11 +246,20 @@ namespace Majorsilence.Forms.Renderers
             if (!UpstreamMetrics)
                 return new Size (text_width + padding.Horizontal + control.LogicalToDeviceUnits (70), text_height + control.LogicalToDeviceUnits (8));
 
-            // A shortcut is laid out after the caption, a tab's width further on, as upstream measures it.
-            if (item is ToolStripMenuItem { ShortcutDisplayText: { Length: > 0 } shortcut }) {
-                var shortcut_size = TextMeasurer.MeasureText (shortcut, item_typeface, font_size);
-                text_width += control.LogicalToDeviceUnits (ShortcutGap) + (int)Math.Ceiling (shortcut_size.Width);
-                text_height = Math.Max (text_height, (int)Math.Round (shortcut_size.Height, 0, MidpointRounding.AwayFromZero));
+            // Upstream measures with TextRenderer: GDI's line height, which is not the outline's (Microsoft Sans
+            // Serif 12pt is 20px where Skia's is 18), and GDI's padding either side of the text.
+            var font = UpstreamFont (control, item);
+            var gdi_padding = control.LogicalToDeviceUnits (GdiPadding (font));
+            text_width += gdi_padding;
+            text_height = control.LogicalToDeviceUnits (TextLineHeight.Of (font));
+
+            // While ShowShortcutKeys is on, as it is by default, upstream adds a tab and the shortcut after the
+            // caption -- the tab whether or not the item has a shortcut, each measured with its own padding.
+            if (item is ToolStripMenuItem { ShowShortcutKeys: true } menu_item) {
+                text_width += control.LogicalToDeviceUnits (TextLineHeight.TabAdvanceOf (font)) + gdi_padding;
+
+                if (menu_item.ShortcutDisplayText is { Length: > 0 } shortcut)
+                    text_width += (int)Math.Round (TextMeasurer.MeasureText (shortcut, item_typeface, font_size).Width, 0, MidpointRounding.AwayFromZero) + gdi_padding;
             }
 
             // Upstream: the image margin, the text in its padding, then room for the submenu arrow -- kept on
@@ -247,9 +270,6 @@ namespace Majorsilence.Forms.Renderers
 
             return new Size (text_width + chrome + padding.Horizontal, height + padding.Vertical);
         }
-
-        // The space between a caption and its shortcut: a tab, as upstream measures it with TextRenderer.
-        private const int ShortcutGap = 24;
 
         /// <summary>
         /// Gets the preferred size of a ToolStripSeparator.
