@@ -143,7 +143,13 @@ namespace Majorsilence.Forms
 
             columns.Add (current);
 
-            var x = 1;
+            // Under the upstream look, ToolStripDropDownMenu's layout: items from x 0 (the border is drawn over their
+            // first column), 2px down, as wide as they ask; the drop-down a pixel wider than its items and 4px taller. Its
+            // items were inset a pixel each way and 2px narrower, so the drop-down came out a pixel narrower and 2px
+            // shorter than upstream's, and its selection and separators a pixel out.
+            var upstream = Renderers.MenuUpstreamLook.Applies;
+            var x = upstream ? 0 : 1;
+            var top = upstream ? 2 : 1;
             var tallest = 0;
 
             foreach (var column in columns) {
@@ -153,17 +159,17 @@ namespace Majorsilence.Forms
                 }
 
                 var sizes = column.Select (i => i.GetPreferredSize (Size.Empty)).ToList ();
-                var column_width = sizes.Max (s => s.Width) - 2;
+                var column_width = sizes.Max (s => s.Width) - (upstream ? 0 : 2);
                 var column_height = sizes.Sum (s => s.Height);
 
-                StackLayoutEngine.VerticalExpand.Layout (new Rectangle (x, 1, column_width, column_height), column.Cast<ILayoutable> ());
+                StackLayoutEngine.VerticalExpand.Layout (new Rectangle (x, top, column_width, column_height), column.Cast<ILayoutable> ());
 
                 x += column_width;
                 tallest = Math.Max (tallest, column_height);
             }
 
             width = x + 1;
-            height = tallest + 2;
+            height = tallest + 2 * top;
             column_bars = bars;
         }
 

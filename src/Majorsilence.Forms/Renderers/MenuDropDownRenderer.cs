@@ -62,9 +62,22 @@ namespace Majorsilence.Forms.Renderers
             // MenuSeparatorItem is not one.
             StripRendererBridge.Background (control, e);
 
+            var full = new Rectangle (0, 0, control.ScaledWidth, control.ScaledHeight);
+
+            // Under the upstream look, the professional renderer's near-white drop-down.
+            if (MenuUpstreamLook.Applies)
+                e.Canvas.FillRectangle (full, MenuUpstreamLook.DropDownBackground);
+
             // The icon gutter, offered once for the whole drop-down as upstream does.
-            if (ShowsImageMargin (control))
-                StripRendererBridge.ImageMargin (control, new Rectangle (0, 0, e.LogicalToDeviceUnits (ImageMarginWidth), control.DeviceClientRectangle.Height), e);
+            if (ShowsImageMargin (control)) {
+                var margin = new Rectangle (0, 0, e.LogicalToDeviceUnits (ImageMarginWidth), control.DeviceClientRectangle.Height);
+                StripRendererBridge.ImageMargin (control, margin, e);
+
+                // Upstream's margin is shaded left to right, from near-white to Control.
+                if (MenuUpstreamLook.Applies)
+                    MenuUpstreamLook.FillGradient (e, new Rectangle (0, 0, margin.Width, full.Height), horizontal: true,
+                        MenuUpstreamLook.MarginBegin, MenuUpstreamLook.MarginMiddle, MenuUpstreamLook.MarginEnd);
+            }
 
             foreach (var item in control.Items) {
                 if (!item.Visible)
@@ -86,6 +99,22 @@ namespace Majorsilence.Forms.Renderers
             }
 
             StripRendererBridge.Border (control, e);
+
+            if (MenuUpstreamLook.Applies)
+                DrawUpstreamBorder (control, full, e);
+        }
+
+        // Upstream's grey line round the drop-down, left open along the top under a menu bar item it hangs from, so the
+        // item and its drop-down read as one box.
+        private static void DrawUpstreamBorder (MenuDropDown control, Rectangle full, PaintEventArgs e)
+        {
+            MenuUpstreamLook.Frame (e, full, MenuUpstreamLook.Border);
+
+            if (control.DropDownOwnerItem is { OwnerControl: Menu } opener) {
+                var px = e.LogicalToDeviceUnits (1);
+                var gap = Math.Min (opener.DeviceBounds.Width, full.Width) - 2 * px;
+                e.Canvas.FillRectangle (new Rectangle (px, 0, gap, px), MenuUpstreamLook.DropDownBackground);
+            }
         }
 
         /// <summary>
@@ -104,7 +133,15 @@ namespace Majorsilence.Forms.Renderers
             var item_style = highlighted ? MenuDropDown.DefaultItemHoverStyle : MenuDropDown.DefaultItemStyle;
             var background_color = item_style.GetBackgroundColor ();
 
-            if (!StripRendererBridge.ItemBackground (control, item, e)) {
+            if (!StripRendererBridge.ItemBackground (control, item, e) && MenuUpstreamLook.Applies) {
+                // Upstream's selected item: the selection blue inside the accent, 2px in from the left and 3px from the
+                // right (ToolStripProfessionalRenderer.OnRenderMenuItemBackground); the drop-down shows through the rest.
+                if (highlighted && item.Enabled) {
+                    var cell = item.DeviceBounds;
+                    var left = e.LogicalToDeviceUnits (2);
+                    MenuUpstreamLook.Selection (e, new Rectangle (cell.Left + left, cell.Top, cell.Width - e.LogicalToDeviceUnits (3), cell.Height));
+                }
+            } else if (!StripRendererBridge.ItemBackground (control, item, e)) {
                 e.Canvas.FillRectangle (item.DeviceBounds, background_color);
 
                 // Under the upstream look, upstream's professional renderer's selection: Highlight at about a third
@@ -151,7 +188,8 @@ namespace Majorsilence.Forms.Renderers
             }
 
             // Text
-            var font_color = item.Enabled ? item_style.GetForegroundColor () : Theme.ForegroundDisabledColor;
+            var font_color = item.Enabled ? item_style.GetForegroundColor ()
+                : MenuUpstreamLook.Applies ? MenuUpstreamLook.DisabledText : Theme.ForegroundDisabledColor;
             var (item_typeface, item_font_size) = StripItemFont.Resolve (item, control);
             var font_size = e.LogicalToDeviceUnits (item_font_size);
             var bounds = item.DeviceBounds;
@@ -201,6 +239,11 @@ namespace Majorsilence.Forms.Renderers
         /// </summary>
         protected virtual void RenderMenuSeparatorItem (MenuDropDown control, ToolStripSeparator item, PaintEventArgs e)
         {
+            if (MenuUpstreamLook.Applies) {
+                DrawUpstreamSeparator (control, item, e);
+                return;
+            }
+
             e.Canvas.FillRectangle (item.DeviceBounds, Theme.ControlLowColor);
 
             var center = item.DeviceBounds.GetCenter ();
@@ -215,6 +258,11 @@ namespace Majorsilence.Forms.Renderers
         /// </summary>
         protected virtual void RenderMenuSeparatorItem (MenuDropDown control, MenuSeparatorItem item, PaintEventArgs e)
         {
+            if (MenuUpstreamLook.Applies) {
+                DrawUpstreamSeparator (control, item, e);
+                return;
+            }
+
             // Background
             e.Canvas.FillRectangle (item.DeviceBounds, Theme.ControlLowColor);
 
@@ -223,6 +271,20 @@ namespace Majorsilence.Forms.Renderers
             var padding = e.LogicalToDeviceUnits (item.Padding);
 
             e.Canvas.DrawLine (item.DeviceBounds.X + padding.Top, center.Y, item.DeviceBounds.Right - padding.Right, center.Y, item.Enabled ? Theme.ControlHighlightLowColor : Theme.ForegroundDisabledColor, thickness);
+        }
+
+        private const int UpstreamSeparatorHeight = 6;
+
+        // Upstream's separator: one grey line across its middle, from where the captions start to 3px short of the
+        // drop-down's right edge, over the drop-down (the image margin shows through to its left).
+        private static void DrawUpstreamSeparator (MenuDropDown control, MenuItem item, PaintEventArgs e)
+        {
+            var bounds = item.DeviceBounds;
+            var start = ShowsImageMargin (control) ? e.LogicalToDeviceUnits (ImageMarginWidth + TextPaddingLeft) : e.LogicalToDeviceUnits (TextPaddingLeft);
+            var end = control.ScaledWidth - e.LogicalToDeviceUnits (2);
+            var y = bounds.Top + bounds.Height / 2;
+
+            e.Canvas.FillRectangle (new Rectangle (start, y, end - start, e.LogicalToDeviceUnits (1)), MenuUpstreamLook.Separator);
         }
 
         /// <summary>
@@ -276,6 +338,10 @@ namespace Majorsilence.Forms.Renderers
         /// </summary>
         protected virtual Size GetPreferredSeparatorItemSize (MenuDropDown control, ToolStripSeparator item, Size proposedSize)
         {
+            // Upstream's separator on a drop-down is 6px tall (ToolStripSeparator's DefaultSize), its line across the middle.
+            if (UpstreamMetrics)
+                return new Size (item.DeviceBounds.Width, control.LogicalToDeviceUnits (UpstreamSeparatorHeight));
+
             var padding = control.LogicalToDeviceUnits (item.Padding.Vertical);
             var thickness = control.LogicalToDeviceUnits (1);
 
@@ -287,6 +353,9 @@ namespace Majorsilence.Forms.Renderers
         /// </summary>
         protected virtual Size GetPreferredSeparatorItemSize (MenuDropDown control, MenuSeparatorItem item, Size proposedSize)
         {
+            if (UpstreamMetrics)
+                return new Size (item.DeviceBounds.Width, control.LogicalToDeviceUnits (UpstreamSeparatorHeight));
+
             var padding = control.LogicalToDeviceUnits (item.Padding.Vertical);
             var thickness = control.LogicalToDeviceUnits (1);
 
