@@ -2618,6 +2618,10 @@ namespace Majorsilence.Forms
         private readonly ToolStripItemCollection _items;
 
         /// <inheritdoc/>
+        /// <remarks>Empty, as upstream's ToolStrip.DefaultMargin: a strip took Control's 3px all round.</remarks>
+        protected override Padding DefaultMargin => Padding.Empty;
+
+        /// <inheritdoc/>
         /// <remarks>Under the upstream look a plain ToolStrip has upstream's (0, 0, 1, 0); the menu and status strips that
         /// derive from it keep their own.</remarks>
         protected override Padding DefaultPadding

@@ -165,10 +165,10 @@ namespace Majorsilence.Forms
                 }
             }
 
-            // RowMargin surrounds the rows as a whole; each row's own Margin surrounds that row (W6).
+            // Each row's Margin surrounds that row; RowMargin is every row's default margin (see ToolStripPanelRow.Margin).
             return horizontal
-                ? new Size (along + Padding.Horizontal + RowMargin.Horizontal, across + Padding.Vertical + RowMargin.Vertical)
-                : new Size (across + Padding.Horizontal + RowMargin.Horizontal, along + Padding.Vertical + RowMargin.Vertical);
+                ? new Size (along + Padding.Horizontal, across + Padding.Vertical)
+                : new Size (across + Padding.Horizontal, along + Padding.Vertical);
         }
 
         /// <inheritdoc/>
@@ -189,7 +189,9 @@ namespace Majorsilence.Forms
                 if (lines.Count == 0)
                     return;
 
-                var area = DeviceClientRectangle;
+                // Logical, as the strips' bounds are: the device rectangle placed and sized every strip twice over at
+                // scale 2 (a MenuStrip 1200 wide in a 600-wide panel).
+                var area = ClientRectangle;
 
                 area = new Rectangle (
                     area.X + Padding.Left,
@@ -197,10 +199,10 @@ namespace Majorsilence.Forms
                     Math.Max (0, area.Width - Padding.Horizontal),
                     Math.Max (0, area.Height - Padding.Vertical));
 
-                // RowMargin insets the block of rows (W6 mechanisms).
-                area = new Rectangle (
-                    area.X + RowMargin.Left, area.Y + RowMargin.Top,
-                    Math.Max (0, area.Width - RowMargin.Horizontal), Math.Max (0, area.Height - RowMargin.Vertical));
+                // RowMargin is upstream's margin round each row, not round the block of them: it reaches the layout
+                // through each row's Margin, which leaves it off the sides of a row a MenuStrip stretches across. Applied
+                // to the block as well, a MenuStrip in a ToolStripContainer sat 3px in from the panel's edge, its captions
+                // 3px right of upstream's.
 
                 var horizontal = Orientation == Orientation.Horizontal;
                 var offset = horizontal ? area.Top : area.Left;

@@ -259,19 +259,43 @@ namespace Majorsilence.Forms
         public Rectangle Bounds { get; set; }
 
         /// <summary>Gets or sets the margin around this row.</summary>
-        /// <remarks>Read by the panel's row layout as of W6 mechanisms.</remarks>
+        /// <remarks>Read by the panel's row layout as of W6 mechanisms. Unless one is set, it is upstream's
+        /// ToolStripPanelRow.DefaultMargin: the panel's <see cref="ToolStripPanel.RowMargin"/>, less its sides along
+        /// the row when the row's first visible strip stretches -- so a MenuStrip spans its row from the panel's
+        /// edge while a ToolStrip sits 3px in.</remarks>
         public Padding Margin {
-            get => margin;
+            get => margin_set ? margin : DefaultMargin;
             set {
-                if (margin == value)
+                if (margin_set && margin == value)
                     return;
 
                 margin = value;
+                margin_set = true;
                 ToolStripPanel.PerformLayout ();
             }
         }
 
         private Padding margin;
+        private bool margin_set;
+
+        private Padding DefaultMargin {
+            get {
+                var padding = ToolStripPanel.RowMargin;
+                var first = Controls.FirstOrDefault (strip => ((Layout.IArrangedElement) strip).ParticipatesInLayout);
+
+                if (first is { Stretch: true }) {
+                    if (Orientation == Orientation.Horizontal) {
+                        padding.Left = 0;
+                        padding.Right = 0;
+                    } else {
+                        padding.Top = 0;
+                        padding.Bottom = 0;
+                    }
+                }
+
+                return padding;
+            }
+        }
 
         /// <summary>Gets the orientation the row lays its strips out in.</summary>
         public Orientation Orientation

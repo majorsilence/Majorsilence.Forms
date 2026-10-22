@@ -150,7 +150,7 @@ public class ToolStripPanelJoinTests
             Assert.True (menu.Stretch);
             Assert.Single (panel.Rows);
             Assert.Equal (a.Right, menu.Left);
-            Assert.Equal (panel.DeviceClientRectangle.Right - panel.RowMargin.Right, menu.Right);
+            Assert.Equal (panel.ClientRectangle.Right - panel.RowMargin.Right, menu.Right);
         }
     }
 

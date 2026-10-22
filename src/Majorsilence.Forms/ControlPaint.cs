@@ -183,12 +183,15 @@ namespace Majorsilence.Forms
         // box and radio button WinForms draws under the Windows 11 theme, colours measured from it: a
         // rounded box or circle, outlined and pale when clear, filled with the accent and marked in white
         // when set. The theme's square-in-a-square read as a different control beside WinForms'.
+        // Disabled, the outline of a clear glyph and the fill of a set one are #C3C3C3 and a clear glyph's
+        // face #F9F9F9: they were drawn #A0A0A0 on the enabled face, a darker glyph than WinForms'.
         // Apps that have not chosen a font keep the theme's glyphs.
 
         private static readonly SKColor UpstreamAccent = new SKColor (0x00, 0x5F, 0xB8);
         private static readonly SKColor UpstreamOutline = new SKColor (0x62, 0x62, 0x62);
         private static readonly SKColor UpstreamClearFill = new SKColor (0xF3, 0xF3, 0xF3);
-        private static readonly SKColor UpstreamDisabled = new SKColor (0xA0, 0xA0, 0xA0);
+        private static readonly SKColor UpstreamDisabled = new SKColor (0xC3, 0xC3, 0xC3);
+        private static readonly SKColor UpstreamDisabledClearFill = new SKColor (0xF9, 0xF9, 0xF9);
 
         internal static bool UsesUpstreamGlyphs => SystemFonts.HasDefaultFontOverride;
 
@@ -201,7 +204,7 @@ namespace Majorsilence.Forms
             using var paint = new SKPaint { IsAntialias = true };
 
             if (state == CheckState.Unchecked) {
-                paint.Color = UpstreamClearFill;
+                paint.Color = disabled ? UpstreamDisabledClearFill : UpstreamClearFill;
                 e.Canvas.DrawRoundRect (box, radius, radius, paint);
 
                 // The outline inside the box, on pixel centres, so a 1px line stays crisp.
@@ -257,7 +260,7 @@ namespace Majorsilence.Forms
                 return;
             }
 
-            paint.Color = UpstreamClearFill;
+            paint.Color = disabled ? UpstreamDisabledClearFill : UpstreamClearFill;
             e.Canvas.DrawCircle (cx, cy, radius, paint);
 
             paint.Style = SKPaintStyle.Stroke;
