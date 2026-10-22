@@ -96,7 +96,7 @@ namespace Majorsilence.Forms
     /// rule sets that type's static default <see cref="ControlStyle"/>, so every instance without its
     /// own explicit value picks it up.
     /// </summary>
-    public sealed class ThemeCssSelector
+    public sealed partial class ThemeCssSelector
     {
         internal ThemeCssSelector (string name, string description, Func<ControlStyle> getStyle, Func<ControlStyle>? getHoverStyle = null,
             Func<ControlStyle>? getActiveStyle = null, Func<ControlStyle>? getDisabledStyle = null, Func<ControlStyle>? getFocusStyle = null,

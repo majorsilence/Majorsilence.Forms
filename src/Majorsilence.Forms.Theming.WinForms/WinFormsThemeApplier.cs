@@ -21,6 +21,21 @@ namespace Majorsilence.Forms.Theming.WinForms
         public ThemeRuleSet Rules { get; }
         public TokenSnapshot Tokens { get; }
         public StripColors Strips { get; }
+
+        /// <summary>The transitions and animations resolved per (selector, state), so a state change does not resolve them again.</summary>
+        public Dictionary<(string Selector, ThemeCssState State), (IReadOnlyList<ThemeCssTransition> Transitions, IReadOnlyList<ThemeCssAnimation> Animations)> Motion { get; } = new ();
+
+        /// <summary>Where notes about individual controls (one that paints itself and was left alone) go: the list the apply publishes as its diagnostics.</summary>
+        public List<ThemeCssDiagnostic>? Sink { get; set; }
+
+        private readonly HashSet<string> reported = new ();
+
+        /// <summary>Adds an info diagnostic about a control, once per distinct message.</summary>
+        public void Report (string message)
+        {
+            if (Sink is not null && reported.Add (message))
+                Sink.Add (new ThemeCssDiagnostic (ThemeCssSeverity.Info, 0, 0, message));
+        }
     }
 
     /// <summary>
@@ -29,7 +44,7 @@ namespace Majorsilence.Forms.Theming.WinForms
     /// per-control opt-out: a BackColor/ForeColor/Font the app set explicitly (or changed after we
     /// styled it) is pinned and never overwritten, mirroring "explicit per-control values win".
     /// </summary>
-    internal static class WinFormsThemeApplier
+    internal static partial class WinFormsThemeApplier
     {
         /// <summary>The last applied context; null until the first apply.</summary>
         public static ApplyContext? Current { get; set; }
@@ -45,7 +60,11 @@ namespace Majorsilence.Forms.Theming.WinForms
             public bool TabDrawHookInstalled { get; set; }
             public bool ItemDrawHookInstalled { get; set; }
             public bool RegionHookInstalled { get; set; }
-            public int CornerRadius { get; set; }
+            public (int TopLeft, int TopRight, int BottomRight, int BottomLeft) Corners { get; set; }
+            public BorderPainter? Border { get; set; }
+            public EffectLook? Effects { get; set; }
+            public Color? BorderBase { get; set; }
+            public WF.BorderStyle? OriginalBorderStyle { get; set; }
         }
 
         private static readonly ConditionalWeakTable<WF.Control, ControlState> states = new ();
@@ -233,9 +252,7 @@ namespace Majorsilence.Forms.Theming.WinForms
                         numeric.BorderStyle = ToBorderStyle (numericBorder);
                     break;
                 case WF.DateTimePicker picker:
-                    SetBackColor (picker, Resolve (ctx, "TextBox", "background-color", ctx.Tokens.ControlLow));
-                    SetForeColor (picker, Resolve (ctx, "TextBox", "color", ctx.Tokens.Foreground));
-                    SetFont (picker, ctx.Rules.Font ("TextBox"));
+                    ApplyDateTimePicker (picker, ctx);
                     break;
                 case WF.TextBoxBase textBox:
                     SetBackColor (textBox, Resolve (ctx, "TextBox", "background-color", ctx.Tokens.ControlLow));
@@ -282,7 +299,12 @@ namespace Majorsilence.Forms.Theming.WinForms
                     ApplyStrip (menuStrip, "Menu", ctx, ctx.Strips.MenuBackground);
                     break;
                 case WF.StatusStrip statusStrip:
-                    ApplyStrip (statusStrip, "StatusBar", ctx, ctx.Strips.StatusBarBackground);
+                    ApplyStrip (statusStrip, ctx.Rules.HasAny ("StatusStrip") ? "StatusStrip" : "StatusBar", ctx, ctx.Strips.StatusBarBackground);
+
+                    // A StatusStrip starts out in the System render mode, which ignores the themed renderer (its seam and item
+                    // colours); a sheet that styles it moves it to the manager renderer, as every other strip already uses.
+                    if (statusStrip.RenderMode == WF.ToolStripRenderMode.System && (ctx.Rules.HasAny ("StatusStrip") || ctx.Rules.HasAny ("StatusBar")))
+                        statusStrip.RenderMode = WF.ToolStripRenderMode.ManagerRenderMode;
                     break;
                 case WF.ToolStripDropDown dropDown: // ContextMenuStrip, ToolStripDropDownMenu
                     ApplyStrip (dropDown, "MenuDropDown", ctx, ctx.Strips.DropDownBackground);
@@ -308,6 +330,106 @@ namespace Majorsilence.Forms.Theming.WinForms
                     // Everything else inherits the form's ambient BackColor / ForeColor / Font.
                     break;
             }
+
+            ApplyBorder (control, ctx);
+            ApplyStates (control, ctx);
+            ApplyEffects (control, ctx);
+        }
+
+        // ---- borders ---------------------------------------------------------------------------------
+
+        // Which controls get a repainted border, how it is reached, and whether the core gives the control one by default
+        // (--border-low-color) or only when a rule asks for it.
+        private static (string Selector, BorderPaintMode Mode, bool ByDefault)? BorderPlanFor (WF.Control control) => control switch {
+            WF.TextBoxBase => ("TextBox", BorderPaintMode.NonClient, true),
+            WF.ListBox => ("ListBox", BorderPaintMode.NonClient, true),
+            WF.ListView => ("ListView", BorderPaintMode.NonClient, true),
+            WF.TreeView => ("TreeView", BorderPaintMode.NonClient, true),
+            WF.ComboBox => ("ComboBox", BorderPaintMode.ClientOverlay, true),
+            WF.NumericUpDown => ("NumericUpDown", BorderPaintMode.NonClient, true),
+            WF.GroupBox => ("GroupBox", BorderPaintMode.GroupBox, true),
+            WF.ProgressBar => ("ProgressBar", BorderPaintMode.NonClient, true),
+            WF.PictureBox => ("PictureBox", BorderPaintMode.NonClient, false),
+            WF.TabPage => null,
+            WF.Panel => ("Panel", BorderPaintMode.NonClient, false),
+            _ => null
+        };
+
+        private static WF.BorderStyle? GetBorderStyle (WF.Control control) => control switch {
+            WF.TextBoxBase t => t.BorderStyle,
+            WF.ListBox l => l.BorderStyle,
+            WF.ListView l => l.BorderStyle,
+            WF.TreeView t => t.BorderStyle,
+            WF.NumericUpDown n => n.BorderStyle,
+            WF.PictureBox p => p.BorderStyle,
+            WF.Panel p => p.BorderStyle,
+            _ => null
+        };
+
+        private static void SetBorderStyle (WF.Control control, WF.BorderStyle style)
+        {
+            switch (control) {
+                case WF.TextBoxBase t: t.BorderStyle = style; break;
+                case WF.ListBox l: l.BorderStyle = style; break;
+                case WF.ListView l: l.BorderStyle = style; break;
+                case WF.TreeView t: t.BorderStyle = style; break;
+                case WF.NumericUpDown n: n.BorderStyle = style; break;
+                case WF.PictureBox p: p.BorderStyle = style; break;
+                case WF.Panel p: p.BorderStyle = style; break;
+            }
+        }
+
+        // System.Windows.Forms exposes a border style and no border colour, so the colour is a repainted frame
+        // (BorderPainter). A control the app paints itself, one with border: none, and one whose border the app turned off keep
+        // what they have; turning PaintBorders off, or removing the colour, puts the system frame back.
+        private static void ApplyBorder (WF.Control control, ApplyContext ctx)
+        {
+            if (BorderPlanFor (control) is not { } plan)
+                return;
+
+            var state = states.GetOrCreateValue (control);
+            var rule = ctx.Rules.Color (plan.Selector, null, false, "border-color");
+            var width = ctx.Rules.Length (plan.Selector, null, false, "border-width");
+            Color? color = rule is { } declared ? TokenSnapshot.Flatten (declared, ctx.Tokens.Background)
+                : plan.ByDefault ? TokenSnapshot.Flatten (ctx.Tokens.BorderLow, ctx.Tokens.Background)
+                : null;
+
+            var wanted = WinFormsCssTheme.PaintBorders && color is not null && width is null or > 0;
+
+            if (wanted && BorderPainter.PaintsItself (control.GetType ())) {
+                ctx.Report ($"'{control.GetType ().Name}' paints itself, so its border colour is left alone.");
+                wanted = false;
+            }
+
+            var style = GetBorderStyle (control);
+            if (wanted && style == WF.BorderStyle.None)
+                wanted = false;
+
+            if (!wanted) {
+                state.Border?.Detach ();
+                state.Border = null;
+
+                // Put the system frame back only if what is there is still the one this applier switched to; a border the sheet
+                // (border: none) or the app has since changed is theirs.
+                if (state.OriginalBorderStyle is { } original && style == WF.BorderStyle.FixedSingle && width is not <= 0)
+                    SetBorderStyle (control, original);
+
+                state.OriginalBorderStyle = null;
+                return;
+            }
+
+            if (style == WF.BorderStyle.Fixed3D) {
+                state.OriginalBorderStyle ??= style;
+                SetBorderStyle (control, WF.BorderStyle.FixedSingle);
+            }
+
+            if (state.Border is null)
+                state.Border = new BorderPainter (control, plan.Mode);
+
+            state.BorderBase = color!.Value;
+            state.Border.Color = color!.Value;
+            state.Border.Dashed = plan.Mode != BorderPaintMode.GroupBox && ctx.Rules.Value (plan.Selector, null, false, "border-style") is { Kind: ThemeCssValueKind.Keyword } kind && kind.Keyword == "dashed";
+            state.Border.Refresh ();
         }
 
         // The effective colour of one (selector, property): the rule value if the sheet declares it,
@@ -385,7 +507,7 @@ namespace Majorsilence.Forms.Theming.WinForms
             button.FlatAppearance.MouseDownBackColor = TokenSnapshot.Darken (hover, 0.12);
 
             var state = states.GetOrCreateValue (button);
-            state.CornerRadius = ctx.Rules.Length ("Button", null, false, "border-radius") ?? 0;
+            state.Corners = ctx.Rules.Corners ("Button", null, ThemeCssState.Normal) ?? (0, 0, 0, 0);
 
             if (!state.RegionHookInstalled) {
                 state.RegionHookInstalled = true;
@@ -405,9 +527,9 @@ namespace Majorsilence.Forms.Theming.WinForms
             if (!states.TryGetValue (button, out var state))
                 return;
 
-            var radius = state.CornerRadius;
+            var (tl, tr, br, bl) = state.Corners;
 
-            if (radius <= 0) {
+            if (tl <= 0 && tr <= 0 && br <= 0 && bl <= 0) {
                 if (button.Region is not null)
                     button.Region = null;
                 return;
@@ -417,14 +539,58 @@ namespace Majorsilence.Forms.Theming.WinForms
             if (bounds.Width <= 0 || bounds.Height <= 0)
                 return;
 
-            var diameter = Math.Min (radius * 2, Math.Min (bounds.Width, bounds.Height));
-            using var path = new GraphicsPath ();
-            path.AddArc (bounds.X, bounds.Y, diameter, diameter, 180, 90);
-            path.AddArc (bounds.Right - diameter, bounds.Y, diameter, diameter, 270, 90);
-            path.AddArc (bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
-            path.AddArc (bounds.X, bounds.Bottom - diameter, diameter, diameter, 90, 90);
-            path.CloseFigure ();
+            // No corner can take more than half the shorter side, or two of them would overlap.
+            var max = Math.Min (bounds.Width, bounds.Height) / 2;
+            using var path = RoundedPath (bounds, Math.Min (tl, max), Math.Min (tr, max), Math.Min (br, max), Math.Min (bl, max));
             button.Region = new Region (path);
+        }
+
+        // A rectangle with a radius per corner; a corner with radius 0 stays square. No anti-aliasing -- that is the documented
+        // limit of a Region.
+        internal static GraphicsPath RoundedPath (Rectangle bounds, int tl, int tr, int br, int bl)
+        {
+            var path = new GraphicsPath ();
+            int x = bounds.X, y = bounds.Y, r = bounds.Right, b = bounds.Bottom;
+
+            path.StartFigure ();
+            path.AddLine (x + tl, y, r - tr, y);
+            if (tr > 0)
+                path.AddArc (r - tr * 2, y, tr * 2, tr * 2, 270, 90);
+            path.AddLine (r, y + tr, r, b - br);
+            if (br > 0)
+                path.AddArc (r - br * 2, b - br * 2, br * 2, br * 2, 0, 90);
+            path.AddLine (r - br, b, x + bl, b);
+            if (bl > 0)
+                path.AddArc (x, b - bl * 2, bl * 2, bl * 2, 90, 90);
+            path.AddLine (x, b - bl, x, y + tl);
+            if (tl > 0)
+                path.AddArc (x, y, tl * 2, tl * 2, 180, 90);
+            path.CloseFigure ();
+            return path;
+        }
+
+        // ---- date pickers -----------------------------------------------------------------------
+
+        // A DateTimePicker rule wins over the TextBox rule that styled the picker before it had one of its own.
+        private static void ApplyDateTimePicker (WF.DateTimePicker picker, ApplyContext ctx)
+        {
+            var bg = ctx.Rules.Color ("DateTimePicker", null, false, "background-color") is { } own
+                ? TokenSnapshot.Flatten (own, ctx.Tokens.Background)
+                : Resolve (ctx, "TextBox", "background-color", ctx.Tokens.ControlLow);
+            var fg = ctx.Rules.Color ("DateTimePicker", null, false, "color") is { } ownFg
+                ? TokenSnapshot.Flatten (ownFg, ctx.Tokens.Background)
+                : Resolve (ctx, "TextBox", "color", ctx.Tokens.Foreground);
+
+            SetBackColor (picker, bg);
+            SetForeColor (picker, fg);
+
+            var font = ctx.Rules.Font ("DateTimePicker");
+            SetFont (picker, font.IsEmpty ? ctx.Rules.Font ("TextBox") : font);
+
+            // The drop-down calendar is a MonthCalendar the picker owns: these are its seams.
+            picker.CalendarMonthBackground = bg;
+            picker.CalendarForeColor = fg;
+            picker.CalendarTrailingForeColor = TokenSnapshot.Flatten (ctx.Tokens.ForegroundDisabled, bg);
         }
 
         // ---- link labels ----------------------------------------------------------------------------
@@ -435,15 +601,22 @@ namespace Majorsilence.Forms.Theming.WinForms
                 SetBackColor (link, TokenSnapshot.Flatten (bg, ctx.Tokens.Background));
             SetFont (link, ctx.Rules.Font ("LinkLabel"));
 
+            // LinkColor, ActiveLinkColor (:active) and DisabledLinkColor (:disabled) follow the control's state:
+            // see RefreshLink in WinFormsThemeApplier.States.cs, which also runs when the control has no state rule.
+            RefreshLinkResting (link, ctx);
+        }
+
+        private static void RefreshLinkResting (WF.LinkLabel link, ApplyContext ctx)
+        {
             var linkColor = Resolve (ctx, "LinkLabel", "color", ctx.Tokens.Accent);
             link.LinkColor = linkColor;
             link.VisitedLinkColor = linkColor;
-
-            // :hover color has no true hover seam; ActiveLinkColor (shown while pressed) is the
-            // documented approximation.
-            link.ActiveLinkColor = ctx.Rules.Color ("LinkLabel", null, true, "color") is { } active
+            link.ActiveLinkColor = ctx.Rules.Color ("LinkLabel", null, ThemeCssState.Active, "color") is { } active
                 ? TokenSnapshot.Flatten (active, ctx.Tokens.Background)
                 : TokenSnapshot.Darken (linkColor, 0.2);
+            link.DisabledLinkColor = ctx.Rules.Color ("LinkLabel", null, ThemeCssState.Disabled, "color") is { } disabled
+                ? TokenSnapshot.Flatten (disabled, ctx.Tokens.Background)
+                : ctx.Tokens.ForegroundDisabled;
         }
 
         // ---- lists and trees -------------------------------------------------------------------------
@@ -649,9 +822,8 @@ namespace Majorsilence.Forms.Theming.WinForms
 
         // ---- progress bars ----------------------------------------------------------------------
 
-        // No selector maps here (the grammar has none for ProgressBar); the fill follows
-        // --accent-color-2 and the track --control-mid-high-color, as the Majorsilence.Forms renderer
-        // reads them. WinForms forwards ForeColor / BackColor to PBM_SETBARCOLOR / PBM_SETBKCOLOR
+        // The fill follows --accent-color-2 and the track --control-mid-high-color unless a ProgressBar
+        // rule sets background-color, as the Majorsilence.Forms renderer reads them. WinForms forwards ForeColor / BackColor to PBM_SETBARCOLOR / PBM_SETBKCOLOR
         // itself, on every handle creation, so the colours are ordinary pinned properties here --
         // sending the messages directly from HandleCreated is futile, ProgressBar.OnHandleCreated
         // runs after the event and re-sends its own. The bar only honours them with visual styles
@@ -665,7 +837,7 @@ namespace Majorsilence.Forms.Theming.WinForms
                 bar.Style = WF.ProgressBarStyle.Continuous;
 
             SetForeColor (bar, TokenSnapshot.Flatten (ctx.Tokens.Accent2, ctx.Tokens.Background));
-            SetBackColor (bar, TokenSnapshot.Flatten (ctx.Tokens.ControlMidHigh, ctx.Tokens.Background));
+            SetBackColor (bar, Resolve (ctx, "ProgressBar", "background-color", ctx.Tokens.ControlMidHigh));
 
             var state = states.GetOrCreateValue (bar);
             if (!state.HandleHookInstalled) {

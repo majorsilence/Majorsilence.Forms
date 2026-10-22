@@ -36,7 +36,22 @@ namespace Majorsilence.Forms.Theming.WinForms.Tests
                     foreach (var property in Longhands)
                         Assert.True (WinFormsThemeSupport.Find (selector.Name, null, true, property) is not null,
                             $"no support row for {selector.Name}:hover {{ {property} }}");
+
+                // :active, :disabled, :focus and :focus-visible were once invisible to this test.
+                foreach (var state in new[] { MF.ThemeCssState.Active, MF.ThemeCssState.Disabled, MF.ThemeCssState.Focus, MF.ThemeCssState.FocusVisible })
+                    if (selector.Supports (state))
+                        foreach (var property in Longhands)
+                            Assert.True (WinFormsThemeSupport.Find (selector.Name, null, state, property) is not null,
+                                $"no support row for {selector.Name}:{state} {{ {property} }}");
             }
+        }
+
+        [Fact]
+        public void NoRow_ExistsForAStateTheSelectorDoesNotTake ()
+        {
+            foreach (var entry in WinFormsThemeSupport.Entries)
+                Assert.True (MF.ThemeCssReference.FindSelector (entry.Selector)!.Supports (entry.Part is null ? entry.State : entry.State == MF.ThemeCssState.Hover ? MF.ThemeCssState.Normal : entry.State),
+                    $"{entry} names a state {entry.Selector} does not take");
         }
 
         [Fact]

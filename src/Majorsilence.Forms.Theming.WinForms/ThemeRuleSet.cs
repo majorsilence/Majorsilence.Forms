@@ -90,37 +90,73 @@ namespace Majorsilence.Forms.Theming.WinForms
     /// </summary>
     internal sealed class ThemeRuleSet
     {
-        private readonly Dictionary<(string Selector, string? Part, bool Hover), Dictionary<string, ThemeCssDeclaration>> rules = new ();
+        private readonly Dictionary<(string Selector, string? Part, ThemeCssState State), Dictionary<string, ThemeCssDeclaration>> rules = new ();
+
+        // Every declaration of a key in source order across the chain: the property dictionary above keeps the last of each
+        // property, which loses what a corner longhand written before or after border-radius means.
+        private readonly Dictionary<(string Selector, string? Part, ThemeCssState State), List<ThemeCssDeclaration>> ordered = new ();
+        private readonly Dictionary<string, ControlKeyframes> keyframes = new (StringComparer.Ordinal);
 
         public static ThemeRuleSet Build (IReadOnlyList<ThemeStyleSheet> chain)
         {
             var set = new ThemeRuleSet ();
 
-            foreach (var sheet in chain)
-                foreach (var rule in sheet.Rules) {
-                    // Only :hover has WinForms seams; an :active, :disabled, :focus or :focus-visible rule would otherwise merge into
-                    // the at-rest key and override the base rule (BuildDiagnostics reports it instead).
-                    if (rule.Active || rule.Disabled || rule.Focus || rule.FocusVisible)
-                        continue;
+            foreach (var sheet in chain) {
+                foreach (var keyframe in sheet.Keyframes)
+                    set.keyframes[keyframe.Name] = keyframe;
 
-                    var key = (rule.Selector.Name, rule.Part?.Name, rule.Hover);
+                foreach (var rule in sheet.Rules) {
+                    // Each state keeps its own declarations, so an :active, :disabled, :focus or :focus-visible rule never
+                    // merges into the at-rest key and overrides the base rule.
+                    var key = (rule.Selector.Name, rule.Part?.Name, rule.State);
 
                     if (!set.rules.TryGetValue (key, out var declarations)) {
                         declarations = new Dictionary<string, ThemeCssDeclaration> (StringComparer.OrdinalIgnoreCase);
                         set.rules[key] = declarations;
                     }
 
-                    foreach (var declaration in rule.Declarations)
+                    if (!set.ordered.TryGetValue (key, out var sequence))
+                        set.ordered[key] = sequence = new List<ThemeCssDeclaration> ();
+
+                    foreach (var declaration in rule.Declarations) {
                         declarations[declaration.Property] = declaration;
+                        sequence.Add (declaration);
+                    }
                 }
+            }
 
             return set;
         }
 
         public ThemeCssValue? Value (string selector, string? part, bool hover, string property)
-            => rules.TryGetValue ((selector, part, hover), out var declarations) && declarations.TryGetValue (property, out var declaration)
+            => Value (selector, part, hover ? ThemeCssState.Hover : ThemeCssState.Normal, property);
+
+        public ThemeCssValue? Value (string selector, string? part, ThemeCssState state, string property)
+            => rules.TryGetValue ((selector, part, state), out var declarations) && declarations.TryGetValue (property, out var declaration)
                 ? declaration.Value
                 : null;
+
+        public Color? Color (string selector, string? part, ThemeCssState state, string property)
+        {
+            var value = Value (selector, part, state, property);
+            return value is { Kind: ThemeCssValueKind.Color }
+                ? System.Drawing.Color.FromArgb (value.Alpha, value.Red, value.Green, value.Blue)
+                : null;
+        }
+
+        public int? Length (string selector, string? part, ThemeCssState state, string property)
+        {
+            var value = Value (selector, part, state, property);
+            return value is { Kind: ThemeCssValueKind.Length } ? value.Pixels : null;
+        }
+
+        /// <summary>Whether any rule exists for the selector in this state (any part when <paramref name="part"/> is null).</summary>
+        public bool HasState (string selector, ThemeCssState state, string? part = null)
+            => rules.Keys.Any (k => k.Selector == selector && k.State == state && (part is null || k.Part == part));
+
+        /// <summary>The declarations of one (selector, part, state), or none.</summary>
+        public IEnumerable<ThemeCssDeclaration> Declarations (string selector, string? part, ThemeCssState state)
+            => rules.TryGetValue ((selector, part, state), out var declarations) ? declarations.Values : Enumerable.Empty<ThemeCssDeclaration> ();
 
         public Color? Color (string selector, string? part, bool hover, string property)
         {
@@ -152,7 +188,66 @@ namespace Majorsilence.Forms.Theming.WinForms
             return spec;
         }
 
+        /// <summary>
+        /// The four corner radii (top-left, top-right, bottom-right, bottom-left) the rules give a selector, or null when none does.
+        /// <c>border-radius</c> sets every corner and resets the ones written before it; a corner longhand wins over an earlier
+        /// <c>border-radius</c>, so the declarations are replayed in source order.
+        /// </summary>
+        public (int TopLeft, int TopRight, int BottomRight, int BottomLeft)? Corners (string selector, string? part, ThemeCssState state)
+        {
+            if (!ordered.TryGetValue ((selector, part, state), out var sequence))
+                return null;
+
+            int tl = 0, tr = 0, br = 0, bl = 0;
+            var any = false;
+
+            foreach (var declaration in sequence) {
+                if (declaration.Value is not { Kind: ThemeCssValueKind.Length } length)
+                    continue;
+
+                switch (declaration.Property) {
+                    case "border-radius": tl = tr = br = bl = length.Pixels; any = true; break;
+                    case "border-top-left-radius": tl = length.Pixels; any = true; break;
+                    case "border-top-right-radius": tr = length.Pixels; any = true; break;
+                    case "border-bottom-right-radius": br = length.Pixels; any = true; break;
+                    case "border-bottom-left-radius": bl = length.Pixels; any = true; break;
+                }
+            }
+
+            return any ? (tl, tr, br, bl) : null;
+        }
+
+        /// <summary>
+        /// Every declaration that applies to a selector in a state, base first: the resting rule's, then each of <paramref name="states"/>'
+        /// in order. The input of <see cref="ThemeCssTransition.Resolve"/> and <see cref="ThemeCssAnimation.Resolve"/>, which let a later
+        /// longhand replace an earlier one the way CSS lets a state inherit what it leaves unsaid.
+        /// </summary>
+        public IEnumerable<ThemeCssDeclaration> Cascade (string selector, IEnumerable<ThemeCssState> states)
+        {
+            var list = new List<ThemeCssDeclaration> ();
+
+            if (ordered.TryGetValue ((selector, null, ThemeCssState.Normal), out var resting))
+                list.AddRange (resting);
+
+            foreach (var state in states)
+                if (ordered.TryGetValue ((selector, null, state), out var more))
+                    list.AddRange (more);
+
+            return list;
+        }
+
+        /// <summary>The <c>@keyframes</c> block of that name, or null.</summary>
+        public ControlKeyframes? Keyframes (string name) => keyframes.TryGetValue (name, out var frames) ? frames : null;
+
+        /// <summary>Whether any rule for the selector, in any state, declares a transition or an animation.</summary>
+        public bool HasMotion (string selector)
+            => ordered.Any (p => p.Key.Selector == selector && p.Key.Part is null
+                                 && p.Value.Any (d => d.Property.StartsWith ("transition-", StringComparison.Ordinal) || d.Property.StartsWith ("animation-", StringComparison.Ordinal)));
+
         public bool HasAny (string selector, string? part = null)
             => rules.Keys.Any (k => k.Selector == selector && (part is null || k.Part == part));
+
+        /// <summary>The rules whose selector is one of the control-level (no part) selectors, in any state.</summary>
+        public IEnumerable<(string Selector, string? Part, ThemeCssState State)> Keys => rules.Keys;
     }
 }

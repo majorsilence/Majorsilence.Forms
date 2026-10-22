@@ -14,6 +14,7 @@ User docs: `docs/theming.md` (reference tables generated from `ThemeCssReference
 | `ThemeCssPart.cs`, `ThemeCssValues.cs`, `ThemeCssTokenizer.cs` | Parts (`Type::part`), value parsing (colours, lengths, fonts, times, timing functions, shadows), tokens. |
 | `ThemeCssCalc.cs` | `calc()`/`min()`/`max()`/`clamp()`, units (`rem` reads `Theme.RootFontSize`), relative-colour channel names. Every unit conversion lives here. |
 | `ThemeCssColorFunctions.cs`, `ThemeCssColorSpaces.cs` | CSS Color 4/5 functions, `color-mix()`, relative colours, `light-dark()`; colour-space conversions and CSS's gamut mapping. |
+| `ThemeCssState.cs`, `ThemeCssMotion.cs`, `ThemeCssGradient.cs` | The host-neutral view a host applier needs beyond declarations: `ThemeCssState` (a rule's one pseudo-class; `ThemeCssSelector.Supports (state)`), `ThemeCssRule.Transitions` / `Animations` and the static `Resolve (declarations)` that lets a state inherit what it leaves unsaid, `ThemeCssTiming.Evaluate` (the core's easing curves, for a host with its own timer), `ThemeStyleSheet.Keyframes`, and `ThemeCssValue.Gradients` (`ThemeCssGradient`, with `Render` for a host that paints with Skia). Tests: `ThemeCssHostModelTests`. |
 | `ThemeCssGradients.cs`, `ThemeCssMedia.cs` | `background-image` gradients (painted by `../GradientStyle.cs`); `@media` queries over `MediaEnvironment`. |
 
 ## Rules

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 
 namespace Majorsilence.Forms.Theming.Avalonia
@@ -9,6 +10,7 @@ namespace Majorsilence.Forms.Theming.Avalonia
     using global::Avalonia.Controls.Presenters;
     using global::Avalonia.Controls.Primitives;
     using global::Avalonia.Styling;
+    using global::Avalonia.Media;
 
     /// <summary>The CLR type a Fluent theme resource is declared as; the applier writes the same type.</summary>
     internal enum ResourceKind
@@ -31,6 +33,16 @@ namespace Majorsilence.Forms.Theming.Avalonia
         Right,
         Bottom,
         Left
+    }
+
+    /// <summary>Which corner a radius declaration sets; <see cref="All"/> is <c>border-radius</c>.</summary>
+    internal enum CornerSide
+    {
+        All,
+        TopLeft,
+        TopRight,
+        BottomRight,
+        BottomLeft
     }
 
     /// <summary>Where one declaration lands in Avalonia: a Fluent resource key or a style setter.</summary>
@@ -69,17 +81,29 @@ namespace Majorsilence.Forms.Theming.Avalonia
     }
 
     /// <summary>
+    /// Marks a row whose declaration is not written by the generic path: transitions and animations are assembled from every rule of
+    /// a selector together (see <c>AvaloniaThemeApplier.Motion.cs</c>), not one declaration at a time.
+    /// </summary>
+    internal sealed class MotionTarget : AvaloniaTarget
+    {
+    }
+
+    /// <summary>
     /// A setter in the generated <see cref="Styles"/>. Application styles outrank control-theme setters,
     /// so these win over Fluent's defaults for the properties the control template binds.
     /// </summary>
     internal sealed class StyleTarget : AvaloniaTarget
     {
-        public StyleTarget (StyleSelector selector, AvaloniaProperty property, BorderSide side = BorderSide.All)
+        public StyleTarget (StyleSelector selector, AvaloniaProperty property, BorderSide side = BorderSide.All, CornerSide corner = CornerSide.All)
         {
             Selector = selector;
             Property = property;
             Side = side;
+            Corner = corner;
         }
+
+        /// <summary>For <c>CornerRadius</c>: which corner the declaration sets.</summary>
+        public CornerSide Corner { get; }
 
         public StyleSelector Selector { get; }
 
@@ -109,7 +133,64 @@ namespace Majorsilence.Forms.Theming.Avalonia
     /// <summary>The selectors the matrix uses, built once.</summary>
     internal static class S
     {
+        private static readonly ConcurrentDictionary<string, StyleSelector> cache = new ();
+
+        // One instance per key: the applier merges setters into a style by reference, so the same selector must be the same object.
+        private static StyleSelector Get (string key, Func<Selector?, Selector> build) => cache.GetOrAdd (key, k => new StyleSelector (k, build));
+
+        /// <summary>The Avalonia pseudo-class that is a CSS state, or null for the resting look.</summary>
+        public static string? ClassOf (ThemeCssState state) => state switch {
+            ThemeCssState.Hover => ":pointerover",
+            ThemeCssState.Active => ":pressed",
+            ThemeCssState.Disabled => ":disabled",
+            ThemeCssState.Focus => ":focus",
+            ThemeCssState.FocusVisible => ":focus-visible",
+            _ => null
+        };
+
+        /// <summary>The same control selector narrowed to a state (<c>Button:pointerover</c>); the selector itself for the resting look.</summary>
+        public static StyleSelector InState (StyleSelector selector, ThemeCssState state)
+            => ClassOf (state) is { } cls ? Get (selector.Key + cls, x => selector.Build (x).Class (cls)) : selector;
+
+        /// <summary>An element of type <typeparamref name="T"/> the app marked with <see cref="CssTheme.SelectorProperty"/>.</summary>
+        public static StyleSelector Marked<T> (string selector) where T : Control
+            => Get ($"{typeof (T).Name}[CssTheme.Selector={selector}]", x => x.Is<T> ().PropertyEquals (CssTheme.SelectorProperty, selector));
+
+        // The template parts that carry an outer box-shadow: the root border (or content presenter) of the control's template.
+        public static StyleSelector ButtonPart (ThemeCssState state = ThemeCssState.Normal) => Part<Button, ContentPresenter> ("Button", "PART_ContentPresenter", state);
+        public static StyleSelector ToggleButtonPart (ThemeCssState state = ThemeCssState.Normal) => Part<ToggleButton, ContentPresenter> ("ToggleButton", "PART_ContentPresenter", state);
+        public static StyleSelector HyperlinkPart (ThemeCssState state = ThemeCssState.Normal) => Part<HyperlinkButton, ContentPresenter> ("HyperlinkButton", "PART_ContentPresenter", state);
+        public static StyleSelector TextBoxPart (ThemeCssState state = ThemeCssState.Normal) => Part<TextBox, Border> ("TextBox", "PART_BorderElement", state);
+        public static StyleSelector DatePickerPart (ThemeCssState state = ThemeCssState.Normal) => Part<CalendarDatePicker, Border> ("CalendarDatePicker", "PART_BorderElement", state);
+        public static StyleSelector ComboBoxPart (ThemeCssState state = ThemeCssState.Normal) => Part<ComboBox, Border> ("ComboBox", "Background", state);
+        public static StyleSelector ListBoxPart (ThemeCssState state = ThemeCssState.Normal) => Part<ListBox, Border> ("ListBox", "border", state);
+        public static StyleSelector DataGridPart (ThemeCssState state = ThemeCssState.Normal) => Part<DataGrid, Border> ("DataGrid", "DataGridBorder", state);
+        public static StyleSelector ProgressBarPart (ThemeCssState state = ThemeCssState.Normal) => Part<ProgressBar, Border> ("ProgressBar", "ProgressBarRoot", state);
+
+        private static StyleSelector Part<TControl, TPart> (string control, string part, ThemeCssState state)
+            where TControl : Control
+            where TPart : Control
+        {
+            var cls = ClassOf (state);
+            return Get ($"{control}{cls} /template/ {typeof (TPart).Name}#{part}", x => {
+                var selector = x.OfType<TControl> ();
+                if (cls is not null)
+                    selector = selector.Class (cls);
+                return selector.Template ().OfType<TPart> ().Name (part);
+            });
+        }
         public static readonly StyleSelector Window = new ("Window", x => x.OfType<Window> ());
+        public static readonly StyleSelector ButtonFocus = new ("Button:focus /template/ ContentPresenter#PART_ContentPresenter",
+            x => x.OfType<Button> ().Class (":focus").Template ().OfType<ContentPresenter> ().Name ("PART_ContentPresenter"));
+        public static readonly StyleSelector ButtonFocusVisible = new ("Button:focus-visible /template/ ContentPresenter#PART_ContentPresenter",
+            x => x.OfType<Button> ().Class (":focus-visible").Template ().OfType<ContentPresenter> ().Name ("PART_ContentPresenter"));
+        public static readonly StyleSelector HyperlinkFocus = new ("HyperlinkButton:focus /template/ ContentPresenter#PART_ContentPresenter",
+            x => x.OfType<HyperlinkButton> ().Class (":focus").Template ().OfType<ContentPresenter> ().Name ("PART_ContentPresenter"));
+        public static readonly StyleSelector HyperlinkFocusVisible = new ("HyperlinkButton:focus-visible /template/ ContentPresenter#PART_ContentPresenter",
+            x => x.OfType<HyperlinkButton> ().Class (":focus-visible").Template ().OfType<ContentPresenter> ().Name ("PART_ContentPresenter"));
+        public static readonly StyleSelector ProgressBar = new ("ProgressBar", x => x.OfType<ProgressBar> ());
+        public static readonly StyleSelector DatePickerControl = new ("DatePicker", x => x.OfType<DatePicker> ());
+        public static readonly StyleSelector TimePickerControl = new ("TimePicker", x => x.OfType<TimePicker> ());
         public static readonly StyleSelector Button = new ("Button", x => x.OfType<Button> ());
         public static readonly StyleSelector ToggleButton = new ("ToggleButton", x => x.OfType<ToggleButton> ());
         public static readonly StyleSelector CheckBox = new ("CheckBox", x => x.OfType<CheckBox> ());
@@ -157,6 +238,10 @@ namespace Majorsilence.Forms.Theming.Avalonia
         public static AvaloniaProperty FontSize => TemplatedControl.FontSizeProperty;
         public static AvaloniaProperty FontWeight => TemplatedControl.FontWeightProperty;
         public static AvaloniaProperty FontStyle => TemplatedControl.FontStyleProperty;
+        public static AvaloniaProperty Opacity => Visual.OpacityProperty;
+        public static AvaloniaProperty FocusAdorner => Control.FocusAdornerProperty;
+        public static AvaloniaProperty BorderBoxShadow => Border.BoxShadowProperty;
+        public static AvaloniaProperty PresenterBoxShadow => ContentPresenter.BoxShadowProperty;
 
         /// <summary>The TemplatedControl property a plain longhand maps to, or null for per-side colours.</summary>
         public static AvaloniaProperty? For (string property) => property switch {
@@ -183,6 +268,15 @@ namespace Majorsilence.Forms.Theming.Avalonia
 
     internal static class Targets
     {
+        /// <summary>Resource keys written with the declared colour exactly -- unlike <see cref="Brushes"/>, a key ending in Pressed is not darkened.</summary>
+        public static IReadOnlyList<AvaloniaTarget> Exact (params string[] keys)
+        {
+            var list = new List<AvaloniaTarget> ();
+            foreach (var key in keys)
+                list.Add (new ResourceTarget (key, ResourceKind.Brush));
+            return list;
+        }
+
         public static IReadOnlyList<AvaloniaTarget> Brushes (params string[] keys)
         {
             var list = new List<AvaloniaTarget> ();

@@ -419,9 +419,10 @@ Form { font-family: ""Segoe UI"", sans-serif; font-size: 14px; }
             var navigation = Assert.Single (diagnostics, d => d.Message.Contains ("'NavigationPane'", StringComparison.Ordinal));
             Assert.Equal (MF.ThemeCssSeverity.Info, navigation.Severity);
 
+            // Button:hover { color } used to be unsupported; it is a swap from MouseEnter / MouseLeave now.
             var hoverText = Assert.Single (diagnostics, d => d.Message.StartsWith ("'Button:hover { color }'", StringComparison.Ordinal));
-            Assert.Equal (MF.ThemeCssSeverity.Warning, hoverText.Severity);
-            Assert.Contains ("not supported on WinForms", hoverText.Message, StringComparison.Ordinal);
+            Assert.Equal (MF.ThemeCssSeverity.Info, hoverText.Severity);
+            Assert.Contains ("approximately", hoverText.Message, StringComparison.Ordinal);
 
             var radius = Assert.Single (diagnostics, d => d.Message.StartsWith ("'Button { border-radius }'", StringComparison.Ordinal));
             Assert.Equal (MF.ThemeCssSeverity.Info, radius.Severity);

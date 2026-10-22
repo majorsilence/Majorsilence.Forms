@@ -74,6 +74,31 @@ namespace Majorsilence.Forms.Theming.WinForms
         public static Func<WF.Control, bool>? Exclude { get; set; }
 
         /// <summary>
+        /// Whether the theme repaints the borders System.Windows.Forms draws in system colours -- the 1px frame of text boxes,
+        /// lists, trees, panels, combo boxes, up-down controls and group boxes -- in the theme's <c>border-color</c> (or, for
+        /// the controls that have one by default, <c>--border-low-color</c>). WinForms exposes no border colour, so this
+        /// subclasses the control's window and repaints the frame after it paints. A control whose class paints itself (an
+        /// override of <c>OnPaint</c>, <c>OnPaintBackground</c> or <c>WndProc</c> outside System.Windows.Forms) is left alone and
+        /// reported. Default true; set false before an apply to keep the system borders. Takes effect on the next apply.
+        /// </summary>
+        public static bool PaintBorders { get; set; } = true;
+
+        /// <summary>
+        /// Whether the theme paints what WinForms has no property for: shadows behind controls, gradient backgrounds and focus
+        /// outlines, drawn by the theme on the control or its parent. Default true; set false before an apply to leave controls
+        /// to paint themselves. Takes effect on the next apply.
+        /// </summary>
+        public static bool PaintEffects { get; set; } = true;
+
+        /// <summary>
+        /// Whether state changes and <c>@keyframes</c> animations are animated: a button, link, text box or track bar fades its
+        /// colours into a state over the rule's <c>transition</c> (a timer steps them along the rule's easing), and plays the
+        /// keyframes of an <c>animation</c> on its colours. Nothing animates when Windows has UI effects switched off (the reduced
+        /// motion setting). Default true; set false before an apply to change states at once. Takes effect on the next apply.
+        /// </summary>
+        public static bool Animate { get; set; } = true;
+
+        /// <summary>
         /// Raised after each apply, on the thread that applied. The Theme Studio uses it to refresh
         /// its diagnostics list; <see cref="Diagnostics"/> is current when it fires.
         /// </summary>
@@ -191,6 +216,7 @@ namespace Majorsilence.Forms.Theming.WinForms
                 var strips = StripColors.Resolve (rules, tokens);
                 var context = new ApplyContext (rules, tokens, strips);
                 var found = BuildDiagnostics (chain);
+                context.Sink = found;
 
                 WinFormsThemeApplier.Current = context;
                 WF.ToolStripManager.Renderer = new ThemeToolStripRenderer (strips);
@@ -260,10 +286,12 @@ namespace Majorsilence.Forms.Theming.WinForms
                     if (mapping is null)
                         continue;
 
-                    var ruleText = rule.Selector.Name + (rule.Part is null ? "" : "::" + rule.Part.Name) + (rule.Hover ? ":hover" : "");
+                    var ruleText = rule.Selector.Name + (rule.Part is null ? "" : "::" + rule.Part.Name) + WinFormsThemeSupportEntry.StateText (rule.State);
 
-                    if (rule.Active || rule.Disabled || rule.Focus || rule.FocusVisible) {
-                        var stateText = rule.Selector.Name + (rule.Active ? ":active" : rule.Disabled ? ":disabled" : rule.Focus ? ":focus" : ":focus-visible");
+                    // A state with no WinForms seam at all is reported once for the whole state; a state that has one is answered
+                    // declaration by declaration below, like the resting look.
+                    if (rule.State > ThemeCssState.Hover && !WinFormsThemeSupport.AppliesInState (rule.Selector.Name, rule.State)) {
+                        var stateText = rule.Selector.Name + WinFormsThemeSupportEntry.StateText (rule.State);
                         if (seen.Add ("state:" + stateText))
                             found.Add (new ThemeCssDiagnostic (ThemeCssSeverity.Info, rule.Line, rule.Column,
                                 $"'{stateText}' has no System.Windows.Forms counterpart (only :hover maps); the rule styles Majorsilence.Forms controls only."));
@@ -278,13 +306,24 @@ namespace Majorsilence.Forms.Theming.WinForms
                     }
 
                     foreach (var declaration in rule.Declarations) {
-                        var entry = WinFormsThemeSupport.Find (rule.Selector.Name, rule.Part?.Name, rule.Hover, declaration.Property);
+                        var entry = WinFormsThemeSupport.Find (rule.Selector.Name, rule.Part?.Name, rule.State, declaration.Property);
                         var level = entry?.Level ?? WinFormsThemeSupportLevel.Unsupported;
+                        var gateOff = entry?.Gate switch {
+                            WinFormsThemeGate.PaintBorders => !PaintBorders ? nameof (PaintBorders) : null,
+                            WinFormsThemeGate.PaintEffects => !PaintEffects ? nameof (PaintEffects) : null,
+                            WinFormsThemeGate.Animate => !Animate ? nameof (Animate) : null,
+                            _ => null
+                        };
+
+                        if (gateOff is not null)
+                            level = WinFormsThemeSupportLevel.Unsupported;
 
                         if (level == WinFormsThemeSupportLevel.Native || !seen.Add (ruleText + "|" + declaration.Property))
                             continue;
 
-                        var notes = entry?.Notes ?? "WinForms has no property for it.";
+                        var notes = gateOff is not null
+                            ? $"WinFormsCssTheme.{gateOff} is off. {entry!.Notes}"
+                            : entry?.Notes ?? "WinForms has no property for it.";
 
                         found.Add (level == WinFormsThemeSupportLevel.Approximate
                             ? new ThemeCssDiagnostic (ThemeCssSeverity.Info, declaration.Line, declaration.Column,
