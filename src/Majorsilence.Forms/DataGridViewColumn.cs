@@ -188,7 +188,7 @@ namespace Majorsilence.Forms
         /// Gets or sets the sort mode for this column.
         /// </summary>
         public DataGridViewColumnSortMode SortMode {
-            get => sort_mode;
+            get => sort_mode ?? DefaultSortMode;
             set {
                 if (sort_mode == value)
                     return;
@@ -198,7 +198,16 @@ namespace Majorsilence.Forms
             }
         }
 
-        private DataGridViewColumnSortMode sort_mode = DataGridViewColumnSortMode.Automatic;
+        private DataGridViewColumnSortMode? sort_mode;
+
+        // The sort mode until one is assigned. Upstream's text column sorts automatically and its check box, combo box,
+        // button, image and link columns are not sortable; they sorted here too, and a sortable header keeps room for
+        // its sort glyph.
+        internal virtual DataGridViewColumnSortMode DefaultSortMode
+            => this is DataGridViewCheckBoxColumn or DataGridViewComboBoxColumn or DataGridViewButtonColumn
+                   or DataGridViewImageColumn or DataGridViewLinkColumn
+                ? DataGridViewColumnSortMode.NotSortable
+                : DataGridViewColumnSortMode.Automatic;
 
         /// <summary>
         /// Gets the bounding rectangle of the column header.
