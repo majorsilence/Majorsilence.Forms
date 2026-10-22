@@ -52,7 +52,9 @@ namespace Majorsilence.Forms.Tests
             Assert.Null (control.ImageList);
             Assert.Empty (control.Text);
             Assert.Equal (ContentAlignment.MiddleCenter, control.TextAlign);
-            Assert.Equal (TextImageRelation.ImageBeforeText, control.TextImageRelation);
+            // Overlay, as upstream's ButtonBase: the image and the text each placed by their own alignment. A designer
+            // omits it too, so a button laid out with ImageAlign MiddleRight and TextAlign MiddleLeft relies on it.
+            Assert.Equal (TextImageRelation.Overlay, control.TextImageRelation);
             Assert.False (control.UseCompatibleTextRendering);
             Assert.Equal (new Size (100, 30), control.Size);
         }
@@ -345,6 +347,31 @@ namespace Majorsilence.Forms.Tests
             control.FlatStyle = FlatStyle.Standard;
 
             Assert.Equal (1, control.CurrentStyle.Border.GetWidth ());
+        }
+
+        // A designer button with its image on the right and its text on the left: with upstream's default relation
+        // (Overlay) each sits where its alignment puts it. The default was ImageBeforeText, which put the image first --
+        // a "Pay All" button's arrow came out left of its caption.
+        [Fact]
+        public void An_image_aligned_right_sits_right_of_text_aligned_left_by_default ()
+        {
+            using var image = new Majorsilence.Forms.Drawing.Bitmap (16, 16);
+            using var control = new Button { Text = "Pay All", Size = new Size (98, 28), ImageAlign = ContentAlignment.MiddleRight, TextAlign = ContentAlignment.MiddleLeft, Image = image };
+
+            var layout = Majorsilence.Forms.Layout.TextImageLayoutEngine.Layout (control);
+
+            Assert.True (layout.ImageBounds.Left > layout.TextBounds.Left, $"image {layout.ImageBounds} is right of text {layout.TextBounds}");
+            Assert.True (layout.ImageBounds.Right >= control.DeviceClientRectangle.Right - control.LogicalToDeviceUnits (8), $"image {layout.ImageBounds} sits at the right");
+        }
+
+        [Fact]
+        public void A_check_box_and_radio_button_default_to_overlay ()
+        {
+            using var check = new CheckBox ();
+            using var radio = new RadioButton ();
+
+            Assert.Equal (TextImageRelation.Overlay, check.TextImageRelation);
+            Assert.Equal (TextImageRelation.Overlay, radio.TextImageRelation);
         }
     }
 }
