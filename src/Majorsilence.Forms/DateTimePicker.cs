@@ -79,7 +79,7 @@ namespace Majorsilence.Forms
             // The date is greyed when the control is disabled OR when an optional date is unset -- the
             // ShowCheckBox/Checked pattern, which used to paint nothing at all (SMP-41).
             var has_value = !ShowCheckBox || Checked;
-            var foreground = Enabled && has_value ? GetEffectiveForegroundColor () : Theme.ForegroundDisabledColor;
+            var foreground = Enabled && has_value ? GetEffectiveForegroundColor () : DisabledForeColor;
 
             if (ShowCheckBox)
                 DrawCheckBox (e);
@@ -91,7 +91,7 @@ namespace Majorsilence.Forms
             // Upstream's Windows 11 picker: the field drawn like an editable combo's, with its thin chevron
             // and no button face (see OnPaintBackground).
             if (PaintsUpstreamField && !ShowUpDown) {
-                ComboBox.DrawUpstreamChevron (e, ScaledWidth, ScaledHeight, Enabled);
+                ComboBox.DrawUpstreamChevron (e, ScaledWidth, ScaledHeight, Enabled ? FieldUpstreamLook.PickerChevron : FieldUpstreamLook.PickerDisabledChevron);
                 return;
             }
 
@@ -147,9 +147,16 @@ namespace Majorsilence.Forms
 
             // The native picker's frame: one darker line all round. It was drawn as a text box's, its pale outline
             // all but invisible on the control colour.
-            var face = Enabled ? FieldUpstreamLook.Window : FieldUpstreamLook.Control;
-            FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, face, FieldUpstreamLook.PickerFrame, null);
+            // Disabled, a near-white field in a pale frame, as the native picker draws it.
+            var face = Enabled ? FieldUpstreamLook.Window : FieldUpstreamLook.PickerDisabledFace;
+            var frame = Enabled ? FieldUpstreamLook.PickerFrame : FieldUpstreamLook.PickerDisabledFrame;
+            FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, face, frame, null);
         }
+
+        /// <inheritdoc/>
+        /// <remarks>Under the upstream look GrayText, as the native picker draws a disabled date.</remarks>
+        internal override SkiaSharp.SKColor DisabledForeColor
+            => FieldUpstreamLook.Applies ? SystemColors.GrayText.ToSKColor () : base.DisabledForeColor;
 
         // The optional-date check box: a box, and a tick when the date is set.
         private void DrawCheckBox (PaintEventArgs e)

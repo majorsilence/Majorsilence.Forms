@@ -85,6 +85,48 @@ namespace Majorsilence.Forms.Tests
             });
 
         // Upstream's Windows 11 text box underlines itself in the accent while it has the keyboard focus.
+        // Upstream's native picker, measured: enabled, a #4D4D4D chevron (darker than a combo box's); disabled, a #FEFEFE
+        // field in a #C8C8C8 frame with a #C9C9C9 chevron and its date in GrayText. Disabled, it kept the enabled frame on
+        // the Control face, and both states drew the combo box's chevron.
+        [Theory]
+        [InlineData (true)]
+        [InlineData (false)]
+        public void A_date_picker_has_the_native_look_enabled_and_disabled (bool enabled)
+            => With (true, form => {
+                var picker = new DateTimePicker {
+                    Location = new Point (10, 10), Size = new Size (180, 40), Enabled = enabled,
+                    Font = new Majorsilence.Forms.Drawing.Font ("Segoe UI", 16f, Majorsilence.Forms.Drawing.FontStyle.Bold),
+                };
+                form.Controls.Add (picker);
+
+                using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 300, 200));
+                var scale = bitmap.Width / 300f;
+                int X (int x) => (int) ((picker.Left + x) * scale);
+                int Y (int y) => (int) ((picker.Top + y) * scale);
+
+                int Count (SKColor colour, int x0, int x1)
+                {
+                    var n = 0;
+                    for (var x = X (x0); x < X (x1); x++)
+                        for (var y = Y (0); y < Y (picker.Height); y++)
+                            if (bitmap.GetPixel (x, y) == colour)
+                                n++;
+                    return n;
+                }
+
+                var chevron = Count (enabled ? new SKColor (0x4D, 0x4D, 0x4D) : new SKColor (0xC9, 0xC9, 0xC9), picker.Width - 20, picker.Width - 2);
+                Assert.True (chevron >= 8, $"{chevron} chevron pixels");
+
+                if (!enabled) {
+                    Assert.Equal (new SKColor (0xC8, 0xC8, 0xC8), bitmap.GetPixel (X (0), Y (20)));
+                    Assert.Equal (new SKColor (0xC8, 0xC8, 0xC8), bitmap.GetPixel (X (90), Y (0)));
+                    Assert.Equal (new SKColor (0xFE, 0xFE, 0xFE), bitmap.GetPixel (X (90), Y (2)));
+                    Assert.True (Count (SystemColors.GrayText.ToSKColor (), 2, picker.Width - 24) > 10, "the date is in GrayText");
+                }
+
+                return 0;
+            });
+
         [Fact]
         public void A_focused_text_box_is_underlined_in_the_accent ()
             => With (true, form => {

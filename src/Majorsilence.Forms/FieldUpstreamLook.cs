@@ -53,6 +53,13 @@ namespace Majorsilence.Forms
         // A date picker is the native control's: one darker line all round, and (ShowUpDown) spin buttons with a
         // near-white face in a pale outline.
         internal static readonly SKColor PickerFrame = new SKColor (0x8D, 0x8D, 0x8D);
+
+        // The native picker's chevron is darker than a combo box's; disabled, the picker is a near-white field in a pale
+        // frame with a pale chevron, where it kept the enabled frame on the Control face.
+        internal static readonly SKColor PickerChevron = new SKColor (0x4D, 0x4D, 0x4D);
+        internal static readonly SKColor PickerDisabledFrame = new SKColor (0xC8, 0xC8, 0xC8);
+        internal static readonly SKColor PickerDisabledFace = new SKColor (0xFE, 0xFE, 0xFE);
+        internal static readonly SKColor PickerDisabledChevron = new SKColor (0xC9, 0xC9, 0xC9);
         internal static readonly SKColor SpinFace = new SKColor (0xFA, 0xFA, 0xFA);
         internal static readonly SKColor SpinOutline = new SKColor (0xD2, 0xD2, 0xD2);
 
@@ -175,12 +182,15 @@ namespace Majorsilence.Forms
         // and up four, starting 12px in from the right-hand outline and centred vertically. Drawn as whole
         // pixels: a 1px antialiased line at this size smears into pale grey.
         internal static void DrawUpstreamChevron (PaintEventArgs e, int width, int height, bool enabled)
+            => DrawUpstreamChevron (e, width, height, enabled ? FieldUpstreamLook.Chevron : FieldUpstreamLook.ChevronDisabled);
+
+        internal static void DrawUpstreamChevron (PaintEventArgs e, int width, int height, SKColor colour)
         {
             var px = (int) System.Math.Max (1, System.Math.Round (e.Scaling));
             var left = width - 13 * px;
             var top = (height - 4 * px + 1) / 2;
 
-            using var paint = new SKPaint { Color = enabled ? FieldUpstreamLook.Chevron : FieldUpstreamLook.ChevronDisabled };
+            using var paint = new SKPaint { Color = colour };
 
             for (var step = 0; step < 4; step++) {
                 e.Canvas.DrawRect (SKRect.Create (left + step * px, top + step * px, px, px), paint);
