@@ -22,6 +22,17 @@ namespace Majorsilence.Forms
         internal static readonly SKColor TextBoxDisabledBottom = new SKColor (0xED, 0xED, 0xED);
         internal static readonly SKColor TextBoxDisabledInner = new SKColor (0xFB, 0xFB, 0xFB);
 
+        // A read-only box on the Control face keeps the enabled box's frame with a near-white line just inside it.
+        internal static readonly SKColor TextBoxReadOnlyInner = new SKColor (0xFE, 0xFE, 0xFE);
+
+        // A line one device unit wide just inside a field's 1px outline.
+        internal static void InnerLine (PaintEventArgs e, int width, int height, SKColor colour)
+        {
+            var px = (float) e.Scaling;
+            using var inner = new SKPaint { Color = colour, IsStroke = true, StrokeWidth = px };
+            e.Canvas.DrawRect (new SKRect (px * 1.5f, px * 1.5f, width - px * 1.5f, height - px * 1.5f), inner);
+        }
+
         // A focused text box's bottom edge: two pixels of the accent, in place of the grey line.
         internal static readonly SKColor TextBoxFocusBottom = new SKColor (0x00, 0x67, 0xC0);
         internal static readonly SKColor ListBoxOutline = new SKColor (0x82, 0x87, 0x90);
@@ -94,13 +105,15 @@ namespace Majorsilence.Forms
                 FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, face, FieldUpstreamLook.TextBoxOutline, FieldUpstreamLook.TextBoxDisabledBottom);
 
                 // The near-white line just inside the outline.
-                var px = (float) e.Scaling;
-                using var inner = new SKPaint { Color = FieldUpstreamLook.TextBoxDisabledInner, IsStroke = true, StrokeWidth = px };
-                e.Canvas.DrawRect (new SKRect (px * 1.5f, px * 1.5f, ScaledWidth - px * 1.5f, ScaledHeight - px * 1.5f), inner);
+                FieldUpstreamLook.InnerLine (e, ScaledWidth, ScaledHeight, FieldUpstreamLook.TextBoxDisabledInner);
                 return;
             }
 
             FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, face, FieldUpstreamLook.TextBoxOutline, FieldUpstreamLook.TextBoxBottom);
+
+            // A read-only box on the Control face has a near-white line inside its frame too, as upstream's does.
+            if (ReadOnly && Style.BackgroundColor is null)
+                FieldUpstreamLook.InnerLine (e, ScaledWidth, ScaledHeight, FieldUpstreamLook.TextBoxReadOnlyInner);
 
             // With the keyboard focus, upstream's box underlines itself in the accent, two pixels deep.
             if (Selected && Enabled) {

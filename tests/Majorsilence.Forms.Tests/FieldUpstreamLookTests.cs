@@ -306,6 +306,57 @@ namespace Majorsilence.Forms.Tests
                 return 0;
             });
 
+        // Upstream's read-only box keeps the frame with a near-white (#FEFEFE) line just inside it, round the Control face.
+        [Fact]
+        public void A_read_only_box_has_a_near_white_line_inside_its_frame ()
+            => With (true, form => {
+                var box = new TextBox { Location = new Point (10, 10), Size = new Size (120, 20), ReadOnly = true };
+                form.Controls.Add (box);
+
+                using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 300, 200));
+                var scale = bitmap.Width / 300f;
+                var x = (int) ((box.Left + box.Width / 2) * scale);
+
+                Assert.Equal (new SKColor (0xEC, 0xEC, 0xEC), bitmap.GetPixel (x, (int) (box.Top * scale)));
+                Assert.Equal (new SKColor (0xFE, 0xFE, 0xFE), bitmap.GetPixel (x, (int) ((box.Top + 1) * scale)));
+                Assert.Equal (new SKColor (0xF0, 0xF0, 0xF0), bitmap.GetPixel (x, (int) ((box.Top + box.Height / 2) * scale)));
+                Assert.Equal (new SKColor (0xFE, 0xFE, 0xFE), bitmap.GetPixel (x, (int) ((box.Bottom - 2) * scale)));
+                Assert.Equal (new SKColor (0x83, 0x83, 0x83), bitmap.GetPixel (x, (int) ((box.Bottom - 1) * scale)));
+                return 0;
+            });
+
+        // A Fixed3D label is upstream's sunken static control: ControlDark along the top and left, white along the bottom
+        // and right, and its own background in the border's second pixel. It was a 2px ring of the theme's grey.
+        [Theory]
+        [InlineData (true)]
+        [InlineData (false)]
+        public void A_fixed_3d_label_has_upstream_s_sunken_edge (bool chooseFont)
+            => With (chooseFont, form => {
+                form.BackColor = System.Drawing.Color.FromArgb (0xF0, 0xF0, 0xF0);
+                var label = new Label { Location = new Point (10, 10), Size = new Size (90, 23), BorderStyle = BorderStyle.Fixed3D, Text = "" };
+                form.Controls.Add (label);
+
+                using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 300, 200));
+                var scale = bitmap.Width / 300f;
+                int X (int x) => (int) ((label.Left + x) * scale);
+                int Y (int y) => (int) ((label.Top + y) * scale);
+                var dark = new SKColor (0xA0, 0xA0, 0xA0);
+
+                if (chooseFont) {
+                    Assert.Equal (dark, bitmap.GetPixel (X (0), Y (11)));
+                    Assert.Equal (dark, bitmap.GetPixel (X (45), Y (0)));
+                    Assert.Equal (SKColors.White, bitmap.GetPixel (X (label.Width - 1), Y (11)));
+                    Assert.Equal (SKColors.White, bitmap.GetPixel (X (45), Y (label.Height - 1)));
+                    Assert.Equal (new SKColor (0xF0, 0xF0, 0xF0), bitmap.GetPixel (X (1), Y (11)));
+                    Assert.Equal (new SKColor (0xF0, 0xF0, 0xF0), bitmap.GetPixel (X (45), Y (label.Height - 2)));
+                } else {
+                    // The theme's ring: one colour all round.
+                    Assert.Equal (bitmap.GetPixel (X (0), Y (11)), bitmap.GetPixel (X (label.Width - 1), Y (11)));
+                }
+
+                return 0;
+            });
+
         [Fact]
         public void A_multiline_box_keeps_its_height ()
             => With (true, form => {

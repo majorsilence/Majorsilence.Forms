@@ -338,6 +338,42 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
+        /// <remarks>Under the upstream look (an app that chose its font) a <see cref="BorderStyle.Fixed3D"/> label draws
+        /// upstream's sunken edge -- the native static control's: ControlDark along the top and left, white along the bottom
+        /// and right, and the label's own background in the second pixel the border takes. It was a two-pixel ring of the
+        /// theme's grey.</remarks>
+        protected override void OnPaintBackground (PaintEventArgs e)
+        {
+            base.OnPaintBackground (e);
+
+            if (!ControlPaint.UsesUpstreamGlyphs || border_style != BorderStyle.Fixed3D || flat_style is FlatStyle.Flat or FlatStyle.Popup
+                || Style.Border.Color is not null)
+                return;
+
+            using var device = e.DeviceSpace ();
+
+            var px = e.LogicalToDeviceUnits (1);
+            var w = ScaledWidth;
+            var h = ScaledHeight;
+
+            // The whole ring in the background first, written through (a transparent label shows its parent there).
+            using var paint = new SKPaint { Color = GetEffectiveBackgroundColor (), BlendMode = SKBlendMode.Src };
+            e.Canvas.DrawRect (SKRect.Create (0, 0, w, 2 * px), paint);
+            e.Canvas.DrawRect (SKRect.Create (0, h - 2 * px, w, 2 * px), paint);
+            e.Canvas.DrawRect (SKRect.Create (0, 0, 2 * px, h), paint);
+            e.Canvas.DrawRect (SKRect.Create (w - 2 * px, 0, 2 * px, h), paint);
+
+            paint.BlendMode = SKBlendMode.SrcOver;
+            paint.Color = SystemColors.ControlDark.ToSKColor ();
+            e.Canvas.DrawRect (SKRect.Create (0, 0, w - px, px), paint);
+            e.Canvas.DrawRect (SKRect.Create (0, 0, px, h - px), paint);
+
+            paint.Color = SystemColors.ControlLightLight.ToSKColor ();
+            e.Canvas.DrawRect (SKRect.Create (0, h - px, w, px), paint);
+            e.Canvas.DrawRect (SKRect.Create (w - px, 0, px, h), paint);
+        }
+
+        /// <inheritdoc/>
         protected override void OnPaint (PaintEventArgs e)
         {
             base.OnPaint (e);
