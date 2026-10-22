@@ -61,7 +61,7 @@ namespace Majorsilence.Forms
                 // Upstream's MenuStrip is as tall as its tallest item plus its padding (its AutoSize, which
                 // defaults on there; this strip's AutoSize defaults off, so it is not consulted), and lays
                 // its items out inside that padding.
-                var row = visible.Count == 0 ? font.Height + 4 : visible.Max (i => UpstreamItemHeight (i, font));
+                var row = visible.Count == 0 ? UpstreamTextHeight (font) + 4 : visible.Max (i => UpstreamItemHeight (i, font));
                 var height = row + Padding.Vertical;
 
                 if (Height != height && Dock is DockStyle.Top or DockStyle.Bottom or DockStyle.None)
@@ -103,7 +103,13 @@ namespace Majorsilence.Forms
         // An item's height under upstream's metrics: a line of text, or a merged MDI child's 20px icon,
         // inside its padding and the 2px item border.
         private static int UpstreamItemHeight (MenuItem item, Majorsilence.Forms.Drawing.Font font)
-            => item is MdiControlItem ? 24 : font.Height + item.Padding.Vertical + 4;
+            => item is MdiControlItem ? 24 : UpstreamTextHeight (font) + item.Padding.Vertical + 4;
+
+        // A line of text as upstream's item measures it -- TextRenderer's line height, GDI's tmHeight -- and never less
+        // than the strip's 16px image size. Font.Height is the outline's line spacing, a pixel off GDI's in either
+        // direction: Microsoft Sans Serif 12pt's item was 23px tall against upstream's 24, Segoe UI 12pt's 26 against 25.
+        private static int UpstreamTextHeight (Majorsilence.Forms.Drawing.Font font)
+            => Math.Max (TextLineHeight.Of (font), 16);
 
         /// <inheritdoc/>
         protected override Padding DefaultPadding => UpstreamFont is not null ? new Padding (6, 2, 0, 2) : base.DefaultPadding;
