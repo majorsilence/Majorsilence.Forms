@@ -263,29 +263,42 @@ namespace Majorsilence.Forms.Tests
         [InlineData (0x6D, 0x6D, 0x6D)]
         public void A_drop_down_list_draws_its_text_in_window_text_whatever_its_fore_color (byte r, byte g, byte b)
             => With (true, form => {
-                var combo = new ComboBox {
-                    DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point (10, 10), Size = new Size (200, 23),
-                    ForeColor = Color.FromArgb (r, g, b), Font = new Majorsilence.Forms.Drawing.Font ("Microsoft Sans Serif", 9f, Majorsilence.Forms.Drawing.FontStyle.Bold)
-                };
-                combo.Items.Add ("Add New Requisition");
-                combo.SelectedIndex = 0;
-                form.Controls.Add (combo);
+                // Two identical lists, one with the ForeColor and one with the default, must draw the same pixels.
+                // Compared with each other rather than counted by colour: anti-aliased edges of black text are grey too,
+                // and how many depends on the font the platform substitutes.
+                ComboBox List (int top, Color? fore)
+                {
+                    var combo = new ComboBox {
+                        DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point (10, top), Size = new Size (200, 23),
+                        Font = new Majorsilence.Forms.Drawing.Font ("Microsoft Sans Serif", 9f, Majorsilence.Forms.Drawing.FontStyle.Bold)
+                    };
+                    if (fore is { } colour)
+                        combo.ForeColor = colour;
+                    combo.Items.Add ("Add New Requisition");
+                    combo.SelectedIndex = 0;
+                    form.Controls.Add (combo);
+                    return combo;
+                }
+
+                List (10, Color.FromArgb (r, g, b));
+                List (60, null);
                 form.Controls.Add (new TextBox { Location = new Point (250, 150), Size = new Size (30, 20) });
                 form.ActiveControl = form.Controls[form.Controls.Count - 1];
 
                 using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 300, 200));
                 var scale = bitmap.Width / 300f;
-                int black = 0, fore = 0;
+                int differing = 0, ink = 0;
 
-                for (var x = (int) (14 * scale); x < (int) (150 * scale); x++)
+                for (var x = (int) (14 * scale); x < (int) (180 * scale); x++)
                     for (var y = (int) (13 * scale); y < (int) (30 * scale); y++) {
-                        var c = bitmap.GetPixel (x, y);
-                        if (c.Red < 40 && c.Green < 40 && c.Blue < 40) black++;
-                        if (System.Math.Abs (c.Red - r) < 8 && System.Math.Abs (c.Green - g) < 8 && System.Math.Abs (c.Blue - b) < 8) fore++;
+                        var coloured = bitmap.GetPixel (x, y);
+                        var plain = bitmap.GetPixel (x, y + (int) (50 * scale));
+                        if (coloured != plain) differing++;
+                        if (plain.Red < 128) ink++;
                     }
 
-                Assert.True (black > 20, $"{black} black text pixels");
-                Assert.True (fore < 5, $"{fore} pixels in the ForeColor");
+                Assert.True (ink > 20, $"{ink} text pixels in the default list");
+                Assert.Equal (0, differing);
                 return 0;
             });
 
