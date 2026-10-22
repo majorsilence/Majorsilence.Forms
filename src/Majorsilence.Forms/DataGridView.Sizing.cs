@@ -60,8 +60,12 @@ namespace Majorsilence.Forms
 
         // ---------------- DGV-18: measure-based resizing
 
-        /// <summary>Resizes every column to fit its content, using <see cref="AutoSizeColumnsMode"/>.</summary>
-        public void AutoResizeColumns () => AutoResizeColumns (AutoSizeColumnsMode);
+        // Both parameterless overloads fit all cells, header included, whatever the grid's or the column's own
+        // AutoSizeMode -- upstream's call AutoResizeColumns (AllCells) and AutoResizeColumn (i, AllCells). Taking the
+        // grid's AutoSizeColumnsMode, None by default, made AutoResizeColumns () do nothing: a search form that sized its
+        // columns and then called it to fit them to an empty result kept its 200px "Vendor Name" column.
+        /// <summary>Resizes every column to fit all of its cells, header included.</summary>
+        public void AutoResizeColumns () => AutoResizeColumns (DataGridViewAutoSizeColumnsMode.AllCells);
 
         /// <summary>Resizes every column to fit its content, using the given mode.</summary>
         public void AutoResizeColumns (DataGridViewAutoSizeColumnsMode autoSizeColumnsMode)
@@ -75,17 +79,8 @@ namespace Majorsilence.Forms
                 AutoResizeColumn (i, mode.Value);
         }
 
-        /// <summary>Resizes one column to fit its content, using its <see cref="DataGridViewColumn.InheritedAutoSizeMode"/>.</summary>
-        public void AutoResizeColumn (int columnIndex)
-        {
-            if (columnIndex < 0 || columnIndex >= Columns.Count)
-                return;
-
-            var inherited = Columns[columnIndex].InheritedAutoSizeMode;
-            AutoResizeColumn (columnIndex, inherited is DataGridViewAutoSizeColumnMode.None or DataGridViewAutoSizeColumnMode.NotSet
-                ? DataGridViewAutoSizeColumnMode.AllCells
-                : inherited);
-        }
+        /// <summary>Resizes one column to fit all of its cells, header included.</summary>
+        public void AutoResizeColumn (int columnIndex) => AutoResizeColumn (columnIndex, DataGridViewAutoSizeColumnMode.AllCells);
 
         /// <summary>Resizes one column to fit its content, using the given mode.</summary>
         public void AutoResizeColumn (int columnIndex, DataGridViewAutoSizeColumnMode autoSizeColumnMode)

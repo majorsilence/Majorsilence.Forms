@@ -414,6 +414,40 @@ namespace Majorsilence.Forms.Tests
             }
         }
 
+        // Upstream's parameterless AutoResizeColumns () and AutoResizeColumn (i) fit all cells, header included,
+        // whatever AutoSizeColumnsMode says. Measured on WinForms: an empty grid whose columns were set to 200 and 150
+        // came back at 132 and 114, the width of their headers. They took the grid's AutoSizeColumnsMode -- None by
+        // default -- and did nothing, so the columns kept 200 and 150.
+        [Fact]
+        public void The_parameterless_auto_resize_overloads_fit_all_cells_whatever_the_auto_size_mode ()
+        {
+            var grid = Grid (out var form, rows: 0, columns: 2);
+            var reference = Grid (out var referenceForm, rows: 0, columns: 2);
+            using var _form = form;
+            using var _referenceForm = referenceForm;
+
+            try {
+                Assert.Equal (DataGridViewAutoSizeColumnsMode.None, grid.AutoSizeColumnsMode);
+                grid.Columns[0].Width = 200;
+                grid.Columns[1].Width = 150;
+                grid.Columns[1].AutoSizeMode = DataGridViewAutoSizeColumnMode.ColumnHeader;
+                reference.AutoResizeColumns (DataGridViewAutoSizeColumnsMode.AllCells);
+
+                grid.AutoResizeColumns ();
+
+                Assert.Equal (reference.Columns[0].Width, grid.Columns[0].Width);
+                Assert.NotEqual (200, grid.Columns[0].Width);
+
+                grid.Columns[1].Width = 150;
+                grid.AutoResizeColumn (1);
+
+                Assert.Equal (reference.Columns[1].Width, grid.Columns[1].Width);
+            } finally {
+                form.Close ();
+                referenceForm.Close ();
+            }
+        }
+
         [Fact]
         public void AutoResizeRows_grows_a_row_to_fit_its_content ()
         {
