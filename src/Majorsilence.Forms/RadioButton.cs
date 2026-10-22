@@ -288,7 +288,7 @@ namespace Majorsilence.Forms
         /// Gets or sets the alignment of the text relative to the image on the <see cref='RadioButton'/>.
         /// </summary>
         public override TextImageRelation TextImageRelation {
-            get => Properties.GetEnum (s_propTextImageRelation, TextImageRelation.ImageBeforeText);
+            get => Properties.GetEnum (s_propTextImageRelation, TextImageRelation.Overlay);
             set {
                 SourceGenerated.EnumValidator.Validate (value);
 
