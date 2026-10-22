@@ -131,6 +131,52 @@ namespace Majorsilence.Forms.Tests
         public void A_button_with_its_own_back_colour_keeps_it ()
             => Assert.Equal (0, Pixels (chooseFont: true, isDefault: true, b => b.BackColor = System.Drawing.Color.LightYellow).face);
 
+        // The native (System) button draws both lines of a caption that wraps on a one-line button, centred and clipped
+        // at the top and bottom; the themed (Standard) one keeps the first line whole and drops the second, as upstream's
+        // TextBoxControl flag does. A System "Show Emails" button showed "Show" alone.
+        [Theory]
+        [InlineData (FlatStyle.System)]
+        [InlineData (FlatStyle.Standard)]
+        public void A_caption_that_wraps_on_a_one_line_button_shows_upstream_s_lines (FlatStyle style)
+        {
+            try {
+                Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 9f));
+                HeadlessRenderer.Use ();
+                using var form = new Form { FormBorderStyle = FormBorderStyle.None, ClientSize = new Size (120, 40) };
+                var button = new Button { Text = "Show Emails", FlatStyle = style, Location = new Point (10, 5), Size = new Size (50, 23), TabIndex = 1 };
+                form.Controls.Add (button);
+                form.Controls.Add (new TextBox { Location = new Point (110, 30), Size = new Size (6, 6), TabIndex = 0 });
+                form.Show ();
+
+                using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 120, 40));
+                var scale = bitmap.Width / 120f;
+
+                // The runs of rows with ink in them, inside the button's frame.
+                var bands = 0;
+                var inked = false;
+                for (var y = (int) ((button.Top + 2) * scale); y < (int) ((button.Bottom - 2) * scale); y++) {
+                    var ink = false;
+                    for (var x = (int) ((button.Left + 3) * scale); x < (int) ((button.Right - 3) * scale) && !ink; x++) {
+                        var p = bitmap.GetPixel (x, y);
+                        ink = p.Red + p.Green + p.Blue < 300;
+                    }
+
+                    if (ink && !inked)
+                        bands++;
+                    inked = ink;
+                }
+
+                // How many lines the caption wraps to depends on the platform's stand-in for the font: the System button shows
+                // them all, clipped, where the Standard one keeps the first whole line alone.
+                if (style == FlatStyle.System)
+                    Assert.True (bands >= 2, $"{bands} line(s) of the caption show");
+                else
+                    Assert.Equal (1, bands);
+            } finally {
+                Application.SetDefaultFont (null!);
+            }
+        }
+
         [Fact]
         public void Without_a_chosen_font_the_theme_button_is_kept ()
             => Assert.Equal (0, Pixels (chooseFont: false, isDefault: true).face);
