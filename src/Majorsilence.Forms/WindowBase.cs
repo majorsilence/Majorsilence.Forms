@@ -140,15 +140,6 @@ namespace Majorsilence.Forms
             if (this is Form closed)
                 Application.OpenForms.Remove (closed);
 
-            // A closed window is not visible. `visible` was cleared only by Hide() and Dispose(), so
-            // after Close() a form still reported Visible == true -- which broke the common
-            // "if (!find.Visible) find.Show (); else find.Activate ();" guard, and made a re-shown form
-            // skip EnsureShownBookkeeping entirely so it never re-joined OpenForms.
-            if (visible) {
-                visible = false;
-                OnVisibleChanged (EventArgs.Empty);
-            }
-
             // A closed popup is no longer the active one. Hide and Dispose already say so; Close ran
             // neither, so a popup closed through Close() stayed registered until something else took
             // its place (W6; found through an order-dependent test).
@@ -174,6 +165,22 @@ namespace Majorsilence.Forms
             // (FormClosing already fired before the close via OnClosing/OnBackendClosing) so ordinary forms
             // get FormClosed too, in FormClosing-then-FormClosed order.
             (this as Form)?.RaiseFormClosed (raise_event: !closed_by_dispose);
+
+            // A closed window is not visible, but only once FormClosed has run: upstream's window is
+            // still shown through Closing, Closed and FormClosed, so a handler there reads Visible ==
+            // true and setting it to true does nothing. Cleared any earlier, a `Visible = true` in a
+            // FormClosed handler re-showed the closing form, and an MDI child stayed in the MDI area
+            // after it was disposed. Upstream raises VisibleChanged here for an MDI child only; a
+            // top-level form just stops being visible as its window is destroyed. It is cleared at all
+            // because otherwise a closed form reported Visible == true, which broke the common
+            // "if (!find.Visible) find.Show (); else find.Activate ();" guard, and made a re-shown form
+            // skip EnsureShownBookkeeping entirely so it never re-joined OpenForms.
+            if (visible) {
+                visible = false;
+
+                if (this is Form { IsMdiChild: true })
+                    OnVisibleChanged (EventArgs.Empty);
+            }
 
             // An active window loses activation as it goes: upstream's DestroyWindow sends the closing
             // form WM_ACTIVATE (WA_INACTIVE) after FormClosed and before WM_DESTROY, so Deactivate falls

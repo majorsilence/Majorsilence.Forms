@@ -55,8 +55,66 @@ public class FormLifecycleOrderTests
 
             form.Close ();
 
-            recorder.AssertSequence ("FormClosing", "VisibleChanged", "FormClosed", "Deactivate", "HandleDestroyed");
+            // No VisibleChanged: upstream's top-level form is still shown through FormClosed and just
+            // stops being visible as its window is destroyed.
+            recorder.AssertSequence ("FormClosing", "FormClosed", "Deactivate", "HandleDestroyed");
         }
+    }
+
+    // Measured on WinForms (.NET 10): Visible is true in Closing, Closed and FormClosed, and setting it
+    // to true there does nothing -- the form is still disposed and leaves the MDI area. A handler shared
+    // between a child form's FormClosed and the form's own (`Handles Me.FormClosed`) does exactly that.
+    [Theory]
+    [InlineData (false)]
+    [InlineData (true)]
+    public void A_closing_form_is_still_visible_in_FormClosed_and_setting_Visible_there_does_not_reshow_it (bool mdiChild)
+    {
+        HeadlessRenderer.Use ();
+        using var parent = new Form { IsMdiContainer = true };
+        parent.Show ();
+        var form = new Form ();
+
+        if (mdiChild)
+            form.MdiParent = parent;
+
+        bool? visibleInClosed = null, visibleInFormClosed = null;
+        var loads = 0;
+        form.Load += (_, _) => loads++;
+        form.Closed += (_, _) => visibleInClosed = form.Visible;
+        form.FormClosed += (_, _) => {
+            visibleInFormClosed = form.Visible;
+            form.Visible = true;
+        };
+
+        form.Show ();
+        Application.DoEvents ();
+        form.Close ();
+        Application.DoEvents ();
+
+        Assert.True (visibleInClosed);
+        Assert.True (visibleInFormClosed);
+        Assert.True (form.IsDisposed);
+        Assert.False (form.Visible);
+        Assert.Equal (1, loads);
+        Assert.Empty (parent.MdiChildren);
+        parent.Close ();
+    }
+
+    [Fact]
+    public void Closing_an_MDI_child_raises_VisibleChanged_after_FormClosed ()
+    {
+        HeadlessRenderer.Use ();
+        using var parent = new Form { IsMdiContainer = true };
+        parent.Show ();
+        var child = new Form { MdiParent = parent };
+        child.Show ();
+        Application.DoEvents ();
+        using var recorder = EventRecorder.For (child, "FormClosing", "VisibleChanged", "FormClosed", "HandleDestroyed");
+
+        child.Close ();
+
+        recorder.AssertSequence ("FormClosing", "FormClosed", "VisibleChanged", "HandleDestroyed");
+        parent.Close ();
     }
 
     [Fact]
