@@ -167,8 +167,8 @@ internal static class TextImageLayoutEngine
         var image_size = text_image_control.GetImage ()?.GetSize () ?? Size.Empty;
         var maxBounds = layout.Field;
 
-        // Upstream's push button lays its text and image out inside its border size (2px, one more for the default
-        // button) and a further 2px TextImageInset (ButtonBaseAdapter.CommonLayout, LayoutOptions). Under the
+        // Upstream's push button lays its text and image out inside its border size (2px) and a further 2px
+        // TextImageInset (ButtonBaseAdapter.CommonLayout, LayoutOptions). Under the
         // upstream look the field here was the whole client area, so a TopLeft caption sat in the corner and a
         // caption a few pixels too wide for upstream's narrower field stayed on one line where upstream wraps it.
         // A FlatStyle.System button is the native control, which lays its caption out 3px inside its bounds whether or
@@ -178,9 +178,18 @@ internal static class TextImageLayoutEngine
         if (control is Button { PaintsUpstreamLook: true, FlatStyle: FlatStyle.System }) {
             var native = Rectangle.Inflate (new Rectangle (0, 0, control.ScaledWidth, control.ScaledHeight), -control.LogicalToDeviceUnits (3), -control.LogicalToDeviceUnits (3));
             maxBounds = Rectangle.Intersect (maxBounds, native);
-        } else if (control is Button { PaintsUpstreamLook: true } button) {
-            var inset = control.LogicalToDeviceUnits (2 + (button.IsDefault ? 1 : 0) + 2);
-            maxBounds = Rectangle.Inflate (maxBounds, -inset, -inset);
+        } else if (control is Button { PaintsUpstreamLook: true }) {
+            // The themed (Standard) button's field is 4px inside its bounds -- its 2px border and 2px TextImageInset --
+            // and, across, a further sixth of the line height either side for the padding TextRenderer measures and
+            // draws its caption with. Taken from the client area, already a pixel inside the bounds, it was a pixel in
+            // too far each way: a 12pt caption overflowing a 23px button was drawn 2px low and clipped 2px early, and
+            // with no room for GDI's padding a caption wrapped later than upstream's.
+            var font = control.Font;
+            var across = control.LogicalToDeviceUnits (4 + (int) Math.Ceiling (font.Height / 6.0));
+            var down = control.LogicalToDeviceUnits (4);
+            var padding = control.LogicalToDeviceUnits (control.Padding);
+            maxBounds = new Rectangle (across + padding.Left, down + padding.Top,
+                Math.Max (0, control.ScaledWidth - 2 * across - padding.Horizontal), Math.Max (0, control.ScaledHeight - 2 * down - padding.Vertical));
         }
 
         var text_size = GetTextSize (control).ToSize ();

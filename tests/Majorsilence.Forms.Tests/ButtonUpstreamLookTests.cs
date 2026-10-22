@@ -177,6 +177,36 @@ namespace Majorsilence.Forms.Tests
             }
         }
 
+        // The themed (Standard) button's text field is 4px inside its bounds -- its border and TextImageInset -- and across,
+        // a further sixth of the line height either side for TextRenderer's padding. Measured from WinForms: a 12pt "Ok"
+        // overflowing a 75 x 23 button starts its line 4px down and is clipped 4px from the bottom. The field was taken from
+        // the client area, a pixel further in each way, so the caption was drawn 2px low and clipped 2px early.
+        [Fact]
+        public void A_standard_button_s_text_field_is_4px_inside_its_bounds ()
+        {
+            try {
+                Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 9f));
+                HeadlessRenderer.Use ();
+                using var form = new Form { FormBorderStyle = FormBorderStyle.None, ClientSize = new Size (200, 60) };
+                var font = new Majorsilence.Forms.Drawing.Font ("Microsoft Sans Serif", 12f);
+                var button = new Button { Text = "Show Emails Show Emails", Location = new Point (10, 10), Size = new Size (75, 23), Font = font, TabIndex = 1 };
+                form.Controls.Add (button);
+                form.Controls.Add (new TextBox { Location = new Point (190, 50), Size = new Size (6, 6), TabIndex = 0 });
+                form.Show ();
+
+                var field = Majorsilence.Forms.Layout.TextImageLayoutEngine.Layout (button).TextBounds;
+                var across = button.LogicalToDeviceUnits (4 + (int) System.Math.Ceiling (font.Height / 6.0));
+                var down = button.LogicalToDeviceUnits (4);
+
+                Assert.Equal (down, field.Top);
+                Assert.Equal (button.ScaledHeight - down, field.Bottom);
+                Assert.Equal (across, field.Left);
+                Assert.Equal (button.ScaledWidth - across, field.Right);
+            } finally {
+                Application.SetDefaultFont (null!);
+            }
+        }
+
         [Fact]
         public void Without_a_chosen_font_the_theme_button_is_kept ()
             => Assert.Equal (0, Pixels (chooseFont: false, isDefault: true).face);
