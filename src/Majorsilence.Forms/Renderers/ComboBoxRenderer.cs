@@ -33,6 +33,12 @@ namespace Majorsilence.Forms.Renderers
                 // to paint, with ComboBoxEdit in the state, as upstream.
                 if (control.DrawMode != DrawMode.Normal)
                     control.RaiseEditAreaDrawItem (text_area, e);
+                else if (control.PaintsUpstreamField && control.Enabled)
+                    // The themed drop-down list draws its text in WindowText whatever its ForeColor, as measured on
+                    // WinForms: a DropDownList set to GrayText or Red shows black, where a DropDown shows its ForeColor.
+                    SkiaTextExtensions.DrawText (e.Canvas, control.GetItemText (control.Items.SelectedItem), control.GetEffectiveFont (),
+                        control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), text_area, SystemColors.WindowText.ToSKColor (),
+                        ContentAlignment.MiddleLeft, -1, -1, null, 1, false, paintOptions: null, TextMeasurer.DecorationOf (control.Font));
                 else
                     e.Canvas.DrawText (control.GetItemText (control.Items.SelectedItem), text_area, control, ContentAlignment.MiddleLeft, maxLines: 1);
             } else if (!control.IsEditable && control.Items.SelectedItem is null && control.EmptyText.Length > 0) {

@@ -255,6 +255,40 @@ namespace Majorsilence.Forms.Tests
                 return 0;
             });
 
+        // Measured on WinForms (.NET 10): the themed drop-down list draws its text in WindowText whatever its ForeColor.
+        // GrayText and Red both came out black there; an editable DropDown shows its ForeColor. A designer that set a
+        // list's ForeColor to GrayText had its selection drawn as if disabled.
+        [Theory]
+        [InlineData (255, 0, 0)]
+        [InlineData (0x6D, 0x6D, 0x6D)]
+        public void A_drop_down_list_draws_its_text_in_window_text_whatever_its_fore_color (byte r, byte g, byte b)
+            => With (true, form => {
+                var combo = new ComboBox {
+                    DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point (10, 10), Size = new Size (200, 23),
+                    ForeColor = Color.FromArgb (r, g, b), Font = new Majorsilence.Forms.Drawing.Font ("Microsoft Sans Serif", 9f, Majorsilence.Forms.Drawing.FontStyle.Bold)
+                };
+                combo.Items.Add ("Add New Requisition");
+                combo.SelectedIndex = 0;
+                form.Controls.Add (combo);
+                form.Controls.Add (new TextBox { Location = new Point (250, 150), Size = new Size (30, 20) });
+                form.ActiveControl = form.Controls[form.Controls.Count - 1];
+
+                using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 300, 200));
+                var scale = bitmap.Width / 300f;
+                int black = 0, fore = 0;
+
+                for (var x = (int) (14 * scale); x < (int) (150 * scale); x++)
+                    for (var y = (int) (13 * scale); y < (int) (30 * scale); y++) {
+                        var c = bitmap.GetPixel (x, y);
+                        if (c.Red < 40 && c.Green < 40 && c.Blue < 40) black++;
+                        if (System.Math.Abs (c.Red - r) < 8 && System.Math.Abs (c.Green - g) < 8 && System.Math.Abs (c.Blue - b) < 8) fore++;
+                    }
+
+                Assert.True (black > 20, $"{black} black text pixels");
+                Assert.True (fore < 5, $"{fore} pixels in the ForeColor");
+                return 0;
+            });
+
         [Fact]
         public void An_editable_combo_has_a_white_field ()
             => With (true, form => {
