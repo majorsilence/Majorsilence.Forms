@@ -34,9 +34,9 @@ namespace Majorsilence.Forms.Tests
                 toolbar.Top >= menu.Top + menu.Height,
                 $"strips overlap: menu {menu.Top}..{menu.Top + menu.Height}, toolbar top {toolbar.Top}");
 
-            // Each row spans the panel width, less the panel's RowMargin (upstream's default is 3 on
-            // the left), which the row layout honours as of W6.
-            var row_width = container.TopToolStripPanel.ClientRectangle.Width - container.TopToolStripPanel.RowMargin.Horizontal;
+            // Each row spans the panel width: RowMargin (upstream's default is 3 on the left) is each row's margin, and a
+            // row whose first strip stretches drops its sides, as upstream's ToolStripPanelRow.DefaultMargin does.
+            var row_width = container.TopToolStripPanel.ClientRectangle.Width;
             Assert.Equal (row_width, menu.Width);
             Assert.Equal (row_width, toolbar.Width);
 

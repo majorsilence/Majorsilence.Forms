@@ -210,7 +210,47 @@ namespace Majorsilence.Forms.Tests
             using (form) {
                 Assert.Same (chosen, menu.UpstreamFont);
                 Assert.Equal (new Padding (4, 0, 4, 0), file.Padding);
-                Assert.Equal (chosen.Height + 4 + 4, menu.Height);
+                Assert.Equal (Math.Max (TextLineHeight.Of (chosen), 16) + 4 + 4, menu.Height);
+            }
+        }
+
+        // A module window's menu bar and toolbar in a ToolStripContainer's top panel, as WinForms lays them out (measured):
+        // the menu spans the row from the panel's edge, the toolbar sits RowMargin's 3px in, neither strip has a margin of
+        // its own, and a Microsoft Sans Serif 12pt bar is GDI's 20px line plus 4 per item plus 4 -- 28px. The menu sat
+        // 3px in (RowMargin was applied round every row and to the block of rows besides), so its captions were 3px
+        // right of upstream's, and it was 27px tall, from the outline's 19px line.
+        [Fact]
+        public void A_menu_bar_in_a_tool_strip_container_spans_its_row_from_the_edge ()
+        {
+            try {
+                Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 9f));
+                HeadlessRenderer.Use ();
+                var font = new Majorsilence.Forms.Drawing.Font ("Microsoft Sans Serif", 12f);
+                using var form = new Form { ClientSize = new Size (600, 300) };
+                var container = new ToolStripContainer { Dock = DockStyle.Top, Size = new Size (600, 90), Font = font };
+                var menu = new MenuStrip { Dock = DockStyle.None, Font = font };
+                menu.Items.Add (new ToolStripMenuItem ("&Vendors"));
+                var strip = new ToolStrip { Dock = DockStyle.None, Font = font };
+                strip.Items.Add (new ToolStripButton ("Close"));
+                container.TopToolStripPanel.Controls.Add (strip);
+                container.TopToolStripPanel.Controls.Add (menu);
+                form.Controls.Add (container);
+                form.Show ();
+                HeadlessRenderer.CapturePng (form, 600, 300);   // a strip lays its items out when it paints
+                container.TopToolStripPanel.PerformLayout ();
+
+                Assert.Equal (Padding.Empty, menu.Margin);
+                Assert.Equal (Padding.Empty, strip.Margin);
+                Assert.Equal (0, menu.Left);
+                Assert.Equal (container.TopToolStripPanel.Width, menu.Width);
+                Assert.Equal (container.TopToolStripPanel.RowMargin.Left, strip.Left);
+
+                var line = TextLineHeight.Of (font);
+                if (OperatingSystem.IsWindows ())
+                    Assert.Equal (20, line);
+                Assert.Equal (Math.Max (line, 16) + 4 + 4, menu.Height);
+            } finally {
+                Application.SetDefaultFont (null!);
             }
         }
 

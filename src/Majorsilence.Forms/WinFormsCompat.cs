@@ -2605,6 +2605,10 @@ namespace Majorsilence.Forms
     {
         private readonly ToolStripItemCollection _items;
 
+        /// <inheritdoc/>
+        /// <remarks>Empty, as upstream's ToolStrip.DefaultMargin: a strip took Control's 3px all round.</remarks>
+        protected override Padding DefaultMargin => Padding.Empty;
+
         /// <summary>Initializes a new instance of the ToolStrip class.</summary>
         public ToolStrip ()
         {

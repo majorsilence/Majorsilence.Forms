@@ -269,10 +269,14 @@ public class W6StripLayoutTests
         form.Show ();
         panel.PerformLayout ();
 
-        var area = panel.DeviceClientRectangle;
+        // RowMargin is each row's margin, less its sides on a row a strip stretches across (upstream's
+        // ToolStripPanelRow.DefaultMargin): the menu spans the panel, the toolbar sits 3px in.
+        var area = panel.ClientRectangle;
         Assert.True (menu.Stretch);
-        Assert.Equal (area.Width - panel.RowMargin.Horizontal, menu.Width);
+        Assert.Equal (area.Width, menu.Width);
+        Assert.Equal (0, menu.Left);
         Assert.False (toolbar.Stretch);
+        Assert.Equal (panel.RowMargin.Left, toolbar.Left);
         Assert.True (toolbar.Width < menu.Width, $"a ToolStrip keeps its preferred width ({toolbar.Width} vs {menu.Width})");
         Assert.Equal (2, panel.Rows.Length);
         Assert.Equal (panel.Rows[0].Bounds.Bottom, panel.Rows[1].Bounds.Top);
@@ -282,12 +286,18 @@ public class W6StripLayoutTests
         panel.PerformLayout ();
         Assert.Equal (menu.Width, toolbar.Width);
 
+        // A row's own Margin, once set, stands in for the default.
         panel.RowMargin = new Padding (10, 5, 0, 0);
         panel.Rows[1].Margin = new Padding (0, 4, 0, 0);
         panel.PerformLayout ();
-        Assert.Equal (10, menu.Left);
+        Assert.Equal (0, menu.Left);
         Assert.Equal (5, menu.Top);
         Assert.Equal (menu.Bottom + 4, toolbar.Top);
+        Assert.Equal (area.Width, menu.Width);
+
+        panel.Rows[0].Margin = new Padding (10, 5, 0, 0);
+        panel.PerformLayout ();
+        Assert.Equal (10, menu.Left);
         Assert.Equal (area.Width - 10, menu.Width);
     }
 
