@@ -44,6 +44,26 @@ public class TextMeasurementParityTests
             $"TextRenderer says {renderer.Height}px tall, Graphics says {graphicsSize.Height}px");
     }
 
+    // Upstream's MeasureText (text, font) and (text, font, proposedSize) are MeasureTextInternal with the default
+    // flags: one line, GDI's padding either side, and a proposed size that neither wraps nor cuts the text. DT_CALCRECT
+    // grows the rectangle to fit, so Size.Empty measures the whole string. Measured on WinForms, Microsoft Sans Serif
+    // 12pt: "Clear Fields" is 92 wide by default and 83 with NoPadding. These overloads measured the bare string, and a
+    // proposed height of 0 measured no lines: (text, font, Size.Empty, NoPadding) came back 0.
+    [Fact]
+    public void The_short_overloads_pad_like_the_default_flags_and_a_proposed_size_never_cuts_the_text ()
+    {
+        using var font = NewFont (12f);
+        const string Text = "Clear Fields";
+
+        var unpadded = TextRenderer.MeasureText (Text, font, new Size (int.MaxValue, int.MaxValue), TextFormatFlags.NoPadding);
+        var padding = 2 * (int) Math.Ceiling (font.Height / 6f);
+
+        Assert.True (unpadded.Width > 0);
+        Assert.Equal (unpadded, TextRenderer.MeasureText (Text, font, Size.Empty, TextFormatFlags.NoPadding));
+        Assert.Equal (new Size (unpadded.Width + padding, unpadded.Height), TextRenderer.MeasureText (Text, font));
+        Assert.Equal (new Size (unpadded.Width + padding, unpadded.Height), TextRenderer.MeasureText (Text, font, new Size (20, 5)));
+    }
+
     [Fact]
     public void A_measured_string_scales_with_the_fonts_point_size ()
     {

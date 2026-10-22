@@ -70,30 +70,20 @@ namespace Majorsilence.Forms
         public static Size MeasureText (Majorsilence.Forms.Drawing.Graphics g, string text, Majorsilence.Forms.Drawing.Font font)
             => MeasureText (text, font);
 
+        // Both overloads are upstream's MeasureTextInternal with its default flags, TextFormatFlags.Bottom: one line,
+        // with GDI's padding either side. They measured the bare string, so "Clear Fields" at 12pt came back 6px
+        // narrower than WinForms' 92, and the proposed size wrapped and cut the text where upstream ignores it.
+        //
+        // The size is the font's PixelSize, not SizeInPoints: the size handed down becomes RichTextKit's
+        // Style.FontSize, which is PIXELS. Passing the point size measured a 9pt font at 9px instead of 12px.
+
         /// <summary>Measures text drawn with the given font.</summary>
         public static Size MeasureText (string text, Majorsilence.Forms.Drawing.Font font)
-        {
-            var tf = TypefaceCache.Resolve (font);
-
-            // PixelSize, not SizeInPoints: the size handed down here becomes RichTextKit's
-            // Style.FontSize, which is PIXELS. Passing the point size measured a 9pt font at 9px
-            // instead of 12px, so every measured string came out about a quarter too small in both
-            // axes -- and TextRenderer.MeasureText is the call WinForms layout is built on
-            // (Label.AutoSize, Button.GetPreferredSize, ToolStripItem sizing, column auto-fit,
-            // DataGridView cell preferred size). Worse, DrawText draws through Graphics.DrawString,
-            // which already used PixelSize, so measure and draw disagreed by a third and text was
-            // clipped on the right and bottom of anything sized from the measurement. Font.PixelSize's
-            // own remarks describe this bug being found and fixed for the Graphics path; this call was
-            // missed.
-            return MeasureText (text, tf, (int)Math.Round (font.PixelSize));
-        }
+            => MeasureText (text, font, Size.Empty, TextFormatFlags.Bottom);
 
         /// <summary>Measures text using a Majorsilence.Forms.Drawing.Font with size constraints.</summary>
         public static Size MeasureText (string text, Majorsilence.Forms.Drawing.Font font, Size proposedSize)
-        {
-            var tf = TypefaceCache.Resolve (font);
-            return MeasureText (text, tf, proposedSize, (int)Math.Round (font.PixelSize));
-        }
+            => MeasureText (text, font, proposedSize, TextFormatFlags.Bottom);
 
         // TextRenderer's whole public surface is declared in terms of IDeviceContext upstream, not
         // Graphics -- so these take the interface. A caller passing a Graphics is unaffected (it
@@ -403,11 +393,14 @@ namespace Majorsilence.Forms
             var wraps = flags.HasFlag (TextFormatFlags.WordBreak)
                 || flags.HasFlag (TextFormatFlags.WordEllipsis);
 
+            // The height never cuts the measurement short: upstream measures with DT_CALCRECT, which grows the
+            // rectangle to the text. Passed through, a proposed height of 0 -- Size.Empty, the usual "no
+            // constraint" -- measured no lines at all, and MeasureText (s, font, Size.Empty, NoPadding) came back 0.
             var constraint = wraps
-                ? proposedSize
-                : new Size (int.MaxValue, proposedSize.Height);
+                ? new Size (proposedSize.Width, int.MaxValue)
+                : new Size (int.MaxValue, int.MaxValue);
 
-            var measured = MeasureText (text, font, constraint);
+            var measured = MeasureText (text, TypefaceCache.Resolve (font), constraint, (int) Math.Round (font.PixelSize));
 
             return new Size (measured.Width + HorizontalPadding (font, flags), measured.Height);
         }
