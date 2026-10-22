@@ -135,9 +135,9 @@ namespace Majorsilence.Forms.Tests
         // at the top and bottom; the themed (Standard) one keeps the first line whole and drops the second, as upstream's
         // TextBoxControl flag does. A System "Show Emails" button showed "Show" alone.
         [Theory]
-        [InlineData (FlatStyle.System, 2)]
-        [InlineData (FlatStyle.Standard, 1)]
-        public void A_caption_that_wraps_on_a_one_line_button_shows_upstream_s_lines (FlatStyle style, int lines)
+        [InlineData (FlatStyle.System)]
+        [InlineData (FlatStyle.Standard)]
+        public void A_caption_that_wraps_on_a_one_line_button_shows_upstream_s_lines (FlatStyle style)
         {
             try {
                 Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 9f));
@@ -166,7 +166,12 @@ namespace Majorsilence.Forms.Tests
                     inked = ink;
                 }
 
-                Assert.Equal (lines, bands);
+                // How many lines the caption wraps to depends on the platform's stand-in for the font: the System button shows
+                // them all, clipped, where the Standard one keeps the first whole line alone.
+                if (style == FlatStyle.System)
+                    Assert.True (bands >= 2, $"{bands} line(s) of the caption show");
+                else
+                    Assert.Equal (1, bands);
             } finally {
                 Application.SetDefaultFont (null!);
             }
