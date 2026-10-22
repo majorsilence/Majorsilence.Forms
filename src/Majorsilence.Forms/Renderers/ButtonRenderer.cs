@@ -43,7 +43,11 @@ namespace Majorsilence.Forms.Renderers
             var alignment = TextImageLayoutEngine.RtlTranslate (control, control.TextAlign);
             var font = control.GetEffectiveFont ();
             var font_size = control.LogicalToDeviceUnits (control.GetEffectiveFontSize ());
-            (bounds, alignment) = SkiaTextExtensions.WholeLineBox (control.Text, font, font_size, bounds, alignment);
+
+            if (control is { PaintsUpstreamLook: true, FlatStyle: FlatStyle.System })
+                bounds = NativeCaptionBox (control.Text, font, font_size, bounds, alignment);
+            else
+                (bounds, alignment) = SkiaTextExtensions.WholeLineBox (control.Text, font, font_size, bounds, alignment);
 
             // Upstream's themed button keeps its text colour on hover; the theme's hover style turns it
             // white for the accent-filled face, which the upstream face (Button.PaintsUpstreamLook) is not.
@@ -56,6 +60,26 @@ namespace Majorsilence.Forms.Renderers
             }
 
             e.Canvas.DrawMnemonicText (control.Text, bounds, control, alignment, maxLines: null, ellipsis: control.AutoEllipsis);
+        }
+
+        // A FlatStyle.System button is the native control, which draws every line a caption wraps to and places the
+        // block as its alignment says, the button clipping what overflows -- a 75 x 23 "Show Emails" shows the bottom
+        // of "Show" over the top of "Emails". It dropped the line that did not fit whole, as the themed (Standard)
+        // adapter's TextBoxControl flag does, and showed "Show" alone.
+        private static System.Drawing.Rectangle NativeCaptionBox (string text, SKTypeface font, int fontSize, System.Drawing.Rectangle bounds, ContentAlignment alignment)
+        {
+            var height = (int) System.Math.Ceiling (TextMeasurer.MeasureText (Mnemonics.Strip (text), font, fontSize, new System.Drawing.Size (bounds.Width, int.MaxValue)).Height);
+
+            if (height <= bounds.Height)
+                return bounds;
+
+            var top = TextMeasurer.GetVerticalAlign (alignment) switch {
+                SKTextAlign.Left => bounds.Top,
+                SKTextAlign.Right => bounds.Bottom - height,
+                _ => bounds.Top + (bounds.Height - height) / 2,
+            };
+
+            return new System.Drawing.Rectangle (bounds.X, top, bounds.Width, height);
         }
 
     }
