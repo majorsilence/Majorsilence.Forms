@@ -166,6 +166,7 @@ internal static class TextImageLayoutEngine
         var text_image_relation = text_image_control.TextImageRelation;
         var image_size = text_image_control.GetImage ()?.GetSize () ?? Size.Empty;
         var maxBounds = layout.Field;
+        Rectangle? image_field = null;
 
         // Upstream's push button lays its text and image out inside its border size (2px) and a further 2px
         // TextImageInset (ButtonBaseAdapter.CommonLayout, LayoutOptions). Under the
@@ -190,20 +191,27 @@ internal static class TextImageLayoutEngine
             var padding = control.LogicalToDeviceUnits (control.Padding);
             maxBounds = new Rectangle (across + padding.Left, down + padding.Top,
                 Math.Max (0, control.ScaledWidth - 2 * across - padding.Horizontal), Math.Max (0, control.ScaledHeight - 2 * down - padding.Vertical));
+
+            // GDI's padding is the caption's: upstream's image is aligned in the field without it.
+            var inset = control.LogicalToDeviceUnits (4);
+            image_field = new Rectangle (inset + padding.Left, down + padding.Top,
+                Math.Max (0, control.ScaledWidth - 2 * inset - padding.Horizontal), maxBounds.Height);
         }
 
         var text_size = GetTextSize (control).ToSize ();
         text_size.Height++;
 
-        // Sizes cannot be bigger than max bounds
+        // The text cannot be bigger than max bounds. The image can: upstream draws it at its own size and the
+        // control clips it (ButtonBaseAdapter.LayoutOptions.LayoutTextAndImage). Clamped, it was drawn scaled
+        // down to the field -- a 23x21 search glyph on a 25x25 button squeezed into a sliver.
         text_size = text_size.Clamp (maxBounds.Size);
-        image_size = image_size.Clamp (maxBounds.Size);
+        layout.ImageClip = image_field ?? maxBounds;
 
         // We only have one thing to layout, or it's overlay so position doesn't matter
         if (text_image_relation == TextImageRelation.Overlay || image_size.IsEmpty || !control.Text.HasValue ()) {
 
             layout.TextBounds = text_image_control.Multiline ? maxBounds : LayoutUtils.Align (text_size, maxBounds, text_align);
-            layout.ImageBounds = LayoutUtils.Align (image_size, maxBounds, image_align);
+            layout.ImageBounds = LayoutUtils.Align (image_size, image_field ?? maxBounds, image_align);
 
             return;
         }
