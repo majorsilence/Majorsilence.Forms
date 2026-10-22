@@ -2970,8 +2970,14 @@ namespace Majorsilence.Forms
         // already hosts the window's children — so migrated WinForms code that calls
         // SuspendLayout/ResumeLayout/PerformLayout on a Form compiles and behaves correctly.
 
+        // Suspension goes to the container of the window's controls (a form's client area), not to
+        // the adapter that places the chrome and that container. Upstream suspends the layout of a
+        // form's children; its client rectangle still follows every ClientSize assignment. Suspending
+        // the adapter held the client area at its previous size instead, so a control added inside
+        // InitializeComponent took its anchor distances from the size a base form's constructor had
+        // set, and grew by the difference.
         /// <summary>Temporarily suspends the layout logic for the window's controls.</summary>
-        public void SuspendLayout () => adapter.SuspendLayout ();
+        public void SuspendLayout () => ContentRoot.SuspendLayout ();
 
         /// <summary>Resumes normal layout logic, optionally forcing an immediate layout.</summary>
         public void ResumeLayout (bool performLayout = true)
@@ -2979,7 +2985,7 @@ namespace Majorsilence.Forms
             if (performLayout)
                 SyncAdapterBounds ();
 
-            adapter.ResumeLayout (performLayout);
+            ContentRoot.ResumeLayout (performLayout);
 
             if (performLayout)
                 RaiseLayoutForExplicitRequest ();

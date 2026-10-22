@@ -79,5 +79,47 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (rightGap, panel.Width - bottomRight.Bounds.Right);
             Assert.Equal (bottomGap, panel.Height - bottomRight.Bounds.Bottom);
         }
+
+        // A form whose base class sets a ClientSize in its constructor, and whose own designer code
+        // then sets the real one inside SuspendLayout before adding its controls. Measured on WinForms
+        // (.NET 10): the controls keep their designed bounds, as they do with no base size at all.
+        // Suspending the form held its client area at the base size, so anchored controls took their
+        // distances from 800x450 and grew by the difference when the layout resumed.
+        [Theory]
+        [InlineData (false)]
+        [InlineData (true)]
+        public void A_form_resized_while_suspended_anchors_its_controls_to_the_new_client_size (bool baseSize)
+        {
+            HeadlessRenderer.Use ();
+
+            using var form = new Form ();
+
+            if (baseSize)
+                form.ClientSize = new Size (800, 450);
+
+            var group = new GroupBox {
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
+                Location = new Point (18, 35),
+                Size = new Size (1036, 444)
+            };
+            var save = new Button {
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
+                Location = new Point (879, 483),
+                Size = new Size (75, 29)
+            };
+
+            form.SuspendLayout ();
+            form.ClientSize = new Size (1071, 516);
+            form.Controls.Add (group);
+            form.Controls.Add (save);
+            form.ResumeLayout (false);
+            form.PerformLayout ();
+            form.Show ();
+            Application.DoEvents ();
+
+            Assert.Equal (new Rectangle (18, 35, 1036, 444), group.Bounds);
+            Assert.Equal (new Rectangle (879, 483, 75, 29), save.Bounds);
+            form.Close ();
+        }
     }
 }
