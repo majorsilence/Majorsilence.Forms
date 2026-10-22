@@ -49,4 +49,9 @@ internal sealed class TextImageLayoutData
     /// The bounding rectangle for the image.
     /// </summary>
     public Rectangle ImageBounds;
+
+    /// <summary>
+    /// The rectangle a button's image is clipped to: the field it is laid out in, as upstream's adapter clips it.
+    /// </summary>
+    public Rectangle ImageClip;
 }

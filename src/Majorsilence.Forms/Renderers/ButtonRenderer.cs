@@ -17,8 +17,14 @@ namespace Majorsilence.Forms.Renderers
             var layout = TextImageLayoutEngine.Layout (control);
 
             // Draw the image
-            if ((control as IHaveTextAndImageAlign).GetImage () is SKBitmap image)
+            // At its own size, clipped to the field: a 23x21 glyph on a 25x25 button shows its middle 17x17, as upstream.
+            if ((control as IHaveTextAndImageAlign).GetImage () is SKBitmap image) {
+                var clip = layout.ImageClip;
+                e.Canvas.Save ();
+                e.Canvas.ClipRect (new SKRect (clip.Left, clip.Top, clip.Right, clip.Bottom));
                 e.Canvas.DrawBitmap (image, layout.ImageBounds, !control.Enabled);
+                e.Canvas.Restore ();
+            }
 
             // Draw the focus rectangle
             if (control.Selected && control.ShowFocusCues)

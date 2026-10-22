@@ -207,6 +207,59 @@ namespace Majorsilence.Forms.Tests
             }
         }
 
+        // Measured on WinForms (.NET 10), 12pt: a button's image is drawn at its own size, aligned in the field 4px
+        // inside the bounds -- without the caption's GDI padding -- and clipped to that field. A 23x21 image on a 25x25
+        // button shows its middle 17x17 at 4..20 each way; a 10x8 image aligned MiddleLeft starts 4px in. The image was
+        // scaled down to fit the caption's field instead, which squeezed a search glyph into a sliver.
+        [Theory]
+        [InlineData (23, 21, ContentAlignment.MiddleCenter, "", 25, 25, 4, 20, 4, 20)]
+        [InlineData (10, 8, ContentAlignment.MiddleLeft, "", 25, 25, 4, 13, 8, 15)]
+        [InlineData (10, 8, ContentAlignment.MiddleLeft, "Go", 75, 30, 4, 13, 11, 18)]
+        public void A_standard_button_draws_its_image_unscaled_and_clipped_to_its_field (
+            int imageWidth, int imageHeight, ContentAlignment align, string text, int width, int height,
+            int left, int right, int top, int bottom)
+        {
+            try {
+                Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font ("Microsoft Sans Serif", 12f));
+                HeadlessRenderer.Use ();
+                var magenta = System.Drawing.Color.FromArgb (255, 0, 255);
+                using var image = new Majorsilence.Forms.Drawing.Bitmap (imageWidth, imageHeight);
+                for (var x = 0; x < imageWidth; x++)
+                    for (var y = 0; y < imageHeight; y++)
+                        image.SetPixel (x, y, magenta);
+
+                using var form = new Form { FormBorderStyle = FormBorderStyle.None, ClientSize = new Size (120, 50) };
+                var button = new Button { Text = text, Location = new Point (10, 10), Size = new Size (width, height), Image = image, ImageAlign = align, TabIndex = 1 };
+                form.Controls.Add (button);
+                form.Controls.Add (new TextBox { Location = new Point (110, 40), Size = new Size (6, 6), TabIndex = 0 });
+                form.Show ();
+
+                var scale = button.LogicalToDeviceUnits (100) / 100.0;
+                using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 120, 50));
+                int l = int.MaxValue, t = int.MaxValue, r = -1, b = -1;
+                for (var x = 0; x < bitmap.Width; x++)
+                    for (var y = 0; y < bitmap.Height; y++) {
+                        var c = bitmap.GetPixel (x, y);
+                        if (c.Red > 240 && c.Green < 20 && c.Blue > 240) {
+                            l = System.Math.Min (l, x); t = System.Math.Min (t, y); r = System.Math.Max (r, x); b = System.Math.Max (b, y);
+                        }
+                    }
+
+                // In device pixels: the field scales, the image does not (upstream leaves a button's image at its own
+                // pixel size). At 100% that is exactly what WinForms drew.
+                var origin = button.LogicalToDeviceUnits (10);
+                var inset = button.LogicalToDeviceUnits (4);
+                var field = new Rectangle (inset, inset, button.ScaledWidth - 2 * inset, button.ScaledHeight - 2 * inset);
+                var visible = Rectangle.Intersect (Majorsilence.Forms.Layout.LayoutUtils.Align (new Size (imageWidth, imageHeight), field, align), field);
+                Assert.Equal ((visible.Left, visible.Right - 1, visible.Top, visible.Bottom - 1), (l - origin, r - origin, t - origin, b - origin));
+
+                if (scale == 1)
+                    Assert.Equal ((left, right, top, bottom), (l - origin, r - origin, t - origin, b - origin));
+            } finally {
+                Application.SetDefaultFont (null!);
+            }
+        }
+
         [Fact]
         public void Without_a_chosen_font_the_theme_button_is_kept ()
             => Assert.Equal (0, Pixels (chooseFont: false, isDefault: true).face);
