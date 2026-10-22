@@ -57,7 +57,7 @@ namespace Majorsilence.Forms.Tests
                     Assert.Equal (new Padding (4, 0, 4, 0), file.Padding);
                     Assert.Equal (new Padding (6, 2, 0, 2), menu.Padding);
                     Assert.Equal (6, file.Bounds.X);
-                    Assert.Equal (font.Height + 4 + 4, menu.Height);
+                    Assert.Equal (Math.Max (TextLineHeight.Of (font), 16) + 4 + 4, menu.Height);
 
                     // Text plus GDI's sixth-of-a-line padding each side, the item padding and its 2px border.
                     // Measured and rounded in device pixels, as the renderer does, then taken back to logical, rounded up
