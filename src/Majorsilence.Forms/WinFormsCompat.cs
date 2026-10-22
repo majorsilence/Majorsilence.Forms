@@ -1467,6 +1467,18 @@ namespace Majorsilence.Forms
 
         // A ToolStrip in its own right rather than one of the menu or status strips that derive from it.
         internal bool IsOnPlainToolStrip => OwnerControl is ToolStrip and not (Menu or MenuDropDown or StatusStrip);
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// On a plain ToolStrip under the upstream look (an app that chose its font), upstream's: a button, label,
+        /// drop-down or split button (0, 1, 0, 2) -- so a 64px button sits a pixel down a 67px strip -- and a combo box
+        /// (1, 0, 1, 0). They had none, and the strip came out 3px short of upstream's.
+        /// </remarks>
+        protected override Padding DefaultMargin
+            => !IsOnPlainToolStrip || !ControlPaint.UsesUpstreamGlyphs ? base.DefaultMargin
+             : this is ToolStripButton or ToolStripLabel or ToolStripDropDownButton or ToolStripSplitButton ? new Padding (0, 1, 0, 2)
+             : this is ToolStripComboBox ? new Padding (1, 0, 1, 0)
+             : base.DefaultMargin;
     }
 
     /// <summary>Specifies the overflow behavior of a ToolStripItem.</summary>
@@ -2604,6 +2616,31 @@ namespace Majorsilence.Forms
     public partial class ToolStrip : ToolBar
     {
         private readonly ToolStripItemCollection _items;
+
+        /// <inheritdoc/>
+        /// <remarks>Under the upstream look a plain ToolStrip has upstream's (0, 0, 1, 0); the menu and status strips that
+        /// derive from it keep their own.</remarks>
+        protected override Padding DefaultPadding
+            => IsUpstreamPlainStrip ? new Padding (0, 0, 1, 0) : base.DefaultPadding;
+
+        // A plain ToolStrip (not one of the menu or status strips that derive from it) under the upstream look.
+        internal bool IsUpstreamPlainStrip => ControlPaint.UsesUpstreamGlyphs && this is not (Menu or MenuDropDown or StatusStrip);
+
+        // Upstream's strip lays its items out over its whole bounds and draws its border line over them; the theme's
+        // bottom border took a row out of the layout, so a 64px button on a 67px strip came out 63px tall.
+        internal override Rectangle DeviceClientRectangle {
+            get {
+                var client = base.DeviceClientRectangle;
+
+                if (!IsUpstreamPlainStrip)
+                    return client;
+
+                var border = CurrentStyle.Border;
+                return new Rectangle (0, 0,
+                    client.Width + border.Left.GetWidth () + border.Right.GetWidth (),
+                    client.Height + border.Top.GetWidth () + border.Bottom.GetWidth ());
+            }
+        }
 
         /// <summary>Initializes a new instance of the ToolStrip class.</summary>
         public ToolStrip ()

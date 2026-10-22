@@ -274,7 +274,16 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets or sets the margin of this menu item.
         /// </summary>
-        public Padding Margin { get; set; } = Padding.Empty;
+        /// <remarks>Until assigned it reads <see cref="DefaultMargin"/>, which may depend on the strip the item is on.</remarks>
+        public Padding Margin {
+            get => margin ?? DefaultMargin;
+            set => margin = value;
+        }
+
+        private Padding? margin;
+
+        /// <summary>Gets the margin this item has until one is assigned.</summary>
+        protected virtual Padding DefaultMargin => Padding.Empty;
 
         /// <summary>
         /// Gets whether this item is being used at design time.

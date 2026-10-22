@@ -290,7 +290,10 @@ namespace Majorsilence.Forms
                 height = Math.Max (height, size.Height + item.Margin.Vertical);
             }
 
-            return new Size (width + Padding.Horizontal + GripBandWidth, height + Padding.Vertical);
+            // Upstream's strip keeps 2px to the right of its items when it has no overflow button (GetPreferredSizeHorizontal).
+            var trailing = this is ToolStrip { IsUpstreamPlainStrip: true, Orientation: Orientation.Horizontal } ? 2 : 0;
+
+            return new Size (width + Padding.Horizontal + GripBandWidth + trailing, height + Padding.Vertical);
         }
     }
 

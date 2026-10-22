@@ -588,11 +588,20 @@ namespace Majorsilence.Forms
         /// </remarks>
         internal override int GripBandWidth
             => GripVisible && GripStyle == ToolStripGripStyle.Visible
-                ? GripMargin.Horizontal + GripRuleWidth
+                ? GripMargin.Horizontal + GripWidth
                 : 0;
 
+        // Under the upstream look, upstream's grip: 5px wide (ToolStripGrip's 3px thickness in its padding), inside
+        // GripMargin -- so a strip's first item starts at 9, where it started at 7.
+        private const int UpstreamGripWidth = 5;
+
+        private int GripWidth => ControlPaint.UsesUpstreamGlyphs ? UpstreamGripWidth : GripRuleWidth;
+
         /// <summary>Gets the bounds of the move grip.</summary>
-        public Rectangle GripRectangle => GripStyle == ToolStripGripStyle.Visible ? new Rectangle (0, 0, 6, Height) : Rectangle.Empty;
+        public Rectangle GripRectangle
+            => GripStyle != ToolStripGripStyle.Visible ? Rectangle.Empty
+             : ControlPaint.UsesUpstreamGlyphs ? new Rectangle (GripMargin.Left, 0, UpstreamGripWidth, Height)
+             : new Rectangle (0, 0, 6, Height);
 
         /// <summary>Gets whether this strip is itself a drop-down.</summary>
         public virtual bool IsDropDown => this is ToolStripDropDown;

@@ -513,6 +513,10 @@ namespace Majorsilence.Forms.Renderers
 
         private static Size SeparatorSize (ToolBar control, MenuItem item)
         {
+            // Upstream's separator on a horizontal ToolStrip is 6px wide (ToolStripSeparator's DefaultSize).
+            if (control is ToolStrip { IsUpstreamPlainStrip: true, Orientation: Orientation.Horizontal } && item is ToolStripSeparator)
+                return new Size (control.LogicalToDeviceUnits (6), item.DeviceBounds.Height);
+
             var padding = control.LogicalToDeviceUnits (item.Padding.Horizontal);
             var thickness = control.LogicalToDeviceUnits (1);
 
