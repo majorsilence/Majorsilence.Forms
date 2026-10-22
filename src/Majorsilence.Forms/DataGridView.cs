@@ -3340,8 +3340,9 @@ namespace Majorsilence.Forms
                 var (font, size) = HeaderFontForMeasure ();
                 var key = unchecked (font.GetHashCode () * 31 + size) * 31 + (HeaderWraps ? 1 : 0);
 
+                // The sort mode too: under the upstream look a sortable header keeps room for its glyph.
                 foreach (DataGridViewColumn column in Columns)
-                    key = unchecked ((key * 31 + (column.Visible ? column.Width : -1)) * 31 + column.HeaderDisplayText.GetHashCode ());
+                    key = unchecked (((key * 31 + (column.Visible ? column.Width : -1)) * 31 + column.HeaderDisplayText.GetHashCode ()) * 31 + (int) column.SortMode);
 
                 if (key != auto_header_key || auto_header_height == 0) {
                     auto_header_height = FitHeaderHeight (-1);
@@ -3376,6 +3377,12 @@ namespace Majorsilence.Forms
                     continue;
 
                 var text = column.HeaderDisplayText;
+
+                if (ControlPaint.UsesUpstreamGlyphs) {
+                    tallest = Math.Max (tallest, UpstreamHeaderHeight (column, text, font, size));
+                    continue;
+                }
+
                 var width = Math.Max (1, column.Width - 12);   // the renderer insets header text 6px a side
                 var broken = HeaderWraps ? BreakBetweenWords (text, font, size, width, out width) : text;
                 var measured = HeaderWraps
@@ -3385,7 +3392,64 @@ namespace Majorsilence.Forms
                 tallest = Math.Max (tallest, (int) Math.Ceiling (measured.Height));
             }
 
+            if (ControlPaint.UsesUpstreamGlyphs)
+                return tallest > 0 ? tallest : header_height;
+
             return tallest > 0 ? tallest + 8 : header_height;
+        }
+
+        // ── Upstream's header metrics ─────────────────────────────────────────────────────────────────────
+        //
+        // Under the upstream look a column header lays its caption out as DataGridViewColumnHeaderCell does: inside
+        // its 1px border and 2px text margins either side, measured as TextRenderer measures (GDI's padding a sixth of
+        // the line height either side, GDI's line height), and on a sortable column 19px further in for the sort glyph
+        // (2px separator, 9px glyph, 4px either side). Its auto-sized height is the caption's lines plus 8. A Microsoft
+        // Sans Serif 12pt "Hold Back" header wraps below a 107px column, where it fitted down to 85, and a header is 28px
+        // tall a line, where it was 27.
+
+        internal const int UpstreamHeaderBorder = 1;
+        internal const int UpstreamHeaderTextMargin = 2;
+        internal const int UpstreamSortGlyphRoom = 2 + 9 + 2 * 4;
+
+        // The header font as a Font, for the metrics that come from it rather than its typeface.
+        internal Majorsilence.Forms.Drawing.Font HeaderMeasureFont ()
+        {
+            var (typeface, size) = HeaderFontForMeasure ();
+            var style = (typeface.IsBold ? Majorsilence.Forms.Drawing.FontStyle.Bold : Majorsilence.Forms.Drawing.FontStyle.Regular)
+                      | (typeface.IsItalic ? Majorsilence.Forms.Drawing.FontStyle.Italic : Majorsilence.Forms.Drawing.FontStyle.Regular);
+            return new Majorsilence.Forms.Drawing.Font (typeface.FamilyName, size * 72f / 96f, style);
+        }
+
+        // TextRenderer's padding either side of a string, in logical pixels.
+        internal static int GdiTextPadding (Majorsilence.Forms.Drawing.Font font) => 2 * (int) Math.Ceiling (font.Height / 6.0);
+
+        // The logical width a header's caption wraps in, as upstream measures it -- less GDI's padding, which TextRenderer
+        // counts in a string's width and Skia does not draw.
+        internal int UpstreamHeaderTextWidth (DataGridViewColumn column, bool keepGlyphRoom)
+        {
+            var width = column.Width - UpstreamHeaderBorder - 2 * UpstreamHeaderTextMargin - GdiTextPadding (HeaderMeasureFont ());
+
+            if (keepGlyphRoom && column.SortMode != DataGridViewColumnSortMode.NotSortable)
+                width -= UpstreamSortGlyphRoom;
+
+            return Math.Max (1, width);
+        }
+
+        private int UpstreamHeaderHeight (DataGridViewColumn column, string text, SkiaSharp.SKTypeface font, int size)
+        {
+            var lines = 1;
+
+            // The lines the caption wraps to: the layout wraps it in the width, after any word too wide was given a line.
+            if (HeaderWraps && text.Length > 0) {
+                var broken = BreakBetweenWords (text, font, size, UpstreamHeaderTextWidth (column, keepGlyphRoom: true), out var width);
+                var line = TextMeasurer.MeasureText ("X", font, size).Height;
+                var height = TextMeasurer.MeasureText (broken, font, size, new Size (width, int.MaxValue)).Height;
+
+                if (line > 0)
+                    lines = Math.Max (1, (int) Math.Round (height / line));
+            }
+
+            return lines * TextLineHeight.Of (HeaderMeasureFont ()) + 8;
         }
 
         /// <summary>

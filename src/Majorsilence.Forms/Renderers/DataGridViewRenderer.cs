@@ -158,7 +158,9 @@ namespace Majorsilence.Forms.Renderers
             // Wrapped between words only, as upstream's header text: a word too wide keeps a line to itself.
             int? max_lines = 1;
 
-            if (wraps) {
+            if (ControlPaint.UsesUpstreamGlyphs) {
+                DrawUpstreamCaption (control, column, bounds, caption, font, scaled_size, fg, e);
+            } else if (wraps) {
                 caption = DataGridView.BreakBetweenWords (caption, font, scaled_size, text_bounds.Width, out var layout_width);
                 text_bounds.Width = layout_width;
 
@@ -169,7 +171,8 @@ namespace Majorsilence.Forms.Renderers
                 max_lines = line > 0 ? Math.Max (1, text_bounds.Height / line) : null;
             }
 
-            e.Canvas.DrawText (caption, font, scaled_size, text_bounds, fg, column.HeaderAlignment, maxLines: max_lines, ellipsis: HeaderTextEllipsis || !control.HeaderWraps);
+            if (!ControlPaint.UsesUpstreamGlyphs)
+                e.Canvas.DrawText (caption, font, scaled_size, text_bounds, fg, column.HeaderAlignment, maxLines: max_lines, ellipsis: HeaderTextEllipsis || !control.HeaderWraps);
 
             // Draw sort indicator
             if (column.SortOrder != SortOrder.None)
@@ -191,6 +194,52 @@ namespace Majorsilence.Forms.Renderers
                 column.HeaderCell.InheritedStyle,
                 new DataGridViewAdvancedBorderStyle (),
                 DataGridViewPaintParts.All);
+        }
+
+        // Upstream's header caption (DataGridViewColumnHeaderCell): inside the 1px border and 2px margins, inset by GDI's
+        // padding, and on a sortable column 19px short of the right for the sort glyph when the caption still fits in what
+        // is left; clipped to the cell, so a word too wide for its header is cut ("Approv") rather than running into the
+        // next one.
+        private void DrawUpstreamCaption (DataGridView control, DataGridViewColumn column, Rectangle bounds, string caption,
+            SKTypeface font, int scaledSize, SKColor colour, PaintEventArgs e)
+        {
+            var gdi = DataGridView.GdiTextPadding (control.HeaderMeasureFont ());
+            var inset = control.LogicalToDeviceUnits (DataGridView.UpstreamHeaderTextMargin + gdi / 2);
+            var text_bounds = new Rectangle (bounds.Left + inset, bounds.Top, Math.Max (0, bounds.Width - control.LogicalToDeviceUnits (DataGridView.UpstreamHeaderBorder) - 2 * inset), bounds.Height);
+
+            if (column.SortMode != DataGridViewColumnSortMode.NotSortable) {
+                var narrower = text_bounds.Width - control.LogicalToDeviceUnits (DataGridView.UpstreamSortGlyphRoom);
+                var fits = narrower > 0 && TextFits (caption, font, scaledSize, narrower, text_bounds.Height, control.HeaderWraps);
+
+                if (fits)
+                    text_bounds.Width = narrower;
+            }
+
+            var max_lines = (int?) 1;
+
+            if (control.HeaderWraps) {
+                caption = DataGridView.BreakBetweenWords (caption, font, scaledSize, text_bounds.Width, out _);
+                var line = (int) TextMeasurer.MeasureText ("X", font, scaledSize).Height;
+                max_lines = line > 0 ? Math.Max (1, text_bounds.Height / line) : null;
+            }
+
+            e.Canvas.Save ();
+            e.Canvas.ClipRect (new SKRect (bounds.Left, bounds.Top, bounds.Right - control.LogicalToDeviceUnits (DataGridView.UpstreamHeaderBorder), bounds.Bottom));
+            e.Canvas.DrawText (caption, font, scaledSize, text_bounds, colour, column.HeaderAlignment, maxLines: max_lines, ellipsis: !control.HeaderWraps);
+            e.Canvas.Restore ();
+        }
+
+        // Whether a caption fits a width: on one line, or wrapped between words within the height, no word wider than it.
+        private static bool TextFits (string caption, SKTypeface font, int size, int width, int height, bool wraps)
+        {
+            if (!wraps)
+                return TextMeasurer.MeasureText (caption, font, size).Width <= width;
+
+            var broken = DataGridView.BreakBetweenWords (caption, font, size, width, out var layout_width);
+            if (layout_width > width)
+                return false;
+
+            return TextMeasurer.MeasureText (broken, font, size, new Size (width, int.MaxValue)).Height <= height;
         }
 
         /// <summary>
