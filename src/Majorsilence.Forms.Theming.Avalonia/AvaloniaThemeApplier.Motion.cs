@@ -73,7 +73,7 @@ namespace Majorsilence.Forms.Theming.Avalonia
 
         private static void BuildMotion (IReadOnlyList<ThemeStyleSheet> chain, Func<StyleSelector, StyleBuilder> styleFor)
         {
-            if (global::Majorsilence.Forms.SystemInformation.PrefersReducedMotion)
+            if (AvaloniaCssTheme.PrefersReducedMotion ?? global::Majorsilence.Forms.SystemInformation.PrefersReducedMotion)
                 return;
 
             // Every declaration in source order per (selector, state), across the chain.

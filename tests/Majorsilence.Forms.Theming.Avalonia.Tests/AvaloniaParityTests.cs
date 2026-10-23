@@ -30,10 +30,14 @@ namespace Majorsilence.Forms.Theming.Avalonia.Tests
                 --foreground-color-on-accent: #1a1200;
             }";
 
+        // Build agents often run with animations switched off, which the platform reports as reduced motion: say what the tests mean.
+        public AvaloniaParityTests () => AvaloniaCssTheme.PrefersReducedMotion = false;
+
         public ValueTask DisposeAsync ()
         {
             GC.SuppressFinalize (this);
             return new ValueTask (Headless.Run (() => {
+                AvaloniaCssTheme.PrefersReducedMotion = null;
                 AvaloniaCssTheme.DeriveFromTokens = true;
                 MF.Theme.SetBuiltInTheme (MF.BuiltInTheme.Light);
                 AvaloniaCssTheme.Apply (MF.ThemeStyleSheet.Parse ("Button { }"));
@@ -692,6 +696,20 @@ namespace Majorsilence.Forms.Theming.Avalonia.Tests
             new Window { Content = marked }.Show ();
 
             Assert.Equal (0.5, marked.Opacity);
+        });
+
+        [Fact]
+        public Task ReducedMotion_SetsUpNoTransitionsAndNoAnimations () => Headless.Run (() => {
+            AvaloniaCssTheme.PrefersReducedMotion = true;
+            var build = Built (@"
+                @keyframes pulse { to { opacity: .5; } }
+                Button { transition: background-color 150ms; animation: pulse 1s; }");
+
+            Assert.DoesNotContain (build.Styles, s => s.Animations.Count > 0);
+
+            AvaloniaCssTheme.Apply ("Button { transition: background-color 150ms; }");
+            var part = PartOf (Show (new Button { Content = "OK" }));
+            Assert.True (part.Transitions is null || part.Transitions.Count == 0);
         });
     }
 }

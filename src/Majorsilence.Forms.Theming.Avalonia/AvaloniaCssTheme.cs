@@ -87,6 +87,15 @@ namespace Majorsilence.Forms.Theming.Avalonia
         /// </summary>
         public static bool DeriveFromTokens { get; set; } = true;
 
+        /// <summary>
+        /// Overrides whether the platform prefers reduced motion, which switches off every <c>transition</c> and <c>@keyframes</c>
+        /// animation the theme would set up. <c>null</c> (the default) asks the platform
+        /// (<c>SystemInformation.PrefersReducedMotion</c>: Windows' "show animations" setting, macOS' reduce-motion setting); a
+        /// value forces the answer, which is what a test on a build agent with animations turned off wants. Takes effect on the
+        /// next apply.
+        /// </summary>
+        public static bool? PrefersReducedMotion { get; set; }
+
         /// <summary>Raised after each apply, on the UI thread. <see cref="Diagnostics"/> is current when it fires.</summary>
         public static event EventHandler? Applied;
 

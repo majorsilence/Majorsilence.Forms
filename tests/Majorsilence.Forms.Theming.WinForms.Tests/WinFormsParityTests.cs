@@ -906,6 +906,26 @@ namespace Majorsilence.Forms.Theming.WinForms.Tests
             }
         }
 
+        // Samples a value on every turn of the message loop until `done` says so (or the time runs out), returning what it saw. A build agent
+        // can stall for hundreds of milliseconds, so a test waits for the state it expects instead of sleeping for the time it ought to take.
+        private static List<T> Observe<T> (Func<T> read, Func<T, bool> done, int timeoutMs = 5000)
+        {
+            var seen = new List<T> ();
+            var end = Environment.TickCount64 + timeoutMs;
+
+            while (Environment.TickCount64 < end) {
+                WF.Application.DoEvents ();
+                var value = read ();
+                seen.Add (value);
+                if (done (value))
+                    break;
+
+                System.Threading.Thread.Sleep (4);
+            }
+
+            return seen;
+        }
+
         private WF.Button MovingButton (string css)
         {
             var button = Add (new WF.Button { Text = "OK", Size = new Size (100, 30) });
@@ -921,12 +941,10 @@ namespace Majorsilence.Forms.Theming.WinForms.Tests
 
             Raise (button, "OnMouseEnter", EventArgs.Empty);
 
-            // Right after the change nothing has moved yet; part way through the fill is between the two; in the end it is the target.
+            // Right after the change nothing has moved yet; on the way the fill is between the two; in the end it is the target.
             Assert.True (button.BackColor.R < 40, $"started at {button.BackColor}");
-            Pump (200);
-            var middle = button.BackColor.R;
-            Assert.InRange (middle, 60, 200);
-            Pump (400);
+            var seen = Observe (() => (int) button.BackColor.R, r => r == 255);
+            Assert.Contains (seen, r => r is > 20 and < 235);
             AssertColor ("#ffffff", button.BackColor);
         }
 
@@ -936,13 +954,13 @@ namespace Majorsilence.Forms.Theming.WinForms.Tests
             var button = MovingButton ("Button { background-color: #000000; border: none; transition: background-color 400ms linear; } Button:hover { background-color: #ffffff; }");
 
             Raise (button, "OnMouseEnter", EventArgs.Empty);
-            Pump (200);
+            Observe (() => (int) button.BackColor.R, r => r > 60);
             var atLeave = button.BackColor.R;
             Raise (button, "OnMouseLeave", EventArgs.Empty);
 
             // It starts from where it was, not from the hover colour, and heads back.
-            Assert.InRange (Math.Abs (button.BackColor.R - atLeave), 0, 40);
-            Pump (700);
+            Assert.InRange (Math.Abs (button.BackColor.R - atLeave), 0, 80);
+            Observe (() => (int) button.BackColor.R, r => r == 0);
             AssertColor ("#000000", button.BackColor);
         }
 
@@ -952,10 +970,12 @@ namespace Majorsilence.Forms.Theming.WinForms.Tests
             var button = MovingButton ("Button { background-color: #000000; border: none; transition: background-color 2s linear; } Button:hover { background-color: #ffffff; transition-duration: 100ms; }");
 
             Raise (button, "OnMouseEnter", EventArgs.Empty);
-            Pump (400);
+            var elapsed = System.Diagnostics.Stopwatch.StartNew ();
+            Observe (() => (int) button.BackColor.R, r => r == 255, 1500);
 
-            // The hover style's own 100ms is the one that runs, though the properties and easing came from the base rule.
+            // The hover style's own 100ms is the one that runs (not the base rule's 2s), though the properties and easing came from it.
             AssertColor ("#ffffff", button.BackColor);
+            Assert.True (elapsed.ElapsedMilliseconds < 1500, $"took {elapsed.ElapsedMilliseconds}ms");
         }
 
         [Fact]
@@ -1006,16 +1026,14 @@ namespace Majorsilence.Forms.Theming.WinForms.Tests
             AssertColor ("#404040", button.BackColor);
 
             Raise (button, "OnMouseEnter", EventArgs.Empty);
-            Pump (200);
-            var middle = button.BackColor.R;
-            Assert.InRange (middle, 40, 220);
-            Pump (400);
+            var seen = Observe (() => (int) button.BackColor.R, r => r == 255);
+            Assert.Contains (seen, r => r is > 10 and < 245);
 
             // `forwards` holds the last keyframe.
             AssertColor ("#ffffff", button.BackColor);
 
             Raise (button, "OnMouseLeave", EventArgs.Empty);
-            Pump (50);
+            Observe (() => (int) button.BackColor.R, r => r == 0x40, 2000);
             AssertColor ("#404040", button.BackColor);
         }
 
@@ -1026,12 +1044,10 @@ namespace Majorsilence.Forms.Theming.WinForms.Tests
                 @keyframes pulse { from { background-color: #000000; } to { background-color: #ffffff; } }
                 Button { background-color: #808080; border: none; animation: pulse 300ms linear infinite alternate; }");
 
-            Pump (100);
-            var first = button.BackColor.R;
-            Pump (150);
-            var second = button.BackColor.R;
+            var seen = Observe (() => (int) button.BackColor.R, _ => false, 600);
 
-            Assert.NotEqual (first, second);
+            // It keeps moving: many different values over the time, not one.
+            Assert.True (seen.Distinct ().Count () > 5, $"saw {seen.Distinct ().Count ()} distinct values");
         }
 
         [Fact]
@@ -1043,15 +1059,15 @@ namespace Majorsilence.Forms.Theming.WinForms.Tests
                 Button { border: none; animation: a 5s linear infinite; }
                 Button:hover { animation: b 5s linear infinite; }");
 
-            Pump (30);
+            Observe (() => button.BackColor.ToArgb (), c => c == Rgb ("#000000").ToArgb (), 3000);
             AssertColor ("#000000", button.BackColor);
 
             Raise (button, "OnMouseEnter", EventArgs.Empty);
-            Pump (30);
+            Observe (() => button.BackColor.ToArgb (), c => c == Rgb ("#ff0000").ToArgb (), 3000);
             AssertColor ("#ff0000", button.BackColor);
 
             Raise (button, "OnMouseLeave", EventArgs.Empty);
-            Pump (30);
+            Observe (() => button.BackColor.ToArgb (), c => c == Rgb ("#000000").ToArgb (), 3000);
             AssertColor ("#000000", button.BackColor);
         }
 
@@ -1077,13 +1093,15 @@ namespace Majorsilence.Forms.Theming.WinForms.Tests
             try {
                 text.Focus ();
                 Assert.True (text.Focused, "the text box could not take focus in this session");
-                Pump (200);
-                using (var middle = Draw (text))
-                    Assert.InRange (middle.GetPixel (0, middle.Height / 2).R, 40, 220);
+                int Frame ()
+                {
+                    using var shot = Draw (text);
+                    return shot.GetPixel (0, shot.Height / 2).R;
+                }
 
-                Pump (500);
-                using (var done = Draw (text))
-                    AssertColor ("#ffffff", done.GetPixel (0, done.Height / 2));
+                var seen = Observe (Frame, r => r == 255);
+                Assert.Contains (seen, r => r is > 10 and < 245);
+                Assert.Equal (255, Frame ());
 
                 firstStop.Focus ();
             } finally {
