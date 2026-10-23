@@ -42,6 +42,8 @@ namespace Majorsilence.Forms
         internal static readonly SKColor ComboListOutline = new SKColor (0xD2, 0xD2, 0xD2);
         internal static readonly SKColor ComboListBottom = new SKColor (0xBC, 0xBC, 0xBC);
         internal static readonly SKColor Chevron = new SKColor (0x6E, 0x6E, 0x6E);
+        // A grid's combo box cell draws the same field, a separator before its button, and a slightly lighter chevron.
+        internal static readonly SKColor ComboCellChevron = new SKColor (0x6F, 0x6F, 0x6F);
 
         // Disabled, a drop-down list keeps a near-white face inside one light outline all round, and an editable
         // drop-down a white one inside a mid-grey outline; the chevron of either is pale grey.

@@ -798,6 +798,9 @@ namespace Majorsilence.Forms.Renderers
                 RenderButtonCell (e, text_bounds, btn_text, font, scaled_font, fg, CellIsFlat (control, rowIndex, columnIndex));
             } else if (column.ButtonCaptionFor (value) is { } caption) {
                 RenderButtonCell (e, text_bounds, caption, font, scaled_font, fg, CellIsFlat (control, rowIndex, columnIndex));
+            } else if (column is DataGridViewComboBoxColumn combo_col
+                && FieldUpstreamLook.Applies && !CellIsFlat (control, rowIndex, columnIndex) && ShowsComboButton (control, combo_col, rowIndex, columnIndex)) {
+                RenderUpstreamComboBoxCell (e, bounds, value, font, scaled_font, fg);
             } else if (column is DataGridViewComboBoxColumn) {
                 RenderComboBoxCell (e, text_bounds, value, font, scaled_font, fg, CellIsFlat (control, rowIndex, columnIndex),
                     showButton: ShowsComboButton (control, (DataGridViewComboBoxColumn)column, rowIndex, columnIndex));
@@ -1123,6 +1126,44 @@ namespace Majorsilence.Forms.Renderers
 
             return !current_only
                 || (control.CurrentCell is { } current && current.RowIndex == rowIndex && current.ColumnIndex == columnIndex);
+        }
+
+        // Upstream's themed combo box cell (DataGridViewComboBoxCell with visual styles), measured on WinForms: the drop-down
+        // list's field inside the cell's grid lines -- #FDFDFD in a #D2D2D2 frame with a #BCBCBC bottom -- a #D2D2D2 separator
+        // 17px from the field's right, the drop-down list's chevron 13px from it, and the text 4px in, ending in an ellipsis
+        // before the separator. It drew the text, a rule and a "▾" glyph, and cut the text mid-letter.
+        private static void RenderUpstreamComboBoxCell (PaintEventArgs e, Rectangle cell, string value, SKTypeface font, int fontSize, SKColor fg)
+        {
+            // Inside the grid lines, which are one device pixel at every scale: the row's bottom line and the cell's
+            // right one (RenderRow, RenderCellBorders).
+            var px = (int) Math.Max (1, Math.Round (e.Scaling));
+            var field = new Rectangle (cell.Left, cell.Top, Math.Max (0, cell.Width - 1), Math.Max (0, cell.Height - 1));
+
+            using var paint = new SKPaint { Color = FieldUpstreamLook.ComboListFace };
+            e.Canvas.DrawRect (SKRect.Create (field.Left, field.Top, field.Width, field.Height), paint);
+
+            paint.Color = FieldUpstreamLook.ComboListOutline;
+            e.Canvas.DrawRect (SKRect.Create (field.Left, field.Top, field.Width, px), paint);
+            e.Canvas.DrawRect (SKRect.Create (field.Left, field.Top, px, field.Height), paint);
+            e.Canvas.DrawRect (SKRect.Create (field.Right - px, field.Top, px, field.Height), paint);
+
+            var separator = field.Right - 17 * px;
+            e.Canvas.DrawRect (SKRect.Create (separator, field.Top + px, px, Math.Max (0, field.Height - 2 * px)), paint);
+
+            paint.Color = FieldUpstreamLook.ComboListBottom;
+            e.Canvas.DrawRect (SKRect.Create (field.Left, field.Bottom - px, field.Width, px), paint);
+
+            var left = field.Right - 13 * px;
+            var top = field.Top + (field.Height - 4 * px + 1) / 2;
+            paint.Color = FieldUpstreamLook.ComboCellChevron;
+
+            for (var step = 0; step < 4; step++) {
+                e.Canvas.DrawRect (SKRect.Create (left + step * px, top + step * px, px, px), paint);
+                e.Canvas.DrawRect (SKRect.Create (left + (7 - step) * px, top + step * px, px, px), paint);
+            }
+
+            var text = new Rectangle (field.Left + 4 * px, field.Top, Math.Max (0, separator - 2 * px - field.Left - 4 * px), field.Height);
+            e.Canvas.DrawText (value, font, fontSize, text, fg, ContentAlignment.MiddleLeft, maxLines: 1, ellipsis: true);
         }
 
         private static void RenderComboBoxCell (PaintEventArgs e, Rectangle bounds, string value, SKTypeface font, int fontSize, SKColor fg, bool flat = false, bool showButton = true)
