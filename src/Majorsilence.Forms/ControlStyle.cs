@@ -8,7 +8,9 @@ namespace Majorsilence.Forms
     /// </summary>
     public class ControlStyle
     {
-        internal readonly ControlStyle? _parent;
+        // Not readonly: a control's cascade layer (Control.StyleCascade) is slotted between an instance style and its type-level parent,
+        // and taken out again, by SetCascadeParent.
+        internal ControlStyle? _parent;
 
         // The defaults a type-level style was declared with, kept so they can be re-run after a CSS
         // stylesheet clears the style (see ResetWithStyleSheetRules).
@@ -56,6 +58,43 @@ namespace Majorsilence.Forms
             is_twin = scopedTwin;
             border = new ControlBorderStyle (null);
         }
+
+        // --- cascade layers --------------------------------------------------------------------------
+
+        // Re-links this instance style under `parent`, together with its border chain. Used to slot a control's cascade layer (the
+        // class and id rules that match it, see Control.RebuildStyleCascade) between the instance style and its type-level parent,
+        // and to take it out again. Explicit values on this style still win over the layer, as they do over the type's.
+        internal void SetCascadeParent (ControlStyle? parent)
+        {
+            _parent = parent;
+            border.Reparent (parent?.border);
+        }
+
+        // A detached copy of this style's own values (not its parents' values) chained to the same parent: what this style looked like,
+        // for a transition to start from after a class change re-linked the original under a new layer.
+        internal ControlStyle SnapshotOwn ()
+        {
+            var copy = new ControlStyle (_parent!) {
+                background_color = background_color,
+                foreground_color = foreground_color,
+                font = font,
+                font_size = font_size,
+                box_shadows = box_shadows,
+                transition = transition,
+                animation = animation,
+                opacity = opacity,
+                background_gradients = background_gradients,
+                outline_width = outline_width,
+                outline_style = outline_style,
+                outline_color = outline_color,
+                outline_offset = outline_offset,
+            };
+            copy.border.CopyValuesFrom (border);
+            return copy;
+        }
+
+        // Makes every control that tracks the animation its style resolves to look again; see Generation.
+        internal static void BumpGeneration () => Generation++;
 
         // --- ThemeScope ----------------------------------------------------------------------------
         //

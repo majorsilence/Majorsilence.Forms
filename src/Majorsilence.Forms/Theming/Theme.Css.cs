@@ -239,6 +239,11 @@ namespace Majorsilence.Forms
 
             foreach (var sheet in chain)
                 foreach (var rule in sheet.ControlRules) {
+                    // A rule naming a class or an id styles individual controls, through each control's own cascade (Control.StyleClasses);
+                    // it is not part of any type's default style.
+                    if (rule.IsScoped)
+                        continue;
+
                     var style = rule.GetTargetStyle ();
 
                     if (!targets.TryGetValue (style, out var actions)) {
@@ -274,7 +279,37 @@ namespace Majorsilence.Forms
                 pending_stylesheet_notification = applied;
             }
 
+            NoteScopedRules (applied);
             WatchMediaPreferences (applied);
+        }
+
+        // --- class and id rules ----------------------------------------------------------------------
+        //
+        // A control with classes or an id reads the rules that name them through a cascade of its own (Control.RebuildStyleCascade),
+        // rebuilt lazily when this version has moved on since the control last built it. The version moves whenever the rules or what
+        // they read can have changed: a sheet applied or cleared, a token changed, a ThemeScope changed or attached.
+
+        // Whether any sheet applied so far, to the application or to a scope, has a rule naming a class or an id. Until one has, a
+        // control pays this one static read per CurrentStyle and nothing else.
+        internal static bool ScopedRulesInUse;
+
+        private static int scoped_rules_version = 1;
+
+        internal static int ScopedRulesVersion => scoped_rules_version;
+
+        internal static void BumpScopedRules ()
+        {
+            if (++scoped_rules_version == 0)
+                scoped_rules_version = 1;
+        }
+
+        internal static void NoteScopedRules (IEnumerable<ThemeStyleSheet> chain)
+        {
+            foreach (var sheet in chain)
+                if (sheet.UsesClassesOrIds)
+                    ScopedRulesInUse = true;
+
+            BumpScopedRules ();
         }
 
         // A sheet with @media rules applies differently when the system's colour scheme or reduced-motion setting changes, so while one
@@ -343,6 +378,8 @@ namespace Majorsilence.Forms
                 current_stylesheets = Array.Empty<ThemeStyleSheet> ();
                 pending_stylesheet_notification = null;
             }
+
+            BumpScopedRules ();
 
             WatchMediaPreferences (Array.Empty<ThemeStyleSheet> ());
         }

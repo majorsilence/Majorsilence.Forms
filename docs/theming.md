@@ -154,8 +154,9 @@ TextBox, ComboBox { border: 1px solid #808080; }
   heuristic. It layers on `:focus`, so `Button:focus-visible { outline: ... }` adds a focus ring to the
   focus style only for keyboard users. A focused `TextBox` always counts, as a text field does in a
   browser.
-- Later declarations replace earlier ones, within a rule and across rules. There is no specificity,
-  no cascade, and no `!important`.
+- Later declarations replace earlier ones, within a rule and across rules. Rules that name a class or an
+  id ([chapter 10](#10-classes-and-ids)) are ordered by CSS specificity instead; rules on types and
+  pseudo-classes alone have none, and there is no `!important`.
 - Derived controls without their own default style follow their base type's rule (`Panel` also styles
   `FlowLayoutPanel`, `TableLayoutPanel`, `TabPage`; `TextBox` also styles `DateTimePicker`; `ListBox`
   also styles `CheckedListBox`).
@@ -448,6 +449,60 @@ Button:focus-visible {
 - Animations run on any control the parent composites -- not on windows, which do not animate their own
   style, and not on parts. In code, the same thing is `ControlStyle.Animation` (a `ControlAnimation`).
 
+### 10. Classes and ids
+
+```css
+Button { background-color: #333; color: white; }
+Button.primary { background-color: var(--accent-color); }
+Button.danger:hover { background-color: #b02a37; }
+.card { border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 1px 3px rgb(0 0 0 / 20%); }
+#saveButton { font-weight: bold; }
+```
+
+```csharp
+saveButton.StyleClasses.Add ("primary");          // restyles the control
+deleteButton.CssClass = "danger large";           // the same set, as a space-separated string
+panel.StyleClasses.Toggle ("card");               // add or remove
+```
+
+- **Why.** A type rule can only say "every `Button`". Classes name the variants a design needs -- a primary
+  button, a destructive one, a quiet toolbar one -- and ids name one control, without setting colours in
+  code, which is what a theme is for.
+- **Classes** are `Control.StyleClasses` (a small set: `Add`, `Remove`, `Contains`, `Toggle`) and
+  `Control.CssClass` (the same set as one space-separated string, which is what a designer or property grid
+  edits). Class names are case-sensitive words of letters, digits, `-` and `_`; a name no selector could
+  write is refused with an exception rather than silently never matching. Changing the classes restyles
+  the control -- and if the style it moves into has a `transition`, it fades there, like a hover does.
+- **Ids** are the control's `Name`. WinForms gives every designer-made control one (`saveButton`,
+  `button1`), so a ported form can be themed at once. Names need not be unique; a rule then styles every
+  control with that name.
+- The forms are in the [reference](#selectors-with-classes-and-ids): `.primary`, `Button.primary`
+  (a `Button`, or a type styled by `Button`'s rule), `.a.b` (both classes), `#id`, and `Button.primary:hover`
+  with one pseudo-class after the classes. A class or id can be combined with a pseudo-class a control
+  type supports; `.primary:hover` reaches the controls with the class whose type has `:hover`.
+- **Specificity** is CSS's: ids, then classes and pseudo-classes, then types, compared in that order; ties go
+  to the later rule. `Button:hover` (0,1,1) beats `.primary` (0,1,0) while hovered, and `.primary:hover`
+  (0,2,0) beats both -- whichever is written first. `ThemeCssRule.Specificity` has the numbers.
+- A rule that names a class applies **in every state from its own up**: `.primary` colours a hovered
+  `Button.primary` too, and wins over the type's built-in hover look (the accent colour), as an author rule
+  wins over a browser's default. A `Button { }` rule keeps leaving that built-in look alone, for a classed
+  button exactly as for any other.
+- Rule variables are scoped to the selector, `.primary { --bg: ...; }`, and visible in its states
+  (`.primary:hover { --bg: ...; }` changes every declaration of `.primary` that reads it). `@media`,
+  `transition` and `@keyframes` work unchanged; a `ThemeScope` with a stylesheet of its own uses that
+  sheet's class and id rules inside it.
+- **Per-control values still win**: `button.Style.BackgroundColor = ...` beats every rule.
+- **Cost.** A control with no classes and a `Name` no rule names keeps the type-level path exactly. A
+  control a rule does match gets one cascade layer per state, built the first time it is painted after
+  the sheet or its classes changed -- never per paint. `Control.Style` and the other instance styles show
+  the layers once the control has been painted (`CurrentStyle` builds them).
+- **Not yet**: combinators (`Panel Button`, `>`, `+`, `~`), `:not ()`, `:is ()`, `:where ()`, `:has ()`
+  and attribute selectors are errors that say they come in a later phase; so is a class or id together
+  with a `::part`, and a class or id on a window (`Form`).
+- Real WinForms controls have no classes: `#id` rules style them by `Name`, and class rules are reported
+  as info diagnostics ("styles Majorsilence.Forms controls only"); native Avalonia controls map both
+  (`Classes`, `Name`) -- see [theming-winforms.md](theming-winforms.md) and [theming-avalonia.md](theming-avalonia.md).
+
 ### Values
 
 | Kind | Accepted forms | Notes |
@@ -468,8 +523,10 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | You write | Why not | Write instead |
 |---|---|---|
 | `* { color: red; }` | There is no single style every control inherits from. | `:root { --foreground-color: red; }` for the theme-wide default. |
-| `.primary { color: red; }` | Controls have no CSS classes or ids. | A type rule, and `button.Style.ForegroundColor` in code for one control. |
-| `Panel Button { color: red; }` | A rule applies to every control of the type, wherever it sits. | `Button { color: red; }` |
+| `Panel Button { color: red; }` | Combinators (descendant, `>`, `+`, `~`) come in a later phase: a rule applies to a control by its own type, classes and id, wherever it sits. | `Button.toolbar { color: red; }` and `button.StyleClasses.Add ("toolbar")`. |
+| `Button:not(.primary) { color: red; }` | `:not ()`, `:is ()`, `:where ()` and `:has ()` come in a later phase, together with combinators. | `Button { color: red; }` then `Button.primary { color: white; }`. |
+| `DataGridView.dense::header { color: red; }` | A class or id cannot be combined with a `::part` yet: a part is styled for every control of its type. | `DataGridView::header { color: red; }` |
+| `Form.dialog { color: red; }` | A window has no style classes or id; they belong to controls. | `Form { color: red; }` |
 | `TextBox:disabled { color: gray; }` | `TextBox` does not change appearance for that state; only `Button`, `LinkLabel`, `TrackBar` take `:disabled`. | `:root { --foreground-disabled-color: gray; }`, which every disabled control's text already follows. |
 | `Button:oops { color: gray; }` | The pseudo-classes are `:hover`, `:active`, `:disabled` and `:focus`. | Pick one of those four. |
 | `Button { box-shadow: 4px 4px; }` | A shadow needs a colour: CSS's default is `currentcolor`, which a type rule has no element for. | `box-shadow: 4px 4px rgb(0 0 0 / 25%);` |
@@ -580,6 +637,22 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `RadSchedulerNavigator` | no | no | no | no | no |  | The Telerik scheduler's navigation bar. |
 | `RadStatusStrip` | no | no | no | no | no |  | Telerik status strips along the bottom of a form. |
 | `RichTextEditorRibbonBar` | no | no | no | no | no |  | The Telerik rich text editor's ribbon bar. |
+
+### Selectors with classes and ids
+
+A control has style classes (`Control.StyleClasses`, or the space-separated `Control.CssClass`) and an id, its `Name`. A selector can name them, alone or after a type, and the rules that reach one control are applied in order of specificity -- ids, then classes and pseudo-classes, then types; ties go to the later rule -- as in a browser. Not on a window (`Form`) and not combined with a `::part`.
+
+| Selector | Matches | Specificity |
+|---|---|---|
+| `.primary` | any control whose classes include `primary` | `(0,1,0)` |
+| `Button.primary` | a `Button` (or a type styled by `Button`'s rule) with that class | `(0,1,1)` |
+| `.primary.large` | a control with both classes | `(0,2,0)` |
+| `#saveButton` | the control whose `Name` is `saveButton` (a designer gives every control one) | `(1,0,0)` |
+| `Button#saveButton` | the `Button` named `saveButton` | `(1,0,1)` |
+| `Button.primary:hover` | that variant while hovered -- one pseudo-class, after the classes and ids | `(0,2,1)` |
+| `.primary:hover` | any control with the class that supports `:hover` (the pseudo-class column above) | `(0,2,0)` |
+
+Combinators (`Panel Button`, `>`, `+`, `~`), `:not ()`, `:is ()`, `:where ()`, `:has ()` and attribute selectors are errors that say they come in a later phase.
 
 ### Telerik controls (`Majorsilence.Forms.Telerik`)
 
@@ -893,7 +966,7 @@ scope.Reset (nameof (Theme.AccentColor));                     // follow Theme ag
 - **What it overrides.** Only the tokens it sets; `SetBuiltInTheme` and `LoadFromCss`/`ApplyStyleSheet`
   set all of them. Every other token follows `Theme`, including later changes. The application's CSS
   control rules apply inside a scope until the scope has a theme of its own (`SetBuiltInTheme` or a
-  stylesheet), whose rules then replace them there. A scoped stylesheet may `extends` a built-in theme or
+  stylesheet), whose rules then replace them there -- class and id rules included. A scoped stylesheet may `extends` a built-in theme or
   a CSS theme registered with `Theme.RegisterThemeCss`, not an XML one.
 - **What it leaves alone.** `Theme`'s values, `Theme.ThemeChanged`, `Theme.CurrentStyleSheets` and the
   WinForms/Avalonia bridges. A scope raises its own `Changed` event (once per `BeginUpdate`/`EndUpdate`).

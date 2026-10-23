@@ -17,6 +17,7 @@ namespace Majorsilence.Forms
                 theme_scope?.Detach (this);
                 theme_scope = value;
                 value?.Attach (this);
+                Theme.BumpScopedRules ();   // class and id rules read the scope the control resolves
 
                 Majorsilence.Forms.ThemeScope.NotifyThemeChanged (this);
             }
@@ -65,6 +66,7 @@ namespace Majorsilence.Forms
                 theme_scope?.Detach (this);
                 theme_scope = value;
                 value?.Attach (this);
+                Theme.BumpScopedRules ();   // class and id rules read the scope the control resolves
 
                 Majorsilence.Forms.ThemeScope.NotifyThemeChanged (this);
             }

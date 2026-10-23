@@ -217,8 +217,33 @@ namespace Majorsilence.Forms
             Column = column;
         }
 
-        /// <summary>The control type targeted.</summary>
+        /// <summary>
+        /// The control type targeted. For a rule with no type -- <c>.primary { ... }</c>, <c>#save { ... }</c> -- this is
+        /// a stand-in selector whose <see cref="ThemeCssSelector.IsAny"/> is true, never null: check <see cref="AppliesToAnyType"/> (or <see cref="IsScoped"/>) before
+        /// looking the type up, since such a rule reaches every control type that has the class or id.
+        /// </summary>
         public ThemeCssSelector Selector { get; }
+
+        /// <summary>
+        /// The <c>.class</c> names the control must have for the rule to apply (<c>.a.b</c> needs both), in source order and without
+        /// duplicates; empty for a rule on every control of the type.
+        /// </summary>
+        public IReadOnlyList<string> Classes { get; internal set; } = Array.Empty<string> ();
+
+        /// <summary>The <c>#id</c> the rule requires -- matched against <c>Control.Name</c> -- or null.</summary>
+        public string? Id { get; internal set; }
+
+        /// <summary>
+        /// The selector's CSS specificity (see <see cref="ThemeCssSpecificity"/>). A host applier that cannot resolve the cascade
+        /// itself orders the rules that reach one element by it, ties to the later rule.
+        /// </summary>
+        public ThemeCssSpecificity Specificity { get; internal set; }
+
+        /// <summary>Whether the rule names a class or an id, so it reaches individual controls rather than every control of a type.</summary>
+        public bool IsScoped => Classes.Count > 0 || Id is not null;
+
+        /// <summary>Whether the selector names no control type (<c>.primary</c>, <c>#save</c>): <see cref="Selector"/> is then a stand-in selector whose <see cref="ThemeCssSelector.IsAny"/> is true.</summary>
+        public bool AppliesToAnyType => Selector.IsAny;
 
         /// <summary>The part inside the control targeted (<c>Type::part</c>), or null for the control itself.</summary>
         public ThemeCssPart? Part { get; }
@@ -271,7 +296,12 @@ namespace Majorsilence.Forms
         public override string ToString ()
         {
             var sb = new StringBuilder ();
-            sb.Append (Selector.Name);
+            if (!Selector.IsAny)
+                sb.Append (Selector.Name);
+            foreach (var name in Classes)
+                sb.Append ('.').Append (name);
+            if (Id is not null)
+                sb.Append ('#').Append (Id);
             if (Part is not null)
                 sb.Append ("::").Append (Part.Name);
             if (Hover)

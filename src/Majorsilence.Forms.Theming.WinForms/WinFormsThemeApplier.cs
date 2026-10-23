@@ -18,6 +18,51 @@ namespace Majorsilence.Forms.Theming.WinForms
             Strips = strips;
         }
 
+        // An overlay for one control: the same tokens, strips, sink and reported set, other rules.
+        private ApplyContext (ApplyContext basis, ThemeRuleSet rules)
+        {
+            Rules = rules;
+            Tokens = basis.Tokens;
+            Strips = basis.Strips;
+            Sink = basis.Sink;
+            reported = basis.reported;
+            Basis = basis;
+        }
+
+        /// <summary>The context this one is an overlay of, or null for the applied sheet's own.</summary>
+        public ApplyContext? Basis { get; }
+
+        // The overlays made so far, by (id, selector): controls with the same name and type read the same rules.
+        private readonly Dictionary<(string Id, string Selector), ApplyContext> overlays = new ();
+
+        /// <summary>
+        /// The context to style <paramref name="control"/> with: this one, or -- when a rule names the control's <c>Name</c> as an id
+        /// (<c>#saveButton</c>, <c>Button#saveButton</c>) -- a copy whose rules for the control's own selector have those id rules laid
+        /// over them. Everything the applier reads for the control (colours, fonts, states, borders, effects, motion) then follows the
+        /// id rule with no further change. Class rules never reach here: a WinForms control has no style classes.
+        /// </summary>
+        public ApplyContext ForControl (WF.Control control)
+        {
+            if (!Rules.HasIdRules || control.Name is not { Length: > 0 } name || !Rules.HasIdRule (name))
+                return this;
+
+            if (WinFormsThemeApplier.OwnSelectorOf (control) is not { } selector)
+                return this;
+
+            if (overlays.TryGetValue ((name, selector), out var made))
+                return made;
+
+            var overlaid = Rules.OverlayFor (name, selector);
+            var overlay = ReferenceEquals (overlaid, Rules) ? this : new ApplyContext (this, overlaid);
+
+            // The id rules that name no type are checked against the type of the control they reach, which is only known here.
+            if (Sink is not null)
+                WinFormsCssTheme.DiagnoseIdRules (Sink, reported, Rules.IdRulesFor (name, selector), selector);
+
+            overlays[(name, selector)] = overlay;
+            return overlay;
+        }
+
         public ThemeRuleSet Rules { get; }
         public TokenSnapshot Tokens { get; }
         public StripColors Strips { get; }
@@ -48,6 +93,46 @@ namespace Majorsilence.Forms.Theming.WinForms
     {
         /// <summary>The last applied context; null until the first apply.</summary>
         public static ApplyContext? Current { get; set; }
+
+        /// <summary>The context to style <paramref name="control"/> with now: the applied one, with any id rule that names the control laid over it.</summary>
+        public static ApplyContext? ContextFor (WF.Control control) => Current?.ForControl (control);
+
+        /// <summary>
+        /// The selector a real control's rules are written against -- the one <see cref="ApplyControl"/> reads for it -- or null for a
+        /// control no rule reaches (a scroll bar, a custom control).
+        /// </summary>
+        public static string? OwnSelectorOf (WF.Control control) => control switch {
+            WF.Form => "Form",
+            WF.DataGridView => "DataGridView",
+            WF.PropertyGrid => "PropertyGrid",
+            WF.TreeView => "TreeView",
+            WF.ListView => "ListView",
+            WF.ListBox => "ListBox",
+            WF.ProgressBar => "ProgressBar",
+            WF.ComboBox => "ComboBox",
+            WF.NumericUpDown => "NumericUpDown",
+            WF.DateTimePicker => "DateTimePicker",
+            WF.TextBoxBase => "TextBox",
+            WF.LinkLabel => "LinkLabel",
+            WF.Label => "Label",
+            WF.Button => "Button",
+            WF.CheckBox => "CheckBox",
+            WF.RadioButton => "RadioButton",
+            WF.GroupBox => "GroupBox",
+            WF.MonthCalendar => "MonthCalendar",
+            WF.TrackBar => "TrackBar",
+            WF.TabControl => "TabControl",
+            WF.SplitContainer => "SplitContainer",
+            WF.Splitter => "Splitter",
+            WF.MenuStrip => "Menu",
+            WF.StatusStrip => "StatusStrip",
+            WF.ToolStripDropDown => "MenuDropDown",
+            WF.ToolStrip => "ToolBar",
+            WF.PictureBox => "PictureBox",
+            WF.ScrollBar => null,
+            WF.Panel => "Panel",
+            _ => null
+        };
 
         // What this applier has done to each control it has seen. Weak so tracked controls can be
         // collected normally.
@@ -80,7 +165,7 @@ namespace Majorsilence.Forms.Theming.WinForms
             if (Current is null || WinFormsCssTheme.Exclude?.Invoke (control) == true)
                 return;
 
-            ApplyControl (control, Current);
+            ApplyControl (control, Current.ForControl (control));
             HookChildren (control);
 
             if (control.ContextMenuStrip is { } contextMenu)
@@ -467,7 +552,7 @@ namespace Majorsilence.Forms.Theming.WinForms
             if (!state.HandleHookInstalled) {
                 state.HandleHookInstalled = true;
                 form.HandleCreated += static (sender, _) => {
-                    if (sender is WF.Form f && Current is { } current)
+                    if (sender is WF.Form f && ContextFor (f) is { } current)
                         ApplyTitleBar (f, current);
                 };
             }
@@ -647,7 +732,7 @@ namespace Majorsilence.Forms.Theming.WinForms
                 state.ItemDrawHookInstalled = true;
                 tree.DrawMode = WF.TreeViewDrawMode.OwnerDrawText;
                 tree.DrawNode += static (sender, e) => {
-                    if (sender is WF.TreeView tv && Current is { } current)
+                    if (sender is WF.TreeView tv && ContextFor (tv) is { } current)
                         DrawTreeNode (tv, e, current);
                 };
             }
@@ -688,7 +773,7 @@ namespace Majorsilence.Forms.Theming.WinForms
                 state.ItemDrawHookInstalled = true;
                 list.DrawMode = WF.DrawMode.OwnerDrawFixed;
                 list.DrawItem += static (sender, e) => {
-                    if (sender is WF.ListBox lb && Current is { } current)
+                    if (sender is WF.ListBox lb && ContextFor (lb) is { } current)
                         DrawListBoxItem (lb, e, current);
                 };
             }
@@ -729,19 +814,19 @@ namespace Majorsilence.Forms.Theming.WinForms
                 state.ItemDrawHookInstalled = true;
                 list.OwnerDraw = true;
                 list.DrawColumnHeader += static (sender, e) => {
-                    if (sender is WF.ListView lv && Current is { } current)
+                    if (sender is WF.ListView lv && ContextFor (lv) is { } current)
                         DrawListViewHeader (lv, e, current);
                     else
                         e.DrawDefault = true;
                 };
                 list.DrawItem += static (sender, e) => {
-                    if (sender is WF.ListView lv && Current is { } current)
+                    if (sender is WF.ListView lv && ContextFor (lv) is { } current)
                         DrawListViewItem (lv, e, current);
                     else
                         e.DrawDefault = true;
                 };
                 list.DrawSubItem += static (sender, e) => {
-                    if (sender is WF.ListView lv && Current is { } current)
+                    if (sender is WF.ListView lv && ContextFor (lv) is { } current)
                         DrawListViewSubItem (lv, e, current);
                     else
                         e.DrawDefault = true;
@@ -952,7 +1037,7 @@ namespace Majorsilence.Forms.Theming.WinForms
                 state.TabDrawHookInstalled = true;
                 tabControl.DrawMode = WF.TabDrawMode.OwnerDrawFixed;
                 tabControl.DrawItem += static (sender, e) => {
-                    if (sender is WF.TabControl tc && Current is { } current)
+                    if (sender is WF.TabControl tc && ContextFor (tc) is { } current)
                         DrawTab (tc, e, current);
                 };
             }

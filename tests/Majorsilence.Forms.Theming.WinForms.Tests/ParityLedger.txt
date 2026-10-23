@@ -1,5 +1,5 @@
 # WinForms theming parity ledger. Rewrite with MAJORSILENCE_WRITE_THEMING_PARITY_LEDGER=1.
-# native=184 approximate=549 unsupported=1390
+# native=186 approximate=549 unsupported=1395
 Button animation-delay = Approximate
 Button animation-direction = Approximate
 Button animation-duration = Approximate
@@ -2123,3 +2123,10 @@ TreeView transition-property = Unsupported
 TreeView transition-timing-function = Unsupported
 TreeView::selection background-color = Approximate
 TreeView::selection color = Approximate
+form #saveButton = Native
+form .primary = Unsupported
+form .primary.large = Unsupported
+form .primary:hover = Unsupported
+form Button#saveButton = Native
+form Button.primary = Unsupported
+form Button.primary:hover = Unsupported

@@ -148,6 +148,20 @@ the public spelling of `ShouldSerializeBackColor` and friends. A value the app c
 theme was applied is also left alone from then on. The applier only writes properties it owns, so a
 re-apply moves exactly what the previous apply set.
 
+### Classes and ids
+
+`#id` selectors map: `#saveButton { ... }` styles the control whose `Name` is `saveButton` -- the designer gives every
+control one -- and `Button#saveButton` only if that control is a `Button`. The rule is read exactly as the type's rules for
+that control are (a `#id` on a `TextBox` reads the `TextBox` rows of the matrix), is laid over them as CSS specificity says
+(an id outranks every type rule, whichever comes first, and holds in the hovered, pressed, disabled and focused states
+too), and an explicit colour the app set on the control still wins. The name is read when the control is styled -- at an
+apply, or as it is added to a tracked form -- so a `Name` changed afterwards applies at the next apply.
+
+Style **classes** have no counterpart: a System.Windows.Forms control has none. A rule that names one
+(`.primary`, `Button.primary:hover`) reaches no WinForms control and is reported as an info diagnostic, "styles
+Majorsilence.Forms controls only" -- it still styles the Majorsilence.Forms controls that carry the class
+(`Control.StyleClasses`). Select a WinForms control by its `Name` instead.
+
 ### Diagnostics
 
 The rule the whole subset is built on is *never silently no-op*. Every declaration in an applied sheet
@@ -222,6 +236,18 @@ with `MAJORSILENCE_WRITE_THEMING_WINFORMS_DOC=1 dotnet test tests/Majorsilence.F
 | `RadSchedulerNavigator` | — | A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped. |
 | `RadStatusStrip` | — | A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped. |
 | `RichTextEditorRibbonBar` | — | A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped. |
+
+### Selectors with classes and ids
+
+| Selector | Support | Notes |
+|---|---|---|
+| `.primary` | unsupported | A System.Windows.Forms control has no style classes, so the rule reaches none of them; it is reported as an info diagnostic ("styles Majorsilence.Forms controls only"). Select the control by its Name instead. |
+| `Button.primary` | unsupported | A System.Windows.Forms control has no style classes, so the rule reaches none of them; it is reported as an info diagnostic ("styles Majorsilence.Forms controls only"). Select the control by its Name instead. |
+| `.primary.large` | unsupported | A System.Windows.Forms control has no style classes, so the rule reaches none of them; it is reported as an info diagnostic ("styles Majorsilence.Forms controls only"). Select the control by its Name instead. |
+| `#saveButton` | native | Matches the control whose Name is the id (the designer gives every control one), at any depth of the form, the way a type selector matches a type; a rule with no type reads the type's rows of the control it finds. Its declarations win over the type's own rules, in every state the control has. Read when the control is styled: a Name changed afterwards applies at the next apply. |
+| `Button#saveButton` | native | Matches the control whose Name is the id (the designer gives every control one), at any depth of the form, the way a type selector matches a type; the type must be the control's own. Its declarations win over the type's own rules, in every state the control has. Read when the control is styled: a Name changed afterwards applies at the next apply. |
+| `Button.primary:hover` | unsupported | A System.Windows.Forms control has no style classes, so the rule reaches none of them; it is reported as an info diagnostic ("styles Majorsilence.Forms controls only"). Select the control by its Name instead. |
+| `.primary:hover` | unsupported | A System.Windows.Forms control has no style classes, so the rule reaches none of them; it is reported as an info diagnostic ("styles Majorsilence.Forms controls only"). Select the control by its Name instead. |
 
 ### Property support
 

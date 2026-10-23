@@ -279,7 +279,7 @@ namespace Majorsilence.Forms.Theming.WinForms
                 }
 
                 // An animation recomputes the whole look each frame (it reads the clock itself).
-                if (ms.Run is not null && Current is { } ctx && StateSelectorOf (control) is { } selector && tracking.TryGetValue (control, out var track))
+                if (ms.Run is not null && ContextFor (control) is { } ctx && StateSelectorOf (control) is { } selector && tracking.TryGetValue (control, out var track))
                     RefreshLook (control, ctx, ResolvedState (control, ctx, selector, track));
 
                 if (ms.Tweens.Count == 0 && (ms.Run is null || !HasInfiniteOrRunning (ms.Run)))

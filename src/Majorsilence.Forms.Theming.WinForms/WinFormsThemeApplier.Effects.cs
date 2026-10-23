@@ -174,7 +174,7 @@ namespace Majorsilence.Forms.Theming.WinForms
             if (sender is not WF.Control control || control.IsDisposed || !states.TryGetValue (control, out var cs) || cs.Effects is not { } look)
                 return;
 
-            if (rebuild && Current is { } ctx) {
+            if (rebuild && ContextFor (control) is { } ctx) {
                 // A burst of resizes becomes one rebuild per message-loop turn.
                 if (look.GradientQueued)
                     return;
@@ -183,7 +183,7 @@ namespace Majorsilence.Forms.Theming.WinForms
                     look.GradientQueued = true;
                     control.BeginInvoke (() => {
                         look.GradientQueued = false;
-                        if (!control.IsDisposed && Current is { } latest)
+                        if (!control.IsDisposed && ContextFor (control) is { } latest)
                             ApplyEffects (control, latest);
                     });
                 } else {

@@ -97,15 +97,40 @@ namespace Majorsilence.Forms.Theming.WinForms
         private readonly Dictionary<(string Selector, string? Part, ThemeCssState State), List<ThemeCssDeclaration>> ordered = new ();
         private readonly Dictionary<string, ControlKeyframes> keyframes = new (StringComparer.Ordinal);
 
+        // The rules that name only an id (#saveButton, Button#saveButton), by the id: they style the control whose Name it is, so they
+        // are not part of the merged type rules above but laid over them for that control (OverlayFor). Rules that name a class are
+        // not here: a real WinForms control has no style classes, so they reach none of its controls (WinFormsCssTheme reports them).
+        private readonly Dictionary<string, List<(ThemeCssRule Rule, int Order)>> id_rules = new (StringComparer.Ordinal);
+
+        /// <summary>Whether any rule in the chain is an id rule.</summary>
+        public bool HasIdRules => id_rules.Count > 0;
+
+        /// <summary>Whether a rule in the chain names exactly this id.</summary>
+        public bool HasIdRule (string name) => id_rules.ContainsKey (name);
+
         public static ThemeRuleSet Build (IReadOnlyList<ThemeStyleSheet> chain)
         {
             var set = new ThemeRuleSet ();
+            var order = 0;
 
             foreach (var sheet in chain) {
                 foreach (var keyframe in sheet.Keyframes)
                     set.keyframes[keyframe.Name] = keyframe;
 
                 foreach (var rule in sheet.Rules) {
+                    order++;
+
+                    // A rule naming a class or an id is not a rule for the type: it reaches individual controls.
+                    if (rule.IsScoped) {
+                        if (rule.Classes.Count == 0 && rule.Id is { } id) {
+                            if (!set.id_rules.TryGetValue (id, out var list))
+                                set.id_rules[id] = list = new List<(ThemeCssRule, int)> ();
+                            list.Add ((rule, order));
+                        }
+
+                        continue;
+                    }
+
                     // Each state keeps its own declarations, so an :active, :disabled, :focus or :focus-visible rule never
                     // merges into the at-rest key and overrides the base rule.
                     var key = (rule.Selector.Name, rule.Part?.Name, rule.State);
@@ -126,6 +151,72 @@ namespace Majorsilence.Forms.Theming.WinForms
             }
 
             return set;
+        }
+
+        private ThemeRuleSet Copy ()
+        {
+            var copy = new ThemeRuleSet ();
+
+            foreach (var pair in rules)
+                copy.rules[pair.Key] = new Dictionary<string, ThemeCssDeclaration> (pair.Value, StringComparer.OrdinalIgnoreCase);
+            foreach (var pair in ordered)
+                copy.ordered[pair.Key] = new List<ThemeCssDeclaration> (pair.Value);
+            foreach (var pair in keyframes)
+                copy.keyframes[pair.Key] = pair.Value;
+
+            return copy;
+        }
+
+        /// <summary>The id rules that style a control named <paramref name="name"/> whose own selector is <paramref name="selector"/>, in cascade order.</summary>
+        public IReadOnlyList<ThemeCssRule> IdRulesFor (string name, string selector)
+            => id_rules.TryGetValue (name, out var list)
+                ? list.Where (r => r.Rule.Selector.IsAny || string.Equals (r.Rule.Selector.Name, selector, StringComparison.OrdinalIgnoreCase))
+                    .OrderBy (r => r.Rule.Specificity).ThenBy (r => r.Order).Select (r => r.Rule).ToList ()
+                : Array.Empty<ThemeCssRule> ();
+
+        /// <summary>
+        /// These rules with the id rules for a control named <paramref name="name"/> laid over the rules of its own
+        /// <paramref name="selector"/>, so the applier reads them exactly as it reads the type's -- under the control's own selector.
+        /// An id rule outranks every type rule, so its declarations come after the type's, in each state it reaches: a resting
+        /// <c>#save</c> rule also holds in the hovered, pressed, disabled and focused states the selector has (a rule for the
+        /// state itself, written later or more specifically, is laid over it), as a class or id rule does in a browser.
+        /// Returns this set when no id rule reaches the control.
+        /// </summary>
+        public ThemeRuleSet OverlayFor (string name, string selector)
+        {
+            var reaching = IdRulesFor (name, selector);
+
+            if (reaching.Count == 0)
+                return this;
+
+            var copy = Copy ();
+            var info = ThemeCssReference.FindSelector (selector);
+
+            foreach (var rule in reaching) {
+                var states = new List<ThemeCssState> { rule.State };
+
+                // :focus-visible reads the :focus key as well, so it needs no copy of its own.
+                if (rule.State == ThemeCssState.Normal && info is not null)
+                    foreach (var state in new[] { ThemeCssState.Hover, ThemeCssState.Active, ThemeCssState.Disabled, ThemeCssState.Focus })
+                        if (info.Supports (state))
+                            states.Add (state);
+
+                foreach (var state in states) {
+                    var key = (selector, (string?) null, state);
+
+                    if (!copy.rules.TryGetValue (key, out var declarations))
+                        copy.rules[key] = declarations = new Dictionary<string, ThemeCssDeclaration> (StringComparer.OrdinalIgnoreCase);
+                    if (!copy.ordered.TryGetValue (key, out var sequence))
+                        copy.ordered[key] = sequence = new List<ThemeCssDeclaration> ();
+
+                    foreach (var declaration in rule.Declarations) {
+                        declarations[declaration.Property] = declaration;
+                        sequence.Add (declaration);
+                    }
+                }
+            }
+
+            return copy;
         }
 
         public ThemeCssValue? Value (string selector, string? part, bool hover, string property)
