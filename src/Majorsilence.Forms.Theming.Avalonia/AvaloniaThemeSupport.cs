@@ -30,10 +30,15 @@ namespace Majorsilence.Forms.Theming.Avalonia
     public sealed class AvaloniaThemeSupportEntry
     {
         internal AvaloniaThemeSupportEntry (string selector, string? part, bool hover, string property, AvaloniaThemeSupportLevel level, string notes, IReadOnlyList<AvaloniaTarget> targets)
+            : this (selector, part, hover ? ThemeCssState.Hover : ThemeCssState.Normal, property, level, notes, targets)
+        {
+        }
+
+        internal AvaloniaThemeSupportEntry (string selector, string? part, ThemeCssState state, string property, AvaloniaThemeSupportLevel level, string notes, IReadOnlyList<AvaloniaTarget> targets)
         {
             Selector = selector;
             Part = part;
-            Hover = hover;
+            State = state;
             Property = property;
             Level = level;
             Notes = notes;
@@ -46,8 +51,11 @@ namespace Majorsilence.Forms.Theming.Avalonia
         /// <summary>The <c>::part</c> pseudo-element, or null for the control itself.</summary>
         public string? Part { get; }
 
+        /// <summary>The state the row describes: the resting look or one pseudo-class.</summary>
+        public ThemeCssState State { get; }
+
         /// <summary>Whether the row describes the <c>:hover</c> variant.</summary>
-        public bool Hover { get; }
+        public bool Hover => State == ThemeCssState.Hover;
 
         /// <summary>The longhand property name.</summary>
         public string Property { get; }
@@ -62,13 +70,23 @@ namespace Majorsilence.Forms.Theming.Avalonia
         public IReadOnlyList<string> ResourceKeys => Targets.OfType<ResourceTarget> ().Select (t => t.Key).ToList ();
 
         /// <summary>The style selectors (Avalonia syntax) the declaration sets a property on.</summary>
-        public IReadOnlyList<string> StyleSelectors => Targets.OfType<StyleTarget> ().Select (t => $"{t.Selector.Key} {{ {t.Property.Name} }}").ToList ();
+        public IReadOnlyList<string> StyleSelectors => Targets.OfType<StyleTarget> ().Select (t => $"{t.Selector.Key} {{ {t.Property.Name} }}")
+            .Concat (Targets.OfType<MotionTarget> ().Select (_ => "Transitions / Animations on the template parts")).ToList ();
 
         internal IReadOnlyList<AvaloniaTarget> Targets { get; }
 
         /// <inheritdoc/>
         public override string ToString ()
-            => $"{Selector}{(Part is null ? "" : "::" + Part)}{(Hover ? ":hover" : "")} {{ {Property} }} -> {Level}";
+            => $"{Selector}{(Part is null ? "" : "::" + Part)}{StateText (State)} {{ {Property} }} -> {Level}";
+
+        internal static string StateText (ThemeCssState state) => state switch {
+            ThemeCssState.Hover => ":hover",
+            ThemeCssState.Active => ":active",
+            ThemeCssState.Disabled => ":disabled",
+            ThemeCssState.Focus => ":focus",
+            ThemeCssState.FocusVisible => ":focus-visible",
+            _ => ""
+        };
     }
 
     /// <summary>Where a CSS selector lands in Avalonia, or why it cannot.</summary>
@@ -107,12 +125,12 @@ namespace Majorsilence.Forms.Theming.Avalonia
 
         // Added in #286, after every row was complete for the properties that existed then.
         private static readonly (string Property, string Note)[] effect_properties = {
-            ("opacity", "Not mapped yet: Avalonia's Opacity would fade the whole Fluent control, which is right, but no style target is wired up."),
-            ("background-image", "Not mapped yet: Fluent's backgrounds are template resources (brushes), and a gradient brush mapping is not wired up."),
-            ("outline-width", "Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam."),
-            ("outline-style", "Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam."),
-            ("outline-color", "Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam."),
-            ("outline-offset", "Not mapped yet: Fluent draws its own focus visual (FocusAdorner); there is no outline seam."),
+            ("opacity", "This control has no style selector to put an Opacity on."),
+            ("background-image", "This control's fill is not a brush resource or a setter, so there is nowhere to put a gradient."),
+            ("outline-width", "Only a :focus / :focus-visible outline maps (Avalonia's FocusAdorner); an outline at rest needs an adorner layer."),
+            ("outline-style", "Only a :focus / :focus-visible outline maps (Avalonia's FocusAdorner); an outline at rest needs an adorner layer."),
+            ("outline-color", "Only a :focus / :focus-visible outline maps (Avalonia's FocusAdorner); an outline at rest needs an adorner layer."),
+            ("outline-offset", "Only a :focus / :focus-visible outline maps (Avalonia's FocusAdorner); an outline at rest needs an adorner layer."),
         };
 
         private static readonly string[] transition_properties = { "transition-property", "transition-duration", "transition-timing-function", "transition-delay",
@@ -141,10 +159,10 @@ namespace Majorsilence.Forms.Theming.Avalonia
         /// <summary>Every selector, with the Avalonia type(s) it applies to (null = no counterpart).</summary>
         public static IReadOnlyList<AvaloniaThemeSelectorMapping> Mappings { get; }
 
-        /// <summary>Every (selector, part, hover, property) row.</summary>
+        /// <summary>Every (selector, part, state, property) row.</summary>
         public static IReadOnlyList<AvaloniaThemeSupportEntry> Entries { get; }
 
-        private static readonly Dictionary<(string Selector, string? Part, bool Hover, string Property), AvaloniaThemeSupportEntry> index;
+        private static readonly Dictionary<(string Selector, string? Part, ThemeCssState State, string Property), AvaloniaThemeSupportEntry> index;
         private static readonly Dictionary<string, AvaloniaThemeSelectorMapping> mapping_index;
 
         /// <summary>
@@ -152,10 +170,27 @@ namespace Majorsilence.Forms.Theming.Avalonia
         /// counterpart at all (see <see cref="FindMapping"/>).
         /// </summary>
         public static AvaloniaThemeSupportEntry? Find (string selector, string? part, bool hover, string property)
+            => Find (selector, part, hover ? ThemeCssState.Hover : ThemeCssState.Normal, property);
+
+        /// <summary>
+        /// Looks up the row for one declaration in a given state. Returns null when the selector has no
+        /// Avalonia counterpart, or does not take that state.
+        /// </summary>
+        public static AvaloniaThemeSupportEntry? Find (string selector, string? part, ThemeCssState state, string property)
         {
-            index.TryGetValue ((selector.ToLowerInvariant (), part?.ToLowerInvariant (), hover, property.ToLowerInvariant ()), out var entry);
+            index.TryGetValue ((selector.ToLowerInvariant (), part?.ToLowerInvariant (), state, property.ToLowerInvariant ()), out var entry);
             return entry;
         }
+
+        /// <summary>
+        /// Whether a state has at least one row that does something on Avalonia (Native or Approximate).
+        /// Until it does, the applier reports a rule for the state once and skips it.
+        /// </summary>
+        /// <param name="selector">The selector.</param>
+        /// <param name="state">The state to ask about.</param>
+        public static bool AppliesInState (string selector, ThemeCssState state)
+            => Entries.Any (e => e.State == state && e.Level != AvaloniaThemeSupportLevel.Unsupported
+                && string.Equals (e.Selector, selector, StringComparison.OrdinalIgnoreCase));
 
         /// <summary>Looks up where a selector lands in Avalonia, or null for a selector the grammar does not know.</summary>
         public static AvaloniaThemeSelectorMapping? FindMapping (string selector)
@@ -173,12 +208,52 @@ namespace Majorsilence.Forms.Theming.Avalonia
                 => mappings.Add (new AvaloniaThemeSelectorMapping (selector, types, notes));
 
             bool Has (string selector, string? part, bool hover, string property)
-                => entries.Any (e => e.Selector == selector && e.Part == part && e.Hover == hover && e.Property == property);
+                => entries.Any (e => e.Selector == selector && e.Part == part && e.State == (hover ? ThemeCssState.Hover : ThemeCssState.Normal) && e.Property == property);
 
             void Add (string selector, string? part, bool hover, string property, AvaloniaThemeSupportLevel level, string notes, IReadOnlyList<AvaloniaTarget> targets)
             {
                 if (!Has (selector, part, hover, property))
                     entries.Add (new AvaloniaThemeSupportEntry (selector, part, hover, property, level, notes, targets));
+            }
+
+            // A selector with no Avalonia control, opted into by the app: elements marked with CssTheme.Selector take its rules. A marked
+            // Border, Panel or templated control is restyled; the text colour and fonts are the inherited TextElement properties.
+            void Marked (string selector, string notes)
+            {
+                Map (selector, "Border, Panel or templated control marked with CssTheme.Selector=\"" + selector + "\"", notes);
+
+                var border = S.Marked<Border> (selector);
+                var panel = S.Marked<Panel> (selector);
+                var control = S.Marked<global::Avalonia.Controls.Primitives.TemplatedControl> (selector);
+
+                void Row (string property, AvaloniaThemeSupportLevel level, string rowNotes, params AvaloniaTarget[] targets)
+                    => entries.Add (new AvaloniaThemeSupportEntry (selector, null, ThemeCssState.Normal, property, level, rowNotes, targets));
+
+                AvaloniaTarget[] All (global::Avalonia.AvaloniaProperty property) => new AvaloniaTarget[] { new StyleTarget (border, property), new StyleTarget (panel, property), new StyleTarget (control, property) };
+                AvaloniaTarget[] BorderOrControl (global::Avalonia.AvaloniaProperty onBorder, global::Avalonia.AvaloniaProperty onControl, BorderSide side = BorderSide.All, CornerSide corner = CornerSide.All)
+                    => new AvaloniaTarget[] { new StyleTarget (border, onBorder, side, corner), new StyleTarget (control, onControl, side, corner) };
+
+                const string setter = "A setter in the generated Styles on the marked element.";
+                const string noPanelBorder = " A marked Panel has no border.";
+
+                Row ("background-color", AvaloniaThemeSupportLevel.Native, setter, new AvaloniaTarget[] {
+                    new StyleTarget (border, Border.BackgroundProperty), new StyleTarget (panel, Panel.BackgroundProperty), new StyleTarget (control, P.Background) });
+                Row ("color", AvaloniaThemeSupportLevel.Native, "TextElement.Foreground, which the text inside the marked element inherits.", All (global::Avalonia.Controls.Documents.TextElement.ForegroundProperty));
+                Row ("font-family", AvaloniaThemeSupportLevel.Native, "TextElement.FontFamily, inherited by the text inside.", All (global::Avalonia.Controls.Documents.TextElement.FontFamilyProperty));
+                Row ("font-size", AvaloniaThemeSupportLevel.Native, "TextElement.FontSize, inherited by the text inside.", All (global::Avalonia.Controls.Documents.TextElement.FontSizeProperty));
+                Row ("font-weight", AvaloniaThemeSupportLevel.Native, "TextElement.FontWeight, inherited by the text inside.", All (global::Avalonia.Controls.Documents.TextElement.FontWeightProperty));
+                Row ("font-style", AvaloniaThemeSupportLevel.Native, "TextElement.FontStyle, inherited by the text inside.", All (global::Avalonia.Controls.Documents.TextElement.FontStyleProperty));
+                Row ("border-color", AvaloniaThemeSupportLevel.Native, setter + noPanelBorder, BorderOrControl (Border.BorderBrushProperty, P.BorderBrush));
+                Row ("border-width", AvaloniaThemeSupportLevel.Native, setter + noPanelBorder, BorderOrControl (Border.BorderThicknessProperty, P.BorderThickness));
+                Row ("border-radius", AvaloniaThemeSupportLevel.Native, setter + noPanelBorder, BorderOrControl (Border.CornerRadiusProperty, P.CornerRadius));
+
+                foreach (var (property, side) in new[] { ("border-top-width", BorderSide.Top), ("border-right-width", BorderSide.Right), ("border-bottom-width", BorderSide.Bottom), ("border-left-width", BorderSide.Left) })
+                    Row (property, AvaloniaThemeSupportLevel.Native, setter + noPanelBorder, BorderOrControl (Border.BorderThicknessProperty, P.BorderThickness, side));
+
+                foreach (var property in side_colors)
+                    Row (property, AvaloniaThemeSupportLevel.Approximate, "Avalonia controls have one BorderBrush; a side colour colours every side that has a width." + noPanelBorder, BorderOrControl (Border.BorderBrushProperty, P.BorderBrush));
+
+                // Per-corner radii are added with the other selectors' (see below): they are copied from this border-radius row.
             }
 
             // A Fluent theme resource (or several) the declaration's colour is written to.
@@ -225,13 +300,13 @@ namespace Majorsilence.Forms.Theming.Avalonia
             // The #286 properties (per-corner radius, dashed borders) are like box-shadow: not in
             // all_properties, added explicitly below, always Unsupported. Avalonia's CornerRadius is
             // per-corner and could carry the radii, but nothing is wired to it yet.
-            const string NoCornerRadiusTarget = "No Avalonia mapping is wired up yet for a per-corner border radius; use a single border-radius.";
+            const string NoCornerRadiusTarget = "This control's corner radius is a template resource or fixed, not a CornerRadius setter, so there is no per-corner seam.";
             const string NoBorderStyleTarget = "Avalonia borders are solid; there is no dashed-border seam.";
 
-            const string NoBoxShadowTarget = "No Avalonia mapping is wired up yet for Majorsilence.Forms' box-shadow (Avalonia's BoxShadows on a Border is the likely seam).";
+            const string NoBoxShadowTarget = "The Fluent template of this control has no named root border or content presenter to put BoxShadows on.";
             // Avalonia has Transitions, but Fluent's state colours live in template resources, which a Transitions setter on the control
             // does not reach; a half-working mapping would animate some brushes and switch others.
-            const string NoTransitionTarget = "Not mapped yet: Fluent's hover and pressed colours are template resources, which Avalonia's Transitions and Animations set on the control do not reach.";
+            const string NoTransitionTarget = "This control's Fluent template has no named root part to put Transitions and Animations on.";
 
             // ---- Buttons -----------------------------------------------------------------------------
             Map ("Button", "Button, ToggleButton", "Colours go to the Fluent Button*/ToggleButton* resources (so every state follows); geometry and fonts are style setters.");
@@ -295,6 +370,26 @@ namespace Majorsilence.Forms.Theming.Avalonia
             Map ("Label", "Label", "Style setters on Avalonia's Label (TextBlock is left alone: it is the text inside every control).");
             Styled ("Label", null, false, all_properties, StyleNote, S.Label);
 
+            Map ("DateTimePicker", "DatePicker, TimePicker", "The DatePicker*/TimePicker* button resources and fonts; the drop-down flyout follows the PopupWindow rules. CalendarDatePicker follows the TextBox rule.");
+            Res ("DateTimePicker", null, false, "background-color", AvaloniaThemeSupportLevel.Native, "The picker button's fill (DatePickerButtonBackground / TimePickerButtonBackground).",
+                "DatePickerButtonBackground", "TimePickerButtonBackground");
+            Res ("DateTimePicker", null, false, "color", AvaloniaThemeSupportLevel.Native, "The picker button's text.", "DatePickerButtonForeground", "TimePickerButtonForeground");
+            Res ("DateTimePicker", null, false, "border-color", AvaloniaThemeSupportLevel.Native, "The picker button's border.", "DatePickerButtonBorderBrush", "TimePickerButtonBorderBrush");
+            Styled ("DateTimePicker", null, false, font_properties, StyleNote, S.DatePickerControl, S.TimePickerControl);
+
+            Map ("PopupWindow", "FlyoutPresenter, ToolTip", "FlyoutPresenterBackground / FlyoutBorderThemeBrush and the ToolTip* resources.");
+            Res ("PopupWindow", null, false, "background-color", AvaloniaThemeSupportLevel.Native, "The popup behind its content (FlyoutPresenterBackground / ToolTipBackground).",
+                "FlyoutPresenterBackground", "ToolTipBackground");
+            Res ("PopupWindow", null, false, "border-color", AvaloniaThemeSupportLevel.Native, "The popup's border (FlyoutBorderThemeBrush / ToolTipBorderBrush).",
+                "FlyoutBorderThemeBrush", "ToolTipBorderBrush");
+            Res ("PopupWindow", null, false, "color", AvaloniaThemeSupportLevel.Approximate, "A tool tip's text (ToolTipForeground); a flyout presenter draws no text of its own.", "ToolTipForeground");
+
+            Map ("ProgressBar", "ProgressBar", "Style setters on the bar: Background is the track, Foreground the fill (--accent-color-2).");
+            Styled ("ProgressBar", null, false, all_properties.Where (p => p != "color"), StyleNote, S.ProgressBar);
+            Target ("ProgressBar", null, false, "color", AvaloniaThemeSupportLevel.Approximate,
+                "ProgressBar.Foreground is the fill; Majorsilence.Forms fills with --accent-color-2 and does not read color, so this is an Avalonia-only way to recolour the fill.",
+                new StyleTarget (S.ProgressBar, P.Foreground));
+
             // ---- Lists and trees ---------------------------------------------------------------------
             Map ("ListBox", "ListBox", "The control is style setters; ::selection writes Fluent's shared list-accent resources.");
             Styled ("ListBox", null, false, all_properties, StyleNote, S.ListBox);
@@ -319,7 +414,7 @@ namespace Majorsilence.Forms.Theming.Avalonia
             Res ("DataGridView", "header", false, "background-color", AvaloniaThemeSupportLevel.Native, "DataGridColumnHeaderBackgroundBrush.", "DataGridColumnHeaderBackgroundBrush");
             Res ("DataGridView", "header", false, "color", AvaloniaThemeSupportLevel.Native, "DataGridColumnHeaderForegroundBrush.", "DataGridColumnHeaderForegroundBrush");
             Styled ("DataGridView", "header", false, font_properties, StyleNote, S.DataGridColumnHeader);
-            Fill ("DataGridView", "header", false, "The header separators come from the grid-lines brush, which is shared with the cells.");
+            Fill ("DataGridView", "header", false, "The header separators are filled with the grid-lines brush (shared with the cells) as a local value in the template, which no style or resource of their own reaches.");
             Styled ("DataGridView", "row-header", false, new[] { "background-color", "color" }, StyleNote, S.DataGridRowHeader);
             Fill ("DataGridView", "row-header", false, "The row-header separator has no brush of its own.");
             Target ("DataGridView", "selection", false, "background-color", AvaloniaThemeSupportLevel.Native,
@@ -424,19 +519,16 @@ namespace Majorsilence.Forms.Theming.Avalonia
             Fill ("Form", null, false, "The window frame is drawn by the OS (or Avalonia's own chrome, which has no border seam).");
 
             // ---- Selectors with no Avalonia counterpart ----------------------------------------------
-            Map ("GroupBox", null, "Avalonia has no GroupBox; a HeaderedContentControl or a Border with a header has no Fluent theme to restyle.");
+            Marked ("GroupBox", "Avalonia has no GroupBox; mark your own Border, panel or HeaderedContentControl with CssTheme.Selector=\"GroupBox\".");
             Map ("NavigationPane", null, "Avalonia has no Outlook-style navigation pane.");
-            Map ("Panel", null, "Avalonia panels are layout primitives used inside every control template; restyling them would restyle the controls' internals.");
-            Map ("PictureBox", null, "Avalonia's Image has no background or border.");
+            Marked ("Panel", "Avalonia panels are layout primitives used inside every control template, so none is restyled unless the app marks it with CssTheme.Selector=\"Panel\".");
+            Marked ("PictureBox", "Avalonia's Image has no background or border; mark the Border around it with CssTheme.Selector=\"PictureBox\".");
             Map ("PropertyGrid", null, "Avalonia has no PropertyGrid.");
             Map ("Ribbon", null, "Avalonia has no ribbon control.");
-            Map ("DateTimePicker", null, "No counterpart: Avalonia's DatePicker is themed by its own template, which this matrix does not map.");
             Map ("FormTitleBar", null, "No counterpart: Avalonia windows draw their own chrome.");
             Map ("HostedSurface", null, "No counterpart: it is the surface Majorsilence.Forms embeds in an Avalonia host.");
             Map ("MdiClient", null, "No counterpart: Avalonia has no MDI workspace.");
-            Map ("PopupWindow", null, "No counterpart: Avalonia popups are themed by their own templates.");
             Map ("PrintPreviewControl", null, "No counterpart: Avalonia has no print preview control.");
-            Map ("ProgressBar", null, "No counterpart: Avalonia's ProgressBar is themed by its own template, which this matrix does not map.");
             Map ("DockWindowBase", null, "A Majorsilence.Forms.Telerik control with no Avalonia counterpart.");
             Map ("RadCommandBar", null, "A Majorsilence.Forms.Telerik control with no Avalonia counterpart.");
             Map ("RadPdfViewerNavigator", null, "A Majorsilence.Forms.Telerik control with no Avalonia counterpart.");
@@ -445,9 +537,171 @@ namespace Majorsilence.Forms.Theming.Avalonia
             Map ("RadSchedulerNavigator", null, "A Majorsilence.Forms.Telerik control with no Avalonia counterpart.");
             Map ("RadStatusStrip", null, "A Majorsilence.Forms.Telerik control with no Avalonia counterpart.");
             Map ("RichTextEditorRibbonBar", null, "A Majorsilence.Forms.Telerik control with no Avalonia counterpart.");
-            Map ("StatusBar", null, "Avalonia has no status bar control; bind your own status row to the published token resources instead.");
-            Map ("StatusStrip", null, "Avalonia has no status bar control; bind your own status row to the published token resources instead.");
-            Map ("ToolBar", null, "Avalonia has no tool bar control; bind your own tool row to the published token resources instead.");
+            Marked ("StatusBar", "Avalonia has no status bar control; mark your own status row with CssTheme.Selector=\"StatusBar\".");
+            Marked ("StatusStrip", "Avalonia has no status bar control; mark your own status row with CssTheme.Selector=\"StatusStrip\".");
+            Marked ("ToolBar", "Avalonia has no tool bar control; mark your own tool row with CssTheme.Selector=\"ToolBar\".");
+
+            // ---- States ------------------------------------------------------------------------------------------
+            // Fluent has a resource per state: pressed (:active), disabled and, for text boxes, focused. Buttons and links have no
+            // focused colours of their own, so :focus and :focus-visible are style setters on the template's content presenter,
+            // reached through Avalonia's :focus and :focus-visible pseudo-classes.
+            void StateRes (string selector, ThemeCssState state, string property, AvaloniaThemeSupportLevel level, string notes, params string[] keys)
+                => entries.Add (new AvaloniaThemeSupportEntry (selector, null, state, property, level, notes, Targets.Exact (keys)));
+
+            void StateTarget (string selector, ThemeCssState state, string property, AvaloniaThemeSupportLevel level, string notes, params AvaloniaTarget[] targets)
+                => entries.Add (new AvaloniaThemeSupportEntry (selector, null, state, property, level, notes, targets));
+
+            void Colours3 (string selector, ThemeCssState state, string what, string[] background, string[] foreground, string[] border)
+            {
+                StateRes (selector, state, "background-color", AvaloniaThemeSupportLevel.Native, $"The {what} fill.", background);
+                StateRes (selector, state, "color", AvaloniaThemeSupportLevel.Native, $"The {what} text colour.", foreground);
+                StateRes (selector, state, "border-color", AvaloniaThemeSupportLevel.Native, $"The {what} border.", border);
+            }
+
+            void PartColours (string selector, ThemeCssState state, string what, StyleSelector part)
+            {
+                StateTarget (selector, state, "background-color", AvaloniaThemeSupportLevel.Native, $"The {what} fill, on the template's content presenter.", new StyleTarget (part, ContentPresenter.BackgroundProperty));
+                StateTarget (selector, state, "color", AvaloniaThemeSupportLevel.Native, $"The {what} text colour, on the template's content presenter.", new StyleTarget (part, ContentPresenter.ForegroundProperty));
+                StateTarget (selector, state, "border-color", AvaloniaThemeSupportLevel.Native, $"The {what} border, on the template's content presenter.", new StyleTarget (part, ContentPresenter.BorderBrushProperty));
+            }
+
+            Colours3 ("Button", ThemeCssState.Active, "pressed", new[] { "ButtonBackgroundPressed", "ToggleButtonBackgroundPressed" },
+                new[] { "ButtonForegroundPressed", "ToggleButtonForegroundPressed" }, new[] { "ButtonBorderBrushPressed", "ToggleButtonBorderBrushPressed" });
+            Colours3 ("Button", ThemeCssState.Disabled, "disabled", new[] { "ButtonBackgroundDisabled", "ToggleButtonBackgroundDisabled" },
+                new[] { "ButtonForegroundDisabled", "ToggleButtonForegroundDisabled" }, new[] { "ButtonBorderBrushDisabled", "ToggleButtonBorderBrushDisabled" });
+            PartColours ("Button", ThemeCssState.Focus, "focused", S.ButtonFocus);
+            PartColours ("Button", ThemeCssState.FocusVisible, "keyboard-focused", S.ButtonFocusVisible);
+
+            Colours3 ("LinkLabel", ThemeCssState.Active, "pressed", new[] { "HyperlinkButtonBackgroundPressed" }, new[] { "HyperlinkButtonForegroundPressed" }, new[] { "HyperlinkButtonBorderBrushPressed" });
+            Colours3 ("LinkLabel", ThemeCssState.Disabled, "disabled", new[] { "HyperlinkButtonBackgroundDisabled" }, new[] { "HyperlinkButtonForegroundDisabled" }, new[] { "HyperlinkButtonBorderBrushDisabled" });
+            PartColours ("LinkLabel", ThemeCssState.Focus, "focused", S.HyperlinkFocus);
+            PartColours ("LinkLabel", ThemeCssState.FocusVisible, "keyboard-focused", S.HyperlinkFocusVisible);
+
+            // Fluent's text box has one focused look; the core treats a focused text box as :focus-visible too, so both states write it.
+            foreach (var state in new[] { ThemeCssState.Focus, ThemeCssState.FocusVisible }) {
+                StateRes ("TextBox", state, "background-color", AvaloniaThemeSupportLevel.Native, "The focused fill (TextControlBackgroundFocused).", "TextControlBackgroundFocused");
+                StateRes ("TextBox", state, "color", AvaloniaThemeSupportLevel.Native, "The focused text colour (TextControlForegroundFocused).", "TextControlForegroundFocused");
+                StateRes ("TextBox", state, "border-color", AvaloniaThemeSupportLevel.Native, "The focused border (TextControlBorderBrushFocused), which replaces Fluent's accent border.", "TextControlBorderBrushFocused");
+            }
+
+            StateRes ("TrackBar", ThemeCssState.Active, "background-color", AvaloniaThemeSupportLevel.Native, "The pressed container (SliderContainerBackgroundPressed).", "SliderContainerBackgroundPressed");
+            StateRes ("TrackBar", ThemeCssState.Disabled, "background-color", AvaloniaThemeSupportLevel.Native, "The disabled container (SliderContainerBackgroundDisabled).", "SliderContainerBackgroundDisabled");
+
+            // ---- Paint effects (#285, #286) ----------------------------------------------------------------------
+            // opacity, box-shadow, background-image and outline: Avalonia has a property or a brush type for each; what is missing is
+            // a name for the template part to put it on, so each is wired to the parts the Fluent templates name.
+            var states = new[] { ThemeCssState.Hover, ThemeCssState.Active, ThemeCssState.Disabled, ThemeCssState.Focus, ThemeCssState.FocusVisible };
+
+            // The style selectors a rule for a control as a whole lands on: whatever its border, font or fill setters already use.
+            List<StyleSelector> ControlSelectors (string selector)
+            {
+                foreach (var property in new[] { "border-width", "font-family", "background-color" }) {
+                    var found = entries.Where (e => e.Selector == selector && e.Part is null && e.State == ThemeCssState.Normal && e.Property == property)
+                        .SelectMany (e => e.Targets.OfType<StyleTarget> ()).Select (t => t.Selector).Distinct ().ToList ();
+                    if (found.Count > 0)
+                        return found;
+                }
+
+                return new List<StyleSelector> ();
+            }
+
+            void Effect (string selector, ThemeCssState state, string property, AvaloniaThemeSupportLevel level, string notes, IEnumerable<AvaloniaTarget> targets)
+            {
+                if (!entries.Any (e => e.Selector == selector && e.Part is null && e.State == state && e.Property == property))
+                    entries.Add (new AvaloniaThemeSupportEntry (selector, null, state, property, level, notes, targets.ToList ()));
+            }
+
+            // opacity: the control's Opacity -- children included, as in the core -- at rest and in every state it has.
+            foreach (var mapping in mappings.ToArray ()) {
+                if (mapping.AvaloniaTypes is null || ThemeCssReference.FindSelector (mapping.Selector) is not { } selector)
+                    continue;
+
+                var controls = ControlSelectors (mapping.Selector);
+                if (mapping.Selector == "TrackBar")
+                    controls = new List<StyleSelector> { S.Slider };
+                else if (mapping.Selector == "ScrollBar")
+                    controls = new List<StyleSelector> { S.ScrollBar };
+
+                if (controls.Count == 0)
+                    continue;
+
+                Effect (mapping.Selector, ThemeCssState.Normal, "opacity", AvaloniaThemeSupportLevel.Native,
+                    "The control's Opacity, children included (a setter in the generated Styles).", controls.Select (c => (AvaloniaTarget) new StyleTarget (c, P.Opacity)));
+
+                foreach (var state in states)
+                    if (selector.Supports (state))
+                        Effect (mapping.Selector, state, "opacity", AvaloniaThemeSupportLevel.Native,
+                            $"The control's Opacity while it matches Avalonia's {S.ClassOf (state)} pseudo-class.",
+                            controls.Select (c => (AvaloniaTarget) new StyleTarget (S.InState (c, state), P.Opacity)));
+            }
+
+            // box-shadow: BoxShadows on the template's root border or content presenter, at rest and in every state.
+            void Shadow (string selector, global::Avalonia.AvaloniaProperty property, params Func<ThemeCssState, StyleSelector>[] parts)
+            {
+                const string note = "BoxShadows on the template's root part (outer and inset, a list), outside the control's box like the core's shadow but not shrinking it.";
+                var info = ThemeCssReference.FindSelector (selector)!;
+                Effect (selector, ThemeCssState.Normal, "box-shadow", AvaloniaThemeSupportLevel.Native, note, parts.Select (p => (AvaloniaTarget) new StyleTarget (p (ThemeCssState.Normal), property)));
+
+                foreach (var state in states)
+                    if (info.Supports (state))
+                        Effect (selector, state, "box-shadow", AvaloniaThemeSupportLevel.Native, note, parts.Select (p => (AvaloniaTarget) new StyleTarget (p (state), property)));
+            }
+
+            Shadow ("Button", P.PresenterBoxShadow, S.ButtonPart, S.ToggleButtonPart);
+            Shadow ("LinkLabel", P.PresenterBoxShadow, S.HyperlinkPart);
+            Shadow ("TextBox", P.BorderBoxShadow, S.TextBoxPart, S.DatePickerPart);
+            Shadow ("ComboBox", P.BorderBoxShadow, S.ComboBoxPart);
+            Shadow ("ListBox", P.BorderBoxShadow, S.ListBoxPart);
+            Shadow ("DataGridView", P.BorderBoxShadow, S.DataGridPart);
+            Shadow ("ProgressBar", P.BorderBoxShadow, S.ProgressBarPart);
+
+            // background-image: the gradient goes where the fill goes -- the same resource or setter -- in every state that has one.
+            foreach (var fill in entries.Where (e => e.Part is null && e.Property == "background-color" && e.Level != AvaloniaThemeSupportLevel.Unsupported && e.Targets.Count > 0).ToList ())
+                Effect (fill.Selector, fill.State, "background-image", AvaloniaThemeSupportLevel.Approximate,
+                    "A gradient brush where the fill goes (the same resource or setter): the first layer only, in relative units, so a diagonal bends a little on a non-square box; stops in pixels are spaced evenly and a repeating gradient repeats its stop span.",
+                    fill.Targets.Select (t => t is ResourceTarget r ? new ResourceTarget (r.Key, r.Kind) : t));
+
+            // outline: Avalonia draws the keyboard-focus ring from the control's FocusAdorner, which is a ring outside the control that
+            // takes no room -- the CSS focus outline. It has no other outlines.
+            void Outline (string selector, params StyleSelector[] controls)
+            {
+                var info = ThemeCssReference.FindSelector (selector)!;
+
+                foreach (var state in new[] { ThemeCssState.Focus, ThemeCssState.FocusVisible })
+                    if (info.Supports (state))
+                        foreach (var property in new[] { "outline-width", "outline-style", "outline-color", "outline-offset" })
+                            Effect (selector, state, property, AvaloniaThemeSupportLevel.Approximate,
+                                "Drawn as the control's FocusAdorner -- a ring outside it that takes no room -- which Avalonia shows for keyboard focus only; the ring is solid with a fixed corner radius.",
+                                controls.Select (c => (AvaloniaTarget) new StyleTarget (c, P.FocusAdorner)));
+            }
+
+            Outline ("Button", S.Button, S.ToggleButton);
+            Outline ("LinkLabel", S.Hyperlink);
+            Outline ("TextBox", S.TextBox, S.DatePicker);
+            Outline ("TrackBar", S.Slider);
+
+            // transition-* and animation-*: Avalonia's Transitions and Animations, put on the template parts the colours change on (see
+            // AvaloniaThemeApplier.Motion.cs), per state. Only the controls whose template parts are named have them.
+            const string MotionNote = "Avalonia Transitions / Animations on the same template part and state selector the fill, border, shadow and radius are set on, with the rule's easing; the opacity and, where the part is a Border, the text colour move on the control. Fractional iteration counts round up and a paused animation still plays.";
+            foreach (var spec in new[] { "Button", "LinkLabel", "TextBox", "ComboBox", "ListBox", "DataGridView", "ProgressBar" }) {
+                var info = ThemeCssReference.FindSelector (spec)!;
+
+                // The grammar only takes a transition on the controls that have states; an animation runs on any control.
+                foreach (var state in new[] { ThemeCssState.Normal }.Concat (states))
+                    if (state == ThemeCssState.Normal || info.Supports (state))
+                        foreach (var property in transition_properties.Where (p => p.StartsWith ("animation-", StringComparison.Ordinal) || info.HasStates))
+                            Effect (spec, state, property, AvaloniaThemeSupportLevel.Approximate, MotionNote, new AvaloniaTarget[] { new MotionTarget () });
+            }
+
+            // Per-corner radii (#286): Avalonia's CornerRadius has four corners, so wherever border-radius is a style setter the
+            // corner longhands are too, on the same selectors.
+            foreach (var radius in entries.Where (e => e.Part is null && e.State == ThemeCssState.Normal && e.Property == "border-radius"
+                                                       && e.Level == AvaloniaThemeSupportLevel.Native && e.Targets.OfType<StyleTarget> ().Any ()).ToList ())
+                foreach (var (property, corner) in new[] {
+                             ("border-top-left-radius", CornerSide.TopLeft), ("border-top-right-radius", CornerSide.TopRight),
+                             ("border-bottom-right-radius", CornerSide.BottomRight), ("border-bottom-left-radius", CornerSide.BottomLeft) })
+                    entries.Add (new AvaloniaThemeSupportEntry (radius.Selector, null, ThemeCssState.Normal, property, AvaloniaThemeSupportLevel.Native, StyleNote,
+                        radius.Targets.OfType<StyleTarget> ().Select (t => (AvaloniaTarget) new StyleTarget (t.Selector, t.Property, corner: corner)).ToList ()));
 
             // Anything the explicit rows above left open on a mapped selector is unsupported.
             foreach (var selector in ThemeCssReference.Selectors) {
@@ -490,10 +744,32 @@ namespace Majorsilence.Forms.Theming.Avalonia
                 }
             }
 
+            // The other pseudo-classes (#285): only :hover had rows, so :active, :disabled, :focus and
+            // :focus-visible were invisible to the completeness tests. One row per longhand, in every state the
+            // control takes, Unsupported until a state gets its seam (phase 2 of docs/theming-parity-plan.md).
+            const string NoStateTarget = "Fluent has no resource or pseudo-class seam for this state on this control.";
+
+            foreach (var mapping in mappings.ToArray ()) {
+                if (mapping.AvaloniaTypes is null || ThemeCssReference.FindSelector (mapping.Selector) is not { } selector)
+                    continue;
+
+                var properties = entries.Where (e => e.Selector == mapping.Selector && e.Part is null && e.State == ThemeCssState.Normal).Select (e => e.Property).ToArray ();
+
+                foreach (var state in new[] { ThemeCssState.Active, ThemeCssState.Disabled, ThemeCssState.Focus, ThemeCssState.FocusVisible })
+                    if (selector.Supports (state)) {
+                        var answered = entries.Where (e => e.Selector == mapping.Selector && e.Part is null && e.State == state).Select (e => e.Property).ToHashSet ();
+                        var note = answered.Count > 0 ? "Avalonia maps only some properties in this state; the rest comes from the normal rule." : NoStateTarget;
+
+                        foreach (var property in properties)
+                            if (!answered.Contains (property))
+                                entries.Add (new AvaloniaThemeSupportEntry (mapping.Selector, null, state, property, AvaloniaThemeSupportLevel.Unsupported, note, Array.Empty<AvaloniaTarget> ()));
+                    }
+            }
+
             Mappings = mappings;
             Entries = entries;
 
-            index = entries.ToDictionary (e => (e.Selector.ToLowerInvariant (), e.Part?.ToLowerInvariant (), e.Hover, e.Property.ToLowerInvariant ()));
+            index = entries.ToDictionary (e => (e.Selector.ToLowerInvariant (), e.Part?.ToLowerInvariant (), e.State, e.Property.ToLowerInvariant ()));
             mapping_index = mappings.ToDictionary (m => m.Selector.ToLowerInvariant ());
         }
 
@@ -542,7 +818,7 @@ namespace Majorsilence.Forms.Theming.Avalonia
         }
 
         private static string RuleText (AvaloniaThemeSupportEntry e)
-            => $"{e.Selector}{(e.Part is null ? "" : "::" + e.Part)}{(e.Hover ? ":hover" : "")}";
+            => $"{e.Selector}{(e.Part is null ? "" : "::" + e.Part)}{AvaloniaThemeSupportEntry.StateText (e.State)}";
 
         private static string LevelText (AvaloniaThemeSupportLevel level) => level switch {
             AvaloniaThemeSupportLevel.Native => "native",

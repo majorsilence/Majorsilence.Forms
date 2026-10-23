@@ -81,11 +81,12 @@ namespace Majorsilence.Forms
         // for each combination of the preferences a query can test (MediaEnvironment.All), and reads the one for the current settings.
         internal sealed class Variant
         {
-            public Variant (List<TokenDeclaration> tokens, List<ControlRule> rules, List<ThemeCssVariable> variables)
+            public Variant (List<TokenDeclaration> tokens, List<ControlRule> rules, List<ThemeCssVariable> variables, List<ControlKeyframes> keyframes)
             {
                 TokenDeclarations = tokens;
                 ControlRules = rules;
                 Variables = variables;
+                Keyframes = keyframes;
                 Tokens = tokens.Select (t => t.Model).ToList ();
                 Rules = rules.Select (r => r.Model).ToList ();
             }
@@ -93,6 +94,7 @@ namespace Majorsilence.Forms
             public List<TokenDeclaration> TokenDeclarations { get; }
             public List<ControlRule> ControlRules { get; }
             public List<ThemeCssVariable> Variables { get; }
+            public List<ControlKeyframes> Keyframes { get; }
             public List<ThemeCssTokenValue> Tokens { get; }
             public List<ThemeCssRule> Rules { get; }
         }
@@ -155,6 +157,13 @@ namespace Majorsilence.Forms
         /// through <c>var()</c>; host appliers may publish them (see <see cref="ThemeCssVariable"/>).
         /// </summary>
         public IReadOnlyList<ThemeCssVariable> Variables => CurrentVariant.Variables;
+
+        /// <summary>
+        /// The <c>@keyframes</c> blocks that parsed, in source order. A rule names them with <c>animation-name</c> (see
+        /// <see cref="ThemeCssRule.Animations"/>); each keyframe's <see cref="ControlKeyframe.Declarations"/> are host-neutral,
+        /// so an applier can play the animation with its own toolkit instead of re-parsing the CSS.
+        /// </summary>
+        public IReadOnlyList<ControlKeyframes> Keyframes => CurrentVariant.Keyframes;
 
         internal List<TokenDeclaration> TokenDeclarations => CurrentVariant.TokenDeclarations;
         internal List<ControlRule> ControlRules => CurrentVariant.ControlRules;
@@ -288,7 +297,7 @@ namespace Majorsilence.Forms
                     WarnUnusedVariables ();
                     var variables = CompileVariables ();
 
-                    variants[i] = new Variant (tokens, rules, variables);
+                    variants[i] = new Variant (tokens, rules, variables, _allKeyframes.Where (k => _keyframes.ContainsKey (k.Name)).Select (k => _keyframes[k.Name]).Distinct ().ToList ());
                     perVariant.Add (new List<ThemeCssDiagnostic> (_diagnostics));
                     _diagnostics.Clear ();
                 }
@@ -538,7 +547,7 @@ namespace Majorsilence.Forms
                         };
 
                         foreach (var offset in offsets)
-                            frames.Add (new ControlKeyframe (offset, apply, properties, timing));
+                            frames.Add (new ControlKeyframe (offset, apply, properties, timing, model));
                     }
 
                     // Stable: keyframes at the same offset keep their source order, so the later one wins, as in CSS.

@@ -77,6 +77,25 @@ namespace Majorsilence.Forms.Theming.Avalonia
         /// </summary>
         public static bool SetThemeVariant { get; set; } = true;
 
+        /// <summary>
+        /// Whether the theme tokens also restyle native controls a rule does not mention: with it on, a button takes
+        /// <c>--control-mid-color</c> and <c>--border-low-color</c>, a list or text box <c>--control-low-color</c>, a hovered
+        /// button <c>--accent-color</c>, and so on -- what a Majorsilence.Forms control does and what
+        /// <c>Majorsilence.Forms.Theming.WinForms</c> already does, so a sheet that sets only tokens looks the same everywhere.
+        /// Explicit rules always win. Default true; set false to keep Fluent's own colours for everything but the accent,
+        /// selection, fonts and window colours. Takes effect on the next apply.
+        /// </summary>
+        public static bool DeriveFromTokens { get; set; } = true;
+
+        /// <summary>
+        /// Overrides whether the platform prefers reduced motion, which switches off every <c>transition</c> and <c>@keyframes</c>
+        /// animation the theme would set up. <c>null</c> (the default) asks the platform
+        /// (<c>SystemInformation.PrefersReducedMotion</c>: Windows' "show animations" setting, macOS' reduce-motion setting); a
+        /// value forces the answer, which is what a test on a build agent with animations turned off wants. Takes effect on the
+        /// next apply.
+        /// </summary>
+        public static bool? PrefersReducedMotion { get; set; }
+
         /// <summary>Raised after each apply, on the UI thread. <see cref="Diagnostics"/> is current when it fires.</summary>
         public static event EventHandler? Applied;
 
@@ -168,9 +187,9 @@ namespace Majorsilence.Forms.Theming.Avalonia
         internal static void ApplyChain (IReadOnlyList<ThemeStyleSheet> chain)
         {
             if (Dispatcher.UIThread.CheckAccess ())
-                Install (AvaloniaThemeApplier.Build (chain));
+                Install (AvaloniaThemeApplier.Build (chain, DeriveFromTokens));
             else
-                Dispatcher.UIThread.Post (() => Install (AvaloniaThemeApplier.Build (chain)));
+                Dispatcher.UIThread.Post (() => Install (AvaloniaThemeApplier.Build (chain, DeriveFromTokens)));
         }
 
         private static void Install (AvaloniaThemeBuild build)

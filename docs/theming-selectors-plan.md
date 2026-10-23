@@ -1,6 +1,6 @@
 # Classes and ids in theme CSS — design
 
-Status: **proposal, for a decision.** Nothing here is implemented. It is phase 5 of the plan to widen the
+Status: **accepted; implementation pending.** Nothing here is implemented yet. It is phase 5 of the plan to widen the
 theme CSS toward what is common on the web (transitions, modern values, paint effects, `@media` and
 `@keyframes` are done; see [theming.md](theming.md)).
 
@@ -123,9 +123,18 @@ controls; it never runs per paint.
 4. Host appliers: Avalonia native mapping; WinForms `#id`, classes as diagnostics.
 5. Docs and the support matrices regenerated.
 
-## Decisions needed
+## Decisions
 
-1. The control API: `StyleClasses` + `CssClass` (recommended), or only the string.
-2. Host appliers: map `#id` on WinForms and classes on Avalonia (recommended), or report both as
-   unsupported at first.
-3. Whether combinators should follow in a later phase, or stay out.
+Decided:
+
+1. **The control API: `Control.StyleClasses` *and* `CssClass`.** A small set of class names with `Add`, `Remove`,
+   `Contains` and `Toggle`, plus a `string CssClass` property that reads and writes it space-separated (what a designer
+   or a property grid edits). Changing either restyles the control. Both, not only the string.
+2. **Host appliers: `#id` maps on System.Windows.Forms and classes on Avalonia**, as recommended above. WinForms applies
+   `#id` rules to the control whose `Name` matches and reports class rules as info diagnostics ("styles
+   Majorsilence.Forms controls only"); Avalonia maps `.class` to `Classes` (and `#id` to `Name`) natively, with
+   support-matrix rows as everywhere else.
+3. **Combinators follow in a later phase**, not this one (`Panel Button`, `>`, `+`, `~` stay errors that say so).
+
+Implementation order is the "Plan, if accepted" list above; the parity plan's phase 6
+([theming-parity-plan.md](theming-parity-plan.md)) is the host half of it.

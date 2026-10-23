@@ -11,7 +11,7 @@ namespace Majorsilence.Forms
     /// host that does not draw with Skia (System.Windows.Forms, Avalonia) can consume a parsed theme
     /// without translating through ours.
     /// </summary>
-    public sealed class ThemeCssValue
+    public sealed partial class ThemeCssValue
     {
         private ThemeCssValue (ThemeCssValueKind kind)
         {
@@ -86,6 +86,13 @@ namespace Majorsilence.Forms
 
         internal static ThemeCssValue Color (uint argb) => new (ThemeCssValueKind.Color) { Argb = argb };
 
+        /// <summary>
+        /// A colour value, for a host applier that synthesises declarations of its own (for example defaults derived from the
+        /// theme tokens) and runs them through the same code as a parsed rule's.
+        /// </summary>
+        /// <param name="argb">The colour as 0xAARRGGBB.</param>
+        public static ThemeCssValue FromColor (uint argb) => Color (argb);
+
         internal static ThemeCssValue Length (int pixels) => new (ThemeCssValueKind.Length) { Pixels = pixels };
 
         internal static ThemeCssValue Families (IReadOnlyList<string> families) => new (ThemeCssValueKind.FontFamily) { FontFamilies = families };
@@ -97,8 +104,8 @@ namespace Majorsilence.Forms
         internal static ThemeCssValue KeywordOf (string keyword) => new (ThemeCssValueKind.Keyword) { FontStyle = keyword };
 
         internal static ThemeCssValue Images (IReadOnlyList<ControlGradient> layers)
-            => layers.Count == 1 ? new ThemeCssValue (ThemeCssValueKind.Image) { FontStyle = layers[0].Css }
-                : ListOf (layers.Select (l => new ThemeCssValue (ThemeCssValueKind.Image) { FontStyle = l.Css }).ToArray ());
+            => layers.Count == 1 ? ImageOf (layers[0])
+                : ListOf (layers.Select (ImageOf).ToArray ());
 
         internal static ThemeCssValue NumberOf (double number) => new (ThemeCssValueKind.Number) { Number = number };
 
@@ -195,7 +202,7 @@ namespace Majorsilence.Forms
     /// <see cref="Active"/>, <see cref="Disabled"/> and <see cref="Focus"/> is ever true (#285): the
     /// grammar accepts one pseudo-class per selector, e.g. <c>Button:active</c>, never a combination.
     /// </summary>
-    public sealed class ThemeCssRule
+    public sealed partial class ThemeCssRule
     {
         internal ThemeCssRule (ThemeCssSelector selector, ThemeCssPart? part, bool hover, bool active, bool disabled, bool focus, IReadOnlyList<ThemeCssDeclaration> declarations, int line, int column)
         {
@@ -230,6 +237,18 @@ namespace Majorsilence.Forms
 
         /// <summary>Whether this is the <c>:focus-visible</c> variant -- focused with the window's focus cues showing. Never set on a part.</summary>
         public bool FocusVisible { get; internal set; }
+
+        /// <summary>
+        /// The state the rule styles, as one value: <see cref="ThemeCssState.Normal"/> when no pseudo-class
+        /// is set. For a rule on a part only <see cref="ThemeCssState.Normal"/> and <see cref="ThemeCssState.Hover"/> occur.
+        /// </summary>
+        public ThemeCssState State
+            => Hover ? ThemeCssState.Hover
+                : Active ? ThemeCssState.Active
+                : Disabled ? ThemeCssState.Disabled
+                : Focus ? ThemeCssState.Focus
+                : FocusVisible ? ThemeCssState.FocusVisible
+                : ThemeCssState.Normal;
 
         /// <summary>The expanded declarations in source order.</summary>
         public IReadOnlyList<ThemeCssDeclaration> Declarations { get; }

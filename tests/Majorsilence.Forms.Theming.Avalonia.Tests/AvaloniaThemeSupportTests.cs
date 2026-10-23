@@ -43,6 +43,12 @@ namespace Majorsilence.Forms.Theming.Avalonia.Tests
                     if (selector.SupportsHover)
                         Assert.True (AvaloniaThemeSupport.Find (selector.Name, null, true, property) is not null,
                             $"no support row for {selector.Name}:hover {{ {property} }}");
+
+                    // :active, :disabled, :focus and :focus-visible were once invisible to this test.
+                    foreach (var state in new[] { MF.ThemeCssState.Active, MF.ThemeCssState.Disabled, MF.ThemeCssState.Focus, MF.ThemeCssState.FocusVisible })
+                        if (selector.Supports (state))
+                            Assert.True (AvaloniaThemeSupport.Find (selector.Name, null, state, property) is not null,
+                                $"no support row for {selector.Name}:{state} {{ {property} }}");
                 }
             }
         }
@@ -122,6 +128,7 @@ namespace Majorsilence.Forms.Theming.Avalonia.Tests
                     ("SystemAccentColorDark3", ResourceKind.Color), ("TextControlSelectionHighlightColor", ResourceKind.Brush),
                     ("ControlContentThemeFontSize", ResourceKind.Double),
                 })
+                .Concat (AvaloniaTokenDefaults.DisabledForegroundKeys.Select (k => (k, ResourceKind.Brush)))
                 .Distinct ()
                 .ToList ();
 

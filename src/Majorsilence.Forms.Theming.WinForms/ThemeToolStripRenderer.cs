@@ -22,6 +22,8 @@ namespace Majorsilence.Forms.Theming.WinForms
         public Color Text;
         public Color Separator;
         public Color DisabledText;
+        public Color? StatusTopBorder;
+        public int StatusTopBorderWidth;
 
         public static StripColors Resolve (ThemeRuleSet rules, TokenSnapshot tokens)
         {
@@ -34,7 +36,9 @@ namespace Majorsilence.Forms.Theming.WinForms
             return new StripColors {
                 MenuBackground = TokenSnapshot.Flatten (menuBg, tokens.Background),
                 ToolBarBackground = TokenSnapshot.Flatten (rules.Color ("ToolBar", null, false, "background-color") ?? menuBg, tokens.Background),
-                StatusBarBackground = TokenSnapshot.Flatten (rules.Color ("StatusBar", null, false, "background-color") ?? tokens.Background, tokens.Background),
+                StatusBarBackground = TokenSnapshot.Flatten (rules.Color ("StatusStrip", null, false, "background-color") ?? rules.Color ("StatusBar", null, false, "background-color") ?? tokens.Background, tokens.Background),
+                StatusTopBorder = rules.Color ("StatusStrip", null, false, "border-top-color") is { } seam ? TokenSnapshot.Flatten (seam, tokens.Background) : null,
+                StatusTopBorderWidth = rules.Length ("StatusStrip", null, false, "border-top-width") ?? 1,
                 DropDownBackground = TokenSnapshot.Flatten (rules.Color ("MenuDropDown", null, false, "background-color") ?? tokens.ControlLow, tokens.Background),
                 DropDownBorder = TokenSnapshot.Flatten (rules.Color ("MenuDropDown", null, false, "border-color") ?? tokens.BorderLow, tokens.Background),
                 ItemHover = TokenSnapshot.Flatten (hover, tokens.Background),
@@ -153,6 +157,18 @@ namespace Majorsilence.Forms.Theming.WinForms
                 e.TextColor = c.Text;
 
             base.OnRenderItemText (e);
+        }
+
+        // The seam along a StatusStrip's top edge (StatusStrip { border-top }); other strips keep the table's borderless look.
+        protected override void OnRenderToolStripBorder (WF.ToolStripRenderEventArgs e)
+        {
+            if (e.ToolStrip is WF.StatusStrip && c.StatusTopBorder is { } seam && c.StatusTopBorderWidth > 0) {
+                using var brush = new SolidBrush (seam);
+                e.Graphics.FillRectangle (brush, 0, 0, e.ToolStrip.Width, c.StatusTopBorderWidth);
+                return;
+            }
+
+            base.OnRenderToolStripBorder (e);
         }
 
         protected override void OnRenderArrow (WF.ToolStripArrowRenderEventArgs e)

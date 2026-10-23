@@ -60,12 +60,14 @@ namespace Majorsilence.Forms
     /// <summary>One keyframe: where in the animation it is, and the values it sets.</summary>
     public sealed class ControlKeyframe
     {
-        internal ControlKeyframe (double offset, Action<ControlStyle> apply, IReadOnlyList<string> properties, ControlTimingFunction? timingFunction)
+        internal ControlKeyframe (double offset, Action<ControlStyle> apply, IReadOnlyList<string> properties, ControlTimingFunction? timingFunction,
+            IReadOnlyList<ThemeCssDeclaration>? declarations = null)
         {
             Offset = offset;
             Apply = apply;
             Properties = properties;
             TimingFunction = timingFunction;
+            Declarations = declarations ?? Array.Empty<ThemeCssDeclaration> ();
         }
 
         /// <summary>Where the keyframe sits, 0 (<c>from</c>) to 1 (<c>to</c>).</summary>
@@ -73,6 +75,12 @@ namespace Majorsilence.Forms
 
         /// <summary>The CSS properties the keyframe sets.</summary>
         public IReadOnlyList<string> Properties { get; }
+
+        /// <summary>
+        /// The keyframe's declarations in the host-neutral form a rule's are (longhands, values resolved and live), for a host
+        /// applier that plays the animation with its own toolkit's animation system instead of ours.
+        /// </summary>
+        public IReadOnlyList<ThemeCssDeclaration> Declarations { get; }
 
         /// <summary>The easing from this keyframe to the next, or null for the animation's own.</summary>
         public ControlTimingFunction? TimingFunction { get; }

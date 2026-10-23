@@ -74,17 +74,18 @@ namespace Majorsilence.Forms.Theming.Avalonia.Tests
             Assert.Equal (13.0, Resource ("ControlContentThemeFontSize"));
         });
 
-        // A state Avalonia has no seam for must not land on the at-rest look: Button:active used to overwrite ButtonBackground.
+        // A state property Avalonia has no seam for must not land on the at-rest look: Button:active used to overwrite ButtonBackground,
+        // before it had a seam of its own. TrackBar:focus has seams for opacity and the outline, not for colours.
         [Fact]
         public Task StateRulesWithoutASeam_DoNotOverrideTheBaseRule () => Headless.Run (() => {
             var sheet = ThemeStyleSheet.Parse (@"
-                Button { background-color: #112233; }
-                Button:active { background-color: #ff0000; }
-                Button:focus-visible { background-color: #00ff00; }");
+                TrackBar { background-color: #112233; }
+                TrackBar:focus { background-color: #ff0000; }
+                TrackBar:focus-visible { background-color: #00ff00; }");
             AvaloniaCssTheme.Apply (sheet);
 
-            Assert.Equal (Color.Parse ("#112233"), BrushColor (Resource ("ButtonBackground")));
-            Assert.Contains (AvaloniaCssTheme.Diagnostics, d => d.Message.Contains ("'Button:active' has no Avalonia counterpart"));
+            Assert.Equal (Color.Parse ("#112233"), BrushColor (Resource ("SliderContainerBackground")));
+            Assert.Contains (AvaloniaCssTheme.Diagnostics, d => d.Message.StartsWith ("'TrackBar:focus { background-color }'", StringComparison.Ordinal));
         });
 
         [Fact]
@@ -158,10 +159,18 @@ namespace Majorsilence.Forms.Theming.Avalonia.Tests
             AvaloniaCssTheme.Apply (Sheet);
 
             var diagnostics = AvaloniaCssTheme.Diagnostics;
-            Assert.Contains (diagnostics, d => d.Severity == MF.ThemeCssSeverity.Info && d.Message.Contains ("'ToolBar' has no Avalonia counterpart"));
+            // ToolBar has no control of its own either, but an element the app marks takes its rules (see AvaloniaParityTests).
+            Assert.DoesNotContain (diagnostics, d => d.Message.Contains ("'ToolBar' has no Avalonia counterpart"));
             Assert.Contains (diagnostics, d => d.Severity == MF.ThemeCssSeverity.Warning && d.Message.Contains ("'Form { border-color }' is not supported on Avalonia"));
             Assert.Contains (diagnostics, d => d.Severity == MF.ThemeCssSeverity.Info && d.Message.Contains ("'Menu { border-bottom-color }' applies approximately"));
             Assert.DoesNotContain (diagnostics, d => d.Message.Contains ("'Button {"));
+        });
+
+        [Fact]
+        public Task SelectorWithNoAvaloniaControlAtAll_IsReportedAsInfo () => Headless.Run (() => {
+            AvaloniaCssTheme.Apply ("NavigationPane { background-color: #000000; }");
+
+            Assert.Contains (AvaloniaCssTheme.Diagnostics, d => d.Severity == MF.ThemeCssSeverity.Info && d.Message.Contains ("'NavigationPane' has no Avalonia counterpart"));
         });
 
         [Fact]
