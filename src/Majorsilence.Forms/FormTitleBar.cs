@@ -55,11 +55,14 @@ namespace Majorsilence.Forms
                 }
             };
 
-            close_button = Controls.AddImplicitControl (new TitleBarButton (TitleBarButton.TitleBarButtonGlyph.Close));
-            close_button.Click += (o, e) => { FindForm ()?.Close (); };
-            // Form.HelpButton's button: hidden until asked for, as upstream's is (W6 mechanisms).
+            // Form.HelpButton's button: hidden until asked for, as upstream's is (W6 mechanisms). Added before Close:
+            // the buttons dock right and the last one added is docked first, at the right edge, so adding it after
+            // put "?" right of the close button, where upstream's caption has it left.
             help_button = Controls.AddImplicitControl (new TitleBarButton (TitleBarButton.TitleBarButtonGlyph.Help) { Visible = false });
             help_button.Click += (o, e) => FindForm ()?.RaiseHelpButtonClicked ();
+
+            close_button = Controls.AddImplicitControl (new TitleBarButton (TitleBarButton.TitleBarButtonGlyph.Close));
+            close_button.Click += (o, e) => { FindForm ()?.Close (); };
 
             // The caption shows the SMALL icon, as upstream does: an .ico decodes to its largest frame
             // (typically 48 or 256px), which CenterImage drew at full size and cropped to the caption,
@@ -181,6 +184,8 @@ namespace Majorsilence.Forms
         internal Control MinimizeButtonControl => minimize_button;
 
         internal Control MaximizeButtonControl => maximize_button;
+
+        internal Control CloseButtonControl => close_button;
 
         /// <summary>
         /// Enables or greys out the minimize/maximize buttons independently of whether they are shown,
