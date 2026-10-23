@@ -213,6 +213,26 @@ public class W6MechanismTests
         Assert.False (form.TitleBar.AllowHelp);
     }
 
+    // Upstream's caption puts the help button left of the close button. Added to the title bar after Close, and the
+    // buttons docking right with the last added docked first, the "?" came out right of the close button.
+    [Fact]
+    public void The_help_button_sits_left_of_the_close_button ()
+    {
+        HeadlessRenderer.Use ();
+        using var form = new Form { Size = new Size (300, 200), HelpButton = true, MinimizeBox = false, MaximizeBox = false };
+        form.Show ();
+
+        if (!form.TitleBar.Visible || form.TitleBar.NativeOverlay)
+            return;
+
+        var help = form.TitleBar.HelpButtonControl;
+        var close = form.TitleBar.CloseButtonControl;
+
+        Assert.True (help.Visible);
+        Assert.Equal (close.Left, help.Right);
+        Assert.Equal (form.TitleBar.ClientSize.Width, close.Right);
+    }
+
     [Fact]
     public void ShowIcon_drives_the_captions_image_switch ()
     {
