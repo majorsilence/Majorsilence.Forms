@@ -297,6 +297,57 @@ namespace Majorsilence.Forms.Tests
                 return 0;
             });
 
+        // Measured on WinForms (.NET 10), a 150px combo box column: the cell is the drop-down list's field inside the grid
+        // lines -- #FDFDFD in a #D2D2D2 frame with a #BCBCBC bottom -- with a #D2D2D2 separator 17px from the field's right
+        // and the chevron, #6F6F6F, from 13px to 6px from it. The cell drew its text, a rule and a "▾" glyph instead.
+        [Fact]
+        public void A_grid_combo_box_cell_is_drawn_as_a_drop_down_list ()
+            => With (true, form => {
+                var grid = new DataGridView { Location = new Point (0, 0), Size = new Size (300, 120), RowHeadersVisible = false, AllowUserToAddRows = false };
+                var column = new DataGridViewComboBoxColumn { HeaderText = "Email", Width = 150 };
+                column.Items.Add ("Short");
+                grid.Columns.Add (column);
+                grid.Rows.Add ("Short");
+                grid.Rows.Add ("Short");
+                form.Controls.Add (grid);
+                form.Controls.Add (new TextBox { Location = new Point (250, 150), Size = new Size (30, 20) });
+                form.ActiveControl = form.Controls[form.Controls.Count - 1];
+                grid.ClearSelection ();
+
+                using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 300, 200));
+                var scale = bitmap.Width / 300f;
+                var px = (int) System.Math.Round (scale);
+                var cell = grid.GetCellDisplayRectangle (0, 1, false);
+
+                // The field sits inside the grid lines, wherever device rounding put them: found by walking to them.
+                var x0 = (int) ((cell.Left + 10) * scale);
+                var y = (int) (cell.Top * scale) - 2 * px;
+                while (bitmap.GetPixel (x0, y) != new SKColor (0x64, 0x64, 0x64)) y++;
+                var top = y + 1;
+                y = top;
+                while (bitmap.GetPixel (x0, y) != new SKColor (0x64, 0x64, 0x64)) y++;
+                var bottom = y;                                      // exclusive
+                var mid = (top + bottom) / 2;
+                var x = (int) ((cell.Right - 10) * scale);
+                while (bitmap.GetPixel (x, mid) != new SKColor (0x64, 0x64, 0x64)) x++;
+                var right = x;                                       // exclusive
+
+                Assert.Equal (new SKColor (0xD2, 0xD2, 0xD2), bitmap.GetPixel (x0, top));
+                Assert.Equal (new SKColor (0xBC, 0xBC, 0xBC), bitmap.GetPixel (x0, bottom - 1));
+                Assert.Equal (new SKColor (0xD2, 0xD2, 0xD2), bitmap.GetPixel (right - 1, mid));
+                Assert.Equal (new SKColor (0xD2, 0xD2, 0xD2), bitmap.GetPixel (right - 17 * px, mid));
+                Assert.Equal (new SKColor (0xFD, 0xFD, 0xFD), bitmap.GetPixel (right - 20 * px, top + 3 * px));
+
+                var chevron = 0;
+                for (var cx = right - 13 * px; cx < right - 5 * px; cx++)
+                    for (var cy = top; cy < bottom; cy++)
+                        if (bitmap.GetPixel (cx, cy) == new SKColor (0x6F, 0x6F, 0x6F))
+                            chevron++;
+
+                Assert.Equal (8 * px * px, chevron);
+                return 0;
+            });
+
         // Measured on WinForms (.NET 10): the themed drop-down list draws its text in WindowText whatever its ForeColor.
         // GrayText and Red both came out black there; an editable DropDown shows its ForeColor. A designer that set a
         // list's ForeColor to GrayText had its selection drawn as if disabled.
