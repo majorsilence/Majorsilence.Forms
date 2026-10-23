@@ -100,5 +100,44 @@ namespace Majorsilence.Forms.Tests
                 Application.SetDefaultFont (null!);
             }
         }
+
+        // A header one line tall still wraps its caption between words and shows the first line, as upstream: WinForms
+        // shows a 125px "REMAIN QUANTITY" header in Microsoft Sans Serif 12pt as "REMAIN". Drawn with one line allowed, the
+        // caption was not wrapped at all and was cut mid-word at the cell's edge ("REMAIN QUAN").
+        [Fact]
+        public void A_one_line_header_shows_the_first_line_of_its_wrapped_caption ()
+        {
+            try {
+                Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 9f));
+                HeadlessRenderer.Use ();
+                using var form = new Form { FormBorderStyle = FormBorderStyle.None, ClientSize = new Size (600, 200), Font = new Majorsilence.Forms.Drawing.Font ("Microsoft Sans Serif", 12f) };
+                var wrapped = new DataGridViewTextBoxColumn { HeaderText = "REMAIN QUANTITY", Width = 90, SortMode = DataGridViewColumnSortMode.NotSortable };
+                var first = new DataGridViewTextBoxColumn { HeaderText = "REMAIN", Width = 90, SortMode = DataGridViewColumnSortMode.NotSortable };
+                var grid = new DataGridView {
+                    Location = new Point (0, 0), Size = new Size (600, 200),
+                    ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing, ColumnHeadersHeight = 28
+                };
+                grid.Columns.AddRange (wrapped, first);
+                form.Controls.Add (grid);
+                form.Show ();
+
+                using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 600, 200));
+                var a = wrapped.HeaderBounds;
+                var b = first.HeaderBounds;
+                int differing = 0, ink = 0;
+
+                for (var x = 0; x < a.Width - 1; x++)
+                    for (var y = 0; y < a.Height; y++) {
+                        var p = bitmap.GetPixel (a.Left + x, a.Top + y);
+                        if (p != bitmap.GetPixel (b.Left + x, b.Top + y)) differing++;
+                        if (p.Red + p.Green + p.Blue < 300) ink++;
+                    }
+
+                Assert.True (ink > 20, $"{ink} caption pixels");
+                Assert.Equal (0, differing);
+            } finally {
+                Application.SetDefaultFont (null!);
+            }
+        }
     }
 }

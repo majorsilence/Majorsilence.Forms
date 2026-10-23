@@ -161,7 +161,7 @@ namespace Majorsilence.Forms.Renderers
             if (ControlPaint.UsesUpstreamGlyphs) {
                 DrawUpstreamCaption (control, column, bounds, caption, font, scaled_size, fg, e);
             } else if (wraps) {
-                caption = DataGridView.BreakBetweenWords (caption, font, scaled_size, text_bounds.Width, out var layout_width);
+                caption = DataGridView.BreakBetweenWords (caption, font, scaled_size, text_bounds.Width, out var layout_width, breakAll: true);
                 text_bounds.Width = layout_width;
 
                 // Only the lines the band holds whole, aligned as the caption asks: upstream draws a wrapped caption
@@ -169,6 +169,7 @@ namespace Majorsilence.Forms.Renderers
                 // first line rode up out of line and a sliver of the next showed beneath.
                 var line = (int) TextMeasurer.MeasureText ("X", font, scaled_size).Height;
                 max_lines = line > 0 ? Math.Max (1, text_bounds.Height / line) : null;
+                caption = FirstLines (caption, max_lines);
             }
 
             if (!ControlPaint.UsesUpstreamGlyphs)
@@ -196,6 +197,17 @@ namespace Majorsilence.Forms.Renderers
                 DataGridViewPaintParts.All);
         }
 
+        // The lines of a broken caption the header holds. Dropped before drawing rather than left to maxLines: a one-line
+        // layout does not wrap, and draws the line break it is given as a glyph ("REMAIN»Q").
+        private static string FirstLines (string caption, int? count)
+        {
+            if (count is not { } n)
+                return caption;
+
+            var lines = caption.Split ('\n');
+            return lines.Length <= n ? caption : string.Join ("\n", lines, 0, n);
+        }
+
         // Upstream's header caption (DataGridViewColumnHeaderCell): inside the 1px border and 2px margins, inset by GDI's
         // padding, and on a sortable column 19px short of the right for the sort glyph when the caption still fits in what
         // is left; clipped to the cell, so a word too wide for its header is cut ("Approv") rather than running into the
@@ -218,9 +230,10 @@ namespace Majorsilence.Forms.Renderers
             var max_lines = (int?) 1;
 
             if (control.HeaderWraps) {
-                caption = DataGridView.BreakBetweenWords (caption, font, scaledSize, text_bounds.Width, out _);
+                caption = DataGridView.BreakBetweenWords (caption, font, scaledSize, text_bounds.Width, out _, breakAll: true);
                 var line = (int) TextMeasurer.MeasureText ("X", font, scaledSize).Height;
                 max_lines = line > 0 ? Math.Max (1, text_bounds.Height / line) : null;
+                caption = FirstLines (caption, max_lines);
             }
 
             e.Canvas.Save ();
