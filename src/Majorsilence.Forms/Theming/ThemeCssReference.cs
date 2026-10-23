@@ -119,6 +119,17 @@ namespace Majorsilence.Forms
         internal static ThemeCssSelector Telerik (string name, string description, Func<Type?> resolve)
             => new ThemeCssSelector (name, description, () => TelerikStyle (name, resolve ())) { resolve_type = resolve, IsTelerik = true };
 
+        // The selector of a rule that names no control type (.primary, #save). It is not in ThemeCssReference.Selectors and no control
+        // type is styled by it; its style is a detached one nothing paints from, so a host that forgets to check IsAny cannot restyle
+        // anything by accident.
+        internal static ThemeCssSelector Any { get; } = new ThemeCssSelector ("*", "Any control type: a rule with only classes and ids.", () => new ControlStyle (Control.DefaultStyle));
+
+        /// <summary>
+        /// Whether this is the stand-in selector of a rule that names no control type (<c>.primary</c>, <c>#save</c>), as opposed to a
+        /// real control type from <see cref="ThemeCssReference.Selectors"/>.
+        /// </summary>
+        public bool IsAny => ReferenceEquals (this, Any);
+
         private static readonly Dictionary<string, ControlStyle> detached_styles = new (StringComparer.Ordinal);
 
         [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "The Telerik control types are named by literal strings, which the trimmer resolves and keeps; their public static DefaultStyle field is part of their public surface.")]
@@ -220,6 +231,29 @@ namespace Majorsilence.Forms
 
         /// <inheritdoc/>
         public override string ToString () => Name;
+    }
+
+    /// <summary>One selector form with classes or ids, as documented in <see cref="ThemeCssReference.ClassAndIdForms"/>.</summary>
+    public sealed class ThemeCssSelectorForm
+    {
+        internal ThemeCssSelectorForm (string selector, string matches, string specificity)
+        {
+            Selector = selector;
+            Matches = matches;
+            Specificity = specificity;
+        }
+
+        /// <summary>The selector as written, e.g. <c>Button.primary:hover</c>.</summary>
+        public string Selector { get; }
+
+        /// <summary>What it matches.</summary>
+        public string Matches { get; }
+
+        /// <summary>Its specificity as <see cref="ThemeCssSpecificity.ToString"/> writes it.</summary>
+        public string Specificity { get; }
+
+        /// <inheritdoc/>
+        public override string ToString () => Selector;
     }
 
     /// <summary>
@@ -441,6 +475,20 @@ namespace Majorsilence.Forms
                 () => Type.GetType ("Majorsilence.Forms.Telerik.RichTextEditorRibbonBar, Majorsilence.Forms.Telerik")),
         };
 
+        /// <summary>
+        /// The selector forms with classes and ids, each with what it matches and its specificity: the grammar of a selector that names
+        /// individual controls (see <see cref="Control.StyleClasses"/>). A test parses every form here and checks the specificity.
+        /// </summary>
+        public static IReadOnlyList<ThemeCssSelectorForm> ClassAndIdForms { get; } = new[] {
+            new ThemeCssSelectorForm (".primary", "any control whose classes include `primary`", "(0,1,0)"),
+            new ThemeCssSelectorForm ("Button.primary", "a `Button` (or a type styled by `Button`'s rule) with that class", "(0,1,1)"),
+            new ThemeCssSelectorForm (".primary.large", "a control with both classes", "(0,2,0)"),
+            new ThemeCssSelectorForm ("#saveButton", "the control whose `Name` is `saveButton` (a designer gives every control one)", "(1,0,0)"),
+            new ThemeCssSelectorForm ("Button#saveButton", "the `Button` named `saveButton`", "(1,0,1)"),
+            new ThemeCssSelectorForm ("Button.primary:hover", "that variant while hovered -- one pseudo-class, after the classes and ids", "(0,2,1)"),
+            new ThemeCssSelectorForm (".primary:hover", "any control with the class that supports `:hover` (the pseudo-class column above)", "(0,2,0)"),
+        };
+
         /// <summary>The properties accepted inside a control rule.</summary>
         public static IReadOnlyList<ThemeCssProperty> Properties { get; } = new[] {
             new ThemeCssProperty ("background-color", "color", "The control's background."),
@@ -651,6 +699,19 @@ namespace Majorsilence.Forms
             sb.AppendLine ("|---|---|---|---|---|---|---|---|");
             foreach (var selector in Selectors)
                 sb.AppendLine ($"| `{selector.Name}` | {(selector.SupportsHover ? "yes" : "no")} | {(selector.SupportsActive ? "yes" : "no")} | {(selector.SupportsDisabled ? "yes" : "no")} | {(selector.SupportsFocus ? "yes" : "no")} | {(selector.SupportsFocusVisible ? "yes" : "no")} | {(selector.AlsoAppliesTo.Count == 0 ? "" : string.Join (", ", selector.AlsoAppliesTo.Select (a => $"`{a}`")))} | {Escape (selector.Description)} |");
+
+            sb.AppendLine ();
+            sb.AppendLine ("### Selectors with classes and ids");
+            sb.AppendLine ();
+            sb.AppendLine ("A control has style classes (`Control.StyleClasses`, or the space-separated `Control.CssClass`) and an id, its `Name`. A selector can name them, alone or after a type, and the rules that reach one control are applied in order of specificity -- ids, then classes and pseudo-classes, then types; ties go to the later rule -- as in a browser. Not on a window (`Form`) and not combined with a `::part`.");
+            sb.AppendLine ();
+            sb.AppendLine ("| Selector | Matches | Specificity |");
+            sb.AppendLine ("|---|---|---|");
+            foreach (var form in ClassAndIdForms)
+                sb.AppendLine ($"| `{form.Selector}` | {Escape (form.Matches)} | `{form.Specificity}` |");
+
+            sb.AppendLine ();
+            sb.AppendLine ("Combinators (`Panel Button`, `>`, `+`, `~`), `:not ()`, `:is ()`, `:where ()`, `:has ()` and attribute selectors are errors that say they come in a later phase.");
 
             sb.AppendLine ();
             sb.AppendLine ("### Telerik controls (`Majorsilence.Forms.Telerik`)");

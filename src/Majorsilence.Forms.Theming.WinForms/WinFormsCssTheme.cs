@@ -282,58 +282,94 @@ namespace Majorsilence.Forms.Theming.WinForms
 
             foreach (var sheet in chain)
                 foreach (var rule in sheet.Rules) {
-                    var mapping = WinFormsThemeSupport.FindMapping (rule.Selector.Name);
-                    if (mapping is null)
-                        continue;
-
-                    var ruleText = rule.Selector.Name + (rule.Part is null ? "" : "::" + rule.Part.Name) + WinFormsThemeSupportEntry.StateText (rule.State);
-
-                    // A state with no WinForms seam at all is reported once for the whole state; a state that has one is answered
-                    // declaration by declaration below, like the resting look.
-                    if (rule.State > ThemeCssState.Hover && !WinFormsThemeSupport.AppliesInState (rule.Selector.Name, rule.State)) {
-                        var stateText = rule.Selector.Name + WinFormsThemeSupportEntry.StateText (rule.State);
-                        if (seen.Add ("state:" + stateText))
+                    // Real WinForms controls have no style classes, so a rule that names one reaches none of them.
+                    if (rule.Classes.Count > 0) {
+                        if (seen.Add ("class:" + RuleText (rule)))
                             found.Add (new ThemeCssDiagnostic (ThemeCssSeverity.Info, rule.Line, rule.Column,
-                                $"'{stateText}' has no System.Windows.Forms counterpart (only :hover maps); the rule styles Majorsilence.Forms controls only."));
+                                $"'{RuleText (rule)}' selects by style class, and System.Windows.Forms controls have no style classes; the rule styles Majorsilence.Forms controls only. Name the control instead ('#{(rule.Id ?? "saveButton")}' matches Control.Name)."));
                         continue;
                     }
 
-                    if (mapping.WinFormsTypes is null) {
-                        if (seen.Add ("selector:" + rule.Selector.Name))
-                            found.Add (new ThemeCssDiagnostic (ThemeCssSeverity.Info, rule.Line, rule.Column,
-                                $"'{rule.Selector.Name}' has no System.Windows.Forms counterpart; the rule styles Majorsilence.Forms controls only. {mapping.Notes}"));
+                    // An id rule with no type is checked against each control it reaches (DiagnoseIdRules), since the type decides the
+                    // support; one with a type reads that type's rows like any other.
+                    if (rule.AppliesToAnyType)
                         continue;
-                    }
 
-                    foreach (var declaration in rule.Declarations) {
-                        var entry = WinFormsThemeSupport.Find (rule.Selector.Name, rule.Part?.Name, rule.State, declaration.Property);
-                        var level = entry?.Level ?? WinFormsThemeSupportLevel.Unsupported;
-                        var gateOff = entry?.Gate switch {
-                            WinFormsThemeGate.PaintBorders => !PaintBorders ? nameof (PaintBorders) : null,
-                            WinFormsThemeGate.PaintEffects => !PaintEffects ? nameof (PaintEffects) : null,
-                            WinFormsThemeGate.Animate => !Animate ? nameof (Animate) : null,
-                            _ => null
-                        };
-
-                        if (gateOff is not null)
-                            level = WinFormsThemeSupportLevel.Unsupported;
-
-                        if (level == WinFormsThemeSupportLevel.Native || !seen.Add (ruleText + "|" + declaration.Property))
-                            continue;
-
-                        var notes = gateOff is not null
-                            ? $"WinFormsCssTheme.{gateOff} is off. {entry!.Notes}"
-                            : entry?.Notes ?? "WinForms has no property for it.";
-
-                        found.Add (level == WinFormsThemeSupportLevel.Approximate
-                            ? new ThemeCssDiagnostic (ThemeCssSeverity.Info, declaration.Line, declaration.Column,
-                                $"'{ruleText} {{ {declaration.Property} }}' applies approximately on WinForms ({mapping.WinFormsTypes}): {notes}")
-                            : new ThemeCssDiagnostic (ThemeCssSeverity.Warning, declaration.Line, declaration.Column,
-                                $"'{ruleText} {{ {declaration.Property} }}' is not supported on WinForms ({mapping.WinFormsTypes}) and was skipped there: {notes} It still applies to Majorsilence.Forms controls."));
-                    }
+                    DiagnoseRule (found, seen, rule, rule.Selector.Name);
                 }
 
             return found;
+        }
+
+        // The id rules that reach a control whose own selector is `selector`, diagnosed as the rules of that selector are: the rows of
+        // the matrix are per control type, and a rule written as just '#id' has the type of the control it finds.
+        internal static void DiagnoseIdRules (List<ThemeCssDiagnostic> sink, HashSet<string> seen, IEnumerable<ThemeCssRule> rules, string selector)
+        {
+            foreach (var rule in rules)
+                if (rule.AppliesToAnyType)
+                    DiagnoseRule (sink, seen, rule, selector);
+        }
+
+        private static string RuleText (ThemeCssRule rule)
+            => (rule.Selector.IsAny ? "" : rule.Selector.Name)
+               + string.Concat (rule.Classes.Select (c => "." + c))
+               + (rule.Id is null ? "" : "#" + rule.Id)
+               + (rule.Part is null ? "" : "::" + rule.Part.Name)
+               + WinFormsThemeSupportEntry.StateText (rule.State);
+
+        // What one rule's declarations come to on WinForms, for the selector whose rows answer for it.
+        private static void DiagnoseRule (List<ThemeCssDiagnostic> found, HashSet<string> seen, ThemeCssRule rule, string selector)
+        {
+            var mapping = WinFormsThemeSupport.FindMapping (selector);
+            if (mapping is null)
+                return;
+
+            var ruleText = RuleText (rule);
+            var typeText = rule.AppliesToAnyType ? $"{ruleText} on a {selector}" : ruleText;
+
+            // A state with no WinForms seam at all is reported once for the whole state; a state that has one is answered
+            // declaration by declaration below, like the resting look.
+            if (rule.State > ThemeCssState.Hover && !WinFormsThemeSupport.AppliesInState (selector, rule.State)) {
+                var stateText = selector + WinFormsThemeSupportEntry.StateText (rule.State);
+                if (seen.Add ("state:" + stateText))
+                    found.Add (new ThemeCssDiagnostic (ThemeCssSeverity.Info, rule.Line, rule.Column,
+                        $"'{stateText}' has no System.Windows.Forms counterpart (only :hover maps); the rule styles Majorsilence.Forms controls only."));
+                return;
+            }
+
+            if (mapping.WinFormsTypes is null) {
+                if (seen.Add ("selector:" + selector))
+                    found.Add (new ThemeCssDiagnostic (ThemeCssSeverity.Info, rule.Line, rule.Column,
+                        $"'{selector}' has no System.Windows.Forms counterpart; the rule styles Majorsilence.Forms controls only. {mapping.Notes}"));
+                return;
+            }
+
+            foreach (var declaration in rule.Declarations) {
+                var entry = WinFormsThemeSupport.Find (selector, rule.Part?.Name, rule.State, declaration.Property);
+                var level = entry?.Level ?? WinFormsThemeSupportLevel.Unsupported;
+                var gateOff = entry?.Gate switch {
+                    WinFormsThemeGate.PaintBorders => !PaintBorders ? nameof (PaintBorders) : null,
+                    WinFormsThemeGate.PaintEffects => !PaintEffects ? nameof (PaintEffects) : null,
+                    WinFormsThemeGate.Animate => !Animate ? nameof (Animate) : null,
+                    _ => null
+                };
+
+                if (gateOff is not null)
+                    level = WinFormsThemeSupportLevel.Unsupported;
+
+                if (level == WinFormsThemeSupportLevel.Native || !seen.Add (typeText + "|" + declaration.Property))
+                    continue;
+
+                var notes = gateOff is not null
+                    ? $"WinFormsCssTheme.{gateOff} is off. {entry!.Notes}"
+                    : entry?.Notes ?? "WinForms has no property for it.";
+
+                found.Add (level == WinFormsThemeSupportLevel.Approximate
+                    ? new ThemeCssDiagnostic (ThemeCssSeverity.Info, declaration.Line, declaration.Column,
+                        $"'{typeText} {{ {declaration.Property} }}' applies approximately on WinForms ({mapping.WinFormsTypes}): {notes}")
+                    : new ThemeCssDiagnostic (ThemeCssSeverity.Warning, declaration.Line, declaration.Column,
+                        $"'{typeText} {{ {declaration.Property} }}' is not supported on WinForms ({mapping.WinFormsTypes}) and was skipped there: {notes} It still applies to Majorsilence.Forms controls."));
+            }
         }
 
         // WinForms properties must be set on the UI thread. A file watcher or a cross-thread

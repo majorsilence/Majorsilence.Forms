@@ -56,7 +56,12 @@ namespace Majorsilence.Forms
             public Action<ControlStyle> Apply { get; }
             public ThemeCssRule Model { get; }
 
-            /// <summary>The type-level style this rule's declarations are installed on.</summary>
+            /// <summary>Whether the rule names a class or an id: it styles individual controls (see Control.RebuildStyleCascade), not a type's defaults.</summary>
+            public bool IsScoped => Model.IsScoped;
+
+            public ThemeCssState State => Model.State;
+
+            /// <summary>The type-level style this rule's declarations are installed on. Never called for a scoped rule.</summary>
             public ControlStyle GetTargetStyle ()
             {
                 if (Part is not null)
@@ -89,7 +94,10 @@ namespace Majorsilence.Forms
                 Keyframes = keyframes;
                 Tokens = tokens.Select (t => t.Model).ToList ();
                 Rules = rules.Select (r => r.Model).ToList ();
+                HasScopedRules = rules.Any (r => r.IsScoped);
             }
+
+            public bool HasScopedRules { get; }
 
             public List<TokenDeclaration> TokenDeclarations { get; }
             public List<ControlRule> ControlRules { get; }
@@ -169,6 +177,13 @@ namespace Majorsilence.Forms
         internal List<ControlRule> ControlRules => CurrentVariant.ControlRules;
 
         /// <summary>
+        /// Whether the sheet has a rule that names a class or an id (<c>.primary</c>, <c>Button.primary:hover</c>, <c>#save</c>), in any
+        /// <c>@media</c> environment. Such rules style individual controls, so a control reads them through its own cascade
+        /// (<see cref="Control.StyleClasses"/>) instead of through its type's default style.
+        /// </summary>
+        public bool UsesClassesOrIds => variants.Any (v => v.HasScopedRules);
+
+        /// <summary>
         /// Parses a CSS theme. Never throws for bad input: problems are collected in
         /// <see cref="Diagnostics"/> and the valid remainder is kept.
         /// </summary>
@@ -197,6 +212,8 @@ namespace Majorsilence.Forms
             public string? TypeName;
             public string? Part;      // the name after '::', when present
             public string? Pseudo;
+            public List<string> Classes = new ();   // the names after '.', without duplicates
+            public string? Id;                       // the name after '#'
             public int Line;
             public int Column;
             public string Raw = string.Empty;
@@ -732,7 +749,7 @@ namespace Majorsilence.Forms
                     Raw = string.Join ("", tokens.Select (t => t.Raw)),
                 };
 
-                const string Supported = "Supported selectors are ':root', a control type name such as 'Button', 'Button:hover', a part such as 'DataGridView::header' (optionally ':hover'), and comma-separated lists of those.";
+                const string Supported = "Supported selectors are ':root', a control type name such as 'Button', 'Button:hover', a class or id such as '.primary', 'Button.primary:hover' or '#saveButton', a part such as 'DataGridView::header' (optionally ':hover'), and comma-separated lists of those.";
 
                 // :root
                 if (first.Is (CssTokenKind.Colon) && tokens.Count == 2 && tokens[1].IsIdent ("root")) {
@@ -745,73 +762,140 @@ namespace Majorsilence.Forms
                     return selector;
                 }
 
-                if (first.IsDelim ('.') || first.Is (CssTokenKind.Hash)) {
-                    selector.Error = $"'{selector.Raw}' looks like a class or id selector. Controls have no classes or ids; rules target control TYPES, e.g. 'Button {{ ... }}'. {Supported}";
-                    return selector;
-                }
+                var start = 0;
 
-                if (!first.Is (CssTokenKind.Ident)) {
+                if (first.Is (CssTokenKind.Ident)) {
+                    selector.TypeName = first.Value;
+                    start = 1;
+                } else if (!first.IsDelim ('.') && !first.Is (CssTokenKind.Hash)) {
                     selector.Error = $"'{selector.Raw}' is not a valid selector. {Supported}";
                     return selector;
                 }
 
-                selector.TypeName = first.Value;
+                // Whether tokens[i] follows tokens[i - 1] with nothing between them: whitespace after a compound is a descendant
+                // combinator, which is a different selector from the same text without it ('Panel .x' and 'Panel.x').
+                bool Adjacent (int i)
+                    => i == 0 || (tokens[i - 1].Line == tokens[i].Line && tokens[i - 1].Column + tokens[i - 1].Raw.Length == tokens[i].Column);
 
-                if (tokens.Count == 1)
-                    return selector;
+                // The compound written so far, for suggesting the corrected spelling.
+                string Written ()
+                    => (selector.TypeName ?? string.Empty) + string.Concat (selector.Classes.Select (c => "." + c)) + (selector.Id is null ? string.Empty : "#" + selector.Id);
 
-                if (tokens[1].Is (CssTokenKind.Colon)) {
-                    // Type::part and Type::part:hover -- a styleable piece inside the control.
-                    if (tokens.Count >= 3 && tokens[2].Is (CssTokenKind.Colon)) {
-                        if (tokens.Count < 4 || !tokens[3].Is (CssTokenKind.Ident)) {
-                            selector.Error = $"'{selector.Raw}': expected a part name after '::', e.g. 'DataGridView::header' or 'ScrollBar::thumb'.";
+                for (var i = start; i < tokens.Count;) {
+                    var token = tokens[i];
+
+                    if (!Adjacent (i) || token.IsDelim ('>') || token.IsDelim ('+') || token.IsDelim ('~')) {
+                        selector.Error = $"'{selector.Raw}': descendant and combinator selectors are not supported yet ('Panel Button', 'Panel > Button', 'Button + Button', 'Button ~ Button'): combinators come in a later phase. "
+                            + "A rule applies to a control by its own type, classes and id, wherever it sits. Name the controls you mean with a class ('Button.toolbar { ... }') and add it in code with StyleClasses.Add (\"toolbar\").";
+                        return selector;
+                    }
+
+                    if (token.IsDelim ('[')) {
+                        selector.Error = $"'{selector.Raw}': attribute selectors are not supported yet; they come in a later phase together with combinators. Use a class ('Button.primary') to pick controls out. {Supported}";
+                        return selector;
+                    }
+
+                    if (selector.Pseudo is not null && selector.Part is null && (token.IsDelim ('.') || token.Is (CssTokenKind.Hash))) {
+                        selector.Error = $"'{selector.Raw}': put classes and ids before the pseudo-class, e.g. '{Written ()}{(token.IsDelim ('.') && i + 1 < tokens.Count ? "." + tokens[i + 1].Value : "#" + token.Value)}:{selector.Pseudo}'.";
+                        return selector;
+                    }
+
+                    if (token.IsDelim ('.')) {
+                        if (i + 1 >= tokens.Count || !tokens[i + 1].Is (CssTokenKind.Ident) || !Adjacent (i + 1)) {
+                            selector.Error = $"'{selector.Raw}': expected a class name after '.', e.g. '.primary' or 'Button.primary'.";
                             return selector;
                         }
 
-                        selector.Part = tokens[3].Value;
+                        if (!selector.Classes.Contains (tokens[i + 1].Value))
+                            selector.Classes.Add (tokens[i + 1].Value);
+                        i += 2;
+                        continue;
+                    }
 
-                        if (tokens.Count == 4)
-                            return selector;
-
-                        if (tokens.Count == 6 && tokens[4].Is (CssTokenKind.Colon) && tokens[5].Is (CssTokenKind.Ident)) {
-                            selector.Pseudo = tokens[5].Value;
+                    if (token.Is (CssTokenKind.Hash)) {
+                        if (token.Value.Length == 0) {
+                            selector.Error = $"'{selector.Raw}': expected an id after '#', e.g. '#saveButton' (a control's Name).";
                             return selector;
                         }
 
-                        if (tokens.Count >= 6 && tokens[4].Is (CssTokenKind.Colon) && tokens[5].Is (CssTokenKind.Colon)) {
+                        if (selector.Id is not null && selector.Id != token.Value) {
+                            selector.Error = $"'{selector.Raw}': a selector names one id; no control has two names, so '#{selector.Id}#{token.Value}' could never match.";
+                            return selector;
+                        }
+
+                        selector.Id = token.Value;
+                        i++;
+                        continue;
+                    }
+
+                    if (!token.Is (CssTokenKind.Colon)) {
+                        selector.Error = $"'{selector.Raw}' is not a valid selector. {Supported}";
+                        return selector;
+                    }
+
+                    // '::part'
+                    if (i + 1 < tokens.Count && tokens[i + 1].Is (CssTokenKind.Colon) && Adjacent (i + 1)) {
+                        if (selector.Part is not null) {
                             selector.Error = $"'{selector.Raw}': a selector names one part; parts do not nest.";
                             return selector;
                         }
 
-                        selector.Error = $"'{selector.Raw}' is not a valid selector; after a part only ':hover' may follow, e.g. '{first.Value}::{selector.Part}:hover'.";
+                        if (i + 2 >= tokens.Count || !tokens[i + 2].Is (CssTokenKind.Ident) || !Adjacent (i + 2)) {
+                            selector.Error = $"'{selector.Raw}': expected a part name after '::', e.g. 'DataGridView::header' or 'ScrollBar::thumb'.";
+                            return selector;
+                        }
+
+                        if (selector.Pseudo is not null) {
+                            selector.Error = $"'{selector.Raw}': put the part before the pseudo-class -- '{selector.TypeName}::{tokens[i + 2].Value}:{selector.Pseudo}'.";
+                            return selector;
+                        }
+
+                        selector.Part = tokens[i + 2].Value;
+                        i += 3;
+                        continue;
+                    }
+
+                    // ':hover' and friends
+                    if (i + 1 >= tokens.Count || !Adjacent (i + 1)) {
+                        selector.Error = $"'{selector.Raw}' is not a valid selector; expected a pseudo-class name after ':' (':hover', ':active', ':disabled', ':focus', ':focus-visible') or a part after '::'.";
                         return selector;
                     }
 
-                    if (tokens.Count == 3 && tokens[2].Is (CssTokenKind.Ident)) {
-                        selector.Pseudo = tokens[2].Value;
+                    var name = tokens[i + 1];
+
+                    if (name.Is (CssTokenKind.Function)) {
+                        selector.Error = name.Value.ToLowerInvariant () is "not" or "is" or "where" or "has"
+                            ? $"'{selector.Raw}': ':{name.Value} ()' is not supported yet; selector functions (':not ()', ':is ()', ':where ()', ':has ()') come in a later phase together with combinators. Use a class to pick controls out, e.g. 'Button.primary'."
+                            : $"'{selector.Raw}': ':{name.Value} ()' is not supported; the pseudo-classes are ':hover', ':active', ':disabled', ':focus' and ':focus-visible'.";
                         return selector;
                     }
 
-                    if (tokens.Count >= 5 && tokens[2].Is (CssTokenKind.Ident) && tokens[3].Is (CssTokenKind.Colon) && tokens[4].Is (CssTokenKind.Colon)) {
-                        selector.Error = $"'{selector.Raw}': put the part before the pseudo-class -- '{first.Value}::{(tokens.Count > 5 ? tokens[5].Value : "part")}:{tokens[2].Value}'.";
+                    if (!name.Is (CssTokenKind.Ident)) {
+                        selector.Error = $"'{selector.Raw}' is not a valid selector; expected a pseudo-class name after ':' (only ':hover' is supported) or a part after '::'.";
                         return selector;
                     }
 
-                    selector.Error = $"'{selector.Raw}' is not a valid selector; expected a pseudo-class name after ':' (only ':hover' is supported) or a part after '::'.";
+                    if (selector.Pseudo is not null) {
+                        selector.Error = selector.Part is not null
+                            ? $"'{selector.Raw}' is not a valid selector; after a part only ':hover' may follow, e.g. '{selector.TypeName}::{selector.Part}:hover'."
+                            : $"'{selector.Raw}': a selector takes one pseudo-class at a time ('{Written ()}:{selector.Pseudo}' and ':{name.Value}' together are not supported).";
+                        return selector;
+                    }
+
+                    selector.Pseudo = name.Value;
+                    i += 2;
+                }
+
+                if (selector.Part is not null && selector.TypeName is null) {
+                    selector.Error = $"'{selector.Raw}': a part belongs to a control type -- write the type before it, e.g. 'DataGridView::header'.";
                     return selector;
                 }
 
-                if (tokens[1].Is (CssTokenKind.Ident) || tokens[1].IsDelim ('>') || tokens[1].IsDelim ('+') || tokens[1].IsDelim ('~')) {
-                    selector.Error = $"'{selector.Raw}': descendant and combinator selectors are not supported -- a rule applies to every control of the type, wherever it sits. Use one type name per selector, e.g. '{first.Value} {{ ... }}'.";
+                if (selector.Part is not null && (selector.Classes.Count > 0 || selector.Id is not null)) {
+                    selector.Error = $"'{selector.Raw}': a class or id cannot be combined with a ::part yet -- a part is styled for every control of its type. Style the whole control with '{Written ()}'.";
                     return selector;
                 }
 
-                if (tokens[1].IsDelim ('[')) {
-                    selector.Error = $"'{selector.Raw}': attribute selectors are not supported. {Supported}";
-                    return selector;
-                }
-
-                selector.Error = $"'{selector.Raw}' is not a valid selector. {Supported}";
                 return selector;
             }
 
@@ -1102,7 +1186,7 @@ namespace Majorsilence.Forms
             // The key of the rules a custom property declared in a control rule is visible to: the same control type and part, in the
             // same state. A base rule's variables are visible in its state rules too (see ScopeFor), as they cascade in CSS.
             private static string ScopeKey (RawSelector selector, bool withPseudo)
-                => $"{selector.TypeName?.ToLowerInvariant ()}::{selector.Part?.ToLowerInvariant ()}:{(withPseudo ? selector.Pseudo?.ToLowerInvariant () : null)}";
+                => $"{selector.TypeName?.ToLowerInvariant ()}{string.Concat (selector.Classes.OrderBy (c => c, StringComparer.Ordinal).Select (c => "." + c))}{(selector.Id is null ? string.Empty : "#" + selector.Id)}::{selector.Part?.ToLowerInvariant ()}:{(withPseudo ? selector.Pseudo?.ToLowerInvariant () : null)}";
 
             private static readonly Dictionary<string, RawDeclaration> no_rule_variables = new ();
             private readonly Dictionary<string, Dictionary<string, RawDeclaration>> _scopes = new (StringComparer.Ordinal);
@@ -1150,7 +1234,7 @@ namespace Majorsilence.Forms
                         }
 
                         foreach (var selector in rule.Selectors) {
-                            if (selector.Error is not null || selector.TypeName is null)
+                            if (selector.Error is not null || (selector.TypeName is null && selector.Classes.Count == 0 && selector.Id is null))
                                 continue;
 
                             var key = ScopeKey (selector, true);
@@ -1231,12 +1315,20 @@ namespace Majorsilence.Forms
                             continue;
                         }
 
-                        var selector = ThemeCssReference.FindSelector (raw.TypeName!);
+                        var selector = raw.TypeName is null ? ThemeCssSelector.Any : ThemeCssReference.FindSelector (raw.TypeName);
 
                         if (selector is null) {
                             Error (raw.Line, raw.Column,
                                 $"Unknown selector '{raw.TypeName}'.{ThemeCssValues.Suggest (raw.TypeName!, ThemeCssReference.Selectors.Select (s => s.Name))} "
                                 + $"Selectors are Majorsilence.Forms control type names: {string.Join (", ", ThemeCssReference.Selectors.Select (s => s.Name))}.");
+                            continue;
+                        }
+
+                        var scoped = raw.Classes.Count > 0 || raw.Id is not null;
+
+                        // Classes and ids belong to controls (Control.StyleClasses, Control.Name); a window has neither.
+                        if (scoped && !selector.IsAny && selector.ControlType is { } styledType && typeof (WindowBase).IsAssignableFrom (styledType)) {
+                            Error (raw.Line, raw.Column, $"'{raw.Raw}': {selector.Name} is a window, and a window has no style classes or id -- they belong to controls. Style every {selector.Name} with '{selector.Name} {{ ... }}'.");
                             continue;
                         }
 
@@ -1263,6 +1355,15 @@ namespace Majorsilence.Forms
                         var disabled = false;
                         var focus = false;
                         var focusVisible = false;
+
+                        // The public model of one compiled rule: the longhand declarations plus the selector's classes, id and specificity.
+                        ThemeCssRule NewModel (List<ThemeCssDeclaration> declarations) => new ThemeCssRule (selector, part, hover, active, disabled, focus, declarations, raw.Line, raw.Column) {
+                            FocusVisible = focusVisible,
+                            media_text = rule.MediaText,
+                            Classes = raw.Classes.ToArray (),
+                            Id = raw.Id,
+                            Specificity = new ThemeCssSpecificity (raw.Id is null ? 0 : 1, raw.Classes.Count + (raw.Pseudo is null ? 0 : 1), (raw.TypeName is null ? 0 : 1) + (part is null ? 0 : 1)),
+                        };
 
                         if (raw.Pseudo is not null) {
                             var pseudo = raw.Pseudo.ToLowerInvariant ();
@@ -1303,7 +1404,7 @@ namespace Majorsilence.Forms
                                     _ => s.SupportsFocus,
                                 };
 
-                                if (!Supports (selector)) {
+                                if (!selector.IsAny && !Supports (selector)) {
                                     var withIt = string.Join (", ", ThemeCssReference.Selectors.Where (Supports).Select (s => s.Name));
                                     Error (raw.Line, raw.Column, $"'{selector.Name}:{pseudo}' is not supported: {selector.Name} does not change appearance for that state. ':{pseudo}' is available on: {withIt}.");
                                     continue;
@@ -1343,7 +1444,7 @@ namespace Majorsilence.Forms
                             var inner = accepts;
                             accepts = property => !Composited (property) && (inner is null || inner (property));
                         }
-                        if (part is null && !selector.HasStates) {
+                        if (part is null && !selector.IsAny && !selector.HasStates) {
                             // The shorthand expands to four longhands from one declaration; report it once.
                             var reported = new HashSet<(int, int)> ();
                             foreach (var item in compiled.Items)
@@ -1373,7 +1474,7 @@ namespace Majorsilence.Forms
                                     rules.Add (new ControlRule (selector, part, hover, active, disabled, focus, focusVisible, style => {
                                         foreach (var action in cascadeActions)
                                             action (style);
-                                    }, new ThemeCssRule (selector, part, hover, active, disabled, focus, cascadeModel, raw.Line, raw.Column) { FocusVisible = focusVisible, media_text = rule.MediaText }));
+                                    }, NewModel (cascadeModel)));
                             }
                         }
 
@@ -1386,7 +1487,7 @@ namespace Majorsilence.Forms
                         rules.Add (new ControlRule (selector, part, hover, active, disabled, focus, focusVisible, style => {
                             foreach (var action in captured)
                                 action (style);
-                        }, new ThemeCssRule (selector, part, hover, active, disabled, focus, model, raw.Line, raw.Column) { FocusVisible = focusVisible, media_text = rule.MediaText }));
+                        }, NewModel (model)));
                     }
                 }
             }

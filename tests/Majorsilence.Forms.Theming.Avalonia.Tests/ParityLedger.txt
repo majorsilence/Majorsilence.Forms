@@ -1,5 +1,5 @@
 # Avalonia theming parity ledger. Rewrite with MAJORSILENCE_WRITE_THEMING_PARITY_LEDGER=1.
-# native=502 approximate=374 unsupported=1098
+# native=509 approximate=374 unsupported=1098
 Button animation-delay = Approximate
 Button animation-direction = Approximate
 Button animation-duration = Approximate
@@ -1974,3 +1974,10 @@ TreeView transition-property = Unsupported
 TreeView transition-timing-function = Unsupported
 TreeView::selection background-color = Native
 TreeView::selection color = Native
+form #saveButton = Native
+form .primary = Native
+form .primary.large = Native
+form .primary:hover = Native
+form Button#saveButton = Native
+form Button.primary = Native
+form Button.primary:hover = Native

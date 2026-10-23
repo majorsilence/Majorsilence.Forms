@@ -1,6 +1,6 @@
 # Classes and ids in theme CSS — design
 
-Status: **accepted; implementation pending.** Nothing here is implemented yet. It is phase 5 of the plan to widen the
+Status: **implemented** (see "As built" at the end). It is phase 5 of the plan to widen the
 theme CSS toward what is common on the web (transitions, modern values, paint effects, `@media` and
 `@keyframes` are done; see [theming.md](theming.md)).
 
@@ -138,3 +138,35 @@ Decided:
 
 Implementation order is the "Plan, if accepted" list above; the parity plan's phase 6
 ([theming-parity-plan.md](theming-parity-plan.md)) is the host half of it.
+
+## As built
+
+Implemented as decided; where the build differs from the design above, or the design left a choice open:
+
+- **Selectors.** `ThemeStyleSheet` parses compound selectors (`Type`, `.class`, `#id`, `.a.b`, `Type.class:hover`, `Type#id`); a
+  class or id with a `::part`, and a class or id on a window (`Form`), are errors that say so. Combinators, `:not ()`, `:is ()`,
+  `:where ()`, `:has ()` and attribute selectors are errors that say they come in a later phase. `ThemeCssRule` gained `Classes`,
+  `Id`, `Specificity` (`ThemeCssSpecificity`), `IsScoped` and `AppliesToAnyType`. A rule with no type has the stand-in selector
+  `ThemeCssSelector.Any` (`IsAny`), never null, so a host that assumes `Selector` is a real control type fails loudly in its own
+  lookup instead of with a null reference.
+- **Control API.** `Control.StyleClasses` (`ControlStyleClasses`: `Add`, `Remove`, `Contains`, `Toggle`, `Clear`) and
+  `Control.CssClass`. A class name no selector could write is refused with an exception. `#id` is `Control.Name`; renaming restyles.
+- **The cascade.** `Control.StyleCascade.cs`. A control that has classes or a `Name` some rule names gets one cascade layer per
+  state, linked between each instance style and the type-level style above it (`ControlStyle.SetCascadeParent`, which also re-links
+  the border chain). Layers are made new on every rebuild and rebuilt lazily when `Theme.ScopedRulesVersion` has moved (a sheet,
+  a token, a scope) or the control's classes or name changed. A control with neither pays one static read; with rules in use, an
+  integer compare.
+- **Type rules in a layer.** A class or id rule applies from its own state up (`.primary` in a hovered control too, as in CSS), but
+  a *type* rule is only listed for its own non-resting state, and only so it can be ordered against the class rules
+  (`Button:hover` against `.primary`). A `Button { }` rule never enters a layer: the type's built-in look for a state (a button's
+  accent hover) must show through it for a classed button exactly as for any other, and a class rule outranks a type rule anyway.
+- **Transitions.** A class or name change replaces the transition's starting state with a copy chained to the layer being
+  discarded (`ControlStyle.SnapshotOwn`), so the style it moves into decides the transition, as for a hover. A change before the
+  control was ever painted does not animate.
+- **ThemeScope.** A control resolves its class and id rules from its scope's own sheet chain when the scope has a theme of its
+  own, else the application's; attaching a scope or changing one moves the version.
+- **WinForms.** `#id` rules are laid over the type's rules for the control with that `Name` (`ApplyContext.ForControl`); class
+  rules are info diagnostics ("styles Majorsilence.Forms controls only").
+- **Avalonia.** Style classes and `Name` map natively. A Fluent resource cannot be scoped with `Style.Resources` (those are visible
+  to the whole application), so a style sets an attached property per resource key that writes the control's own `Resources`
+  (`ScopedResource`). An id is matched as a property so it has the same style priority as a class.

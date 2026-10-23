@@ -7,7 +7,7 @@ namespace Majorsilence.Forms
     /// </summary>
     public class ControlBorderStyle
     {
-        private readonly ControlBorderStyle? _parent;
+        private ControlBorderStyle? _parent;
 
         private SKColor? color;
         private int? width;
@@ -27,6 +27,16 @@ namespace Majorsilence.Forms
             top = new BorderSideStyle (_parent?.top) { OwnerBorder = this, Side = 1 };
             right = new BorderSideStyle (_parent?.right) { OwnerBorder = this, Side = 2 };
             bottom = new BorderSideStyle (_parent?.bottom) { OwnerBorder = this, Side = 3 };
+        }
+
+        // Re-links this border (and each side) under `parent`; see ControlStyle.SetCascadeParent.
+        internal void Reparent (ControlBorderStyle? parent)
+        {
+            _parent = parent;
+            left.Reparent (parent?.left);
+            top.Reparent (parent?.top);
+            right.Reparent (parent?.right);
+            bottom.Reparent (parent?.bottom);
         }
 
         // The type-level ControlStyle this border belongs to, or null (see ControlStyle.ScopedTwin).
@@ -201,7 +211,7 @@ namespace Majorsilence.Forms
     /// </summary>
     public class BorderSideStyle
     {
-        private readonly BorderSideStyle? _parent;
+        private BorderSideStyle? _parent;
 
         /// <summary>
         /// Initializes a new instance of the BorderSideStyle class.
@@ -210,6 +220,8 @@ namespace Majorsilence.Forms
 
         private SKColor? color;
         private int? width;
+
+        internal void Reparent (BorderSideStyle? parent) => _parent = parent;
 
         // The border this side belongs to and which side it is, so a ThemeScope can answer for it.
         internal ControlBorderStyle? OwnerBorder { get; set; }

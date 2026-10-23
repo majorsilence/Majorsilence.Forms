@@ -69,6 +69,10 @@ namespace Majorsilence.Forms
         /// </summary>
         public IReadOnlyList<ThemeStyleSheet> CurrentStyleSheets => stylesheets;
 
+        // The sheets whose class and id rules apply inside this scope: its own once it has a theme of its own (a built-in theme's are
+        // none), else null, meaning the application's.
+        internal IReadOnlyList<ThemeStyleSheet>? OwnRuleSheets => own_rules is null ? null : stylesheets;
+
         /// <summary>
         /// Makes this scope <see cref="Current"/> until the result is disposed, for code that paints or
         /// measures outside Majorsilence.Forms' own paint, layout and input paths.
@@ -217,12 +221,17 @@ namespace Majorsilence.Forms
 
                 foreach (var layer in chain)
                     foreach (var rule in layer.ControlRules) {
+                        // Class and id rules reach controls through their own cascade, which reads this scope's sheets (OwnRuleSheets).
+                        if (rule.IsScoped)
+                            continue;
+
                         var target = rule.GetTargetStyle ();
                         rules[target] = rules.TryGetValue (target, out var before) ? before + rule.Apply : rule.Apply;
                     }
 
                 own_rules = rules;
                 stylesheets = chain.ToArray ();
+                Theme.NoteScopedRules (stylesheets);
                 change_pending = true;
             } finally {
                 EndUpdate ();
@@ -317,6 +326,7 @@ namespace Majorsilence.Forms
 
             change_pending = false;
 
+            Theme.BumpScopedRules ();
             TextMeasurer.ClearTextBlockCache ();
             RebuildTwins ();
 

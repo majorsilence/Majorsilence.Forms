@@ -78,7 +78,7 @@ namespace Majorsilence.Forms.Theming.WinForms
 
         private static void OnState (object? sender, Action<Tracking>? update)
         {
-            if (sender is not WF.Control control || Current is not { } ctx || !tracking.TryGetValue (control, out var track))
+            if (sender is not WF.Control control || ContextFor (control) is not { } ctx || !tracking.TryGetValue (control, out var track))
                 return;
 
             update?.Invoke (track);

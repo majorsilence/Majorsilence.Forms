@@ -89,6 +89,29 @@ namespace Majorsilence.Forms.Theming.Avalonia
         };
     }
 
+    /// <summary>How one selector form with a class or an id (<see cref="ThemeCssReference.ClassAndIdForms"/>) lands in Avalonia.</summary>
+    public sealed class AvaloniaThemeFormEntry
+    {
+        internal AvaloniaThemeFormEntry (string selector, AvaloniaThemeSupportLevel level, string notes)
+        {
+            Selector = selector;
+            Level = level;
+            Notes = notes;
+        }
+
+        /// <summary>The selector form, e.g. <c>#saveButton</c> or <c>Button.primary</c>.</summary>
+        public string Selector { get; }
+
+        /// <summary>How faithfully it applies.</summary>
+        public AvaloniaThemeSupportLevel Level { get; }
+
+        /// <summary>What it maps to.</summary>
+        public string Notes { get; }
+
+        /// <inheritdoc/>
+        public override string ToString () => $"{Selector} -> {Level}";
+    }
+
     /// <summary>Where a CSS selector lands in Avalonia, or why it cannot.</summary>
     public sealed class AvaloniaThemeSelectorMapping
     {
@@ -161,6 +184,54 @@ namespace Majorsilence.Forms.Theming.Avalonia
 
         /// <summary>Every (selector, part, state, property) row.</summary>
         public static IReadOnlyList<AvaloniaThemeSupportEntry> Entries { get; }
+
+        /// <summary>
+        /// The selector forms with classes and ids, one row for each of <see cref="ThemeCssReference.ClassAndIdForms"/>. Avalonia has both:
+        /// <c>.class</c> is a style class (<c>Control.Classes</c>) and <c>#id</c> is the control's <c>Name</c>, so a rule becomes a style
+        /// under <c>Type.class</c> / <c>Type#name</c>, with the type's Fluent resources scoped to the matching controls.
+        /// </summary>
+        public static IReadOnlyList<AvaloniaThemeFormEntry> SelectorForms { get; } = ThemeCssReference.ClassAndIdForms.Select (form => {
+            var avalonia = form.Selector.Replace (":hover", ":pointerover");
+            var typeless = form.Selector[0] is '.' or '#';
+            var pseudo = form.Selector.Contains (':');
+
+            return new AvaloniaThemeFormEntry (form.Selector, AvaloniaThemeSupportLevel.Native,
+                (form.Selector.Contains ('#') ? "Matches the control whose Name is the id" : "Matches a control whose Classes include the name (the app adds it with Classes.Add)")
+                + (typeless ? ", on every control type that has a row for the declared property (the type's Fluent resources are scoped to it). " : ", on that control type. ")
+                + "Written as a style under `" + avalonia + "`; a template-part setter carries the constraint before `/template/`. "
+                + "Styles come after the type's own, ordered by specificity, ties to the later rule; a resting declaration holds in the control's other states too."
+                + (pseudo ? " The pseudo-class follows the same rows as the type's." : ""));
+        }).ToList ();
+
+        // The Avalonia control types a CSS selector's resource rows belong to. A Fluent resource is read by the control's template, so a class
+        // or id rule that writes one puts it in a style on those controls (Style.Resources) instead of in the application's resources. Empty
+        // for the selectors that have no control type of their own (the marked ones, and those with no Avalonia counterpart).
+        internal static IReadOnlyList<StyleSelector> ControlSelectorsOf (string selector) => selector.ToLowerInvariant () switch {
+            "button" => new[] { S.Button, S.ToggleButton },
+            "checkbox" => new[] { S.CheckBox },
+            "radiobutton" => new[] { S.RadioButton },
+            "linklabel" => new[] { S.Hyperlink },
+            "textbox" => new[] { S.TextBox, S.DatePicker },
+            "combobox" => new[] { S.ComboBox },
+            "numericupdown" => new[] { S.NumericUpDown },
+            "label" => new[] { S.Label },
+            "datetimepicker" => new[] { S.DatePickerControl, S.TimePickerControl },
+            "popupwindow" => new[] { S.FlyoutPresenter, S.ToolTip },
+            "progressbar" => new[] { S.ProgressBar },
+            "listbox" => new[] { S.ListBox },
+            "treeview" => new[] { S.TreeView },
+            "datagridview" => new[] { S.DataGrid },
+            "menu" => new[] { S.Menu },
+            "menudropdown" => new[] { S.MenuFlyout, S.ContextMenu },
+            "tabcontrol" => new[] { S.TabControl },
+            "tabstrip" => new[] { S.TabItem },
+            "scrollbar" => new[] { S.ScrollBar },
+            "trackbar" => new[] { S.Slider },
+            "splitcontainer" or "splitter" => new[] { S.GridSplitter },
+            "monthcalendar" => new[] { S.Calendar },
+            "form" => new[] { S.Window },
+            _ => Array.Empty<StyleSelector> ()
+        };
 
         private static readonly Dictionary<(string Selector, string? Part, ThemeCssState State, string Property), AvaloniaThemeSupportEntry> index;
         private static readonly Dictionary<string, AvaloniaThemeSelectorMapping> mapping_index;
@@ -788,6 +859,14 @@ namespace Majorsilence.Forms.Theming.Avalonia
             sb.AppendLine ("|---|---|---|");
             foreach (var m in Mappings.OrderBy (m => m.Selector, StringComparer.Ordinal))
                 sb.AppendLine ($"| `{m.Selector}` | {(m.AvaloniaTypes is null ? "—" : $"`{m.AvaloniaTypes}`")} | {Escape (m.Notes)} |");
+
+            sb.AppendLine ();
+            sb.AppendLine ("### Selectors with classes and ids");
+            sb.AppendLine ();
+            sb.AppendLine ("| Selector | Support | Notes |");
+            sb.AppendLine ("|---|---|---|");
+            foreach (var form in SelectorForms)
+                sb.AppendLine ($"| `{form.Selector}` | {LevelText (form.Level)} | {Escape (form.Notes)} |");
 
             sb.AppendLine ();
             sb.AppendLine ("### Property support");

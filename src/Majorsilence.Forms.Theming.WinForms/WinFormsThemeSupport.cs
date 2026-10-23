@@ -96,6 +96,31 @@ namespace Majorsilence.Forms.Theming.WinForms
     }
 
     /// <summary>
+    /// How one selector form with a class or an id (<see cref="ThemeCssReference.ClassAndIdForms"/>) lands in System.Windows.Forms.
+    /// </summary>
+    public sealed class WinFormsThemeFormEntry
+    {
+        internal WinFormsThemeFormEntry (string selector, WinFormsThemeSupportLevel level, string notes)
+        {
+            Selector = selector;
+            Level = level;
+            Notes = notes;
+        }
+
+        /// <summary>The selector form, e.g. <c>#saveButton</c> or <c>Button.primary</c>.</summary>
+        public string Selector { get; }
+
+        /// <summary>Native for an id (it matches <c>Control.Name</c>); unsupported for a class (a WinForms control has none), reported as an info diagnostic.</summary>
+        public WinFormsThemeSupportLevel Level { get; }
+
+        /// <summary>What it maps to, or why it cannot.</summary>
+        public string Notes { get; }
+
+        /// <inheritdoc/>
+        public override string ToString () => $"{Selector} -> {Level}";
+    }
+
+    /// <summary>
     /// Where a CSS selector lands in System.Windows.Forms, or why it cannot.
     /// </summary>
     public sealed class WinFormsThemeSelectorMapping
@@ -161,6 +186,24 @@ namespace Majorsilence.Forms.Theming.WinForms
 
         /// <summary>Every (selector, part, state, property) row.</summary>
         public static IReadOnlyList<WinFormsThemeSupportEntry> Entries { get; }
+
+        /// <summary>
+        /// The selector forms with classes and ids, one row for each of <see cref="ThemeCssReference.ClassAndIdForms"/>: an id selects the
+        /// control whose <c>Name</c> it is, a class selects nothing (reported as an info diagnostic, "styles Majorsilence.Forms controls only").
+        /// </summary>
+        public static IReadOnlyList<WinFormsThemeFormEntry> SelectorForms { get; } = ThemeCssReference.ClassAndIdForms.Select (form => {
+            var hasClass = form.Selector.Contains ('.');
+            var hasPseudo = form.Selector.Contains (':');
+
+            return hasClass
+                ? new WinFormsThemeFormEntry (form.Selector, WinFormsThemeSupportLevel.Unsupported,
+                    "A System.Windows.Forms control has no style classes, so the rule reaches none of them; it is reported as an info diagnostic (\"styles Majorsilence.Forms controls only\"). Select the control by its Name instead.")
+                : new WinFormsThemeFormEntry (form.Selector, WinFormsThemeSupportLevel.Native,
+                    "Matches the control whose Name is the id (the designer gives every control one), at any depth of the form, the way a type selector matches a type; "
+                    + (form.Selector.StartsWith ('#') ? "a rule with no type reads the type's rows of the control it finds." : "the type must be the control's own.")
+                    + " Its declarations win over the type's own rules, in every state the control has. Read when the control is styled: a Name changed afterwards applies at the next apply."
+                    + (hasPseudo ? " The pseudo-class follows the same rows as the type's." : ""));
+        }).ToList ();
 
         private static readonly Dictionary<(string Selector, string? Part, ThemeCssState State, string Property), WinFormsThemeSupportEntry> index;
         private static readonly Dictionary<string, WinFormsThemeSelectorMapping> mapping_index;
@@ -682,6 +725,14 @@ namespace Majorsilence.Forms.Theming.WinForms
             sb.AppendLine ("|---|---|---|");
             foreach (var m in Mappings)
                 sb.AppendLine ($"| `{m.Selector}` | {(m.WinFormsTypes is null ? "—" : $"`{m.WinFormsTypes}`")} | {Escape (m.Notes)} |");
+
+            sb.AppendLine ();
+            sb.AppendLine ("### Selectors with classes and ids");
+            sb.AppendLine ();
+            sb.AppendLine ("| Selector | Support | Notes |");
+            sb.AppendLine ("|---|---|---|");
+            foreach (var form in SelectorForms)
+                sb.AppendLine ($"| `{form.Selector}` | {LevelText (form.Level)} | {Escape (form.Notes)} |");
 
             sb.AppendLine ();
             sb.AppendLine ("### Property support");

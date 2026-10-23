@@ -52,6 +52,10 @@ OnScrollGesture/1
 ScrollGesture
 VScroll
 
+# N/A -- style classes and an id (Name) select a CONTROL for the theme CSS; a window has neither (a rule that names one on Form is a parse error).
+CssClass
+StyleClasses
+
 # N/A -- selection/hover state of a child control.
 CanSelect
 Focused

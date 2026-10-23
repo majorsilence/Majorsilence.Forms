@@ -544,6 +544,11 @@ namespace Majorsilence.Forms
         // The state style CurrentStyle is for, before any transition blends it with the previous one.
         private ControlStyle ResolveStateStyle ()
         {
+            // Class and id rules (Control.StyleClasses): the layers they put under the instance styles are rebuilt here when stale. An
+            // application whose themes name none pays this one static read.
+            if (Theme.ScopedRulesInUse && style_cascade_stamp != Theme.ScopedRulesVersion)
+                EnsureStyleCascade ();
+
             if (!Enabled)
                 return StyleDisabled;
 
@@ -1397,7 +1402,12 @@ namespace Majorsilence.Forms
             }
             set {
                 var s = string.IsNullOrEmpty (value) ? null : value;
+                var changed = !string.Equals ((string?)Properties.GetObject (s_namePropertyProperty), s, StringComparison.Ordinal);
                 Properties.SetObject (s_namePropertyProperty, s);
+
+                // "#name" rules match the Name (a designer gives every control one).
+                if (changed)
+                    InvalidateStyleCascade (animate: true);
             }
         }
 

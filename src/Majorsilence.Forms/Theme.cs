@@ -448,6 +448,8 @@ namespace Majorsilence.Forms
 
         private static void InvokeThemeChanged ()
         {
+            // Class and id rules read tokens when they are applied to a control's cascade, so that is rebuilt too.
+            BumpScopedRules ();
             TextMeasurer.ClearTextBlockCache ();
             // A scope inherits every token it does not set, so its controls' styles follow this change too.
             ThemeScope.RefreshAll ();

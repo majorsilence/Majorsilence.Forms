@@ -71,13 +71,15 @@ namespace Majorsilence.Forms.Theming.Avalonia
             _ => new[] { cssProperty }
         };
 
-        private static void BuildMotion (IReadOnlyList<ThemeStyleSheet> chain, Func<StyleSelector, StyleBuilder> styleFor)
+        private static void BuildMotion (IReadOnlyList<ThemeStyleSheet> chain, Func<StyleSelector, StyleBuilder> styleFor, List<ScopeGroup> groups, int order)
         {
             if (AvaloniaCssTheme.PrefersReducedMotion ?? global::Majorsilence.Forms.SystemInformation.PrefersReducedMotion)
                 return;
 
-            // Every declaration in source order per (selector, state), across the chain.
+            // Every declaration in source order per (selector, state), across the chain; the rules that name a class or an id are
+            // kept apart per scope (selector, classes, id), and play on the controls that have them.
             var declarations = new Dictionary<(string Selector, ThemeCssState State), List<ThemeCssDeclaration>> ();
+            var scoped = new Dictionary<string, (ScopeGroup Group, Dictionary<(string Selector, ThemeCssState State), List<ThemeCssDeclaration>> Declarations)> (StringComparer.Ordinal);
             var keyframes = new Dictionary<string, ControlKeyframes> (StringComparer.Ordinal);
 
             foreach (var sheet in chain) {
@@ -88,14 +90,40 @@ namespace Majorsilence.Forms.Theming.Avalonia
                     if (rule.Part is not null)
                         continue;
 
-                    var key = (rule.Selector.Name, rule.State);
-                    if (!declarations.TryGetValue (key, out var list))
-                        declarations[key] = list = new List<ThemeCssDeclaration> ();
+                    var target = declarations;
 
-                    list.AddRange (rule.Declarations);
+                    if (rule.IsScoped) {
+                        var scopeKey = RuleText (rule).Split (':')[0];
+
+                        if (!scoped.TryGetValue (scopeKey, out var scope)) {
+                            var specificity = new ThemeCssSpecificity (rule.Id is null ? 0 : 1, rule.Classes.Count, rule.AppliesToAnyType ? 0 : 1);
+                            scoped[scopeKey] = scope = (new ScopeGroup (rule.Classes, rule.Id, specificity, ThemeCssState.Normal, order), new ());
+                            groups.Add (scope.Group);
+                        }
+
+                        target = scope.Declarations;
+                    }
+
+                    // A rule with no type plays on every control type that can play motion.
+                    foreach (var name in rule.AppliesToAnyType ? motion_specs.Select (m => m.Selector) : new[] { rule.Selector.Name }) {
+                        var key = (name, rule.State);
+                        if (!target.TryGetValue (key, out var list))
+                            target[key] = list = new List<ThemeCssDeclaration> ();
+
+                        list.AddRange (rule.Declarations);
+                    }
                 }
             }
 
+            ApplyMotion (declarations, keyframes, styleFor);
+
+            foreach (var (group, scopedDeclarations) in scoped.Values)
+                ApplyMotion (scopedDeclarations, keyframes, group.StyleFor);
+        }
+
+        private static void ApplyMotion (Dictionary<(string Selector, ThemeCssState State), List<ThemeCssDeclaration>> declarations, Dictionary<string, ControlKeyframes> keyframes,
+            Func<StyleSelector, StyleBuilder> styleFor)
+        {
             static bool HasMotion (List<ThemeCssDeclaration>? list, string prefix)
                 => list is not null && list.Any (d => d.Property.StartsWith (prefix, StringComparison.Ordinal));
 
