@@ -55,5 +55,40 @@ namespace Majorsilence.Forms.Tests
         {
             Assert.Equal (0, ColouredPixels (chooseFont: false));
         }
+
+        // Subpixel text needs an opaque destination. On a control whose buffer stays transparent -- a
+        // Transparent-BackColor label, a caption button -- its glyphs came out dark with coloured fringes whatever
+        // their colour: white text over blue drew black, so the title bar's "?" read black and transparent labels
+        // looked ghosted. Such a control keeps grey antialiasing, and white text over blue only lightens the blue.
+        [Fact]
+        public void Text_on_a_transparent_control_is_not_drawn_dark ()
+        {
+            try {
+                Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 9f));
+                HeadlessRenderer.Use ();
+                var blue = Color.FromArgb (0, 0x78, 0xD7);
+                using var form = new Form { FormBorderStyle = FormBorderStyle.None, ClientSize = new Size (200, 40), BackColor = blue };
+                form.Controls.Add (new Label {
+                    Text = "Fore Color ???", Location = new Point (4, 4), AutoSize = true,
+                    BackColor = Color.Transparent, ForeColor = Color.White
+                });
+                form.Show ();
+
+                using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 200, 40));
+                int dark = 0, white = 0;
+
+                for (var x = 0; x < bitmap.Width; x++)
+                    for (var y = 0; y < bitmap.Height; y++) {
+                        var c = bitmap.GetPixel (x, y);
+                        if (c.Blue < 0xD7 - 40) dark++;
+                        if (c.Red > 200 && c.Green > 200 && c.Blue > 200) white++;
+                    }
+
+                Assert.True (white > 10, $"{white} white text pixels");
+                Assert.Equal (0, dark);
+            } finally {
+                Application.SetDefaultFont (null!);
+            }
+        }
     }
 }

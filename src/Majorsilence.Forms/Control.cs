@@ -1897,7 +1897,7 @@ namespace Majorsilence.Forms
                 var buffer = control.GetBackBuffer ();
 
                 if (control.NeedsPaint) {
-                    using (var buffer_canvas = BufferCanvas.Open (buffer)) {
+                    using (var buffer_canvas = BufferCanvas.Open (buffer, control.PaintsOpaqueBackground)) {
                         var canvas = buffer_canvas.Canvas;
 
                         // start drawing
@@ -2023,6 +2023,12 @@ namespace Majorsilence.Forms
         /// theme default.
         /// </summary>
         internal SKColor GetEffectiveBackgroundColor () => EffectiveBackgroundColorFor (CurrentStyle);
+
+        // Whether this control's background covers its back buffer opaquely, so text drawn on it can take subpixel
+        // edging (BufferCanvas.Open). A transparent control, or one whose background resolves to a translucent
+        // colour, leaves the buffer see-through.
+        internal bool PaintsOpaqueBackground
+            => !behaviors.HasFlag (ControlBehaviors.Transparent) && GetEffectiveBackgroundColor ().Alpha == 255;
 
         // The same resolution for a given current style, so a transition can resolve both of its ends the way painting will.
         private SKColor EffectiveBackgroundColorFor (ControlStyle current)
