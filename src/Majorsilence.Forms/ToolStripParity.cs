@@ -698,7 +698,9 @@ namespace Majorsilence.Forms
 
         private ToolStripOverflowButton CreateOverflowButton ()
         {
-            var button = new ToolStripOverflowButton ();
+            // Hidden until something overflows, as upstream's: OverflowButton.Visible reported true on every strip, and
+            // the professional renderer, which edges a strip only when it has no overflow button, never edged one.
+            var button = new ToolStripOverflowButton { Visible = false };
 
             suppress_item_notifications = true;
 
@@ -898,10 +900,13 @@ namespace Majorsilence.Forms
 
             MoveToOverflow (overflowed);
 
-            if (overflowed.Count > 0)
+            if (overflowed.Count > 0) {
+                OverflowButton.Visible = true;
                 main.Add (OverflowButton);
-            else
-                overflow_button?.SetBounds (0, 0, 0, 0);
+            } else if (overflow_button is not null) {
+                overflow_button.Visible = false;
+                overflow_button.SetBounds (0, 0, 0, 0);
+            }
 
             (vertical ? StackLayoutEngine.VerticalExpand : StackLayoutEngine.HorizontalExpand).Layout (area, main.Cast<ILayoutable> ());
             PinTrailing (main, area, vertical);
