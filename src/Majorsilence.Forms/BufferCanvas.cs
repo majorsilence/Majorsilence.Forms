@@ -28,9 +28,16 @@ namespace Majorsilence.Forms
         internal static bool UsesSubpixelText => OperatingSystemCompat.IsWindows () && SystemFonts.HasDefaultFontOverride;
 
         /// <summary>Opens a canvas over <paramref name="bitmap"/>'s pixels.</summary>
-        internal static BufferCanvas Open (SKBitmap bitmap)
+        /// <param name="bitmap">The back buffer.</param>
+        /// <param name="opaque">
+        /// Whether what is painted into it covers it opaquely. Subpixel text needs an opaque destination: drawn
+        /// onto a buffer that stays transparent, as a caption button's or a Transparent-BackColor label's does,
+        /// its glyphs came out dark, with coloured fringes, whatever their colour -- a white "?" on the title bar
+        /// read as a black one. Such a buffer keeps grey antialiasing.
+        /// </param>
+        internal static BufferCanvas Open (SKBitmap bitmap, bool opaque = true)
         {
-            if (UsesSubpixelText) {
+            if (UsesSubpixelText && opaque) {
                 var surface = SKSurface.Create (bitmap.Info, bitmap.GetPixels (), bitmap.RowBytes,
                     new SKSurfaceProperties (SKPixelGeometry.RgbHorizontal));
 
