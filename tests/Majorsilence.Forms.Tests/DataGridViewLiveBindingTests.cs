@@ -371,10 +371,10 @@ namespace Majorsilence.Forms.Tests
             };
             grid.DataSource = table;
 
-            Assert.Equal (typeof (decimal), grid.Columns["amount"].ValueType);
-            Assert.Equal (typeof (string), grid.Columns["name"].ValueType);
-            Assert.Equal (typeof (int), grid.Columns["count"].ValueType);
-            Assert.Equal (4999m.ToString ("N2"), grid.Rows[0].Cells["amount"].FormattedValue);
+            Assert.Equal (typeof (decimal), grid.Columns["amount"]!.ValueType);
+            Assert.Equal (typeof (string), grid.Columns["name"]!.ValueType);
+            Assert.Equal (typeof (int), grid.Columns["count"]!.ValueType);
+            Assert.Equal (4999m.ToString ("N2"), grid.Rows[0].Cells["amount"]!.FormattedValue);
         }
     }
 }
