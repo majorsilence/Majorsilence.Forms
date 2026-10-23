@@ -351,5 +351,30 @@ namespace Majorsilence.Forms.Tests
 
             Assert.Equal (Rectangle.Empty, grid.GetCellDisplayRectangle (0, -1, false));
         }
+
+        // Upstream gives every auto-generated column the bound member's type as its ValueType. Left null, code that
+        // formats by type -- a CellFormatting handler setting Format = "N2" when ValueType is decimal, as a ported
+        // DataGrid wrapper does -- never matched, and a bound decimal showed 4999.00 instead of 4,999.00.
+        [Fact]
+        public void A_generated_column_has_its_members_type_as_its_value_type ()
+        {
+            var table = new DataTable ();
+            table.Columns.Add ("amount", typeof (decimal));
+            table.Columns.Add ("name", typeof (string));
+            table.Columns.Add ("count", typeof (int));
+            table.Rows.Add (4999m, "x", 3);
+
+            using var grid = new DataGridView ();
+            grid.CellFormatting += (_, e) => {
+                if (e.ColumnIndex >= 0 && grid.Columns[e.ColumnIndex].ValueType == typeof (decimal))
+                    e.CellStyle.Format = "N2";
+            };
+            grid.DataSource = table;
+
+            Assert.Equal (typeof (decimal), grid.Columns["amount"]!.ValueType);
+            Assert.Equal (typeof (string), grid.Columns["name"]!.ValueType);
+            Assert.Equal (typeof (int), grid.Columns["count"]!.ValueType);
+            Assert.Equal (4999m.ToString ("N2"), grid.Rows[0].Cells["amount"]!.FormattedValue);
+        }
     }
 }
