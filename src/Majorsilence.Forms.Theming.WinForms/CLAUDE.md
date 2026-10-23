@@ -16,6 +16,7 @@ description and the support matrix: `docs/theming-winforms.md`. Tests:
 | `WinFormsThemeApplier.Effects.cs`, `EffectRenderer.cs` | `box-shadow`, `outline`, `background-image`: shadows/outlines painted by the *parent's* `Paint` event, inset shadows from the control's own `Paint`, gradients into `BackgroundImage`. `EffectRenderer` draws with SkiaSharp and converts to `Bitmap`. |
 | `WinFormsThemeApplier.Motion.cs` | Transitions and `@keyframes` on the colours a state swaps: one UI-thread timer (runs only while something moves), `ThemeCssTiming.Evaluate` for the curves. |
 | `BorderPainter.cs` | A `NativeWindow` that repaints a control's 1px frame in the theme's `border-color` (`WM_NCPAINT` / `WM_PAINT` / `WM_PRINT`); also `PaintsItself` / `OverridesPaint`, which decide who is left alone. |
+| `ThemeRuleSet.cs` (id rules) | `#id` / `Type#id` rules are kept apart and laid over the type's rules for the control with that `Name` (`OverlayFor`, via `ApplyContext.ForControl`); hooks must fetch their context with `WinFormsThemeApplier.ContextFor (control)`, not `Current`. Class rules are info diagnostics. |
 | `ThemeRuleSet.cs` | Chain of sheets merged to `(selector, part, state) → property → live value`; `TokenSnapshot` reads `Theme.*` once per apply as `System.Drawing.Color`. |
 | `ThemeToolStripRenderer.cs` | `ProfessionalColorTable` + renderer built from tokens and the `Menu`/`ToolBar`/`StatusBar`/`MenuDropDown` rules; installed on `ToolStripManager.Renderer`. |
 | `Dwm.cs` | Windows 11 title bar / frame colours, best effort. |

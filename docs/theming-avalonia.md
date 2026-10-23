@@ -189,6 +189,36 @@ Resources the app declares **directly** in `Application.Resources` (not in a mer
 the published ones, as they should — remove a hand-written `SystemAccentColor` there when the stylesheet
 is meant to own it.
 
+### Classes and ids
+
+Both selector forms map natively. `.primary` is an Avalonia **style class** (`control.Classes.Add ("primary")`, or
+`Classes="primary"` in XAML) and `#saveButton` is the control's **`Name`**:
+
+```css
+Button.primary { background-color: var(--accent-color); color: white; }
+Button.primary:hover { background-color: #0a5fb4; }
+.card { border-radius: 8px; box-shadow: 0 1px 3px rgb(0 0 0 / 20%); }
+#saveButton { font-weight: bold; }
+```
+
+- A rule with a type (`Button.primary`) takes the type's rows of the support matrix; a rule with no type (`.card`, `#save`) is
+  written for every control type that has a row for each declaration, and a declaration no type has a row for is a warning.
+- What a style setter writes (borders, radius, fonts, the controls whose colours are setters) is a style under
+  `Button.primary` / `Button#saveButton`, after the type's own styles. A **Fluent resource** (`ButtonBackground`, ...) cannot be
+  scoped with `Style.Resources` -- those are visible to the whole application -- so the matching style sets an attached property
+  named after the resource, which puts the value in that control's own `Resources` where the template's `DynamicResource` finds
+  it first, and takes it out again when the class is removed.
+- A template-part setter (the shadows, transitions and animations) carries the class or name constraint **before**
+  `/template/`: `Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter`.
+- Order follows CSS: ids, then classes and pseudo-classes, then types; ties go to the later rule. The generated styles are
+  sorted that way and come after the type-level styles, so a class always beats a rule for the type alone. Avalonia gives a
+  style that has a class or property match a higher priority than one that has not; an id is therefore matched as a property
+  (`Name`) rather than with the `#` step, or it would lose to every class whatever the sheet says.
+- A resting declaration also holds while the control is hovered, pressed, disabled or focused, over the type's built-in look
+  for that state, as a browser's author rules do; a rule for the state itself wins over it.
+- Controls already open keep the styles they had when the sheet is re-applied, as for every rule (a re-apply swaps the
+  `Styles` object); controls created afterwards get the new ones.
+
 ### Diagnostics
 
 The rule the whole subset is built on is *never silently no-op*. Every declaration in an applied sheet
@@ -259,6 +289,18 @@ with `MAJORSILENCE_WRITE_THEMING_AVALONIA_DOC=1 dotnet test tests/Majorsilence.F
 | `ToolBar` | `Border, Panel or templated control marked with CssTheme.Selector="ToolBar"` | Avalonia has no tool bar control; mark your own tool row with CssTheme.Selector="ToolBar". |
 | `TrackBar` | `Slider` | The slider's container through SliderContainerBackground; the track and thumb follow --accent-color. |
 | `TreeView` | `TreeView` | The control is style setters; ::selection writes the TreeViewItem*Selected resources. |
+
+### Selectors with classes and ids
+
+| Selector | Support | Notes |
+|---|---|---|
+| `.primary` | native | Matches a control whose Classes include the name (the app adds it with Classes.Add), on every control type that has a row for the declared property (the type's Fluent resources are scoped to it). Written as a style under `.primary`; a template-part setter carries the constraint before `/template/`. Styles come after the type's own, ordered by specificity, ties to the later rule; a resting declaration holds in the control's other states too. |
+| `Button.primary` | native | Matches a control whose Classes include the name (the app adds it with Classes.Add), on that control type. Written as a style under `Button.primary`; a template-part setter carries the constraint before `/template/`. Styles come after the type's own, ordered by specificity, ties to the later rule; a resting declaration holds in the control's other states too. |
+| `.primary.large` | native | Matches a control whose Classes include the name (the app adds it with Classes.Add), on every control type that has a row for the declared property (the type's Fluent resources are scoped to it). Written as a style under `.primary.large`; a template-part setter carries the constraint before `/template/`. Styles come after the type's own, ordered by specificity, ties to the later rule; a resting declaration holds in the control's other states too. |
+| `#saveButton` | native | Matches the control whose Name is the id, on every control type that has a row for the declared property (the type's Fluent resources are scoped to it). Written as a style under `#saveButton`; a template-part setter carries the constraint before `/template/`. Styles come after the type's own, ordered by specificity, ties to the later rule; a resting declaration holds in the control's other states too. |
+| `Button#saveButton` | native | Matches the control whose Name is the id, on that control type. Written as a style under `Button#saveButton`; a template-part setter carries the constraint before `/template/`. Styles come after the type's own, ordered by specificity, ties to the later rule; a resting declaration holds in the control's other states too. |
+| `Button.primary:hover` | native | Matches a control whose Classes include the name (the app adds it with Classes.Add), on that control type. Written as a style under `Button.primary:pointerover`; a template-part setter carries the constraint before `/template/`. Styles come after the type's own, ordered by specificity, ties to the later rule; a resting declaration holds in the control's other states too. The pseudo-class follows the same rows as the type's. |
+| `.primary:hover` | native | Matches a control whose Classes include the name (the app adds it with Classes.Add), on every control type that has a row for the declared property (the type's Fluent resources are scoped to it). Written as a style under `.primary:pointerover`; a template-part setter carries the constraint before `/template/`. Styles come after the type's own, ordered by specificity, ties to the later rule; a resting declaration holds in the control's other states too. The pseudo-class follows the same rows as the type's. |
 
 ### Property support
 

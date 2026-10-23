@@ -43,6 +43,9 @@ namespace Majorsilence.Forms.Theming.Avalonia
 
             public StyleSelector Selector { get; }
             public Dictionary<AvaloniaProperty, object> Setters { get; } = new ();
+
+            /// <summary>Theme resources scoped to the controls this style matches (a class or id rule's colours): set through <see cref="ScopedResource"/> into the control's own resources, which Fluent's templates read.</summary>
+            public Dictionary<string, object> Resources { get; } = new ();
             public double? Uniform;
             public double? Top, Right, Bottom, Left;
             public AvaloniaProperty? ThicknessProperty, RadiusProperty;
@@ -57,6 +60,9 @@ namespace Majorsilence.Forms.Theming.Avalonia
             public Style Build ()
             {
                 var style = new Style (Selector.Build);
+
+                foreach (var (key, value) in Resources)
+                    style.Setters.Add (new Setter (ScopedResource.For (key), value));
 
                 foreach (var (property, value) in Setters)
                     style.Setters.Add (new Setter (property, value));
@@ -103,8 +109,82 @@ namespace Majorsilence.Forms.Theming.Avalonia
 
         // Within a sheet the rules are applied by state, the resting look first: :hover writes the pressed colours as a darker
         // hover, and an explicit :active rule must win over that whatever order the author wrote them in.
-        private static IEnumerable<ThemeCssRule> InStateOrder (IReadOnlyList<ThemeCssRule> rules)
-            => rules.Select ((rule, index) => (rule, index)).OrderBy (r => r.rule.State).ThenBy (r => r.index).Select (r => r.rule);
+        private static IEnumerable<(ThemeCssRule Rule, int Index)> InStateOrder (IReadOnlyList<ThemeCssRule> rules)
+            => rules.Select ((rule, index) => (rule, index)).OrderBy (r => r.rule.State).ThenBy (r => r.index);
+
+        // The rule as the author wrote its selector, for diagnostics.
+        private static string RuleText (ThemeCssRule rule)
+            => (rule.Selector.IsAny ? "" : rule.Selector.Name)
+               + string.Concat (rule.Classes.Select (c => "." + c))
+               + (rule.Id is null ? "" : "#" + rule.Id)
+               + (rule.Part is null ? "" : "::" + rule.Part.Name)
+               + AvaloniaThemeSupportEntry.StateText (rule.State);
+
+        // The states a resting class or id declaration is also written for: the ones the control type has a look for.
+        private static IEnumerable<ThemeCssState> PropagatedStates (string selector)
+        {
+            var info = ThemeCssReference.FindSelector (selector);
+
+            if (info is null)
+                yield break;
+
+            foreach (var state in new[] { ThemeCssState.Hover, ThemeCssState.Active, ThemeCssState.Disabled, ThemeCssState.Focus })
+                if (info.Supports (state))
+                    yield return state;
+        }
+
+        /// <summary>
+        /// The styles one class or id rule (or the motion of a group of them) produces: its selector narrowed to the controls that
+        /// have the classes and the name, one <see cref="StyleBuilder"/> per target, with the rule's specificity and place in the
+        /// sheet so the styles can be ordered as the cascade would.
+        /// </summary>
+        private sealed class ScopeGroup
+        {
+            private readonly Dictionary<StyleSelector, StyleBuilder> byKey = new ();
+
+            public ScopeGroup (ThemeCssRule rule, int order)
+                : this (rule.Classes, rule.Id, rule.Specificity, rule.State, order)
+            {
+            }
+
+            public ScopeGroup (IReadOnlyList<string> classes, string? id, ThemeCssSpecificity specificity, ThemeCssState state, int order)
+            {
+                Specificity = specificity;
+                State = state;
+                Order = order;
+                ScopeKey = string.Concat (classes.OrderBy (c => c, StringComparer.Ordinal).Select (c => "." + c)) + (id is null ? "" : "#" + id);
+
+                var names = classes.ToArray ();
+                Constraint = selector => {
+                    foreach (var name in names)
+                        selector = selector.Class (name);
+
+                    // A name is matched as a property, not with the Name step: a class or a property match is an activator, which gives the
+                    // style Avalonia's trigger priority, and a static Name match would lose to every class whatever the order.
+                    return id is null ? selector : selector.PropertyEquals (StyledElement.NameProperty, id);
+                };
+            }
+
+            public ThemeCssSpecificity Specificity { get; }
+            public ThemeCssState State { get; }
+            public int Order { get; }
+            public string ScopeKey { get; }
+            public Func<Selector, Selector> Constraint { get; }
+            public List<StyleBuilder> Builders { get; } = new ();
+
+            /// <summary>The style for <paramref name="selector"/> narrowed to this scope.</summary>
+            public StyleBuilder StyleFor (StyleSelector selector)
+            {
+                var scoped = selector.Scoped (ScopeKey, Constraint);
+
+                if (!byKey.TryGetValue (scoped, out var builder)) {
+                    byKey[scoped] = builder = new StyleBuilder (scoped);
+                    Builders.Add (builder);
+                }
+
+                return builder;
+            }
+        }
 
         public static AvaloniaThemeBuild Build (IReadOnlyList<ThemeStyleSheet> chain, bool deriveFromTokens = true)
         {
@@ -134,18 +214,30 @@ namespace Majorsilence.Forms.Theming.Avalonia
             window.Setters[TemplatedControl.BackgroundProperty] = new SolidColorBrush (background);
             window.Setters[TemplatedControl.ForegroundProperty] = new SolidColorBrush (ToColor (Theme.ForegroundColor));
 
-            // Writes one declaration's value to everything its support row targets.
-            void Write (AvaloniaThemeSupportEntry entry, ThemeCssValue value)
+            // Writes one declaration's value to everything its support row targets: Fluent resources and style setters. A class or id rule
+            // writes the same targets, scoped to the controls it matches (see ScopeGroup).
+            void Write (AvaloniaThemeSupportEntry entry, ThemeCssValue value, ScopeGroup? scope = null)
             {
+                Func<StyleSelector, StyleBuilder> styleFor = scope is null ? StyleFor : scope.StyleFor;
+
                 foreach (var target in entry.Targets) {
                     switch (target) {
                         case ResourceTarget resource:
-                            if (ResourceValue (resource, entry.Property, value) is { } resourceValue)
+                            if (ResourceValue (resource, entry.Property, value) is not { } resourceValue)
+                                break;
+
+                            if (scope is null) {
                                 build.Resources[resource.Key] = resourceValue;
+                                break;
+                            }
+
+                            // A scoped resource lives in a style on the matching control, which the Fluent template reads it through.
+                            foreach (var control in AvaloniaThemeSupport.ControlSelectorsOf (entry.Selector))
+                                scope.StyleFor (control).Resources[resource.Key] = resourceValue;
                             break;
 
                         case StyleTarget style:
-                            var builder = StyleFor (style.Selector);
+                            var builder = styleFor (style.Selector);
                             if (style.Property.PropertyType == typeof (Thickness) && value.Kind == ThemeCssValueKind.Length) {
                                 builder.ThicknessProperty = style.Property;
                                 double px = value.Pixels;
@@ -200,15 +292,31 @@ namespace Majorsilence.Forms.Theming.Avalonia
                         Write (entry, ThemeCssValue.FromColor (tokenDefault.Argb));
 
             var seen = new HashSet<string> (StringComparer.Ordinal);
+            var groups = new List<ScopeGroup> ();
+            var typeless = new List<(ThemeCssRule Rule, int Order)> ();
+            var order = 0;
 
-            foreach (var sheet in chain)
-                foreach (var rule in InStateOrder (sheet.Rules)) {
+            foreach (var sheet in chain) {
+                var sheetOrder = order;
+                order += sheet.Rules.Count;
+
+                foreach (var (rule, index) in InStateOrder (sheet.Rules)) {
+                    // A rule that names no type reaches every control type that has the class or id: handled below, per type.
+                    if (rule.AppliesToAnyType) {
+                        typeless.Add ((rule, sheetOrder + index));
+                        continue;
+                    }
+
                     var mapping = AvaloniaThemeSupport.FindMapping (rule.Selector.Name);
                     if (mapping is null)
                         continue;
 
                     var state = rule.State;
-                    var ruleText = rule.Selector.Name + (rule.Part is null ? "" : "::" + rule.Part.Name) + AvaloniaThemeSupportEntry.StateText (state);
+                    var ruleText = RuleText (rule);
+                    var scope = rule.IsScoped ? new ScopeGroup (rule, sheetOrder + index) : null;
+
+                    if (scope is not null)
+                        groups.Add (scope);
 
                     // A state with no Avalonia seam at all is reported once for the whole state; a state that has one is
                     // answered declaration by declaration below, like the resting look.
@@ -243,14 +351,65 @@ namespace Majorsilence.Forms.Theming.Avalonia
                         if (entry is null || level == AvaloniaThemeSupportLevel.Unsupported)
                             continue;
 
-                        Write (entry, declaration.Value);
+                        Write (entry, declaration.Value, scope);
+
+                        // A class or id rule holds in every state from its own up -- ".primary" colours a hovered button too, over the
+                        // type's built-in hover look -- so the resting declaration is written for the states the control has as well.
+                        if (scope is not null && state == ThemeCssState.Normal)
+                            foreach (var other in PropagatedStates (rule.Selector.Name))
+                                if (AvaloniaThemeSupport.Find (rule.Selector.Name, null, other, declaration.Property) is { Level: not AvaloniaThemeSupportLevel.Unsupported } stateEntry)
+                                    Write (stateEntry, declaration.Value, scope);
                     }
                 }
+            }
 
-            BuildMotion (chain, StyleFor);
+            // Rules with no type: each declaration goes to every control type whose rows answer it.
+            foreach (var (rule, ruleOrder) in typeless) {
+                var scope = new ScopeGroup (rule, ruleOrder);
+                groups.Add (scope);
+                var ruleText = RuleText (rule);
+                var selectors = AvaloniaThemeSupport.Mappings.Where (m => m.AvaloniaTypes is not null && AvaloniaThemeSupport.ControlSelectorsOf (m.Selector).Count > 0).Select (m => m.Selector).ToList ();
+
+                foreach (var declaration in rule.Declarations) {
+                    var reached = new List<string> ();
+                    var approximate = true;   // only when every control it reaches is approximate
+
+                    foreach (var name in selectors) {
+                        if (AvaloniaThemeSupport.Find (name, null, rule.State, declaration.Property) is not { Level: not AvaloniaThemeSupportLevel.Unsupported } entry)
+                            continue;
+
+                        reached.Add (name);
+                        approximate &= entry.Level == AvaloniaThemeSupportLevel.Approximate;
+                        Write (entry, declaration.Value, scope);
+
+                        if (rule.State == ThemeCssState.Normal)
+                            foreach (var other in PropagatedStates (name))
+                                if (AvaloniaThemeSupport.Find (name, null, other, declaration.Property) is { Level: not AvaloniaThemeSupportLevel.Unsupported } stateEntry)
+                                    Write (stateEntry, declaration.Value, scope);
+                    }
+
+                    if (!seen.Add (ruleText + "|" + declaration.Property))
+                        continue;
+
+                    if (reached.Count == 0)
+                        build.Diagnostics.Add (new ThemeCssDiagnostic (ThemeCssSeverity.Warning, declaration.Line, declaration.Column,
+                            $"'{ruleText} {{ {declaration.Property} }}' is not supported on Avalonia (no control type has a seam for it{(rule.State == ThemeCssState.Normal ? "" : " in that state")}) and was skipped there. It still applies to Majorsilence.Forms controls."));
+                    else if (approximate)
+                        build.Diagnostics.Add (new ThemeCssDiagnostic (ThemeCssSeverity.Info, declaration.Line, declaration.Column,
+                            $"'{ruleText} {{ {declaration.Property} }}' applies approximately on Avalonia, on every control type that has a seam for it ({string.Join (", ", reached)})."));
+                }
+            }
+
+            BuildMotion (chain, StyleFor, groups, order);
 
             foreach (var style in styles)
                 build.Styles.Add (style.Build ());
+
+            // Class and id styles come after the type's, so they win where both set a property; among themselves by CSS specificity, ties
+            // to the later rule (a state breaks a tie first: the resting look is written before the pressed shade a :hover rule implies).
+            foreach (var group in groups.OrderBy (g => g.Specificity).ThenBy (g => g.State).ThenBy (g => g.Order))
+                foreach (var scoped in group.Builders)
+                    build.Styles.Add (scoped.Build ());
 
             return build;
         }

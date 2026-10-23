@@ -114,18 +114,36 @@ namespace Majorsilence.Forms.Theming.Avalonia
     }
 
     /// <summary>One style selector of the generated sheet, with a stable key so setters merge into one style.</summary>
+    /// <remarks>
+    /// The selector is built from a <em>constraint</em> too: a function applied to the control's own step (<c>Button</c>), before
+    /// anything after it (<c>:pointerover</c>, <c>/template/ ContentPresenter</c>). A rule that names a class or an id
+    /// (<c>Button.primary</c>, <c>#save</c>) passes <c>s =&gt; s.Class ("primary")</c>, so a template-part selector becomes
+    /// <c>Button.primary:pointerover /template/ ContentPresenter</c> -- the constraint has to come before <c>/template/</c>, where
+    /// it cannot be added to the finished selector. Without a constraint it is the identity.
+    /// </remarks>
     internal sealed class StyleSelector
     {
-        public StyleSelector (string key, Func<Selector?, Selector> build)
+        private static readonly Func<Selector, Selector> identity = s => s;
+
+        private readonly Func<Selector?, Func<Selector, Selector>, Selector> build;
+
+        public StyleSelector (string key, Func<Selector?, Func<Selector, Selector>, Selector> build)
         {
             Key = key;
-            Build = build;
+            this.build = build;
         }
 
         /// <summary>The selector in Avalonia syntax, for diagnostics and the support matrix.</summary>
         public string Key { get; }
 
-        public Func<Selector?, Selector> Build { get; }
+        /// <summary>The selector as the generated sheet's resting rule uses it: no constraint.</summary>
+        public Func<Selector?, Selector> Build => x => build (x, identity);
+
+        /// <summary>The selector with <paramref name="constraint"/> applied to the control's own step.</summary>
+        public Selector BuildWith (Selector? previous, Func<Selector, Selector> constraint) => build (previous, constraint);
+
+        /// <summary>This selector narrowed to the controls a class or id rule reaches; one object per (selector, scope), as everything is.</summary>
+        public StyleSelector Scoped (string scopeKey, Func<Selector, Selector> constraint) => S.Scope (this, scopeKey, constraint);
 
         public override string ToString () => Key;
     }
@@ -136,7 +154,10 @@ namespace Majorsilence.Forms.Theming.Avalonia
         private static readonly ConcurrentDictionary<string, StyleSelector> cache = new ();
 
         // One instance per key: the applier merges setters into a style by reference, so the same selector must be the same object.
-        private static StyleSelector Get (string key, Func<Selector?, Selector> build) => cache.GetOrAdd (key, k => new StyleSelector (k, build));
+        private static StyleSelector Get (string key, Func<Selector?, Func<Selector, Selector>, Selector> build) => cache.GetOrAdd (key, k => new StyleSelector (k, build));
+
+        internal static StyleSelector Scope (StyleSelector selector, string scopeKey, Func<Selector, Selector> constraint)
+            => Get (selector.Key + scopeKey, (x, _) => selector.BuildWith (x, constraint));
 
         /// <summary>The Avalonia pseudo-class that is a CSS state, or null for the resting look.</summary>
         public static string? ClassOf (ThemeCssState state) => state switch {
@@ -150,11 +171,11 @@ namespace Majorsilence.Forms.Theming.Avalonia
 
         /// <summary>The same control selector narrowed to a state (<c>Button:pointerover</c>); the selector itself for the resting look.</summary>
         public static StyleSelector InState (StyleSelector selector, ThemeCssState state)
-            => ClassOf (state) is { } cls ? Get (selector.Key + cls, x => selector.Build (x).Class (cls)) : selector;
+            => ClassOf (state) is { } cls ? Get (selector.Key + cls, (x, c) => selector.BuildWith (x, c).Class (cls)) : selector;
 
         /// <summary>An element of type <typeparamref name="T"/> the app marked with <see cref="CssTheme.SelectorProperty"/>.</summary>
         public static StyleSelector Marked<T> (string selector) where T : Control
-            => Get ($"{typeof (T).Name}[CssTheme.Selector={selector}]", x => x.Is<T> ().PropertyEquals (CssTheme.SelectorProperty, selector));
+            => Get ($"{typeof (T).Name}[CssTheme.Selector={selector}]", (x, c) => c (x.Is<T> ().PropertyEquals (CssTheme.SelectorProperty, selector)));
 
         // The template parts that carry an outer box-shadow: the root border (or content presenter) of the control's template.
         public static StyleSelector ButtonPart (ThemeCssState state = ThemeCssState.Normal) => Part<Button, ContentPresenter> ("Button", "PART_ContentPresenter", state);
@@ -172,58 +193,60 @@ namespace Majorsilence.Forms.Theming.Avalonia
             where TPart : Control
         {
             var cls = ClassOf (state);
-            return Get ($"{control}{cls} /template/ {typeof (TPart).Name}#{part}", x => {
-                var selector = x.OfType<TControl> ();
+            return Get ($"{control}{cls} /template/ {typeof (TPart).Name}#{part}", (x, c) => {
+                var selector = c (x.OfType<TControl> ());
                 if (cls is not null)
                     selector = selector.Class (cls);
                 return selector.Template ().OfType<TPart> ().Name (part);
             });
         }
-        public static readonly StyleSelector Window = new ("Window", x => x.OfType<Window> ());
+        public static readonly StyleSelector Window = new ("Window", (x, c) => c (x.OfType<Window> ()));
         public static readonly StyleSelector ButtonFocus = new ("Button:focus /template/ ContentPresenter#PART_ContentPresenter",
-            x => x.OfType<Button> ().Class (":focus").Template ().OfType<ContentPresenter> ().Name ("PART_ContentPresenter"));
+            (x, c) => c (x.OfType<Button> ()).Class (":focus").Template ().OfType<ContentPresenter> ().Name ("PART_ContentPresenter"));
         public static readonly StyleSelector ButtonFocusVisible = new ("Button:focus-visible /template/ ContentPresenter#PART_ContentPresenter",
-            x => x.OfType<Button> ().Class (":focus-visible").Template ().OfType<ContentPresenter> ().Name ("PART_ContentPresenter"));
+            (x, c) => c (x.OfType<Button> ()).Class (":focus-visible").Template ().OfType<ContentPresenter> ().Name ("PART_ContentPresenter"));
         public static readonly StyleSelector HyperlinkFocus = new ("HyperlinkButton:focus /template/ ContentPresenter#PART_ContentPresenter",
-            x => x.OfType<HyperlinkButton> ().Class (":focus").Template ().OfType<ContentPresenter> ().Name ("PART_ContentPresenter"));
+            (x, c) => c (x.OfType<HyperlinkButton> ()).Class (":focus").Template ().OfType<ContentPresenter> ().Name ("PART_ContentPresenter"));
         public static readonly StyleSelector HyperlinkFocusVisible = new ("HyperlinkButton:focus-visible /template/ ContentPresenter#PART_ContentPresenter",
-            x => x.OfType<HyperlinkButton> ().Class (":focus-visible").Template ().OfType<ContentPresenter> ().Name ("PART_ContentPresenter"));
-        public static readonly StyleSelector ProgressBar = new ("ProgressBar", x => x.OfType<ProgressBar> ());
-        public static readonly StyleSelector DatePickerControl = new ("DatePicker", x => x.OfType<DatePicker> ());
-        public static readonly StyleSelector TimePickerControl = new ("TimePicker", x => x.OfType<TimePicker> ());
-        public static readonly StyleSelector Button = new ("Button", x => x.OfType<Button> ());
-        public static readonly StyleSelector ToggleButton = new ("ToggleButton", x => x.OfType<ToggleButton> ());
-        public static readonly StyleSelector CheckBox = new ("CheckBox", x => x.OfType<CheckBox> ());
-        public static readonly StyleSelector RadioButton = new ("RadioButton", x => x.OfType<RadioButton> ());
-        public static readonly StyleSelector ComboBox = new ("ComboBox", x => x.OfType<ComboBox> ());
-        public static readonly StyleSelector TextBox = new ("TextBox", x => x.OfType<TextBox> ());
-        public static readonly StyleSelector DatePicker = new ("CalendarDatePicker", x => x.OfType<CalendarDatePicker> ());
-        public static readonly StyleSelector NumericUpDown = new ("NumericUpDown", x => x.OfType<NumericUpDown> ());
-        public static readonly StyleSelector Label = new ("Label", x => x.OfType<Label> ());
-        public static readonly StyleSelector Hyperlink = new ("HyperlinkButton", x => x.OfType<HyperlinkButton> ());
-        public static readonly StyleSelector ListBox = new ("ListBox", x => x.OfType<ListBox> ());
+            (x, c) => c (x.OfType<HyperlinkButton> ()).Class (":focus-visible").Template ().OfType<ContentPresenter> ().Name ("PART_ContentPresenter"));
+        public static readonly StyleSelector ProgressBar = new ("ProgressBar", (x, c) => c (x.OfType<ProgressBar> ()));
+        public static readonly StyleSelector DatePickerControl = new ("DatePicker", (x, c) => c (x.OfType<DatePicker> ()));
+        public static readonly StyleSelector TimePickerControl = new ("TimePicker", (x, c) => c (x.OfType<TimePicker> ()));
+        public static readonly StyleSelector Button = new ("Button", (x, c) => c (x.OfType<Button> ()));
+        public static readonly StyleSelector ToggleButton = new ("ToggleButton", (x, c) => c (x.OfType<ToggleButton> ()));
+        public static readonly StyleSelector CheckBox = new ("CheckBox", (x, c) => c (x.OfType<CheckBox> ()));
+        public static readonly StyleSelector RadioButton = new ("RadioButton", (x, c) => c (x.OfType<RadioButton> ()));
+        public static readonly StyleSelector ComboBox = new ("ComboBox", (x, c) => c (x.OfType<ComboBox> ()));
+        public static readonly StyleSelector TextBox = new ("TextBox", (x, c) => c (x.OfType<TextBox> ()));
+        public static readonly StyleSelector DatePicker = new ("CalendarDatePicker", (x, c) => c (x.OfType<CalendarDatePicker> ()));
+        public static readonly StyleSelector NumericUpDown = new ("NumericUpDown", (x, c) => c (x.OfType<NumericUpDown> ()));
+        public static readonly StyleSelector Label = new ("Label", (x, c) => c (x.OfType<Label> ()));
+        public static readonly StyleSelector Hyperlink = new ("HyperlinkButton", (x, c) => c (x.OfType<HyperlinkButton> ()));
+        public static readonly StyleSelector ListBox = new ("ListBox", (x, c) => c (x.OfType<ListBox> ()));
         public static readonly StyleSelector ListBoxItemSelected = new ("ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter",
-            x => x.OfType<ListBoxItem> ().Class (":selected").Template ().OfType<ContentPresenter> ().Name ("PART_ContentPresenter"));
-        public static readonly StyleSelector TreeView = new ("TreeView", x => x.OfType<TreeView> ());
-        public static readonly StyleSelector Menu = new ("Menu", x => x.OfType<Menu> ());
-        public static readonly StyleSelector MenuBarItem = new ("Menu > MenuItem", x => x.OfType<Menu> ().Child ().OfType<MenuItem> ());
+            (x, c) => c (x.OfType<ListBoxItem> ()).Class (":selected").Template ().OfType<ContentPresenter> ().Name ("PART_ContentPresenter"));
+        public static readonly StyleSelector TreeView = new ("TreeView", (x, c) => c (x.OfType<TreeView> ()));
+        public static readonly StyleSelector Menu = new ("Menu", (x, c) => c (x.OfType<Menu> ()));
+        public static readonly StyleSelector MenuBarItem = new ("Menu > MenuItem", (x, c) => c (x.OfType<Menu> ()).Child ().OfType<MenuItem> ());
         public static readonly StyleSelector MenuBarItemHover = new ("Menu > MenuItem:pointerover /template/ Border#PART_LayoutRoot",
-            x => x.OfType<Menu> ().Child ().OfType<MenuItem> ().Class (":pointerover").Template ().OfType<Border> ().Name ("PART_LayoutRoot"));
+            (x, c) => c (x.OfType<Menu> ()).Child ().OfType<MenuItem> ().Class (":pointerover").Template ().OfType<Border> ().Name ("PART_LayoutRoot"));
         public static readonly StyleSelector MenuBarItemHoverText = new ("Menu > MenuItem:pointerover /template/ ContentPresenter#PART_HeaderPresenter",
-            x => x.OfType<Menu> ().Child ().OfType<MenuItem> ().Class (":pointerover").Template ().OfType<ContentPresenter> ().Name ("PART_HeaderPresenter"));
-        public static readonly StyleSelector MenuFlyout = new ("MenuFlyoutPresenter", x => x.OfType<MenuFlyoutPresenter> ());
-        public static readonly StyleSelector ContextMenu = new ("ContextMenu", x => x.OfType<ContextMenu> ());
-        public static readonly StyleSelector Calendar = new ("Calendar", x => x.OfType<Calendar> ());
-        public static readonly StyleSelector ScrollBar = new ("ScrollBar", x => x.OfType<ScrollBar> ());
-        public static readonly StyleSelector GridSplitter = new ("GridSplitter", x => x.OfType<GridSplitter> ());
-        public static readonly StyleSelector TabControl = new ("TabControl", x => x.OfType<TabControl> ());
-        public static readonly StyleSelector TabItem = new ("TabItem", x => x.OfType<TabItem> ());
-        public static readonly StyleSelector Slider = new ("Slider", x => x.OfType<Slider> ());
-        public static readonly StyleSelector DataGrid = new ("DataGrid", x => x.OfType<DataGrid> ());
-        public static readonly StyleSelector DataGridColumnHeader = new ("DataGridColumnHeader", x => x.OfType<DataGridColumnHeader> ());
-        public static readonly StyleSelector DataGridRowHeader = new ("DataGridRowHeader", x => x.OfType<DataGridRowHeader> ());
-        public static readonly StyleSelector DataGridRowSelected = new ("DataGridRow:selected", x => x.OfType<DataGridRow> ().Class (":selected"));
-        public static readonly StyleSelector DataGridRowAlternate = new ("DataGridRow:nth-child(2n)", x => x.OfType<DataGridRow> ().NthChild (2, 0));
+            (x, c) => c (x.OfType<Menu> ()).Child ().OfType<MenuItem> ().Class (":pointerover").Template ().OfType<ContentPresenter> ().Name ("PART_HeaderPresenter"));
+        public static readonly StyleSelector FlyoutPresenter = new ("FlyoutPresenter", (x, c) => c (x.OfType<FlyoutPresenter> ()));
+        public static readonly StyleSelector ToolTip = new ("ToolTip", (x, c) => c (x.OfType<ToolTip> ()));
+        public static readonly StyleSelector MenuFlyout = new ("MenuFlyoutPresenter", (x, c) => c (x.OfType<MenuFlyoutPresenter> ()));
+        public static readonly StyleSelector ContextMenu = new ("ContextMenu", (x, c) => c (x.OfType<ContextMenu> ()));
+        public static readonly StyleSelector Calendar = new ("Calendar", (x, c) => c (x.OfType<Calendar> ()));
+        public static readonly StyleSelector ScrollBar = new ("ScrollBar", (x, c) => c (x.OfType<ScrollBar> ()));
+        public static readonly StyleSelector GridSplitter = new ("GridSplitter", (x, c) => c (x.OfType<GridSplitter> ()));
+        public static readonly StyleSelector TabControl = new ("TabControl", (x, c) => c (x.OfType<TabControl> ()));
+        public static readonly StyleSelector TabItem = new ("TabItem", (x, c) => c (x.OfType<TabItem> ()));
+        public static readonly StyleSelector Slider = new ("Slider", (x, c) => c (x.OfType<Slider> ()));
+        public static readonly StyleSelector DataGrid = new ("DataGrid", (x, c) => c (x.OfType<DataGrid> ()));
+        public static readonly StyleSelector DataGridColumnHeader = new ("DataGridColumnHeader", (x, c) => c (x.OfType<DataGridColumnHeader> ()));
+        public static readonly StyleSelector DataGridRowHeader = new ("DataGridRowHeader", (x, c) => c (x.OfType<DataGridRowHeader> ()));
+        public static readonly StyleSelector DataGridRowSelected = new ("DataGridRow:selected", (x, c) => c (x.OfType<DataGridRow> ()).Class (":selected"));
+        public static readonly StyleSelector DataGridRowAlternate = new ("DataGridRow:nth-child(2n)", (x, c) => c (x.OfType<DataGridRow> ()).NthChild (2, 0));
     }
 
     /// <summary>The <c>TemplatedControl</c> properties rule longhands map onto.</summary>

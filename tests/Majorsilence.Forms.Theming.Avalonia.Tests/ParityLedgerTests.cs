@@ -33,6 +33,7 @@ namespace Majorsilence.Forms.Theming.Avalonia.Tests
             var sb = new StringBuilder ();
             var rows = AvaloniaThemeSupport.Entries
                 .Select (e => (Key: $"{e.Selector}{(e.Part is null ? "" : "::" + e.Part)}{(e.State == Majorsilence.Forms.ThemeCssState.Normal ? "" : ":" + e.State)} {e.Property}", e.Level))
+                .Concat (AvaloniaThemeSupport.SelectorForms.Select (f => (Key: $"form {f.Selector}", f.Level)))
                 .OrderBy (r => r.Key, StringComparer.Ordinal)
                 .ToList ();
 
