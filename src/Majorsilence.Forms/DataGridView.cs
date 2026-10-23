@@ -3293,7 +3293,11 @@ namespace Majorsilence.Forms
         // such a word mid-way, so a one-word caption a few pixels too wide ("EmpCode") read "EmpCod" over "e"
         // and its header band grew a line. layoutWidth is the width that lays the result out unbroken: the
         // given width, or the widest line when a word overflows it.
-        internal static string BreakBetweenWords (string text, SkiaSharp.SKTypeface font, int fontSize, int width, out int layoutWidth)
+        //
+        // breakAll breaks the caption even when every word fits, for drawing: a header one line tall draws with
+        // maxLines 1, which does not wrap, so "REMAIN QUANTITY" in a narrow column was cut mid-word ("REMAIN QUA")
+        // where upstream wraps it and shows "REMAIN".
+        internal static string BreakBetweenWords (string text, SkiaSharp.SKTypeface font, int fontSize, int width, out int layoutWidth, bool breakAll = false)
         {
             layoutWidth = width;
             var words = text.Split ((char[]?) null, StringSplitOptions.RemoveEmptyEntries);
@@ -3303,7 +3307,7 @@ namespace Majorsilence.Forms
                 overflows |= TextMeasurer.MeasureText (word, font, fontSize).Width > width;
 
             // Every word fits: the layout already breaks only between words.
-            if (!overflows || text.Contains ('\n'))
+            if ((!overflows && !breakAll) || text.Contains ('\n'))
                 return text;
 
             var lines = new List<string> ();
