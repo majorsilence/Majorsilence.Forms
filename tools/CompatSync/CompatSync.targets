@@ -18,6 +18,7 @@
     <CompatSyncRules>$(MSBuildThisFileDirectory)compat-rules.json</CompatSyncRules>
     <CompatGeneratedDir>$(MSBuildProjectDirectory)/generated/</CompatGeneratedDir>
     <CompatSourceRoot>$(MSBuildThisFileDirectory)../../src/</CompatSourceRoot>
+    <CompatRepoRoot>$([System.IO.Path]::GetFullPath ('$(MSBuildThisFileDirectory)../..'))</CompatRepoRoot>
 
     <!-- Copies of the real sources: the original's analyzer rules, doc warnings and nullable annotations
          were already satisfied there, and a generated file is not the place to fix them. -->
@@ -40,7 +41,15 @@
           BeforeTargets="CoreCompile;DispatchToInnerBuilds;GenerateAssemblyInfo"
           Inputs="@(CompatSyncInput);$(CompatSyncRules);$(CompatSyncTool)"
           Outputs="$(CompatGeneratedDir).stamp">
-    <Exec Command="dotnet run &quot;$(CompatSyncTool)&quot; -- --project $(CompatSyncProject)"
+    <!-- `dotnet run file.cs` compiles into a directory keyed by the file's path. The solution builds the
+         three Compat projects in parallel, and on Windows two of them compiling the one path collide on the
+         output dll (CS2012). Each project therefore runs its own copy of the tool; the copy is skipped
+         when unchanged so the compile cache stays warm. -->
+    <PropertyGroup>
+      <CompatSyncToolCopy>$(MSBuildProjectDirectory)/obj/compatsync-tool/CompatSync.cs</CompatSyncToolCopy>
+    </PropertyGroup>
+    <Copy SourceFiles="$(CompatSyncTool)" DestinationFiles="$(CompatSyncToolCopy)" SkipUnchangedFiles="true" />
+    <Exec Command="dotnet run &quot;$(CompatSyncToolCopy)&quot; -- --project $(CompatSyncProject) --repo &quot;$(CompatRepoRoot)&quot;"
           WorkingDirectory="$(MSBuildThisFileDirectory)" />
   </Target>
 

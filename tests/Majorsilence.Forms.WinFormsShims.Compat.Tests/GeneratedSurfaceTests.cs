@@ -108,6 +108,10 @@ namespace Majorsilence.Forms.WinFormsShims.Compat.Tests
         [Fact]
         public void Designer_shaped_code_constructs_and_wires_up ()
         {
+            // Constructing a Form starts the Avalonia desktop backend, which needs a display; a headless Linux runner has none.
+            Assert.SkipWhen (OperatingSystem.IsLinux () && string.IsNullOrEmpty (Environment.GetEnvironmentVariable ("DISPLAY"))
+                && string.IsNullOrEmpty (Environment.GetEnvironmentVariable ("WAYLAND_DISPLAY")), "no display for the Avalonia backend");
+
             using var form = new System.Windows.Forms.Form { Text = "t", ClientSize = new System.Drawing.Size (200, 100) };
             var button = new System.Windows.Forms.Button { Text = "ok", Location = new System.Drawing.Point (5, 5), Font = new System.Drawing.Font ("Arial", 9f) };
             var clicks = 0;

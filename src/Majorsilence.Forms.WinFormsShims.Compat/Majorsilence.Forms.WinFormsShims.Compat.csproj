@@ -46,10 +46,15 @@
     <EmbeddedResource Include="..\Majorsilence.Forms\SpellCheck\en_US.words.gz" LogicalName="Majorsilence.Forms.SpellCheck.en_US.words.gz" />
   </ItemGroup>
 
-  <ItemGroup Condition=" '$(TargetFramework)' != 'netstandard2.0' ">
-    <!-- Generated alongside the sources, with its assembly and type names rewritten. -->
-    <EmbeddedResource Include="generated\ILLink.Descriptors.xml" LogicalName="ILLink.Descriptors.xml" Condition="Exists('generated\ILLink.Descriptors.xml')" />
-  </ItemGroup>
+  <!-- Generated alongside the sources, with its assembly and type names rewritten. Added from a target, after
+       the tool has run: on a clean checkout the file does not exist when the project is evaluated, so an item
+       declared (or an Exists condition) at the top level would silently leave it out of the assembly. -->
+  <Target Name="EmbedGeneratedLinkerDescriptor" BeforeTargets="AssignTargetPaths" DependsOnTargets="CompatSyncGenerate"
+          Condition=" '$(TargetFramework)' != '' ">
+    <ItemGroup>
+      <EmbeddedResource Include="$(CompatGeneratedDir)ILLink.Descriptors.xml" LogicalName="ILLink.Descriptors.xml" />
+    </ItemGroup>
+  </Target>
 
   <!-- The resx-compatibility stand-in assemblies, embedded rather than referenced for the reason given in
        Majorsilence.Forms.csproj (their assembly names deliberately differ from their project names). The
