@@ -128,7 +128,7 @@ Because of that, the migrator only flags what genuinely can't be carried across:
 | `--package-version <v>` | NuGet version for package references. Defaults to the migrator's own version — the tool and the packages ship from the same release. |
 | `--repo-root <dir>` | Repo root for resolving `--references project` paths. |
 | `--map <file>` | JSON file of extra namespace mappings (repeatable). |
-| `--shims` | Don't rewrite namespaces — reference the compat shim generator instead (see below). |
+| `--shims` | Don't rewrite namespaces — reference the generated System.Windows.Forms builds instead (see below). |
 | `--strict` | Exit non-zero if any manual-review warning is produced (CI gate). |
 | `--report <file>` | Path for the Markdown report (default `migration-report.md` by the output). |
 | `--no-report` | Don't write the report. |
@@ -137,9 +137,10 @@ Because of that, the migrator only flags what genuinely can't be carried across:
 
 By default the migrator rewrites `System.Windows.Forms` to `Majorsilence.Forms` throughout. `--shims`
 does the opposite: it leaves every namespace exactly as written and references
-[`Majorsilence.Forms.WinFormsShims.Compat`](../../src/Majorsilence.Forms.WinFormsShims.Compat/), a source
-generator that emits a `System.Windows.Forms`/`System.Drawing`-namespaced compat surface for the source
-to resolve against.
+[`Majorsilence.Forms.WinFormsShims.Compat`](../../src/Majorsilence.Forms.WinFormsShims.Compat/) and
+`Majorsilence.Forms.WinFormsShims.Compat.Avalonia` — copies of Majorsilence.Forms generated at build time
+(by [`tools/CompatSync`](../CompatSync/)) that declare `System.Windows.Forms` and `System.Drawing` for
+real, rather than shimming them.
 
 ```
 majorsilence-migrate ./LegacyApp --shims
@@ -149,44 +150,19 @@ Everything else about the migration is unchanged — the `-windows` TFM suffix, 
 the vendor WinForms packages and VB's `MyType` are all still dealt with. Only the source rewrite is
 skipped (VB still gets its constructor injection, which `MyType=Empty` makes necessary either way).
 
-**One alias line per affected file.** The generated compat types are *flat*: compat `TextBox` derives
-from the real `Majorsilence.Forms.TextBox`, never from compat `Control`, because C# has one base class
-to give and the real one is what the layout and rendering internals need. So compat `Control` and compat
-`TextBox` are unrelated siblings, and `Dim c As Control = someTextBox` does not compile. Since every
-compat leaf transitively *is* a real `Majorsilence.Forms.Control`, one alias fixes every use site in the
-file at once:
-
-```vb
-Imports Control = Majorsilence.Forms.Control
-```
-
-The migrator adds that (and the C# `using` equivalent) to files that need it — assignment, parameter
-passing, `For Each`, `TypeOf`/`CType` and `List(Of …)` all then compile untouched.
-
-Two deliberate exclusions:
-
-- **`Form` is never aliased.** A migrated app's own forms derive from the compat `Form` in their own
-  source, so they genuinely are one and polymorphic storage already works. Aliasing it would retarget
-  every `Inherits Form` to the real base and cost those forms the compat enum-property and event
-  shadowing their Designer code is written against.
-- **A file that derives from the base by its bare name** (`Inherits Control`) is left alone and
-  reported, for the same reason — moving that class onto the real base would lose the same shadowing.
-  A fully-qualified `Inherits System.Windows.Forms.Control` is unaffected by an alias, so it does not
-  block one.
+Because the generated types are the real classes under the real names, C# and Visual Basic both compile
+untouched: `Dim c As Control = someTextBox`, `Inherits Control`, `Handles btn.Click` and Designer files
+need no edit and no alias line. (The earlier, Roslyn-generator version of this mode was C#-only and
+needed an alias per file; it is gone.)
 
 Which to use:
 
 - **Rewrite (default)** — the migrated code names Majorsilence.Forms types directly and gets the whole
   API surface. Best for a codebase you own end to end and are willing to change in one go.
 - **`--shims`** — no source churn at all. Best for a large codebase, or one whose own public API exposes
-  WinForms types and so cannot be rewritten without breaking its consumers. The cost is that the compat
-  surface is generated and has documented gaps — read that package's README before committing to it.
-
-> **Visual Basic needs one extra step.** The shim is a C#-only Roslyn generator (shipped under
-> `analyzers/dotnet/cs`), so a `.vbproj` referencing the package gets nothing generated. Add a small C#
-> class library that references the package — its only job is to carry the generated types — and
-> reference *that* from the VB projects, so `Imports System.Windows.Forms` resolves against it. The
-> migrator warns per VB project as a reminder.
+  WinForms types and so cannot be rewritten without breaking its consumers. The generated builds are
+  *standalone copies* of Majorsilence.Forms, used instead of it rather than beside it, and only the
+  Avalonia backend has one so far (`--backend uno` / `headless` warn and fall back to it).
 
 ## Custom mappings
 

@@ -1,0 +1,56 @@
+<Project>
+
+  <!-- Shared by the Majorsilence.Forms.WinFormsShims.Compat* projects. Each sets CompatSyncProject (the
+       key in compat-rules.json) and imports this; nothing here is hand-written code. The project's
+       `generated` folder is produced by tools/CompatSync/CompatSync.cs from the real Majorsilence.Forms
+       sources and is git-ignored.
+
+       Incremental: Inputs/Outputs against the tool's .stamp, so an unchanged tree skips the (slow to
+       start) `dotnet run`. The outer multi-targeting build generates once, before the inner builds fan
+       out, so they never race; an inner build run on its own generates for itself.
+
+       The Compile items are added inside the target, not by a glob, because on a clean checkout the
+       folder does not exist yet when the project is evaluated. -->
+
+  <PropertyGroup>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <CompatSyncTool>$(MSBuildThisFileDirectory)CompatSync.cs</CompatSyncTool>
+    <CompatSyncRules>$(MSBuildThisFileDirectory)compat-rules.json</CompatSyncRules>
+    <CompatGeneratedDir>$(MSBuildProjectDirectory)/generated/</CompatGeneratedDir>
+    <CompatSourceRoot>$(MSBuildThisFileDirectory)../../src/</CompatSourceRoot>
+
+    <!-- Copies of the real sources: the original's analyzer rules, doc warnings and nullable annotations
+         were already satisfied there, and a generated file is not the place to fix them. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS0436;CS8618;CS8625;CS8600;CS8601;CS8602;CS8603;CS8604;CS8765;CS8767;CS0108;CA1416;CS0618;CS0612</NoWarn>
+    <AnalysisLevel>none</AnalysisLevel>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+  </PropertyGroup>
+
+  <!-- The tool reads all three source projects to resolve names across them, so any of them changing
+       invalidates every generated folder. -->
+  <ItemGroup>
+    <CompatSyncInput Include="$(CompatSourceRoot)Majorsilence.Forms/**/*.cs;$(CompatSourceRoot)Majorsilence.Forms.Drawing.Common/**/*.cs;$(CompatSourceRoot)Majorsilence.Forms.Avalonia/**/*.cs"
+                     Exclude="$(CompatSourceRoot)*/obj/**;$(CompatSourceRoot)*/bin/**" />
+    <CompatSyncInput Include="$(CompatSourceRoot)Majorsilence.Forms/ILLink.Descriptors.xml" />
+  </ItemGroup>
+
+  <Target Name="CompatSyncGenerate"
+          BeforeTargets="CoreCompile;DispatchToInnerBuilds;GenerateAssemblyInfo"
+          Inputs="@(CompatSyncInput);$(CompatSyncRules);$(CompatSyncTool)"
+          Outputs="$(CompatGeneratedDir).stamp">
+    <Exec Command="dotnet run &quot;$(CompatSyncTool)&quot; -- --project $(CompatSyncProject)"
+          WorkingDirectory="$(MSBuildThisFileDirectory)" />
+  </Target>
+
+  <Target Name="CompatSyncCompileItems"
+          BeforeTargets="CoreCompile;GenerateAssemblyInfo"
+          DependsOnTargets="CompatSyncGenerate"
+          Condition="'$(TargetFramework)' != ''">
+    <ItemGroup>
+      <Compile Include="$(CompatGeneratedDir)**/*.cs" Exclude="@(Compile)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

@@ -43,6 +43,8 @@ env:
     tools/Majorsilence.Forms.Migrator/Majorsilence.Forms.Migrator.csproj
     tools/Majorsilence.Forms.Mcp/Majorsilence.Forms.Mcp.csproj
     src/Majorsilence.Forms.WinFormsShims.Compat/Majorsilence.Forms.WinFormsShims.Compat.csproj
+    src/Majorsilence.Forms.WinFormsShims.Compat.Drawing/Majorsilence.Forms.WinFormsShims.Compat.Drawing.csproj
+    src/Majorsilence.Forms.WinFormsShims.Compat.Avalonia/Majorsilence.Forms.WinFormsShims.Compat.Avalonia.csproj
   # Windows-only packages (net*-windows, UseWindowsForms/UseWPF). Off Windows these
   # projects compile to an empty IsPackable=false placeholder, so they're packed on a
   # windows-latest runner (see the pack-windows job) and pushed alongside the rest.

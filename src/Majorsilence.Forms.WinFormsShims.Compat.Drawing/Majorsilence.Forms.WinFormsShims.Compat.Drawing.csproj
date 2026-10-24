@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Generated copy of Majorsilence.Forms.Drawing.Common with its namespaces rewritten to System.Drawing.*
+       (see tools/CompatSync). Contains no hand-written code: everything under generated/ is produced
+       at build time from the real project. -->
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <CompatSyncProject>drawing</CompatSyncProject>
+    <RootNamespace>System.Drawing</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Majorsilence.Forms.WinFormsShims.Compat.Drawing</PackageId>
+    <Description>System.Drawing-namespace build of Majorsilence.Forms.Drawing.Common (SkiaSharp-based Font, Brush, Pen, Bitmap, GraphicsPath, ...), generated from it so C# and VB source written against System.Drawing compiles unchanged on every platform.</Description>
+    <PackageTags>Majorsilence;Forms;Winforms;System.Drawing;Compat;Migration;VisualBasic</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
+    <!-- The last two dot-separated segments of the name are what the extractor uses; the ".ttf" suffix is
+         what it filters on. -->
+    <EmbeddedResource Include="..\Majorsilence.Forms.Drawing.Common\Fonts\*.ttf" LogicalName="Majorsilence.Forms.WinFormsShims.Compat.Drawing.Fonts.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <Import Project="..\..\tools\CompatSync\CompatSync.targets" />
+
+</Project>
