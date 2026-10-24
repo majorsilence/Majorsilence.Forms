@@ -14,10 +14,11 @@ short orientation: where things are, how to verify a change, and the traps that 
 | `src/Majorsilence.Forms.Theming.WinForms/` | Applies CSS themes to **real** `System.Windows.Forms` controls (Windows-only). |
 | `src/Majorsilence.Forms.Theming.Avalonia/` | Applies CSS themes to **native** Avalonia controls (Fluent resources + generated styles). |
 | `src/Majorsilence.Forms.Drawing.Common/` | The `System.Drawing` reimplementation. |
+| `src/Majorsilence.Forms.WinFormsShims.Compat{,.Drawing,.Avalonia}/` | **Generated**, not hand-written: copies of the three projects above with namespaces rewritten to real `System.Windows.Forms`/`System.Drawing`, by `tools/CompatSync`. Their `generated/` folders are git-ignored and rebuilt by the build. |
 | `tests/Majorsilence.Forms.Tests/` | The main suite (xunit v3, headless backend). Windows-only suites sit beside it. |
 | `benchmarks/` | BenchmarkDotNet suite, and the allocation gate CI runs (`-- --alloc-gate`); see `docs/performance-plan.md`. |
 | `samples/` | One app per scenario; `docs/samples.md` describes each. `ThemeStudio*` are the theme editors. |
-| `tools/` | `ApiDiff` (public-surface gate), `Migrator`, `Mcp`, templates. |
+| `tools/` | `ApiDiff` (public-surface gate), `Migrator`, `Mcp`, templates, `CompatSync` (the generator above; single-file, `dotnet run tools/CompatSync/CompatSync.cs`). |
 | `docs/` | User docs. Several sections are **generated from code** between marker comments — see below. |
 
 The solution file is `Majorsilence.Forms.slnx`. New projects go there (in the matching folder) or CI
@@ -69,6 +70,15 @@ follows a different path: add a `sample-<name>` job to `release.yml` that publis
 it (see `sample-wasm`, `sample-android`, `sample-themestudio` for the pattern), then add that job's name
 to the `release` job's `needs:` list — it already globs `*.zip`/`*.apk`/`*.aab`/`*.nupkg`/`*.snupkg` out
 of the downloaded `artifacts/` directory, so nothing else changes there.
+
+## The generated `WinFormsShims.Compat*` projects
+
+Never edit anything under their `generated/` folders — it is overwritten. Change the real source, or
+`tools/CompatSync/compat-rules.json` / `CompatSync.cs` when a rewrite is wrong. A change to the real
+projects can break the Compat build without breaking its own: a new public type that the .NET framework also
+ships fails the tool ("already ships in the .NET framework", fix: a `drop` relocation); a new `using` of a
+name clash may need a `fileFixups` alias. `dotnet build` of any Compat project regenerates first. See
+`tools/CompatSync/README.md`.
 
 ## Conventions the analyzers do not enforce
 

@@ -32,6 +32,7 @@
     <Project Path="samples/ThemeStudio/ThemeStudio.csproj" />
     <Project Path="samples/ThemeStudio.WinForms/ThemeStudio.WinForms.csproj" />
     <Project Path="samples/WinFormsCompatDemo/WinFormsCompatDemo.csproj" />
+    <Project Path="samples/WinFormsCompatDemoVb/WinFormsCompatDemoVb.vbproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Majorsilence.Forms.Analyzers/Majorsilence.Forms.Analyzers.csproj" />
@@ -51,6 +52,8 @@
     <Project Path="src/Majorsilence.Forms.WinForms/Majorsilence.Forms.WinForms.csproj" />
     <Project Path="src/Majorsilence.Forms.WinFormsEnumShims/Majorsilence.Forms.WinFormsEnumShims.csproj" />
     <Project Path="src/Majorsilence.Forms.WinFormsShims.Compat/Majorsilence.Forms.WinFormsShims.Compat.csproj" />
+    <Project Path="src/Majorsilence.Forms.WinFormsShims.Compat.Avalonia/Majorsilence.Forms.WinFormsShims.Compat.Avalonia.csproj" />
+    <Project Path="src/Majorsilence.Forms.WinFormsShims.Compat.Drawing/Majorsilence.Forms.WinFormsShims.Compat.Drawing.csproj" />
     <Project Path="src/Majorsilence.Forms.Wpf/Majorsilence.Forms.Wpf.csproj" />
     <Project Path="src/Majorsilence.Forms.WindowsFormsInterop/Majorsilence.Forms.WindowsFormsInterop.csproj" />
     <Project Path="src/Majorsilence.Forms.WindowsUIAutomation/Majorsilence.Forms.WindowsUIAutomation.csproj" />
@@ -58,6 +61,7 @@
   <Folder Name="/Tests/">
     <Project Path="tests/Majorsilence.Forms.Analyzers.Tests/Majorsilence.Forms.Analyzers.Tests.csproj" />
     <Project Path="tests/Majorsilence.Forms.Drawing.Common.Tests/Majorsilence.Forms.Drawing.Common.Tests.csproj" />
+    <Project Path="tests/Majorsilence.Forms.WinFormsShims.Compat.Tests/Majorsilence.Forms.WinFormsShims.Compat.Tests.csproj" />
     <Project Path="tests/Majorsilence.Forms.Mcp.Tests/Majorsilence.Forms.Mcp.Tests.csproj" />
     <Project Path="tests/Majorsilence.Forms.Migrator.Tests/Majorsilence.Forms.Migrator.Tests.csproj" />
     <Project Path="tests/Majorsilence.Forms.Tests/Majorsilence.Forms.Tests.csproj" />

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The Visual Basic counterpart of WinFormsCompatDemo: `Imports System.Windows.Forms`, WithEvents/Handles
+       and a hand-written Designer-shaped InitializeComponent, running on Majorsilence.Forms through the
+       generated System.Windows.Forms build. VB was impossible with the earlier Roslyn-generator shim, which
+       only ever produced C# source. -->
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>WinFormsCompatDemoVb</RootNamespace>
+    <MyType>Empty</MyType>
+    <OptionStrict>On</OptionStrict>
+    <OptionInfer>On</OptionInfer>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.WinFormsShims.Compat\Majorsilence.Forms.WinFormsShims.Compat.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.WinFormsShims.Compat.Avalonia\Majorsilence.Forms.WinFormsShims.Compat.Avalonia.csproj" />
+  </ItemGroup>
+
+</Project>

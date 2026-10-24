@@ -199,7 +199,8 @@ public class SystemColorPaletteTests
 
         foreach (var file in Directory.EnumerateFiles (Path.Combine (root, "src"), "*.cs", SearchOption.AllDirectories)) {
             var relative = Path.GetRelativePath (root, file).Replace ('\\', '/');
-            if (relative.Contains ("/obj/") || relative.Contains ("/bin/") || allowed.ContainsKey (relative))
+            // generated/ holds the WinFormsShims.Compat build's rewritten copies of these same files, which the originals' entries cover.
+            if (relative.Contains ("/obj/") || relative.Contains ("/bin/") || relative.Contains ("/generated/") || allowed.ContainsKey (relative))
                 continue;
 
             var lines = File.ReadAllLines (file);

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>$(_TargetFramework)</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.WinFormsShims.Compat\Majorsilence.Forms.WinFormsShims.Compat.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.WinFormsShims.Compat.Avalonia\Majorsilence.Forms.WinFormsShims.Compat.Avalonia.csproj" />
+  </ItemGroup>
+
+</Project>

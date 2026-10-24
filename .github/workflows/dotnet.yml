@@ -206,6 +206,8 @@ jobs:
               tools/Majorsilence.Forms.Migrator/Majorsilence.Forms.Migrator.csproj
               tools/Majorsilence.Forms.Mcp/Majorsilence.Forms.Mcp.csproj
               src/Majorsilence.Forms.WinFormsShims.Compat/Majorsilence.Forms.WinFormsShims.Compat.csproj
+              src/Majorsilence.Forms.WinFormsShims.Compat.Drawing/Majorsilence.Forms.WinFormsShims.Compat.Drawing.csproj
+              src/Majorsilence.Forms.WinFormsShims.Compat.Avalonia/Majorsilence.Forms.WinFormsShims.Compat.Avalonia.csproj
           - os: macos-latest
             artifact: nuget-packages-macos
             # android + ios together so the Essentials and Avalonia packages carry both rows; pinned like the ios job.
