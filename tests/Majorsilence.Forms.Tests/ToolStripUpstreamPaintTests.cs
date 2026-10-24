@@ -45,7 +45,9 @@ namespace Majorsilence.Forms.Tests
             => WithStrip ((bitmap, panel, strip, px) => {
                 var origin = new Point (strip.Left * px, strip.Top * px);
                 var button = strip.Items[0].Bounds;
-                var x = origin.X + (button.Left + button.Width / 2) * px;
+                // A column inside the button's left padding, not its middle: the caption is centred there, and a glyph's
+                // antialiased pixel (#E8 with one platform's font, #C6 with another's) is not the shading under test.
+                var x = origin.X + (button.Left + 3) * px;
                 var width = 12 * px;
 
                 Assert.Equal (Grey (0xFC), bitmap.GetPixel (x, origin.Y));
