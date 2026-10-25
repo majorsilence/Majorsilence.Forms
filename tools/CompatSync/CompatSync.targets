@@ -37,20 +37,85 @@
     <CompatSyncInput Include="$(CompatSourceRoot)Majorsilence.Forms/ILLink.Descriptors.xml" />
   </ItemGroup>
 
+  <!-- Runs the tool under an exclusive file lock held for the whole process. A task rather than an Exec so
+       the lock works the same on Windows, Linux and macOS with nothing but the SDK. -->
+  <UsingTask TaskName="CompatSyncRunExclusive" TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <DotNet ParameterType="System.String" />
+      <Arguments ParameterType="System.String" Required="true" />
+      <WorkingDirectory ParameterType="System.String" Required="true" />
+      <LockFile ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.Diagnostics" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Threading" />
+      <Code Type="Class" Language="cs"><![CDATA[
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Threading;
+using Microsoft.Build.Framework;
+using Microsoft.Build.Utilities;
+
+public class CompatSyncRunExclusive : Task
+{
+    public string DotNet { get; set; }
+    public string Arguments { get; set; }
+    public string WorkingDirectory { get; set; }
+    public string LockFile { get; set; }
+
+    public override bool Execute ()
+    {
+        FileStream gate = null;
+        var give_up = DateTime.UtcNow.AddMinutes (20);
+        while (gate == null) {
+            try {
+                gate = new FileStream (LockFile, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            } catch (IOException) when (DateTime.UtcNow < give_up) {
+                Thread.Sleep (250);
+            }
+        }
+
+        using (gate) {
+            var info = new ProcessStartInfo (string.IsNullOrEmpty (DotNet) ? "dotnet" : DotNet, Arguments) {
+                WorkingDirectory = WorkingDirectory,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            };
+            using (var process = Process.Start (info)) {
+                process.OutputDataReceived += (_, e) => { if (e.Data != null) Log.LogMessage (MessageImportance.High, e.Data); };
+                process.ErrorDataReceived += (_, e) => { if (e.Data != null) Log.LogMessage (MessageImportance.High, e.Data); };
+                process.BeginOutputReadLine ();
+                process.BeginErrorReadLine ();
+                process.WaitForExit ();
+                if (process.ExitCode != 0)
+                    Log.LogError ("CompatSync exited with code {0}; its output is above.", process.ExitCode);
+                return process.ExitCode == 0;
+            }
+        }
+    }
+}
+]]></Code>
+    </Task>
+  </UsingTask>
+
   <Target Name="CompatSyncGenerate"
           BeforeTargets="CoreCompile;DispatchToInnerBuilds;GenerateAssemblyInfo"
           Inputs="@(CompatSyncInput);$(CompatSyncRules);$(CompatSyncTool)"
           Outputs="$(CompatGeneratedDir).stamp">
-    <!-- `dotnet run file.cs` compiles into a directory keyed by the file's path. The solution builds the
-         three Compat projects in parallel, and on Windows two of them compiling the one path collide on the
-         output dll (CS2012). Each project therefore runs its own copy of the tool; the copy is skipped
-         when unchanged so the compile cache stays warm. -->
-    <PropertyGroup>
-      <CompatSyncToolCopy>$(MSBuildProjectDirectory)/obj/compatsync-tool/CompatSync.cs</CompatSyncToolCopy>
-    </PropertyGroup>
-    <Copy SourceFiles="$(CompatSyncTool)" DestinationFiles="$(CompatSyncToolCopy)" SkipUnchangedFiles="true" />
-    <Exec Command="dotnet run &quot;$(CompatSyncToolCopy)&quot; -- --project $(CompatSyncProject) --repo &quot;$(CompatRepoRoot)&quot;"
-          WorkingDirectory="$(MSBuildThisFileDirectory)" />
+    <!-- `dotnet run file.cs` compiles into a cache directory keyed by the file, and two runs at once collide on
+         it (CS2012 / "build-success.cache is being used by another process"). More than one can start at
+         once: the solution builds the three Compat projects in parallel, and a ProjectReference to a
+         multi-targeted project builds its net8.0 and net10.0 inner builds in parallel without going through
+         the outer build that generates first. So every run takes one machine-wide lock; a run that waits
+         finds the stamp current and the tool returns at once. -->
+    <CompatSyncRunExclusive DotNet="$(DOTNET_HOST_PATH)"
+                            Arguments="run &quot;$(CompatSyncTool)&quot; -- --project $(CompatSyncProject) --repo &quot;$(CompatRepoRoot)&quot;"
+                            WorkingDirectory="$(MSBuildThisFileDirectory)"
+                            LockFile="$([System.IO.Path]::GetTempPath())compatsync-run-$([MSBuild]::StableStringHash('$(CompatRepoRoot)')).lock" />
   </Target>
 
   <Target Name="CompatSyncCompileItems"

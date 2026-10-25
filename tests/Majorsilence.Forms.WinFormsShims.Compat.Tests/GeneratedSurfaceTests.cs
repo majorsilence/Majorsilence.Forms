@@ -1,5 +1,8 @@
 using System.Reflection;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Avalonia.Headless;
 using Xunit;
 
 namespace Majorsilence.Forms.WinFormsShims.Compat.Tests
@@ -106,23 +109,22 @@ namespace Majorsilence.Forms.WinFormsShims.Compat.Tests
         }
 
         [Fact]
-        public void Designer_shaped_code_constructs_and_wires_up ()
-        {
-            // Constructing a Form starts the Avalonia desktop backend, which needs a display; a headless Linux runner has none.
-            Assert.SkipWhen (OperatingSystem.IsLinux () && string.IsNullOrEmpty (Environment.GetEnvironmentVariable ("DISPLAY"))
-                && string.IsNullOrEmpty (Environment.GetEnvironmentVariable ("WAYLAND_DISPLAY")), "no display for the Avalonia backend");
+        public Task Designer_shaped_code_constructs_and_wires_up ()
+            // Headless: constructing a Form starts the Avalonia backend, and a desktop platform needs a display
+            // (none on a CI Linux runner) and, on macOS, a particular thread. A host that has already set the
+            // application up is respected by the backend's bootstrap, so this runs the same code anywhere.
+            => HeadlessHost.Run (() => {
+                using var form = new System.Windows.Forms.Form { Text = "t", ClientSize = new System.Drawing.Size (200, 100) };
+                var button = new System.Windows.Forms.Button { Text = "ok", Location = new System.Drawing.Point (5, 5), Font = new System.Drawing.Font ("Arial", 9f) };
+                var clicks = 0;
+                button.Click += (_, _) => clicks++;
+                form.Controls.Add (button);
+                button.PerformClick ();
 
-            using var form = new System.Windows.Forms.Form { Text = "t", ClientSize = new System.Drawing.Size (200, 100) };
-            var button = new System.Windows.Forms.Button { Text = "ok", Location = new System.Drawing.Point (5, 5), Font = new System.Drawing.Font ("Arial", 9f) };
-            var clicks = 0;
-            button.Click += (_, _) => clicks++;
-            form.Controls.Add (button);
-            button.PerformClick ();
-
-            // The framework parents a control to the form's client area, not to the form itself.
-            Assert.Contains (button, form.Controls.Cast<System.Windows.Forms.Control> ());
-            Assert.Same (form, button.FindForm ());
-            Assert.Equal (1, clicks);
-        }
+                // The framework parents a control to the form's client area, not to the form itself.
+                Assert.Contains (button, form.Controls.Cast<System.Windows.Forms.Control> ());
+                Assert.Same (form, button.FindForm ());
+                Assert.Equal (1, clicks);
+            });
     }
 }
