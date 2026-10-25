@@ -79,6 +79,13 @@ namespace Majorsilence.Forms.Renderers
 
             StripRendererBridge.Grip (control, control.LogicalToDeviceUnits (new Rectangle (control.GripBandBounds.Left, control.GripBandBounds.Top, band, control.GripBandBounds.Height)), e);
 
+            // Under the upstream look, the professional renderer's grip: a column of white 2x2 squares each overlaid a pixel up
+            // and left by a ControlText one. The theme's dotted rule stood in for it.
+            if (control is ToolStrip { IsUpstreamPlainStrip: true } upstream_strip) {
+                ToolStripUpstreamLook.Grip (e.Canvas, upstream_strip, upstream_strip.LogicalToDeviceUnits (upstream_strip.GripRectangle));
+                return;
+            }
+
             // DEVICE throughout, like the rest of this canvas. GripBandBounds is logical because
             // LayoutItems measures against it, so it is converted here -- the one place that needs the
             // other space. (This block was written in logical units when TSM-41 was believed to say
@@ -119,8 +126,13 @@ namespace Majorsilence.Forms.Renderers
 
             if (legacy is { PartialPush: true } && !item.Checked && !item.Hovered)
                 background_color = Theme.ControlMidColor;
+            // Under the upstream look an idle item on a plain strip has no background of its own, as upstream's professional
+            // renderer leaves it: the strip's shading shows through. A flat fill hid the toolbar's gradient behind every button.
+            var shows_strip = control is ToolStrip { IsUpstreamPlainStrip: true } && !item.Hovered && !item.IsDropDownOpened && !item.Checked
+                && legacy is not { PartialPush: true } && item is not ToolStripItem { BackColor.IsEmpty: false };
+
             // The renderer sees the item first; Handled means it painted the background itself.
-            if (!StripRendererBridge.ItemBackground (control, item, e))
+            if (!StripRendererBridge.ItemBackground (control, item, e) && !shows_strip)
                 e.Canvas.FillRectangle (item.DeviceBounds, background_color);
 
             // ToolBarAppearance.Normal: each button carries a raised 3D border; Flat carries none.
