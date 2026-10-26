@@ -91,6 +91,40 @@ namespace Majorsilence.Forms
 
                 base.Insert (index, item);
             }
+
+            // Removing a page through Controls removes its tab too, as upstream, where the two are one collection:
+            // a page taken out with Controls.Remove (page) -- the usual way to hide a tab -- left its header in the
+            // strip here, over no content. TabPages takes it out of Controls itself, with RemoveAt, so this does not
+            // come back round.
+            public override void Remove (Control? value)
+            {
+                // Not while the TabControl itself is being disposed: its pages leave one by one as they are disposed,
+                // after the strip they would be taken out of has gone.
+                if (value is TabPage page && !_owner.Disposing && !_owner.IsDisposed && _owner.TabPages.Contains (page)) {
+                    _owner.TabPages.Remove (page);
+                    return;
+                }
+
+                base.Remove (value);
+            }
+
+            public override void RemoveByKey (string key)
+            {
+                var index = IndexOfKey (key);
+
+                if (index >= 0 && index < Count && this[index] is TabPage page && _owner.TabPages.Contains (page)) {
+                    _owner.TabPages.Remove (page);
+                    return;
+                }
+
+                base.RemoveByKey (key);
+            }
+
+            public override void Clear ()
+            {
+                _owner.TabPages.Clear ();
+                base.Clear ();
+            }
         }
 
         // Hides/shows the built-in tab header strip. Used when the headers are presented elsewhere
