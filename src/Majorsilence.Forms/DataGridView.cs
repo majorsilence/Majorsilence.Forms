@@ -3896,14 +3896,30 @@ namespace Majorsilence.Forms
                     new_row = CreateRowFromTemplate ();
                     new_row.SetOwner (this);
                     new_row.IsNewRow = true;
+
+                    for (var c = 0; c < new_row.Cells.Count && c < Columns.Count; c++)
+                        SeedNewRowCell (new_row.Cells[c], c);
                 }
 
                 // Columns added since the placeholder was built get a cell each, like a real row.
-                while (new_row.Cells.Count < Columns.Count)
-                    new_row.Cells.Add (new DataGridViewCell ());
+                while (new_row.Cells.Count < Columns.Count) {
+                    var cell = new DataGridViewCell ();
+                    new_row.Cells.Add (cell);
+                    SeedNewRowCell (cell, new_row.Cells.Count - 1);
+                }
 
                 return new_row;
             }
+        }
+
+        // A new-row cell starts at its column's cell template's DefaultNewRowValue, as upstream's do (the row collection
+        // sets each new-row cell's Value to it, and so does adding a column while the new row exists): a calendar column
+        // whose cell answers today's date shows today in the new row. Measured on WinForms, bound and unbound alike.
+        // Cells here are not clones of the template, so the template's answer was never asked and the row stayed blank.
+        private void SeedNewRowCell (DataGridViewCell cell, int columnIndex)
+        {
+            if (Columns[columnIndex].CellTemplate?.DefaultNewRowValue is { } value)
+                cell.Value = value;
         }
 
         // The current cell has just moved into the new row: the application may fill it in.
