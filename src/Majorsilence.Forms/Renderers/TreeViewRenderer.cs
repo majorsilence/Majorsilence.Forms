@@ -106,11 +106,13 @@ namespace Majorsilence.Forms.Renderers
 
             RenderLines (control, item, e);
 
-            if (control.ShowDropdownGlyph == true) {
+            if (control.ShowDropdownGlyph == true && GetShouldDrawDropdownGlyph (control, item)) {
                 var glyph_bounds = GetGlyphBounds (control, item);
 
-                if (GetShouldDrawDropdownGlyph (control, item))
+                if (!TreeView.UsesUpstreamLook)
                     ControlPaint.DrawArrowGlyph (e, glyph_bounds, foreground_color, item.Expanded ? ArrowDirection.Down : ArrowDirection.Right);
+                else if (!glyph_bounds.IsEmpty)
+                    DrawUpstreamButton (e, glyph_bounds, item.Expanded);
             }
 
             // The check box, when the tree shows them: nothing drew one, so a permissions tree with
@@ -138,14 +140,29 @@ namespace Majorsilence.Forms.Renderers
 
             var text_bounds = GetTextBounds (control, item, e);
 
+            // Upstream draws the text 2px into its label, and does not clip it to the label's width.
+            if (TreeView.UsesUpstreamLook) {
+                var inset = e.LogicalToDeviceUnits (2);
+                text_bounds = new Rectangle (text_bounds.Left + inset, text_bounds.Top, System.Math.Max (0, item.Bounds.Right - text_bounds.Left - inset), text_bounds.Height);
+            }
+
             // The node's own font when it has one, else the control's -- NodeFont was stored and the
             // renderer always used the theme font (LST-26).
+            var (font, font_size) = TextFont (control, item);
+
+            e.Canvas.DrawText (item.Text.Trim (), font, font_size, text_bounds, foreground_color, ContentAlignment.MiddleLeft, maxLines: 1);
+        }
+
+        // The typeface and device pixel size a node's text is drawn in. The node's own font when it has
+        // one, else the control's -- NodeFont was stored and the renderer always used the theme font (LST-26).
+        private static (SkiaSharp.SKTypeface font, int size) TextFont (TreeView control, TreeNode item)
+        {
             var font = item.NodeFont is { } node_font ? node_font.GetSKTypeface () : control.GetEffectiveFont ();
             var font_size = item.NodeFont is { } sized
                 ? (int)System.Math.Round (sized.PixelSize)
-                : e.LogicalToDeviceUnits (Theme.FontSize);
+                : control.LogicalToDeviceUnits (Theme.FontSize);
 
-            e.Canvas.DrawText (item.Text.Trim (), font, font_size, text_bounds, foreground_color, ContentAlignment.MiddleLeft, maxLines: 1);
+            return (font, font_size);
         }
 
         /// <summary>
@@ -214,6 +231,11 @@ namespace Majorsilence.Forms.Renderers
             if (!control.ShowLines)
                 return;
 
+            if (TreeView.UsesUpstreamLook) {
+                RenderUpstreamLines (control, item, e);
+                return;
+            }
+
             var colour = control.LineColor != System.Drawing.Color.Empty
                 ? control.LineColor.ToSKColor ()
                 : Theme.BorderMidColor;
@@ -277,6 +299,9 @@ namespace Majorsilence.Forms.Renderers
             if (!control.ShowDropdownGlyph)
                 return Rectangle.Empty;
 
+            if (TreeView.UsesUpstreamLook)
+                return control.UpstreamButtonBounds (item);
+
             var glyph_area = new Rectangle (GetIndentStart (control, item), item.Bounds.Top, control.LogicalToDeviceUnits (GLYPH_SIZE), item.Bounds.Height);
             var glyph_bounds = DrawingExtensions.CenterSquare (glyph_area, control.LogicalToDeviceUnits (GLYPH_SIZE));
 
@@ -295,6 +320,9 @@ namespace Majorsilence.Forms.Renderers
         {
             if (!control.ShowItemImages || ResolveImage (control, item, item == control.SelectedItem) is null)
                 return Rectangle.Empty;
+
+            if (TreeView.UsesUpstreamLook)
+                return control.UpstreamImageBounds (item);
 
             var left_index = control.ShowDropdownGlyph ? GetGlyphBounds (control, item).Right : GetIndentStart (control, item);
 
@@ -315,6 +343,17 @@ namespace Majorsilence.Forms.Renderers
         /// label editor (W6 mechanisms). The same arithmetic <see cref="GetTextBounds"/> uses.</summary>
         internal Rectangle TextBoundsFor (TreeView control, TreeNode item)
         {
+            // Upstream's label: after the image column whether or not this node has an image, and 4px
+            // wider than its text.
+            if (TreeView.UsesUpstreamLook) {
+                var label_left = control.ShowItemImages ? control.UpstreamLabelLeft (item) : control.UpstreamImageLeft (item);
+                var (font, font_size) = TextFont (control, item);
+                var text_width = string.IsNullOrWhiteSpace (item.Text) ? 0
+                    : (int) System.Math.Ceiling (TextMeasurer.MeasureText (item.Text.Trim (), font, font_size).Width);
+
+                return new Rectangle (label_left, item.Bounds.Top, text_width + control.LogicalToDeviceUnits (4), item.Bounds.Height);
+            }
+
             var show_glyph = control.ShowDropdownGlyph;
             var show_image = control.ShowItemImages;
 
@@ -337,12 +376,97 @@ namespace Majorsilence.Forms.Renderers
         /// -- so a wider indent for a deep hierarchy did nothing (<c>LST-26</c>). The constant remains
         /// the fallback for a control whose Indent has been zeroed.</remarks>
         protected virtual int GetIndentStart (TreeView control, TreeNode item)
-            => item.Bounds.Left + item.IndentLevel * control.LogicalToDeviceUnits (control.Indent > 0 ? control.Indent : INDENT_SIZE) + 2;
+            => TreeView.UsesUpstreamLook ? control.UpstreamContentLeft (item)
+             : item.Bounds.Left + item.IndentLevel * control.LogicalToDeviceUnits (control.Indent > 0 ? control.Indent : INDENT_SIZE) + 2;
 
         /// <summary>
         /// Gets if the item should draw a dropdown glyph.
         /// </summary>
         protected virtual bool GetShouldDrawDropdownGlyph (TreeView control, TreeNode item) => control.ShowDropdownGlyph && (item.HasChildren || (control.VirtualMode && item.items == null));
+
+        // Upstream's lines are GrayText under the Windows 11 theme.
+        private static readonly SkiaSharp.SKColor UpstreamLineColor = new SkiaSharp.SKColor (0x6D, 0x6D, 0x6D);
+
+        // The themed button, measured: a 9px box with #BABBBC corners and #919191 edges, filled with a
+        // grey that darkens downwards (in different steps for the open and the closed glyph), a 5px #4B63A7
+        // minus, and for a plus a 5px #294272 upright through its centre.
+        private static readonly SkiaSharp.SKColor ButtonCorner = new SkiaSharp.SKColor (0xBA, 0xBB, 0xBC);
+        private static readonly SkiaSharp.SKColor ButtonEdge = new SkiaSharp.SKColor (0x91, 0x91, 0x91);
+        private static readonly SkiaSharp.SKColor ButtonMinus = new SkiaSharp.SKColor (0x4B, 0x63, 0xA7);
+        private static readonly SkiaSharp.SKColor ButtonUpright = new SkiaSharp.SKColor (0x29, 0x42, 0x72);
+        private static readonly uint[] OpenButtonFill = { 0xFAFBFB, 0xFAFBFB, 0xFAFBFB, 0xEDEDEC, 0xEDEDEC, 0xE3E3E3, 0xE3E3E3 };
+        private static readonly uint[] ClosedButtonFill = { 0xFCFCFC, 0xFCFCFC, 0xFAFBFB, 0xFAFBFB, 0xEDEDEC, 0xE3E3E3, 0xE3E3E3 };
+
+        private static void DrawUpstreamButton (PaintEventArgs e, Rectangle bounds, bool expanded)
+        {
+            // One logical pixel of the 9px glyph.
+            var unit = System.Math.Max (1, bounds.Width / 9);
+
+            void Cell (int column, int row, int columns, int rows, SkiaSharp.SKColor colour)
+                => e.Canvas.FillRectangle (bounds.Left + column * unit, bounds.Top + row * unit, columns * unit, rows * unit, colour);
+
+            var fill = expanded ? OpenButtonFill : ClosedButtonFill;
+
+            for (var row = 0; row < 7; row++)
+                Cell (1, row + 1, 7, 1, new SkiaSharp.SKColor (0xFF000000 | fill[row]));
+
+            Cell (1, 0, 7, 1, ButtonEdge);
+            Cell (1, 8, 7, 1, ButtonEdge);
+            Cell (0, 1, 1, 7, ButtonEdge);
+            Cell (8, 1, 1, 7, ButtonEdge);
+            Cell (0, 0, 1, 1, ButtonCorner);
+            Cell (8, 0, 1, 1, ButtonCorner);
+            Cell (0, 8, 1, 1, ButtonCorner);
+            Cell (8, 8, 1, 1, ButtonCorner);
+
+            if (!expanded) {
+                Cell (4, 2, 1, 2, ButtonUpright);
+                Cell (4, 5, 1, 2, ButtonUpright);
+            }
+
+            Cell (2, 4, 5, 1, ButtonMinus);
+        }
+
+        // Upstream's dotted lines: every other pixel, down the middle of each column and out along the
+        // centre of the row to the node's content. A node draws its own column -- from the row's top unless
+        // it is the first root, to its centre, on to the bottom when a sibling follows -- and the column of
+        // every ancestor that has a sibling still to come. The button, drawn after, covers them.
+        private static void RenderUpstreamLines (TreeView control, TreeNode item, PaintEventArgs e)
+        {
+            var colour = control.LineColor != System.Drawing.Color.Empty ? control.LineColor.ToSKColor () : UpstreamLineColor;
+            var dot = e.LogicalToDeviceUnits (1);
+            var step = 2 * dot;
+            var top = item.Bounds.Top;
+            var bottom = item.Bounds.Bottom;
+            var middle = control.UpstreamCentreY (item);
+
+            // Dots on every other row, counted from the row's top, in [from, to).
+            void Down (int x, int from, int to)
+            {
+                for (var y = top + (from - top + step - 1) / step * step; y < to; y += step)
+                    e.Canvas.FillRectangle (x, y, dot, dot, colour);
+            }
+
+            var columns = control.UpstreamColumns (item);
+
+            if (columns >= 1) {
+                var x = control.UpstreamColumnCentre (item, columns);
+                // A root's Parent is the tree's hidden root node, at level -1.
+                var first_root = item.PrevNode is null && item.IndentLevel == 0;
+
+                Down (x, first_root ? middle : top, item.NextNode is not null ? bottom : middle + 1);
+
+                for (var stub = x; stub < control.UpstreamContentLeft (item); stub += step)
+                    e.Canvas.FillRectangle (stub, middle, dot, dot, colour);
+            }
+
+            for (var ancestor = item.Parent; ancestor is not null; ancestor = ancestor.Parent) {
+                var ancestor_columns = control.UpstreamColumns (ancestor);
+
+                if (ancestor_columns >= 1 && ancestor.NextNode is not null)
+                    Down (control.UpstreamColumnCentre (item, ancestor_columns), top, bottom);
+            }
+        }
 
         // TreeView.HitTest classifies a point by the same regions the paint pass draws (LAY-39); these
         // expose the protected hooks to it without widening the renderer's public surface.

@@ -266,7 +266,7 @@ namespace Majorsilence.Forms
 
             var glyph = renderer.GetGlyphBounds (this, item);
             var glyph_start = glyph.IsEmpty ? renderer.IndentStartFor (this, item) : glyph.Left;
-            var check_start = glyph.IsEmpty ? glyph_start : glyph.Right;
+            var check_start = UsesUpstreamLook ? CheckColumnLeft (item) : glyph.IsEmpty ? glyph_start : glyph.Right;
 
             // With CheckBoxes the box is the state image, as it is upstream.
             if (CheckBoxes && x >= check_start && x < check_start + ScaledCheckWidth)
