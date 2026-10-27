@@ -160,6 +160,29 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
+        /// <remarks>
+        /// A label sizing itself keeps its preferred size whatever bounds it is given, as upstream's
+        /// (Label.SetBoundsCore): anchored to opposite edges, it moves with its parent but does not stretch.
+        /// Only <see cref="AdjustSize"/> applied the preferred size here, so a layout pass stretched an AutoSize
+        /// label anchored all round -- shrinking a 12pt caption to 8px high in a parent placed smaller than it
+        /// was designed, its text cut off.
+        /// </remarks>
+        protected override void SetBoundsCore (int x, int y, int width, int height, BoundsSpecified specified)
+        {
+            if (AutoSize && CommonProperties.ShouldSelfSize (this)) {
+                using var theme_scope_entered = ThemeScope.EnterFor (this);
+                var preferred = GetPreferredSize (Size.Empty);
+
+                if (preferred.Width > 0 && preferred.Height > 0) {
+                    width = preferred.Width;
+                    height = preferred.Height;
+                }
+            }
+
+            base.SetBoundsCore (x, y, width, height, specified);
+        }
+
+        /// <inheritdoc/>
         public override bool AutoSize {
             get => base.AutoSize;
             set {
