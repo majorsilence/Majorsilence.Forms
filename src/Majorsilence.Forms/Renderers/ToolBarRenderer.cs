@@ -1,4 +1,5 @@
 ﻿using System.Drawing;
+using Majorsilence.Forms.Layout;
 
 namespace Majorsilence.Forms.Renderers
 {
@@ -217,6 +218,25 @@ namespace Majorsilence.Forms.Renderers
             var gap = image_size.IsEmpty || text_size.IsEmpty ? 0 : e.LogicalToDeviceUnits (4);
 
             switch (relation) {
+                case TextImageRelation.ImageAboveText or TextImageRelation.TextAboveImage when strip_item is not null && legacy is null && !image_size.IsEmpty && !text_size.IsEmpty: {
+                    // Upstream lays a strip item's stacked image and text out as a button's
+                    // (ButtonBaseAdapter.LayoutOptions.LayoutTextAndImage) in the item less its 2px
+                    // border: the two halves are split and stretched to the field's edges, each is
+                    // aligned in its own half, and then the text is pulled up against the image.
+                    // Centring the pair as one put a 24px icon over a 12pt caption 6px lower in an
+                    // 80px button, and the caption below the 62px a toolbar showed of it.
+                    var border = 2;
+                    var field = new Rectangle (content.Left, item.DeviceBounds.Top + border,
+                        content.Width, Math.Max (0, item.DeviceBounds.Height - 2 * border));
+                    var (image_bounds, text_bounds) = StackedLayout (field, image_size, text_size,
+                        TextImageLayoutEngine.RtlTranslate (control, image_align),
+                        TextImageLayoutEngine.RtlTranslate (control, text_align), relation);
+
+                    image_rect = image_bounds;
+                    text_rect = new Rectangle (content.Left, text_bounds.Top, content.Width, text_bounds.Height);
+                    break;
+                }
+
                 case TextImageRelation.ImageAboveText:
                 case TextImageRelation.TextAboveImage: {
                     // Stack them and centre the pair vertically; each half centres horizontally.
@@ -334,6 +354,48 @@ namespace Majorsilence.Forms.Renderers
                 if (StripRendererBridge.Arrow (control, item, arrow_area, font_color, ArrowDirection.Down, e) is { } ap)
                     ControlPaint.DrawArrowGlyph (e, ap.rect, ap.colour, ap.direction);
             }
+        }
+
+        // Upstream's LayoutTextAndImage for a vertical TextImageRelation, with its ToolStripItem
+        // options: no inset, no margin between the halves.
+        internal static (Rectangle image, Rectangle text) StackedLayout (Rectangle field, Size image_size, Size text_size,
+            ContentAlignment image_align, ContentAlignment text_align, TextImageRelation relation)
+        {
+            text_size = new Size (Math.Min (text_size.Width, field.Width),
+                Math.Min (text_size.Height, Math.Max (0, field.Height - image_size.Height)));
+
+            var max_combined = field;
+            var combined_size = LayoutUtils.AddAlignedRegion (text_size, image_size, relation);
+            max_combined.Size = LayoutUtils.UnionSizes (max_combined.Size, combined_size);
+            var combined = LayoutUtils.Align (combined_size, max_combined, ContentAlignment.MiddleCenter);
+
+            var image_edge = (TextImageLayoutEngine.ImageAlignToRelation (image_align) & relation) != 0;
+            var text_edge = (TextImageLayoutEngine.TextAlignToRelation (text_align) & relation) != 0;
+            Rectangle image_bounds, text_bounds;
+
+            if (image_edge) {
+                LayoutUtils.SplitRegion (max_combined, image_size, (AnchorStyles) relation, 0, out image_bounds, out text_bounds);
+            } else if (text_edge) {
+                LayoutUtils.SplitRegion (max_combined, text_size, (AnchorStyles) LayoutUtils.GetOppositeTextImageRelation (relation), 0, out text_bounds, out image_bounds);
+            } else {
+                LayoutUtils.SplitRegion (combined, image_size, (AnchorStyles) relation, 0, out image_bounds, out text_bounds);
+                LayoutUtils.ExpandRegionsToFillBounds (max_combined, (AnchorStyles) relation, ref image_bounds, ref text_bounds);
+            }
+
+            image_bounds = LayoutUtils.Align (image_size, image_bounds, image_align);
+            text_bounds = LayoutUtils.Align (text_size, text_bounds, text_align);
+
+            // The text keeps within the field across; under an image it sits right against it.
+            var text_right = Math.Min (text_bounds.Right, field.Right);
+            text_bounds.X = Math.Max (Math.Min (text_bounds.X, field.X + (field.Width - text_bounds.Width) / 2), field.X);
+            text_bounds.Width = text_right - text_bounds.X;
+
+            if (relation == TextImageRelation.ImageAboveText) {
+                image_bounds.Height = Math.Max (0, Math.Min (field.Height - text_bounds.Height, image_bounds.Height));
+                text_bounds.Y = image_bounds.Y + image_bounds.Height;
+            }
+
+            return (image_bounds, Rectangle.Intersect (text_bounds, field));
         }
 
         /// <summary>The width a drop-down item reserves at its right for the arrow: the glyph plus a gap.</summary>
