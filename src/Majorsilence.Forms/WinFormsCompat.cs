@@ -995,7 +995,7 @@ namespace Majorsilence.Forms
             // error box raised from code running inside an already-modal dialog must appear over
             // that dialog, not behind it against the (input-blocked, likely out-of-view) main
             // window -- which reads as a silent hang. See Application.ModalStack.
-            var parent = owner ?? Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
+            var parent = owner ?? Application.DefaultDialogOwner;
             var form = new MessageBoxForm (caption, text, buttons, icon, defaultButton, options);
             form.FitWithin (parent);
 
@@ -1048,7 +1048,7 @@ namespace Majorsilence.Forms
         // preferred when the passed owner resolves to no form at all.
         private static Form? OwnerForm (IWin32Window? owner)
             => owner as Form ?? (owner as Control)?.FindForm ()
-                ?? Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
+                ?? Application.DefaultDialogOwner;
 
         /// <inheritdoc cref="Show(IWin32Window,string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
         public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons,
