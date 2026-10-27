@@ -501,6 +501,10 @@ namespace Majorsilence.Forms.Telerik
         // Telerik's header cells keep one line and end a caption that does not fit with "..." (see the renderer).
         internal override bool HeaderWraps => false;
 
+        // Its headers are Telerik's, with their filter buttons, not the WinForms grid's: under the upstream look a caption was
+        // laid out as a DataGridViewColumnHeaderCell's, across the filter button, and the header sized and coloured as one.
+        internal override bool UsesUpstreamHeaders => false;
+
         // EnableFiltering / ShowFilteringRow / ShowHeaderCellButtons changed on the template.
         internal void OnFilteringLayoutChanged ()
         {

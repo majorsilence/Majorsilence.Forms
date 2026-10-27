@@ -3293,6 +3293,11 @@ namespace Majorsilence.Forms
         // long caption takes a second line; only an explicit False keeps it on one.
         internal virtual bool HeaderWraps => ColumnHeadersDefaultCellStyle.WrapMode != DataGridViewTriState.False;
 
+        // Whether the column headers take upstream's look, as a ported app's do (see ControlPaint.UsesUpstreamGlyphs): the
+        // caption laid out as DataGridViewColumnHeaderCell lays it out, its auto-sized height, and with
+        // EnableHeadersVisualStyles the theme's header items.
+        internal virtual bool UsesUpstreamHeaders => ControlPaint.UsesUpstreamGlyphs;
+
         // A caption broken into lines the way upstream's word-breaking header text breaks it: between words
         // only, a word too wide for the line keeping a line to itself rather than being split. The layout splits
         // such a word mid-way, so a one-word caption a few pixels too wide ("EmpCode") read "EmpCod" over "e"
@@ -3387,7 +3392,7 @@ namespace Majorsilence.Forms
 
                 var text = column.HeaderDisplayText;
 
-                if (ControlPaint.UsesUpstreamGlyphs) {
+                if (UsesUpstreamHeaders) {
                     tallest = Math.Max (tallest, UpstreamHeaderHeight (column, text, font, size));
                     continue;
                 }
@@ -3401,7 +3406,7 @@ namespace Majorsilence.Forms
                 tallest = Math.Max (tallest, (int) Math.Ceiling (measured.Height));
             }
 
-            if (ControlPaint.UsesUpstreamGlyphs)
+            if (UsesUpstreamHeaders)
                 return tallest > 0 ? tallest : header_height;
 
             return tallest > 0 ? tallest + 8 : header_height;
