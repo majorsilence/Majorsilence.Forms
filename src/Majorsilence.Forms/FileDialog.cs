@@ -241,7 +241,7 @@ namespace Majorsilence.Forms
             // cannot block, a Cancel here would read as the user dismissing a picker that never opened.
             BlockingModal.ThrowIfUnsupported ("FileDialog.ShowDialog", "FileDialog.ShowDialogAsync");
 
-            var owner = Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
+            var owner = Application.DefaultDialogOwner;
             return owner is not null ? ShowDialogSync (owner) : DialogResult.Cancel;
         }
 
@@ -251,7 +251,7 @@ namespace Majorsilence.Forms
         {
             BlockingModal.ThrowIfUnsupported ("FileDialog.ShowDialog", "FileDialog.ShowDialogAsync");
 
-            var form = owner as Form ?? Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
+            var form = owner as Form ?? Application.DefaultDialogOwner;
             return form is not null ? ShowDialogSync (form) : DialogResult.Cancel;
         }
 
@@ -269,7 +269,7 @@ namespace Majorsilence.Forms
         /// <remarks>Raises <see cref="FileOk"/> exactly as <see cref="ShowDialog()"/> does.</remarks>
         public Task<DialogResult> ShowDialogAsync ()
         {
-            var owner = Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
+            var owner = Application.DefaultDialogOwner;
             return owner is not null ? ShowConfirmedAsync (owner) : Task.FromResult (DialogResult.Cancel);
         }
 
@@ -278,7 +278,7 @@ namespace Majorsilence.Forms
         /// <remarks>Raises <see cref="FileOk"/> exactly as <see cref="ShowDialog(IWin32Window)"/> does.</remarks>
         public Task<DialogResult> ShowDialogAsync (IWin32Window owner)
         {
-            var form = owner as Form ?? (owner as Control)?.FindForm () ?? Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
+            var form = owner as Form ?? (owner as Control)?.FindForm () ?? Application.DefaultDialogOwner;
             return form is not null ? ShowConfirmedAsync (form) : Task.FromResult (DialogResult.Cancel);
         }
 

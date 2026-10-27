@@ -1,4 +1,4 @@
-using Majorsilence.Forms.Drawing;
+﻿using Majorsilence.Forms.Drawing;
 
 namespace Majorsilence.Forms.Drawing.Common.Tests;
 
@@ -70,25 +70,64 @@ public class ColorTranslatorTests
         Assert.Equal(a, color.A);
     }
 
+    // Measured from System.Drawing.ColorTranslator.FromHtml on .NET 10. Without a '#', six digits are a DECIMAL
+    // number through the colour converter: "123456" is 0x0001E240, alpha 0 -- not #123456.
     [Fact]
-    public void FromHtml_WithoutLeadingHash_SameAsWithHash()
+    public void FromHtml_DigitsWithoutHash_AreADecimalNumber()
     {
-        var withHash    = ColorTranslator.FromHtml("#FF5733");
-        var withoutHash = ColorTranslator.FromHtml("FF5733");
-        Assert.Equal(withHash.R, withoutHash.R);
-        Assert.Equal(withHash.G, withoutHash.G);
-        Assert.Equal(withHash.B, withoutHash.B);
+        var color = ColorTranslator.FromHtml("123456");
+        Assert.Equal((0, 1, 226, 64), (color.A, color.R, color.G, color.B));
     }
 
     [Fact]
-    public void FromHtml_EmptyString_ThrowsArgumentException()
+    public void FromHtml_HexWithoutHash_IsNotAColour()
     {
-        Assert.Throws<ArgumentException>(() => ColorTranslator.FromHtml(string.Empty));
+        Assert.Throws<ArgumentException>(() => ColorTranslator.FromHtml("FF5733"));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void FromHtml_NullEmptyOrBlank_IsEmpty(string? html)
+    {
+        Assert.True(ColorTranslator.FromHtml(html!).IsEmpty);
+    }
+
+    [Theory]
+    [InlineData("buttonface", "Control")]
+    [InlineData("ButtonFace", "Control")]
+    [InlineData("infotext", "InfoText")]
+    [InlineData("infobackground", "Info")]
+    [InlineData("threedhighlight", "ControlLight")]
+    public void FromHtml_SystemColourKeyword_IsThatSystemColour(string html, string name)
+    {
+        Assert.Equal(System.Drawing.Color.FromName(name), ColorTranslator.FromHtml(html));
+    }
+
+    [Theory]
+    [InlineData("LightGrey")]
+    [InlineData("lightgrey")]
+    public void FromHtml_LightGrey_IsLightGray(string html)
+    {
+        Assert.Equal(System.Drawing.Color.LightGray, ColorTranslator.FromHtml(html));
     }
 
     [Fact]
-    public void FromHtml_NullString_ThrowsArgumentException()
+    public void FromHtml_NameInAnyCase_IsTheKnownColour()
     {
-        Assert.Throws<ArgumentException>(() => ColorTranslator.FromHtml(null!));
+        Assert.Equal(System.Drawing.Color.Red, ColorTranslator.FromHtml("red"));
+    }
+
+    [Fact]
+    public void FromHtml_InvalidHexDigit_IsAFormatException()
+    {
+        Assert.Throws<FormatException>(() => ColorTranslator.FromHtml("#GGGGGG"));
+    }
+
+    [Fact]
+    public void FromHtml_UnknownName_IsAnArgumentException()
+    {
+        Assert.Throws<ArgumentException>(() => ColorTranslator.FromHtml("notacolour"));
     }
 }

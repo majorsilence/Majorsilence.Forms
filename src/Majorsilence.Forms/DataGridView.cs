@@ -1759,7 +1759,7 @@ namespace Majorsilence.Forms
             var client = DeviceClientRectangle;
             var top_offset = Math.Max (0, ContentTopOffset);
             var w = client.Width - (vscrollbar.Visible ? (int)Math.Ceiling (vscrollbar.Width * ScaleFactor.Width) : 0);
-            var h = client.Height - top_offset - (hscrollbar.Visible ? (int)Math.Ceiling (hscrollbar.Height * ScaleFactor.Height) : 0);
+            var h = client.Height - top_offset - Math.Max (0, ContentBottomOffset) - (hscrollbar.Visible ? (int)Math.Ceiling (hscrollbar.Height * ScaleFactor.Height) : 0);
             return new Rectangle (client.Left, client.Top + top_offset, w, h);
         }
 
@@ -1771,6 +1771,14 @@ namespace Majorsilence.Forms
         /// consistently and the reserved band is the subclass's to paint and hit-test. Default 0.
         /// </summary>
         protected virtual int ContentTopOffset => 0;
+
+        /// <summary>
+        /// Gets the height, in device pixels, of a band reserved at the bottom of the control (below the rows and the
+        /// horizontal scrollbar) that the grid does not draw into. The Telerik-compat <c>RadGridView</c> reserves its
+        /// paging panel here; a subclass reserving one also keeps its docked scrollbars out of it (see
+        /// <see cref="Control.DisplayRectangle"/>). Default 0.
+        /// </summary>
+        protected virtual int ContentBottomOffset => 0;
 
         /// <summary>
         /// Device-pixel height of an extra fixed band drawn below the column headers and above the data
@@ -3293,6 +3301,11 @@ namespace Majorsilence.Forms
         // long caption takes a second line; only an explicit False keeps it on one.
         internal virtual bool HeaderWraps => ColumnHeadersDefaultCellStyle.WrapMode != DataGridViewTriState.False;
 
+        // Whether the column headers take upstream's look, as a ported app's do (see ControlPaint.UsesUpstreamGlyphs): the
+        // caption laid out as DataGridViewColumnHeaderCell lays it out, its auto-sized height, and with
+        // EnableHeadersVisualStyles the theme's header items.
+        internal virtual bool UsesUpstreamHeaders => ControlPaint.UsesUpstreamGlyphs;
+
         // A caption broken into lines the way upstream's word-breaking header text breaks it: between words
         // only, a word too wide for the line keeping a line to itself rather than being split. The layout splits
         // such a word mid-way, so a one-word caption a few pixels too wide ("EmpCode") read "EmpCod" over "e"
@@ -3387,7 +3400,7 @@ namespace Majorsilence.Forms
 
                 var text = column.HeaderDisplayText;
 
-                if (ControlPaint.UsesUpstreamGlyphs) {
+                if (UsesUpstreamHeaders) {
                     tallest = Math.Max (tallest, UpstreamHeaderHeight (column, text, font, size));
                     continue;
                 }
@@ -3401,7 +3414,7 @@ namespace Majorsilence.Forms
                 tallest = Math.Max (tallest, (int) Math.Ceiling (measured.Height));
             }
 
-            if (ControlPaint.UsesUpstreamGlyphs)
+            if (UsesUpstreamHeaders)
                 return tallest > 0 ? tallest : header_height;
 
             return tallest > 0 ? tallest + 8 : header_height;
@@ -3891,14 +3904,30 @@ namespace Majorsilence.Forms
                     new_row = CreateRowFromTemplate ();
                     new_row.SetOwner (this);
                     new_row.IsNewRow = true;
+
+                    for (var c = 0; c < new_row.Cells.Count && c < Columns.Count; c++)
+                        SeedNewRowCell (new_row.Cells[c], c);
                 }
 
                 // Columns added since the placeholder was built get a cell each, like a real row.
-                while (new_row.Cells.Count < Columns.Count)
-                    new_row.Cells.Add (new DataGridViewCell ());
+                while (new_row.Cells.Count < Columns.Count) {
+                    var cell = new DataGridViewCell ();
+                    new_row.Cells.Add (cell);
+                    SeedNewRowCell (cell, new_row.Cells.Count - 1);
+                }
 
                 return new_row;
             }
+        }
+
+        // A new-row cell starts at its column's cell template's DefaultNewRowValue, as upstream's do (the row collection
+        // sets each new-row cell's Value to it, and so does adding a column while the new row exists): a calendar column
+        // whose cell answers today's date shows today in the new row. Measured on WinForms, bound and unbound alike.
+        // Cells here are not clones of the template, so the template's answer was never asked and the row stayed blank.
+        private void SeedNewRowCell (DataGridViewCell cell, int columnIndex)
+        {
+            if (Columns[columnIndex].CellTemplate?.DefaultNewRowValue is { } value)
+                cell.Value = value;
         }
 
         // The current cell has just moved into the new row: the application may fill it in.

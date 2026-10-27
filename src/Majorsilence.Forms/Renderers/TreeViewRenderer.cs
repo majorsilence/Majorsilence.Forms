@@ -158,9 +158,11 @@ namespace Majorsilence.Forms.Renderers
         private static (SkiaSharp.SKTypeface font, int size) TextFont (TreeView control, TreeNode item)
         {
             var font = item.NodeFont is { } node_font ? node_font.GetSKTypeface () : control.GetEffectiveFont ();
+            // A ported app (one that chose its font) draws at the tree's own font size, as upstream does;
+            // the theme's size made a 12pt tree's text smaller than WinForms'.
             var font_size = item.NodeFont is { } sized
                 ? (int)System.Math.Round (sized.PixelSize)
-                : control.LogicalToDeviceUnits (Theme.FontSize);
+                : control.LogicalToDeviceUnits (ControlPaint.UsesUpstreamGlyphs ? (int)System.Math.Round (control.Font.PixelSize) : Theme.FontSize);
 
             return (font, font_size);
         }
