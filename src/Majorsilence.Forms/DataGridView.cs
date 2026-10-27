@@ -1759,7 +1759,7 @@ namespace Majorsilence.Forms
             var client = DeviceClientRectangle;
             var top_offset = Math.Max (0, ContentTopOffset);
             var w = client.Width - (vscrollbar.Visible ? (int)Math.Ceiling (vscrollbar.Width * ScaleFactor.Width) : 0);
-            var h = client.Height - top_offset - (hscrollbar.Visible ? (int)Math.Ceiling (hscrollbar.Height * ScaleFactor.Height) : 0);
+            var h = client.Height - top_offset - Math.Max (0, ContentBottomOffset) - (hscrollbar.Visible ? (int)Math.Ceiling (hscrollbar.Height * ScaleFactor.Height) : 0);
             return new Rectangle (client.Left, client.Top + top_offset, w, h);
         }
 
@@ -1771,6 +1771,14 @@ namespace Majorsilence.Forms
         /// consistently and the reserved band is the subclass's to paint and hit-test. Default 0.
         /// </summary>
         protected virtual int ContentTopOffset => 0;
+
+        /// <summary>
+        /// Gets the height, in device pixels, of a band reserved at the bottom of the control (below the rows and the
+        /// horizontal scrollbar) that the grid does not draw into. The Telerik-compat <c>RadGridView</c> reserves its
+        /// paging panel here; a subclass reserving one also keeps its docked scrollbars out of it (see
+        /// <see cref="Control.DisplayRectangle"/>). Default 0.
+        /// </summary>
+        protected virtual int ContentBottomOffset => 0;
 
         /// <summary>
         /// Device-pixel height of an extra fixed band drawn below the column headers and above the data

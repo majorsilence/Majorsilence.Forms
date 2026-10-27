@@ -37,6 +37,9 @@ namespace Majorsilence.Forms.Renderers
             if (grid.ShowsGroupPanel)
                 RenderGroupPanel (grid, e);
 
+            if (grid.ShowsPagingPanel)
+                RenderPagingPanel (grid, e);
+
             if (control.Rows.Count == 0)
                 RenderNoDataText (grid, e);
 
@@ -55,6 +58,90 @@ namespace Majorsilence.Forms.Renderers
             // In the grid's own font, as Telerik's: a 12pt grid said so in the theme's small item font.
             e.Canvas.DrawText (RadGridView.NoDataText, grid.GetEffectiveFont (), grid.LogicalToDeviceUnits (grid.GetEffectiveFontSize ()), area,
                 grid.Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor, ContentAlignment.MiddleCenter, maxLines: 1);
+        }
+
+        // ── Paging panel ──
+
+        // The panel along the bottom (see RadGridView.LayoutPagingPanel), in the theme's colours: its buttons' arrows,
+        // greyed where they cannot move, the current page's button selected, and the page box.
+        private static void RenderPagingPanel (RadGridView grid, PaintEventArgs e)
+        {
+            var layout = grid.LayoutPagingPanel ();
+            var band = layout.Band;
+            var (font, size) = grid.CellFallbackFont ();
+            var scaled = grid.LogicalToDeviceUnits (size);
+            var page = grid.CurrentPageIndex;
+            var last = grid.PageCount - 1;
+
+            e.Canvas.FillRectangle (band, Theme.ControlLowColor);
+            e.Canvas.DrawLine (band.Left, band.Top, band.Right, band.Top, Theme.BorderMidColor);
+
+            foreach (var separator in layout.Separators)
+                e.Canvas.DrawLine (separator.Left, separator.Top, separator.Left, separator.Bottom, Theme.BorderMidColor);
+
+            SKColor Ink (bool enabled) => enabled && grid.Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor;
+
+            DrawArrows (grid, e, layout.First, left: true, count: 2, Ink (page > 0));
+            DrawArrows (grid, e, layout.Previous, left: true, count: 1, Ink (page > 0));
+            DrawArrows (grid, e, layout.Next, left: false, count: 1, Ink (page < last));
+            DrawArrows (grid, e, layout.Last, left: false, count: 2, Ink (page < last));
+
+            var group = grid.PagingGroupStart;
+            e.Canvas.DrawText ("...", font, scaled, layout.FastBack, Ink (group > 0), ContentAlignment.MiddleCenter, maxLines: 1);
+            e.Canvas.DrawText ("...", font, scaled, layout.FastForward, Ink (group + RadGridView.PagingNumericButtonsCount <= last), ContentAlignment.MiddleCenter, maxLines: 1);
+
+            foreach (var (number, bounds) in layout.Pages) {
+                var current = number == page;
+
+                if (current)
+                    e.Canvas.FillRectangle (bounds, DataGridView.DefaultSelectionStyle.GetBackgroundColor ());
+
+                var ink = current && DataGridView.DefaultSelectionStyle.ForegroundColor is { } selected ? selected : Ink (true);
+                e.Canvas.DrawText ((number + 1).ToString (System.Globalization.CultureInfo.CurrentCulture), font, scaled, bounds, ink, ContentAlignment.MiddleCenter, maxLines: 1);
+            }
+
+            e.Canvas.DrawText ("Page", font, scaled, layout.PageLabel, Ink (true), ContentAlignment.MiddleCenter, maxLines: 1);
+            e.Canvas.DrawText ("of", font, scaled, layout.OfLabel, Ink (true), ContentAlignment.MiddleCenter, maxLines: 1);
+            e.Canvas.DrawText (grid.PageCount.ToString (System.Globalization.CultureInfo.CurrentCulture), font, scaled, layout.CountLabel, Ink (true), ContentAlignment.MiddleCenter, maxLines: 1);
+
+            var box = layout.PageBox;
+            e.Canvas.FillRectangle (box, Theme.BackgroundColor);
+            e.Canvas.DrawRectangle (box, Theme.BorderMidColor);
+
+            if (!grid.EditingPageBox) {
+                var inner = Rectangle.Inflate (box, -grid.LogicalToDeviceUnits (2), 0);
+                e.Canvas.DrawText ((page + 1).ToString (System.Globalization.CultureInfo.CurrentCulture), font, scaled, inner, Ink (true), ContentAlignment.MiddleLeft, maxLines: 1);
+            }
+        }
+
+        // One or two 4 x 7 arrowheads, a pixel apart, centred in a button.
+        private static void DrawArrows (RadGridView grid, PaintEventArgs e, Rectangle button, bool left, int count, SKColor colour)
+        {
+            var w = grid.LogicalToDeviceUnits (4);
+            var h = grid.LogicalToDeviceUnits (7);
+            var spacing = grid.LogicalToDeviceUnits (1);
+            var total = count * w + (count - 1) * spacing;
+            var x = button.Left + (button.Width - total) / 2;
+            var y = button.Top + (button.Height - h) / 2;
+
+            using var paint = new SKPaint { Color = colour, IsAntialias = false, Style = SKPaintStyle.Fill };
+
+            for (var i = 0; i < count; i++, x += w + spacing) {
+                using var path = new SKPath ();
+
+                if (left) {
+                    path.MoveTo (x + w, y);
+                    path.LineTo (x, y + h / 2f);
+                    path.LineTo (x + w, y + h);
+                } else {
+                    path.MoveTo (x, y);
+                    path.LineTo (x + w, y + h / 2f);
+                    path.LineTo (x, y + h);
+                }
+
+                path.Close ();
+                e.Canvas.DrawPath (path, paint);
+            }
         }
 
         // ── Inline filter row ──
