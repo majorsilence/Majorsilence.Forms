@@ -995,7 +995,7 @@ namespace Majorsilence.Forms
             // error box raised from code running inside an already-modal dialog must appear over
             // that dialog, not behind it against the (input-blocked, likely out-of-view) main
             // window -- which reads as a silent hang. See Application.ModalStack.
-            var parent = owner ?? Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
+            var parent = owner ?? Application.DefaultDialogOwner;
             var form = new MessageBoxForm (caption, text, buttons, icon, defaultButton, options);
             form.FitWithin (parent);
 
@@ -1048,7 +1048,7 @@ namespace Majorsilence.Forms
         // preferred when the passed owner resolves to no form at all.
         private static Form? OwnerForm (IWin32Window? owner)
             => owner as Form ?? (owner as Control)?.FindForm ()
-                ?? Application.ActiveModalForm ?? Application.ModalOwnerCandidates.FirstOrDefault ();
+                ?? Application.DefaultDialogOwner;
 
         /// <inheritdoc cref="Show(IWin32Window,string,string,MessageBoxButtons,MessageBoxIcon,MessageBoxDefaultButton,MessageBoxOptions)"/>
         public static DialogResult Show (IWin32Window owner, string text, string caption, MessageBoxButtons buttons,
@@ -3649,6 +3649,29 @@ namespace Majorsilence.Forms
         public bool RoundedEdges { get; set; } = true;
 
         /// <inheritdoc/>
+        /// <remarks>Under the upstream look, a plain <see cref="ToolStrip"/> is shaded as upstream's
+        /// professional renderer shades it under Windows 11 (see <see cref="ToolStripUpstreamLook"/>).</remarks>
+        protected override void OnRenderToolStripBackground (ToolStripRenderEventArgs e)
+        {
+            if (e.ToolStrip is { IsUpstreamPlainStrip: true } strip && ToolStripUpstreamLook.ShouldPaintBackground (strip)
+                && e.Graphics.Canvas is { } canvas)
+                ToolStripUpstreamLook.Background (canvas, strip, e.AffectedBounds);
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>Under the upstream look, the panel is shaded left to right across its parent, as upstream's
+        /// professional renderer shades it, and the default fill is skipped.</remarks>
+        protected override void OnRenderToolStripPanelBackground (ToolStripPanelRenderEventArgs e)
+        {
+            if (!ControlPaint.UsesUpstreamGlyphs || e.ToolStripPanel is not { } panel || !ToolStripUpstreamLook.ShouldPaintBackground (panel)
+                || e.Graphics.Canvas is not { } canvas)
+                return;
+
+            ToolStripUpstreamLook.PanelBackground (canvas, panel);
+            e.Handled = true;
+        }
+
+        /// <inheritdoc/>
         /// <remarks>Draws the bottom border of a plain <see cref="ToolStrip"/> in the colour table's
         /// <c>ToolStripBorder</c>; menu and status strips, drop-downs and the panels keep their own
         /// chrome, as upstream's <c>OnRenderToolStripBorder</c> leaves them.</remarks>
@@ -3661,6 +3684,11 @@ namespace Majorsilence.Forms
 
             if (bounds.Width <= 0 || bounds.Height <= 0)
                 return;
+
+            if (e.ToolStrip.IsUpstreamPlainStrip && e.Graphics.Canvas is { } upstream_canvas) {
+                ToolStripUpstreamLook.Border (upstream_canvas, e.ToolStrip, bounds, RoundedEdges);
+                return;
+            }
 
             // A Graphics line excludes its end point, so the runs are drawn to Right, and the single
             // corner pixels are filled rather than drawn as zero-length lines.

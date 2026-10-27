@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
@@ -104,6 +104,10 @@ namespace Majorsilence.Forms
                 style.ForegroundColor = SystemColors.HighlightText.ToSKColor ();
             });
 
+        // Upstream's list box scrolls a selection set in code into view, the least distance: measured on WinForms, a
+        // ten-row list of forty items selected at 25 before it is shown opens with 16 at the top (25 on the last row),
+        // set to 30 once shown it scrolls to 21, and back to 2 it scrolls to 2; a multi-select list does the same, for
+        // SetSelected too. Only the keyboard scrolled here, so a list selected in code kept its selection out of view.
         private void EnsureItemVisible (int index)
         {
             // If there aren't enough items to need scrolling, things are good
@@ -959,6 +963,10 @@ namespace Majorsilence.Forms
                 if (Items.SelectedIndex != value || Items.SelectedIndexes.Count > 1) {
                     Items.SelectedIndex = value;
 
+                    // Scrolled into view, the least distance, as upstream's LB_SETCURSEL does.
+                    if (value >= 0)
+                        EnsureItemVisible (value);
+
                     // Inside a ChangeSelection batch the announcement is that batch's job, so an input
                     // handler that lands here reports its change once rather than twice.
                     if (selection_batch == 0) {
@@ -1476,6 +1484,10 @@ namespace Majorsilence.Forms
                 else
                     Items.RemoveSelectedIndex (index);
             });
+
+            // A selected item is scrolled into view, as upstream's LB_SETSEL leaves it.
+            if (value)
+                EnsureItemVisible (index);
         }
 
         /// <summary>Returns whether the item at the specified index is selected.</summary>

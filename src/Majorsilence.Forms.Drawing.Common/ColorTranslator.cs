@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 
 namespace Majorsilence.Forms.Drawing
@@ -10,45 +10,133 @@ namespace Majorsilence.Forms.Drawing
     public static class ColorTranslator
     {
         /// <summary>
-        /// Translates an HTML color string to a <see cref="Color"/>.
-        /// Supports #RGB, #RRGGBB, #AARRGGBB, and named colors.
+        /// Translates an HTML color string to a <see cref="Color"/>, as <c>System.Drawing.ColorTranslator.FromHtml</c> does.
         /// </summary>
+        /// <remarks>
+        /// Upstream's rules, measured on .NET 10: null, empty or blank gives <see cref="Color.Empty"/>; <c>#RGB</c> and
+        /// <c>#RRGGBB</c> are hex; <c>LightGrey</c> is <see cref="Color.LightGray"/>; a CSS system-colour keyword
+        /// (<c>buttonface</c>, <c>infotext</c>, ...) gives that system colour; anything else goes through the colour
+        /// converter -- a known colour name in any case, an integer (decimal, or hex after <c>#</c> or <c>0x</c>, so
+        /// <c>#AARRGGBB</c> carries its alpha), or two to four comma-separated channels. An invalid hex digit is a
+        /// <see cref="FormatException"/>; anything else unrecognised an <see cref="ArgumentException"/>.
+        /// This threw on an empty string -- the value a blank colour column holds -- read <c>RRGGBB</c> without its
+        /// <c>#</c> as hex where upstream reads a decimal number, and knew no system-colour keywords.
+        /// </remarks>
         public static Color FromHtml (string html)
         {
             if (string.IsNullOrEmpty (html))
-                throw new ArgumentException ("Invalid HTML color code", nameof (html));
+                return Color.Empty;
+
+            if (html[0] == '#' && (html.Length == 7 || html.Length == 4)) {
+                if (html.Length == 7)
+                    return Color.FromArgb (
+                        Convert.ToInt32 (html.Substring (1, 2), 16),
+                        Convert.ToInt32 (html.Substring (3, 2), 16),
+                        Convert.ToInt32 (html.Substring (5, 2), 16));
+
+                return Color.FromArgb (
+                    Convert.ToInt32 (new string (html[1], 2), 16),
+                    Convert.ToInt32 (new string (html[2], 2), 16),
+                    Convert.ToInt32 (new string (html[3], 2), 16));
+            }
+
+            if (string.Equals (html, "LightGrey", StringComparison.OrdinalIgnoreCase))
+                return Color.LightGray;
+
+            var system = SystemColorFromKeyword (html.ToLowerInvariant ());
+
+            if (system is { } keyword)
+                return Color.FromName (keyword);
+
+            return ConvertFromString (html);
+        }
+
+        // The colour converter's string form: a known name, an integer, or comma-separated channels.
+        private static Color ConvertFromString (string html)
+        {
+            var text = html.Trim ();
+
+            if (text.Length == 0)
+                return Color.Empty;
+
+            var named = Color.FromName (text);
 
 #if NETSTANDARD2_0
-            var s = html.StartsWith ("#", StringComparison.Ordinal) ? html.Substring (1) : html;
+            // No IsKnownColor here: an unknown name comes back with every channel 0, which no known colour has
+            // (Transparent is 0x00FFFFFF).
+            if (named.ToArgb () != 0)
 #else
-            var s = html.StartsWith ('#') ? html.Substring (1) : html;
+            if (named.IsKnownColor)
 #endif
+                return named;
 
-            try
-            {
-                if (s.Length == 3)
-                    return Color.FromArgb (
-                        Convert.ToInt32 (new string (s[0], 2), 16),
-                        Convert.ToInt32 (new string (s[1], 2), 16),
-                        Convert.ToInt32 (new string (s[2], 2), 16));
+            var parts = text.Split (',');
 
-                if (s.Length == 6)
-                    return Color.FromArgb (
-                        Convert.ToInt32 (s.Substring (0, 2), 16),
-                        Convert.ToInt32 (s.Substring (2, 2), 16),
-                        Convert.ToInt32 (s.Substring (4, 2), 16));
+            if (parts.Length == 1)
+                return Color.FromArgb (ParseInt (text, html));
 
-                if (s.Length == 8)
-                    return Color.FromArgb (
-                        Convert.ToInt32 (s.Substring (0, 2), 16),
-                        Convert.ToInt32 (s.Substring (2, 2), 16),
-                        Convert.ToInt32 (s.Substring (4, 2), 16),
-                        Convert.ToInt32 (s.Substring (6, 2), 16));
-            }
-            catch (FormatException) { }
+            var values = new int[parts.Length];
 
-            return Color.FromName (html);
+            for (var i = 0; i < parts.Length; i++)
+                values[i] = ParseInt (parts[i].Trim (), html);
+
+            return values.Length switch {
+                3 => Color.FromArgb (values[0], values[1], values[2]),
+                4 => Color.FromArgb (values[0], values[1], values[2], values[3]),
+                _ => throw new ArgumentException ($"{html} is not a valid value for Int32.", nameof (html)),
+            };
         }
+
+        private static int ParseInt (string text, string html)
+        {
+            try {
+#if NETSTANDARD2_0
+                if (text.StartsWith ("#", StringComparison.Ordinal))
+#else
+                if (text.StartsWith ('#'))
+#endif
+                    return Convert.ToInt32 (text.Substring (1), 16);
+
+                if (text.StartsWith ("0x", StringComparison.OrdinalIgnoreCase) || text.StartsWith ("&h", StringComparison.OrdinalIgnoreCase))
+                    return Convert.ToInt32 (text.Substring (2), 16);
+
+                return int.Parse (text, System.Globalization.CultureInfo.CurrentCulture);
+            } catch (Exception ex) when (ex is FormatException or OverflowException) {
+                throw new ArgumentException ($"{html} is not a valid value for Int32.", nameof (html), ex);
+            }
+        }
+
+        // The CSS2 system-colour keywords FromHtml reads, as System.Drawing's ColorTranslator maps them.
+        private static string? SystemColorFromKeyword (string keyword) => keyword switch {
+            "activeborder" => "ActiveBorder",
+            "activecaption" => "ActiveCaption",
+            "appworkspace" => "AppWorkspace",
+            "background" => "Desktop",
+            "buttonface" => "Control",
+            "buttonhighlight" => "ControlLightLight",
+            "buttonshadow" => "ControlDark",
+            "buttontext" => "ControlText",
+            "captiontext" => "ActiveCaptionText",
+            "graytext" => "GrayText",
+            "highlight" => "Highlight",
+            "highlighttext" => "HighlightText",
+            "inactiveborder" => "InactiveBorder",
+            "inactivecaption" => "InactiveCaption",
+            "inactivecaptiontext" => "InactiveCaptionText",
+            "infobackground" => "Info",
+            "infotext" => "InfoText",
+            "menu" => "Menu",
+            "menutext" => "MenuText",
+            "scrollbar" => "ScrollBar",
+            "threeddarkshadow" => "ControlDarkDark",
+            "threedface" => "Control",
+            "threedhighlight" => "ControlLight",
+            "threedlightshadow" => "ControlLightLight",
+            "window" => "Window",
+            "windowframe" => "WindowFrame",
+            "windowtext" => "WindowText",
+            _ => null,
+        };
 
         /// <summary>
         /// Translates a <see cref="Color"/> to an HTML color string: the CSS system-colour keyword for a

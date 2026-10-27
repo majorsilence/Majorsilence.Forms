@@ -2607,6 +2607,8 @@ namespace Majorsilence.Forms
             // the child sitting behind the others.
             if (HostFrame is not null)
                 BringToFront ();
+            else
+                NoteThreadActive (this);
 
             Focus ();
         }

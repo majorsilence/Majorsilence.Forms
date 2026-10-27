@@ -263,7 +263,8 @@ namespace Majorsilence.Forms
 
             RowCount = row + 1;
 
-            if (size_mode == TabSizeMode.FillToRight)
+            // Only once the tabs wrap: upstream's TCS_RIGHTJUSTIFY leaves a single row at its tabs' own widths.
+            if (size_mode == TabSizeMode.FillToRight && RowCount > 1)
                 FillRowsToRight (widths, rows, avail);
 
             // The row holding the selected tab sits next to the page, the others rotating in order, as
@@ -319,7 +320,6 @@ namespace Majorsilence.Forms
         }
 
         // Multiline = false: every tab at its measured width in one row, shifted by the scroll offset.
-        // FillToRight stretches the row only when it fits; an overflowing row has no slack to share.
         private void LayoutTabsInOneRow (int rowHeight, Size itemSize, TabSizeMode sizeMode, int available)
         {
             RowCount = 1;
@@ -334,11 +334,9 @@ namespace Majorsilence.Forms
 
             TabsOverflow = total > available;
 
+            // One row is never stretched under FillToRight, as upstream's: it justifies wrapped rows only.
             if (!TabsOverflow) {
                 scroll_offset = 0;
-
-                if (sizeMode == TabSizeMode.FillToRight)
-                    FillRowsToRight (widths, new int[Tabs.Count], available);
             } else {
                 // Never scroll past the point where the last tab sits against the arrow band.
                 scroll_offset = Math.Max (0, Math.Min (scroll_offset, total - (available - ScrollArrowBandWidth)));
@@ -387,8 +385,8 @@ namespace Majorsilence.Forms
                 ? itemSize.Width
                 : DeviceToLogicalUnits (tab.GetPreferredSize (Size.Empty).Width);
 
-        // SizeMode.FillToRight (upstream's TCS_RIGHTJUSTIFY): every row is stretched to the strip's
-        // width, the slack split evenly and the rounding remainder given to the last tab in the row so
+        // SizeMode.FillToRight (upstream's TCS_RIGHTJUSTIFY): once the tabs wrap, every row is stretched to
+        // the strip's width, the slack split evenly and the rounding remainder given to the last tab in the row so
         // the row ends exactly on the edge.
         private static void FillRowsToRight (int[] widths, int[] rows, int available)
         {
