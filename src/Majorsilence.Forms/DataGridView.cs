@@ -4253,8 +4253,9 @@ namespace Majorsilence.Forms
         {
             scroll_bars_scale = LogicalToDeviceUnits (ScaleProbe);
 
-            // Fill columns take whatever width is left, so they are sized before anything measures the
-            // column total (DGV-18).
+            // Content-sized columns first, then fill columns take whatever width is left, so both are sized
+            // before anything measures the column total (DGV-18).
+            ApplyContentColumnWidths ();
             ApplyFillColumnWidths ();
 
             var client = GetContentArea ();
