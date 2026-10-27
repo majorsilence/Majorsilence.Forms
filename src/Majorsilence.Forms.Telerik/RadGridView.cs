@@ -537,6 +537,7 @@ namespace Majorsilence.Forms.Telerik
             base.OnColumnsChanged ();
             ApplyEnableSorting ();
             ApplyAutoSizeColumns ();
+            OnPagingLayoutChanged ();
         }
 
         /// <inheritdoc/>
@@ -679,12 +680,21 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets whether paging is enabled. When on (with a positive <see cref="PageSize"/>), only the current page is shown.</summary>
         public bool EnablePaging {
             get => MasterTemplate.EnablePaging;
-            set { MasterTemplate.EnablePaging = value; _currentPage = 0; RebuildView (); Invalidate (); }
+            set => MasterTemplate.EnablePaging = value;   // the template resets the page and refreshes the view and panel
         }
         /// <summary>Gets or sets the number of rows per page.</summary>
         public int PageSize {
             get => MasterTemplate.PageSize;
-            set { MasterTemplate.PageSize = Math.Max (0, value); _currentPage = 0; RebuildView (); Invalidate (); }
+            set => MasterTemplate.PageSize = value;
+        }
+
+        // MasterTemplate.EnablePaging or PageSize changed: back to the first page, and the paging panel shown or hidden.
+        internal void OnPagingChanged ()
+        {
+            _currentPage = 0;
+            RebuildView ();
+            OnPagingLayoutChanged ();
+            Invalidate ();
         }
         /// <summary>Whether paging is currently in effect (enabled, positive page size, and not grouping).</summary>
         internal bool PagingActive => MasterTemplate.EnablePaging && MasterTemplate.PageSize > 0 && GroupDescriptors.Count == 0;
@@ -1658,6 +1668,12 @@ namespace Majorsilence.Forms.Telerik
                 // GridViewColumn.MaxWidth, W6 mechanisms, #176).
                 var device = LogicalToDeviceUnits (e.Location);
                 var content = GetContentArea ();
+
+                // 0) Paging panel (along the bottom).
+                if (ShowsPagingPanel && device.Y >= DeviceClientRectangle.Bottom - ContentBottomOffset) {
+                    HandlePagingPanelMouseDown (device);
+                    return;
+                }
 
                 // 1) Group panel band (above the header).
                 if (ShowsGroupPanel && device.Y < content.Top) {
@@ -3115,10 +3131,29 @@ namespace Majorsilence.Forms.Telerik
             get => _autoSizeColumnsMode;
             set { _autoSizeColumnsMode = value; _grid?.ApplyAutoSizeColumns (); }
         }
-        /// <summary>Gets or sets whether paging is enabled.</summary>
-        public bool EnablePaging { get; set; }
-        /// <summary>Gets or sets the page size.</summary>
-        public int PageSize { get; set; }
+        private bool _enablePaging;
+        /// <summary>Gets or sets whether paging is enabled: the rows shown a page at a time, with the paging panel below them.</summary>
+        public bool EnablePaging {
+            get => _enablePaging;
+            set {
+                if (_enablePaging == value)
+                    return;
+                _enablePaging = value;
+                _grid?.OnPagingChanged ();
+            }
+        }
+        private int _pageSize = 20;
+        /// <summary>Gets or sets the rows to a page: 20 unless set, as Telerik's.</summary>
+        public int PageSize {
+            get => _pageSize;
+            set {
+                value = Math.Max (0, value);
+                if (_pageSize == value)
+                    return;
+                _pageSize = value;
+                _grid?.OnPagingChanged ();
+            }
+        }
         /// <summary>Gets the sort descriptors (the grid's own collection when attached; a standalone one otherwise).</summary>
         public GridDescriptorCollection<SortDescriptor> SortDescriptors => _grid?.SortDescriptors ?? (_detachedSort ??= new ());
         /// <summary>Gets the group descriptors (the grid's own collection when attached; a standalone one otherwise).</summary>
