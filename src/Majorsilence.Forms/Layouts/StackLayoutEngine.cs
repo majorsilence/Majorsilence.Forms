@@ -26,7 +26,7 @@ namespace Majorsilence.Forms
                 LayoutVertical (bounds, items);
         }
 
-        private static void LayoutHorizontal (Rectangle bounds, IEnumerable<ILayoutable> items)
+        private void LayoutHorizontal (Rectangle bounds, IEnumerable<ILayoutable> items)
         {
             var x = bounds.Left;
             var y = bounds.Top;
@@ -38,13 +38,22 @@ namespace Majorsilence.Forms
 
                 var size = item.GetPreferredSize (Size.Empty);
 
+                // Upstream's split stack stretches only an auto-sized strip item from edge to edge; one
+                // with AutoSize off keeps its own height, centred in the strip (ToolStripSplitStackLayout).
+                // Stretched, an 80px button on a strip laid out before it grew lost its height for good,
+                // its Size being its bounds.
+                if (expand && IsFixedSize (item)) {
+                    height = size.Height;
+                    local_y = bounds.Top + (bounds.Height - height) / 2;
+                }
+
                 item.SetBounds (local_x, local_y, size.Width, height);
 
                 x += size.Width + item.Margin.Horizontal;
             }
         }
 
-        private static void LayoutVertical (Rectangle bounds, IEnumerable<ILayoutable> items)
+        private void LayoutVertical (Rectangle bounds, IEnumerable<ILayoutable> items)
         {
             var x = bounds.Left;
             var y = bounds.Top;
@@ -56,10 +65,20 @@ namespace Majorsilence.Forms
 
                 var size = item.GetPreferredSize (Size.Empty);
 
+                // As across: a fixed-size item keeps its width, centred.
+                if (expand && IsFixedSize (item)) {
+                    width = size.Width;
+                    local_x = bounds.Left + (bounds.Width - width) / 2;
+                }
+
                 item.SetBounds (local_x, local_y, width, size.Height);
 
                 y += size.Height + item.Margin.Vertical;
             }
         }
+
+        // ToolStripItem.GetPreferredSize answers an AutoSize = false item's own Size.
+        private static bool IsFixedSize (ILayoutable item)
+            => item is ToolStripItem { AutoSize: false, Size: { Width: > 0, Height: > 0 } };
     }
 }

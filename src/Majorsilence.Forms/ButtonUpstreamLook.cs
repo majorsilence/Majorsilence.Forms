@@ -1,4 +1,4 @@
-using SkiaSharp;
+﻿using SkiaSharp;
 
 namespace Majorsilence.Forms
 {
@@ -19,7 +19,10 @@ namespace Majorsilence.Forms
         private static readonly SKColor HoverFaceColor = new SKColor (0xE0, 0xEE, 0xF9);
         private static readonly SKColor PressedFaceColor = new SKColor (0xCC, 0xE4, 0xF7);
         private static readonly SKColor PressedOutlineColor = new SKColor (0x00, 0x54, 0x99);
-        private static readonly SKColor DisabledFaceColor = new SKColor (0xF5, 0xF5, 0xF5);
+        // A disabled button, Standard or System alike: a #F9F9F9 face in a #E9E9E9 outline all round, with no
+        // darker bottom edge (measured from WinForms, .NET 10, Windows 11).
+        private static readonly SKColor DisabledFaceColor = new SKColor (0xF9, 0xF9, 0xF9);
+        private static readonly SKColor DisabledOutlineColor = new SKColor (0xE9, 0xE9, 0xE9);
 
         /// <summary>Whether this button paints upstream's themed face rather than the theme's.</summary>
         internal bool PaintsUpstreamLook
@@ -44,13 +47,17 @@ namespace Majorsilence.Forms
             var scale = (float) e.Scaling;
             var half = 0.5f * scale;
             var radius = 4f * scale;
-            var box = new SKRect (half, half, ScaledWidth - half, ScaledHeight - half);
+
+            // Upstream's themed push button leaves a pixel of its bounds round the outline, in every state:
+            // a 27px Cancel button's outline runs along its second row, the first showing the parent.
+            var inset = scale + half;
+            var box = new SKRect (inset, inset, ScaledWidth - inset, ScaledHeight - inset);
 
             var pressed = IsPressed && IsHovering;
             var accent = Enabled && (IsDefault || (Selected && ShowFocusCues));
 
             var (face, outline, bottom) =
-                !Enabled ? (DisabledFaceColor, OutlineColor, OutlineColor)
+                !Enabled ? (DisabledFaceColor, DisabledOutlineColor, DisabledOutlineColor)
                 : pressed ? (PressedFaceColor, PressedOutlineColor, PressedOutlineColor)
                 : IsHovering ? (HoverFaceColor, AccentOutlineColor, AccentBottomColor)
                 : accent ? (FaceColor, AccentOutlineColor, AccentBottomColor)

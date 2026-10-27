@@ -406,6 +406,19 @@ namespace Majorsilence.Forms
             => button is MouseButtons.Left or MouseButtons.Right;
 
         /// <inheritdoc/>
+        /// <remarks>A tree that gains the focus with no node selected selects the node at the top of its
+        /// view first, as upstream's does (measured: <see cref="BeforeSelect"/> and <see cref="AfterSelect"/>
+        /// with <see cref="TreeViewAction.Unknown"/>, before <see cref="Control.GotFocus"/>). A mouse press
+        /// that focuses the tree selects the pressed node instead.</remarks>
+        protected override void OnGotFocus (EventArgs e)
+        {
+            if (!FocusingByPress && SelectedNode is null && GetVisibleItems (skipOffscreen: true).FirstOrDefault () is { } top)
+                SelectItem (top, TreeViewAction.Unknown);
+
+            base.OnGotFocus (e);
+        }
+
+        /// <inheritdoc/>
         protected override void OnMouseDown (MouseEventArgs e)
         {
             base.OnMouseDown (e);
@@ -451,8 +464,40 @@ namespace Majorsilence.Forms
         /// <remarks>Drives the row height when set to a positive value (<c>LST-26</c>): it was stored
         /// and the renderer measured every row from the node's own preferred size, so taller rows for
         /// touch were silently ignored -- and <c>VisibleCount</c> divided by this while the drawing
-        /// divided by the measured height, so the two disagreed.</remarks>
-        public int ItemHeight { get; set; } = 20;
+        /// divided by the measured height, so the two disagreed.
+        /// In an app that chose its font with <c>Application.SetDefaultFont</c>, an unset ItemHeight is
+        /// upstream's: see <see cref="UpstreamItemHeight"/>.</remarks>
+        public int ItemHeight {
+            get => !item_height_set && ControlPaint.UsesUpstreamGlyphs ? UpstreamItemHeight : item_height;
+            set {
+                item_height = value;
+                item_height_set = true;
+            }
+        }
+
+        private int item_height = 20;
+        private bool item_height_set;
+
+        /// <summary>
+        /// The row height upstream's tree gives an unset ItemHeight: the font's GDI line height plus 2, or
+        /// the ImageList's image height when that is taller, rounded up to an even number. Measured on
+        /// WinForms: 22 for Microsoft Sans Serif 12pt, 18 for Segoe UI 9pt and Arial 10pt, 16 for Tahoma
+        /// 8.25pt, and 22 for Segoe UI 9pt with 21px images.
+        /// </summary>
+        internal int UpstreamItemHeight {
+            get {
+                var height = System.Math.Max (TextLineHeight.Of (Font) + 2, ImageList?.ImageSize.Height ?? 0);
+                return height % 2 == 0 ? height : height + 1;
+            }
+        }
+
+        /// <summary>The logical row height this tree fixes for every node, or null when each row is
+        /// measured from its node. A ported app (one that chose its font) always has one, upstream's
+        /// unless ItemHeight was set; otherwise a set ItemHeight other than the default 20 does.</summary>
+        internal int? FixedItemHeight
+            => ControlPaint.UsesUpstreamGlyphs ? item_height_set && item_height > 0 ? item_height : UpstreamItemHeight
+             : item_height > 0 && item_height != 20 ? item_height
+             : null;
 
         /// <summary>Gets or sets whether in-place label editing is enabled.</summary>
         /// <remarks>Read as of W6 mechanisms: <see cref="TreeNode.BeginEdit"/> and F2 on the selected node
@@ -1155,11 +1200,12 @@ namespace Majorsilence.Forms
                 return;
             }
 
-            // Right when HasChildren expands node (if needed) and selects first child
+            // Right expands a collapsed node and keeps it selected; only on a node already expanded does it
+            // move to the first child, as upstream does. Both in one press skipped the expanded parent.
             if (e.KeyCode == Keys.Right) {
-                selected_item.Expand ();
-
-                if (selected_item.HasChildren)
+                if (!selected_item.Expanded)
+                    selected_item.Expand ();
+                else if (selected_item.HasChildren)
                     SelectItem (selected_item.Items.First (), TreeViewAction.ByKeyboard);
 
                 e.Handled = true;
@@ -1378,10 +1424,10 @@ namespace Majorsilence.Forms
 
         // The scaled height of each TreeNode.
         internal int ScaledItemHeight
-            // An explicitly-set ItemHeight wins over the measured one, which is what the property is
-            // for; 20 is the default, so a caller has to mean it (LST-26).
-            => ItemHeight > 0 && ItemHeight != 20
-                ? LogicalToDeviceUnits (ItemHeight + ItemSpacing)
+            // A fixed ItemHeight (set, or upstream's in a ported app) wins over the measured one, which is
+            // what the property is for (LST-26).
+            => FixedItemHeight is { } fixed_height
+                ? LogicalToDeviceUnits (fixed_height + ItemSpacing)
                 : (root_item.Items.FirstOrDefault () ?? root_item).GetPreferredSize (Size.Empty).Height;
 
         /// <summary>Extra logical pixels added to every row's height; a derived tree sets it.</summary>

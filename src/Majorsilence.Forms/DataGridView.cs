@@ -1764,7 +1764,7 @@ namespace Majorsilence.Forms
             var client = DeviceClientRectangle;
             var top_offset = Math.Max (0, ContentTopOffset);
             var w = client.Width - (vscrollbar.Visible ? (int)Math.Ceiling (vscrollbar.Width * ScaleFactor.Width) : 0);
-            var h = client.Height - top_offset - (hscrollbar.Visible ? (int)Math.Ceiling (hscrollbar.Height * ScaleFactor.Height) : 0);
+            var h = client.Height - top_offset - Math.Max (0, ContentBottomOffset) - (hscrollbar.Visible ? (int)Math.Ceiling (hscrollbar.Height * ScaleFactor.Height) : 0);
             return new Rectangle (client.Left, client.Top + top_offset, w, h);
         }
 
@@ -1776,6 +1776,14 @@ namespace Majorsilence.Forms
         /// consistently and the reserved band is the subclass's to paint and hit-test. Default 0.
         /// </summary>
         protected virtual int ContentTopOffset => 0;
+
+        /// <summary>
+        /// Gets the height, in device pixels, of a band reserved at the bottom of the control (below the rows and the
+        /// horizontal scrollbar) that the grid does not draw into. The Telerik-compat <c>RadGridView</c> reserves its
+        /// paging panel here; a subclass reserving one also keeps its docked scrollbars out of it (see
+        /// <see cref="Control.DisplayRectangle"/>). Default 0.
+        /// </summary>
+        protected virtual int ContentBottomOffset => 0;
 
         /// <summary>
         /// Device-pixel height of an extra fixed band drawn below the column headers and above the data
@@ -2358,15 +2366,110 @@ namespace Majorsilence.Forms
         }
 
         // The bind-notification seam. A full bind brackets itself with these, and an ItemAdded calls
-        // OnBoundItemAdded once the row is in; a derived grid that announces its current row on a bind
-        // (RadGridView, raising CurrentRowChanged/CurrentCellChanged/SelectionChanged as Telerik's does)
-        // overrides them. The base grid seeds the current cell silently, as it always has. previousCurrent
-        // is the row that was current before the item was inserted.
-        internal virtual void OnFullBindStarting () { }
+        // OnBoundItemAdded once the row is in. previousCurrent is the row that was current before the
+        // item was inserted. A derived grid whose upstream announces a bind differently (RadGridView)
+        // overrides all three.
+        //
+        // A bind makes the first cell current and upstream ANNOUNCES it -- forms fill a detail pane from
+        // SelectionChanged or CurrentCellChanged, and that pane is filled the moment the grid is bound.
+        // This grid seeded the cell silently, so only DataBindingComplete was raised and the pane stayed
+        // empty. Measured on System.Windows.Forms (.NET 10), DataGridView on a shown form:
+        //
+        //   bind 2 rows              RowEnter 0, CurrentCellChanged, CellEnter 0,0, SelectionChanged,
+        //                            DataBindingComplete
+        //   rebind a new 2-row table SelectionChanged (cleared), CellLeave, RowLeave, CurrentCellChanged
+        //   ((1,1) was current)      (null), then the bind's sequence -- (0,0) current again
+        //   bind 0 rows              SelectionChanged, CellLeave, RowLeave, CurrentCellChanged (null),
+        //                            DataBindingComplete
+        //   DataSource = null        the same leave sequence, no DataBindingComplete
+        //   the same DataSource      nothing
+        //   first row into an empty  the bind's sequence, then DataBindingComplete (ItemAdded); later
+        //   bound list               rows move nothing
+        //   grid on an unshown form  no current cell until the form is shown, then the bind's sequence
+        //                            and DataBindingComplete
+        //
+        // Upstream also repeats the whole sequence once on the first bind of a grid on a form whose
+        // BindingContext has not been created yet: creating it re-binds the grid (touching
+        // form.BindingContext first removes the repeat). That repeat is not reproduced.
+        internal virtual void OnFullBindStarting ()
+        {
+            var old_row = selected_row_index;
+            var old_column = selected_column_index;
 
-        internal virtual void OnFullBindFinished () { }
+            if (!Created || old_row < 0) {
+                ResetCurrentCellSilently ();
+                return;
+            }
 
-        internal virtual void OnBoundItemAdded (DataGridViewRow? row, DataGridViewRow? previousCurrent) => SetInitialCurrentCell ();
+            // Upstream leaves the current cell before the rows go: the selection is cleared first,
+            // then the cell and the row are left, and the current cell becomes null.
+            if (ClearSelectionCore ())
+                NotifySelectionChanged ();
+
+            if (IsCellAddress (old_row, old_column))
+                OnCellLeave (new DataGridViewCellEventArgs (old_column, old_row));
+
+            if (old_row < RowCountWithNewRow)
+                OnRowLeave (new DataGridViewCellEventArgs (old_column, old_row));
+
+            ResetCurrentCellSilently ();
+            OnCurrentCellChanged (EventArgs.Empty);
+        }
+
+        internal virtual void OnFullBindFinished ()
+        {
+            if (!Created) {
+                bind_announcement_pending |= data_source is not null && selected_row_index >= 0;
+                return;
+            }
+
+            AnnounceSeededCurrentCell ();
+        }
+
+        internal virtual void OnBoundItemAdded (DataGridViewRow? row, DataGridViewRow? previousCurrent)
+        {
+            var had_current = selected_row_index >= 0;
+            SetInitialCurrentCell ();
+
+            if (had_current || selected_row_index < 0)
+                return;
+
+            if (Created)
+                AnnounceSeededCurrentCell ();
+            else
+                bind_announcement_pending = true;
+        }
+
+        // A bind seeded the current cell before the grid went live; announced when it does.
+        private bool bind_announcement_pending;
+
+        /// <inheritdoc/>
+        protected override void OnCreateControl ()
+        {
+            base.OnCreateControl ();
+
+            if (!bind_announcement_pending)
+                return;
+
+            bind_announcement_pending = false;
+            AnnounceSeededCurrentCell ();
+            RaiseDataBindingComplete (System.ComponentModel.ListChangedType.Reset);
+        }
+
+        // Announces the current cell a bind seeded, in upstream's order: RowEnter, CurrentCellChanged,
+        // CellEnter, SelectionChanged.
+        private void AnnounceSeededCurrentCell ()
+        {
+            if (!IsCellAddress (selected_row_index, selected_column_index))
+                return;
+
+            OnRowEnter (new DataGridViewCellEventArgs (selected_column_index, selected_row_index));
+            OnCurrentCellChanged (EventArgs.Empty);
+            OnCellEnter (new DataGridViewCellEventArgs (selected_column_index, selected_row_index));
+
+            if (HasSelectedElement ())
+                NotifySelectionChanged ();
+        }
 
         // Drops the current cell and the selection without announcing anything, so the bind that follows
         // seeds the first cell afresh rather than keeping whatever index was current before.
@@ -2393,8 +2496,15 @@ namespace Majorsilence.Forms
             bound_descriptors = null;
             bound_properties = null;
 
+            var previous_members = bound_member_names;
+            bound_member_names = null;
+
             if (data_source is null) {
                 Rows.Clear ();
+
+                if (AutoGenerateColumns)
+                    RemoveBoundColumnsOnUnbind ();
+
                 return;
             }
 
@@ -2415,13 +2525,15 @@ namespace Majorsilence.Forms
                 // Columns are regenerated only when the schema changed. A Reset over the SAME schema --
                 // BindingList<T>.ResetBindings, a re-sort, a filter -- keeps the app's header renames,
                 // widths and hidden columns, which a rebuild used to silently put back (DGV-31).
-                if (AutoGenerateColumns && (forceColumnRegeneration || !ColumnsMatchSchema (bound_descriptors))) {
-                    Columns.Clear ();
+                var members = new List<KeyValuePair<string, Type?>> ();
 
-                    foreach (System.ComponentModel.PropertyDescriptor descriptor in bound_descriptors)
-                        Columns.Add (CreateBoundColumn (descriptor.Name, descriptor.PropertyType));
-                }
+                foreach (System.ComponentModel.PropertyDescriptor descriptor in bound_descriptors)
+                    members.Add (new (descriptor.Name, descriptor.PropertyType));
 
+                if (AutoGenerateColumns && (forceColumnRegeneration || !ColumnsMatchSchema (bound_descriptors)))
+                    RegenerateBoundColumns (members, previous_members);
+
+                bound_member_names = members.Select (m => m.Key).ToArray ();
                 ReplaceBoundRows ();
                 return;
             }
@@ -2441,15 +2553,125 @@ namespace Majorsilence.Forms
                     .Where (p => p.CanRead && p.GetIndexParameters ().Length == 0)
                     .ToArray ();
 
-                if (forceColumnRegeneration || !ColumnsMatchSchema (bound_properties)) {
-                    Columns.Clear ();
+                if (forceColumnRegeneration || !ColumnsMatchSchema (bound_properties))
+                    RegenerateBoundColumns (bound_properties.Select (p => new KeyValuePair<string, Type?> (p.Name, p.PropertyType)).ToList (), previous_members);
 
-                    foreach (var prop in bound_properties)
-                        Columns.Add (CreateBoundColumn (prop.Name, prop.PropertyType));
-                }
+                bound_member_names = bound_properties.Select (p => p.Name).ToArray ();
             }
 
             ReplaceBoundRows ();
+        }
+
+        // Rebuilds the bound rows for the current columns, after a derived grid changed the column set
+        // of a bound grid (RadGridView.LoadLayout).
+        internal void RefillBoundRows ()
+        {
+            if (data_source is not null)
+                ReplaceBoundRows ();
+        }
+
+        // The member names of the schema last bound, or null when nothing was: what a derived grid's
+        // RegenerateBoundColumns compares the new schema with.
+        private string[]? bound_member_names;
+
+        // Rebuilds the bound columns for a new schema, as upstream's AutoGenerateDataBoundColumns does
+        // (DataGridView.Methods.cs). Called when a bind finds columns that were not generated from the new
+        // schema. Overridden by RadGridView, whose upstream keeps existing columns by Telerik's own rules;
+        // previousMembers is the schema bound before this one, null when the grid was unbound.
+        //
+        // This used to clear every column and generate the new schema in its own order, so a grid rebound to
+        // a different SELECT lost the widths, header renames, hidden columns and display positions of the
+        // columns both schemas share, and dropped the columns the app added itself. WinForms (.NET 10,
+        // measured) keeps all of that:
+        //   1. a column that is bound now, or that names a member of the new schema, is taken out; the ones
+        //      that name a new member are kept aside with the display index they had;
+        //   2. every member of the new schema is added in the schema's order: the first kept column naming it
+        //      (ignoring case), else a generated one;
+        //   3. kept columns no member claimed (a second column naming the same member) are added last, in
+        //      display order;
+        //   4. a column the app added that names no member of the new schema stays where it is.
+        // Each add places the column as upstream's OnAddedColumn does: at the display index it brought when
+        // that is below the column count, else at its collection index, shifting the columns at or after
+        // that position up by one. That is how a new member lands among the kept ones -- To,From,Subject,
+        // MessagePlainText,Attachments,ToSendDateUTC,SentDateUTC rebound to ID,To,From,...,Attachments,...
+        // shows ID at display 5, after Attachments.
+        //
+        // Upstream re-adds a CLONE of each kept column; this re-adds the column itself, so every setting
+        // survives even where Clone carries fewer of them than upstream's does.
+        internal virtual void RegenerateBoundColumns (IReadOnlyList<KeyValuePair<string, Type?>> members, IReadOnlyList<string>? previousMembers)
+        {
+            var kept = new List<DataGridViewColumn> ();
+            var kept_display = new List<int> ();
+            var removed = new List<DataGridViewColumn> ();
+
+            foreach (DataGridViewColumn column in Columns) {
+                var bound_now = IsBoundMember (column.DataPropertyName);
+
+                if (bound_now) {
+                    kept.Add (column);
+                    kept_display.Add (column.DisplayIndex);
+                }
+
+                if (bound_now || column.IsDataBound)
+                    removed.Add (column);
+            }
+
+            foreach (var column in removed)
+                Columns.Remove (column);
+
+            // In display order: what step 3 adds in, and which of two columns naming one member wins.
+            var by_display = Enumerable.Range (0, kept.Count).OrderBy (i => kept_display[i]).ToList ();
+            var pending = by_display.Select (i => kept[i]).ToList ();
+            var pending_display = by_display.Select (i => kept_display[i]).ToList ();
+
+            // The display position of every column on the grid, kept as upstream renumbers it on each add.
+            var placed = DisplayOrder.Select (i => Columns[i]).ToList ();
+            var placed_display = Enumerable.Range (0, placed.Count).ToList ();
+
+            void Place (DataGridViewColumn column, int displayIndex)
+            {
+                Columns.Add (column);
+
+                var position = displayIndex < 0 || displayIndex >= Columns.Count ? column.Index : displayIndex;
+
+                for (var i = 0; i < placed_display.Count; i++)
+                    if (placed_display[i] >= position)
+                        placed_display[i]++;
+
+                placed.Add (column);
+                placed_display.Add (position);
+            }
+
+            foreach (var member in members) {
+                var match = pending.FindIndex (c => string.Equals (c.DataPropertyName, member.Key, StringComparison.OrdinalIgnoreCase));
+
+                if (match < 0) {
+                    Place (CreateBoundColumn (member.Key, member.Value), -1);
+                    continue;
+                }
+
+                var column = pending[match];
+                var display = pending_display[match];
+                pending.RemoveAt (match);
+                pending_display.RemoveAt (match);
+                Place (column, display);
+            }
+
+            for (var i = 0; i < pending.Count; i++)
+                Place (pending[i], pending_display[i]);
+
+            RenumberDisplayOrder (Enumerable.Range (0, placed.Count).OrderBy (i => placed_display[i]).Select (i => placed[i]).ToList ());
+        }
+
+        // Takes out the bound columns when the grid is unbound, as upstream's AutoGenerateDataBoundColumns does
+        // with no schema to bind: DataSource = null leaves only the columns the app added itself (WinForms,
+        // measured), so a later bind generates fresh columns. Overridden by RadGridView, which keeps its
+        // columns as before.
+        internal virtual void RemoveBoundColumnsOnUnbind ()
+        {
+            for (var i = Columns.Count - 1; i >= 0; i--)
+                if (Columns[i].IsDataBound)
+                    Columns.RemoveAt (i);
         }
 
         // Builds every row from the memoised schema and swaps them in with one notification. Each
@@ -2511,8 +2733,9 @@ namespace Majorsilence.Forms
             // row.Selected/cell.Selected rather than the current-cell indices, so seeding the indices
             // alone would leave a freshly bound grid with a current row that is not highlighted.
             // Written through the core setters, silently, for the reason above -- no events mid-bind.
-            // A rebind keeps the current indices but rebuilds the rows unselected, so the current cell
-            // is selected again then too, as upstream's is -- unless something is still selected.
+            // A full bind starts from no current cell (OnFullBindStarting), so it always seeds (0,0), as
+            // upstream's rebind does. What arrives here unseeded is a row added to a grid that already
+            // has a current cell: that keeps its selection unless nothing is selected.
             if (!seeded && HasSelectedElement ())
                 return;
 
@@ -3338,6 +3561,11 @@ namespace Majorsilence.Forms
         // long caption takes a second line; only an explicit False keeps it on one.
         internal virtual bool HeaderWraps => ColumnHeadersDefaultCellStyle.WrapMode != DataGridViewTriState.False;
 
+        // Whether the column headers take upstream's look, as a ported app's do (see ControlPaint.UsesUpstreamGlyphs): the
+        // caption laid out as DataGridViewColumnHeaderCell lays it out, its auto-sized height, and with
+        // EnableHeadersVisualStyles the theme's header items.
+        internal virtual bool UsesUpstreamHeaders => ControlPaint.UsesUpstreamGlyphs;
+
         // A caption broken into lines the way upstream's word-breaking header text breaks it: between words
         // only, a word too wide for the line keeping a line to itself rather than being split. The layout splits
         // such a word mid-way, so a one-word caption a few pixels too wide ("EmpCode") read "EmpCod" over "e"
@@ -3432,7 +3660,7 @@ namespace Majorsilence.Forms
 
                 var text = column.HeaderDisplayText;
 
-                if (ControlPaint.UsesUpstreamGlyphs) {
+                if (UsesUpstreamHeaders) {
                     tallest = Math.Max (tallest, UpstreamHeaderHeight (column, text, font, size));
                     continue;
                 }
@@ -3446,7 +3674,7 @@ namespace Majorsilence.Forms
                 tallest = Math.Max (tallest, (int) Math.Ceiling (measured.Height));
             }
 
-            if (ControlPaint.UsesUpstreamGlyphs)
+            if (UsesUpstreamHeaders)
                 return tallest > 0 ? tallest : header_height;
 
             return tallest > 0 ? tallest + 8 : header_height;
@@ -3936,14 +4164,30 @@ namespace Majorsilence.Forms
                     new_row = CreateRowFromTemplate ();
                     new_row.SetOwner (this);
                     new_row.IsNewRow = true;
+
+                    for (var c = 0; c < new_row.Cells.Count && c < Columns.Count; c++)
+                        SeedNewRowCell (new_row.Cells[c], c);
                 }
 
                 // Columns added since the placeholder was built get a cell each, like a real row.
-                while (new_row.Cells.Count < Columns.Count)
-                    new_row.Cells.Add (new DataGridViewCell ());
+                while (new_row.Cells.Count < Columns.Count) {
+                    var cell = new DataGridViewCell ();
+                    new_row.Cells.Add (cell);
+                    SeedNewRowCell (cell, new_row.Cells.Count - 1);
+                }
 
                 return new_row;
             }
+        }
+
+        // A new-row cell starts at its column's cell template's DefaultNewRowValue, as upstream's do (the row collection
+        // sets each new-row cell's Value to it, and so does adding a column while the new row exists): a calendar column
+        // whose cell answers today's date shows today in the new row. Measured on WinForms, bound and unbound alike.
+        // Cells here are not clones of the template, so the template's answer was never asked and the row stayed blank.
+        private void SeedNewRowCell (DataGridViewCell cell, int columnIndex)
+        {
+            if (Columns[columnIndex].CellTemplate?.DefaultNewRowValue is { } value)
+                cell.Value = value;
         }
 
         // The current cell has just moved into the new row: the application may fill it in.
@@ -4269,8 +4513,9 @@ namespace Majorsilence.Forms
         {
             scroll_bars_scale = LogicalToDeviceUnits (ScaleProbe);
 
-            // Fill columns take whatever width is left, so they are sized before anything measures the
-            // column total (DGV-18).
+            // Content-sized columns first, then fill columns take whatever width is left, so both are sized
+            // before anything measures the column total (DGV-18).
+            ApplyContentColumnWidths ();
             ApplyFillColumnWidths ();
 
             var client = GetContentArea ();

@@ -288,8 +288,39 @@ namespace Majorsilence.Forms
 
         private void NoteActivated ()
         {
-            if (this is Form form)
+            if (this is Form form) {
                 active_form = form;
+                NoteThreadActive (form);
+            }
+        }
+
+        // The forms in the order they were last activated -- shown with activation, activated by the platform, or
+        // asked to with Activate -- for upstream's GetActiveWindow, the window a MessageBox or FileDialog shown with
+        // no owner belongs to. Unlike ActiveForm (the foreground window), it is not cleared when another application
+        // takes the foreground: measured on WinForms with another app in front, two forms shown A then B give B, A
+        // activated again gives A, and B closed gives A. A form whose activation the OS refused (another app held the
+        // foreground) cleared ActiveForm, and an error box raised from it then went to the first form opened -- behind
+        // the form it was about, leaving the application disabled with no visible dialog.
+        private static readonly List<Form> thread_activation_order = new ();
+
+        internal static void NoteThreadActive (Form form)
+        {
+            thread_activation_order.Remove (form);
+            thread_activation_order.Add (form);
+        }
+
+        /// <summary>The thread's active top-level form: the last one activated that is still shown, or null.</summary>
+        internal static Form? ThreadActiveForm {
+            get {
+                for (var i = thread_activation_order.Count - 1; i >= 0; i--) {
+                    var form = thread_activation_order[i];
+
+                    if (form.Visible && !form.IsFrameHosted && !form.IsDisposed)
+                        return form;
+                }
+
+                return null;
+            }
         }
 
         // Activation that leaves for one of this application's own popups -- a menu or a drop-down --
@@ -305,6 +336,9 @@ namespace Majorsilence.Forms
         {
             if (ReferenceEquals (active_form, this))
                 active_form = null;
+
+            if (this is Form form)
+                thread_activation_order.Remove (form);
         }
 
         /// <summary>Called by the backend when the window is activated.</summary>

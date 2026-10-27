@@ -107,16 +107,20 @@ namespace Majorsilence.Forms
         // not stringified -- WinForms cell values keep the bound member's type so handlers can cast.
         private void FillBoundRow (DataGridViewRow row, object item)
         {
-            if (bound_descriptors is not null && AutoGenerateColumns) {
+            // Positionally only while the columns are the schema's own; columns a derived grid kept across
+            // the bind (RadGridView after a layout load) are filled from the member each one names, below.
+            if (bound_descriptors is not null && AutoGenerateColumns && ColumnsMatchSchema (bound_descriptors)) {
                 for (var i = 0; i < bound_descriptors.Count; i++)
-                    SetBoundCell (row, i, bound_descriptors[i].GetValue (item));
+                    if (GeneratedColumnIndex (i, bound_descriptors[i].Name) is >= 0 and var column)
+                        SetBoundCell (row, column, bound_descriptors[i].GetValue (item));
 
                 return;
             }
 
-            if (bound_properties is not null && AutoGenerateColumns) {
+            if (bound_properties is not null && AutoGenerateColumns && ColumnsMatchSchema (bound_properties)) {
                 for (var i = 0; i < bound_properties.Length; i++)
-                    SetBoundCell (row, i, bound_properties[i].GetValue (item));
+                    if (GeneratedColumnIndex (i, bound_properties[i].Name) is >= 0 and var column)
+                        SetBoundCell (row, column, bound_properties[i].GetValue (item));
 
                 return;
             }
@@ -125,12 +129,71 @@ namespace Majorsilence.Forms
             for (var i = 0; i < Columns.Count; i++) {
                 var column = Columns[i];
                 var member = string.IsNullOrEmpty (column.DataPropertyName) ? column.HeaderText : column.DataPropertyName;
-                SetBoundCell (row, i, ReadMember (item, member));
+                var descriptor = string.IsNullOrEmpty (member) ? null : bound_descriptors?.Find (member, ignoreCase: true);
+                SetBoundCell (row, i, descriptor is not null ? descriptor.GetValue (item) : ReadMember (item, member));
             }
         }
 
         // The source is telling the grid a value, not the other way round -- so this must not run the
         // write-back or raise CellValueChanged, both of which the Value setter does since W5.2a.
+        // The column showing the schema's index'th member: that column while the columns are as generated, else the one
+        // bound to the member, once columns were inserted or removed after binding; -1 when the member's column was removed.
+        private int GeneratedColumnIndex (int index, string member)
+        {
+            if (index < Columns.Count && string.Equals (Columns[index].DataPropertyName, member, StringComparison.OrdinalIgnoreCase))
+                return index;
+
+            for (var i = 0; i < Columns.Count; i++)
+                if (string.Equals (Columns[i].DataPropertyName, member, StringComparison.OrdinalIgnoreCase))
+                    return i;
+
+            return Columns.Count == 0 ? index : -1;
+        }
+
+        // Every row's cells follow the columns, as upstream's do: a column inserted after the rows were made gets a cell in
+        // each at its index -- the bound member's value, for a bound column -- and a removed column takes its cells with it.
+        // The cells stayed where they were, so each value after an inserted column showed under the column before it.
+        internal void InsertColumnCells (int index, DataGridViewColumn column)
+        {
+            var member = column.DataPropertyName;
+
+            foreach (var row in RowsForColumnCells ()) {
+                if (row.Cells.Count < index)
+                    continue;   // a row short of cells gets them as it needs them
+
+                var cell = new DataGridViewCell ();
+                row.Cells.Insert (index, cell);
+
+                if (!string.IsNullOrEmpty (member) && row.DataBoundItem is { } item) {
+                    suppress_cell_value_notification = true;
+
+                    try {
+                        cell.Value = ReadMember (item, member);
+                    } finally {
+                        suppress_cell_value_notification = false;
+                    }
+                }
+            }
+        }
+
+        internal void RemoveColumnCells (int index)
+        {
+            foreach (var row in RowsForColumnCells ())
+                if (index < row.Cells.Count)
+                    row.Cells.RemoveAt (index);
+        }
+
+        // The rows whose cells InsertColumnCells and RemoveColumnCells keep in step with the columns: the grid's rows and
+        // its new row. A subclass showing a view of its rows answers every row it holds.
+        internal virtual IEnumerable<DataGridViewRow> RowsForColumnCells ()
+        {
+            foreach (var row in Rows)
+                yield return row;
+
+            if (new_row is not null)
+                yield return new_row;
+        }
+
         private void SetBoundCell (DataGridViewRow row, int columnIndex, object? value)
         {
             while (row.Cells.Count <= columnIndex)

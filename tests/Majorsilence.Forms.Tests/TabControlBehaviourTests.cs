@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Drawing;
 using SkiaSharp;
 using Xunit;
@@ -469,27 +469,43 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (control.GetTabRect (0).Bottom, page.Bounds.Top);
         }
 
-        [Fact]
-        public void SizeMode_FillToRight_stretches_a_row_of_tabs_to_the_strip_width ()
+        // Upstream's FillToRight (TCS_RIGHTJUSTIFY) justifies wrapped rows only. Measured on WinForms (.NET 10): four
+        // tabs in a 700px control are 120, 145, 105 and 113 wide under Normal and FillToRight alike, Multiline or not;
+        // eleven tabs wrapped into two rows in a 797px one have each row stretched to the edge.
+        [Theory]
+        [InlineData (false)]
+        [InlineData (true)]
+        public void SizeMode_FillToRight_leaves_a_single_row_at_its_tabs_widths (bool multiline)
         {
-            using var control = new TabControl { Width = 400, Height = 300 };
+            using var control = new TabControl { Width = 400, Height = 300, Multiline = multiline };
             control.TabPages.Add (new TabPage ("A"));
             control.TabPages.Add (new TabPage ("A much longer caption"));
             Layout (control);
 
-            var natural = control.GetTabRect (0).Width + control.GetTabRect (1).Width;
-            Assert.True (natural < control.Width, "the two tabs must leave slack for FillToRight to hand out");
+            var natural = (control.GetTabRect (0).Width, control.GetTabRect (1).Width);
+            Assert.True (natural.Item1 + natural.Item2 < control.Width, "the two tabs must leave slack in their row");
 
             control.SizeMode = TabSizeMode.FillToRight;
             Layout (control);
 
-            var stretched = control.GetTabRect (0).Width + control.GetTabRect (1).Width;
+            Assert.Equal (natural, (control.GetTabRect (0).Width, control.GetTabRect (1).Width));
+        }
 
-            // The row ends exactly on the strip's edge, which is what makes the mode worth having: the
-            // rounding remainder has to land somewhere rather than leaving a gap.
-            Assert.Equal (control.TabStrip.ClientRectangle.Width, stretched);
-            Assert.Equal (control.GetTabRect (0).Right, control.GetTabRect (1).Left);
-            Assert.True (stretched > natural);
+        [Fact]
+        public void SizeMode_FillToRight_stretches_wrapped_rows_to_the_strip_width ()
+        {
+            using var control = new TabControl { Width = 200, Height = 300, Multiline = true, SizeMode = TabSizeMode.FillToRight };
+            foreach (var caption in new[] { "One", "Two", "Three", "Four", "Five", "Six" })
+                control.TabPages.Add (new TabPage (caption));
+            Layout (control);
+
+            Assert.True (control.RowCount > 1, "the tabs must wrap");
+
+            // Every row ends exactly on the strip's edge, its tabs side by side.
+            foreach (var row in System.Linq.Enumerable.GroupBy (System.Linq.Enumerable.Range (0, control.TabCount), i => control.GetTabRect (i).Top)) {
+                var tabs = System.Linq.Enumerable.ToList (row);
+                Assert.Equal (control.TabStrip.ClientRectangle.Width, System.Linq.Enumerable.Sum (tabs, i => control.GetTabRect (i).Width));
+            }
         }
 
         [Fact]
