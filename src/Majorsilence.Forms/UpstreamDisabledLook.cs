@@ -1,15 +1,17 @@
-using SkiaSharp;
+﻿using SkiaSharp;
 
 namespace Majorsilence.Forms
 {
     // A ported WinForms app (one that chose its font with Application.SetDefaultFont) draws a disabled control's
     // text in the colour WinForms uses for that type under the Windows 11 theme, as measured from it: a label's and
     // a group box's TextRenderer.DisabledTextColor (ControlDark on a light background), a check box's and radio
-    // button's theme colour and a text or combo box's GrayText (both #6D6D6D), and a button's #838383. The theme's one
+    // button's theme colour and a text or combo box's GrayText (both #6D6D6D), and a button's #A0A0A0 (#838383 for a FlatStyle.System one). The theme's one
     // grey (#AAAAAA) stood for all of them. Apps that have not chosen a font keep the theme's.
     internal static class UpstreamDisabledLook
     {
-        internal static readonly SKColor ButtonText = new SKColor (0x83, 0x83, 0x83);
+        // A button's: #A0A0A0 for a Standard one, themed or not, and #838383 for the native FlatStyle.System one.
+        internal static readonly SKColor ButtonText = new SKColor (0xA0, 0xA0, 0xA0);
+        internal static readonly SKColor SystemButtonText = new SKColor (0x83, 0x83, 0x83);
 
         internal static bool Applies => ControlPaint.UsesUpstreamGlyphs;
 
@@ -62,7 +64,9 @@ namespace Majorsilence.Forms
     {
         /// <inheritdoc/>
         internal override SKColor DisabledForeColor
-            => UpstreamDisabledLook.Applies ? UpstreamDisabledLook.ButtonText : base.DisabledForeColor;
+            => !UpstreamDisabledLook.Applies ? base.DisabledForeColor
+                : FlatStyle == FlatStyle.System ? UpstreamDisabledLook.SystemButtonText
+                : UpstreamDisabledLook.ButtonText;
     }
 
     public partial class TextBoxBase
