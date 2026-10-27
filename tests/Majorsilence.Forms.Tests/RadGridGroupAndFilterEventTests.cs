@@ -228,7 +228,12 @@ namespace Majorsilence.Forms.Tests
             var sawGrandTotal = false;
             var sawNonNull = false;
 
+            // Group headers are evaluated through the same event (as upstream's are); only the Salary
+            // summary is in question here.
             grid.GroupSummaryEvaluate += (_, e) => {
+                if (e.SummaryItem.Name != "Salary")
+                    return;
+
                 if (e.Group is null)
                     sawGrandTotal = true;
                 else

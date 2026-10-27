@@ -343,7 +343,7 @@ namespace Majorsilence.Forms.Renderers
             var textLeft = glyphX + glyphSize + control.LogicalToDeviceUnits (8);
             var textRect = new Rectangle (textLeft, bounds.Top, bounds.Right - textLeft - 4, bounds.Height);
             var fontSize = control.LogicalToDeviceUnits (Theme.ItemFontSize);
-            var label = $"{group.HeaderText}: {group.Value}  ({group.Count})";
+            var label = group.HeaderText;
 
             e.Canvas.DrawText (label, Theme.UIFontBold, fontSize, textRect, Theme.ForegroundColor, ContentAlignment.MiddleLeft, maxLines: 1);
         }
