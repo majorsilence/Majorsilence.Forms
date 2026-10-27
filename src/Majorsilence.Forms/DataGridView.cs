@@ -776,6 +776,11 @@ namespace Majorsilence.Forms
             // grid.DataSource = table, and the getter used to hand back the DataView (DGV-32).
             get => data_source_object;
             set {
+                // Assigning what is already bound does nothing, as upstream's setter (DataGridView and
+                // RadGridView alike): no rebind, and so no bind notifications either.
+                if (ReferenceEquals (value, data_source_object))
+                    return;
+
                 data_source_object = value;
                 RebindDataSource ();
                 OnDataSourceChanged (EventArgs.Empty);
@@ -2345,9 +2350,41 @@ namespace Majorsilence.Forms
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection over user-provided types.")]
         private void OnDataSourceChanged (bool forceColumnRegeneration = false)
         {
+            OnFullBindStarting ();
             BindDataSource (forceColumnRegeneration);
             UpdateColumnsDataBound ();
             SyncSortFromBoundList ();
+            OnFullBindFinished ();
+        }
+
+        // The bind-notification seam. A full bind brackets itself with these, and an ItemAdded calls
+        // OnBoundItemAdded once the row is in; a derived grid that announces its current row on a bind
+        // (RadGridView, raising CurrentRowChanged/CurrentCellChanged/SelectionChanged as Telerik's does)
+        // overrides them. The base grid seeds the current cell silently, as it always has. previousCurrent
+        // is the row that was current before the item was inserted.
+        internal virtual void OnFullBindStarting () { }
+
+        internal virtual void OnFullBindFinished () { }
+
+        internal virtual void OnBoundItemAdded (DataGridViewRow? row, DataGridViewRow? previousCurrent) => SetInitialCurrentCell ();
+
+        // Drops the current cell and the selection without announcing anything, so the bind that follows
+        // seeds the first cell afresh rather than keeping whatever index was current before.
+        internal void ResetCurrentCellSilently ()
+        {
+            ClearSelectionCore ();
+            selected_row_index = -1;
+            selected_column_index = -1;
+        }
+
+        // Makes (rowIndex, columnIndex) current and selects it the way the selection mode selects a
+        // current cell -- the whole selection replaced -- without announcing anything.
+        internal void SeedCurrentCellSilently (int rowIndex, int columnIndex)
+        {
+            ClearSelectionCore ();
+            selected_row_index = rowIndex;
+            selected_column_index = columnIndex;
+            SelectCurrentCellSilently ();
         }
 
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection over user-provided types.")]
@@ -2454,8 +2491,9 @@ namespace Majorsilence.Forms
         // grid.CurrentRow / grid.CurrentCell are non-null immediately -- app code very commonly reads
         // CurrentRow.Cells["..."] right after binding. Only seed a selection when none exists; never
         // override a selection the user or app already set. Fields are set directly (rather than through
-        // the SelectedRowIndex property) to avoid raising selection/layout events mid-bind.
-        private void SetInitialCurrentCell ()
+        // the SelectedRowIndex property) to avoid raising selection/layout events mid-bind; a grid that
+        // announces the bind does so once it is over (OnFullBindFinished).
+        internal void SetInitialCurrentCell ()
         {
             var seeded = false;
 
@@ -2478,6 +2516,13 @@ namespace Majorsilence.Forms
             if (!seeded && HasSelectedElement ())
                 return;
 
+            SelectCurrentCellSilently ();
+        }
+
+        // Selects whatever the selection mode selects at the current cell address, through the core
+        // setters, so nothing is announced.
+        private void SelectCurrentCellSilently ()
+        {
             if (CellSelectsColumn) {
                 if (selected_column_index >= 0 && selected_column_index < Columns.Count)
                     Columns[selected_column_index].SetSelectedCore (true, ++selection_sequence);

@@ -121,7 +121,7 @@ namespace Majorsilence.Forms
 
         // Drops every selected row, cell and column without announcing anything. Returns whether it
         // changed something, so a caller that must raise exactly once can tell whether to raise at all.
-        private bool ClearSelectionCore ()
+        internal bool ClearSelectionCore ()
         {
             var changed = false;
 

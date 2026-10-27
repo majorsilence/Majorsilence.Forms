@@ -196,11 +196,14 @@ namespace Majorsilence.Forms
 
             switch (e.ListChangedType) {
                 case ListChangedType.ItemAdded when e.NewIndex >= 0 && e.NewIndex <= Rows.Count && e.NewIndex < data_source.Count:
+                    var previous_current = CurrentRow;
+                    DataGridViewRow? added_row = null;
+
                     if (data_source[e.NewIndex] is { } added)
-                        Rows.InsertBound (e.NewIndex, BuildBoundRow (added));
+                        Rows.InsertBound (e.NewIndex, added_row = BuildBoundRow (added));
 
                     // The first row to arrive in an empty grid becomes current, as it does on bind.
-                    SetInitialCurrentCell ();
+                    OnBoundItemAdded (added_row, previous_current);
                     break;
 
                 case ListChangedType.ItemDeleted when e.NewIndex >= 0 && e.NewIndex < Rows.Count:
