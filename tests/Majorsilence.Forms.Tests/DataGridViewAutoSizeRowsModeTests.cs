@@ -63,6 +63,19 @@ namespace Majorsilence.Forms.Tests
         // The height of a row whose text is one line, under the same grid: the yardstick for "N lines tall".
         private static int OneLineHeight (DataGridView grid) => grid.Rows[grid.Rows.Count - 1].Height;
 
+        // One line of text alone, measured in a grid that leaves the row header out. In the modes that count the header,
+        // a short row is at least the empty header's height (17px), which is taller than one line of a small font, so
+        // the short row there is no yardstick for how many lines a long one wrapped to.
+        private static int OneTextLineHeight ()
+        {
+            var (form, grid) = Grid (DataGridViewAutoSizeRowsMode.AllCellsExceptHeaders);
+
+            using (form) {
+                grid.DataSource = Table ("x");
+                return grid.Rows[0].Height;
+            }
+        }
+
         [Theory]
         [InlineData (DataGridViewAutoSizeRowsMode.AllCellsExceptHeaders)]
         [InlineData (DataGridViewAutoSizeRowsMode.AllCells)]
@@ -77,8 +90,10 @@ namespace Majorsilence.Forms.Tests
                 var line = OneLineHeight (grid);
 
                 // At least two lines: upstream wraps these to three in a 430px column.
+                var text_line = OneTextLineHeight ();
+
                 for (var i = 0; i < 3; i++)
-                    Assert.True (grid.Rows[i].Height >= 2 * line - 3, $"row {i} is {grid.Rows[i].Height}px, one line is {line}px");
+                    Assert.True (grid.Rows[i].Height >= 2 * text_line - 3, $"row {i} is {grid.Rows[i].Height}px, one line of text is {text_line}px");
 
                 // And the short row came out below the template, as upstream's 23 against 25 does.
                 Assert.True (line < grid.RowTemplate.Height + 2, $"one line is {line}px, the template {grid.RowTemplate.Height}px");
@@ -181,10 +196,10 @@ namespace Majorsilence.Forms.Tests
             using (form) {
                 var table = Table ("x");
                 grid.DataSource = table;
-                var line = OneLineHeight (grid);
+                var line = OneTextLineHeight ();
 
                 table.Rows.Add (2, "N", Long1);
-                Assert.True (grid.Rows[1].Height >= 2 * line - 3, $"bound: {grid.Rows[1].Height}px against {line}px");
+                Assert.True (grid.Rows[1].Height >= 2 * line - 3, $"bound: {grid.Rows[1].Height}px against one line of text, {line}px");
             }
 
             var (unbound_form, unbound) = Grid (DataGridViewAutoSizeRowsMode.AllCells);
