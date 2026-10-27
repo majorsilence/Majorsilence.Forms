@@ -408,8 +408,9 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the size mode of the tabs.</summary>
         /// <remarks>
         /// <see cref="TabSizeMode.Fixed"/> gives every tab <see cref="ItemSize"/>'s width;
-        /// <see cref="TabSizeMode.FillToRight"/> stretches each row of tabs to the strip's width
-        /// (upstream's <c>TCS_RIGHTJUSTIFY</c>). Was stored and ignored (LAY-15).
+        /// <see cref="TabSizeMode.FillToRight"/> stretches each row of tabs to the strip's width once they
+        /// wrap into more than one row (upstream's <c>TCS_RIGHTJUSTIFY</c>); a single row keeps its tabs'
+        /// own widths. Was stored and ignored (LAY-15).
         /// </remarks>
         public TabSizeMode SizeMode {
             get => size_mode;
