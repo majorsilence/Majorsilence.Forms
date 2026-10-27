@@ -170,6 +170,7 @@ namespace Majorsilence.Forms
             base.InsertItem (index, item);
             owner.OnRowsChanged ();
             owner.RaiseRowsAdded (index, 1);
+            owner.AutoSizeAddedRows (index, 1);
 
             // Declared and raised by nothing (DGV-40). Upstream raises Add with the row from every add
             // and insert, after the grid has taken the row in.

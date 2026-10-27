@@ -213,8 +213,9 @@ the legacy `ToolBar.Buttons` collection is not rendered at all, unlike `Items`.
   hosted child grid. The 320px height cap that silently drops rows past roughly the thirteenth is part
   of the same gap.
 - **`RadGridView.AutoSizeRows` (deferred 2026-09-30, #176).** It would forward to the core grid's
-  `AutoSizeRowsMode`, but that is itself stored only: layout never applies it; only an explicit
-  `AutoResizeRows ()` call sizes rows. Fix the core first, and the Telerik flag becomes one line.
+  `AutoSizeRowsMode`, which sizes rows as upstream's does since 2026-10-26. The Telerik flag is still
+  stored only: Telerik sizes its rows by its own rules, which were not measured, so it does not take
+  the WinForms ones.
 - **Dock tool-window caption buttons (deferred 2026-09-30, #176).** `ToolCaptionButtons` has nothing
   to show or hide: the tool strip's caption band draws only the caption. A close box there would be the
   same code as the document tabs' one, but auto-hide and the menu button need the auto-hide and floating

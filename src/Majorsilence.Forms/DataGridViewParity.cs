@@ -262,7 +262,14 @@ namespace Majorsilence.Forms
         protected virtual void OnAutoSizeColumnsModeChanged (DataGridViewAutoSizeColumnsModeEventArgs e) => AutoSizeColumnsModeChanged?.Invoke (this, e);
 
         /// <summary>Raises the <see cref="AutoSizeRowsModeChanged"/> event.</summary>
-        protected virtual void OnAutoSizeRowsModeChanged (DataGridViewAutoSizeModeEventArgs e) => AutoSizeRowsModeChanged?.Invoke (this, e);
+        /// <remarks>Sizes the rows for the new mode, or gives them back their heights for None, before the event.</remarks>
+        protected virtual void OnAutoSizeRowsModeChanged (DataGridViewAutoSizeModeEventArgs e)
+        {
+            Guard.ThrowIfNull (e);
+
+            ApplyAutoSizeRowsModeChange (e.PreviousModeAutoSized);
+            AutoSizeRowsModeChanged?.Invoke (this, e);
+        }
 
         /// <summary>Raises the <see cref="ColumnHeadersHeightSizeModeChanged"/> event.</summary>
         protected virtual void OnColumnHeadersHeightSizeModeChanged (DataGridViewAutoSizeModeEventArgs e) => ColumnHeadersHeightSizeModeChanged?.Invoke (this, e);

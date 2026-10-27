@@ -212,6 +212,7 @@ namespace Majorsilence.Forms
                     if (data_source[e.NewIndex] is { } changed) {
                         FillBoundRow (Rows[e.NewIndex], changed);
                         Rows[e.NewIndex].DataBoundItem = changed;
+                        AutoSizeRowForCellChange (e.NewIndex);
                     }
 
                     break;

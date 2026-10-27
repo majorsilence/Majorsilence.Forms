@@ -76,6 +76,14 @@ namespace Majorsilence.Forms
                 return height;
             }
             set {
+                // While the grid sizes its rows (AutoSizeRowsMode), an assignment is not applied and raises nothing:
+                // upstream's band keeps it as the height to give back when the mode returns to None
+                // (DataGridViewBand.Thickness). Measured: a row of a sized grid set to 120 or to 10 stayed 63.
+                if (owner is { } sizing_grid && sizing_grid.AutoSizeRowsMode != DataGridViewAutoSizeRowsMode.None) {
+                    CachedHeight = Math.Max (value, MinimumRowHeight);
+                    return;
+                }
+
                 // ...and is told about a change first; a handler that stores it itself marks the push
                 // Handled and the row keeps its own figure for the next Needed to overwrite.
                 if (owner is { IsVirtualUnbound: true } virtual_grid && Index is >= 0 and var pushed_index
@@ -92,6 +100,32 @@ namespace Majorsilence.Forms
 
         // The floor the setter has always applied; named so the RowHeightInfo pair can report it.
         private const int MinimumRowHeight = 3;
+
+        // The height a return to AutoSizeRowsMode.None gives this row back (upstream's CachedThickness): the height it had
+        // when the mode was switched on or when it arrived, a Height assigned while a mode was set, or the height it had
+        // when it was last painted under a mode. Zero until one of those has happened.
+        internal int CachedHeight { get; set; }
+
+        // The grid's own sizing (AutoSizeRowsMode): applied whatever the mode, and announced. In a batch the grid lays the
+        // rows out once at the end instead of after every row.
+        internal void SetAutoSizedHeight (int value)
+        {
+            value = Math.Max (value, MinimumRowHeight);
+
+            if (height == value)
+                return;
+
+            height = value;
+
+            if (owner is { InRowAutoSizeBatch: false })
+                owner.OnRowsChanged ();
+
+            owner?.RaiseRowHeightChanged (this);
+        }
+
+        // A bound row starting at the first row's height, as upstream's copies of the first row do: silently, since a copy
+        // is made at that height rather than resized to it.
+        internal void SetCopiedHeight (int value) => height = Math.Max (value, MinimumRowHeight);
 
         /// <summary>
         /// Gets the index of this row in the DataGridView.
