@@ -141,9 +141,11 @@ namespace Majorsilence.Forms.Renderers
             // The node's own font when it has one, else the control's -- NodeFont was stored and the
             // renderer always used the theme font (LST-26).
             var font = item.NodeFont is { } node_font ? node_font.GetSKTypeface () : control.GetEffectiveFont ();
+            // A ported app (one that chose its font) draws at the tree's own font size, as upstream does;
+            // the theme's size made a 12pt tree's text smaller than WinForms'.
             var font_size = item.NodeFont is { } sized
                 ? (int)System.Math.Round (sized.PixelSize)
-                : e.LogicalToDeviceUnits (Theme.FontSize);
+                : e.LogicalToDeviceUnits (ControlPaint.UsesUpstreamGlyphs ? (int)System.Math.Round (control.Font.PixelSize) : Theme.FontSize);
 
             e.Canvas.DrawText (item.Text.Trim (), font, font_size, text_bounds, foreground_color, ContentAlignment.MiddleLeft, maxLines: 1);
         }
