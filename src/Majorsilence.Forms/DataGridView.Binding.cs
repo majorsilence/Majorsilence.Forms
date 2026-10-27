@@ -107,14 +107,16 @@ namespace Majorsilence.Forms
         // not stringified -- WinForms cell values keep the bound member's type so handlers can cast.
         private void FillBoundRow (DataGridViewRow row, object item)
         {
-            if (bound_descriptors is not null && AutoGenerateColumns) {
+            // Positionally only while the columns are the schema's own; columns a derived grid kept across
+            // the bind (RadGridView after a layout load) are filled from the member each one names, below.
+            if (bound_descriptors is not null && AutoGenerateColumns && ColumnsMatchSchema (bound_descriptors)) {
                 for (var i = 0; i < bound_descriptors.Count; i++)
                     SetBoundCell (row, i, bound_descriptors[i].GetValue (item));
 
                 return;
             }
 
-            if (bound_properties is not null && AutoGenerateColumns) {
+            if (bound_properties is not null && AutoGenerateColumns && ColumnsMatchSchema (bound_properties)) {
                 for (var i = 0; i < bound_properties.Length; i++)
                     SetBoundCell (row, i, bound_properties[i].GetValue (item));
 
@@ -125,7 +127,8 @@ namespace Majorsilence.Forms
             for (var i = 0; i < Columns.Count; i++) {
                 var column = Columns[i];
                 var member = string.IsNullOrEmpty (column.DataPropertyName) ? column.HeaderText : column.DataPropertyName;
-                SetBoundCell (row, i, ReadMember (item, member));
+                var descriptor = string.IsNullOrEmpty (member) ? null : bound_descriptors?.Find (member, ignoreCase: true);
+                SetBoundCell (row, i, descriptor is not null ? descriptor.GetValue (item) : ReadMember (item, member));
             }
         }
 

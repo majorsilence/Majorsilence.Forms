@@ -2356,6 +2356,9 @@ namespace Majorsilence.Forms
             bound_descriptors = null;
             bound_properties = null;
 
+            var previous_members = bound_member_names;
+            bound_member_names = null;
+
             if (data_source is null) {
                 Rows.Clear ();
                 return;
@@ -2378,13 +2381,15 @@ namespace Majorsilence.Forms
                 // Columns are regenerated only when the schema changed. A Reset over the SAME schema --
                 // BindingList<T>.ResetBindings, a re-sort, a filter -- keeps the app's header renames,
                 // widths and hidden columns, which a rebuild used to silently put back (DGV-31).
-                if (AutoGenerateColumns && (forceColumnRegeneration || !ColumnsMatchSchema (bound_descriptors))) {
-                    Columns.Clear ();
+                var members = new List<KeyValuePair<string, Type?>> ();
 
-                    foreach (System.ComponentModel.PropertyDescriptor descriptor in bound_descriptors)
-                        Columns.Add (CreateBoundColumn (descriptor.Name, descriptor.PropertyType));
-                }
+                foreach (System.ComponentModel.PropertyDescriptor descriptor in bound_descriptors)
+                    members.Add (new (descriptor.Name, descriptor.PropertyType));
 
+                if (AutoGenerateColumns && (forceColumnRegeneration || !ColumnsMatchSchema (bound_descriptors)))
+                    RegenerateBoundColumns (members, previous_members);
+
+                bound_member_names = members.Select (m => m.Key).ToArray ();
                 ReplaceBoundRows ();
                 return;
             }
@@ -2404,15 +2409,37 @@ namespace Majorsilence.Forms
                     .Where (p => p.CanRead && p.GetIndexParameters ().Length == 0)
                     .ToArray ();
 
-                if (forceColumnRegeneration || !ColumnsMatchSchema (bound_properties)) {
-                    Columns.Clear ();
+                if (forceColumnRegeneration || !ColumnsMatchSchema (bound_properties))
+                    RegenerateBoundColumns (bound_properties.Select (p => new KeyValuePair<string, Type?> (p.Name, p.PropertyType)).ToList (), previous_members);
 
-                    foreach (var prop in bound_properties)
-                        Columns.Add (CreateBoundColumn (prop.Name, prop.PropertyType));
-                }
+                bound_member_names = bound_properties.Select (p => p.Name).ToArray ();
             }
 
             ReplaceBoundRows ();
+        }
+
+        // Rebuilds the bound rows for the current columns, after a derived grid changed the column set
+        // of a bound grid (RadGridView.LoadLayout).
+        internal void RefillBoundRows ()
+        {
+            if (data_source is not null)
+                ReplaceBoundRows ();
+        }
+
+        // The member names of the schema last bound, or null when nothing was: what a derived grid's
+        // RegenerateBoundColumns compares the new schema with.
+        private string[]? bound_member_names;
+
+        // Replaces the columns with one generated column per bound member, in the source's order. Called
+        // when a bind finds columns that were not generated from the new schema. Overridden by grids whose
+        // upstream keeps existing columns across a bind (RadGridView); previousMembers is the schema bound
+        // before this one, null when the grid was unbound.
+        internal virtual void RegenerateBoundColumns (IReadOnlyList<KeyValuePair<string, Type?>> members, IReadOnlyList<string>? previousMembers)
+        {
+            Columns.Clear ();
+
+            foreach (var member in members)
+                Columns.Add (CreateBoundColumn (member.Key, member.Value));
         }
 
         // Builds every row from the memoised schema and swaps them in with one notification. Each
