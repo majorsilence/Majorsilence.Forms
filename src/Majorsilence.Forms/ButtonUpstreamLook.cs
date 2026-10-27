@@ -1,4 +1,4 @@
-using SkiaSharp;
+﻿using SkiaSharp;
 
 namespace Majorsilence.Forms
 {
@@ -44,7 +44,11 @@ namespace Majorsilence.Forms
             var scale = (float) e.Scaling;
             var half = 0.5f * scale;
             var radius = 4f * scale;
-            var box = new SKRect (half, half, ScaledWidth - half, ScaledHeight - half);
+
+            // Upstream's themed push button leaves a pixel of its bounds round the outline, in every state:
+            // a 27px Cancel button's outline runs along its second row, the first showing the parent.
+            var inset = scale + half;
+            var box = new SKRect (inset, inset, ScaledWidth - inset, ScaledHeight - inset);
 
             var pressed = IsPressed && IsHovering;
             var accent = Enabled && (IsDefault || (Selected && ShowFocusCues));
