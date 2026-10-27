@@ -288,6 +288,10 @@ namespace Majorsilence.Forms
         /// </remarks>
         internal static IEnumerable<Form> ModalOwnerCandidates => OpenForms.Where (f => !f.IsFrameHosted);
 
+        // The owner a dialog shown with none takes: the innermost open modal dialog, else the thread's active form
+        // (upstream's GetActiveWindow), else the first form opened.
+        internal static Form? DefaultDialogOwner => ActiveModalForm ?? WindowBase.ThreadActiveForm ?? ModalOwnerCandidates.FirstOrDefault ();
+
         /// <summary>Gets the main form of the application (the first form passed to Run).</summary>
         public static Form? MainForm => OpenForms.Count > 0 ? OpenForms[0] : null;
 
