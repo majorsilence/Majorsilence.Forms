@@ -1375,17 +1375,16 @@ namespace Majorsilence.Forms.Telerik
 
                 var collapsed = respectCollapse && _collapsed.Contains (key);
 
-                var groupRow = new DataGridViewRow {
-                    Tag = new GridGroupRow {
-                        Field = descriptor.PropertyName,
-                        HeaderText = header,
-                        Value = value,
-                        Count = members.Count,
-                        Level = level,
-                        Key = key,
-                        Collapsed = collapsed
-                    }
+                var group_info = new GridGroupRow {
+                    Field = descriptor.PropertyName,
+                    Value = value,
+                    Count = members.Count,
+                    Level = level,
+                    Key = key,
+                    Collapsed = collapsed
                 };
+                var groupRow = new DataGridViewRow { Tag = group_info };
+                group_info.HeaderText = GroupHeaderText (descriptor.PropertyName, header, value, key, groupRow);
                 result.Add (groupRow);
 
                 if (!collapsed) {
@@ -1988,6 +1987,39 @@ namespace Majorsilence.Forms.Telerik
         // group (a summary row whose group has since been filtered out, say).
         private DataGroup? FindDataGroup (string key)
             => GroupExpanding is null && GroupSummaryEvaluate is null ? null : FindDataGroup (BuildDataGroups (), key);
+
+        // A group row's text, as Telerik's: "{0}: {1}" over the grouped column's caption and the group's
+        // value, with no row count. Measured on Telerik (UI for WinForms 2026.2.520): grouping by a column
+        // captioned "Statement Type" gave "Statement Type: Notice of Arrears", after raising
+        // GroupSummaryEvaluate for the header -- SummaryItem named for the grouped field, FormatString
+        // "{0}: {1}", Value the group's value, Parent the group row -- so a handler can reword it, which
+        // applications do by assigning FormatString.
+        private string GroupHeaderText (string field, string caption, string value, string key, DataGridViewRow row)
+        {
+            var format = "{0}: {1}";
+            object? shown = value;
+
+            if (GroupSummaryEvaluate is not null) {
+                var args = new GroupSummaryEvaluationEventArgs {
+                    SummaryItem = new GridViewSummaryItem { Name = field },
+                    Group = FindDataGroup (key),
+                    Parent = new GridViewGroupRowInfo (row),
+                    Value = value,
+                    FormatString = format,
+                };
+
+                GroupSummaryEvaluate.Invoke (this, args);
+
+                format = args.FormatString;
+                shown = args.Value;
+            }
+
+            try {
+                return string.Format (System.Globalization.CultureInfo.CurrentCulture, format, caption, shown);
+            } catch (FormatException) {
+                return format;
+            }
+        }
 
         private static DataGroup? FindDataGroup (List<DataGroup> groups, string key)
         {
@@ -3833,7 +3865,7 @@ namespace Majorsilence.Forms.Telerik
 
         internal GridViewGroupRowInfo (DataGridViewRow row) : base (row) { }
 
-        /// <summary>Gets the group header text (e.g. "Field: Value (Count)").</summary>
+        /// <summary>Gets the group header text (e.g. "Field: Value").</summary>
         public string HeaderText => DataRow.Tag is GridGroupRow g ? g.HeaderText : string.Empty;
 
         /// <summary>Gets the data rows under this group header. Empty stub — the compat grid does not track group children.</summary>

@@ -160,6 +160,7 @@ Majorsilence.Forms.Telerik.GroupExpandingEventArgs.DataGroup    -- event data: s
 Majorsilence.Forms.Telerik.GroupFieldElement.FieldName    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.GroupFieldElement.Text    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.GroupSummaryEvaluationEventArgs.Group    -- event data: set as the event is raised, read by the handler
+Majorsilence.Forms.Telerik.GroupSummaryEvaluationEventArgs.Parent    -- event data: set as the event is raised, read by the handler
 Majorsilence.Forms.Telerik.GroupSummaryEvaluationEventArgs.SummaryItem    -- event data: set as the event is raised, read by the handler
 Majorsilence.Forms.Telerik.HtmlExportSettings.DocumentExportLevel    -- export option not implemented: the compat exporters always write plain, full, flat data (documented on the member)
 Majorsilence.Forms.Telerik.HtmlExportSettings.StylesExportMode    -- export option not implemented: the compat exporters always write plain, full, flat data (documented on the member)

@@ -161,6 +161,9 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>The display format string for the summary cell.</summary>
         public string FormatString { get; set; } = string.Empty;
+
+        /// <summary>The row the value is shown in: the group row, for a group header's text.</summary>
+        public object? Parent { get; set; }
     }
 
     /// <summary>Provides data for group expand/collapse. Mirrors Telerik's shape.</summary>
