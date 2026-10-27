@@ -1155,11 +1155,12 @@ namespace Majorsilence.Forms
                 return;
             }
 
-            // Right when HasChildren expands node (if needed) and selects first child
+            // Right expands a collapsed node and keeps it selected; only on a node already expanded does it
+            // move to the first child, as upstream does. Both in one press skipped the expanded parent.
             if (e.KeyCode == Keys.Right) {
-                selected_item.Expand ();
-
-                if (selected_item.HasChildren)
+                if (!selected_item.Expanded)
+                    selected_item.Expand ();
+                else if (selected_item.HasChildren)
                     SelectItem (selected_item.Items.First (), TreeViewAction.ByKeyboard);
 
                 e.Handled = true;
