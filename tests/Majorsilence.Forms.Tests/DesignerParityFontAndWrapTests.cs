@@ -440,6 +440,36 @@ namespace Majorsilence.Forms.Tests
             Assert.True (grid.FilterRowBandHeight > 0);
         }
 
+        // Telerik says "No data to display" only while a grid has no columns. A grid bound to a table with no rows
+        // shows its headers over a blank rows area; here it also wrote the text across the middle.
+        [Fact]
+        public void A_RadGridView_with_columns_and_no_rows_shows_no_text ()
+        {
+            using var deterministic = HeadlessRenderer.UseDeterministic ();
+
+            using var form = new Form { Size = new System.Drawing.Size (400, 300) };
+            var grid = new Majorsilence.Forms.Telerik.RadGridView { Left = 0, Top = 0, Width = 300, Height = 200, ShowGroupPanel = false, AllowAddNewRow = false };
+            var table = new System.Data.DataTable ();
+            table.Columns.Add ("PoNumber");
+            grid.DataSource = table;
+            form.Controls.Add (grid);
+            form.Show ();
+
+            HeadlessRenderer.CapturePng (form);
+            HeadlessRenderer.CapturePng (form);
+            var buffer = typeof (Control).GetMethod ("GetBackBuffer",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+            var bitmap = (SkiaSharp.SKBitmap) buffer.Invoke (grid, null)!;
+
+            // Right of the row headers and below the header row, nothing dark at all.
+            var ink = 0;
+            for (var y = grid.ScaledHeaderHeight + 2; y < bitmap.Height - 4; y++)
+                for (var x = grid.ScaledRowHeadersWidth + 2; x < bitmap.Width - 4; x++)
+                    if (bitmap.GetPixel (x, y) is var c && c.Red < 100 && c.Green < 100 && c.Blue < 100)
+                        ink++;
+            Assert.Equal (0, ink);
+        }
+
         // Telerik writes "No data to display" in the grid's own font; it was always the theme's small item font,
         // so a designer's 12pt grid said it in 8pt.
         [Fact]

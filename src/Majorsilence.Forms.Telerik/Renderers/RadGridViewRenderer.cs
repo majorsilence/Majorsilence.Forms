@@ -37,20 +37,19 @@ namespace Majorsilence.Forms.Renderers
             if (grid.ShowsGroupPanel)
                 RenderGroupPanel (grid, e);
 
-            if (control.Rows.Count == 0)
+            // Only while the grid has no columns: Telerik's table element says nothing under the headers of a grid
+            // whose data has no rows.
+            if (control.Columns.Count == 0)
                 RenderNoDataText (grid, e);
 
             if (grid.DragActive)
                 RenderDragIndicator (grid, e);
         }
 
-        // An empty grid says so, centred in its rows area, as Telerik's does.
+        // A grid with no columns says it has no data, centred in it, as Telerik's does.
         private static void RenderNoDataText (RadGridView grid, PaintEventArgs e)
         {
-            var content = grid.GetContentArea ();
-            var top = content.Top + (grid.ColumnHeadersVisible && ((DataGridView) grid).Columns.Count > 0 ? grid.ScaledHeaderHeight : 0)
-                + grid.FilterRowBandHeight;
-            var area = new Rectangle (content.Left, top, content.Width, Math.Max (0, content.Bottom - top));
+            var area = grid.GetContentArea ();
 
             // In the grid's own font, as Telerik's: a 12pt grid said so in the theme's small item font.
             e.Canvas.DrawText (RadGridView.NoDataText, grid.GetEffectiveFont (), grid.LogicalToDeviceUnits (grid.GetEffectiveFontSize ()), area,
