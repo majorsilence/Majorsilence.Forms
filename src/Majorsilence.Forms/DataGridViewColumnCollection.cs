@@ -187,6 +187,7 @@ namespace Majorsilence.Forms
 
             item.SetOwner (owner);
             base.InsertItem (index, item);
+            owner.InsertColumnCells (index, item);
             owner.OnColumnsChanged ();
 
             // OnColumnsChanged is the internal relayout notification; this is the public WinForms
@@ -209,6 +210,7 @@ namespace Majorsilence.Forms
             this[index].SetOwner (null);
             removedColumn.SetDisplayIndexInternal (-1);
             base.RemoveItem (index);
+            owner.RemoveColumnCells (index);
             owner.OnColumnsChanged ();
 
             // The display order stays dense once a column has been moved (W6 mechanisms).

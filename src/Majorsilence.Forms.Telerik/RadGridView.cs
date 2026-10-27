@@ -1039,6 +1039,22 @@ namespace Majorsilence.Forms.Telerik
                 RebuildView ();
         }
 
+        // Every row the grid holds keeps its cells in step with the columns: the master rows, those the view filters, pages
+        // or collapses out of sight among them, and the rows on display, its group headers and summaries.
+        internal override IEnumerable<DataGridViewRow> RowsForColumnCells ()
+        {
+            var seen = new HashSet<DataGridViewRow> (
+#if NETSTANDARD2_0
+                Majorsilence.Forms.ReferenceEqualityComparer<DataGridViewRow>.Instance);
+#else
+                ReferenceEqualityComparer.Instance);
+#endif
+
+            foreach (var row in _master.Concat (base.RowsForColumnCells ()))
+                if (seen.Add (row))
+                    yield return row;
+        }
+
         // Captures the current data display rows (excluding injected structural rows) as the new master.
         private void SyncMasterFromDisplay ()
         {
