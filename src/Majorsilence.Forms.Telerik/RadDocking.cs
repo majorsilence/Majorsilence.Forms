@@ -81,8 +81,8 @@ namespace Majorsilence.Forms.Telerik
             SaveToXml (file);
         }
 
-        /// <summary>Restores a layout <see cref="SaveToXml(System.IO.Stream)"/> wrote.</summary>
-        /// <remarks>Windows are matched by name; a saved window that is not in the dock, or a window
+        /// <summary>Restores a layout <see cref="SaveToXml(System.IO.Stream)"/> wrote, or one Telerik's dock saved.</summary>
+        /// <remarks>Windows are matched by name. For this dock's own layout, a saved window that is not in the dock, or a window
         /// not in the saved layout, is left alone. A document that is not a well-formed layout throws
         /// <see cref="System.Xml.XmlException"/>.</remarks>
         public void LoadFromXml (System.IO.Stream stream)
@@ -90,6 +90,12 @@ namespace Majorsilence.Forms.Telerik
             Guard.ThrowIfNull (stream);
 
             var document = System.Xml.Linq.XDocument.Load (stream);
+
+            if (document.Root?.Name.LocalName == "RadDock") {
+                LoadTelerikLayout (document.Root);
+                return;
+            }
+
             var windows = AllWindowsInTree ()
                 .Where (w => !string.IsNullOrEmpty (w.Name))
                 .GroupBy (w => w.Name, StringComparer.Ordinal)
@@ -111,6 +117,78 @@ namespace Majorsilence.Forms.Telerik
             // Selection last, once every window is back in the state that decides whether it has a tab.
             foreach (var window in selected)
                 ActivateWindow (window);
+        }
+
+        // A layout Telerik's own dock saved -- what an app that ran on Telerik has stored: the dock's control
+        // tree, each tab strip listing its windows in tab order with their Text, and the strip's
+        // SelectedIndex. Measured on Telerik (UI for WinForms 2026.2.520), loading one gives each listed
+        // window the saved Text and tab order and selects the saved tab; a window saved hidden comes back
+        // as a tab, and a window in the strip that the layout does not list is closed and disposed. Split
+        // sizes and floating positions are not modelled here and are not read.
+        private void LoadTelerikLayout (System.Xml.Linq.XElement root)
+        {
+            var windows = OwnWindows ()
+                .Where (w => !string.IsNullOrEmpty (w.Name))
+                .GroupBy (w => w.Name, StringComparer.Ordinal)
+                .ToDictionary (g => g.Key, g => g.First (), StringComparer.Ordinal);
+
+            var selected = new List<DockWindowBase> ();
+
+            foreach (var strip_element in root.Descendants ().Where (e => e.Name.LocalName.EndsWith ("TabStrip", StringComparison.Ordinal))) {
+                var listed = new List<DockWindowBase> ();
+
+                foreach (var element in strip_element.Element ("Controls")?.Elements () ?? Enumerable.Empty<System.Xml.Linq.XElement> ()) {
+                    if ((string?) element.Attribute ("Name") is not { } name || !windows.TryGetValue (name, out var window))
+                        continue;
+
+                    if ((string?) element.Attribute ("Text") is { } text)
+                        window.Text = text;
+
+                    listed.Add (window);
+                }
+
+                if (listed.Count == 0 || listed[0].Parent is not { } strip)
+                    continue;
+
+                for (var i = 0; i < listed.Count; i++)
+                    if (listed[i].Parent == strip)
+                        strip.Controls.SetChildIndex (listed[i], i);
+
+                foreach (var unlisted in strip.Controls.OfType<DockWindowBase> ().Except (listed).ToList ()) {
+                    unlisted.DockState = DockState.Hidden;
+                    strip.Controls.Remove (unlisted);
+                    unlisted.Dispose ();
+                }
+
+                if (int.TryParse ((string?) strip_element.Attribute ("SelectedIndex"), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var index)
+                    && index >= 0 && index < listed.Count)
+                    selected.Add (listed[index]);
+            }
+
+            foreach (var window in selected)
+                ActivateWindow (window);
+        }
+
+        // The windows in this dock's own strips: not those of a dock nested inside one of its windows, which
+        // that dock's own layout describes.
+        private IEnumerable<DockWindowBase> OwnWindows ()
+        {
+            var stack = new Stack<Control> ();
+
+            foreach (Control c in Controls)
+                stack.Push (c);
+
+            while (stack.Count > 0) {
+                var c = stack.Pop ();
+
+                if (c is DockWindowBase window) {
+                    yield return window;
+                    continue;
+                }
+
+                foreach (Control child in c.Controls)
+                    stack.Push (child);
+            }
         }
 
         /// <summary>Restores a layout from a file. See <see cref="LoadFromXml(System.IO.Stream)"/>.</summary>
