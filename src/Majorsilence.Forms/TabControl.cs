@@ -130,8 +130,11 @@ namespace Majorsilence.Forms
         // Hides/shows the built-in tab header strip. Used when the headers are presented elsewhere
         // (e.g. RadTabbedForm draws document tabs in the title bar and uses the TabControl only as a
         // content host). The hidden strip is Dock=Top with no space, so pages fill the whole control.
+        // The strip's own flag, not its ambient Visible: that reads false until the form is shown, which turned the
+        // upstream look (UsesUpstreamTabs) off for every layout before then -- docking the pages to fill, only to
+        // undock them once shown, and re-capturing their anchored children against the wrong size in between.
         internal bool TabStripVisible {
-            get => tab_strip.Visible;
+            get => ((Layout.IArrangedElement) tab_strip).ParticipatesInLayout;
             set => tab_strip.Visible = value;
         }
 
