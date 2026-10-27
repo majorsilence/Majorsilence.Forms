@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using Majorsilence.Forms.Headless;
 using SkiaSharp;
 using Xunit;
@@ -49,7 +49,8 @@ namespace Majorsilence.Forms.Tests
             { "GroupBox", 0xFFA0A0A0 },
             { "CheckBox", 0xFF6D6D6D },     // the theme's disabled check box text
             { "RadioButton", 0xFF6D6D6D },
-            { "Button", 0xFF838383 },       // the theme's disabled push button text
+            { "Button", 0xFFA0A0A0 },       // a Standard push button's, themed or not
+            { "SystemButton", 0xFF838383 }, // the native FlatStyle.System button's
             { "TextBox", 0xFF6D6D6D },      // GrayText
             { "ComboBox", 0xFF6D6D6D },
         };
@@ -63,6 +64,7 @@ namespace Majorsilence.Forms.Tests
                 "CheckBox" => new CheckBox { Text = "WWW" },
                 "RadioButton" => new RadioButton { Text = "WWW" },
                 "Button" => new Button { Text = "WWW" },
+                "SystemButton" => new Button { Text = "WWW", FlatStyle = FlatStyle.System },
                 "TextBox" => new TextBox { Text = "WWW" },
                 _ => new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList },
             };
@@ -87,6 +89,34 @@ namespace Majorsilence.Forms.Tests
                 form.Controls.Add (control);
 
                 Assert.Equal (new SKColor (expected), Darkest (form, control));
+                return 0;
+            });
+
+        // Measured from WinForms (.NET 10, Windows 11): a disabled button, Standard or System, has a #F9F9F9 face in a
+        // #E9E9E9 outline all round, with no darker bottom edge.
+        [Theory]
+        [InlineData (FlatStyle.Standard)]
+        [InlineData (FlatStyle.System)]
+        public void A_disabled_button_s_face_and_outline_are_upstream_s (FlatStyle style)
+            => With (true, form => {
+                var button = new Button { Text = string.Empty, FlatStyle = style, Location = new Point (10, 10), Size = new Size (160, 60), Enabled = false };
+                form.Controls.Add (button);
+
+                using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 300, 200));
+                var scale = bitmap.Width / 300f;
+                var middle = (int) ((button.Left + button.Width / 2) * scale);
+                int Y (float logical) => (int) (logical * scale);
+
+                // The face, and the outline along the top and bottom edges (a pixel inside upstream's bounds), in the
+                // disabled colours: no trace of the enabled button's grey outline or darker bottom edge.
+                Assert.Equal (new SKColor (0xF9, 0xF9, 0xF9), bitmap.GetPixel (middle, Y (button.Top + 30)));
+
+                var top = new[] { bitmap.GetPixel (middle, Y (button.Top)), bitmap.GetPixel (middle, Y (button.Top) + 1) };
+                var bottom = new[] { bitmap.GetPixel (middle, Y (button.Bottom) - 1), bitmap.GetPixel (middle, Y (button.Bottom) - 2) };
+                Assert.Contains (new SKColor (0xE9, 0xE9, 0xE9), top);
+                Assert.Contains (new SKColor (0xE9, 0xE9, 0xE9), bottom);
+                Assert.DoesNotContain (new SKColor (0xD0, 0xD0, 0xD0), top);
+                Assert.DoesNotContain (new SKColor (0xBA, 0xBA, 0xBA), bottom);
                 return 0;
             });
 
