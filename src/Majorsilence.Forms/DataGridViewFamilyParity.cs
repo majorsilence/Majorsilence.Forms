@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -248,8 +248,10 @@ namespace Majorsilence.Forms
                 ? AutoSizeMode
                 : DataGridView?.AutoSizeColumnsMode switch {
                     DataGridViewAutoSizeColumnsMode.AllCells => DataGridViewAutoSizeColumnMode.AllCells,
+                    DataGridViewAutoSizeColumnsMode.AllCellsExceptHeader => DataGridViewAutoSizeColumnMode.AllCellsExceptHeader,
                     DataGridViewAutoSizeColumnsMode.ColumnHeader => DataGridViewAutoSizeColumnMode.ColumnHeader,
                     DataGridViewAutoSizeColumnsMode.DisplayedCells => DataGridViewAutoSizeColumnMode.DisplayedCells,
+                    DataGridViewAutoSizeColumnsMode.DisplayedCellsExceptHeader => DataGridViewAutoSizeColumnMode.DisplayedCellsExceptHeader,
                     DataGridViewAutoSizeColumnsMode.Fill => DataGridViewAutoSizeColumnMode.Fill,
                     _ => DataGridViewAutoSizeColumnMode.None,
                 };
@@ -260,9 +262,16 @@ namespace Majorsilence.Forms
             if (DataGridView is null)
                 return Width;
 
+            // As upstream: the Displayed... modes measure the rows in view, the All... modes every row, and the header
+            // counts for ColumnHeader, AllCells and DisplayedCells but not for the ExceptHeader modes. The header was
+            // measured for AllCellsExceptHeader and not for DisplayedCells, and every mode measured every row.
+            var rows = autoSizeColumnMode is DataGridViewAutoSizeColumnMode.DisplayedCells or DataGridViewAutoSizeColumnMode.DisplayedCellsExceptHeader
+                ? DataGridView.DisplayedRowsForSizing ()
+                : DataGridView.Rows.Cast<DataGridViewRow> ();
+
             var widest = autoSizeColumnMode == DataGridViewAutoSizeColumnMode.ColumnHeader
                 ? 0
-                : DataGridView.Rows
+                : rows
                     .Where (row => Index >= 0 && Index < row.Cells.Count)
                     .Select (row => row.Cells[Index].PreferredSize.Width)
                     .DefaultIfEmpty (0)
@@ -270,7 +279,7 @@ namespace Majorsilence.Forms
 
             if (autoSizeColumnMode is DataGridViewAutoSizeColumnMode.ColumnHeader
                 or DataGridViewAutoSizeColumnMode.AllCells
-                or DataGridViewAutoSizeColumnMode.AllCellsExceptHeader)
+                or DataGridViewAutoSizeColumnMode.DisplayedCells)
                 widest = Math.Max (widest, (int)Math.Ceiling (
                     TextMeasurer.MeasureText (HeaderText ?? string.Empty, DataGridView).Width) + 12);
 
