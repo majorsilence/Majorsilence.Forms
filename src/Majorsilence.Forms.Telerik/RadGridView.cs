@@ -2456,6 +2456,17 @@ namespace Majorsilence.Forms.Telerik
             }
         }
 
+        // The base grid announces a bind with System.Windows.Forms' sequence (RowEnter, CurrentCellChanged,
+        // CellEnter, SelectionChanged, with a leave sequence before a rebind). Telerik's grid announces a
+        // bind differently -- CurrentRowChanged first, no leave sequence -- so the forwarded base events
+        // would put Telerik's events in the wrong order. Until this grid raises Telerik's own sequence it
+        // keeps the silent seeding it had: the current cell kept across a rebind, nothing announced.
+        internal override void OnFullBindStarting () { }
+
+        internal override void OnFullBindFinished () { }
+
+        internal override void OnBoundItemAdded (DataGridViewRow? row, DataGridViewRow? previousCurrent) => SetInitialCurrentCell ();
+
         // Raises ValueChanging; if a handler cancels, reverts the cell to the captured old value. Returns true if rejected.
         private bool RaiseValueChanging (int columnIndex, int rowIndex)
         {

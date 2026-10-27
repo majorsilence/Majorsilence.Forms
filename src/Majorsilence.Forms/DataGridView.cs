@@ -776,6 +776,11 @@ namespace Majorsilence.Forms
             // grid.DataSource = table, and the getter used to hand back the DataView (DGV-32).
             get => data_source_object;
             set {
+                // Assigning what is already bound does nothing, as upstream's setter (DataGridView and
+                // RadGridView alike): no rebind, and so no bind notifications either.
+                if (ReferenceEquals (value, data_source_object))
+                    return;
+
                 data_source_object = value;
                 RebindDataSource ();
                 OnDataSourceChanged (EventArgs.Empty);
@@ -2345,9 +2350,126 @@ namespace Majorsilence.Forms
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection over user-provided types.")]
         private void OnDataSourceChanged (bool forceColumnRegeneration = false)
         {
+            OnFullBindStarting ();
             BindDataSource (forceColumnRegeneration);
             UpdateColumnsDataBound ();
             SyncSortFromBoundList ();
+            OnFullBindFinished ();
+        }
+
+        // The bind-notification seam. A full bind brackets itself with these, and an ItemAdded calls
+        // OnBoundItemAdded once the row is in. previousCurrent is the row that was current before the
+        // item was inserted. A derived grid whose upstream announces a bind differently (RadGridView)
+        // overrides all three.
+        //
+        // A bind makes the first cell current and upstream ANNOUNCES it -- forms fill a detail pane from
+        // SelectionChanged or CurrentCellChanged, and that pane is filled the moment the grid is bound.
+        // This grid seeded the cell silently, so only DataBindingComplete was raised and the pane stayed
+        // empty. Measured on System.Windows.Forms (.NET 10), DataGridView on a shown form:
+        //
+        //   bind 2 rows              RowEnter 0, CurrentCellChanged, CellEnter 0,0, SelectionChanged,
+        //                            DataBindingComplete
+        //   rebind a new 2-row table SelectionChanged (cleared), CellLeave, RowLeave, CurrentCellChanged
+        //   ((1,1) was current)      (null), then the bind's sequence -- (0,0) current again
+        //   bind 0 rows              SelectionChanged, CellLeave, RowLeave, CurrentCellChanged (null),
+        //                            DataBindingComplete
+        //   DataSource = null        the same leave sequence, no DataBindingComplete
+        //   the same DataSource      nothing
+        //   first row into an empty  the bind's sequence, then DataBindingComplete (ItemAdded); later
+        //   bound list               rows move nothing
+        //   grid on an unshown form  no current cell until the form is shown, then the bind's sequence
+        //                            and DataBindingComplete
+        //
+        // Upstream also repeats the whole sequence once on the first bind of a grid on a form whose
+        // BindingContext has not been created yet: creating it re-binds the grid (touching
+        // form.BindingContext first removes the repeat). That repeat is not reproduced.
+        internal virtual void OnFullBindStarting ()
+        {
+            var old_row = selected_row_index;
+            var old_column = selected_column_index;
+
+            if (!Created || old_row < 0) {
+                ResetCurrentCellSilently ();
+                return;
+            }
+
+            // Upstream leaves the current cell before the rows go: the selection is cleared first,
+            // then the cell and the row are left, and the current cell becomes null.
+            if (ClearSelectionCore ())
+                NotifySelectionChanged ();
+
+            if (IsCellAddress (old_row, old_column))
+                OnCellLeave (new DataGridViewCellEventArgs (old_column, old_row));
+
+            if (old_row < RowCountWithNewRow)
+                OnRowLeave (new DataGridViewCellEventArgs (old_column, old_row));
+
+            ResetCurrentCellSilently ();
+            OnCurrentCellChanged (EventArgs.Empty);
+        }
+
+        internal virtual void OnFullBindFinished ()
+        {
+            if (!Created) {
+                bind_announcement_pending |= data_source is not null && selected_row_index >= 0;
+                return;
+            }
+
+            AnnounceSeededCurrentCell ();
+        }
+
+        internal virtual void OnBoundItemAdded (DataGridViewRow? row, DataGridViewRow? previousCurrent)
+        {
+            var had_current = selected_row_index >= 0;
+            SetInitialCurrentCell ();
+
+            if (had_current || selected_row_index < 0)
+                return;
+
+            if (Created)
+                AnnounceSeededCurrentCell ();
+            else
+                bind_announcement_pending = true;
+        }
+
+        // A bind seeded the current cell before the grid went live; announced when it does.
+        private bool bind_announcement_pending;
+
+        /// <inheritdoc/>
+        protected override void OnCreateControl ()
+        {
+            base.OnCreateControl ();
+
+            if (!bind_announcement_pending)
+                return;
+
+            bind_announcement_pending = false;
+            AnnounceSeededCurrentCell ();
+            RaiseDataBindingComplete (System.ComponentModel.ListChangedType.Reset);
+        }
+
+        // Announces the current cell a bind seeded, in upstream's order: RowEnter, CurrentCellChanged,
+        // CellEnter, SelectionChanged.
+        private void AnnounceSeededCurrentCell ()
+        {
+            if (!IsCellAddress (selected_row_index, selected_column_index))
+                return;
+
+            OnRowEnter (new DataGridViewCellEventArgs (selected_column_index, selected_row_index));
+            OnCurrentCellChanged (EventArgs.Empty);
+            OnCellEnter (new DataGridViewCellEventArgs (selected_column_index, selected_row_index));
+
+            if (HasSelectedElement ())
+                NotifySelectionChanged ();
+        }
+
+        // Drops the current cell and the selection without announcing anything, so the bind that follows
+        // seeds the first cell afresh rather than keeping whatever index was current before.
+        private void ResetCurrentCellSilently ()
+        {
+            ClearSelectionCore ();
+            selected_row_index = -1;
+            selected_column_index = -1;
         }
 
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection over user-provided types.")]
@@ -2454,8 +2576,9 @@ namespace Majorsilence.Forms
         // grid.CurrentRow / grid.CurrentCell are non-null immediately -- app code very commonly reads
         // CurrentRow.Cells["..."] right after binding. Only seed a selection when none exists; never
         // override a selection the user or app already set. Fields are set directly (rather than through
-        // the SelectedRowIndex property) to avoid raising selection/layout events mid-bind.
-        private void SetInitialCurrentCell ()
+        // the SelectedRowIndex property) to avoid raising selection/layout events mid-bind; a grid that
+        // announces the bind does so once it is over (OnFullBindFinished).
+        internal void SetInitialCurrentCell ()
         {
             var seeded = false;
 
@@ -2473,8 +2596,9 @@ namespace Majorsilence.Forms
             // row.Selected/cell.Selected rather than the current-cell indices, so seeding the indices
             // alone would leave a freshly bound grid with a current row that is not highlighted.
             // Written through the core setters, silently, for the reason above -- no events mid-bind.
-            // A rebind keeps the current indices but rebuilds the rows unselected, so the current cell
-            // is selected again then too, as upstream's is -- unless something is still selected.
+            // A full bind starts from no current cell (OnFullBindStarting), so it always seeds (0,0), as
+            // upstream's rebind does. What arrives here unseeded is a row added to a grid that already
+            // has a current cell: that keeps its selection unless nothing is selected.
             if (!seeded && HasSelectedElement ())
                 return;
 
