@@ -437,7 +437,7 @@ namespace Majorsilence.Forms
         {
             base.OnMouseDown (e);
 
-            if (e.Button != MouseButtons.Left)
+            if (e.Button != MouseButtons.Left || !PlacesCaretOnPress (e))
                 return;
 
             var index = GetCharIndexFromPosition (e.Location);
@@ -468,6 +468,10 @@ namespace Majorsilence.Forms
             document.SetSelection (anchor, index);
             ScrollToCaret ();
         }
+
+        // Whether a left press moves the caret (and starts a drag selection). A combo's edit region says no for
+        // the press that gave it the focus, which selects the text instead.
+        internal virtual bool PlacesCaretOnPress (MouseEventArgs e) => true;
 
         // The word -- or the run of spaces or punctuation -- that the character at index belongs to.
         // Same character classes as Ctrl+Backspace (upstream's ClientUtils.GetWordBoundaryStart).
