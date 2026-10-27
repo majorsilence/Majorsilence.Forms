@@ -306,6 +306,12 @@ namespace Majorsilence.Forms.Telerik
             return column;
         }
 
+        // Keeps the columns when DataSource is set to null, as this grid always has: the WinForms rule (the
+        // bound columns are taken out) has not been measured on Telerik, whose column rules differ.
+        internal override void RemoveBoundColumnsOnUnbind ()
+        {
+        }
+
         // Upstream does not rebuild the columns a grid already has when it is bound. Measured on Telerik
         // (UI for WinForms 2026.2.520): a grid holding columns -- added by code or by LoadLayout --
         // keeps them across the bind, in their order, filled from the fields they name; a generated
