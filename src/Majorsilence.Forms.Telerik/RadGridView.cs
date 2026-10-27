@@ -112,6 +112,11 @@ namespace Majorsilence.Forms.Telerik
             // what the Telerik-typed SelectionMode reports; the WinForms default underneath selects cells.
             base.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
 
+            // Telerik's grid adds rows only through its own "Click here to add a new row" row (AllowAddNewRow, see
+            // ShowNewRow). The WinForms grid's new row underneath showed as well, a blank "*" row after the data, even
+            // with AllowAddNewRow off or the grid read-only.
+            AllowUserToAddRows = false;
+
             // Telerik's grid is white below its last row, not the WinForms grid's ControlDark.
             BackgroundColor = System.Drawing.Color.Empty;
 
