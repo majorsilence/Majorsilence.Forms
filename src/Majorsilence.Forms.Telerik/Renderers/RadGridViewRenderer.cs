@@ -234,9 +234,9 @@ namespace Majorsilence.Forms.Renderers
         protected override int HeaderRightInset (DataGridView control, DataGridViewColumn column)
         {
             if (control is RadGridView grid && grid.ShowsHeaderFilterButtons && RadGridView.ColumnAllowsFiltering (column) && FunnelFits (column))
-                return control.LogicalToDeviceUnits (26);   // keep text left of the funnel (drawn at Right-30)
+                return control.LogicalToDeviceUnits (RadGridView.HeaderFunnelRoom);   // keep text left of the funnel (drawn at Right-30)
             if (column.Sortable && column.SortOrder != SortOrder.None)
-                return control.LogicalToDeviceUnits (16);   // room for the sort glyph alone
+                return control.LogicalToDeviceUnits (RadGridView.HeaderSortGlyphRoom);   // room for the sort glyph alone
             return 0;
         }
 

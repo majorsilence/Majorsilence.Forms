@@ -1019,16 +1019,26 @@ namespace Majorsilence.Forms.Telerik
         }
 
         /// <summary>Auto-sizes every visible column to fit its header and (formatted) cell content.</summary>
+        /// <remarks>
+        /// Measured in the fonts the headers and cells are drawn in -- the grid's own once it has one, as Telerik's cells
+        /// take the control's Font -- and padded as they are drawn: a caption is inset 6px a side and keeps the room for
+        /// its filter button or sort glyph, a cell's text 4px a side.
+        /// </remarks>
         public void BestFitColumns ()
         {
-            const int padding = 18;
-            var fontSize = Theme.ItemFontSize;
+            var header_fallback = HeaderFallbackFont ();
+            var header_font = ColumnHeadersDefaultCellStyle.Font ?? header_fallback.Typeface;
+            var header_size = ColumnHeadersDefaultCellStyle.FontSize ?? header_fallback.Size;
+            var cell_fallback = CellFallbackFont ();
+            var cell_font = DefaultCellStyle.Font ?? cell_fallback.Typeface;
+            var cell_size = DefaultCellStyle.FontSize ?? cell_fallback.Size;
 
             foreach (DataGridViewColumn column in base.Columns) {
                 if (!column.Visible)
                     continue;
 
-                var width = (int)TextMeasurer.MeasureText (column.HeaderText ?? string.Empty, Theme.UIFontBold, fontSize).Width;
+                var width = (int)Math.Ceiling (TextMeasurer.MeasureText (column.HeaderDisplayText, header_font, header_size).Width)
+                    + 2 * HeaderTextInset + HeaderGlyphRoom (column);
                 var columnIndex = column.Index;
 
                 // Check-box columns render a fixed-size glyph, so size to the header only.
@@ -1038,18 +1048,30 @@ namespace Majorsilence.Forms.Telerik
                             continue;
 
                         var text = ComputeFormattedText (row.Cells[columnIndex], column);
-                        var w = (int)TextMeasurer.MeasureText (text, Theme.UIFont, fontSize).Width;
+                        var w = (int)Math.Ceiling (TextMeasurer.MeasureText (text, cell_font, cell_size).Width) + 2 * CellTextInset;
 
                         if (w > width)
                             width = w;
                     }
                 }
 
-                column.Width = Math.Max (column.MinimumWidth, width + padding);
+                column.Width = Math.Max (column.MinimumWidth, width);
             }
 
             Invalidate ();
         }
+
+        // The renderer's insets, in logical pixels: a caption's either side, a cell's text's either side, and the room a
+        // header keeps right of its caption for the filter button, or for the sort glyph alone.
+        internal const int HeaderTextInset = 6;
+        internal const int CellTextInset = 4;
+        internal const int HeaderFunnelRoom = 26;
+        internal const int HeaderSortGlyphRoom = 16;
+
+        internal int HeaderGlyphRoom (DataGridViewColumn column)
+            => ShowsHeaderFilterButtons && ColumnAllowsFiltering (column) ? HeaderFunnelRoom
+                : column.Sortable && column.SortOrder != SortOrder.None ? HeaderSortGlyphRoom
+                : 0;
 
         /// <summary>Begins a batch update. Suspends view rebuilds until <see cref="EndUpdate"/>.</summary>
         public new void BeginUpdate () => _suspendRebuild = true;
