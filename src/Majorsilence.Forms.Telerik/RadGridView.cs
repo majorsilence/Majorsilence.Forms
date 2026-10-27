@@ -49,8 +49,59 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets split-mode row synchronization. Stored for Telerik compat.</summary>
         public bool SynchronizeCurrentRowInSplitMode { get; set; }
 
-        /// <summary>Gets or sets whether rows auto-size to content. Stored for Telerik compat.</summary>
-        public bool AutoSizeRows { get; set; }
+        private bool _autoSizeRows;
+        /// <summary>Gets or sets whether rows are sized to their content rather than <see cref="GridTableElement.RowHeight"/>.</summary>
+        /// <remarks>
+        /// As Telerik's, measured: a row is a line of the cell font plus 5 (27px in Segoe UI 12pt, 21 in 9pt, 24 in Microsoft
+        /// Sans Serif 12pt), and the header row a line of the header font plus 3 (25, 19, 22), whatever RowHeight and
+        /// TableHeaderHeight say. A line is the font's Height, so wrapped text still takes one.
+        /// </remarks>
+        public bool AutoSizeRows {
+            get => _autoSizeRows;
+            set {
+                if (_autoSizeRows == value)
+                    return;
+                _autoSizeRows = value;
+                ApplyRowSizing ();
+            }
+        }
+
+        // The rows and the header row as TableElement or AutoSizeRows sizes them.
+        internal void ApplyRowSizing ()
+        {
+            if (TableElement is null)
+                return;
+
+            if (AutoSizeRows) {
+                ApplyRowHeight (FontHeight (CellFallbackFont ()) + 5);
+                base.ColumnHeadersHeight = FontHeight ((ColumnHeadersDefaultCellStyle.Font ?? HeaderFallbackFont ().Typeface, ColumnHeadersDefaultCellStyle.FontSize ?? HeaderFallbackFont ().Size)) + 3;
+                return;
+            }
+
+            if (TableElement.RowHeight > 0)
+                ApplyRowHeight (TableElement.RowHeight);
+
+            base.ColumnHeadersHeight = TableElement.TableHeaderHeight;
+        }
+
+        // A font's Height (its line spacing, rounded up), from the typeface and pixel size the grid draws with.
+        private static int FontHeight ((SKTypeface Typeface, int Size) font)
+        {
+            var style = (font.Typeface.IsBold ? Majorsilence.Forms.Drawing.FontStyle.Bold : Majorsilence.Forms.Drawing.FontStyle.Regular)
+                      | (font.Typeface.IsItalic ? Majorsilence.Forms.Drawing.FontStyle.Italic : Majorsilence.Forms.Drawing.FontStyle.Regular);
+            using var measured = new Majorsilence.Forms.Drawing.Font (font.Typeface.FamilyName, font.Size * 72f / 96f, style);
+            return measured.Height;
+        }
+
+        /// <inheritdoc/>
+        protected override void OnFontChanged (EventArgs e)
+        {
+            base.OnFontChanged (e);
+
+            // Sized to the font, a row follows it (a zoom slider setting the grid's Font, say).
+            if (AutoSizeRows)
+                ApplyRowSizing ();
+        }
 
         /// <summary>Mirrors Telerik's RadControl.ThemeEffectiveType so derived grids can override it.</summary>
         protected virtual Type ThemeEffectiveType => GetType ();
@@ -107,6 +158,9 @@ namespace Majorsilence.Forms.Telerik
         {
             MasterTemplate = new MasterGridViewTemplate (this);
             TableElement = new GridTableElement { ViewElement = RootElement, Grid = this };
+
+            // Telerik's rows are 24px and its header row 30, whatever the font, not the WinForms grid's sized to the font.
+            ApplyRowSizing ();
 
             // Telerik's grid selects whole rows by default (GridViewSelectionMode.FullRowSelect), which is also
             // what the Telerik-typed SelectionMode reports; the WinForms default underneath selects cells.

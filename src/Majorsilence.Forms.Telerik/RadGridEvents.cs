@@ -206,19 +206,18 @@ namespace Majorsilence.Forms.Telerik
         // The grid this element belongs to; null for one application code built itself.
         internal RadGridView? Grid { get; set; }
 
-        /// <summary>Gets or sets the height of the column header row.</summary>
-        /// <remarks>Real as of W6 mechanisms (#176): it is the grid's <see cref="DataGridView.ColumnHeadersHeight"/>.</remarks>
+        /// <summary>Gets or sets the height of the column header row: 30 unless set, as Telerik's.</summary>
+        /// <remarks>The grid's <see cref="DataGridView.ColumnHeadersHeight"/>, but while the grid's <c>AutoSizeRows</c> is on:
+        /// Telerik then sizes the header to its font and keeps this for when it is turned off, as here.</remarks>
         public int TableHeaderHeight {
-            get => Grid?.ColumnHeadersHeight ?? table_header_height;
+            get => table_header_height;
             set {
                 table_header_height = value;
-
-                if (Grid is { } grid)
-                    grid.ColumnHeadersHeight = value;
+                Grid?.ApplyRowSizing ();
             }
         }
 
-        private int table_header_height = 28;
+        private int table_header_height = 30;
 
         /// <summary>Gets or sets the colour of every other row, shown when the grid's <c>EnableAlternatingRowColor</c> is on.</summary>
         /// <remarks>Real as of W6 mechanisms (#176): it is the grid's alternating-row background.
@@ -239,20 +238,23 @@ namespace Majorsilence.Forms.Telerik
 
         private Color alternating_row_color = Color.Empty;
 
-        /// <summary>Gets or sets the height of every data row.</summary>
+        /// <summary>Gets or sets the height of every data row: 24 unless set, as Telerik's.</summary>
         /// <remarks>Real as of W6 mechanisms (#176): the grid's row template takes it, and the rows
-        /// already in the grid are resized to it. Zero or less leaves the rows as they are.</remarks>
+        /// already in the grid are resized to it. Zero or less leaves the rows as they are. While the grid's
+        /// <c>AutoSizeRows</c> is on, Telerik sizes the rows to their font instead and keeps this for when it is turned off,
+        /// as here.</remarks>
         public int RowHeight {
             get => row_height;
             set {
                 row_height = value;
-
-                if (value > 0 && Grid is { } grid)
-                    grid.ApplyRowHeight (value);
+                Grid?.ApplyRowSizing ();
             }
         }
 
-        private int row_height;
+        private int row_height = DefaultRowHeight;
+
+        /// <summary>Telerik's default row height.</summary>
+        internal const int DefaultRowHeight = 24;
         /// <summary>Gets the owning view element (the grid's root element).</summary>
         public RadElement? ViewElement { get; set; }
 
