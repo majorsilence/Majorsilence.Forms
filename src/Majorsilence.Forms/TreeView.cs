@@ -406,6 +406,19 @@ namespace Majorsilence.Forms
             => button is MouseButtons.Left or MouseButtons.Right;
 
         /// <inheritdoc/>
+        /// <remarks>A tree that gains the focus with no node selected selects the node at the top of its
+        /// view first, as upstream's does (measured: <see cref="BeforeSelect"/> and <see cref="AfterSelect"/>
+        /// with <see cref="TreeViewAction.Unknown"/>, before <see cref="Control.GotFocus"/>). A mouse press
+        /// that focuses the tree selects the pressed node instead.</remarks>
+        protected override void OnGotFocus (EventArgs e)
+        {
+            if (!FocusingByPress && SelectedNode is null && GetVisibleItems (skipOffscreen: true).FirstOrDefault () is { } top)
+                SelectItem (top, TreeViewAction.Unknown);
+
+            base.OnGotFocus (e);
+        }
+
+        /// <inheritdoc/>
         protected override void OnMouseDown (MouseEventArgs e)
         {
             base.OnMouseDown (e);
