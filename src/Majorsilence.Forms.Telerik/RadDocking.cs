@@ -321,8 +321,14 @@ namespace Majorsilence.Forms.Telerik
                 if (dock_state == value)
                     return;
 
+                // Hiding the selected tab hands it on, to the tab after it or else the one before.
+                var successor = value == DockState.Hidden ? DockStrip.Successor (this) : null;
+
                 PreviousDockState = dock_state;
                 dock_state = value;
+
+                if (successor is not null)
+                    DockStrip.ActivateSuccessor (successor);
 
                 if (Parent is DocumentTabStrip or ToolTabStrip)
                     Parent.PerformLayout ();
@@ -364,6 +370,28 @@ namespace Majorsilence.Forms.Telerik
         }
         /// <summary>Closes and disposes the window.</summary>
         public void CloseAndDispose () { Visible = false; Dispose (); }
+
+        /// <summary>Hides the window from its dock: its tab goes, and the next tab is activated if it was active.</summary>
+        /// <remarks>Upstream's DockWindow.Hide sets the dock state to Hidden. Measured on Telerik (UI for
+        /// WinForms 2026.2.520): hiding the active document made the one after it active (the one
+        /// before when it was last), raising Leave and Enter but not SelectedTabChanged, and the hidden window
+        /// left its strip. Control.Hide, which this used to be, only cleared Visible, so the
+        /// tab stayed and the next tab click showed the window again.</remarks>
+        public new void Hide () => DockState = DockState.Hidden;
+
+        /// <summary>Brings a hidden window back to the state it had, as the first tab of its strip; otherwise shows it.</summary>
+        /// <remarks>Measured on Telerik: Show after Hide put a document back as the first tab of its strip,
+        /// wherever it had been, and the tab that was active stayed active.</remarks>
+        public new void Show ()
+        {
+            if (DockState != DockState.Hidden) {
+                base.Show ();
+                return;
+            }
+
+            Parent?.Controls.SetChildIndex (this, 0);
+            DockState = PreviousDockState;
+        }
     }
 
     /// <summary>

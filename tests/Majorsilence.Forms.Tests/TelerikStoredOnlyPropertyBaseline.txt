@@ -92,7 +92,6 @@ Majorsilence.Forms.Telerik.DataGroup.HeaderText    -- set by the grid as it buil
 Majorsilence.Forms.Telerik.DataGroup.Level    -- set by the grid as it builds Groups, read by the application
 Majorsilence.Forms.Telerik.DockWindowBase.AutoScaleMode    -- designer-shape value: scaling follows the host form
 Majorsilence.Forms.Telerik.DockWindowBase.DefaultFloatingSize    -- windows do not float here: tabbed docking only
-Majorsilence.Forms.Telerik.DockWindowBase.PreviousDockState    -- kept up to date by DockState and read by the application
 Majorsilence.Forms.Telerik.DockWindowBase.ToolCaptionButtons    -- the tool-window caption band draws no buttons yet (BACKLOG.md, dock caption buttons)
 Majorsilence.Forms.Telerik.DockWindowEventArgs.DockWindow    -- event data: set as the event is raised, read by the handler
 Majorsilence.Forms.Telerik.DockWindowPlaceholder.DockWindow    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
