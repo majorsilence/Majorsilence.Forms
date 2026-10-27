@@ -112,6 +112,27 @@ namespace Majorsilence.Forms
         protected virtual void OnSelectedIndexChanged (EventArgs e) => SelectedIndexChanged?.Invoke (this, e);
 
         /// <inheritdoc/>
+        /// <remarks>
+        /// As upstream's UpdateTabSelection when the handle is created: the selected page is shown and every other
+        /// page hidden, whatever their Visible said until then. A designer file can carry <c>page.Visible = False</c>
+        /// for every page, set after the pages are added -- after the first one was selected and shown -- and with
+        /// no selection change to follow, the selected page stayed hidden and the control showed an empty body.
+        /// Measured on WinForms: three pages set False, False, True before the form was shown come up as True,
+        /// False, False with the first selected.
+        /// </remarks>
+        protected override void OnHandleCreated (EventArgs e)
+        {
+            base.OnHandleCreated (e);
+
+            var selected = GetPageFromTab (tab_strip.SelectedTab);
+
+            foreach (var page in TabPages)
+                page.Visible = page == selected;
+
+            current_page = selected;
+        }
+
+        /// <inheritdoc/>
         protected override void OnPaint (PaintEventArgs e)
         {
             base.OnPaint (e);
