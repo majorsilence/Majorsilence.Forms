@@ -96,6 +96,10 @@ namespace Majorsilence.Forms.Tests
                 form.Controls.Add (tree);
                 form.Show ();
 
+                // A selected node's text is HighlightText on Highlight, which the dark-ink scan below
+                // would not see; measure the unselected text.
+                tree.SelectedNode = null;
+
                 using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 240, 80));
                 int top = int.MaxValue, bottom = -1;
 
