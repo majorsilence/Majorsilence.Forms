@@ -982,7 +982,7 @@ namespace Majorsilence.Forms
         protected virtual void OnNodeMouseClick (TreeNodeMouseClickEventArgs e) => NodeMouseClick?.Invoke (this, e);
 
         /// <summary>The width the check box column takes, in device pixels; zero when hidden.</summary>
-        internal int ScaledCheckWidth => CheckBoxes ? LogicalToDeviceUnits (CheckGlyphSize + 4) : 0;
+        internal int ScaledCheckWidth => !CheckBoxes ? 0 : LogicalToDeviceUnits (UsesUpstreamLook ? UpstreamCheckWidth : CheckGlyphSize + 4);
 
         private const int CheckGlyphSize = 13;
 
@@ -1002,6 +1002,9 @@ namespace Majorsilence.Forms
         // upstream's state image goes.
         internal int CheckColumnLeft (TreeNode node)
         {
+            if (UsesUpstreamLook)
+                return UpstreamContentLeft (node);
+
             var indent = node.Bounds.Left + node.IndentLevel * LogicalToDeviceUnits (Indent) + 2;
 
             return ShowPlusMinus ? indent + LogicalToDeviceUnits (CheckGlyphSize) : indent;
