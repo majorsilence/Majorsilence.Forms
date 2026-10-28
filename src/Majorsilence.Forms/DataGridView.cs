@@ -2493,11 +2493,21 @@ namespace Majorsilence.Forms
 
         // Drops the current cell and the selection without announcing anything, so the bind that follows
         // seeds the first cell afresh rather than keeping whatever index was current before.
-        private void ResetCurrentCellSilently ()
+        internal void ResetCurrentCellSilently ()
         {
             ClearSelectionCore ();
             selected_row_index = -1;
             selected_column_index = -1;
+        }
+
+        // Makes (rowIndex, columnIndex) current and selects it the way the selection mode selects a
+        // current cell -- the whole selection replaced -- without announcing anything.
+        internal void SeedCurrentCellSilently (int rowIndex, int columnIndex)
+        {
+            ClearSelectionCore ();
+            selected_row_index = rowIndex;
+            selected_column_index = columnIndex;
+            SelectCurrentCellSilently ();
         }
 
         [UnconditionalSuppressMessage ("Trimming", "IL2075", Justification = "Data binding requires runtime reflection over user-provided types.")]
@@ -2750,6 +2760,13 @@ namespace Majorsilence.Forms
             if (!seeded && HasSelectedElement ())
                 return;
 
+            SelectCurrentCellSilently ();
+        }
+
+        // Selects whatever the selection mode selects at the current cell address, through the core
+        // setters, so nothing is announced.
+        private void SelectCurrentCellSilently ()
+        {
             if (CellSelectsColumn) {
                 if (selected_column_index >= 0 && selected_column_index < Columns.Count)
                     Columns[selected_column_index].SetSelectedCore (true, ++selection_sequence);

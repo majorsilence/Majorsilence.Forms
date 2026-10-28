@@ -2673,16 +2673,152 @@ namespace Majorsilence.Forms.Telerik
             }
         }
 
-        // The base grid announces a bind with System.Windows.Forms' sequence (RowEnter, CurrentCellChanged,
-        // CellEnter, SelectionChanged, with a leave sequence before a rebind). Telerik's grid announces a
-        // bind differently -- CurrentRowChanged first, no leave sequence -- so the forwarded base events
-        // would put Telerik's events in the wrong order. Until this grid raises Telerik's own sequence it
-        // keeps the silent seeding it had: the current cell kept across a rebind, nothing announced.
-        internal override void OnFullBindStarting () { }
+        // ── Bind notifications ──
+        //
+        // A bind makes the first row current and Telerik announces it, so the idiom of filling a detail
+        // pane from CurrentRowChanged/SelectionChanged works on bind as well as on a click. The base grid
+        // seeds the current cell silently, which left such panes empty. Measured on UI for WinForms
+        // 2026.2.520 (RadGridView on a shown form):
+        //
+        //   bind with rows                  CurrentRowChanged (old null), CurrentCellChanged,
+        //                                   SelectionChanged, DataBindingComplete
+        //   rebind, a data row was current  CurrentCellChanged, then the same four as above
+        //   bind 0 rows, new row shown      the same four, the new row current
+        //   bind 0 rows, no new row         CurrentRowChanged (old and new null) and CurrentCellChanged
+        //                                   if a data row was current, then DataBindingComplete
+        //   DataSource = null               nothing
+        //   the same DataSource again       nothing
+        //   ItemAdded / ItemDeleted         no DataBindingComplete; an added row becomes current, raising
+        //                                   CurrentRowChanged, CurrentCellChanged, SelectionChanged
+        //   grid on a form not yet shown    nothing until it is shown, then the bind's four events
+        //   grid never parented             nothing at all
+        //
+        // A rebind always lands on the first row and first column, whatever was current before. A bind
+        // raises no CurrentColumnChanged, so the tracked column is brought up to date silently.
 
-        internal override void OnFullBindFinished () { }
+        // A data row was current when the bind started (only tracked while the grid is live).
+        private bool _bindHadCurrentDataRow;
 
-        internal override void OnBoundItemAdded (DataGridViewRow? row, DataGridViewRow? previousCurrent) => SetInitialCurrentCell ();
+        // A bind (or list change) happened before the grid went live; announced when it does.
+        private bool _bindAnnouncementPending;
+
+        internal override void OnFullBindStarting ()
+        {
+            var row = SelectedRowIndex;
+            _bindHadCurrentDataRow = Created && row >= 0 && row < base.Rows.Count && !IsStructuralRow (base.Rows[row]);
+            ResetCurrentCellSilently ();
+        }
+
+        internal override void OnFullBindFinished ()
+        {
+            DeselectNewRow ();
+
+            if (!Created) {
+                _bindAnnouncementPending |= DataSource is not null;
+                return;
+            }
+
+            if (DataSource is null) {
+                SyncTrackedCurrentCell ();
+                return;
+            }
+
+            AnnounceBoundCurrentRow (_bindHadCurrentDataRow);
+        }
+
+        internal override void OnBoundItemAdded (DataGridViewRow? row, DataGridViewRow? previousCurrent)
+        {
+            var index = row?.Index ?? -1;
+
+            if (!Created || index < 0) {
+                SetInitialCurrentCell ();
+                DeselectNewRow ();
+                return;
+            }
+
+            // The added row becomes current, in the column that was current.
+            var oldRow = previousCurrent is null || IsStructuralRow (previousCurrent) ? null : new GridViewDataRowInfo (previousCurrent);
+            SeedCurrentCellSilently (index, SelectedColumnIndex >= 0 ? SelectedColumnIndex : 0);
+            SyncTrackedCurrentCell ();
+            _currentRowChanged?.Invoke (this, new CurrentRowChangedEventArgs (oldRow, RowAt (index)));
+            CurrentCellChanged?.Invoke (this, new CurrentCellChangedEventArgs ());
+            _selectionChanged?.Invoke (this, EventArgs.Empty);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnDataBindingComplete (DataGridViewBindingCompleteEventArgs e)
+        {
+            // Not before the grid is live: Telerik's grid raises nothing until it is shown, and then
+            // raises the whole bind (OnCreateControl below).
+            if (!Created) {
+                _bindAnnouncementPending |= DataSource is not null;
+                return;
+            }
+
+            // Rows added to or removed from the bound list are not a binding completing in Telerik's grid.
+            if (e.ListChangedType is ListChangedType.ItemAdded or ListChangedType.ItemDeleted)
+                return;
+
+            base.OnDataBindingComplete (e);
+        }
+
+        /// <inheritdoc/>
+        protected override void OnCreateControl ()
+        {
+            base.OnCreateControl ();
+
+            if (!_bindAnnouncementPending)
+                return;
+
+            _bindAnnouncementPending = false;
+
+            if (DataSource is null)
+                return;
+
+            AnnounceBoundCurrentRow (hadCurrentDataRow: false);
+            base.OnDataBindingComplete (new DataGridViewBindingCompleteEventArgs (ListChangedType.Reset));
+        }
+
+        // Raises the bind's current-row events for the row the bind seeded (see the table above).
+        private void AnnounceBoundCurrentRow (bool hadCurrentDataRow)
+        {
+            var row = SelectedRowIndex;
+            var hasRow = row >= 0 && row < base.Rows.Count;
+            var hasDataRow = hasRow && !IsStructuralRow (base.Rows[row]);
+
+            SyncTrackedCurrentCell ();
+
+            if (!hasRow && !hadCurrentDataRow)
+                return;
+
+            if (hadCurrentDataRow && hasDataRow)
+                CurrentCellChanged?.Invoke (this, new CurrentCellChangedEventArgs ());
+
+            _currentRowChanged?.Invoke (this, new CurrentRowChangedEventArgs (null, RowAt (row)));
+            CurrentCellChanged?.Invoke (this, new CurrentCellChangedEventArgs ());
+
+            if (hasRow)
+                _selectionChanged?.Invoke (this, EventArgs.Empty);
+        }
+
+        // The new-row placeholder can be current -- a bind of no rows lands on it -- but Telerik's grid
+        // does not count it as selected (SelectedRows is empty).
+        private void DeselectNewRow ()
+        {
+            var row = SelectedRowIndex;
+
+            if (row >= 0 && row < base.Rows.Count && IsStructuralRow (base.Rows[row]))
+                ClearSelectionCore ();
+        }
+
+        // Brings what RaiseCurrentRowOrColumnChanged compares against up to date -- computed the way it
+        // computes it -- so the next click does not re-announce a move the bind already announced.
+        private void SyncTrackedCurrentCell ()
+        {
+            var cell = base.CurrentCell;
+            _lastCurrentRowIndex = cell?.RowIndex ?? -1;
+            _lastCurrentColumnIndex = cell?.ColumnIndex ?? -1;
+        }
 
         // Raises ValueChanging; if a handler cancels, reverts the cell to the captured old value. Returns true if rejected.
         private bool RaiseValueChanging (int columnIndex, int rowIndex)
