@@ -313,8 +313,8 @@ namespace Majorsilence.Forms.Telerik
 
     /// <summary>
     /// Telerik-compat conditional-formatting rule. Added to a column's
-    /// <c>ConditionalFormattingObjectList</c>; when its condition matches a cell, the configured colors
-    /// are applied to the cell (or the whole row when <see cref="ApplyOnSelectedRows"/> is set).
+    /// <c>ConditionalFormattingObjectList</c>; when its condition matches a cell, the cell takes the cell colors
+    /// and, with <see cref="ApplyToRow"/>, the rest of its row the row colors.
     /// </summary>
     public class ConditionalFormattingObject
     {
@@ -328,7 +328,7 @@ namespace Majorsilence.Forms.Telerik
             ConditionType = condition;
             TValue1 = value1;
             TValue2 = value2;
-            ApplyOnSelectedRows = applyToRow;
+            ApplyToRow = applyToRow;
         }
 
         /// <summary>Gets or sets the rule name.</summary>
@@ -341,16 +341,18 @@ namespace Majorsilence.Forms.Telerik
         public string TValue1 { get; set; } = string.Empty;
         /// <summary>Gets or sets the second comparison value (used by <see cref="ConditionTypes.Between"/>).</summary>
         public string TValue2 { get; set; } = string.Empty;
-        /// <summary>Gets or sets whether the formatting applies to the whole row rather than just the cell.</summary>
-        public bool ApplyOnSelectedRows { get; set; }
+        /// <summary>Gets or sets whether a matching row takes the row colors as well as its cell the cell colors.</summary>
+        public bool ApplyToRow { get; set; }
+        /// <summary>Gets or sets whether a selected row shows the rule's colors; when not, it keeps the selection's.</summary>
+        public bool ApplyOnSelectedRows { get; set; } = true;
 
         /// <summary>Gets or sets the cell background color when the rule matches.</summary>
         public System.Drawing.Color CellBackColor { get; set; } = System.Drawing.Color.Empty;
         /// <summary>Gets or sets the cell text color when the rule matches.</summary>
         public System.Drawing.Color CellForeColor { get; set; } = System.Drawing.Color.Empty;
-        /// <summary>Gets or sets the row background color when the rule matches (with <see cref="ApplyOnSelectedRows"/>).</summary>
+        /// <summary>Gets or sets the row background color when the rule matches (with <see cref="ApplyToRow"/>).</summary>
         public System.Drawing.Color RowBackColor { get; set; } = System.Drawing.Color.Empty;
-        /// <summary>Gets or sets the row text color when the rule matches (with <see cref="ApplyOnSelectedRows"/>).</summary>
+        /// <summary>Gets or sets the row text color when the rule matches (with <see cref="ApplyToRow"/>).</summary>
         public System.Drawing.Color RowForeColor { get; set; } = System.Drawing.Color.Empty;
 
         /// <summary>Returns whether the supplied cell display text satisfies this rule.</summary>

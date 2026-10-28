@@ -3093,6 +3093,8 @@ namespace Majorsilence.Forms.Telerik
             foreach (DataGridViewCell cell in row.Cells) {
                 cell.Style.BackgroundColor = null;
                 cell.Style.ForegroundColor = null;
+                cell.Style.SelectionBackColor = Color.Empty;
+                cell.Style.SelectionForeColor = Color.Empty;
                 cell.FormattedTextOverride = null;
             }
 
@@ -3185,19 +3187,35 @@ namespace Majorsilence.Forms.Telerik
                 cell.FormattedTextOverride = displayText;
         }
 
-        // Applies a column's non-row conditional-formatting rules to a single cell.
+        // Applies a column's conditional-formatting rules to its cell: the cell colors, whether or not the rule
+        // also colors the row, as Telerik's -- measured (UI for WinForms 2026.2.520), the matching cell of an
+        // ApplyToRow rule takes CellBackColor while the rest of the row takes RowBackColor.
         private static void ApplyCellConditionalFormatting (DataGridViewCell cell, DataGridViewColumn? column, string displayText)
         {
             if (column is not GridViewColumn gvc || gvc.ConditionalFormattingObjectList.Count == 0)
                 return;
 
             foreach (var rule in gvc.ConditionalFormattingObjectList) {
-                if (rule.ApplyOnSelectedRows || !rule.Matches (displayText))
+                if (!rule.Matches (displayText))
                     continue;
-                if (rule.CellBackColor != Color.Empty)
-                    cell.Style.BackgroundColor = ToSK (rule.CellBackColor);
-                if (rule.CellForeColor != Color.Empty)
-                    cell.Style.ForegroundColor = ToSK (rule.CellForeColor);
+
+                SetRuleColors (cell, rule, rule.CellBackColor, rule.CellForeColor);
+            }
+        }
+
+        // A rule's colors on a cell. A selected row shows them too unless the rule says otherwise, in which case the
+        // selection's colors win while it is selected -- Telerik's ApplyOnSelectedRows.
+        private static void SetRuleColors (DataGridViewCell cell, ConditionalFormattingObject rule, Color back, Color fore)
+        {
+            if (back != Color.Empty) {
+                cell.Style.BackgroundColor = ToSK (back);
+                if (rule.ApplyOnSelectedRows)
+                    cell.Style.SelectionBackColor = back;
+            }
+            if (fore != Color.Empty) {
+                cell.Style.ForegroundColor = ToSK (fore);
+                if (rule.ApplyOnSelectedRows)
+                    cell.Style.SelectionForeColor = fore;
             }
         }
 
@@ -3211,22 +3229,12 @@ namespace Majorsilence.Forms.Telerik
                 var text = GetCellDisplay (row, i);
 
                 foreach (var rule in gvc.ConditionalFormattingObjectList) {
-                    if (!rule.ApplyOnSelectedRows || !rule.Matches (text))
+                    if (!rule.ApplyToRow || !rule.Matches (text))
                         continue;
 
-                    var back = rule.RowBackColor != Color.Empty ? rule.RowBackColor : rule.CellBackColor;
-                    var fore = rule.RowForeColor != Color.Empty ? rule.RowForeColor : rule.CellForeColor;
-
-                    if (back != Color.Empty) {
-                        var sk = ToSK (back);
-                        foreach (DataGridViewCell c in row.Cells)
-                            c.Style.BackgroundColor = sk;
-                    }
-                    if (fore != Color.Empty) {
-                        var sk = ToSK (fore);
-                        foreach (DataGridViewCell c in row.Cells)
-                            c.Style.ForegroundColor = sk;
-                    }
+                    // Only the row colors: a rule with none leaves the rest of the row as it is.
+                    foreach (DataGridViewCell c in row.Cells)
+                        SetRuleColors (c, rule, rule.RowBackColor, rule.RowForeColor);
                 }
             }
         }
