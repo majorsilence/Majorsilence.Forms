@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Globalization;
 using Majorsilence.Forms.Backends;
 
@@ -13,6 +14,128 @@ namespace Majorsilence.Forms.Telerik
     {
         /// <summary>Gets or sets the document's content as HTML.</summary>
         public string Html { get; set; } = string.Empty;
+
+        /// <summary>Gets whether the document has no content.</summary>
+        /// <remarks>
+        /// Read from <see cref="Html"/> the way Telerik's HTML import builds its document (measured on
+        /// UI.for.WinForms 2026.2.520): text makes a document non-empty, a space or a non-breaking space
+        /// included, and so do an image, a table and a line break. Empty paragraphs, divisions, spans and
+        /// list items, a horizontal rule, comments, the head and style blocks do not, and neither does
+        /// whitespace between blocks or text made only of line breaks.
+        /// </remarks>
+        public bool IsEmpty => !RadDocumentContent.HasContent (Html);
+    }
+
+    // The reading behind RadDocument.IsEmpty: a forward scan over the HTML that tracks the innermost
+    // open element, so whitespace sitting between blocks can be told from whitespace inside a paragraph.
+    internal static class RadDocumentContent
+    {
+        // Elements Telerik's importer turns into content even when they hold no text.
+        private static readonly HashSet<string> content_elements = new (StringComparer.OrdinalIgnoreCase) { "img", "table", "br" };
+
+        // Elements whose contents never reach the document.
+        private static readonly HashSet<string> skipped_elements = new (StringComparer.OrdinalIgnoreCase) { "head", "style", "script", "title" };
+
+        // Containers whitespace directly inside of is layout, not text.
+        private static readonly HashSet<string> structural_elements = new (StringComparer.OrdinalIgnoreCase) {
+            "html", "body", "ul", "ol", "dl", "table", "thead", "tbody", "tfoot", "tr", "colgroup"
+        };
+
+        private static readonly HashSet<string> void_elements = new (StringComparer.OrdinalIgnoreCase) {
+            "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"
+        };
+
+        public static bool HasContent (string? html)
+        {
+            if (string.IsNullOrEmpty (html))
+                return false;
+
+            var open = new List<string> ();
+            var i = 0;
+
+            while (i < html.Length) {
+                if (html[i] != '<') {
+                    var end = html.IndexOf ('<', i);
+                    if (end < 0)
+                        end = html.Length;
+
+                    if (IsText (html.Substring (i, end - i), open.Count == 0 ? null : open[open.Count - 1]))
+                        return true;
+
+                    i = end;
+                    continue;
+                }
+
+                if (string.CompareOrdinal (html, i, "<!--", 0, 4) == 0) {
+                    var close = html.IndexOf ("-->", i + 4, StringComparison.Ordinal);
+                    i = close < 0 ? html.Length : close + 3;
+                    continue;
+                }
+
+                var tag_end = html.IndexOf ('>', i);
+                if (tag_end < 0)
+                    return IsText (html.Substring (i), open.Count == 0 ? null : open[open.Count - 1]);
+
+                var tag = html.Substring (i + 1, tag_end - i - 1).Trim ();
+                i = tag_end + 1;
+
+                if (tag.Length == 0 || tag[0] == '!' || tag[0] == '?')
+                    continue;
+
+                var closing = tag[0] == '/';
+                var name = TagName (closing ? tag.Substring (1) : tag);
+
+                if (name.Length == 0)
+                    continue;
+
+                if (closing) {
+                    var at = open.FindLastIndex (n => string.Equals (n, name, StringComparison.OrdinalIgnoreCase));
+                    if (at >= 0)
+                        open.RemoveRange (at, open.Count - at);
+                    continue;
+                }
+
+                if (content_elements.Contains (name))
+                    return true;
+
+                if (skipped_elements.Contains (name)) {
+                    var close = html.IndexOf ("</" + name, i, StringComparison.OrdinalIgnoreCase);
+                    var close_end = close < 0 ? -1 : html.IndexOf ('>', close);
+                    i = close_end < 0 ? html.Length : close_end + 1;
+                    continue;
+                }
+
+                if (!void_elements.Contains (name) && tag[tag.Length - 1] != '/')
+                    open.Add (name);
+            }
+
+            return false;
+        }
+
+        private static string TagName (string tag)
+        {
+            var length = 0;
+
+            while (length < tag.Length && (char.IsLetterOrDigit (tag[length]) || tag[length] == '-' || tag[length] == ':'))
+                length++;
+
+            return tag.Substring (0, length);
+        }
+
+        private static bool IsText (string raw, string? container)
+        {
+            var text = System.Net.WebUtility.HtmlDecode (raw).Replace ("\r", string.Empty).Replace ("\n", string.Empty);
+
+            if (text.Length == 0)
+                return false;
+
+            // Spaces between blocks (or outside any element) are layout; inside a paragraph they are text.
+            // A non-breaking space is never layout.
+            if (container is null || structural_elements.Contains (container))
+                return text.Any (c => !char.IsWhiteSpace (c) || c == (char) 0xA0);
+
+            return true;
+        }
     }
 
     /// <summary>
@@ -124,10 +247,22 @@ namespace Majorsilence.Forms.Telerik
         private string? _pendingHtml;
         private bool _pageReady;
         private bool _isReadOnly;
+        private bool _isSpellCheckingEnabled;
+        private Color _selectionFill = DefaultSelectionFill;
+        private SizeF _scaleFactor = new SizeF (1, 1);
+        private Majorsilence.Forms.SpellCheck.SpellChecker? _fallbackSpellChecker;
+
+        // Telerik's defaults for the editor's frame and selection (UI.for.WinForms 2026.2.520).
+        private static readonly Color DefaultBorderColor = Color.FromArgb (156, 189, 232);
+        private static readonly Color DefaultSelectionFill = Color.FromArgb (128, 78, 158, 255);
 
         /// <summary>Initializes a new instance of the <see cref="RadRichTextEditor"/> class.</summary>
         public RadRichTextEditor ()
         {
+            // Telerik frames the editor in a 1px border of BorderColor, inside which the document sits.
+            Style.Border.Width = 1;
+            Style.Border.Color = DefaultBorderColor.ToSKColor ();
+
             _host = Controls.AddImplicitControl (new WebViewHost { Dock = DockStyle.Fill });
 
             if (_host.IsFunctional && _host.WebViewHandle is IWebViewHandle handle) {
@@ -137,6 +272,7 @@ namespace Majorsilence.Forms.Telerik
                 _fallbackTextBox = Controls.AddImplicitControl (new Majorsilence.Forms.RichTextBox {
                     Dock = DockStyle.Fill,
                 });
+                _fallbackTextBox.document.SelectionColor = _selectionFill.ToSKColor ();
 
                 // Note: Majorsilence.Forms.TextBox mutates its document directly for both programmatic and
                 // typed edits and never raises TextChanged (see TextBox.cs's Text override and its
@@ -147,6 +283,9 @@ namespace Majorsilence.Forms.Telerik
                 // raised for programmatic Document.set calls in fallback mode.
             }
         }
+
+        // The plain-text fallback, for tests: null when a webview backs the editor.
+        internal Majorsilence.Forms.RichTextBox? FallbackTextBox => _fallbackTextBox;
 
         /// <summary>Gets whether a functional native webview backs this control (as opposed to the plain-text fallback).</summary>
         public bool IsWebViewFunctional => _host.IsFunctional;
@@ -179,6 +318,87 @@ namespace Majorsilence.Forms.Telerik
                     _ = ExecuteScriptAsyncSafe ($"msReadOnly({(value ? "true" : "false")})");
             }
         }
+
+        /// <summary>Gets or sets whether misspelled words are marked as the user types. Off by default, as Telerik's is.</summary>
+        /// <remarks>
+        /// On the webview the page's own <c>spellcheck</c> attribute follows it; on the plain-text fallback a
+        /// <see cref="Majorsilence.Forms.SpellCheck.SpellChecker"/> is attached to the text box while it is on,
+        /// and detached when it is turned off.
+        /// </remarks>
+        public bool IsSpellCheckingEnabled {
+            get => _isSpellCheckingEnabled;
+            set {
+                if (_isSpellCheckingEnabled == value)
+                    return;
+
+                _isSpellCheckingEnabled = value;
+
+                if (_fallbackTextBox != null) {
+                    if (value)
+                        _fallbackSpellChecker ??= new Majorsilence.Forms.SpellCheck.SpellChecker ();
+
+                    Majorsilence.Forms.SpellCheck.TextBoxSpellCheck.SetSpellChecker (_fallbackTextBox, value ? _fallbackSpellChecker : null);
+                } else if (_pageReady) {
+                    _ = ExecuteScriptAsyncSafe (value ? "msSpellcheck(true)" : "msSpellcheck(false)");
+                }
+            }
+        }
+
+        /// <summary>Gets or sets the colour of the 1px border the editor is framed in.</summary>
+        public Color BorderColor {
+            get => Style.Border.Color is { } colour ? colour.ToDrawingColor () : DefaultBorderColor;
+            set {
+                Style.Border.Color = value.ToSKColor ();
+                Invalidate ();
+            }
+        }
+
+        /// <summary>Gets or sets the colour selected text is highlighted with.</summary>
+        public Color SelectionFill {
+            get => _selectionFill;
+            set {
+                if (_selectionFill == value)
+                    return;
+
+                _selectionFill = value;
+
+                if (_fallbackTextBox != null)
+                    _fallbackTextBox.document.SelectionColor = value.ToSKColor ();
+                else if (_pageReady)
+                    _ = ExecuteScriptAsyncSafe (SelectionFillScript ());
+            }
+        }
+
+        /// <summary>Gets or sets the view's zoom: 1 shows the document at its own size, 2 at twice it.</summary>
+        /// <remarks>
+        /// Telerik's view scale, not the display's DPI factor <see cref="Control.ScaleFactor"/> reports. Zero is
+        /// accepted, a negative width or height throws, as Telerik's does. The webview scales the page by it; the
+        /// plain-text fallback zooms its text by the height factor, within the range
+        /// <see cref="Majorsilence.Forms.RichTextBox.ZoomFactor"/> accepts.
+        /// </remarks>
+        public new SizeF ScaleFactor {
+            get => _scaleFactor;
+            set {
+                if (value.Width < 0 || value.Height < 0)
+                    throw new ArgumentException ("The width and height of the scale factor cannot be negative.", nameof (value));
+
+                if (_scaleFactor == value)
+                    return;
+
+                _scaleFactor = value;
+
+                if (_fallbackTextBox != null)
+                    _fallbackTextBox.ZoomFactor = Math.Min (Math.Max (value.Height, 0.016f), 63.99f);
+                else if (_pageReady)
+                    _ = ExecuteScriptAsyncSafe (ZoomScript ());
+            }
+        }
+
+        private string SelectionFillScript ()
+            => FormattableString.Invariant ($"msSelectionFill('rgba({_selectionFill.R},{_selectionFill.G},{_selectionFill.B},{_selectionFill.A / 255.0:0.###})')");
+
+        private string ZoomScript ()
+            => FormattableString.Invariant ($"msZoom({_scaleFactor.Width:0.#####}, {_scaleFactor.Height:0.#####})");
 
         /// <summary>Gets or sets the spell checker attached to the editor. Majorsilence.Forms uses the host browser's native spellcheck; see <see cref="DocumentSpellChecker"/>.</summary>
         public ISpellChecker SpellChecker { get; set; } = new DocumentSpellChecker ();
@@ -293,6 +513,15 @@ namespace Majorsilence.Forms.Telerik
                     if (_isReadOnly)
                         _ = ExecuteScriptAsyncSafe ("msReadOnly(true)");
 
+                    if (_isSpellCheckingEnabled)
+                        _ = ExecuteScriptAsyncSafe ("msSpellcheck(true)");
+
+                    if (_selectionFill != DefaultSelectionFill)
+                        _ = ExecuteScriptAsyncSafe (SelectionFillScript ());
+
+                    if (_scaleFactor != new SizeF (1, 1))
+                        _ = ExecuteScriptAsyncSafe (ZoomScript ());
+
                     if (_pendingHtml is string queued) {
                         _pendingHtml = null;
                         _ = FlushHtmlAsync (queued);
@@ -320,11 +549,12 @@ namespace Majorsilence.Forms.Telerik
             <meta charset="utf-8">
             <style>
               html, body { margin: 0; padding: 0; height: 100%; font-family: sans-serif; font-size: 14px; }
-              #editor { min-height: 100%; padding: 8px; outline: none; box-sizing: border-box; }
+              #editor { min-height: 100%; padding: 8px; outline: none; box-sizing: border-box; transform-origin: 0 0; }
             </style>
+            <style id="selectionFill">#editor::selection, #editor *::selection { background: rgba(78,158,255,0.502); }</style>
             </head>
             <body>
-            <div id="editor" contenteditable="true" spellcheck="true"></div>
+            <div id="editor" contenteditable="true" spellcheck="false"></div>
             <script>
               document.execCommand('styleWithCSS', true);
               var editor = document.getElementById('editor');
@@ -335,8 +565,15 @@ namespace Majorsilence.Forms.Telerik
                 }
               }
 
+              // An editor the user has emptied is an empty document, as it is in Telerik's: the browser
+              // leaves a lone line break (or an empty block holding one) behind as a caret placeholder.
+              function currentHtml() {
+                var html = editor.innerHTML;
+                return /^\s*(<(div|p)>)?<br\s*\/?>(<\/(div|p)>)?\s*$/i.test(html) ? '' : html;
+              }
+
               function notifyContent() {
-                post({ type: 'content', html: editor.innerHTML });
+                post({ type: 'content', html: currentHtml() });
               }
 
               editor.addEventListener('input', notifyContent);
@@ -353,6 +590,20 @@ namespace Majorsilence.Forms.Telerik
 
               window.msReadOnly = function (ro) {
                 editor.setAttribute('contenteditable', ro ? 'false' : 'true');
+              };
+
+              window.msSpellcheck = function (on) {
+                editor.setAttribute('spellcheck', on ? 'true' : 'false');
+              };
+
+              window.msSelectionFill = function (css) {
+                document.getElementById('selectionFill').textContent =
+                  '#editor::selection, #editor *::selection { background: ' + css + '; }';
+              };
+
+              window.msZoom = function (sx, sy) {
+                editor.style.transform = 'scale(' + sx + ',' + sy + ')';
+                editor.style.width = sx > 0 ? (100 / sx) + '%' : '';
               };
 
               post({ type: 'ready' });

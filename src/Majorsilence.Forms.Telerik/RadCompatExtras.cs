@@ -14,7 +14,7 @@ namespace Majorsilence.Forms.Telerik
     /// <see cref="PropertyStoreItem.Value"/>. <see cref="PropertyStoreItem.DefaultValue"/> is what a
     /// reset returns to.
     /// </remarks>
-    public class RadPropertyStore : ICustomTypeDescriptor
+    public class RadPropertyStore : ICustomTypeDescriptor, System.Collections.Generic.IEnumerable<PropertyStoreItem>
     {
         /// <summary>The stored items.</summary>
         public System.Collections.Generic.List<PropertyStoreItem> Items { get; } = new ();
@@ -24,6 +24,14 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Returns the stored items as an array. Mirrors Telerik.</summary>
         public PropertyStoreItem[] ToArray () => Items.ToArray ();
+
+        /// <summary>Gets the number of items in the store.</summary>
+        public int Count => Items.Count;
+
+        /// <summary>Returns an enumerator over the stored items, in the order they were added.</summary>
+        public System.Collections.Generic.IEnumerator<PropertyStoreItem> GetEnumerator () => Items.GetEnumerator ();
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator () => GetEnumerator ();
 
         /// <summary>Gets the item with the given name, or null.</summary>
         public PropertyStoreItem? this[string name]
@@ -330,6 +338,44 @@ namespace Majorsilence.Forms.Telerik
             }
         }
 
+        /// <summary>Gets whether the property's value differs from its default -- the values a property grid shows in bold.</summary>
+        /// <remarks>Answered by the property's descriptor (<c>ShouldSerializeValue</c>), as the core grid's bold rows are: a
+        /// <c>DefaultValue</c> attribute or a <c>ShouldSerialize</c> method, or for a <see cref="RadPropertyStore"/> item its
+        /// <see cref="PropertyStoreItem.DefaultValue"/>. A detached item is never modified.</remarks>
+        public bool IsModified {
+            [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2026", Justification = "The property grid reads through TypeDescriptor at runtime, as the core grid does.")]
+            get {
+                if (Grid is not { } grid || Entry is not { PropertyDescriptor: { } property } entry)
+                    return false;
+
+                var component = (entry as Majorsilence.Forms.PropertyGrid.PropertyGridEntry)?.Component ?? grid.SelectedObject;
+
+                if (component is null)
+                    return false;
+
+                try {
+                    return property.ShouldSerializeValue (component);
+                } catch (Exception ex) when (ex is ArgumentException or InvalidCastException or NotSupportedException
+                                                or System.Reflection.TargetInvocationException) {
+                    return false;
+                }
+            }
+        }
+
+        /// <summary>Gets how deep the item is: 0 for a property of the inspected object, 1 for a part of one, and so on.</summary>
+        /// <remarks>Category groups do not count, as in Telerik's hierarchy a group is not a property level.</remarks>
+        public int Level {
+            get {
+                var level = 0;
+
+                for (var parent = Entry?.Parent; parent is not null; parent = parent.Parent)
+                    if (parent.GridItemType == GridItemType.Property)
+                        level++;
+
+                return level;
+            }
+        }
+
         /// <summary>Gets or sets whether the value can be edited, on top of the property's own read-only flag.</summary>
         public bool ReadOnly {
             get => read_only || Entry?.PropertyDescriptor?.IsReadOnly == true;
@@ -425,8 +471,16 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Compat stand-in for the property-grid spin (numeric) editor.</summary>
     public class PropertyGridSpinEditor
     {
-        /// <summary>Gets the editor's visual element.</summary>
-        public RadElement EditorElement { get; } = new RadElement ();
+        /// <summary>Gets the editor's visual element, a <see cref="BaseSpinEditorElement"/>.</summary>
+        public RadElement EditorElement { get; } = new BaseSpinEditorElement ();
+
+        // The control the grid edits with: a spin box showing the element's decimal places, over the whole decimal range.
+        internal NumericUpDown CreateControl ()
+            => new NumericUpDown {
+                Minimum = decimal.MinValue,
+                Maximum = decimal.MaxValue,
+                DecimalPlaces = ((BaseSpinEditorElement) EditorElement).DecimalPlaces,
+            };
 
         /// <summary>Gets or sets the editor's current value.</summary>
         public object? Value { get; set; }
@@ -477,13 +531,14 @@ namespace Majorsilence.Forms.Telerik
     public class GridViewCustomFilteringEventArgs : EventArgs
     {
         /// <summary>The row being evaluated.</summary>
-        public object? Row { get; set; }
+        public GridViewRowInfo? Row { get; set; }
 
         /// <summary>Whether the row is visible under the filter.</summary>
         public bool Visible { get; set; } = true;
 
-        /// <summary>Whether the event was handled by the custom filter.</summary>
-        public bool Handled { get; set; }
+        /// <summary>Whether <see cref="Visible"/> is the answer. True by default, as Telerik's: a handler that only
+        /// sets <see cref="Visible"/> decides the row. False leaves the row to the filter descriptors.</summary>
+        public bool Handled { get; set; } = true;
     }
 
     /// <summary>Provides data for cell validation completion. Mirrors Telerik's CellValidatedEventArgs.</summary>
@@ -553,7 +608,32 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Compat stand-in for a spin editor's visual element.</summary>
-    public class BaseSpinEditorElement : BaseTextBoxEditorElement { }
+    public class BaseSpinEditorElement : BaseTextBoxEditorElement
+    {
+        /// <summary>Gets or sets the number of decimal places the spin editor shows and edits.</summary>
+        public int DecimalPlaces { get; set; }
+    }
+
+    /// <summary>
+    /// Compat for Telerik's PropertyGridTableElement, the element of a <see cref="RadPropertyGrid"/> that holds its rows.
+    /// It is the sender of the grid's <see cref="RadPropertyGrid.EditorRequired"/> event, as Telerik's is.
+    /// </summary>
+    public class PropertyGridTableElement : RadElement
+    {
+        internal PropertyGridTableElement (RadPropertyGrid grid) => PropertyGrid = grid;
+
+        /// <summary>Gets the grid the element belongs to.</summary>
+        public RadPropertyGrid PropertyGrid { get; }
+    }
+
+    /// <summary>Compat for Telerik's PropertyGridElement, the main element of a <see cref="RadPropertyGrid"/>.</summary>
+    public class PropertyGridElement : RadElement
+    {
+        internal PropertyGridElement (RadPropertyGrid grid) => PropertyTableElement = new PropertyGridTableElement (grid);
+
+        /// <summary>Gets the element that holds the grid's rows.</summary>
+        public PropertyGridTableElement PropertyTableElement { get; }
+    }
 
     /// <summary>Compat stand-in for a drop-down-list editor's visual element.</summary>
     public class BaseDropDownListEditorElement : RadElement
@@ -593,6 +673,58 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Raised when <see cref="SelectedValue"/> changes.</summary>
         public event EventHandler? SelectedValueChanged;
+    }
+
+    /// <summary>Which edges of a drop-down a user may drag to resize it. Compat for Telerik's SizingMode.</summary>
+    public enum SizingMode
+    {
+        /// <summary>The drop-down cannot be resized.</summary>
+        None = 0,
+        /// <summary>The right and bottom edges.</summary>
+        RightBottom = 1,
+        /// <summary>The top and bottom edges.</summary>
+        UpDown = 2,
+        /// <summary>The top, bottom and right edges.</summary>
+        UpDownAndRightBottom = 3
+    }
+
+    /// <summary>The element of a grid's <see cref="RadDropDownListEditor"/>.</summary>
+    public class RadDropDownListEditorElement : BaseDropDownListEditorElement
+    {
+        /// <summary>Initializes a new instance, editable (<see cref="RadDropDownStyle.DropDown"/>) as Telerik's starts.</summary>
+        public RadDropDownListEditorElement () => DropDownStyle = RadDropDownStyle.DropDown;
+
+        /// <summary>Gets or sets which edges of the drop-down a user may drag to resize it.</summary>
+        /// <remarks>Stored: the compat grid's drop-down is not resizable.</remarks>
+        public SizingMode DropDownSizingMode { get; set; } = SizingMode.None;
+    }
+
+    /// <summary>
+    /// The editor a <see cref="RadGridView"/> edits a <see cref="GridViewComboBoxColumn"/> cell with, as
+    /// <see cref="RadGridView.ActiveEditor"/> reports it while the cell is being edited -- from
+    /// <c>CellBeginEdit</c> on, as Telerik's grid does. One editor serves every combo edit of a grid.
+    /// </summary>
+    public class RadDropDownListEditor : IInputEditor
+    {
+        /// <summary>Gets the editor's element.</summary>
+        public RadElement EditorElement { get; } = new RadDropDownListEditorElement ();
+
+        private RadDropDownListEditorElement Element => (RadDropDownListEditorElement) EditorElement;
+
+        /// <summary>Gets or sets the value being edited: the cell's value when the edit begins.</summary>
+        public object? Value { get; set; }
+
+        /// <summary>Gets or sets the drop-down style (the element's).</summary>
+        public RadDropDownStyle DropDownStyle {
+            get => Element.DropDownStyle;
+            set => Element.DropDownStyle = value;
+        }
+
+        /// <summary>Gets or sets which edges of the drop-down a user may drag to resize it (the element's).</summary>
+        public SizingMode DropDownSizingMode {
+            get => Element.DropDownSizingMode;
+            set => Element.DropDownSizingMode = value;
+        }
     }
 
     /// <summary>Compat stand-in for a date-time editor's visual element.</summary>
@@ -920,6 +1052,20 @@ namespace Majorsilence.Forms.Telerik.UI
 
 namespace Majorsilence.Forms.Telerik.Data
 {
+    /// <summary>
+    /// Relative-qualification seam: code written under Imports Telerik.WinControls references
+    /// Data.GroupDescriptor (Telerik's own namespace for it). It is the grid's group descriptor.
+    /// </summary>
+    public class GroupDescriptor : Majorsilence.Forms.Telerik.GroupDescriptor
+    {
+        /// <summary>Initializes a new group descriptor.</summary>
+        public GroupDescriptor () { }
+
+        /// <summary>Initializes a group descriptor for a column and direction.</summary>
+        public GroupDescriptor (string propertyName, System.ComponentModel.ListSortDirection direction = System.ComponentModel.ListSortDirection.Ascending)
+            : base (propertyName, direction) { }
+    }
+
     /// <summary>
     /// Relative-qualification seam: legacy code written under Imports Telerik.WinControls(.UI)
     /// references Data.PositionChangedEventArgs; with Majorsilence.Forms.Telerik imported this

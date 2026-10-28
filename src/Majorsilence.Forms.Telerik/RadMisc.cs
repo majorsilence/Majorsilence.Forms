@@ -90,6 +90,49 @@ namespace Majorsilence.Forms.Telerik
             get => Checked;
             set => Checked = value;
         }
+
+        /// <summary>Gets or sets the item's name, as the designer sets it.</summary>
+        public string Name { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets whether the item's text is drawn with GDI+ rather than GDI. Stored: there is one text pipeline here.</summary>
+        public bool UseCompatibleTextRendering { get; set; } = true;
+
+        /// <summary>Lets a menu item stand where Telerik's designer lists one as a <see cref="RadItem"/>.</summary>
+        /// <remarks>Telerik's RadMenuItem is itself a RadItem, so its designer writes
+        /// <c>menu.Items.AddRange (new RadItem[] { item1, item2 })</c>. Here a menu item is a real menu
+        /// item, so the conversion hands back a <see cref="RadItem"/> that refers to it, and a
+        /// <see cref="RadItemOwnerCollection"/> stores the menu item itself in its place.</remarks>
+        public static implicit operator RadItem (RadMenuItem item) => new RadMenuItemReference (item);
+    }
+
+    // The RadItem a RadMenuItem converts to: a reference back to the menu item, unwrapped by RadItemOwnerCollection.
+    internal sealed class RadMenuItemReference : RadItem
+    {
+        internal RadMenuItemReference (RadMenuItem item) => Item = item;
+
+        internal RadMenuItem Item { get; }
+    }
+
+    /// <summary>The items of a <see cref="RadContextMenu"/>: a list that stores a converted <see cref="RadMenuItem"/> as the menu item itself.</summary>
+    public class RadItemOwnerCollection : List<object>
+    {
+        private static object Unwrap (object item) => item is RadMenuItemReference reference ? reference.Item : item;
+
+        /// <summary>Adds an item.</summary>
+        public new void Add (object item) => base.Add (Unwrap (item));
+
+        /// <summary>Adds the items, in order.</summary>
+        public void AddRange (params RadItem[] items) => AddRange ((IEnumerable<object>) items);
+
+        /// <summary>Adds the items, in order.</summary>
+        public new void AddRange (IEnumerable<object> items)
+        {
+            foreach (var item in items)
+                Add (item);
+        }
+
+        /// <summary>Inserts an item at the given index.</summary>
+        public new void Insert (int index, object item) => base.Insert (index, Unwrap (item));
     }
 
     /// <summary>Telerik-compat menu separator.</summary>
@@ -137,7 +180,7 @@ namespace Majorsilence.Forms.Telerik
         public RadContextMenu (System.ComponentModel.IContainer container) { }
 
         /// <summary>Gets the menu items. Populate with <see cref="RadMenuItem"/>s (or other <see cref="Majorsilence.Forms.MenuItem"/>s).</summary>
-        public List<object> Items { get; } = new ();
+        public RadItemOwnerCollection Items { get; } = new ();
 
         /// <summary>Raised before the menu is shown, so handlers can populate <see cref="Items"/> lazily.</summary>
         public event EventHandler? DropDownOpening;
@@ -213,11 +256,13 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>
-    /// Telerik-compat static manager associating a <see cref="RadContextMenu"/> with a control, mirroring
+    /// Telerik-compat manager associating a <see cref="RadContextMenu"/> with a control, mirroring
     /// <c>RadContextMenuManager.SetRadContextMenu</c>/<c>GetRadContextMenu</c>. Hooks the control's
     /// right mouse button up to show the associated menu.
     /// </summary>
-    public static class RadContextMenuManager
+    /// <remarks>A component, as Telerik's is, so the designer's <c>new RadContextMenuManager ()</c> compiles; the
+    /// associations it keeps are the same for every instance.</remarks>
+    public class RadContextMenuManager : System.ComponentModel.Component
     {
         // Each entry keeps the menu alongside the exact hooked delegate instance, so a later Set(control, null)
         // (or replacing the menu) can unhook the correct handler (delegate -= requires the same instance).
@@ -297,6 +342,19 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets the property groups, indexable by group name.</summary>
         public PropertyGridGroupItemCollection Groups { get; } = new ();
 
+        private PropertyGridElement? property_grid_element;
+
+        /// <summary>Gets the grid's main element.</summary>
+        public PropertyGridElement PropertyGridElement => property_grid_element ??= new PropertyGridElement (this);
+
+        /// <summary>Gets or sets whether the items are grouped by category.</summary>
+        /// <remarks>The grouping is <see cref="PropertyGrid.PropertySort"/>'s: turning it on adds
+        /// <see cref="PropertySort.Categorized"/>, turning it off removes it, and an alphabetical order is kept either way.</remarks>
+        public bool EnableGrouping {
+            get => (PropertySort & PropertySort.Categorized) != 0;
+            set => PropertySort = value ? PropertySort | PropertySort.Categorized : PropertySort & ~PropertySort.Categorized;
+        }
+
         /// <summary>Gets or sets the sort order.</summary>
         /// <remarks>Stored: ordering is <see cref="PropertyGrid.PropertySort"/>'s, which the toolbar
         /// drives. Telerik's descriptor-based sort is not modelled.</remarks>
@@ -363,8 +421,10 @@ namespace Majorsilence.Forms.Telerik
         /// <remarks>A <see cref="Control"/> assigned to <c>e.Editor</c>, or a control type assigned to
         /// <c>e.EditorType</c>, is the editor the grid opens; it commits its <c>Text</c> (a
         /// <see cref="NumericUpDown"/> its value, a <see cref="CheckBox"/> its check) through the
-        /// property's converter. Telerik's own editor element types are not modelled, so an editor of
-        /// any other kind leaves the grid's built-in one.</remarks>
+        /// property's converter. A <see cref="PropertyGridSpinEditor"/> opens a spin box with its
+        /// element's decimal places. Other Telerik editor types are not modelled, so an editor of
+        /// any other kind leaves the grid's built-in one. The sender is the grid's
+        /// <see cref="PropertyGridTableElement"/>, as Telerik's is.</remarks>
         public event EventHandler<PropertyGridEditorRequiredEventArgs>? EditorRequired;
 
         /// <summary>Raised after an item's value is written, by an edit or through <see cref="PropertyGridItem.Value"/>.</summary>
@@ -405,6 +465,9 @@ namespace Majorsilence.Forms.Telerik
                 }
             }
         }
+
+        // The Telerik editor objects handlers supplied, by the control the grid edits with in their place.
+        private readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control, object> telerik_editors = new ();
 
         private PropertyGridItem? WrapperOf (Majorsilence.Forms.GridItem entry)
             => wrappers.TryGetValue (entry, out var item) ? item : null;
@@ -475,10 +538,18 @@ namespace Majorsilence.Forms.Telerik
                 return null;
 
             var args = new PropertyGridEditorRequiredEventArgs { Item = wrapper, EditorType = null };
-            EditorRequired (this, args);
+
+            // Telerik raises it from the table element; a handler reaches the grid through it.
+            EditorRequired (PropertyGridElement.PropertyTableElement, args);
 
             if (args.Editor is Control supplied)
                 return Seed (supplied, item);
+
+            if (args.Editor is PropertyGridSpinEditor spin) {
+                var control = spin.CreateControl ();
+                telerik_editors.Add (control, spin);
+                return Seed (control, item);
+            }
 
             if (args.EditorType is { } type && typeof (Control).IsAssignableFrom (type) && type.GetConstructor (Type.EmptyTypes) is not null)
                 return Seed ((Control) Activator.CreateInstance (type)!, item);
@@ -511,7 +582,10 @@ namespace Majorsilence.Forms.Telerik
         internal override void OnEditorCreated (Majorsilence.Forms.GridItem item, Control editor)
         {
             if (WrapperOf (item) is { } wrapper)
-                EditorInitialized?.Invoke (this, new PropertyGridItemEditorInitializedEventArgs { Item = wrapper, Editor = editor });
+                EditorInitialized?.Invoke (this, new PropertyGridItemEditorInitializedEventArgs {
+                    Item = wrapper,
+                    Editor = telerik_editors.TryGetValue (editor, out var telerik) ? telerik : editor,
+                });
         }
 
         internal override void OnEditEnded (Majorsilence.Forms.GridItem item)

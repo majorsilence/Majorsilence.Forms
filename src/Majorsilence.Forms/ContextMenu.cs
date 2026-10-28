@@ -75,6 +75,23 @@ namespace Majorsilence.Forms
         /// <summary>Displays the context menu at the specified control-relative coordinates.</summary>
         public void Show (Control parent, int x, int y) => Show (parent, new Point (x, y));
 
+        /// <summary>Displays the context menu at a point in <paramref name="parent"/> form's CLIENT coordinates.</summary>
+        /// <remarks>
+        /// Upstream a <c>Form</c> is a <c>Control</c>, so <c>contextMenu.Show (Me, e.Location)</c> from a form's own
+        /// mouse handler is the ordinary call; here a form is not one, and the call did not compile. The point
+        /// is measured from the top-left of the client area, below the caption, as upstream measures it, and
+        /// <see cref="SourceControl"/> reports the form's client area.
+        /// </remarks>
+        public void Show (Form parent, Point location)
+        {
+            Guard.ThrowIfNull (parent);
+
+            Show (parent.ContentRoot, location);
+        }
+
+        /// <summary>Displays the context menu at the specified coordinates in <paramref name="parent"/> form's client area.</summary>
+        public void Show (Form parent, int x, int y) => Show (parent, new Point (x, y));
+
         /// <summary>Displays the context menu at the specified screen coordinates.</summary>
         public void Show (int x, int y) => Show (new Point (x, y));
 

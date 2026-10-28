@@ -11,8 +11,26 @@ namespace Majorsilence.Forms.Telerik
     //    manageable (the classes are declared partial there).
     public partial class RadGridView
     {
-        /// <summary>Telerik compat: enables custom sorting via the SortChanging event. Stored.</summary>
+        /// <summary>Gets or sets whether the grid asks <see cref="CustomSorting"/> to order its rows while it is sorted.</summary>
         public bool EnableCustomSorting { get; set; }
+
+        /// <summary>
+        /// Raised, with <see cref="EnableCustomSorting"/> set, for each pair of rows the sort compares. A handler sets
+        /// <see cref="GridViewCustomSortingEventArgs.SortResult"/>; one that clears <see cref="GridViewCustomSortingEventArgs.Handled"/>
+        /// leaves the pair to the grid's own comparison. Rows that compare equal keep their order.
+        /// </summary>
+        public event EventHandler<GridViewCustomSortingEventArgs>? CustomSorting;
+
+        // The custom comparison of two rows, or null when the application leaves them to the sort descriptors.
+        internal int? CompareCustom (DataGridViewRow a, DataGridViewRow b)
+        {
+            if (!EnableCustomSorting || CustomSorting is null)
+                return null;
+
+            var args = new GridViewCustomSortingEventArgs (new GridViewDataRowInfo (a), new GridViewDataRowInfo (b));
+            CustomSorting (this, args);
+            return args.Handled ? args.SortResult : null;
+        }
         /// <summary>Telerik compat: enables custom filtering via the CustomFiltering event. Stored.</summary>
         public bool EnableCustomFiltering { get; set; }
         /// <summary>Whether rows highlight under the pointer.</summary>
@@ -62,8 +80,19 @@ namespace Majorsilence.Forms.Telerik
             get => AllowUserToResizeColumns;
             set => AllowUserToResizeColumns = value;
         }
-        /// <summary>Telerik compat: the column-chooser sort order. Stored.</summary>
-        public ListSortDirection ColumnChooserSortOrder { get; set; } = ListSortDirection.Ascending;
+        /// <summary>Gets or sets the order the column chooser lists the columns in: their own order (<see cref="RadSortOrder.None"/>,
+        /// the default, as Telerik's) or by caption.</summary>
+        public RadSortOrder ColumnChooserSortOrder { get; set; } = RadSortOrder.None;
+
+        /// <summary>Gets or sets whether the user can drag a row to another place in the grid. Off by default, as Telerik's.</summary>
+        /// <remarks>Rows the grid holds itself move: not a bound grid's, whose order is its data source's, and not while the
+        /// rows are sorted, grouped or filtered, when the position a row is dropped at is not one it can keep. The row
+        /// dragged takes the place of the row it is dropped on.</remarks>
+        public bool AllowRowReorder { get; set; }
+
+        /// <summary>Puts the current cell into edit mode, as Telerik's parameterless BeginEdit does.</summary>
+        /// <returns>Whether an editor opened: false for a read-only cell, or with no current cell.</returns>
+        public bool BeginEdit () => base.BeginEdit (true);
         /// <summary>Gets or sets whether a click selects the whole row or the one cell.</summary>
         /// <remarks>Real as of W6 mechanisms (#176): it sets the grid's own selection mode. Hides the base
         /// DataGridView.SelectionMode, as Telerik's GridViewSelectionMode does.</remarks>
@@ -72,10 +101,30 @@ namespace Majorsilence.Forms.Telerik
             set => base.SelectionMode = value == GridViewSelectionMode.CellSelect ? DataGridViewSelectionMode.CellSelect : DataGridViewSelectionMode.FullRowSelect;
         }
 
-        /// <summary>Telerik compat: the vertical auto-hide scrollbar state (forwards to the master template).</summary>
+        /// <summary>Gets or sets when the vertical scroll bar shows (forwards to the master template).</summary>
         public ScrollState VerticalScrollState {
             get => MasterTemplate.VerticalScrollState;
             set => MasterTemplate.VerticalScrollState = value;
+        }
+
+        /// <summary>Gets or sets when the horizontal scroll bar shows (forwards to the master template).</summary>
+        public ScrollState HorizontalScrollState {
+            get => MasterTemplate.HorizontalScrollState;
+            set => MasterTemplate.HorizontalScrollState = value;
+        }
+
+        // The scroll bars the template's states allow: each shows when needed unless its state is AlwaysHide.
+        internal void ApplyScrollStates ()
+        {
+            var bars = ScrollBars.None;
+
+            if (MasterTemplate.HorizontalScrollState != ScrollState.AlwaysHide)
+                bars |= ScrollBars.Horizontal;
+
+            if (MasterTemplate.VerticalScrollState != ScrollState.AlwaysHide)
+                bars |= ScrollBars.Vertical;
+
+            ScrollBars = bars;
         }
 
         /// <summary>The grid's groups, as a tree: top-level groups, each with its nested groups.</summary>
@@ -100,9 +149,11 @@ namespace Majorsilence.Forms.Telerik
         public MasterGridViewTemplate MasterView => MasterTemplate;
 
         /// <summary>
-        /// Raised before a header-click sort is applied, when <see cref="EnableCustomSorting"/> is set.
-        /// Set <see cref="SortChangingEventArgs.Cancel"/> to sort the data yourself instead.
+        /// Raised before the sort changes: before each change to <see cref="SortDescriptors"/>, and once for a header click.
+        /// Set <see cref="System.ComponentModel.CancelEventArgs.Cancel"/> to leave the sort as it is.
         /// </summary>
+        /// <remarks>Raised whether or not <see cref="EnableCustomSorting"/> is set, as Telerik's is (measured on
+        /// UI.for.WinForms 2026.2.520: SortDescriptors.Add, SortDescriptors.Clear and a column's SortOrder each raise it once).</remarks>
         public event EventHandler<SortChangingEventArgs>? SortChanging;
 
         /// <summary>Raises the <see cref="SortChanging"/> event.</summary>
@@ -162,8 +213,34 @@ namespace Majorsilence.Forms.Telerik
 
     public partial class MasterGridViewTemplate
     {
-        /// <summary>Telerik compat: the vertical auto-hide scrollbar state. Stub.</summary>
-        public ScrollState VerticalScrollState { get; set; } = ScrollState.AlwaysShow;
+        /// <summary>Gets the grid's rows, in the order shown -- the rows of <see cref="RadGridView.MasterView"/>.</summary>
+        /// <exception cref="InvalidOperationException">The template is not attached to a grid.</exception>
+        public GridViewRowInfoCollection Rows => Grid?.Rows ?? throw new InvalidOperationException ("The template is not attached to a grid.");
+
+        /// <summary>Gets or sets when the vertical scroll bar shows. AutoHide by default, as Telerik's.</summary>
+        /// <remarks>AlwaysHide takes the bar away; AutoHide and AlwaysShow both show it when the rows overflow (the grid has no
+        /// bar shown over content that fits).</remarks>
+        public ScrollState VerticalScrollState {
+            get => vertical_scroll_state;
+            set {
+                vertical_scroll_state = value;
+                Grid?.ApplyScrollStates ();
+            }
+        }
+
+        private ScrollState vertical_scroll_state = ScrollState.AutoHide;
+
+        /// <summary>Gets the grand summary rows the grid shows, at its top and bottom.</summary>
+        public IEnumerable<GridViewSummaryRowInfo> SummaryRows {
+            get {
+                if (Grid is not { } grid)
+                    yield break;
+
+                foreach (DataGridViewRow row in ((DataGridView) grid).Rows)
+                    if (row.Tag is GridSummaryRow { Level: 0 })
+                        yield return new GridViewSummaryRowInfo (row);
+            }
+        }
         /// <summary>Telerik compat: whether the totals (summary) row is shown. Stored.</summary>
         public bool ShowTotals { get; set; }
     }
@@ -192,11 +269,11 @@ namespace Majorsilence.Forms.Telerik
         public bool Cancel { get; set; }
     }
 
-    /// <summary>Provides data for the RadGridView SortChanging event. Compat stub.</summary>
-    public class SortChangingEventArgs : EventArgs
+    /// <summary>Provides data for the RadGridView SortChanging event.</summary>
+    /// <remarks>A <see cref="GridViewCollectionChangingEventArgs"/>, as the arguments of Telerik's SortChanging are, so a
+    /// handler written against Telerik's signature binds; <c>Cancel</c> is the base's.</remarks>
+    public class SortChangingEventArgs : GridViewCollectionChangingEventArgs
     {
-        /// <summary>Gets or sets whether to cancel the sort.</summary>
-        public bool Cancel { get; set; }
 
         /// <summary>The index of the column whose sort is changing.</summary>
         public int ColumnIndex { get; set; } = -1;
@@ -211,10 +288,41 @@ namespace Majorsilence.Forms.Telerik
         public ListSortDirection? NewDirection { get; set; }
     }
 
-    /// <summary>Provides data for a Telerik grid collection-changing event. Compat stub.</summary>
+    /// <summary>Provides data for a Telerik grid collection-changing event.</summary>
     public class GridViewCollectionChangingEventArgs : System.ComponentModel.CancelEventArgs
     {
         /// <summary>Gets or sets the changed item.</summary>
         public object? NewItem { get; set; }
+
+        /// <summary>Gets what is about to happen to the collection.</summary>
+        public System.Collections.Specialized.NotifyCollectionChangedAction Action { get; internal set; }
+
+        /// <summary>Gets the items about to be added, or null.</summary>
+        public System.Collections.IList? NewItems { get; internal set; }
+
+        /// <summary>Gets the items about to be removed, or null.</summary>
+        public System.Collections.IList? OldItems { get; internal set; }
+    }
+
+    /// <summary>Provides data for the RadGridView CustomSorting event: how <see cref="Row1"/> orders against <see cref="Row2"/>.</summary>
+    public class GridViewCustomSortingEventArgs : EventArgs
+    {
+        internal GridViewCustomSortingEventArgs (GridViewRowInfo row1, GridViewRowInfo row2)
+        {
+            Row1 = row1;
+            Row2 = row2;
+        }
+
+        /// <summary>Gets the first row compared.</summary>
+        public GridViewRowInfo Row1 { get; }
+
+        /// <summary>Gets the second row compared.</summary>
+        public GridViewRowInfo Row2 { get; }
+
+        /// <summary>Gets or sets the comparison: negative when <see cref="Row1"/> comes first, positive when <see cref="Row2"/> does, 0 when they are equal.</summary>
+        public int SortResult { get; set; }
+
+        /// <summary>Gets or sets whether <see cref="SortResult"/> is the answer. True by default, as Telerik's; false uses the grid's own comparison.</summary>
+        public bool Handled { get; set; } = true;
     }
 }

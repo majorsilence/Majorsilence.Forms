@@ -8,11 +8,12 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     internal static class RadGridComboEditor
     {
-        public static void Show (RadGridView grid, List<(object? Value, string Display)> items,
-            string? currentDisplay, Point screenLocation, int cellWidth, Action<object?> onPick)
+        // Returns the list shown, or null when there is nowhere to show one; onClosed runs once, when it hides.
+        public static ListBox? Show (RadGridView grid, List<(object? Value, string Display)> items,
+            string? currentDisplay, Point screenLocation, int cellWidth, Action<object?> onPick, Action? onClosed = null)
         {
             if (grid.FindWindow () is not WindowBase window || items.Count == 0)
-                return;
+                return null;
 
             var width = Math.Max (120, cellWidth);
             var height = Math.Min (220, 6 + items.Count * 22);
@@ -43,7 +44,22 @@ namespace Majorsilence.Forms.Telerik
 
             popup.Controls.Add (list);
             popup.Size = new Size (width, height);
+
+            if (onClosed is not null) {
+                void Hidden (object? sender, EventArgs e)
+                {
+                    if (popup.Visible)
+                        return;
+
+                    popup.VisibleChanged -= Hidden;
+                    onClosed ();
+                }
+
+                popup.VisibleChanged += Hidden;
+            }
+
             popup.Show (screenLocation);
+            return list;
         }
     }
 }

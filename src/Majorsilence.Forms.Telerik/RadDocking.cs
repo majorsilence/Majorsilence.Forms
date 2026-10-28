@@ -26,6 +26,51 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets the alignment of the auto-hide tool tab strips. Stored for Telerik compat.</summary>
         public TabStripAlignment ToolTabsAlignment { get; set; } = TabStripAlignment.Bottom;
 
+        /// <summary>Gets or sets the kind of window an MDI child form is hosted in. <see cref="DockType.Document"/> by default, as Telerik's is.</summary>
+        /// <remarks>Telerik reads it only when the dock detects MDI children itself (its <c>AutoDetectMdiChildren</c>,
+        /// off by default), which the compat dock does not do; with detection off it changes nothing there either.</remarks>
+        public DockType MdiChildrenDockType { get; set; } = DockType.Document;
+
+        /// <summary>Gets the auto-hide groups a designer records, which the dock applies when its initialization ends.</summary>
+        /// <remarks>
+        /// As Telerik's (measured on UI.for.WinForms 2026.2.520): at <c>EndInit</c> every window a group names --
+        /// itself, or through a <see cref="DockWindowPlaceholder"/> by its <see cref="DockWindowPlaceholder.DockWindowName"/>
+        /// -- that is in the dock is put in the <see cref="DockState.AutoHide"/> state, a name no window in the dock
+        /// has is passed over, and the four collections are emptied. A group added after initialization waits for
+        /// the next <c>EndInit</c>.
+        /// </remarks>
+        public DockAutoHideSerializationContainer SerializableAutoHideContainer { get; } = new ();
+
+        void System.ComponentModel.ISupportInitialize.BeginInit () { }
+
+        void System.ComponentModel.ISupportInitialize.EndInit () => ApplySerializedAutoHideGroups ();
+
+        private void ApplySerializedAutoHideGroups ()
+        {
+            var container = SerializableAutoHideContainer;
+            var sides = new[] { container.LeftAutoHideGroups, container.TopAutoHideGroups, container.RightAutoHideGroups, container.BottomAutoHideGroups };
+
+            if (sides.All (side => side.Count == 0))
+                return;
+
+            var windows = AllWindowsInTree ().Where (w => w is not DockWindowPlaceholder).ToList ();
+
+            foreach (var side in sides) {
+                foreach (var group in side) {
+                    foreach (var named in group.Windows) {
+                        var window = named is DockWindowPlaceholder placeholder
+                            ? windows.FirstOrDefault (w => string.Equals (w.Name, placeholder.DockWindowName, StringComparison.Ordinal))
+                            : windows.Contains (named) ? named : null;
+
+                        if (window is not null)
+                            window.DockState = DockState.AutoHide;
+                    }
+                }
+
+                side.Clear ();
+            }
+        }
+
         /// <summary>Floats the specified dock window. Compat: records the Floating state (no separate window is shown).</summary>
         /// <remarks>Honours <see cref="DockWindowBase.AllowedDockState"/> as of W6 mechanisms (#176): a
         /// window not allowed to float stays as it is.</remarks>
@@ -295,6 +340,12 @@ namespace Majorsilence.Forms.Telerik
         public IEnumerable<DockWindowBase> GetWindows (DockState state)
             => AllDockWindows ().Where (w => w.DockState == state);
 
+        /// <summary>Gets whether a dock window with the given <see cref="Control.Name"/> belongs to the dock.</summary>
+        /// <remarks>Matched on the name, not the caption, as Telerik's is; a window closed to hidden still belongs to it
+        /// (measured on UI.for.WinForms 2026.2.520).</remarks>
+        public bool Contains (string name)
+            => AllDockWindows ().Any (w => string.Equals (w.Name, name, StringComparison.Ordinal));
+
         /// <summary>Gets all dock windows (Telerik-shaped collection with the ToolWindows view).</summary>
         public DockWindowCollection DockWindows => new DockWindowCollection (AllDockWindows ());
 
@@ -562,8 +613,13 @@ namespace Majorsilence.Forms.Telerik
         public List<DockWindowBase> Windows { get; } = new ();
     }
 
-    /// <summary>Telerik-compat placeholder marking where a dock window sits within a saved docking layout.</summary>
-    public class DockWindowPlaceholder
+    /// <summary>
+    /// Telerik-compat placeholder standing for a dock window in a designer-recorded layout, such as the
+    /// windows of an <see cref="AutoHideGroup"/> in <see cref="RadDock.SerializableAutoHideContainer"/>.
+    /// A dock window itself, as Telerik's is, so the designer's Name, Text, Font, Location, Size and
+    /// PreviousDockState lines apply to it.
+    /// </summary>
+    public class DockWindowPlaceholder : DockWindow
     {
         /// <summary>Initializes a new, empty placeholder.</summary>
         public DockWindowPlaceholder () { }
@@ -571,11 +627,45 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Initializes a placeholder for the specified window name.</summary>
         public DockWindowPlaceholder (string dockWindowName) => DockWindowName = dockWindowName;
 
+        /// <summary>Initializes a placeholder standing for the specified window: its name and caption are copied, the placeholder's own Name and Text stay empty.</summary>
+        public DockWindowPlaceholder (DockWindowBase window)
+        {
+            Guard.ThrowIfNull (window);
+
+            DockWindowName = window.Name;
+            DockWindowText = window.Text;
+        }
+
         /// <summary>Gets or sets the name of the dock window this placeholder represents.</summary>
+        /// <remarks>What <see cref="RadDock.SerializableAutoHideContainer"/> finds the window by.</remarks>
         public string DockWindowName { get; set; } = string.Empty;
+
+        /// <summary>Gets or sets the caption of the dock window this placeholder represents. Independent of the placeholder's own Text.</summary>
+        public string DockWindowText { get; set; } = string.Empty;
 
         /// <summary>Gets or sets the resolved dock window, once available.</summary>
         public DockWindowBase? DockWindow { get; set; }
+    }
+
+    /// <summary>The auto-hide groups of a <see cref="RadDock"/>, one collection per side, as a designer records them.</summary>
+    public class DockAutoHideSerializationContainer
+    {
+        /// <summary>Gets the groups auto-hidden on the left side.</summary>
+        public AutoHideGroupCollection LeftAutoHideGroups { get; } = new ();
+
+        /// <summary>Gets the groups auto-hidden on the top side.</summary>
+        public AutoHideGroupCollection TopAutoHideGroups { get; } = new ();
+
+        /// <summary>Gets the groups auto-hidden on the right side.</summary>
+        public AutoHideGroupCollection RightAutoHideGroups { get; } = new ();
+
+        /// <summary>Gets the groups auto-hidden on the bottom side.</summary>
+        public AutoHideGroupCollection BottomAutoHideGroups { get; } = new ();
+    }
+
+    /// <summary>A collection of <see cref="AutoHideGroup"/>s.</summary>
+    public class AutoHideGroupCollection : System.Collections.ObjectModel.Collection<AutoHideGroup>
+    {
     }
 
     /// <summary>Telerik-compat tool tab strip. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>

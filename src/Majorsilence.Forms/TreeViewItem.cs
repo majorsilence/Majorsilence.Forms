@@ -246,9 +246,14 @@ namespace Majorsilence.Forms
 
             if (Expanded && HasChildren)
                 foreach (var item in Items)
-                    foreach (var child in item.GetVisibleItems ())
-                        yield return child;
+                    if (!item.FilteredOut)
+                        foreach (var child in item.GetVisibleItems ())
+                            yield return child;
         }
+
+        // Set by a tree that filters its nodes (the Telerik layer's RadTreeView.Filter): the node, and
+        // with it its children, is left out of the rows laid out, painted and scrolled through.
+        internal bool FilteredOut { get; set; }
 
         /// <summary>
         /// Gets a value indicating whether this item contains child items.
@@ -379,9 +384,22 @@ namespace Majorsilence.Forms
         // Ask, set, report -- the shape upstream's TreeNode.Checked has. It was an auto-property, so
         // BeforeCheck could not veto and the cascading-check code every permission tree hangs off
         // AfterCheck never ran (LST-24).
-        internal void SetChecked (bool value, TreeViewAction action)
+        internal void SetChecked (bool value, TreeViewAction action) => SetCheckState (value, false, action);
+
+        // The third check state, which WinForms' TreeNode does not have and a layer above it can (the
+        // Telerik layer's RadTreeNode.CheckState). An indeterminate node is not Checked; it is drawn
+        // with the indeterminate glyph, and moving into or out of it is a check change like any other:
+        // asked through BeforeCheck, reported through AfterCheck.
+        internal bool Indeterminate => indeterminate_state;
+
+        private bool indeterminate_state;
+
+        internal void SetCheckState (bool value, bool indeterminate, TreeViewAction action)
         {
-            if (checked_state == value)
+            if (indeterminate)
+                value = false;
+
+            if (checked_state == value && indeterminate_state == indeterminate)
                 return;
 
             var tree = TreeView;
@@ -390,6 +408,7 @@ namespace Majorsilence.Forms
                 return;
 
             checked_state = value;
+            indeterminate_state = indeterminate;
             Invalidate ();
 
             tree?.RaiseAfterCheck (this, action);

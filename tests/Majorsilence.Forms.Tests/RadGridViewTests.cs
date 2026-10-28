@@ -349,15 +349,18 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void SortChanging_is_not_consulted_when_the_flag_is_off ()
+        public void SortChanging_is_raised_without_EnableCustomSorting ()
         {
+            // Measured on Telerik UI.for.WinForms 2026.2.520: SortChanging fires for SortDescriptors.Add,
+            // SortDescriptors.Clear and a column's SortOrder alike, with EnableCustomSorting false or true.
+            // This used to pin the opposite -- an assumption, not a measurement.
             using var grid = Populated ();
             var raised = 0;
             grid.SortChanging += (_, _) => raised++;
 
             grid.ToggleSort (grid.Columns["Salary"]!.Index);
 
-            Assert.Equal (0, raised);
+            Assert.Equal (1, raised);
             Assert.Single (grid.SortDescriptors);
         }
 

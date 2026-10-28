@@ -128,6 +128,41 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets whether inline appointment creation is allowed. Stored for API compatibility — the agenda view is read/print-oriented and does not implement inline creation UI.</summary>
         public bool AllowAppointmentCreateInline { get; set; } = true;
 
+        /// <summary>Gets or sets whether appointments can be dragged to another time. Default true, as Telerik's.</summary>
+        /// <remarks>The agenda lists appointments rather than placing them on a time grid, so it has nowhere to drag one to.</remarks>
+        public bool AllowAppointmentMove { get; set; } = true;
+
+        /// <summary>Gets or sets whether appointments can be resized by dragging an edge. Default true, as Telerik's.</summary>
+        /// <remarks>The agenda draws no time grid for an edge to be dragged across.</remarks>
+        public bool AllowAppointmentResize { get; set; } = true;
+
+        /// <summary>Gets or sets which of Ctrl+C, Ctrl+X and Ctrl+V the user may use on appointments. Default <see cref="CopyPasteMode.All"/>.</summary>
+        /// <remarks>Telerik's scheduler has its own enumeration; here the grid's <see cref="CopyPasteMode"/> stands for it, and
+        /// <see cref="CopyPasteMode.Disallow"/> means the same. The agenda keeps no appointment selection to copy.</remarks>
+        public CopyPasteMode AllowCopyPaste { get; set; } = CopyPasteMode.All;
+
+        /// <summary>Gets or sets whether the mouse wheel scrolls the scheduler. Default true.</summary>
+        /// <remarks>As Telerik's: with it false the wheel does nothing over the scheduler (measured on UI.for.WinForms
+        /// 2026.2.520, where the wheel stops moving the view), and it is not passed on to a scrollable container around it.</remarks>
+        public bool AllowMouseWheelSupport { get; set; } = true;
+
+        /// <inheritdoc/>
+        internal override bool ScrollOnBubbledWheel (MouseEventArgs e) => !AllowMouseWheelSupport || base.ScrollOnBubbledWheel (e);
+
+        private System.Globalization.CultureInfo? culture;
+
+        /// <summary>Gets or sets the culture the scheduler writes its dates and times in. Defaults to the current culture.</summary>
+        /// <remarks>As Telerik's: setting it also sets <see cref="DateTimeFormat"/> to the culture's format, and setting it to
+        /// null goes back to the current culture.</remarks>
+        public System.Globalization.CultureInfo Culture {
+            get => culture ?? System.Globalization.CultureInfo.CurrentCulture;
+            set {
+                culture = value;
+                DateTimeFormat = Culture.DateTimeFormat;
+                _agenda.Invalidate ();
+            }
+        }
+
         /// <summary>Gets or sets the appointment title format string (Telerik composite-format compat, e.g. <c>"{2}"</c> for the summary). Applied by <see cref="AppointmentElement.ToolTipText"/>'s default and the agenda row's displayed title when non-empty.</summary>
         public string AppointmentTitleFormat { get; set; } = string.Empty;
 
@@ -166,6 +201,27 @@ namespace Majorsilence.Forms.Telerik
         {
             if (exporter is SchedulerICalendarExporter)
                 SchedulerICalendarWriter.Write (stream, Appointments);
+        }
+
+        /// <summary>Reads the appointments in <paramref name="stream"/> with <paramref name="importer"/> and adds them to <see cref="Appointments"/>.</summary>
+        /// <remarks>As Telerik's: the appointments already there stay, an appointment imported twice is there twice, and the
+        /// stream is left open. See <see cref="SchedulerICalendarImporter"/> for the iCalendar format.</remarks>
+        public void Import (System.IO.Stream stream, ISchedulerImporter importer)
+        {
+            Guard.ThrowIfNull (stream);
+            Guard.ThrowIfNull (importer);
+
+            importer.Import (this, stream);
+        }
+
+        /// <summary>Reads the appointments in <paramref name="data"/> with <paramref name="importer"/> and adds them to <see cref="Appointments"/>.</summary>
+        public void Import (string data, ISchedulerImporter importer)
+        {
+            Guard.ThrowIfNull (data);
+            Guard.ThrowIfNull (importer);
+
+            using var reader = new System.IO.StringReader (data);
+            importer.Import (this, reader);
         }
 
         // ── Events ──────────────────────────────────────────────────────────────────────────────────

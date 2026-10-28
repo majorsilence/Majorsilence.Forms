@@ -74,22 +74,56 @@ namespace Majorsilence.Forms.Telerik
     /// Telerik-compat multi-select checked drop-down list. Backed by <see cref="Majorsilence.Forms.ComboBox"/>;
     /// the checked-item surface is provided on top.
     /// </summary>
+    /// <remarks>
+    /// As Telerik's (measured on UI.for.WinForms 2026.2.520): <see cref="Items"/> holds
+    /// <see cref="RadCheckedListDataItem"/>s, a bound list included -- one per data item, carrying its
+    /// display text, its <c>ValueMember</c> value and the data item itself; checking an item raises
+    /// <see cref="ItemCheckedChanging"/> then <see cref="ItemCheckedChanged"/>; <see cref="CheckedItems"/>
+    /// lists the checked items in the order they were checked, and its <c>Clear</c> unchecks them.
+    /// </remarks>
     public class RadCheckedDropDownList : ComboBox, ISupportInitializeCompat
     {
-        private readonly List<RadCheckedListDataItem> _checkedItems = new ();
+        // The checked items, in the order they were checked.
+        private readonly List<RadCheckedListDataItem> check_order = new ();
+
+        // The item standing for each data item of a bound list, made the first time it is asked for.
+        private readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, RadCheckedListDataItem> bound_items = new ();
+
+        private RadCheckedListDataItemCollection? items;
+
+        /// <summary>Gets the items, each a <see cref="RadCheckedListDataItem"/>.</summary>
+        public new RadCheckedListDataItemCollection Items => items ??= new RadCheckedListDataItemCollection (this);
+
+        // The list's own entries: the items added, or the data items of a bound list.
+        internal ObjectCollection Entries => base.Items;
+
+        // The item an entry is shown as.
+        internal RadCheckedListDataItem ItemFor (object entry)
+        {
+            if (entry is RadCheckedListDataItem item) {
+                item.Owner ??= this;
+                return item;
+            }
+
+            return bound_items.GetValue (entry, data => new RadCheckedListDataItem (GetItemText (data),
+                string.IsNullOrEmpty (ValueMember) ? data : DataSourceBinding.MemberValue (data, ValueMember)) {
+                DataBoundItem = data,
+                Owner = this
+            });
+        }
+
+        // Where an item is in the list, or -1.
+        internal int IndexOf (RadCheckedListDataItem item)
+            => item.DataBoundItem is { } data ? Entries.IndexOf (data) : Entries.IndexOf (item);
 
         /// <summary>
-        /// Gets the checked items: every item in <c>Items</c> whose <see cref="RadCheckedListDataItem.Checked"/>
-        /// is set, in list order, then any item checked through <see cref="SetItemChecked"/> that is not in the list.
+        /// Gets the checked items, in the order they were checked. Its <c>Clear</c> unchecks every one.
         /// </summary>
-        /// <remarks>W6 mechanisms (#176): an item added already checked, or checked by setting
-        /// <c>item.Checked</c>, used to be missing -- only <see cref="SetItemChecked"/> reached this list.</remarks>
-        public IReadOnlyList<RadCheckedListDataItem> CheckedItems {
+        /// <remarks>An item checked through <see cref="SetItemChecked"/> that is not in the list is included.</remarks>
+        public DropDownCheckedItemsCollection CheckedItems {
             get {
-                var listed = Items.OfType<RadCheckedListDataItem> ().ToList ();
-                return listed.Where (i => i.Checked)
-                    .Concat (_checkedItems.Where (i => i.Checked && !listed.Contains (i)))
-                    .ToList ();
+                var list = check_order.Where (i => i.Checked && (i.DataBoundItem is null || IndexOf (i) >= 0)).ToList ();
+                return new DropDownCheckedItemsCollection (list);
             }
         }
 
@@ -102,38 +136,160 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets the root element of the control (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
 
-        /// <summary>Marks an item as checked and raises <see cref="ItemCheckedChanged"/>.</summary>
+        /// <summary>Checks or unchecks an item, which need not be in the list.</summary>
         public void SetItemChecked (RadCheckedListDataItem item, bool isChecked)
         {
             if (item is null)
                 return;
 
+            item.Owner ??= this;
             item.Checked = isChecked;
-
-            if (isChecked) {
-                if (!_checkedItems.Contains (item))
-                    _checkedItems.Add (item);
-            } else {
-                _checkedItems.Remove (item);
-            }
-
-            ItemCheckedChanged?.Invoke (this, new RadCheckedListDataItemEventArgs (item));
         }
 
-        /// <summary>Finds the first item whose text exactly matches, or null. Stub-ish search over Items.</summary>
-        public object? FindItemExact (string text, bool caseSensitive = false)
+        /// <summary>Finds the first item whose text is <paramref name="text"/>, or null.</summary>
+        public RadCheckedListDataItem? FindItemExact (string text, bool caseSensitive = false)
         {
-            var comparison = caseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+            var comparison = caseSensitive ? StringComparison.CurrentCulture : StringComparison.CurrentCultureIgnoreCase;
 
             foreach (var item in Items)
-                if (string.Equals (GetItemText (item), text, comparison))
+                if (string.Equals (item.Text, text, comparison))
                     return item;
 
             return null;
         }
 
+        // An item of this list is about to change its check: a handler may refuse.
+        internal bool RaiseItemCheckedChanging (RadCheckedListDataItem item)
+        {
+            if (ItemCheckedChanging is null)
+                return true;
+
+            var e = new RadCheckedListDataItemCancelEventArgs (item);
+            ItemCheckedChanging.Invoke (this, e);
+            return !e.Cancel;
+        }
+
+        // An item of this list changed its check.
+        internal void RaiseItemCheckedChanged (RadCheckedListDataItem item)
+        {
+            check_order.Remove (item);
+
+            if (item.Checked)
+                check_order.Add (item);
+
+            ItemCheckedChanged?.Invoke (this, new RadCheckedListDataItemEventArgs (item));
+        }
+
+        // An item joined the list already checked: it is checked from now.
+        internal void Adopt (RadCheckedListDataItem item)
+        {
+            item.Owner = this;
+
+            if (item.Checked && !check_order.Contains (item))
+                check_order.Add (item);
+        }
+
+        /// <summary>Raised before an item's check changes. Set <c>Cancel</c> to keep it.</summary>
+        public event EventHandler<RadCheckedListDataItemCancelEventArgs>? ItemCheckedChanging;
+
         /// <summary>Raised when an item's checked state changes.</summary>
         public event EventHandler<RadCheckedListDataItemEventArgs>? ItemCheckedChanged;
+    }
+
+    /// <summary>The items of a <see cref="RadCheckedDropDownList"/>, each a <see cref="RadCheckedListDataItem"/>.</summary>
+    public class RadCheckedListDataItemCollection : IEnumerable<RadCheckedListDataItem>
+    {
+        private readonly RadCheckedDropDownList owner;
+
+        internal RadCheckedListDataItemCollection (RadCheckedDropDownList owner) => this.owner = owner;
+
+        /// <summary>Gets the number of items.</summary>
+        public int Count => owner.Entries.Count;
+
+        /// <summary>Gets the item at <paramref name="index"/>.</summary>
+        public RadCheckedListDataItem this[int index] => owner.ItemFor (owner.Entries[index]!);
+
+        /// <summary>Adds an item.</summary>
+        public void Add (RadCheckedListDataItem item)
+        {
+            Guard.ThrowIfNull (item);
+            owner.Entries.Add (item);
+            owner.Adopt (item);
+        }
+
+        /// <summary>Adds an item with the text.</summary>
+        public RadCheckedListDataItem Add (string text)
+        {
+            var item = new RadCheckedListDataItem (text);
+            Add (item);
+            return item;
+        }
+
+        /// <summary>Adds the items.</summary>
+        public void AddRange (IEnumerable<RadCheckedListDataItem> range)
+        {
+            Guard.ThrowIfNull (range);
+
+            foreach (var item in range)
+                Add (item);
+        }
+
+        /// <summary>Inserts an item at <paramref name="index"/>.</summary>
+        public void Insert (int index, RadCheckedListDataItem item)
+        {
+            Guard.ThrowIfNull (item);
+            owner.Entries.Insert (index, item);
+            owner.Adopt (item);
+        }
+
+        /// <summary>Removes an item.</summary>
+        public void Remove (RadCheckedListDataItem item)
+        {
+            if (item is null)
+                return;
+
+            var index = owner.IndexOf (item);
+
+            if (index >= 0)
+                owner.Entries.RemoveAt (index);
+        }
+
+        /// <summary>Removes the item at <paramref name="index"/>.</summary>
+        public void RemoveAt (int index) => owner.Entries.RemoveAt (index);
+
+        /// <summary>Removes every item.</summary>
+        public void Clear () => owner.Entries.Clear ();
+
+        /// <summary>Returns where the item is, or -1.</summary>
+        public int IndexOf (RadCheckedListDataItem item) => item is null ? -1 : owner.IndexOf (item);
+
+        /// <summary>Returns whether the item is in the list.</summary>
+        public bool Contains (RadCheckedListDataItem item) => IndexOf (item) >= 0;
+
+        /// <inheritdoc/>
+        public IEnumerator<RadCheckedListDataItem> GetEnumerator ()
+        {
+            // A snapshot: a handler may change the list while it is walked.
+            var entries = owner.Entries.Cast<object> ().ToList ();
+
+            foreach (var entry in entries)
+                yield return owner.ItemFor (entry);
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator () => GetEnumerator ();
+    }
+
+    /// <summary>The checked items of a <see cref="RadCheckedDropDownList"/>, in the order they were checked.</summary>
+    public class DropDownCheckedItemsCollection : System.Collections.ObjectModel.ReadOnlyCollection<RadCheckedListDataItem>
+    {
+        internal DropDownCheckedItemsCollection (IList<RadCheckedListDataItem> items) : base (items) { }
+
+        /// <summary>Unchecks every item, in the order they were checked, each raising the list's check events.</summary>
+        public void Clear ()
+        {
+            foreach (var item in this.ToList ())
+                item.Checked = false;
+        }
     }
 
     /// <summary>Telerik-compat checked-list data item.</summary>
@@ -146,17 +302,51 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Initializes a new instance with text and value.</summary>
         public RadCheckedListDataItem (string text, object? value) { Text = text; Value = value; }
 
+        // The list the item is in (or was checked through).
+        internal RadCheckedDropDownList? Owner { get; set; }
+
         /// <summary>Gets or sets the display text.</summary>
         public string Text { get; set; } = string.Empty;
         /// <summary>Gets or sets the value.</summary>
         public object? Value { get; set; }
-        /// <summary>Gets or sets whether the item is checked.</summary>
-        public bool Checked { get; set; }
+        /// <summary>Gets the data item this item stands for in a bound list, or null.</summary>
+        public object? DataBoundItem { get; internal set; }
         /// <summary>Gets or sets the item tag.</summary>
         public object? Tag { get; set; }
 
+        /// <summary>Gets where the item is in its list, or -1.</summary>
+        public int Index => Owner?.IndexOf (this) ?? -1;
+
+        private bool is_checked;
+
+        /// <summary>Gets or sets whether the item is checked.</summary>
+        /// <remarks>On an item of a list, a change raises the list's <see cref="RadCheckedDropDownList.ItemCheckedChanging"/>,
+        /// which may refuse it, then <see cref="RadCheckedDropDownList.ItemCheckedChanged"/>.</remarks>
+        public bool Checked {
+            get => is_checked;
+            set {
+                if (is_checked == value)
+                    return;
+
+                if (Owner is { } owner && !owner.RaiseItemCheckedChanging (this))
+                    return;
+
+                is_checked = value;
+                Owner?.RaiseItemCheckedChanged (this);
+            }
+        }
+
         /// <inheritdoc/>
         public override string ToString () => Text;
+    }
+
+    /// <summary>Provides data for the <see cref="RadCheckedDropDownList.ItemCheckedChanging"/> event.</summary>
+    public class RadCheckedListDataItemCancelEventArgs : System.ComponentModel.CancelEventArgs
+    {
+        /// <summary>Initializes a new instance with the affected item.</summary>
+        public RadCheckedListDataItemCancelEventArgs (RadCheckedListDataItem item) => Item = item;
+        /// <summary>Gets the item whose checked state is about to change.</summary>
+        public RadCheckedListDataItem Item { get; }
     }
 
     /// <summary>Provides data for the <see cref="RadCheckedDropDownList.ItemCheckedChanged"/> event.</summary>

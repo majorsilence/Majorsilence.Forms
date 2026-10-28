@@ -188,8 +188,18 @@ namespace Majorsilence.Forms.Telerik
         }
 
         private SizeF item_size;
-        /// <summary>Gets the strip item element for this page (stub).</summary>
-        public RadElement Item { get; } = new RadElement ();
+
+        /// <summary>Initializes a new instance of the <see cref="RadPageViewPage"/> class.</summary>
+        public RadPageViewPage () => Item = new RadPageViewItem { Page = this };
+
+        /// <summary>Gets the strip item element for this page.</summary>
+        public RadPageViewItem Item { get; }
+
+        /// <summary>Gets or sets the alignment of the page's image within its tab item. The item's own, as Telerik's is.</summary>
+        public ContentAlignment ImageAlignment {
+            get => Item.ImageAlignment;
+            set => Item.ImageAlignment = value;
+        }
     }
 
     /// <summary>Telerik-compat page-view strip element (the tab header strip). Stub.</summary>
@@ -295,6 +305,9 @@ namespace Majorsilence.Forms.Telerik
     {
         /// <summary>Gets or sets the page this item represents.</summary>
         public RadPageViewPage? Page { get; set; }
+
+        /// <summary>Gets or sets the alignment of the item's image. <see cref="ContentAlignment.MiddleLeft"/> by default, as Telerik's is.</summary>
+        public ContentAlignment ImageAlignment { get; set; } = ContentAlignment.MiddleLeft;
     }
 
     /// <summary>Telerik-compat split container. Backed by <see cref="Majorsilence.Forms.SplitContainer"/>.</summary>

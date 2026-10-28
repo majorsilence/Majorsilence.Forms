@@ -159,7 +159,7 @@ public class W6TelerikStoredOnlyTests
         Assert.Equal (new[] { b }, list.CheckedItems);
 
         list.SetItemChecked (a, true);
-        Assert.Equal (new[] { a, b }, list.CheckedItems);   // list order
+        Assert.Equal (new[] { b, a }, list.CheckedItems);   // the order they were checked in, as Telerik's
     }
 
     [Fact]
