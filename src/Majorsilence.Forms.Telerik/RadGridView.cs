@@ -2469,6 +2469,8 @@ namespace Majorsilence.Forms.Telerik
 
         // Sets the public property a layout attribute names, from its text as Telerik's serializer writes it
         // (invariant culture). False when the target has no such property or the text is not a value of its type.
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075",
+            Justification = "A layout names the properties of the grid, its columns and its rules, which the loader reads by name as Telerik's serializer does; a trimmed app has to root what its layouts set.")]
         private static bool SetLayoutProperty (object target, string name, string text)
         {
             // The most derived declaration: a Telerik property hides the core grid's of the same name (SelectionMode).
@@ -2487,6 +2489,9 @@ namespace Majorsilence.Forms.Telerik
             return true;
         }
 
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2057", Justification = "A layout's Type-valued property names its type as the serializer wrote it.")]
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2067", Justification = "A layout's property types come from the properties it names, which the loader reads by name.")]
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2026", Justification = "A layout value of a type with no built-in parser goes through its TypeConverter, as Telerik's serializer does.")]
         private static bool TryParseLayoutValue (string text, Type type, out object? value)
         {
             value = null;
