@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Drawing;
 using System.Globalization;
+using System.Reflection;
 using System.Xml.Linq;
 using Majorsilence.Forms.Renderers;
 using SkiaSharp;
@@ -2285,53 +2286,10 @@ namespace Majorsilence.Forms.Telerik
             try {
                 // A layout saved by Telerik's own grid (RadGridView/MasterTemplate/Columns) -- what an app
                 // that ran on Telerik has in its stored layouts.
-                if (root.Element ("MasterTemplate")?.Element ("Columns") is { } telerik_columns)
-                    ApplyTelerikColumns (telerik_columns);
-
-                // Columns: width / visibility / order.
-                var cols = root.Element ("Columns")?.Elements ("Column").ToList () ?? new List<XElement> ();
-                foreach (var ce in cols) {
-                    var col = ColumnByName ((string?)ce.Attribute ("Name") ?? string.Empty);
-                    if (col is null)
-                        continue;
-                    if (int.TryParse ((string?)ce.Attribute ("Width"), out var w))
-                        col.Width = w;
-                    if (bool.TryParse ((string?)ce.Attribute ("IsVisible"), out var vis))
-                        col.Visible = vis;
-                }
-
-                // Re-order columns to match the saved Index order.
-                var order = cols.OrderBy (ce => (int?)ce.Attribute ("Index") ?? 0)
-                                .Select (ce => (string?)ce.Attribute ("Name") ?? string.Empty)
-                                .ToList ();
-                ApplyColumnOrder (order);
-
-                // Descriptors.
-                SortDescriptors.Clear ();
-                foreach (var se in root.Element ("SortDescriptors")?.Elements ("SortDescriptor") ?? [])
-                    SortDescriptors.Add (new SortDescriptor (
-                        (string?)se.Attribute ("PropertyName") ?? string.Empty,
-                        ParseDirection ((string?)se.Attribute ("Direction"))));
-
-                GroupDescriptors.Clear ();
-                foreach (var ge in root.Element ("GroupDescriptors")?.Elements ("GroupDescriptor") ?? [])
-                    GroupDescriptors.Add (new GroupDescriptor (
-                        (string?)ge.Attribute ("PropertyName") ?? string.Empty,
-                        ParseDirection ((string?)ge.Attribute ("Direction"))));
-
-                FilterDescriptors.Clear ();
-                foreach (var fe in root.Element ("FilterDescriptors")?.Elements ("FilterDescriptor") ?? []) {
-                    var descriptor = new FilterDescriptor {
-                        PropertyName = (string?)fe.Attribute ("PropertyName") ?? string.Empty,
-                        Operator = Enum.TryParse<FilterOperator> ((string?)fe.Attribute ("Operator"), out var op) ? op : FilterOperator.None,
-                        Value = (string?)fe.Attribute ("Value")
-                    };
-                    var values = fe.Element ("SelectedValues");
-                    if (values is not null)
-                        descriptor.SelectedValues = new HashSet<string> (
-                            values.Elements ("Value").Select (v => v.Value), StringComparer.CurrentCultureIgnoreCase);
-                    FilterDescriptors.Add (descriptor);
-                }
+                if (root.Element ("MasterTemplate") is { } template)
+                    ApplyTelerikLayout (root, template);
+                else
+                    ApplyOwnLayout (root);
             } finally {
                 _suspendRebuild = false;
             }
@@ -2340,6 +2298,55 @@ namespace Majorsilence.Forms.Telerik
             RefillBoundRows ();
             SyncSortGlyphs ();
             RefreshLayout ();
+        }
+
+        // A layout this grid saved itself (SaveLayoutToString): columns, then its descriptors, which it replaces.
+        private void ApplyOwnLayout (XElement root)
+        {
+            // Columns: width / visibility / order.
+            var cols = root.Element ("Columns")?.Elements ("Column").ToList () ?? new List<XElement> ();
+            foreach (var ce in cols) {
+                var col = ColumnByName ((string?)ce.Attribute ("Name") ?? string.Empty);
+                if (col is null)
+                    continue;
+                if (int.TryParse ((string?)ce.Attribute ("Width"), out var w))
+                    col.Width = w;
+                if (bool.TryParse ((string?)ce.Attribute ("IsVisible"), out var vis))
+                    col.Visible = vis;
+            }
+
+            // Re-order columns to match the saved Index order.
+            var order = cols.OrderBy (ce => (int?)ce.Attribute ("Index") ?? 0)
+                            .Select (ce => (string?)ce.Attribute ("Name") ?? string.Empty)
+                            .ToList ();
+            ApplyColumnOrder (order);
+
+            // Descriptors.
+            SortDescriptors.Clear ();
+            foreach (var se in root.Element ("SortDescriptors")?.Elements ("SortDescriptor") ?? [])
+                SortDescriptors.Add (new SortDescriptor (
+                    (string?)se.Attribute ("PropertyName") ?? string.Empty,
+                    ParseDirection ((string?)se.Attribute ("Direction"))));
+
+            GroupDescriptors.Clear ();
+            foreach (var ge in root.Element ("GroupDescriptors")?.Elements ("GroupDescriptor") ?? [])
+                GroupDescriptors.Add (new GroupDescriptor (
+                    (string?)ge.Attribute ("PropertyName") ?? string.Empty,
+                    ParseDirection ((string?)ge.Attribute ("Direction"))));
+
+            FilterDescriptors.Clear ();
+            foreach (var fe in root.Element ("FilterDescriptors")?.Elements ("FilterDescriptor") ?? []) {
+                var descriptor = new FilterDescriptor {
+                    PropertyName = (string?)fe.Attribute ("PropertyName") ?? string.Empty,
+                    Operator = Enum.TryParse<FilterOperator> ((string?)fe.Attribute ("Operator"), out var op) ? op : FilterOperator.None,
+                    Value = (string?)fe.Attribute ("Value")
+                };
+                var values = fe.Element ("SelectedValues");
+                if (values is not null)
+                    descriptor.SelectedValues = new HashSet<string> (
+                        values.Elements ("Value").Select (v => v.Value), StringComparer.CurrentCultureIgnoreCase);
+                FilterDescriptors.Add (descriptor);
+            }
         }
 
         /// <summary>Loads layout XML from the specified file.</summary>
@@ -2389,6 +2396,14 @@ namespace Majorsilence.Forms.Telerik
                     col.ReadOnly = read_only;
                 if ((string?) ce.Attribute ("HeaderText") is { } header)
                     col.HeaderText = header;
+
+                // The rest of what the layout says about the column (alignments, format, data type, ...).
+                foreach (var attribute in ce.Attributes ())
+                    if (!ColumnAttributesSetAbove.Contains (attribute.Name.LocalName))
+                        SetLayoutProperty (col, attribute.Name.LocalName, attribute.Value);
+
+                if (col is GridViewColumn rules_column && ce.Element ("ConditionalFormattingObjectList") is { } rules)
+                    ApplyLayoutRules (rules_column, rules);
             }
 
             var named = new HashSet<string> (order, StringComparer.OrdinalIgnoreCase);
@@ -2398,6 +2413,126 @@ namespace Majorsilence.Forms.Telerik
                     base.Columns.RemoveAt (i);
 
             ApplyColumnOrder (order);
+        }
+
+        // Set by name above, or -- SortOrder -- following from the layout's sort descriptors rather than set.
+        private static readonly HashSet<string> ColumnAttributesSetAbove = new (StringComparer.Ordinal) {
+            "Name", "FieldName", "IsAutoGenerated", "Width", "IsVisible", "ReadOnly", "HeaderText", "SortOrder",
+        };
+
+        // A layout saved by Telerik's grid is its serializer's output: each attribute is a property that differs
+        // from its default, on the grid, its MasterTemplate or a column, and loading sets every one of them, as
+        // Telerik's LoadLayout does -- measured (UI for WinForms 2026.2.520): a layout carrying the grid's Font,
+        // AutoSizeRows and ReadOnly, its template's SelectionMode, AllowAddNewRow and AutoExpandGroups, and its
+        // columns' HeaderTextAlignment, TextAlignment, FormatString and DataType set them all, while a property the
+        // layout leaves out keeps its value. A column's conditional-formatting rules are replaced by the layout's;
+        // the sort descriptors too, when the layout has them, and are kept when it has none.
+        private void ApplyTelerikLayout (XElement root, XElement template)
+        {
+            foreach (var attribute in root.Attributes ())
+                SetLayoutProperty (this, attribute.Name.LocalName, attribute.Value);
+
+            // The grid's own property where it has one, as it is what updates the view; the template's otherwise.
+            foreach (var attribute in template.Attributes ()) {
+                var name = attribute.Name.LocalName;
+                if (!SetLayoutProperty (this, name, attribute.Value))
+                    SetLayoutProperty (MasterTemplate, name, attribute.Value);
+            }
+
+            if (template.Element ("Columns") is { } columns)
+                ApplyTelerikColumns (columns);
+
+            if (template.Element ("SortDescriptors") is { } sorts) {
+                SortDescriptors.Clear ();
+                foreach (var se in sorts.Elements ())
+                    SortDescriptors.Add (new SortDescriptor (
+                        (string?) se.Attribute ("PropertyName") ?? string.Empty,
+                        ParseDirection ((string?) se.Attribute ("Direction"))));
+            }
+        }
+
+        // A column's rules, as the layout lists them: they replace the ones it had.
+        private static void ApplyLayoutRules (GridViewColumn column, XElement rules)
+        {
+            column.ConditionalFormattingObjectList.Clear ();
+
+            foreach (var re in rules.Elements ()) {
+                if (!re.Name.LocalName.EndsWith (nameof (ConditionalFormattingObject), StringComparison.Ordinal))
+                    continue;
+
+                var rule = new ConditionalFormattingObject ();
+                foreach (var attribute in re.Attributes ())
+                    SetLayoutProperty (rule, attribute.Name.LocalName, attribute.Value);
+                column.ConditionalFormattingObjectList.Add (rule);
+            }
+        }
+
+        // Sets the public property a layout attribute names, from its text as Telerik's serializer writes it
+        // (invariant culture). False when the target has no such property or the text is not a value of its type.
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2075",
+            Justification = "A layout names the properties of the grid, its columns and its rules, which the loader reads by name as Telerik's serializer does; a trimmed app has to root what its layouts set.")]
+        private static bool SetLayoutProperty (object target, string name, string text)
+        {
+            // The most derived declaration: a Telerik property hides the core grid's of the same name (SelectionMode).
+            PropertyInfo? property = null;
+            for (var type = target.GetType (); type is not null && property is null; type = type.BaseType)
+                property = type.GetProperties (BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                    .FirstOrDefault (p => p.Name == name && p.GetIndexParameters ().Length == 0);
+
+            if (property is null || property.GetSetMethod () is null)
+                return false;
+
+            if (!TryParseLayoutValue (text, property.PropertyType, out var value))
+                return false;
+
+            property.SetValue (target, value);
+            return true;
+        }
+
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2057", Justification = "A layout's Type-valued property names its type as the serializer wrote it.")]
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2067", Justification = "A layout's property types come from the properties it names, which the loader reads by name.")]
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2026", Justification = "A layout value of a type with no built-in parser goes through its TypeConverter, as Telerik's serializer does.")]
+        private static bool TryParseLayoutValue (string text, Type type, out object? value)
+        {
+            value = null;
+            type = Nullable.GetUnderlyingType (type) ?? type;
+
+            try {
+                if (type == typeof (string))
+                    value = text;
+                else if (type.IsEnum)
+                    value = Enum.Parse (type, text, ignoreCase: true);
+                else if (type == typeof (Type))
+                    value = Type.GetType (text);
+                else if (type == typeof (Color))
+                    value = ParseLayoutColor (text);
+                else if (type.IsPrimitive || type == typeof (decimal))
+                    value = Convert.ChangeType (text, type, CultureInfo.InvariantCulture);
+                else if (TypeDescriptor.GetConverter (type) is { } converter && converter.CanConvertFrom (typeof (string)))
+                    value = converter.ConvertFromInvariantString (text);
+            } catch (Exception e) when (e is FormatException or ArgumentException or InvalidCastException or NotSupportedException or OverflowException) {
+                return false;
+            }
+
+            return value is not null;
+        }
+
+        // A color as the serializer writes one: a name ("BurlyWood"), "r, g, b" or "a, r, g, b", or nothing for Empty.
+        private static Color? ParseLayoutColor (string text)
+        {
+            text = text.Trim ();
+            if (text.Length == 0)
+                return Color.Empty;
+
+            var parts = text.Split (',');
+            if (parts.Length is 3 or 4) {
+                var c = parts.Select (p => int.Parse (p.Trim (), CultureInfo.InvariantCulture)).ToArray ();
+                return c.Length == 3 ? Color.FromArgb (c[0], c[1], c[2]) : Color.FromArgb (c[0], c[1], c[2], c[3]);
+            }
+
+            // An unknown name comes back as a named color with no value (Transparent is the only known one like it).
+            var named = Color.FromName (text);
+            return named.ToArgb () != 0 || string.Equals (text, nameof (Color.Transparent), StringComparison.OrdinalIgnoreCase) ? named : (Color?) null;
         }
 
         // The column a layout element names by its type ("Telerik.WinControls.UI.GridViewDecimalColumn").
