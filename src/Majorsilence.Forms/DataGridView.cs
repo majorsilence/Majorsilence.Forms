@@ -710,15 +710,26 @@ namespace Majorsilence.Forms
 
         private DataGridViewAutoSizeColumnsMode auto_size_columns_mode = DataGridViewAutoSizeColumnsMode.None;
 
-        /// <summary>Gets or sets how row heights are automatically adjusted. Stub in Majorsilence.Forms.</summary>
+        /// <summary>Gets or sets how row heights are automatically adjusted.</summary>
+        /// <remarks>
+        /// Applied as upstream applies it (see DataGridView.AutoSizeRows.cs): rows size to their content when the mode is
+        /// set, as they are added, when a value or a column width changes, and as they are painted. It was stored and
+        /// raised its event only. The header modes need visible row headers, as upstream's do.
+        /// </remarks>
         public DataGridViewAutoSizeRowsMode AutoSizeRowsMode {
             get => auto_size_rows_mode;
             set {
+                ValidateAutoSizeRowsMode (value);
+
+                if (value is DataGridViewAutoSizeRowsMode.AllHeaders or DataGridViewAutoSizeRowsMode.DisplayedHeaders && !RowHeadersVisible)
+                    throw new InvalidOperationException ("Rows cannot be auto-sized to their headers while the row headers are hidden.");
+
                 if (EqualityComparer<DataGridViewAutoSizeRowsMode>.Default.Equals (auto_size_rows_mode, value))
                     return;
 
+                var previous_auto_sized = auto_size_rows_mode != DataGridViewAutoSizeRowsMode.None;
                 auto_size_rows_mode = value;
-                OnAutoSizeRowsModeChanged (new DataGridViewAutoSizeModeEventArgs (false));
+                OnAutoSizeRowsModeChanged (new DataGridViewAutoSizeModeEventArgs (previous_auto_sized));
                 Invalidate ();
             }
         }
@@ -1886,7 +1897,9 @@ namespace Majorsilence.Forms
         {
             var location = deviceLocation;
 
-            if (!row_headers_visible)
+            // Rows the grid sizes itself offer no divider to drag, as upstream's do not (no resize cursor unless
+            // AutoSizeRowsMode is None).
+            if (!row_headers_visible || auto_size_rows_mode != DataGridViewAutoSizeRowsMode.None)
                 return -1;
 
             var client = GetContentArea ();
@@ -2117,7 +2130,14 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Raises the CellValueChanged event.
         /// </summary>
-        protected virtual void OnCellValueChanged (DataGridViewCellEventArgs e) => CellValueChanged?.Invoke (this, e);
+        /// <remarks>Re-sizes the cell's row first under a cell <see cref="AutoSizeRowsMode"/>, as upstream's does.</remarks>
+        protected virtual void OnCellValueChanged (DataGridViewCellEventArgs e)
+        {
+            Guard.ThrowIfNull (e);
+
+            AutoSizeRowForCellChange (e.RowIndex);
+            CellValueChanged?.Invoke (this, e);
+        }
 
         /// <summary>
         /// Called by <see cref="DataGridViewCell.Value"/> after it stores a new value: writes the value
@@ -2678,6 +2698,7 @@ namespace Majorsilence.Forms
             }
 
             Rows.ReplaceAll (rows);
+            AutoSizeBoundRows ();
             SetInitialCurrentCell ();
         }
 
@@ -3394,6 +3415,7 @@ namespace Majorsilence.Forms
         protected override void OnPaint (PaintEventArgs e)
         {
             EnsureScrollBarsAtCurrentScale ();
+            AutoSizeRowsForPaint ();
             RenderManager.Render (this, e);
 
             base.OnPaint (e);
@@ -3500,6 +3522,9 @@ namespace Majorsilence.Forms
             get => row_headers_visible;
             set {
                 if (row_headers_visible != value) {
+                    if (!value && auto_size_rows_mode is DataGridViewAutoSizeRowsMode.AllHeaders or DataGridViewAutoSizeRowsMode.DisplayedHeaders)
+                        throw new InvalidOperationException ("Row headers cannot be hidden while rows are auto-sized to them.");
+
                     row_headers_visible = value;
                     UpdateScrollBars ();
                     Invalidate ();
@@ -4565,6 +4590,8 @@ namespace Majorsilence.Forms
                 hscrollbar.Value = 0;
                 horizontal_scroll_offset = 0;
             }
+
+            AutoSizeRowsAfterLayout ();
         }
 
         /// <summary>
