@@ -81,8 +81,8 @@ namespace Majorsilence.Forms.Telerik
             SaveToXml (file);
         }
 
-        /// <summary>Restores a layout <see cref="SaveToXml(System.IO.Stream)"/> wrote.</summary>
-        /// <remarks>Windows are matched by name; a saved window that is not in the dock, or a window
+        /// <summary>Restores a layout <see cref="SaveToXml(System.IO.Stream)"/> wrote, or one Telerik's dock saved.</summary>
+        /// <remarks>Windows are matched by name. For this dock's own layout, a saved window that is not in the dock, or a window
         /// not in the saved layout, is left alone. A document that is not a well-formed layout throws
         /// <see cref="System.Xml.XmlException"/>.</remarks>
         public void LoadFromXml (System.IO.Stream stream)
@@ -90,6 +90,12 @@ namespace Majorsilence.Forms.Telerik
             Guard.ThrowIfNull (stream);
 
             var document = System.Xml.Linq.XDocument.Load (stream);
+
+            if (document.Root?.Name.LocalName == "RadDock") {
+                LoadTelerikLayout (document.Root);
+                return;
+            }
+
             var windows = AllWindowsInTree ()
                 .Where (w => !string.IsNullOrEmpty (w.Name))
                 .GroupBy (w => w.Name, StringComparer.Ordinal)
@@ -111,6 +117,78 @@ namespace Majorsilence.Forms.Telerik
             // Selection last, once every window is back in the state that decides whether it has a tab.
             foreach (var window in selected)
                 ActivateWindow (window);
+        }
+
+        // A layout Telerik's own dock saved -- what an app that ran on Telerik has stored: the dock's control
+        // tree, each tab strip listing its windows in tab order with their Text, and the strip's
+        // SelectedIndex. Measured on Telerik (UI for WinForms 2026.2.520), loading one gives each listed
+        // window the saved Text and tab order and selects the saved tab; a window saved hidden comes back
+        // as a tab, and a window in the strip that the layout does not list is closed and disposed. Split
+        // sizes and floating positions are not modelled here and are not read.
+        private void LoadTelerikLayout (System.Xml.Linq.XElement root)
+        {
+            var windows = OwnWindows ()
+                .Where (w => !string.IsNullOrEmpty (w.Name))
+                .GroupBy (w => w.Name, StringComparer.Ordinal)
+                .ToDictionary (g => g.Key, g => g.First (), StringComparer.Ordinal);
+
+            var selected = new List<DockWindowBase> ();
+
+            foreach (var strip_element in root.Descendants ().Where (e => e.Name.LocalName.EndsWith ("TabStrip", StringComparison.Ordinal))) {
+                var listed = new List<DockWindowBase> ();
+
+                foreach (var element in strip_element.Element ("Controls")?.Elements () ?? Enumerable.Empty<System.Xml.Linq.XElement> ()) {
+                    if ((string?) element.Attribute ("Name") is not { } name || !windows.TryGetValue (name, out var window))
+                        continue;
+
+                    if ((string?) element.Attribute ("Text") is { } text)
+                        window.Text = text;
+
+                    listed.Add (window);
+                }
+
+                if (listed.Count == 0 || listed[0].Parent is not { } strip)
+                    continue;
+
+                for (var i = 0; i < listed.Count; i++)
+                    if (listed[i].Parent == strip)
+                        strip.Controls.SetChildIndex (listed[i], i);
+
+                foreach (var unlisted in strip.Controls.OfType<DockWindowBase> ().Except (listed).ToList ()) {
+                    unlisted.DockState = DockState.Hidden;
+                    strip.Controls.Remove (unlisted);
+                    unlisted.Dispose ();
+                }
+
+                if (int.TryParse ((string?) strip_element.Attribute ("SelectedIndex"), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var index)
+                    && index >= 0 && index < listed.Count)
+                    selected.Add (listed[index]);
+            }
+
+            foreach (var window in selected)
+                ActivateWindow (window);
+        }
+
+        // The windows in this dock's own strips: not those of a dock nested inside one of its windows, which
+        // that dock's own layout describes.
+        private IEnumerable<DockWindowBase> OwnWindows ()
+        {
+            var stack = new Stack<Control> ();
+
+            foreach (Control c in Controls)
+                stack.Push (c);
+
+            while (stack.Count > 0) {
+                var c = stack.Pop ();
+
+                if (c is DockWindowBase window) {
+                    yield return window;
+                    continue;
+                }
+
+                foreach (Control child in c.Controls)
+                    stack.Push (child);
+            }
         }
 
         /// <summary>Restores a layout from a file. See <see cref="LoadFromXml(System.IO.Stream)"/>.</summary>
@@ -321,8 +399,14 @@ namespace Majorsilence.Forms.Telerik
                 if (dock_state == value)
                     return;
 
+                // Hiding the selected tab hands it on, to the tab after it or else the one before.
+                var successor = value == DockState.Hidden ? DockStrip.Successor (this) : null;
+
                 PreviousDockState = dock_state;
                 dock_state = value;
+
+                if (successor is not null)
+                    DockStrip.ActivateSuccessor (successor);
 
                 if (Parent is DocumentTabStrip or ToolTabStrip)
                     Parent.PerformLayout ();
@@ -364,6 +448,28 @@ namespace Majorsilence.Forms.Telerik
         }
         /// <summary>Closes and disposes the window.</summary>
         public void CloseAndDispose () { Visible = false; Dispose (); }
+
+        /// <summary>Hides the window from its dock: its tab goes, and the next tab is activated if it was active.</summary>
+        /// <remarks>Upstream's DockWindow.Hide sets the dock state to Hidden. Measured on Telerik (UI for
+        /// WinForms 2026.2.520): hiding the active document made the one after it active (the one
+        /// before when it was last), raising Leave and Enter but not SelectedTabChanged, and the hidden window
+        /// left its strip. Control.Hide, which this used to be, only cleared Visible, so the
+        /// tab stayed and the next tab click showed the window again.</remarks>
+        public new void Hide () => DockState = DockState.Hidden;
+
+        /// <summary>Brings a hidden window back to the state it had, as the first tab of its strip; otherwise shows it.</summary>
+        /// <remarks>Measured on Telerik: Show after Hide put a document back as the first tab of its strip,
+        /// wherever it had been, and the tab that was active stayed active.</remarks>
+        public new void Show ()
+        {
+            if (DockState != DockState.Hidden) {
+                base.Show ();
+                return;
+            }
+
+            Parent?.Controls.SetChildIndex (this, 0);
+            DockState = PreviousDockState;
+        }
     }
 
     /// <summary>

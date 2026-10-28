@@ -65,12 +65,19 @@ namespace Majorsilence.Forms.Renderers
             // have had all along. The two siblings genuinely differ; matching them would be the bug.
             var is_selected = item == control.SelectedItem && (control.Focused || !control.HideSelection);
 
+            // A ported app (one that chose its font) highlights as upstream does: Highlight behind
+            // HighlightText while the tree has the focus, Control behind ControlText while it does not, unless
+            // the tree's style names its own selection colour.
+            var upstream_selection = is_selected && ControlPaint.UsesUpstreamGlyphs
+                && ((TreeView.TreeViewControlStyle) control.Style).SelectedItemBackgroundColor is null;
+
             // A node's own ForeColor/BackColor win over the theme; Color.Empty means "use the theme".
             // All three were stored and never read at paint, so bold "unread" and red "error" nodes
             // were silently ignored (LST-26).
             var foreground_color = !control.Enabled
                 ? Theme.ForegroundDisabledColor
                 : item.ForeColor != System.Drawing.Color.Empty ? item.ForeColor.ToSKColor ()
+                : upstream_selection ? (control.Focused ? SystemColors.HighlightText : SystemColors.ControlText).ToSKColor ()
                 : is_selected && TreeView.DefaultSelectionStyle.ForegroundColor is { } selection_fg ? selection_fg
                 : control.HotTracking && ReferenceEquals (control.HotNode, item) ? SystemColors.HotTrack.ToSKColor () // W6
                 : Theme.ForegroundColor;
@@ -81,9 +88,11 @@ namespace Majorsilence.Forms.Renderers
             // FullRowSelect: the whole row, or just the label. It was read by nothing, so every tree
             // highlighted the full row -- which is what FullRowSelect = TRUE means, while the property
             // defaults to false. An explorer-style tree therefore looked like a list.
-            if (is_selected) {
-                var highlight = control.FullRowSelect ? item.Bounds : GetTextBounds (control, item, e);
+            var highlight = !is_selected ? Rectangle.Empty : control.FullRowSelect ? item.Bounds : GetTextBounds (control, item, e);
 
+            if (upstream_selection)
+                e.Canvas.FillRectangle (highlight, (control.Focused ? SystemColors.Highlight : SystemColors.Control).ToSKColor ());
+            else if (is_selected) {
 #if NETSTANDARD2_0
                 // Style's static return type is the base ControlStyle here (no covariant returns on
                 // netstandard2.0); the instance is a TreeViewControlStyle.
@@ -93,8 +102,12 @@ namespace Majorsilence.Forms.Renderers
 #endif
             }
 
-            if (is_selected && control.Focused && control.ShowFocusCues)
-                e.Canvas.DrawFocusRectangle (item.Bounds, e.LogicalToDeviceUnits (1));
+            if (is_selected && control.Focused && control.ShowFocusCues) {
+                if (upstream_selection)
+                    DrawUpstreamFocusRectangle (e, highlight, SystemColors.Highlight.ToSKColor ());
+                else
+                    e.Canvas.DrawFocusRectangle (item.Bounds, e.LogicalToDeviceUnits (1));
+            }
 
             if (control.DrawMode == TreeViewDrawMode.OwnerDrawText) {
                 var dea = new TreeViewDrawEventArgs (control, item, e);
@@ -129,7 +142,9 @@ namespace Majorsilence.Forms.Renderers
                         item.Checked ? CheckState.Checked : CheckState.Unchecked, !control.Enabled);
             }
 
-            if (control.ShowItemImages == true && ResolveImage (control, item, is_selected) is { } image) {
+            // The selected image marks the selected node whether or not its highlight shows, as upstream's
+            // does: a tree that lost the focus with HideSelection set swapped its open folder for a closed one.
+            if (control.ShowItemImages == true && ResolveImage (control, item, item == control.SelectedItem) is { } image) {
                 var image_bounds = GetImageBounds (control, item, e);
 
                 e.Canvas.DrawBitmap (image, image_bounds, !control.Enabled);
@@ -165,6 +180,30 @@ namespace Majorsilence.Forms.Renderers
                 : control.LogicalToDeviceUnits (ControlPaint.UsesUpstreamGlyphs ? (int)System.Math.Round (control.Font.PixelSize) : Theme.FontSize);
 
             return (font, font_size);
+        }
+
+        // Upstream's focus cue on the selected node, measured: a one-pixel border round the highlighted
+        // label, a checkerboard of black and the inverse of the highlight (#FF8728 on #0078D7), black at
+        // the top left.
+        private static void DrawUpstreamFocusRectangle (PaintEventArgs e, Rectangle bounds, SkiaSharp.SKColor background)
+        {
+            var dot = e.LogicalToDeviceUnits (1);
+            var inverse = new SkiaSharp.SKColor ((byte) (255 - background.Red), (byte) (255 - background.Green), (byte) (255 - background.Blue));
+
+            void Dot (int x, int y)
+                => e.Canvas.FillRectangle (x, y, dot, dot, ((x - bounds.Left) / dot + (y - bounds.Top) / dot) % 2 == 0 ? SkiaSharp.SKColors.Black : inverse);
+
+            var right = bounds.Right - dot;
+            var bottom = bounds.Bottom - dot;
+
+            for (var x = bounds.Left; x < right; x += dot)
+                Dot (x, bounds.Top);
+            for (var y = bounds.Top; y < bottom; y += dot)
+                Dot (right, y);
+            for (var x = right; x > bounds.Left; x -= dot)
+                Dot (x, bottom);
+            for (var y = bottom; y > bounds.Top; y -= dot)
+                Dot (bounds.Left, y);
         }
 
         /// <summary>

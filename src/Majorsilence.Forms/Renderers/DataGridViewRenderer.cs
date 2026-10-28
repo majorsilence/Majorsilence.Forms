@@ -27,13 +27,16 @@ namespace Majorsilence.Forms.Renderers
             RenderRows (control, e, content);
 
             // Right of the last column is the grid's background too, beside the header band and every row,
-            // as upstream paints it. Right-pinned columns run to the edge, so they leave no such band.
-            if (!control.BackgroundColor.IsEmpty && control.Columns.Count > 0 && control.RightPinnedColumnsWidth == 0) {
+            // as upstream paints it. Right-pinned columns run to the edge, so they leave no such band. A grid
+            // with no BackgroundColor (RadGridView: Telerik's grid is blank there, header band and selected
+            // row stopping at the last column) shows its own background, as it does below the last row.
+            if (control.Columns.Count > 0 && control.RightPinnedColumnsWidth == 0) {
                 var columns_right = content.Left + (control.RowHeadersVisible ? control.ScaledRowHeadersWidth : 0)
                     + control.TotalColumnsWidth - control.HorizontalScrollOffset;
+                var band = control.BackgroundColor.IsEmpty ? control.GetEffectiveBackgroundColor () : ToSK (control.BackgroundColor);
 
                 if (columns_right < content.Right)
-                    e.Canvas.FillRectangle (new Rectangle (columns_right, content.Top, content.Right - columns_right, content.Height), ToSK (control.BackgroundColor));
+                    e.Canvas.FillRectangle (new Rectangle (columns_right, content.Top, content.Right - columns_right, content.Height), band);
             }
 
             e.Canvas.Restore ();
