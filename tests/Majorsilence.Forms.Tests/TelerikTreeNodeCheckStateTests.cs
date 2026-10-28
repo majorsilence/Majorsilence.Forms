@@ -117,7 +117,7 @@ public class TelerikTreeNodeCheckStateTests
 
             b.CheckState = ToggleState.On;
             Assert.Equal (ToggleState.Off, b.CheckState);
-            Assert.DoesNotContain (events, e => e.StartsWith ("changed"));
+            Assert.DoesNotContain (events, e => e.StartsWith ("changed", StringComparison.Ordinal));
         }
     }
 
