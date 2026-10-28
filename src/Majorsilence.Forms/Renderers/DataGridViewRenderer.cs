@@ -27,13 +27,16 @@ namespace Majorsilence.Forms.Renderers
             RenderRows (control, e, content);
 
             // Right of the last column is the grid's background too, beside the header band and every row,
-            // as upstream paints it. Right-pinned columns run to the edge, so they leave no such band.
-            if (!control.BackgroundColor.IsEmpty && control.Columns.Count > 0 && control.RightPinnedColumnsWidth == 0) {
+            // as upstream paints it. Right-pinned columns run to the edge, so they leave no such band. A grid
+            // with no BackgroundColor (RadGridView: Telerik's grid is blank there, header band and selected
+            // row stopping at the last column) shows its own background, as it does below the last row.
+            if (control.Columns.Count > 0 && control.RightPinnedColumnsWidth == 0) {
                 var columns_right = content.Left + (control.RowHeadersVisible ? control.ScaledRowHeadersWidth : 0)
                     + control.TotalColumnsWidth - control.HorizontalScrollOffset;
+                var band = control.BackgroundColor.IsEmpty ? control.GetEffectiveBackgroundColor () : ToSK (control.BackgroundColor);
 
                 if (columns_right < content.Right)
-                    e.Canvas.FillRectangle (new Rectangle (columns_right, content.Top, content.Right - columns_right, content.Height), ToSK (control.BackgroundColor));
+                    e.Canvas.FillRectangle (new Rectangle (columns_right, content.Top, content.Right - columns_right, content.Height), band);
             }
 
             e.Canvas.Restore ();
@@ -134,8 +137,10 @@ namespace Majorsilence.Forms.Renderers
             e.Canvas.DrawLine (bounds.Right - 1, bounds.Top, bounds.Right - 1, bounds.Bottom, HeaderLineColor (control, Theme.BorderLowColor));
 
             // Draw text, reserving room on the right for any glyphs (sort/filter funnel) a subclass draws.
+            // The 6px padding scales, as the glyph room does: unscaled, a caption at 200% ran 2px into the
+            // filter button a subclass keeps 26 (scaled) of its 30 for.
             var text_bounds = bounds;
-            text_bounds.Inflate (-6, 0);
+            text_bounds.Inflate (-control.LogicalToDeviceUnits (6), 0);
             var right_inset = HeaderRightInset (control, column);
             if (right_inset > 0)
                 text_bounds.Width = Math.Max (0, text_bounds.Width - right_inset);
@@ -158,7 +163,7 @@ namespace Majorsilence.Forms.Renderers
             // Wrapped between words only, as upstream's header text: a word too wide keeps a line to itself.
             int? max_lines = 1;
 
-            if (ControlPaint.UsesUpstreamGlyphs) {
+            if (control.UsesUpstreamHeaders) {
                 DrawUpstreamCaption (control, column, bounds, caption, font, scaled_size, fg, e);
             } else if (wraps) {
                 caption = DataGridView.BreakBetweenWords (caption, font, scaled_size, text_bounds.Width, out var layout_width, breakAll: true);
@@ -172,7 +177,7 @@ namespace Majorsilence.Forms.Renderers
                 caption = FirstLines (caption, max_lines);
             }
 
-            if (!ControlPaint.UsesUpstreamGlyphs)
+            if (!control.UsesUpstreamHeaders)
                 e.Canvas.DrawText (caption, font, scaled_size, text_bounds, fg, column.HeaderAlignment, maxLines: max_lines, ellipsis: HeaderTextEllipsis || !control.HeaderWraps);
 
             // Draw sort indicator
@@ -933,7 +938,7 @@ namespace Majorsilence.Forms.Renderers
         // lines. It was stored and ignored, so a ported app's headers kept the toolkit theme's grey. Under the upstream
         // look only (an app that chose its font); an app turning it off gets its header style, as upstream.
         private static bool ThemedHeaders (DataGridView control)
-            => control.EnableHeadersVisualStyles && ControlPaint.UsesUpstreamGlyphs;
+            => control.EnableHeadersVisualStyles && control.UsesUpstreamHeaders;
 
         private static SKColor HeaderLineColor (DataGridView control, SKColor theme)
             => ThemedHeaders (control) && !control.GridColor.IsEmpty ? control.GridColor.ToSKColor () : theme;

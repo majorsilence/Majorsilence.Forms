@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -451,8 +451,10 @@ public sealed class BrowserBlockingModalTests : IDisposable
         tool.Controls.Add (panel);
         tool.Show ();
 
+        // With no owner it takes the thread's active window, as upstream's GetActiveWindow gives it: the form shown
+        // last (measured on WinForms), not the first one opened.
         Assert.Equal (DialogResult.OK, await stub.ShowDialogAsync ());
-        Assert.Same (main, stub.Owner);
+        Assert.Same (tool, stub.Owner);
 
         Assert.Equal (DialogResult.OK, await stub.ShowDialogAsync ((IWin32Window) panel));
         Assert.Same (tool, stub.Owner);

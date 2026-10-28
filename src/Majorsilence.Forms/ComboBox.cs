@@ -104,6 +104,33 @@ namespace Majorsilence.Forms
                     owner.RaiseKeyUp (e);
             }
 
+            // Set when a press gives this region the focus: that press selects the text instead of placing
+            // the caret.
+            private bool focused_by_press;
+
+            /// <inheritdoc/>
+            /// <remarks>The press that gives the combo the focus leaves its text selected, as upstream's native
+            /// combo selects its edit's text on focus whatever brought it; only a press in a combo that already
+            /// has the focus places the caret.</remarks>
+            protected override void OnGotFocus (EventArgs e)
+            {
+                base.OnGotFocus (e);
+
+                if ((MouseButtons & MouseButtons.Left) != 0) {
+                    focused_by_press = true;
+
+                    if (SelectionLength == 0)
+                        SelectAll ();
+                }
+            }
+
+            internal override bool PlacesCaretOnPress (MouseEventArgs e)
+            {
+                var focusing = focused_by_press;
+                focused_by_press = false;
+                return !focusing;
+            }
+
             /// <inheritdoc/>
             internal override bool HandlesMouseWheel => true;
 
@@ -341,14 +368,15 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        /// <remarks>An editable combo selects its text when it gets the focus other than by a mouse press, as
-        /// upstream's does (the native combo selects its edit's text on focus), unless the program chose a
-        /// selection. A DropDown combo first in tab order opened with its text unselected.</remarks>
+        /// <remarks>An editable combo selects its text when it gets the focus, as upstream's does (the native
+        /// combo selects its edit's text on focus), unless the program chose a selection. A press is no
+        /// exception: measured on WinForms, a press in the text, past it or on the drop-down button selected
+        /// it all. A DropDown combo first in tab order opened with its text unselected.</remarks>
         protected override void OnGotFocus (EventArgs e)
         {
             base.OnGotFocus (e);
 
-            if (IsEditable && MouseButtons == MouseButtons.None && edit.SelectionLength == 0)
+            if (IsEditable && edit.SelectionLength == 0)
                 edit.SelectAll ();
 
             edit.Invalidate ();
@@ -790,6 +818,12 @@ namespace Majorsilence.Forms
             SetTextCore (index >= 0 ? GetItemText (SelectedItem) : string.Empty);
 
             OnSelectedIndexChanged (e);
+
+            // The user's choice is then selected in the edit, as upstream's native combo selects it: measured
+            // on WinForms, a pick from the list and an Up arrow in a focused combo both left the new text
+            // selected (it was not yet during SelectedIndexChanged).
+            if (userDriven && IsEditable && HasKeyboardFocus)
+                edit.SelectAll ();
         }
 
         // Set while a keystroke or wheel notch on the combo itself is moving the selection, so the

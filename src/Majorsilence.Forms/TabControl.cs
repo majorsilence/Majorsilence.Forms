@@ -130,8 +130,11 @@ namespace Majorsilence.Forms
         // Hides/shows the built-in tab header strip. Used when the headers are presented elsewhere
         // (e.g. RadTabbedForm draws document tabs in the title bar and uses the TabControl only as a
         // content host). The hidden strip is Dock=Top with no space, so pages fill the whole control.
+        // The strip's own flag, not its ambient Visible: that reads false until the form is shown, which turned the
+        // upstream look (UsesUpstreamTabs) off for every layout before then -- docking the pages to fill, only to
+        // undock them once shown, and re-capturing their anchored children against the wrong size in between.
         internal bool TabStripVisible {
-            get => tab_strip.Visible;
+            get => ((Layout.IArrangedElement) tab_strip).ParticipatesInLayout;
             set => tab_strip.Visible = value;
         }
 
@@ -144,6 +147,27 @@ namespace Majorsilence.Forms
         /// Raises the SelectedIndexChanged event.
         /// </summary>
         protected virtual void OnSelectedIndexChanged (EventArgs e) => SelectedIndexChanged?.Invoke (this, e);
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// As upstream's UpdateTabSelection when the handle is created: the selected page is shown and every other
+        /// page hidden, whatever their Visible said until then. A designer file can carry <c>page.Visible = False</c>
+        /// for every page, set after the pages are added -- after the first one was selected and shown -- and with
+        /// no selection change to follow, the selected page stayed hidden and the control showed an empty body.
+        /// Measured on WinForms: three pages set False, False, True before the form was shown come up as True,
+        /// False, False with the first selected.
+        /// </remarks>
+        protected override void OnHandleCreated (EventArgs e)
+        {
+            base.OnHandleCreated (e);
+
+            var selected = GetPageFromTab (tab_strip.SelectedTab);
+
+            foreach (var page in TabPages)
+                page.Visible = page == selected;
+
+            current_page = selected;
+        }
 
         /// <inheritdoc/>
         protected override void OnPaint (PaintEventArgs e)
@@ -405,8 +429,9 @@ namespace Majorsilence.Forms
         /// <summary>Gets or sets the size mode of the tabs.</summary>
         /// <remarks>
         /// <see cref="TabSizeMode.Fixed"/> gives every tab <see cref="ItemSize"/>'s width;
-        /// <see cref="TabSizeMode.FillToRight"/> stretches each row of tabs to the strip's width
-        /// (upstream's <c>TCS_RIGHTJUSTIFY</c>). Was stored and ignored (LAY-15).
+        /// <see cref="TabSizeMode.FillToRight"/> stretches each row of tabs to the strip's width once they
+        /// wrap into more than one row (upstream's <c>TCS_RIGHTJUSTIFY</c>); a single row keeps its tabs'
+        /// own widths. Was stored and ignored (LAY-15).
         /// </remarks>
         public TabSizeMode SizeMode {
             get => size_mode;
