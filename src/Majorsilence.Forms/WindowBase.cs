@@ -2714,10 +2714,16 @@ namespace Majorsilence.Forms
             if (visible || in_show_bookkeeping)
                 return;
 
+            // Before hosting too: upstream scales a form on its first layout whatever it is shown in, so an
+            // MDI child or a form parented into a panel takes its AutoScaleMode and legacy
+            // AutoScaleBaseSize scale as a top-level window does. Hosted, it skipped both and opened at
+            // its designed size -- a legacy 6x16 dialog under a 12pt default font 30% smaller than in
+            // WinForms.
+            PrepareForFirstShowIfNeeded ();
+
             if (TryShowHosted ())
                 return;
 
-            PrepareForFirstShowIfNeeded ();
             SetWindowStartupLocation ();
             Backend.ShowActivated = ShowsActivated;
             Backend.Show ();

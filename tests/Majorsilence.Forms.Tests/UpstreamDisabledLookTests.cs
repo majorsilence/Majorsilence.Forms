@@ -108,11 +108,13 @@ namespace Majorsilence.Forms.Tests
                 int Y (float logical) => (int) (logical * scale);
 
                 // The face, and the outline along the top and bottom edges (a pixel inside upstream's bounds), in the
-                // disabled colours: no trace of the enabled button's grey outline or darker bottom edge.
+                // disabled colours: no trace of the enabled button's grey outline or darker bottom edge. The outline is
+                // one logical pixel, the row below the top edge and the row above the bottom one; each is sampled at its
+                // first and last device row, so a scaled display is read where the outline is.
                 Assert.Equal (new SKColor (0xF9, 0xF9, 0xF9), bitmap.GetPixel (middle, Y (button.Top + 30)));
 
-                var top = new[] { bitmap.GetPixel (middle, Y (button.Top)), bitmap.GetPixel (middle, Y (button.Top) + 1) };
-                var bottom = new[] { bitmap.GetPixel (middle, Y (button.Bottom) - 1), bitmap.GetPixel (middle, Y (button.Bottom) - 2) };
+                var top = new[] { bitmap.GetPixel (middle, Y (button.Top + 1)), bitmap.GetPixel (middle, Y (button.Top + 2) - 1) };
+                var bottom = new[] { bitmap.GetPixel (middle, Y (button.Bottom - 2)), bitmap.GetPixel (middle, Y (button.Bottom - 1) - 1) };
                 Assert.Contains (new SKColor (0xE9, 0xE9, 0xE9), top);
                 Assert.Contains (new SKColor (0xE9, 0xE9, 0xE9), bottom);
                 Assert.DoesNotContain (new SKColor (0xD0, 0xD0, 0xD0), top);

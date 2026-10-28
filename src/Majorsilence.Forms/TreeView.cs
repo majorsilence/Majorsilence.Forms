@@ -530,10 +530,29 @@ namespace Majorsilence.Forms
         public ImageList? ImageList { get; set; }
 
         /// <summary>Gets or sets the default image index for items.</summary>
-        public int ImageIndex { get; set; } = -1;
+        /// <remarks>As upstream's: -1 without an <see cref="ImageList"/>; with one, 0 until set, and an index
+        /// past the last image reads as the last. Measured on WinForms, a tree given an ImageList and no
+        /// indices shows its first image on every node, selected or not; it was -1 here, so such a tree
+        /// showed no images at all.</remarks>
+        public int ImageIndex {
+            get => ListIndex (image_index);
+            set => image_index = value;
+        }
 
         /// <summary>Gets or sets the image index shown for selected items.</summary>
-        public int SelectedImageIndex { get; set; } = -1;
+        /// <remarks>Read as <see cref="ImageIndex"/> is: 0 until set when there is an ImageList.</remarks>
+        public int SelectedImageIndex {
+            get => ListIndex (selected_image_index);
+            set => selected_image_index = value;
+        }
+
+        private int image_index;
+        private int selected_image_index;
+
+        private int ListIndex (int index)
+            => ImageList is not { } images ? -1
+             : index >= images.Images.Count ? System.Math.Max (0, images.Images.Count - 1)
+             : index;
 
         /// <summary>Gets or sets whether nodes are highlighted when the mouse pointer hovers over them. Stub in Majorsilence.Forms.</summary>
         public bool HotTracking { get; set; }

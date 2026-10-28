@@ -92,7 +92,6 @@ Majorsilence.Forms.Telerik.DataGroup.HeaderText    -- set by the grid as it buil
 Majorsilence.Forms.Telerik.DataGroup.Level    -- set by the grid as it builds Groups, read by the application
 Majorsilence.Forms.Telerik.DockWindowBase.AutoScaleMode    -- designer-shape value: scaling follows the host form
 Majorsilence.Forms.Telerik.DockWindowBase.DefaultFloatingSize    -- windows do not float here: tabbed docking only
-Majorsilence.Forms.Telerik.DockWindowBase.PreviousDockState    -- kept up to date by DockState and read by the application
 Majorsilence.Forms.Telerik.DockWindowBase.ToolCaptionButtons    -- the tool-window caption band draws no buttons yet (BACKLOG.md, dock caption buttons)
 Majorsilence.Forms.Telerik.DockWindowEventArgs.DockWindow    -- event data: set as the event is raised, read by the handler
 Majorsilence.Forms.Telerik.DockWindowPlaceholder.DockWindow    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
@@ -234,7 +233,6 @@ Majorsilence.Forms.Telerik.RadElement.Visibility    -- element-tree stand-in: th
 Majorsilence.Forms.Telerik.RadForm.IconScaling    -- form chrome setting with no counterpart in this chrome
 Majorsilence.Forms.Telerik.RadForm.ThemeName    -- Telerik theme name: Telerik themes are not mapped (CSS themes instead; COMPATIBILITY_MATRIX, Telerik.WinControls.Themes)
 Majorsilence.Forms.Telerik.RadGridView.AutoScroll    -- the grid manages its own scroll bars
-Majorsilence.Forms.Telerik.RadGridView.AutoSizeRows    -- rows keep their height: the core grid does not apply AutoSizeRowsMode during layout either (BACKLOG.md)
 Majorsilence.Forms.Telerik.RadGridView.ColumnChooserSortOrder    -- there is no column chooser
 Majorsilence.Forms.Telerik.RadGridView.SynchronizeCurrentRowInSplitMode    -- there is no split mode
 Majorsilence.Forms.Telerik.RadGridView.ThemeName    -- Telerik theme name; the compat controls have no theme engine
