@@ -2570,8 +2570,14 @@ namespace Majorsilence.Forms
                     Application.ClosePopups (false, true);
 
                 if (Enabled) {
-                    if (TakesFocusOnPress (e.Button))
-                        Select ();
+                    if (TakesFocusOnPress (e.Button)) {
+                        FocusingByPress = true;
+                        try {
+                            Select ();
+                        } finally {
+                            FocusingByPress = false;
+                        }
+                    }
 
                     Capture = true;
                     if (tracking_press)
@@ -2594,6 +2600,11 @@ namespace Majorsilence.Forms
         /// override this.
         /// </summary>
         internal virtual bool TakesFocusOnPress (MouseButtons button) => button == MouseButtons.Left;
+
+        /// <summary>True while a mouse press is moving the focus to the control it landed on, so a control
+        /// can tell that focus from keyboard or code: upstream's tree selects its top node when it gains the
+        /// focus with nothing selected, but not when a press focused it, since the press selects.</summary>
+        internal static bool FocusingByPress { get; private set; }
 
         // The control the current press landed on, until its release. A click is a press and a release
         // on the SAME control: upstream WmMouseUp fires Click only when the control has MousePressed --

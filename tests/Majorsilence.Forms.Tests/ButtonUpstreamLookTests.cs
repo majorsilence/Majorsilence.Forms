@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using Majorsilence.Forms.Headless;
 using SkiaSharp;
 using Xunit;
@@ -86,6 +86,45 @@ namespace Majorsilence.Forms.Tests
 
                 Assert.True (left >= (int) (4 * scale), $"the caption starts {left}px in");
                 Assert.True (top >= (int) (4 * scale), $"the caption starts {top}px down");
+            } finally {
+                Application.SetDefaultFont (null!);
+            }
+        }
+
+        // Upstream's themed push button leaves a pixel of its bounds round its outline, in every state. Measured on
+        // WinForms (.NET 10, Windows 11): an 88 x 27 Cancel button's top row and an enabled or disabled 130 x 30
+        // button's top row show the parent, the outline runs along the second, and likewise at the bottom.
+        [Theory]
+        [InlineData (true)]
+        [InlineData (false)]
+        public void A_button_s_outline_is_a_pixel_inside_its_bounds (bool enabled)
+        {
+            try {
+                Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font (Control.DefaultFont.Name, 9f));
+                HeadlessRenderer.Use ();
+                using var form = new Form { FormBorderStyle = FormBorderStyle.None, ClientSize = new Size (120, 40), BackColor = System.Drawing.Color.FromArgb (255, 0, 255) };
+                var button = new Button { Text = string.Empty, Location = new Point (10, 5), Size = new Size (90, 28), TabIndex = 1, Enabled = enabled };
+                form.Controls.Add (button);
+                form.Controls.Add (new TextBox { Location = new Point (110, 30), Size = new Size (6, 6), TabIndex = 0 });
+                form.Show ();
+
+                using var bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 120, 40));
+                var px = bitmap.Width / 120;
+                var middle = (button.Left + button.Width / 2) * px;
+                var magenta = new SKColor (0xFF, 0x00, 0xFF);
+
+                // The parent shows through the button's outermost device pixels, top and bottom, left and right.
+                for (var i = 0; i < px; i++) {
+                    Assert.Equal (magenta, bitmap.GetPixel (middle, button.Top * px + i));
+                    Assert.Equal (magenta, bitmap.GetPixel (middle, button.Bottom * px - 1 - i));
+                    Assert.Equal (magenta, bitmap.GetPixel (button.Left * px + i, (button.Top + 14) * px));
+                    Assert.Equal (magenta, bitmap.GetPixel (button.Right * px - 1 - i, (button.Top + 14) * px));
+                }
+
+                // And the outline is the next pixel in, darker than the face.
+                var outline = bitmap.GetPixel (middle, (button.Top + 1) * px);
+                Assert.NotEqual (magenta, outline);
+                Assert.True (outline.Red < 0xF0, $"the outline should be drawn on the second row, found {outline}");
             } finally {
                 Application.SetDefaultFont (null!);
             }

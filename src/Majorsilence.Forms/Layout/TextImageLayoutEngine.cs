@@ -298,10 +298,10 @@ internal static class TextImageLayoutEngine
                 /* BottomRight = */   TextImageRelation.TextAboveImage | TextImageRelation.TextBeforeImage
     ];
 
-    private static TextImageRelation ImageAlignToRelation (ContentAlignment alignment)
+    internal static TextImageRelation ImageAlignToRelation (ContentAlignment alignment)
         => _imageAlignToRelation[LayoutUtils.ContentAlignmentToIndex (alignment)];
 
-    private static TextImageRelation TextAlignToRelation (ContentAlignment alignment)
+    internal static TextImageRelation TextAlignToRelation (ContentAlignment alignment)
         => LayoutUtils.GetOppositeTextImageRelation (ImageAlignToRelation (alignment));
 
     private static SKSize GetTextSize (Control control)

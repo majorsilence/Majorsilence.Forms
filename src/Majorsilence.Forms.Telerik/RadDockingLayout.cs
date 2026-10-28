@@ -332,7 +332,7 @@ namespace Majorsilence.Forms.Telerik
         // Enter on the newly-selected one, and SelectedTabChanged on the owning RadDock. This is how
         // WinForms/Telerik tab selection surfaces to app code -- e.g. a form that loads a tab's grid
         // data in the document window's Enter handler, or in the dock's SelectedTabChanged handler.
-        internal static void RaiseTabActivation (Control strip, DockWindowBase? previous, DockWindowBase current)
+        internal static void RaiseTabActivation (Control strip, DockWindowBase? previous, DockWindowBase current, bool raiseSelectedTabChanged = true)
         {
             previous?.RaiseLeave ();
             current.RaiseEnter ();
@@ -341,7 +341,34 @@ namespace Majorsilence.Forms.Telerik
             while (ancestor is not null and not RadDock)
                 ancestor = ancestor.Parent;
 
-            (ancestor as RadDock)?.NotifySelectedTabChanged (previous, current);
+            (ancestor as RadDock)?.NotifySelectedTabChanged (previous, current, raiseSelectedTabChanged);
+        }
+
+        // The tab that takes over when the selected window is hidden: the one after it, or the one before
+        // when it was last, as upstream picks. Null when the window is not selected or has no sibling tab.
+        internal static DockWindowBase? Successor (DockWindowBase window)
+        {
+            if (window.Parent is not { } strip || !IsSelected (window))
+                return null;
+
+            var ws = Windows (strip);
+            var index = ws.IndexOf (window);
+
+            return index + 1 < ws.Count ? ws[index + 1] : index > 0 ? ws[index - 1] : null;
+        }
+
+        // Activates the successor of a window that was just hidden: Leave and Enter, as upstream raises,
+        // but no SelectedTabChanged, which upstream does not raise for it.
+        internal static void ActivateSuccessor (DockWindowBase successor)
+        {
+            switch (successor.Parent) {
+                case DocumentTabStrip document:
+                    document.SelectWindowInternal (successor, raiseSelectedTabChanged: false);
+                    break;
+                case ToolTabStrip tool:
+                    tool.SelectWindowInternal (successor, raiseSelectedTabChanged: false);
+                    break;
+            }
         }
 
         // Fills the container's primary content child (a tab strip / nested container) to the client area.
@@ -367,10 +394,12 @@ namespace Majorsilence.Forms.Telerik
         internal void RaiseContextMenuDisplaying (ContextMenuDisplayingEventArgs e)
             => (_contextMenuService ??= new ContextMenuService ()).RaiseContextMenuDisplaying (e);
 
-        internal void NotifySelectedTabChanged (DockWindowBase? previous, DockWindowBase current)
+        internal void NotifySelectedTabChanged (DockWindowBase? previous, DockWindowBase current, bool raise = true)
         {
             active_window = current;
-            SelectedTabChanged?.Invoke (this, new SelectedTabChangedEventArgs { OldWindow = previous, NewWindow = current });
+
+            if (raise)
+                SelectedTabChanged?.Invoke (this, new SelectedTabChangedEventArgs { OldWindow = previous, NewWindow = current });
         }
 
         /// <summary>
@@ -601,7 +630,7 @@ namespace Majorsilence.Forms.Telerik
 
         // Selects the given window's tab, raising the standard activation events -- the shared
         // implementation behind a header click, SelectedIndex/SelectedTab and RadDock.ActivateWindow.
-        internal void SelectWindowInternal (DockWindowBase win)
+        internal void SelectWindowInternal (DockWindowBase win, bool raiseSelectedTabChanged = true)
         {
             if (win == _selectedWindow || !Controls.Contains (win) || win.DockState == DockState.Hidden)
                 return;
@@ -610,7 +639,7 @@ namespace Majorsilence.Forms.Telerik
             _selectedWindow = win;
             pending_index = -1;
             DockStrip.LayoutTabs (this, _selectedWindow);
-            DockStrip.RaiseTabActivation (this, previous, win);
+            DockStrip.RaiseTabActivation (this, previous, win, raiseSelectedTabChanged);
             SelectedIndexChanged?.Invoke (this, EventArgs.Empty);
             Invalidate ();
         }
@@ -743,7 +772,7 @@ namespace Majorsilence.Forms.Telerik
 
         // Selects the given window's tab, raising the standard activation events -- the shared
         // implementation behind a header click, SelectedIndex/ActiveWindow and RadDock.ActivateWindow.
-        internal void SelectWindowInternal (DockWindowBase win)
+        internal void SelectWindowInternal (DockWindowBase win, bool raiseSelectedTabChanged = true)
         {
             if (win == _selectedWindow || !Controls.Contains (win) || win.DockState == DockState.Hidden)
                 return;
@@ -752,7 +781,7 @@ namespace Majorsilence.Forms.Telerik
             _selectedWindow = win;
             pending_index = -1;
             DockStrip.LayoutTabs (this, _selectedWindow);
-            DockStrip.RaiseTabActivation (this, previous, win);
+            DockStrip.RaiseTabActivation (this, previous, win, raiseSelectedTabChanged);
             Invalidate ();
         }
 

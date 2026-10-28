@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -56,6 +56,39 @@ namespace Majorsilence.Forms
                 column.SetWidthFromLayout (share);
                 assigned += column.Width;
             }
+        }
+
+        // A column whose mode sizes it to its content -- AllCells, DisplayedCells, ColumnHeader and the ExceptHeader
+        // variants, its own or the grid's AutoSizeColumnsMode -- is kept at the width its content needs on every layout,
+        // as upstream re-fits it whenever that content or the column changes: a width assigned to it does not last.
+        // These modes were applied only when AutoResizeColumn(s) was called, so a DisplayedCells grid kept the 100px
+        // widths its form gave the columns after binding, cutting "4,613,884.44" to "4,613,884..". Measured on WinForms:
+        // set to 70, 225, 100 and 100, such a grid's columns came out 72, 242, 110 and 103, and setting one to 50 after
+        // it was shown left it at 110.
+        private void ApplyContentColumnWidths ()
+        {
+            foreach (var column in Columns) {
+                if (!column.Visible)
+                    continue;
+
+                var mode = column.InheritedAutoSizeMode;
+
+                if (mode is DataGridViewAutoSizeColumnMode.None or DataGridViewAutoSizeColumnMode.NotSet or DataGridViewAutoSizeColumnMode.Fill)
+                    continue;
+
+                // Not through Width's setter, which would come back here (see ApplyFillColumnWidths).
+                column.SetWidthFromLayout (column.GetPreferredWidth (mode, fixedHeight: true));
+            }
+        }
+
+        // The rows the Displayed... modes measure: those in view.
+        internal IEnumerable<DataGridViewRow> DisplayedRowsForSizing ()
+        {
+            var first = Math.Max (0, FirstDisplayedScrollingRowIndex);
+            var count = DisplayedRowCount (includePartialRow: true);
+
+            for (var i = first; i < Rows.Count && i < first + count; i++)
+                yield return Rows[i];
         }
 
         // ---------------- DGV-18: measure-based resizing
