@@ -24,6 +24,9 @@ public class ContextMenuShowOnFormTests
     {
         HeadlessRenderer.Use ();
         using var form = new Form { Width = 400, Height = 300 };
+        // macOS uses system decorations, where the client origin is the window origin and the
+        // below-the-caption check further down cannot hold; force the caption this library draws.
+        form.UseSystemDecorations = false;
         form.Show ();
 
         try {
