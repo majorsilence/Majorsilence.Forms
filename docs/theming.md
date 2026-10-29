@@ -572,7 +572,7 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `ToolBar` | no | no | no | no | no | `BindingNavigator`, `ToolStrip`, `ToolStripClickThrough` | Tool bars. Items are the ::item part; :hover also covers a checked (toggled) item. |
 | `TrackBar` | yes | yes | yes | yes | yes |  | Sliders. Supports :hover, :active, :disabled, :focus and :focus-visible. |
 | `TreeView` | no | no | no | no | no | `RadTreeView` | Tree views. The selected node is the ::selection part. |
-| `DockWindowBase` | no | no | no | no | no | `DockWindow`, `DocumentWindow`, `ToolWindow` | Telerik dock windows (tool, document and plain dock windows): background-color is the window behind its content, which is --background-color by default rather than the form's. |
+| `DockWindowBase` | no | no | no | no | no | `DockWindow`, `DockWindowPlaceholder`, `DocumentWindow`, `ToolWindow` | Telerik dock windows (tool, document and plain dock windows): background-color is the window behind its content, which is --background-color by default rather than the form's. |
 | `RadCommandBar` | no | no | no | no | no |  | Telerik command bars: background-color is the bar behind its strips. |
 | `RadPdfViewerNavigator` | no | no | no | no | no |  | The Telerik PDF viewer's navigation toolbar. |
 | `RadRibbonBar` | no | no | no | no | no |  | Telerik ribbon bars: background-color is the ribbon behind its tabs and groups. |
@@ -588,6 +588,7 @@ Each `Rad*` control follows the selector named here -- its own, or the core cont
 | Control | Follows |
 |---|---|
 | `DockWindow` | `DockWindowBase` |
+| `DockWindowPlaceholder` | `DockWindowBase` |
 | `DocumentContainer` | `Panel` |
 | `DocumentTabStrip` | `Panel` |
 | `DocumentWindow` | `DockWindowBase` |

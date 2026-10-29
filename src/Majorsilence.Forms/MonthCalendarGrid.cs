@@ -155,9 +155,32 @@ namespace Majorsilence.Forms
         /// <summary>The text of the "Today:" strip.</summary>
         internal string TodayCaption => $"Today: {TodayDate.ToShortDateString ()}";
 
+        /// <summary>Gets whether the control is sized to its months and its size decides how many it shows, as upstream's is.</summary>
+        /// <remarks>A calendar that lays a fixed set of months out over whatever bounds it is given -- Telerik's -- says
+        /// false: then neither changes the other, and the months share the client area.</remarks>
+        internal virtual bool SizesToMonths => true;
+
+        /// <summary>Sets the months shown, columns by rows, without upstream's twelve-month cap or resizing the control.</summary>
+        /// <remarks>For a calendar that does not size to its months (<see cref="SizesToMonths"/>).</remarks>
+        internal void SetMonthLayout (int columns, int rows)
+        {
+            var dimensions = new Size (Math.Max (1, columns), Math.Max (1, rows));
+
+            if (calendar_dimensions == dimensions)
+                return;
+
+            calendar_dimensions = dimensions;
+            Invalidate ();
+        }
+
         // Upstream's AdjustSize: the control is exactly as big as its months need.
         private void AdjustSize ()
         {
+            if (!SizesToMonths) {
+                Invalidate ();
+                return;
+            }
+
             var size = MinimumSizeFor (MonthLayout.Width, MonthLayout.Height);
 
             adjusting_size = true;
@@ -185,7 +208,7 @@ namespace Majorsilence.Forms
         /// </remarks>
         protected override void SetBoundsCore (int x, int y, int width, int height, BoundsSpecified specified)
         {
-            if (!adjusting_size) {
+            if (!adjusting_size && SizesToMonths) {
                 var single = MeasureSingleMonth ();
                 var today = ShowToday ? BandHeight : 0;
                 var calendar_height = single.Height - today;

@@ -1455,6 +1455,9 @@ namespace Majorsilence.Forms
         /// <summary>Extra logical pixels added to every row's height; a derived tree sets it.</summary>
         internal virtual int ItemSpacing => 0;
 
+        // The width, in logical pixels, of the lines joining nodes (Telerik's RadTreeView.LineWidth).
+        internal virtual float LineThickness => 1;
+
         /// <summary>
         /// Gets or sets the currently selected TreeNode.
         /// </summary>

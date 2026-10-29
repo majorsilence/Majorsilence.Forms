@@ -40,6 +40,9 @@ namespace Majorsilence.Forms.Telerik
         public Majorsilence.Forms.Padding Padding { get; set; }
         /// <summary>Gets or sets user data associated with the element.</summary>
         public object? Tag { get; set; }
+        /// <summary>Gets or sets the role the element reports to accessibility clients. <see cref="Majorsilence.Forms.AccessibleRole.StaticText"/> by default, as Telerik's elements are.</summary>
+        /// <remarks>The element's own; a control's <see cref="Control.AccessibleRole"/> and accessible object keep theirs, as they do in Telerik.</remarks>
+        public AccessibleRole AccessibleRole { get; set; } = AccessibleRole.StaticText;
         /// <summary>Gets or sets the element's designer name.</summary>
         public string Name { get; set; } = string.Empty;
         /// <summary>Gets or sets whether the element accepts drag-drop. Stored stub.</summary>
@@ -277,12 +280,15 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Specifies how a toggle control changes state. Compat for ToggleStateMode.</summary>
+    /// <remarks><see cref="None"/> and <see cref="Click"/> have Telerik's values; <see cref="Press"/> is this layer's own.</remarks>
     public enum ToggleStateMode
     {
+        /// <summary>The user cannot toggle the control, by mouse or keyboard; code still can.</summary>
+        None = 0,
         /// <summary>Toggle on each click.</summary>
-        Click = 0,
+        Click = 1,
         /// <summary>Toggle on press.</summary>
-        Press = 1
+        Press = 4
     }
 
     /// <summary>Specifies the visual style of a RadWaitingBar. Compat for WaitingBarStyles.</summary>

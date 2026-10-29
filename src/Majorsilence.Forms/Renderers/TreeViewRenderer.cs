@@ -139,7 +139,7 @@ namespace Majorsilence.Forms.Renderers
                     e.Canvas.DrawBitmap (state, control.CheckBounds (item), !control.Enabled);
                 else
                     ControlPaint.DrawCheckBox (e, control.CheckBounds (item),
-                        item.Checked ? CheckState.Checked : CheckState.Unchecked, !control.Enabled);
+                        item.Indeterminate ? CheckState.Indeterminate : item.Checked ? CheckState.Checked : CheckState.Unchecked, !control.Enabled);
             }
 
             // The selected image marks the selected node whether or not its highlight shows, as upstream's
@@ -281,7 +281,7 @@ namespace Majorsilence.Forms.Renderers
                 ? control.LineColor.ToSKColor ()
                 : Theme.BorderMidColor;
 
-            var thickness = e.LogicalToDeviceUnits (1);
+            var thickness = System.Math.Max (1, (int) System.Math.Round (e.LogicalToDeviceUnits (1) * control.LineThickness));
             var step = control.LogicalToDeviceUnits (control.Indent > 0 ? control.Indent : INDENT_SIZE);
             var half_glyph = control.LogicalToDeviceUnits (GLYPH_SIZE) / 2;
 

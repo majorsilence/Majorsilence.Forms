@@ -355,6 +355,9 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets the row text color when the rule matches (with <see cref="ApplyToRow"/>).</summary>
         public System.Drawing.Color RowForeColor { get; set; } = System.Drawing.Color.Empty;
 
+        // Whether the rule matches a cell of the given row; a condition rule looks only at the cell's text.
+        internal virtual bool Matches (RadGridView grid, DataGridViewRow row, string cellText) => Matches (cellText);
+
         /// <summary>Returns whether the supplied cell display text satisfies this rule.</summary>
         public bool Matches (string cellText)
         {
@@ -377,6 +380,103 @@ namespace Majorsilence.Forms.Telerik
                 _ => false
             };
         }
+    }
+
+    /// <summary>
+    /// Telerik-compat formatting rule decided by an expression over the row's values, e.g.
+    /// <c>Amount &gt; 1 AND Name &lt;&gt; 'Charlie'</c> or <c>When &lt; #2024-06-01#</c>. Added to a column's
+    /// <c>ConditionalFormattingObjectList</c> like a condition rule, and coloured the same way: the cell, or with
+    /// <c>applyToRow</c> the whole row.
+    /// </summary>
+    /// <remarks>
+    /// Columns are named by their <c>Name</c>. The expression is evaluated with System.Data's expression syntax, which
+    /// Telerik's expression language shares for comparisons, AND / OR / NOT, 'string' and #date# literals and IIF; an
+    /// expression it cannot evaluate matches nothing. Measured on Telerik UI.for.WinForms 2026.2.520 with the two
+    /// expressions above.
+    /// </remarks>
+    public class ExpressionFormattingObject : ConditionalFormattingObject
+    {
+        private const string ResultColumn = "\u0001match";
+
+        private bool broken;
+
+        /// <summary>Initializes an empty rule.</summary>
+        public ExpressionFormattingObject () { }
+
+        /// <summary>Initializes a rule: its name, its expression, and whether it colours the whole row.</summary>
+        public ExpressionFormattingObject (string name, string expression, bool applyToRow)
+        {
+            Name = name;
+            Expression = expression;
+            ApplyToRow = applyToRow;
+        }
+
+        /// <summary>Gets or sets the expression the row's values are tested with.</summary>
+        public string Expression {
+            get => expression;
+            set {
+                expression = value ?? string.Empty;
+                broken = false;
+            }
+        }
+
+        private string expression = string.Empty;
+
+        internal override bool Matches (RadGridView grid, DataGridViewRow row, string cellText)
+        {
+            if (!Enabled || broken || expression.Trim ().Length == 0)
+                return false;
+
+            var columns = ((DataGridView) grid).Columns;
+            var names = new List<string> ();
+            var values = new List<object?> ();
+            var types = new List<Type> ();
+
+            for (var i = 0; i < columns.Count && i < row.Cells.Count; i++) {
+                var name = columns[i].Name;
+
+                if (string.IsNullOrEmpty (name) || names.Contains (name, StringComparer.OrdinalIgnoreCase))
+                    continue;
+
+                var value = row.Cells[i].Value;
+                names.Add (name);
+                values.Add (value is DBNull ? null : value);
+                types.Add (value is null or DBNull ? columns[i].ValueType ?? typeof (string) : value.GetType ());
+            }
+
+            try {
+                // A one-row table of the row's values, with the expression as a computed column over them.
+                using var table = new System.Data.DataTable { Locale = System.Globalization.CultureInfo.InvariantCulture };
+
+                for (var i = 0; i < names.Count; i++)
+                    table.Columns.Add (names[i], types[i]);
+
+                table.Columns.Add (ResultColumn, typeof (bool), "IIF(" + expression + ", true, false)");
+
+                var data = table.NewRow ();
+
+                for (var i = 0; i < names.Count; i++)
+                    data[i] = values[i] ?? DBNull.Value;
+
+                table.Rows.Add (data);
+                return data[ResultColumn] is true;
+            } catch (Exception ex) when (ex is System.Data.EvaluateException or System.Data.SyntaxErrorException
+                                            or InvalidCastException or FormatException or ArgumentException) {
+                broken = true;
+                return false;
+            }
+        }
+    }
+
+    /// <summary>A grand summary row of a <see cref="RadGridView"/>: a cell per column, holding the aggregate's value where the
+    /// column is summarised (Telerik's GridViewSummaryRowInfo). It is not one of the grid's data rows, so its
+    /// <see cref="Index"/> is -1.</summary>
+    public class GridViewSummaryRowInfo : GridViewRowInfo
+    {
+        internal GridViewSummaryRowInfo (DataGridViewRow row) : base (row) { }
+
+        /// <summary>Gets -1: a summary row has no place among the data rows.</summary>
+        public new int Index => -1;
     }
 
     /// <summary>Telerik-compat aggregate functions for summary rows. Mirrors <c>GridAggregateFunction</c>.</summary>
@@ -649,6 +749,13 @@ namespace Majorsilence.Forms.Telerik
     {
         internal Action? Changed { get; set; }
 
+        // Asked before each change, with what is about to happen and the item it touches; false cancels it.
+        // The grid raises its SortChanging from here, as Telerik raises it for every change to the collection.
+        internal Func<System.Collections.Specialized.NotifyCollectionChangedAction, T?, bool>? Changing { get; set; }
+
+        private bool Allow (System.Collections.Specialized.NotifyCollectionChangedAction action, T? item)
+            => Changing is not { } changing || changing (action, item);
+
         /// <summary>Adds several descriptors at once, raising a single change notification.</summary>
         public void AddRange (IEnumerable<T> items)
         {
@@ -664,13 +771,37 @@ namespace Majorsilence.Forms.Telerik
         }
 
         /// <inheritdoc/>
-        protected override void InsertItem (int index, T item) { base.InsertItem (index, item); Changed?.Invoke (); }
+        protected override void InsertItem (int index, T item)
+        {
+            if (!Allow (System.Collections.Specialized.NotifyCollectionChangedAction.Add, item))
+                return;
+            base.InsertItem (index, item);
+            Changed?.Invoke ();
+        }
         /// <inheritdoc/>
-        protected override void RemoveItem (int index) { base.RemoveItem (index); Changed?.Invoke (); }
+        protected override void RemoveItem (int index)
+        {
+            if (!Allow (System.Collections.Specialized.NotifyCollectionChangedAction.Remove, this[index]))
+                return;
+            base.RemoveItem (index);
+            Changed?.Invoke ();
+        }
         /// <inheritdoc/>
-        protected override void SetItem (int index, T item) { base.SetItem (index, item); Changed?.Invoke (); }
+        protected override void SetItem (int index, T item)
+        {
+            if (!Allow (System.Collections.Specialized.NotifyCollectionChangedAction.Replace, item))
+                return;
+            base.SetItem (index, item);
+            Changed?.Invoke ();
+        }
         /// <inheritdoc/>
-        protected override void ClearItems () { base.ClearItems (); Changed?.Invoke (); }
+        protected override void ClearItems ()
+        {
+            if (!Allow (System.Collections.Specialized.NotifyCollectionChangedAction.Reset, default))
+                return;
+            base.ClearItems ();
+            Changed?.Invoke ();
+        }
 
         /// <summary>Returns the first descriptor matching the predicate, or null.</summary>
         public T? Find (Func<T, bool> predicate) => this.FirstOrDefault (predicate);

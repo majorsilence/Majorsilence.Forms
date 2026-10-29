@@ -25,6 +25,7 @@ namespace Majorsilence.Forms.Telerik
         private Majorsilence.Forms.Drawing.Font? font;
         private bool font_applied;
         private bool customize_fill;
+        private bool draw_fill = true;
 
         internal static RadCellStyle For (DataGridViewCell cell) => cell_styles.GetValue (cell, c => new RadCellStyle { owner = c });
 
@@ -42,6 +43,10 @@ namespace Majorsilence.Forms.Telerik
         public bool CustomizeFill { get => customize_fill; set { customize_fill = value; Changed (); } }
         /// <summary>Gets or sets the gradient style. Stored: fills are always solid.</summary>
         public object? GradientStyle { get; set; }
+        /// <summary>Gets or sets whether the customized fill is drawn; with it off, a <see cref="CustomizeFill"/> cell keeps its own background.</summary>
+        public bool DrawFill { get => draw_fill; set { draw_fill = value; Changed (); } }
+        /// <summary>Gets or sets how many colours the fill's gradient blends. Stored: fills are always solid, in <see cref="BackColor"/>.</summary>
+        public int NumberOfColors { get; set; } = 1;
 
         /// <summary>Resets the style to defaults.</summary>
         public void Reset ()
@@ -52,6 +57,7 @@ namespace Majorsilence.Forms.Telerik
             alignment_set = false;
             font = null;
             customize_fill = false;
+            draw_fill = true;
             Changed ();
         }
 
@@ -60,7 +66,7 @@ namespace Majorsilence.Forms.Telerik
         // Called for every paint of the cell, after the per-frame colour reset and conditional formatting.
         internal void ApplyTo (DataGridViewCell cell)
         {
-            if (customize_fill && back_color != Color.Empty)
+            if (customize_fill && draw_fill && back_color != Color.Empty)
                 cell.Style.BackgroundColor = back_color.ToSKColor ();
             if (fore_color != Color.Empty)
                 cell.Style.ForegroundColor = fore_color.ToSKColor ();
@@ -80,8 +86,31 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat cell visual element, exposed by formatting/create-cell events.</summary>
-    public class GridViewCellElement : RadElement
+    public class GridViewCellElement : RadElement, IDisposable
     {
+        /// <summary>Gets whether the element has been disposed.</summary>
+        public bool IsDisposed { get; private set; }
+
+        /// <summary>Releases the element: it no longer belongs to a column or row, as a disposed Telerik cell element does.</summary>
+        /// <remarks>The grid makes a new element for the cell the next time it needs one. Disposing twice does nothing more.</remarks>
+        public void Dispose ()
+        {
+            Dispose (true);
+            GC.SuppressFinalize (this);
+        }
+
+        /// <summary>Releases the element's links to its column and row.</summary>
+        protected virtual void Dispose (bool disposing)
+        {
+            if (IsDisposed)
+                return;
+
+            IsDisposed = true;
+            ColumnInfo = null;
+            RowInfo = null;
+            Value = null;
+        }
+
         /// <summary>Gets or sets the displayed text.</summary>
         public string Text { get; set; } = string.Empty;
         /// <summary>Gets or sets the cell value.</summary>
@@ -117,6 +146,9 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Telerik-compat cell visual element for a <see cref="GridViewDateTimeColumn"/> cell.</summary>
     public class GridDateTimeCellElement : GridCellElement { }
 
+    /// <summary>Telerik-compat cell visual element for a <see cref="GridViewComboBoxColumn"/> cell.</summary>
+    public class GridComboBoxCellElement : GridCellElement { }
+
     /// <summary>Telerik-compat cell visual element for a command (button) column cell.</summary>
     public class GridCommandCellElement : GridCellElement
     {
@@ -129,6 +161,19 @@ namespace Majorsilence.Forms.Telerik
     {
         /// <summary>Gets or sets the owning row info.</summary>
         public GridViewRowInfo? RowInfo { get; set; }
+    }
+
+    /// <summary>Telerik-compat cell element of a group header row's content: the group's caption.</summary>
+    /// <remarks>Telerik's grid asks for one through CreateCell with this as the cell type. The compat grid
+    /// draws group headers itself and does not raise CreateCell, so an element made here is not shown.</remarks>
+    public class GridGroupContentCellElement : GridCellElement
+    {
+        /// <summary>Initializes a new instance for the column and row element.</summary>
+        public GridGroupContentCellElement (GridViewColumn? column, GridRowElement? row)
+        {
+            ColumnInfo = column as GridViewDataColumn;
+            RowInfo = row?.RowInfo;
+        }
     }
 
     /// <summary>Telerik-compat row visual element, exposed by the RowFormatting event.</summary>
@@ -263,6 +308,12 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Refreshes the table element for the given notify action. No-op — the compat grid repaints as a whole.</summary>
         public void Update (GridUINotifyAction action) { }
+
+        /// <summary>Repaints the table: the grid it belongs to.</summary>
+        public void Invalidate () => Grid?.Invalidate ();
+
+        /// <summary>Repaints the table; the compat grid has no child elements to repaint separately, so <paramref name="checkSelfInvalidate"/> changes nothing.</summary>
+        public void Invalidate (bool checkSelfInvalidate) => Invalidate ();
 
         /// <summary>Telerik compat: rebuilds/refreshes the view. No-op — the compat grid repaints as a whole.</summary>
         public void UpdateView () { }
@@ -418,6 +469,17 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets the affected column.</summary>
         public GridViewColumn? Column { get; set; }
     }
+
+    /// <summary>Provides data for the RadGridView DataBindingComplete event.</summary>
+    /// <remarks>A <see cref="DataGridViewBindingCompleteEventArgs"/> as well, so a handler written against the core grid's event binds.</remarks>
+    public class GridViewBindingCompleteEventArgs : DataGridViewBindingCompleteEventArgs
+    {
+        /// <summary>Initializes the arguments for a bind of the given kind.</summary>
+        public GridViewBindingCompleteEventArgs (System.ComponentModel.ListChangedType listChangedType) : base (listChangedType) { }
+    }
+
+    /// <summary>Represents the method that handles the RadGridView DataBindingComplete event.</summary>
+    public delegate void GridViewBindingCompleteEventHandler (object sender, GridViewBindingCompleteEventArgs e);
 
     /// <summary>Provides data for the Telerik grid CreateCell event.</summary>
     public class GridViewCreateCellEventArgs : EventArgs

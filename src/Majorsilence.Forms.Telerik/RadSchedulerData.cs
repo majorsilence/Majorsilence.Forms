@@ -52,11 +52,15 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets the appointment's location text.</summary>
         public string Location { get; set; } = string.Empty;
 
-        /// <summary>Gets or sets the background/category identifier. Compat for Telerik's <c>AppointmentBackground</c> enum, but stored as a plain object so caller-supplied enum values (or raw data-source values) both work.</summary>
-        public object? BackgroundId { get; set; }
+        /// <summary>Gets or sets the background the appointment is drawn with: one of the <see cref="AppointmentBackground"/> values.</summary>
+        /// <remarks>An integer, as Telerik's is, starting at <see cref="AppointmentBackground.None"/>. An id that is not one of
+        /// the backgrounds is drawn as <see cref="AppointmentBackground.None"/>.</remarks>
+        public int BackgroundId { get; set; } = (int)AppointmentBackground.None;
 
-        /// <summary>Gets or sets the status identifier. Compat for Telerik's <c>AppointmentStatus</c> enum, stored as a plain object for the same reason as <see cref="BackgroundId"/>.</summary>
-        public object? StatusId { get; set; }
+        /// <summary>Gets or sets the availability the appointment shows: one of the <see cref="AppointmentStatus"/> values.</summary>
+        /// <remarks>An integer, as Telerik's is, starting at <see cref="AppointmentStatus.Busy"/>. Busy draws no status strip;
+        /// the other statuses draw one in their colour down the appointment's left edge.</remarks>
+        public int StatusId { get; set; } = (int)AppointmentStatus.Busy;
 
         /// <summary>Gets or sets the recurrence rule (iCalendar RRULE-style string), or empty for a non-recurring appointment.</summary>
         public string RecurrenceRule { get; set; } = string.Empty;
@@ -406,12 +410,20 @@ namespace Majorsilence.Forms.Telerik
                 case nameof (Appointment.Summary): appointment.Summary = value?.ToString () ?? string.Empty; break;
                 case nameof (Appointment.Description): appointment.Description = value?.ToString () ?? string.Empty; break;
                 case nameof (Appointment.Location): appointment.Location = value?.ToString () ?? string.Empty; break;
-                case nameof (Appointment.BackgroundId): appointment.BackgroundId = value; break;
-                case nameof (Appointment.StatusId): appointment.StatusId = value; break;
+                case nameof (Appointment.BackgroundId): appointment.BackgroundId = ToId (value, (int)AppointmentBackground.None); break;
+                case nameof (Appointment.StatusId): appointment.StatusId = ToId (value, (int)AppointmentStatus.Busy); break;
                 case nameof (Appointment.RecurrenceRule): appointment.RecurrenceRule = value?.ToString () ?? string.Empty; break;
                 case nameof (Appointment.ResourceId): appointment.ResourceId = value; break;
             }
         }
+
+        // A null or empty column leaves the appointment's default id; anything else is read as a number.
+        private static int ToId (object? value, int fallback) => value switch {
+            null => fallback,
+            int i => i,
+            string text when string.IsNullOrWhiteSpace (text) => fallback,
+            _ => Convert.ToInt32 (value, System.Globalization.CultureInfo.InvariantCulture),
+        };
 
         private static DateTime ToDateTime (object? value) => value switch {
             DateTime dt => dt,

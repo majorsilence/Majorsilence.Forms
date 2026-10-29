@@ -246,6 +246,9 @@ namespace Majorsilence.Forms.Telerik
 
         public SchedulerAgendaList () => SetControlBehavior (ControlBehaviors.Selectable, false);
 
+        // The owning scheduler's culture, which the day headers and times are written in.
+        private System.Globalization.CultureInfo Culture => (Parent as RadScheduler)?.Culture ?? System.Globalization.CultureInfo.CurrentCulture;
+
         protected override Size DefaultSize => new Size (400, 300);
 
         public event EventHandler<Appointment>? AppointmentActivated;
@@ -291,7 +294,8 @@ namespace Majorsilence.Forms.Telerik
                 top += _rows[i].Appointment is null ? HeaderHeight : RowHeight;
 
             var height = _rows[index].Appointment is null ? HeaderHeight : RowHeight;
-            return new Rectangle (0, top, Width, height);
+            // Rows are painted in device pixels (see OnPaint), so they span the device width, not the logical one.
+            return new Rectangle (0, top, DeviceClientRectangle.Width, height);
         }
 
         private int RowAt (Point location)
@@ -350,21 +354,27 @@ namespace Majorsilence.Forms.Telerik
 
                 var (day, appointment) = _rows[i];
 
+                var culture = Culture;
+
                 if (appointment is null) {
                     e.Canvas.FillRectangle (bounds, Theme.ControlMidColor);
                     var text_bounds = bounds;
                     text_bounds.Inflate (-6, 0);
-                    e.Canvas.DrawText (day.ToString ("D", System.Globalization.CultureInfo.CurrentCulture), text_bounds, this, ContentAlignment.MiddleLeft, maxLines: 1);
+                    e.Canvas.DrawText (day.ToString ("D", culture), text_bounds, this, ContentAlignment.MiddleLeft, maxLines: 1);
                 } else {
                     var row_bounds = bounds;
                     row_bounds.Inflate (-6, -2);
 
                     var time_bounds = new Rectangle (row_bounds.Left, row_bounds.Top, 130, row_bounds.Height);
-                    var text = $"{appointment.Start:t} - {appointment.End:t}";
+                    var text = $"{appointment.Start.ToString ("t", culture)} - {appointment.End.ToString ("t", culture)}";
                     e.Canvas.DrawText (text, time_bounds, this, ContentAlignment.MiddleLeft, maxLines: 1);
 
-                    var summary_bounds = new Rectangle (time_bounds.Right + 8, row_bounds.Top, row_bounds.Width - time_bounds.Width - 8, row_bounds.Height);
-                    e.Canvas.DrawText (appointment.Summary, summary_bounds, this, ContentAlignment.MiddleLeft, maxLines: 1, ellipsis: true);
+                    // The appointment itself is a block drawn as Telerik draws one: its background, border and status strip.
+                    var block = new Rectangle (time_bounds.Right + 8, row_bounds.Top, Math.Max (0, row_bounds.Width - time_bounds.Width - 8), row_bounds.Height);
+                    var summary_bounds = AppointmentStyles.Paint (e.Canvas, block, appointment, Math.Max (1, (int)Math.Round (Scaling)));
+                    summary_bounds.Inflate (-3, 0);
+                    e.Canvas.DrawText (appointment.Summary, this.GetEffectiveFont (), LogicalToDeviceUnits (this.GetEffectiveFontSize ()), summary_bounds,
+                        SkiaSharp.SKColors.Black, ContentAlignment.MiddleLeft, maxLines: 1, ellipsis: true);
 
                     e.Canvas.DrawLine (bounds.Left, bounds.Bottom - 1, bounds.Right, bounds.Bottom - 1, Theme.BorderLowColor);
                 }

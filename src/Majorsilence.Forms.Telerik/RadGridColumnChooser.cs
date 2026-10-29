@@ -27,11 +27,7 @@ namespace Majorsilence.Forms.Telerik
             y += 22;
 
             var any = false;
-            foreach (DataGridViewColumn column in grid.Columns) {
-                // Honor a column opting out of the chooser.
-                if (column is GridViewColumn gvc && !gvc.VisibleInColumnChooser)
-                    continue;
-
+            foreach (var column in Columns (grid)) {
                 any = true;
                 var captured = column;
                 var box = new CheckBox {
@@ -62,6 +58,22 @@ namespace Majorsilence.Forms.Telerik
 
             popup.Size = new Size (width, y);
             popup.Show (screenLocation);
+        }
+
+        // The columns the chooser lists: those not opted out, in the grid's order or by caption, per ColumnChooserSortOrder.
+        internal static List<DataGridViewColumn> Columns (RadGridView grid)
+        {
+            var columns = ((DataGridView) grid).Columns.Cast<DataGridViewColumn> ()
+                .Where (c => c is not GridViewColumn gvc || gvc.VisibleInColumnChooser)
+                .ToList ();
+
+            string Caption (DataGridViewColumn c) => string.IsNullOrEmpty (c.HeaderText) ? c.Name : c.HeaderText;
+
+            return grid.ColumnChooserSortOrder switch {
+                RadSortOrder.Ascending => columns.OrderBy (Caption, StringComparer.CurrentCultureIgnoreCase).ToList (),
+                RadSortOrder.Descending => columns.OrderByDescending (Caption, StringComparer.CurrentCultureIgnoreCase).ToList (),
+                _ => columns,
+            };
         }
     }
 }

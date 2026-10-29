@@ -144,6 +144,13 @@ namespace Majorsilence.Forms.Telerik
         /// switch toggles on mouse down, and the click that follows does not toggle it back.</remarks>
         public ToggleStateMode ToggleStateMode { get; set; } = ToggleStateMode.Click;
 
+        /// <summary>Gets or sets whether the user is kept from toggling the switch, by mouse or keyboard.</summary>
+        /// <remarks>As Telerik's: <see cref="Value"/> can still be set from code, and the click event still happens.</remarks>
+        public bool ReadOnly { get; set; }
+
+        // Whether a click (or Space/Enter, which the check box turns into one) may toggle the switch.
+        private bool UserCanToggle => !ReadOnly && ToggleStateMode != ToggleStateMode.None;
+
         /// <summary>Gets or sets the thumb's width in logical pixels (Telerik spelling preserved); zero for a square thumb.</summary>
         /// <remarks>Real as of W6 mechanisms (#176).</remarks>
         public int ThumbTickness {
@@ -167,7 +174,7 @@ namespace Majorsilence.Forms.Telerik
         {
             base.OnMouseDown (e);
 
-            if (ToggleStateMode == ToggleStateMode.Press && e.Button == MouseButtons.Left && Enabled && AutoCheck) {
+            if (ToggleStateMode == ToggleStateMode.Press && !ReadOnly && e.Button == MouseButtons.Left && Enabled && AutoCheck) {
                 Checked = !Checked;
                 toggled_on_press = true;
             }
@@ -176,7 +183,7 @@ namespace Majorsilence.Forms.Telerik
         /// <inheritdoc/>
         protected override void OnClick (EventArgs e)
         {
-            if (!toggled_on_press) {
+            if (!toggled_on_press && UserCanToggle) {
                 base.OnClick (e);
                 return;
             }
@@ -476,6 +483,83 @@ namespace Majorsilence.Forms.Telerik
 
         internal override int ItemSpacing => spacing_between_nodes;
 
+        /// <summary>Gets or sets the indent, in logical pixels, of each level of nodes (Telerik's name for <see cref="Majorsilence.Forms.TreeView.Indent"/>).</summary>
+        public int TreeIndent {
+            get => Indent;
+            set {
+                if (Indent == value)
+                    return;
+
+                Indent = value;
+                Invalidate ();
+            }
+        }
+
+        /// <summary>Gets or sets the width, in logical pixels, of the lines joining the nodes.</summary>
+        public float LineWidth {
+            get => line_width;
+            set {
+                if (line_width == value)
+                    return;
+
+                line_width = value;
+                Invalidate ();
+            }
+        }
+
+        private float line_width = 1;
+
+        internal override float LineThickness => line_width;
+
+        /// <summary>Gets or sets the context menu shown when the tree is right-clicked.</summary>
+        public RadContextMenu? RadContextMenu {
+            get => RadContextMenuManager.GetRadContextMenu (this);
+            set => RadContextMenuManager.SetRadContextMenu (this, value);
+        }
+
+        /// <summary>Gets or sets the filter the nodes are shown by; null or an empty string shows them all.</summary>
+        /// <remarks>
+        /// As Telerik's default filter does, a node is shown when its text contains the filter's text, in
+        /// any case, or when one of its descendants is shown -- so a match keeps the path down to it. The
+        /// filter is applied again whenever a bound tree rebuilds its nodes.
+        /// </remarks>
+        public object? Filter {
+            get => filter;
+            set {
+                if (Equals (filter, value))
+                    return;
+
+                filter = value;
+                ApplyFilter ();
+            }
+        }
+
+        private object? filter;
+
+        private void ApplyFilter ()
+        {
+            var text = Convert.ToString (filter, System.Globalization.CultureInfo.CurrentCulture) ?? string.Empty;
+
+            bool Shown (TreeNode node)
+            {
+                var any_child = false;
+
+                foreach (var child in node.Items)
+                    any_child |= Shown (child);
+
+                var shown = any_child || text.Length == 0
+                    || System.Globalization.CultureInfo.CurrentCulture.CompareInfo.IndexOf (node.Text ?? string.Empty, text, System.Globalization.CompareOptions.IgnoreCase) >= 0;
+
+                node.FilteredOut = !shown;
+                return shown;
+            }
+
+            foreach (var node in base.Nodes)
+                Shown (node);
+
+            Invalidate ();
+        }
+
         // ── data binding (W6 mechanisms, #176) ──────────────────────────────────────────────────────
 
         /// <summary>Gets or sets the list the tree builds its nodes from.</summary>
@@ -607,6 +691,9 @@ namespace Majorsilence.Forms.Telerik
                     parent.Nodes.Add (node);
             }
 
+            if (filter is not null)
+                ApplyFilter ();
+
             Invalidate ();
         }
 
@@ -644,6 +731,12 @@ namespace Majorsilence.Forms.Telerik
             get => base.SelectedNode as RadTreeNode;
             set => base.SelectedNode = value;
         }
+
+        /// <summary>Gets the node at the specified point in client coordinates, typed as <see cref="RadTreeNode"/>, or null.</summary>
+        public new RadTreeNode? GetNodeAt (System.Drawing.Point pt) => base.GetNodeAt (pt) as RadTreeNode;
+
+        /// <summary>Gets the node at the specified client coordinates, typed as <see cref="RadTreeNode"/>, or null.</summary>
+        public new RadTreeNode? GetNodeAt (int x, int y) => GetNodeAt (new System.Drawing.Point (x, y));
 
         /// <summary>Returns all nodes (at any depth) matching the specified predicate.</summary>
         public RadTreeNode[] FindNodes (Predicate<RadTreeNode> match)
@@ -753,6 +846,8 @@ namespace Majorsilence.Forms.Telerik
 
             if (args.VisualElement.Text.HasValue ())
                 node.Text = args.VisualElement.Text;
+            if (args.NodeElementCreated && args.NodeElement.ImageElement.Image is { } image && !ReferenceEquals (node.Image, image))
+                node.Image = image;
         }
     }
 
@@ -770,8 +865,36 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets the list item this node was built from, when the tree is data-bound; null otherwise.</summary>
         public object? DataBoundItem { get; internal set; }
 
+        /// <summary>Gets or sets whether the node is the tree's selected node.</summary>
+        /// <remarks>Setting it selects the node; clearing it on the selected node leaves the tree with none. A node not in a tree is never selected.</remarks>
+        public bool Selected {
+            get => TreeView is { } tree && ReferenceEquals (tree.SelectedNode, this);
+            set {
+                if (TreeView is not { } tree)
+                    return;
+
+                if (value)
+                    tree.SelectedNode = this;
+                else if (ReferenceEquals (tree.SelectedNode, this))
+                    tree.SelectedNode = null;
+            }
+        }
+
         /// <summary>Gets the parent node, typed as <see cref="RadTreeNode"/> (or null for a root-level or detached node).</summary>
         public new RadTreeNode? Parent => base.Parent as RadTreeNode;
+
+        /// <summary>Gets or sets the node's check state: on, off, or indeterminate.</summary>
+        /// <remarks>
+        /// As Telerik's (measured on UI.for.WinForms 2026.2.520): <c>Checked</c> is true only when the state is
+        /// <see cref="ToggleState.On"/>, and setting it moves the state to on or off, out of indeterminate too.
+        /// Every change of state, to indeterminate included, raises <c>NodeCheckedChanging</c>, which can veto
+        /// it, then <c>NodeCheckedChanged</c>; setting the state the node already has raises neither. A node
+        /// keeps the state it is given whether or not it is in a tree.
+        /// </remarks>
+        public ToggleState CheckState {
+            get => Indeterminate ? ToggleState.Indeterminate : Checked ? ToggleState.On : ToggleState.Off;
+            set => SetCheckState (value == ToggleState.On, value == ToggleState.Indeterminate, TreeViewAction.Unknown);
+        }
 
         /// <summary>Gets the child nodes, typed as <see cref="RadTreeNode"/> (Telerik alias for <see cref="Majorsilence.Forms.TreeNode.Nodes"/>).</summary>
         public new RadTreeNodeCollection Nodes => new RadTreeNodeCollection (base.Nodes);
@@ -821,15 +944,40 @@ namespace Majorsilence.Forms.Telerik
         public RadTreeNode Node { get; }
         /// <summary>Gets the visual element for the node (stub).</summary>
         public RadItem VisualElement { get; } = new RadLabelElement ();
+
+        private TreeNodeElement? node_element;
+
+        /// <summary>Gets the element the node is drawn by. An image a handler sets on its <see cref="TreeNodeElement.ImageElement"/> is the one the node is drawn with.</summary>
+        public TreeNodeElement NodeElement => node_element ??= new TreeNodeElement (Node);
+
+        internal bool NodeElementCreated => node_element is not null;
+    }
+
+    /// <summary>The element a <see cref="RadTreeNode"/> is drawn by, as a <see cref="RadTreeView.NodeFormatting"/> handler sees it.</summary>
+    public class TreeNodeElement : LightVisualElement
+    {
+        internal TreeNodeElement (RadTreeNode node) => Data = node;
+
+        /// <summary>Gets the node the element draws.</summary>
+        public RadTreeNode Data { get; }
+
+        /// <summary>Gets the element that draws the node's image.</summary>
+        public TreeNodeImageElement ImageElement { get; } = new TreeNodeImageElement ();
+    }
+
+    /// <summary>The image part of a <see cref="TreeNodeElement"/>.</summary>
+    public class TreeNodeImageElement : LightVisualElement
+    {
+        /// <summary>Gets or sets the image drawn for the node.</summary>
+        public Majorsilence.Forms.Drawing.Image? Image { get; set; }
     }
 
     /// <summary>Provides data for a Telerik tree-view checked-state-changed event.</summary>
-    public class TreeNodeCheckedEventArgs : EventArgs
+    /// <remarks>Derives from <see cref="RadTreeViewEventArgs"/>, as Telerik's does, so a handler written against the general tree event signature can handle it.</remarks>
+    public class TreeNodeCheckedEventArgs : RadTreeViewEventArgs
     {
         /// <summary>Initializes a new instance for the specified node.</summary>
-        public TreeNodeCheckedEventArgs (RadTreeNode node) => Node = node;
-        /// <summary>Gets the node whose checked state changed.</summary>
-        public RadTreeNode Node { get; }
+        public TreeNodeCheckedEventArgs (RadTreeNode node) : base (node) { }
     }
 
     /// <summary>Provides data for a general (non-cancelable) Telerik tree-view event.</summary>
@@ -851,13 +999,131 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat calendar. Backed by <see cref="Majorsilence.Forms.MonthCalendar"/>.</summary>
-    public class RadCalendar : MonthCalendar, ISupportInitializeCompat
+    /// <remarks>
+    /// Selection follows Telerik's single-date model (measured on UI.for.WinForms 2026.2.520): setting
+    /// <see cref="SelectedDate"/> raises <see cref="SelectionChanging"/> then <see cref="SelectionChanged"/>, even for the
+    /// date already selected; a date the user picks does the same; <see cref="SelectedDates"/> holds the selected date,
+    /// and clearing it raises nothing.
+    /// </remarks>
+    public partial class RadCalendar : MonthCalendar, ISupportInitializeCompat
     {
+        /// <summary>Initializes a new instance with no date selected.</summary>
+        public RadCalendar ()
+        {
+            SelectedDates = new DateTimeCollection (this);
+            committed = SelectionStart;
+        }
+
         /// <summary>Gets or sets the theme name. No-op stub.</summary>
         public string ThemeName { get; set; } = string.Empty;
         /// <summary>Gets the root element of the control (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
+
+        // Whether a date is selected: none until one is set or picked, and none again once SelectedDates is cleared.
+        internal bool HasSelection { get; set; }
+
+        // The date last selected, which a cancelled pick goes back to.
+        private DateTime committed;
+
+        /// <summary>Gets or sets the selected date.</summary>
+        /// <remarks>Setting it raises <see cref="SelectionChanging"/>, which can refuse it, then <see cref="SelectionChanged"/>.</remarks>
+        public DateTime SelectedDate {
+            get => SelectionStart;
+            set {
+                if (!RaiseSelectionChanging (value.Date))
+                    return;
+
+                SetDate (value.Date);
+                Commit ();
+            }
+        }
+
+        /// <summary>Gets the selected dates: the selected date, or none.</summary>
+        public DateTimeCollection SelectedDates { get; }
+
+        /// <summary>Raised before the selection changes; cancel it to keep the selection as it is.</summary>
+        public event SelectionEventHandler? SelectionChanging;
+
+        /// <summary>Raised after the selection changes.</summary>
+        public event EventHandler? SelectionChanged;
+
+        /// <summary>Raises <see cref="SelectionChanged"/>.</summary>
+        protected virtual void OnSelectionChanged (EventArgs e) => SelectionChanged?.Invoke (this, e);
+
+        /// <inheritdoc/>
+        /// <remarks>A date the user picks is a selection change, announced as one; a cancelled one goes back to the date before it.</remarks>
+        protected override void OnDateSelected (DateRangeEventArgs e)
+        {
+            Guard.ThrowIfNull (e);
+
+            if (!RaiseSelectionChanging (e.Start)) {
+                SetDate (committed);
+                return;
+            }
+
+            base.OnDateSelected (e);
+            Commit ();
+        }
+
+        private bool RaiseSelectionChanging (DateTime date)
+        {
+            if (SelectionChanging is null)
+                return true;
+
+            var args = new SelectionEventArgs (new[] { date });
+            SelectionChanging (this, args);
+            return !args.Cancel;
+        }
+
+        private void Commit ()
+        {
+            HasSelection = true;
+            committed = SelectionStart;
+            OnSelectionChanged (EventArgs.Empty);
+        }
     }
+
+    /// <summary>The dates a <see cref="RadCalendar"/> has selected (Telerik's DateTimeCollection).</summary>
+    public class DateTimeCollection : IEnumerable<DateTime>
+    {
+        private readonly RadCalendar owner;
+
+        internal DateTimeCollection (RadCalendar owner) => this.owner = owner;
+
+        /// <summary>Gets the number of selected dates.</summary>
+        public int Count => owner.HasSelection ? 1 : 0;
+
+        /// <summary>Gets the selected date at the given index.</summary>
+        public DateTime this[int index] => index == 0 && owner.HasSelection ? owner.SelectionStart : throw new ArgumentOutOfRangeException (nameof (index));
+
+        /// <summary>Gets whether the date is selected.</summary>
+        public bool Contains (DateTime date) => owner.HasSelection && owner.SelectionStart == date.Date;
+
+        /// <summary>Clears the selection, without raising the selection events (as Telerik's does).</summary>
+        public void Clear () => owner.HasSelection = false;
+
+        /// <inheritdoc/>
+        public IEnumerator<DateTime> GetEnumerator ()
+        {
+            if (owner.HasSelection)
+                yield return owner.SelectionStart;
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator () => GetEnumerator ();
+    }
+
+    /// <summary>Provides data for <see cref="RadCalendar.SelectionChanging"/>: the dates about to be selected.</summary>
+    public class SelectionEventArgs : System.ComponentModel.CancelEventArgs
+    {
+        /// <summary>Initializes the arguments for the dates about to be selected.</summary>
+        public SelectionEventArgs (IReadOnlyList<DateTime> dates) => Dates = dates;
+
+        /// <summary>Gets the dates about to be selected.</summary>
+        public IReadOnlyList<DateTime> Dates { get; }
+    }
+
+    /// <summary>Represents the method that handles <see cref="RadCalendar.SelectionChanging"/>.</summary>
+    public delegate void SelectionEventHandler (object sender, SelectionEventArgs e);
 
     /// <summary>Telerik-compat time picker. Backed by <see cref="Majorsilence.Forms.TimePicker"/>.</summary>
     public class RadTimePicker : TimePicker, ISupportInitializeCompat
