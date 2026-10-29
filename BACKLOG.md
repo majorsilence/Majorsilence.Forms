@@ -311,6 +311,36 @@ Decision 2). **`Mcp` is still missing from `release.yml`**; adding that one line
 **Not answerable from this repo:** whether each of these is actually *on* nuget.org today. The workflows
 describe what the next published release would push, not what previous releases did.
 
+## WinFormsShims.Compat: redesigned as generated copies (2026-10-24)
+
+Everything under the `WinFormsShims.Compat` headings below describes the Roslyn source generator, which is
+**gone**. It emitted thin subclasses and wrappers of the real types into `System.Windows.Forms`, and its
+limits were structural: a sealed leaf needed a wrapper, `Control` could not be one (so `Dim c As Control =
+someTextBox` needed an alias), events and enum properties needed shadowing, members with awkward
+signatures were dropped, and a Roslyn generator cannot serve Visual Basic at all.
+
+The replacement is `tools/CompatSync`: a single-file `dotnet` tool that copies `Majorsilence.Forms`,
+`Majorsilence.Forms.Drawing.Common` and `Majorsilence.Forms.Avalonia` into git-ignored `generated/` folders
+at build time and rewrites their namespaces to the real ones. The result is three ordinary assemblies
+(`Compat`, `Compat.Drawing`, `Compat.Avalonia`) where `Control` is the real base class, nothing is dropped,
+and VB compiles. The design notes live in `tools/CompatSync/README.md`; what the prototype turned up (string
+literals, lost namespace nesting, merged-namespace collisions, types the BCL already ships) is why it is
+rule-driven rather than a find-and-replace.
+
+**Not carried over, and still open:**
+
+- **Telerik.** The generator also mapped `Majorsilence.Forms.Telerik` onto `Telerik.WinControls.*`. A
+  `telerik` entry in `compat-rules.json` (the namespace partition is in git history, in
+  `WinFormsCompatGenerator.cs` before this commit) is the way back.
+- **Other backends and targets.** Only the Avalonia desktop rows are generated. Uno, GTK, WPF, Headless and
+  the browser/Android/iOS rows each need a `projects` entry and a csproj.
+- **A behavioural test over a rendered form.** `Majorsilence.Forms.Headless` is not generated, so the
+  Compat tests check structure (namespaces, resource names, backend discovery, construction), not pixels.
+- **netstandard2.0.** The Compat projects target `net8.0;net10.0` only.
+- **`SystemColors` extras.** `AlternateRow`/`ButtonText` (and the matching pen/brush) exist only in
+  Majorsilence.Forms; the generated build uses the framework's `SystemColors`, per the "use the in-box type"
+  finding below, so they are removed there.
+
 ## WinFormsShims.Compat: event shadowing -- done for Control's own family (2026-09-05)
 
 The generator's last named gap -- Majorsilence-specific `EventArgs` events (`Paint`, `MouseDown`,

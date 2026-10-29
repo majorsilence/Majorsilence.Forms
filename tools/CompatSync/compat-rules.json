@@ -1,0 +1,103 @@
+{
+  // Rules for tools/CompatSync/CompatSync.cs. Read the tool's header comment first: it copies each source
+  // project below into a generated, git-ignored folder and rewrites its namespaces to the ones real
+  // WinForms uses, so a consumer keeps `using System.Windows.Forms;` (C#) / `Imports System.Windows.Forms` (VB).
+  //
+  // The source projects are never modified. One generated assembly per source project, mirroring the
+  // original split: it keeps each project's internals and `global using`s apart exactly as before, which a
+  // single merged assembly could not (both Majorsilence.Forms and Drawing.Common declare an internal Guard).
+
+  // Source namespace -> real WinForms/GDI+ namespace. The longest matching prefix wins and the remainder is
+  // carried over, so Majorsilence.Forms.Renderers becomes System.Windows.Forms.Renderers with no entry here.
+  "namespaces": {
+    "Majorsilence.Forms": "System.Windows.Forms",
+    "Majorsilence.Forms.Drawing": "System.Drawing",
+    "Majorsilence.Forms.Drawing.Common": "System.Drawing.Common",
+    "Majorsilence.Forms.Drawing.Drawing2D": "System.Drawing.Drawing2D",
+    "Majorsilence.Forms.Drawing.Imaging": "System.Drawing.Imaging",
+    "Majorsilence.Forms.Drawing.Imaging.Metafiles": "System.Drawing.Imaging.Metafiles",
+    "Majorsilence.Forms.Drawing.Text": "System.Drawing.Text",
+    "Majorsilence.Forms.Printing": "System.Drawing.Printing",
+    "Majorsilence.Forms.Design": "System.ComponentModel.Design",
+    "Majorsilence.Forms.Design.Behavior": "System.Windows.Forms.Design.Behavior"
+  },
+
+  // Types this layer keeps in one namespace that real WinForms source names in another. Applied to the
+  // declaration and to every qualified reference; unqualified references get a `using` for the new home.
+  // `drop` removes the declaration instead of moving it, for a type the destination namespace already has
+  // (two declarations would be CS0436 at every use): references then bind to the one that remains. The tool
+  // refuses to run if a generated type would collide with one the .NET framework ships, so a type the BCL
+  // gains later fails the build here, not in a consumer. This is the "use the in-box type" rule BACKLOG.md
+  // records for System.Drawing.Primitives.
+  "relocations": [
+    {
+      "from": "Majorsilence.Forms",
+      "to": "System.Drawing",
+      "types": [ "ContentAlignment", "SystemBrushes", "SystemPens", "SystemFonts" ]
+    },
+    {
+      "from": "Majorsilence.Forms",
+      "to": "System.Drawing",
+      "drop": true,
+      "types": [ "ColorTranslator", "SystemColors" ]
+    },
+    {
+      // Drawing.Common's own copies, for the same reason (the BCL ships both in System.Drawing).
+      "from": "Majorsilence.Forms.Drawing",
+      "to": "System.Drawing",
+      "drop": true,
+      "types": [ "ColorTranslator", "ColorConverter" ]
+    }
+  ],
+
+  // Members this layer adds that real WinForms does not have, removed where they are only used by each other.
+  // SystemColors.AlternateRow/ButtonText went with the dropped SystemColors (the framework's has neither).
+  "removeMembers": [
+    { "from": "Majorsilence.Forms", "type": "SystemPens", "names": [ "AlternateRow", "ButtonText" ] },
+    { "from": "Majorsilence.Forms", "type": "SystemBrushes", "names": [ "AlternateRow", "ButtonText" ] }
+  ],
+
+  // Simple type names that also exist in a referenced assembly (not one of ours), so the tool cannot see
+  // the clash. A file that needs a `using` for one of these gets an alias instead, which wins over any
+  // using-namespace and so restores the "nearest enclosing namespace wins" lookup the original relied on.
+  "externalNames": [ "SkiaExtensions" ],
+
+  // Hand-written fixes for the same kind of clash where it is in one file: a `using` or alias line added
+  // to it. Paths are repo-relative. A path that no longer exists is an error, so this cannot rot silently.
+  "fileFixups": [
+    {
+      // Imports System.Drawing (Point, Size) and Avalonia.Media; the rewritten Brushes now lives in the former.
+      "file": "src/Majorsilence.Forms.Avalonia/MajorsilenceFormsWindowHost.cs",
+      "usings": [ "Brushes = Avalonia.Media.Brushes" ]
+    }
+  ],
+
+  "projects": {
+    "drawing": {
+      "source": "src/Majorsilence.Forms.Drawing.Common",
+      "sourceAssembly": "Majorsilence.Forms.Drawing.Common",
+      "assembly": "Majorsilence.Forms.WinFormsShims.Compat.Drawing",
+      "output": "src/Majorsilence.Forms.WinFormsShims.Compat.Drawing/generated",
+      "internalsVisibleTo": [ "Majorsilence.Forms.WinFormsShims.Compat", "Majorsilence.Forms.WinFormsShims.Compat.Tests" ]
+    },
+    "core": {
+      "source": "src/Majorsilence.Forms",
+      "sourceAssembly": "Majorsilence.Forms",
+      "assembly": "Majorsilence.Forms.WinFormsShims.Compat",
+      "output": "src/Majorsilence.Forms.WinFormsShims.Compat/generated",
+      "references": [ "drawing" ],
+      "internalsVisibleTo": [ "Majorsilence.Forms.WinFormsShims.Compat.Avalonia", "Majorsilence.Forms.WinFormsShims.Compat.Tests" ],
+      "copy": [
+        { "from": "ILLink.Descriptors.xml", "kind": "linker-descriptor" }
+      ]
+    },
+    "avalonia": {
+      "source": "src/Majorsilence.Forms.Avalonia",
+      "sourceAssembly": "Majorsilence.Forms.Avalonia",
+      "assembly": "Majorsilence.Forms.WinFormsShims.Compat.Avalonia",
+      "output": "src/Majorsilence.Forms.WinFormsShims.Compat.Avalonia/generated",
+      "references": [ "core", "drawing" ],
+      "internalsVisibleTo": [ "Majorsilence.Forms.WinFormsShims.Compat.Tests" ]
+    }
+  }
+}

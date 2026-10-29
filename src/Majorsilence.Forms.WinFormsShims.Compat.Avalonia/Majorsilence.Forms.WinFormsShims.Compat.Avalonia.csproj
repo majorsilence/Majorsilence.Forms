@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Generated copy of Majorsilence.Forms.Avalonia, retargeted at Majorsilence.Forms.WinFormsShims.Compat so
+       the System.Windows.Forms-namespace Form can be hosted in an Avalonia window. The backend for the
+       Majorsilence.Forms namespace is Majorsilence.Forms.Avalonia; this is its counterpart for the other.
+       Desktop only for now (net8.0/net10.0); the browser, Android and iOS rows are not generated yet. -->
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <CompatSyncProject>avalonia</CompatSyncProject>
+    <!-- Not under System.Windows.Forms: a root namespace there would let "Avalonia.X" resolve against it. -->
+    <RootNamespace>Majorsilence.Forms.WinFormsShims.Compat.AvaloniaBackend</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Majorsilence.Forms.WinFormsShims.Compat.Avalonia</PackageId>
+    <Description>Avalonia backend for Majorsilence.Forms.WinFormsShims.Compat: hosts the System.Windows.Forms-namespace Form on native windows on Windows, macOS and Linux. Generated from Majorsilence.Forms.Avalonia.</Description>
+    <PackageTags>Majorsilence;Forms;Winforms;System.Windows.Forms;Compat;Avalonia;backend;VisualBasic</PackageTags>
+    <PackageOutputPath>../../nupkg</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <ProjectReference Include="..\Majorsilence.Forms.WinFormsShims.Compat\Majorsilence.Forms.WinFormsShims.Compat.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Controls.WebView" />
+  </ItemGroup>
+
+  <Import Project="..\..\tools\CompatSync\CompatSync.targets" />
+
+</Project>
