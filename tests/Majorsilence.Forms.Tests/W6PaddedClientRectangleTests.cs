@@ -34,7 +34,8 @@ public class W6PaddedClientRectangleTests
     {
         HeadlessRenderer.Use ();
         using var form = new Form { Width = 400, Height = 300 };
-        var box = new TextBox { Bounds = new Rectangle (0, 0, 200, 120), Multiline = true, ScrollBars = ScrollBars.Both, Padding = new Padding (3) };
+        // WordWrap off: a word-wrapping box has no horizontal bar, as upstream's.
+        var box = new TextBox { Bounds = new Rectangle (0, 0, 200, 120), Multiline = true, WordWrap = false, ScrollBars = ScrollBars.Both, Padding = new Padding (3) };
         form.Controls.Add (box);
         form.Show ();
 

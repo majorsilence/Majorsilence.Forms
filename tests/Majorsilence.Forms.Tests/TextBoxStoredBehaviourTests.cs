@@ -259,6 +259,11 @@ namespace Majorsilence.Forms.Tests
 
             box.ScrollBars = ScrollBars.Both;
 
+            // A word-wrapping box has no horizontal bar, as upstream's (TextBoxScrollBarVisibilityTests).
+            Assert.False (box.HorizontalScrollBar.Visible);
+
+            box.WordWrap = false;
+
             Assert.True (box.HorizontalScrollBar.Visible);
         }
 

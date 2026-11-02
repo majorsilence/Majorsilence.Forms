@@ -352,6 +352,7 @@ namespace Majorsilence.Forms
                         Padding = new Padding (value ? 4 : 1, 0, 0, 0);
 
                     document.IsMultiline = value;
+                    ApplyScrollBarVisibility ();
                     // The state lives in the document rather than the base's field, so this override
                     // owns raising the notification the base would otherwise have raised.
                     OnMultilineChanged (EventArgs.Empty);
@@ -836,8 +837,9 @@ namespace Majorsilence.Forms
 
                 base.WordWrap = value;
 
-                // The laid-out block is what wraps, and whether a horizontal bar is wanted depends on
+                // The laid-out block is what wraps, and whether a horizontal bar is shown depends on
                 // this too.
+                ApplyScrollBarVisibility ();
                 document.InvalidateTextBlock ();
                 Invalidate ();
             }
@@ -1217,6 +1219,16 @@ namespace Majorsilence.Forms
 
                 VerticalScrollBar.Enabled = false;
             }
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>As upstream's: a single-line box has no bars, and a multiline one has the vertical bar
+        /// ScrollBars asks for and the horizontal one only with WordWrap off. Measured (.NET 10) from the
+        /// native edit's WS_HSCROLL/WS_VSCROLL: a requested bar is there whether or not the text overflows.</remarks>
+        internal override void ApplyScrollBarVisibility ()
+        {
+            HorizontalScrollBar.Visible = Multiline && !WordWrap && ScrollBars.In (ScrollBars.Horizontal, ScrollBars.Both);
+            VerticalScrollBar.Visible = Multiline && ScrollBars.In (ScrollBars.Vertical, ScrollBars.Both);
         }
 
         // A horizontal bar is only ever meaningful with wrapping off: with WordWrap on there is nothing

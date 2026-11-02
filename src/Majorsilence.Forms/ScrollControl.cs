@@ -81,11 +81,16 @@ namespace Majorsilence.Forms
             set {
                 if (scroll_bars != value) {
                     scroll_bars = value;
-
-                    hscrollbar.Visible = value.In (ScrollBars.Horizontal, ScrollBars.Both);
-                    vscrollbar.Visible = value.In (ScrollBars.Vertical, ScrollBars.Both);
+                    ApplyScrollBarVisibility ();
                 }
             }
+        }
+
+        /// <summary>Shows the bars <see cref="ScrollBars"/> asks for; a derived control can show fewer.</summary>
+        internal virtual void ApplyScrollBarVisibility ()
+        {
+            hscrollbar.Visible = scroll_bars.In (ScrollBars.Horizontal, ScrollBars.Both);
+            vscrollbar.Visible = scroll_bars.In (ScrollBars.Vertical, ScrollBars.Both);
         }
 
         /// <summary>
