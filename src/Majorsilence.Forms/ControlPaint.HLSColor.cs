@@ -14,7 +14,7 @@ namespace Majorsilence.Forms
         /// <remarks>
         /// This exists because linear RGB addition is not the same operation. Adding a constant to each
         /// channel desaturates towards white or black; moving luminosity in HLS keeps the hue. The
-        /// visible difference: <c>Dark (Color.Red)</c> is (128,0,0) here and was (230,0,0) -- barely
+        /// visible difference: <c>Dark (Color.Red)</c> is #550000, as upstream's, and was (230,0,0) -- barely
         /// distinguishable from red -- so every bevel built out of these collapsed to flat.
         /// </remarks>
         internal readonly struct HLSColor
@@ -85,30 +85,47 @@ namespace Majorsilence.Forms
 
             internal int Luminosity => luminosity;
 
+            // Upstream's: an ordinary colour is darkened from two-thirds of its luminosity (one shadow step), so
+            // Dark (c, 0f) is already a shade darker, Dark (c) -- 0.5f -- a third of it, and DarkDark black. Measured
+            // (.NET 10): Dark (Color.Red) is #550000, Dark (c, 0f) #AA0000, Dark (c, 0.25f) #800000.
             internal Color Darker (float percDarker)
             {
-                if (!is_system_colors_control)
-                    return ColorFromHLS (hue, luminosity - (int)(luminosity * percDarker), saturation);
+                if (!is_system_colors_control) {
+                    var zeroLum = NewLuma (ShadowAdjustment);
+                    return ColorFromHLS (hue, zeroLum - (int)(zeroLum * percDarker), saturation);
+                }
 
-                // The exact system values, not a computed shade -- what upstream does, and what makes a
-                // classic 3D bevel on a default-coloured control match the platform's.
-                var oneLumDarker = NewLuma (ShadowAdjustment);
-
+                // The exact system values at the ends, and between them a straight line in RGB -- what upstream
+                // does, and what makes a classic 3D bevel on a default-coloured control match the platform's.
                 return percDarker == 0.0f ? SystemColors.ControlDark
                     : percDarker == 1.0f ? SystemColors.ControlDarkDark
-                    : ColorFromHLS (hue, oneLumDarker - (int)((oneLumDarker - NewLuma (ShadowAdjustment * 2)) * percDarker), saturation);
+                    : Between (SystemColors.ControlDark, SystemColors.ControlDarkDark, percDarker);
             }
 
+            // Upstream's: an ordinary colour is lightened towards one highlight step (half way to the top of the
+            // range), so Light (c, 0f) is the colour itself and LightLight that step. Measured (.NET 10):
+            // Light (Color.Red) is #FF4040 and LightLight #FF8080.
             internal Color Lighter (float percLighter)
             {
-                if (!is_system_colors_control)
-                    return ColorFromHLS (hue, luminosity + (int)((HLSMax - luminosity) * percLighter), saturation);
-
-                var oneLumLighter = NewLuma (HighlightAdjustment);
+                if (!is_system_colors_control) {
+                    var oneLum = NewLuma (HighlightAdjustment);
+                    return ColorFromHLS (hue, luminosity + (int)((oneLum - luminosity) * percLighter), saturation);
+                }
 
                 return percLighter == 0.0f ? SystemColors.ControlLight
                     : percLighter == 1.0f ? SystemColors.ControlLightLight
-                    : ColorFromHLS (hue, oneLumLighter + (int)((NewLuma (HighlightAdjustment * 2) - oneLumLighter) * percLighter), saturation);
+                    : Between (SystemColors.ControlLight, SystemColors.ControlLightLight, percLighter);
+            }
+
+            // From one system colour towards another by the fraction, channel by channel, truncating as upstream does.
+            private static Color Between (Color from, Color to, float perc)
+            {
+                from = Majorsilence.Forms.Drawing.SystemColorPalette.Resolve (from);
+                to = Majorsilence.Forms.Drawing.SystemColorPalette.Resolve (to);
+                return Color.FromArgb (
+                    (byte)(from.R - (byte)((from.R - to.R) * perc)),
+                    (byte)(from.G - (byte)((from.G - to.G) * perc)),
+                    (byte)(from.B - (byte)((from.B - to.B) * perc)));
             }
 
             // Upstream's NewLuma takes a `scale` flag; every caller here passes true, so the unscaled

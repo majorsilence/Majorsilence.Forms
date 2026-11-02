@@ -47,8 +47,8 @@ namespace Majorsilence.Forms.Tests
         public static TheoryData<string, uint> DisabledText => new () {
             { "Label", 0xFFA0A0A0 },        // TextRenderer.DisabledTextColor on a light background: ControlDark
             { "GroupBox", 0xFFA0A0A0 },
-            { "CheckBox", 0xFF6D6D6D },     // the theme's disabled check box text
-            { "RadioButton", 0xFF6D6D6D },
+            { "CheckBox", 0xFFA0A0A0 },     // the shadow colour of the form's Control background: ControlDark
+            { "RadioButton", 0xFFA0A0A0 },
             { "Button", 0xFFA0A0A0 },       // a Standard push button's, themed or not
             { "SystemButton", 0xFF838383 }, // the native FlatStyle.System button's
             { "TextBox", 0xFF6D6D6D },      // GrayText
@@ -87,6 +87,27 @@ namespace Majorsilence.Forms.Tests
             => With (true, form => {
                 var control = Make (type);
                 form.Controls.Add (control);
+
+                Assert.Equal (new SKColor (expected), Darkest (form, control));
+                return 0;
+            });
+
+        // Measured from WinForms (.NET 10, Windows 11): a disabled check box's or radio button's text is the shadow
+        // colour of what it sits on -- on a panel coloured (233, 240, 249), #234A7E, ControlPaint.Dark of it -- for
+        // Standard, Flat and Popup alike, and a FlatStyle.System check box's is the native control's GrayText.
+        [Theory]
+        [InlineData ("CheckBox", FlatStyle.Standard, 0xFF234A7E)]
+        [InlineData ("CheckBox", FlatStyle.Flat, 0xFF234A7E)]
+        [InlineData ("CheckBox", FlatStyle.Popup, 0xFF234A7E)]
+        [InlineData ("RadioButton", FlatStyle.Standard, 0xFF234A7E)]
+        [InlineData ("CheckBox", FlatStyle.System, 0xFF6D6D6D)]
+        public void A_disabled_check_box_s_text_is_the_shadow_of_its_background (string type, FlatStyle style, uint expected)
+            => With (true, form => {
+                var panel = new Panel { Location = Point.Empty, Size = new Size (300, 200), BackColor = Color.FromArgb (233, 240, 249) };
+                form.Controls.Add (panel);
+                var control = (ButtonBase) Make (type);
+                control.FlatStyle = style;
+                panel.Controls.Add (control);
 
                 Assert.Equal (new SKColor (expected), Darkest (form, control));
                 return 0;
