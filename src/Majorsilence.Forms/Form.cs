@@ -2258,8 +2258,10 @@ namespace Majorsilence.Forms
         {
             // Told it is not top-level and not yet parented: it owns no OS window, so becoming visible is
             // bookkeeping until something hosts it. WinForms behaves the same -- a non-top-level form
-            // with no parent simply is not on screen.
-            if (!TopLevel && !IsFrameHosted) {
+            // with no parent simply is not on screen. Unless it has an MDI parent: upstream hosts a form
+            // set TopLevel = false and then given an MdiParent as an MDI child like any other (measured,
+            // .NET 10), and here it went unhosted -- shown, but nowhere on screen.
+            if (!TopLevel && !IsFrameHosted && mdi_parent is null) {
                 ShowHostedSequence (RaiseLoadDeferringFocus);
                 return true;
             }
