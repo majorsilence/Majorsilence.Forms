@@ -61,6 +61,22 @@ namespace Majorsilence.Forms
             UpdateText ();
         }
 
+        /// <inheritdoc/>
+        /// <remarks>The height is always <see cref="PreferredHeight"/>, as upstream's <c>SetBoundsCore</c> locks it.
+        /// Measured (.NET 10): docked to fill a 48px container, given a 60px Size, anchored top and bottom, or set to
+        /// 80px, upstream's picker stayed 26px at Microsoft Sans Serif 12pt -- the box with its button and frame, not
+        /// a tall field with the spin buttons spread apart.</remarks>
+        protected override void SetBoundsCore (int x, int y, int width, int height, BoundsSpecified specified)
+            => base.SetBoundsCore (x, y, width, PreferredHeight, specified);
+
+        /// <inheritdoc/>
+        /// <remarks>A new font gives a new <see cref="PreferredHeight"/>, which the control takes, as upstream's does.</remarks>
+        protected override void OnFontChanged (EventArgs e)
+        {
+            base.OnFontChanged (e);
+            Height = PreferredHeight;
+        }
+
         /// <summary>
         /// Paints the WinForms-style drop-down button on the right edge, over any text that would
         /// otherwise underlap it. WinForms apps rely on this geometry: a common pattern sizes the

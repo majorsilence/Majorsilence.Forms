@@ -25,10 +25,12 @@ namespace Majorsilence.Forms
         /// <remarks>
         /// Reparenting to <see cref="Control"/> (SMP-39) lost this: it came from <c>TextBoxBase</c>.
         /// Upstream declares it on <c>DateTimePicker</c> itself, and the API gate caught the gap.
+        /// Upstream's is the font's height plus the themed border, <c>BorderSize.Height * 4 + 3</c>: 26px at
+        /// Microsoft Sans Serif 12pt, measured (.NET 10). It was the line height plus 4, 23px there.
         /// </remarks>
         public int PreferredHeight
             => TextMeasurer.LogicalLineHeight (this)
-                + Padding.Top + Padding.Bottom + 4;   // 4px matches the default border/inset
+                + Padding.Top + Padding.Bottom + (SystemInformation.BorderSize.Height * 4) + 3;
 
         /// <summary>The width of the drop-down (or spin) button strip at the control's right edge.</summary>
         internal int ButtonWidth => Math.Min (LogicalToDeviceUnits (16), ScaledSize.Width);
