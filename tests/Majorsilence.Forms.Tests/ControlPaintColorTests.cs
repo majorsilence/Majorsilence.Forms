@@ -18,8 +18,99 @@ namespace Majorsilence.Forms.Tests
         public void Dark_keeps_the_hue_instead_of_washing_it_out ()
         {
             // The finding's own value. Linear subtraction gave (230,0,0) -- barely distinguishable from
-            // red; HLS halves the luminosity and keeps it red.
-            Assert.Equal (Color.FromArgb (255, 128, 0, 0).ToArgb (), ControlPaint.Dark (Color.Red).ToArgb ());
+            // red; HLS moves the luminosity and keeps it red, at upstream's (85,0,0).
+            Assert.Equal (Color.FromArgb (255, 85, 0, 0).ToArgb (), ControlPaint.Dark (Color.Red).ToArgb ());
+        }
+
+        // Upstream's shades, measured from WinForms (.NET 10, Windows 11): an ordinary colour darkens from one
+        // shadow step (two-thirds of its luminosity) and lightens towards one highlight step; SystemColors.Control
+        // goes from ControlDark/ControlLight to ControlDarkDark/ControlLightLight in a straight line. The last row is
+        // SystemColors.Control.
+        public static TheoryData<uint, string, uint> UpstreamShades => new () {
+            { 0xFFE9F0F9u, "Dark0", 0xFF6A98D7u },
+            { 0xFFE9F0F9u, "Dark25", 0xFF346FBEu },
+            { 0xFFE9F0F9u, "Dark", 0xFF234A7Eu },
+            { 0xFFE9F0F9u, "Dark1", 0xFF000000u },
+            { 0xFFE9F0F9u, "DarkDark", 0xFF000000u },
+            { 0xFFE9F0F9u, "Light0", 0xFFEAF0F9u },
+            { 0xFFE9F0F9u, "Light25", 0xFFEBF1FAu },
+            { 0xFFE9F0F9u, "Light", 0xFFEEF3FBu },
+            { 0xFFE9F0F9u, "LightLight", 0xFFF5F9FCu },
+            { 0xFFFFFFFFu, "Dark0", 0xFFAAAAAAu },
+            { 0xFFFFFFFFu, "Dark25", 0xFF7F7F7Fu },
+            { 0xFFFFFFFFu, "Dark", 0xFF555555u },
+            { 0xFFFFFFFFu, "Dark1", 0xFF000000u },
+            { 0xFFFFFFFFu, "DarkDark", 0xFF000000u },
+            { 0xFFFFFFFFu, "Light0", 0xFFFFFFFFu },
+            { 0xFFFFFFFFu, "Light25", 0xFFFFFFFFu },
+            { 0xFFFFFFFFu, "Light", 0xFFFFFFFFu },
+            { 0xFFFFFFFFu, "LightLight", 0xFFFFFFFFu },
+            { 0xFFFF0000u, "Dark0", 0xFFAA0000u },
+            { 0xFFFF0000u, "Dark25", 0xFF800000u },
+            { 0xFFFF0000u, "Dark", 0xFF550000u },
+            { 0xFFFF0000u, "Dark1", 0xFF000000u },
+            { 0xFFFF0000u, "DarkDark", 0xFF000000u },
+            { 0xFFFF0000u, "Light0", 0xFFFF0000u },
+            { 0xFFFF0000u, "Light25", 0xFFFF2020u },
+            { 0xFFFF0000u, "Light", 0xFFFF4040u },
+            { 0xFFFF0000u, "LightLight", 0xFFFF8080u },
+            { 0xFF000080u, "Dark0", 0xFF000055u },
+            { 0xFF000080u, "Dark25", 0xFF000040u },
+            { 0xFF000080u, "Dark", 0xFF00002Bu },
+            { 0xFF000080u, "Dark1", 0xFF000000u },
+            { 0xFF000080u, "DarkDark", 0xFF000000u },
+            { 0xFF000080u, "Light0", 0xFF000080u },
+            { 0xFF000080u, "Light25", 0xFF0000AEu },
+            { 0xFF000080u, "Light", 0xFF0000DFu },
+            { 0xFF000080u, "LightLight", 0xFF4040FFu },
+            { 0xFF804020u, "Dark0", 0xFF552B15u },
+            { 0xFF804020u, "Dark25", 0xFF412010u },
+            { 0xFF804020u, "Dark", 0xFF2B150Bu },
+            { 0xFF804020u, "Dark1", 0xFF000000u },
+            { 0xFF804020u, "DarkDark", 0xFF000000u },
+            { 0xFF804020u, "Light0", 0xFF803F20u },
+            { 0xFF804020u, "Light25", 0xFFA25028u },
+            { 0xFF804020u, "Light", 0xFFC66231u },
+            { 0xFF804020u, "LightLight", 0xFFDC9674u },
+            { 0xFFC8C8C8u, "Dark0", 0xFF848484u },
+            { 0xFFC8C8C8u, "Dark25", 0xFF636363u },
+            { 0xFFC8C8C8u, "Dark", 0xFF424242u },
+            { 0xFFC8C8C8u, "Dark1", 0xFF000000u },
+            { 0xFFC8C8C8u, "DarkDark", 0xFF000000u },
+            { 0xFFC8C8C8u, "Light0", 0xFFC7C7C7u },
+            { 0xFFC8C8C8u, "Light25", 0xFFCECECEu },
+            { 0xFFC8C8C8u, "Light", 0xFFD5D5D5u },
+            { 0xFFC8C8C8u, "LightLight", 0xFFE3E3E3u },
+            { 0xFFF0F0F0u, "Dark0", 0xFFA0A0A0u },
+            { 0xFFF0F0F0u, "Dark25", 0xFF939393u },
+            { 0xFFF0F0F0u, "Dark", 0xFF858585u },
+            { 0xFFF0F0F0u, "Dark1", 0xFF696969u },
+            { 0xFFF0F0F0u, "DarkDark", 0xFF696969u },
+            { 0xFFF0F0F0u, "Light0", 0xFFE3E3E3u },
+            { 0xFFF0F0F0u, "Light25", 0xFFEAEAEAu },
+            { 0xFFF0F0F0u, "Light", 0xFFF1F1F1u },
+            { 0xFFF0F0F0u, "LightLight", 0xFFFFFFFFu },
+        };
+
+        [Theory]
+        [MemberData (nameof (UpstreamShades))]
+        public void A_shade_is_upstream_s (uint argb, string shade, uint expected)
+        {
+            var c = argb == 0xFFF0F0F0u ? SystemColors.Control : Color.FromArgb ((int) argb);
+
+            var actual = shade switch {
+                "Dark0" => ControlPaint.Dark (c, 0f),
+                "Dark25" => ControlPaint.Dark (c, 0.25f),
+                "Dark" => ControlPaint.Dark (c),
+                "Dark1" => ControlPaint.Dark (c, 1f),
+                "DarkDark" => ControlPaint.DarkDark (c),
+                "Light0" => ControlPaint.Light (c, 0f),
+                "Light25" => ControlPaint.Light (c, 0.25f),
+                "Light" => ControlPaint.Light (c),
+                _ => ControlPaint.LightLight (c),
+            };
+
+            Assert.Equal (expected.ToString ("X8"), ((uint) Majorsilence.Forms.Drawing.SystemColorPalette.Resolve (actual).ToArgb ()).ToString ("X8"));
         }
 
         [Fact]

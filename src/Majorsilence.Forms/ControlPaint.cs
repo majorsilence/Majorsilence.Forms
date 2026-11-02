@@ -397,7 +397,7 @@ namespace Majorsilence.Forms
         //    ControlPaint.Light (c, 0.5f) -- the documented form -- and got +1 per channel here, a
         //    visually identical colour, so every hand-rolled bevel collapsed to flat.
         //  * Linear RGB addition desaturates towards white or black. Moving luminosity in HLS keeps the
-        //    hue: Dark (Color.Red) is (128,0,0), not (230,0,0).
+        //    hue: Dark (Color.Red) is (85,0,0), as upstream's, not (230,0,0).
         //
         // Separate single-argument overloads rather than a default parameter, because the single-argument
         // FORM has to exist for reflection and delegate binding -- a default parameter is not an overload.
