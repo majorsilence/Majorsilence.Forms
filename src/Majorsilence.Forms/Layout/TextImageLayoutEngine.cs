@@ -179,21 +179,26 @@ internal static class TextImageLayoutEngine
         if (control is Button { PaintsUpstreamLook: true, FlatStyle: FlatStyle.System }) {
             var native = Rectangle.Inflate (new Rectangle (0, 0, control.ScaledWidth, control.ScaledHeight), -control.LogicalToDeviceUnits (3), -control.LogicalToDeviceUnits (3));
             maxBounds = Rectangle.Intersect (maxBounds, native);
-        } else if (control is Button { PaintsUpstreamLook: true }) {
+        } else if (control is Button { PaintsUpstreamLook: true } button) {
             // The themed (Standard) button's field is 4px inside its bounds -- its 2px border and 2px TextImageInset --
             // and, across, a further sixth of the line height either side for the padding TextRenderer measures and
             // draws its caption with. Taken from the client area, already a pixel inside the bounds, it was a pixel in
             // too far each way: a 12pt caption overflowing a 23px button was drawn 2px low and clipped 2px early, and
             // with no room for GDI's padding a caption wrapped later than upstream's.
+            //
+            // The default button -- the focused one, or the AcceptButton while no button has focus -- has a pixel more
+            // each way (upstream's OnePixExtraBorder). Measured (.NET 10), 12pt on 97 x 28: the field ran 3..94 for the
+            // default button and 4..93 for the others, so "Cancel Add" showed whole on the focused button only.
             var font = control.Font;
-            var across = control.LogicalToDeviceUnits (4 + (int) Math.Ceiling (font.Height / 6.0));
-            var down = control.LogicalToDeviceUnits (4);
+            var edge = button.IsDefault ? 3 : 4;
+            var across = control.LogicalToDeviceUnits (edge + (int) Math.Ceiling (font.Height / 6.0));
+            var down = control.LogicalToDeviceUnits (edge);
             var padding = control.LogicalToDeviceUnits (control.Padding);
             maxBounds = new Rectangle (across + padding.Left, down + padding.Top,
                 Math.Max (0, control.ScaledWidth - 2 * across - padding.Horizontal), Math.Max (0, control.ScaledHeight - 2 * down - padding.Vertical));
 
             // GDI's padding is the caption's: upstream's image is aligned in the field without it.
-            var inset = control.LogicalToDeviceUnits (4);
+            var inset = control.LogicalToDeviceUnits (edge);
             image_field = new Rectangle (inset + padding.Left, down + padding.Top,
                 Math.Max (0, control.ScaledWidth - 2 * inset - padding.Horizontal), maxBounds.Height);
         }
