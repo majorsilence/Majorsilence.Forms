@@ -78,17 +78,18 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (29, label.Height);
         }
 
-        // Nothing to measure must not collapse the label to nothing -- an empty auto-sized label is a
-        // common placeholder that later gets text.
+        // An empty auto-sized label collapses to its padding's width, as upstream's does: a placeholder that later
+        // gets text sizes to it then (LabelEmptyAutoSizeTests). Measured (.NET 10): a designer's 0x20 empty label
+        // came out 0x23, and any other size given to an empty AutoSize label goes the same way.
         [Fact]
-        public void An_empty_autosized_label_keeps_its_size ()
+        public void An_empty_autosized_label_is_no_wider_than_its_padding ()
         {
             using var panel = new Panel { Width = 400, Height = 100 };
             var label = new Label { AutoSize = true, Bounds = new System.Drawing.Rectangle (0, 0, 270, 29) };
             panel.Controls.Add (label);
 
-            Assert.Equal (270, label.Width);
-            Assert.Equal (29, label.Height);
+            Assert.Equal (0, label.Width);
+            Assert.True (label.Height > 0);
         }
     }
 }
