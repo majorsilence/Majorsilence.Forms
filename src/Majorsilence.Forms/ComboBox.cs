@@ -40,7 +40,7 @@ namespace Majorsilence.Forms
                 RefreshDataSource,
                 // See the matching lambda in ListBox: an early position for items not yet reloaded is
                 // dropped here and re-applied by the reload.
-                position => { if (position < Items.Count) SelectedIndex = position; },
+                position => { if (position < Items.Count && SelectsBoundPosition) SelectedIndex = position; },
                 () => SelectedIndex);
 
             // The editable region is a real child TextBox, the way WinForms hosts a real edit control
@@ -639,9 +639,13 @@ namespace Majorsilence.Forms
 
             // WinForms selects the first row when a non-empty source is bound; without this, code that
             // binds a source and immediately reads/sets the selection sees an unselected control.
-            if (Items.Count > 0 && SelectedIndex < 0)
+            if (Items.Count > 0 && SelectedIndex < 0 && SelectsBoundPosition)
                 SelectedIndex = 0;
         }
+
+        /// <summary>Whether binding a source selects its current item, as a WinForms combo does; a derived list
+        /// whose selection is not its value (a checked list) leaves it unselected.</summary>
+        internal virtual bool SelectsBoundPosition => true;
 
         /// <summary>
         /// Gets or sets whether the drop down portion of the ComboBox is currently shown.
