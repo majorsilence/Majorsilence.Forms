@@ -100,11 +100,15 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat on/off switch. Backed by <see cref="Majorsilence.Forms.CheckBox"/>.</summary>
+    /// <remarks>Its defaults are Telerik's, measured (UI for WinForms 2026.2.520): on, "ON" and "OFF", and
+    /// <see cref="Telerik.ToggleStateMode.ClickAndDrag"/>. A designer writes only what differs, so a switch the
+    /// designer left on had no Value line and came up off here -- turning a list filter the form opens with off.</remarks>
     public class RadToggleSwitch : CheckBox, ISupportInitializeCompat
     {
         /// <summary>Initializes a new instance of the RadToggleSwitch class.</summary>
         public RadToggleSwitch ()
         {
+            Checked = true;
             CheckedChanged += (_, _) => ValueChanged?.Invoke (this, EventArgs.Empty);
         }
 
@@ -125,7 +129,7 @@ namespace Majorsilence.Forms.Telerik
             }
         }
 
-        private string on_text = "On";
+        private string on_text = "ON";
 
         /// <summary>Gets or sets the text shown in the "off" position.</summary>
         /// <remarks>See <see cref="OnText"/>.</remarks>
@@ -137,12 +141,12 @@ namespace Majorsilence.Forms.Telerik
             }
         }
 
-        private string off_text = "Off";
+        private string off_text = "OFF";
 
         /// <summary>Gets or sets whether a click (press and release) or a press alone toggles the switch.</summary>
         /// <remarks>Real as of W6 mechanisms (#176): with <see cref="Telerik.ToggleStateMode.Press"/> the
         /// switch toggles on mouse down, and the click that follows does not toggle it back.</remarks>
-        public ToggleStateMode ToggleStateMode { get; set; } = ToggleStateMode.Click;
+        public ToggleStateMode ToggleStateMode { get; set; } = ToggleStateMode.ClickAndDrag;
 
         /// <summary>Gets or sets whether the user is kept from toggling the switch, by mouse or keyboard.</summary>
         /// <remarks>As Telerik's: <see cref="Value"/> can still be set from code, and the click event still happens.</remarks>

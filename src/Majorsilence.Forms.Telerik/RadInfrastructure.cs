@@ -287,6 +287,10 @@ namespace Majorsilence.Forms.Telerik
         None = 0,
         /// <summary>Toggle on each click.</summary>
         Click = 1,
+        /// <summary>Toggle by dragging the thumb (Telerik's value).</summary>
+        Drag = 2,
+        /// <summary>Toggle on a click or by dragging the thumb: a RadToggleSwitch's default (Telerik's value).</summary>
+        ClickAndDrag = 3,
         /// <summary>Toggle on press.</summary>
         Press = 4
     }

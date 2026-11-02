@@ -76,7 +76,7 @@ public class W6TelerikControlsTests
     [Fact]
     public void The_switch_draws_a_thumb_at_its_end_and_the_matching_caption_in_the_free_half ()
     {
-        var toggle = Shown (new RadToggleSwitch { Width = 90, Height = 30, OnText = "Yes", OffText = "No" }, out var form);
+        var toggle = Shown (new RadToggleSwitch { Width = 90, Height = 30, OnText = "Yes", OffText = "No", Value = false }, out var form);
 
         using (form) {
             var (track, off_thumb) = toggle.SwitchGeometry ();
@@ -109,7 +109,7 @@ public class W6TelerikControlsTests
     [Fact]
     public void ThumbTickness_sets_the_thumbs_width ()
     {
-        var toggle = Shown (new RadToggleSwitch { Width = 90, Height = 30 }, out var form);
+        var toggle = Shown (new RadToggleSwitch { Width = 90, Height = 30, Value = false }, out var form);
 
         using (form) {
             var (_, square) = toggle.SwitchGeometry ();
@@ -124,7 +124,7 @@ public class W6TelerikControlsTests
     [Fact]
     public void Press_mode_toggles_on_the_press_and_the_click_does_not_toggle_it_back ()
     {
-        var toggle = Shown (new RadToggleSwitch { Width = 90, Height = 30 }, out var form);
+        var toggle = Shown (new RadToggleSwitch { Width = 90, Height = 30, Value = false }, out var form);
 
         using (form) {
             var clicks = 0;
@@ -139,7 +139,7 @@ public class W6TelerikControlsTests
             }
 
             Press ();
-            Assert.False (toggle.Value);  // Click mode, the default: a press alone does nothing
+            Assert.False (toggle.Value);  // ClickAndDrag, the default: a press alone does nothing
             ReleaseAndClick ();
             Assert.True (toggle.Value);   // the click toggled it
 
