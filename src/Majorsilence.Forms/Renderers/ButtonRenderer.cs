@@ -50,14 +50,10 @@ namespace Majorsilence.Forms.Renderers
             var font = control.GetEffectiveFont ();
             var font_size = control.LogicalToDeviceUnits (control.GetEffectiveFontSize ());
 
-            var text = control.Text;
-
             if (control is { PaintsUpstreamLook: true, FlatStyle: FlatStyle.System })
-                bounds = NativeCaptionBox (text, font, font_size, bounds, alignment);
-            else if (control is { PaintsUpstreamLook: true, AutoEllipsis: false } && OneLineCaption (text, font, font_size, bounds) is string line)
-                text = line;
+                bounds = NativeCaptionBox (control.Text, font, font_size, bounds, alignment);
             else
-                (bounds, alignment) = SkiaTextExtensions.WholeLineBox (text, font, font_size, bounds, alignment);
+                (bounds, alignment) = SkiaTextExtensions.WholeLineBox (control.Text, font, font_size, bounds, alignment);
 
             // Upstream's themed button keeps its text colour on hover; the theme's hover style turns it
             // white for the accent-filled face, which the upstream face (Button.PaintsUpstreamLook) is not.
@@ -65,7 +61,7 @@ namespace Majorsilence.Forms.Renderers
                 var colour = !control.Enabled ? control.DisabledForeColor
                     : control.Style.ForegroundColor ?? control.Parent?.GetEffectiveForegroundColor () ?? Theme.ForegroundColor;
 
-                e.Canvas.DrawMnemonicText (text, font, font_size, bounds, colour, alignment, null, control.AutoEllipsis, control.ShowKeyboardCues);
+                e.Canvas.DrawMnemonicText (control.Text, font, font_size, bounds, colour, alignment, null, control.AutoEllipsis, control.ShowKeyboardCues);
                 return;
             }
 
@@ -90,33 +86,6 @@ namespace Majorsilence.Forms.Renderers
             };
 
             return new System.Drawing.Rectangle (bounds.X, top, bounds.Width, height);
-        }
-
-        // Where only one line of the caption fits, the themed button does not wrap it: it draws the one line, as many
-        // whole characters of it as fit, aligned as the caption is. Measured (.NET 10), 12pt "Cancel Add" on a 28px
-        // button: "Cancel Ad" at 97px, "Cancel A" at 85px, "Cancel" at 70px, both lines at 48px high; 8.25pt "Save
-        // Default" on a 75 x 23 button, "Save Defaul". It was wrapped and its second line dropped, showing "Cancel" and
-        // "Save". Null when the caption fits, or more than one line does.
-        private static string? OneLineCaption (string text, SKTypeface font, int fontSize, System.Drawing.Rectangle bounds)
-        {
-            var line = TextMeasurer.MeasureText ("X", font, fontSize).Height;
-
-            if (line <= 0 || bounds.Height >= 2 * line || text.IndexOfAny (['\r', '\n']) >= 0)
-                return null;
-
-            bool Fits (string candidate) => TextMeasurer.MeasureText (Mnemonics.Strip (candidate), font, fontSize).Width <= bounds.Width;
-
-            if (Fits (text))
-                return null;
-
-            for (var length = text.Length - 1; length > 0; length--) {
-                var candidate = text[..length].TrimEnd ();
-
-                if (candidate.Length > 0 && Fits (candidate))
-                    return candidate;
-            }
-
-            return string.Empty;
         }
 
     }
