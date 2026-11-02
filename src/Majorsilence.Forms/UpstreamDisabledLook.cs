@@ -32,7 +32,12 @@ namespace Majorsilence.Forms
             if (style == FlatStyle.System)
                 return SystemColors.GrayText.ToSKColor ();
 
-            return (back.ToArgb () == SystemColors.Control.ToArgb () ? SystemColors.ControlDark : ControlPaint.Dark (back)).ToSKColor ();
+            // Control as it is painted, as ControlPaint's own test of it: the system colour's raw value can differ
+            // from the palette's, and the background here is the painted one.
+            var control = Majorsilence.Forms.Drawing.SystemColorPalette.Resolve (SystemColors.Control).ToArgb ();
+            var is_control = back == SystemColors.Control || Majorsilence.Forms.Drawing.SystemColorPalette.Resolve (back).ToArgb () == control;
+
+            return (is_control ? SystemColors.ControlDark : ControlPaint.Dark (back)).ToSKColor ();
         }
     }
 
