@@ -14,7 +14,7 @@ public class TelerikToggleSwitchPageViewElementMembersTests
     {
         HeadlessRenderer.Use ();
         form = new Form { Width = 300, Height = 200 };
-        var toggle = new RadToggleSwitch { Width = 90, Height = 30 };
+        var toggle = new RadToggleSwitch { Width = 90, Height = 30, Value = false };
         form.Controls.Add (toggle);
         form.Show ();
         return toggle;
