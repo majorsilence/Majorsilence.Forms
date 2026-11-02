@@ -12,7 +12,7 @@ namespace Majorsilence.Forms.Tests
     {
         private static readonly Majorsilence.Forms.Drawing.Font Font = new ("Microsoft Sans Serif", 12f);
 
-        private static (Form form, Label label) Shown (string? text)
+        private static (Form form, Label label) Shown (string text)
         {
             var form = new Form { ClientSize = new Size (400, 200) };
             var label = new Label { AutoSize = true, Font = Font, Text = text, Location = new Point (10, 10) };
@@ -53,7 +53,7 @@ namespace Majorsilence.Forms.Tests
         {
             var (form, label) = Shown ("12-31-2025");
             using (form) {
-                label.Text = null;
+                label.Text = null!;
 
                 Assert.Equal (0, label.Width);
             }
