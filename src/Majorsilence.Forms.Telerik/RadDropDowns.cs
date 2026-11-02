@@ -86,6 +86,42 @@ namespace Majorsilence.Forms.Telerik
         // The checked items, in the order they were checked.
         private readonly List<RadCheckedListDataItem> check_order = new ();
 
+        private bool setting_text;
+
+        /// <inheritdoc/>
+        /// <remarks>Binding selects nothing, as Telerik's: measured (UI for WinForms 2026.2.520), a bound list has
+        /// SelectedIndex -1 and empty text until an item is checked. It selected the first item, as a combo box
+        /// does, and showed it as if it were checked.</remarks>
+        internal override bool SelectsBoundPosition => false;
+
+        // Telerik's text: each checked item's text followed by ';', in the order they were checked (measured).
+        private string CheckedText => string.Concat (CheckedItems.Select (i => i.Text + ";"));
+
+        /// <summary>Gets or sets the text: the checked items' text, each followed by ';'.</summary>
+        /// <remarks>As Telerik's (measured): setting it checks the items it names, ';'-separated, in that order, and
+        /// unchecks the rest; it then reads back as the checked items.</remarks>
+        public override string Text {
+            get => base.Text;
+            set {
+                var names = (value ?? string.Empty).Split (';').Select (t => t.Trim ()).Where (t => t.Length > 0).ToList ();
+
+                setting_text = true;
+                try {
+                    foreach (var item in Items.ToList ())
+                        if (item.Checked && !names.Contains (item.Text, StringComparer.CurrentCultureIgnoreCase))
+                            SetItemChecked (item, false);
+
+                    foreach (var name in names)
+                        if (FindItemExact (name) is { Checked: false } item)
+                            SetItemChecked (item, true);
+                } finally {
+                    setting_text = false;
+                }
+
+                base.Text = CheckedText;
+            }
+        }
+
         // The item standing for each data item of a bound list, made the first time it is asked for.
         private readonly System.Runtime.CompilerServices.ConditionalWeakTable<object, RadCheckedListDataItem> bound_items = new ();
 
@@ -176,6 +212,9 @@ namespace Majorsilence.Forms.Telerik
 
             if (item.Checked)
                 check_order.Add (item);
+
+            if (!setting_text)
+                base.Text = CheckedText;
 
             ItemCheckedChanged?.Invoke (this, new RadCheckedListDataItemEventArgs (item));
         }
