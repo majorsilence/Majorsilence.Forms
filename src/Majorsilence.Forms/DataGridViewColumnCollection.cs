@@ -185,9 +185,22 @@ namespace Majorsilence.Forms
                 return;
             }
 
+            // The display order before the column joins: it takes its index as its display position (or the
+            // display index it already has), and every column displayed at or after that moves along one, as
+            // upstream's -- measured (.NET 10): on a bound grid, inserting X at 1 gave A:0, X:1, B:2, C:3, D:4,
+            // and after D was displayed at 1, inserting Y at 1 gave A:0, Y:1, D:2, B:3, C:4. The new column kept
+            // the index's position while the others kept theirs, so two columns shared a display position and
+            // the grid drew them in collection order -- a layout's column order undone.
+            var order = owner.DisplayOrder.Select (i => this[i]).ToList ();
+            var position = item.ExplicitDisplayIndex >= 0 ? item.ExplicitDisplayIndex : index;
+
             item.SetOwner (owner);
             base.InsertItem (index, item);
             owner.InsertColumnCells (index, item);
+
+            order.Insert (Math.Max (0, Math.Min (position, order.Count)), item);
+            owner.RenumberDisplayOrder (order);
+
             owner.OnColumnsChanged ();
 
             // OnColumnsChanged is the internal relayout notification; this is the public WinForms
@@ -206,16 +219,16 @@ namespace Majorsilence.Forms
             }
 
             var removedColumn = this[index];
-            var renumber = removedColumn.DisplayIndex != index || this.Any (c => c.DisplayIndex != c.Index);
             this[index].SetOwner (null);
             removedColumn.SetDisplayIndexInternal (-1);
             base.RemoveItem (index);
             owner.RemoveColumnCells (index);
             owner.OnColumnsChanged ();
 
-            // The display order stays dense once a column has been moved (W6 mechanisms).
-            if (renumber)
-                owner.RenumberDisplayOrder ();
+            // The display order stays dense: the columns displayed after the removed one move back one, as
+            // upstream's (W6 mechanisms; measured, .NET 10). Every column has a display position of its own
+            // once one has been inserted, so the gap has to be closed whatever the order looked like.
+            owner.RenumberDisplayOrder ();
 
             owner.RaiseColumnRemoved (removedColumn);
 

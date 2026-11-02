@@ -424,6 +424,9 @@ namespace Majorsilence.Forms
 
         internal void SetDisplayIndexInternal (int value) => display_index = value;
 
+        // The display index the column was given, or -1 while it follows its Index.
+        internal int ExplicitDisplayIndex => display_index;
+
         /// <summary>
         /// Gets or sets the alignment of this column's cells. This IS
         /// <see cref="DataGridViewCellStyle.Alignment"/> on <see cref="DefaultCellStyle"/> under this
