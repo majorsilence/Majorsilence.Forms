@@ -25,8 +25,11 @@ namespace Majorsilence.Forms.Telerik
         private TextBox? _pageEditBox;
         private bool _showedPagingPanel;
 
-        /// <summary>Whether the paging panel is shown: paging enabled on a grid with columns.</summary>
-        internal bool ShowsPagingPanel => MasterTemplate is not null && MasterTemplate.EnablePaging && ((DataGridView) this).Columns.Count > 0;
+        /// <summary>Whether the paging panel is shown: whenever paging is enabled, as Telerik's.</summary>
+        /// <remarks>Measured (UI for WinForms 2026.2.520): a paged grid shows its panel with no columns, with columns and no
+        /// rows, with rows, and after its source and columns are cleared. It was hidden here until the grid had columns,
+        /// so a paged list with nothing loaded yet had no pager under its "No data to display".</remarks>
+        internal bool ShowsPagingPanel => MasterTemplate is not null && MasterTemplate.EnablePaging;
 
         /// <inheritdoc/>
         protected override int ContentBottomOffset => ShowsPagingPanel ? LogicalToDeviceUnits (PagingPanelLogicalHeight) : 0;
