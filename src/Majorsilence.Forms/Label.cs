@@ -90,12 +90,15 @@ namespace Majorsilence.Forms
             var text = Text;
             var image = ImageSK;
 
-            // Nothing to measure -- keep whatever size was set rather than collapsing to nothing.
-            if (!text.HasValue () && image is null)
-                return base.GetPreferredSizeCore (proposedSize);
-
             var width = 0;
             var height = 0;
+
+            // An empty label is no wider than its padding and border, and one line of its font tall -- the extent
+            // of "0", as upstream's GetPreferredSizeCore measures it. Measured (.NET 10): an AutoSize label emptied
+            // before or after its form shows, or set to null, is 0 wide. Keeping the size it had left a label whose
+            // text was cleared at run time covering whatever it sat on.
+            if (!text.HasValue () && image is null)
+                height = (int) Math.Ceiling (TextMeasurer.MeasureText ("0", GetEffectiveFont (), GetEffectiveFontSize (), TextMeasurer.MaxSize).Height);
 
             if (text.HasValue ()) {
                 // Measured with the ambient font (GetEffectiveFont), which is the font the renderer
@@ -155,7 +158,8 @@ namespace Majorsilence.Forms
             using var theme_scope_entered = ThemeScope.EnterFor (this);
             var preferred = GetPreferredSize (Size.Empty);
 
-            if (preferred != Size && preferred.Width > 0 && preferred.Height > 0)
+            // An empty label's preferred width is 0, as upstream's; only a size not yet measurable is skipped.
+            if (preferred != Size && preferred.Height > 0)
                 Size = preferred;
         }
 
@@ -173,7 +177,7 @@ namespace Majorsilence.Forms
                 using var theme_scope_entered = ThemeScope.EnterFor (this);
                 var preferred = GetPreferredSize (Size.Empty);
 
-                if (preferred.Width > 0 && preferred.Height > 0) {
+                if (preferred.Height > 0) {
                     width = preferred.Width;
                     height = preferred.Height;
                 }
