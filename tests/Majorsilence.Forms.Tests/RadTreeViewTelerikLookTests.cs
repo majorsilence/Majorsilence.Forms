@@ -131,9 +131,16 @@ namespace Majorsilence.Forms.Tests
             var slack = shot.Scale > 1 ? 1 : 0;
 
             // Rows 1, 20, 39, ...: a root's "|" at 26, a child's at 46, a grandchild's at 66, and the imaged
-            // Gamma's at 42; each 5..16 down its row, which is Segoe UI 9pt's bar, not the 12pt font's.
+            // Gamma's at 42; each 5..16 down its row, which is Segoe UI 9pt's bar, not the 12pt font's. Only
+            // Windows has Segoe UI; elsewhere a fallback draws the bar, so all that holds is that the text
+            // starts past the expander column (and past Gamma's image).
             foreach (var (left, top, expected) in new[] { (21, 1, 26), (41, 20, 46), (61, 39, 66), (41, 58, 46), (21, 77, 26), (40, 96, 42) }) {
                 var ink = shot.Ink (left, top);
+
+                if (!OperatingSystem.IsWindows ()) {
+                    Assert.InRange (ink.Left, left + 1, expected + 6);
+                    continue;
+                }
 
                 Assert.InRange (ink.Left, expected - slack, expected + slack);
                 Assert.InRange (ink.Top - top, 5 - slack, 5 + slack);
