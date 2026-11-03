@@ -80,6 +80,7 @@ namespace Majorsilence.Forms.Renderers
                 : upstream_selection ? (control.Focused ? SystemColors.HighlightText : SystemColors.ControlText).ToSKColor ()
                 : is_selected && TreeView.DefaultSelectionStyle.ForegroundColor is { } selection_fg ? selection_fg
                 : control.HotTracking && ReferenceEquals (control.HotNode, item) ? SystemColors.HotTrack.ToSKColor () // W6
+                : control.NodeLayout is { } own_layout ? own_layout.ForeColor
                 : Theme.ForegroundColor;
 
             if (item.BackColor != System.Drawing.Color.Empty && !is_selected)
@@ -122,7 +123,10 @@ namespace Majorsilence.Forms.Renderers
             if (control.ShowDropdownGlyph == true && GetShouldDrawDropdownGlyph (control, item)) {
                 var glyph_bounds = GetGlyphBounds (control, item);
 
-                if (!TreeView.UsesUpstreamLook)
+                if (control.NodeLayout is { } layout) {
+                    if (!glyph_bounds.IsEmpty)
+                        layout.DrawButton (e, glyph_bounds, item.Expanded);
+                } else if (!TreeView.UsesUpstreamLook)
                     ControlPaint.DrawArrowGlyph (e, glyph_bounds, foreground_color, item.Expanded ? ArrowDirection.Down : ArrowDirection.Right);
                 else if (!glyph_bounds.IsEmpty)
                     DrawUpstreamButton (e, glyph_bounds, item.Expanded);
@@ -145,15 +149,22 @@ namespace Majorsilence.Forms.Renderers
             // The selected image marks the selected node whether or not its highlight shows, as upstream's
             // does: a tree that lost the focus with HideSelection set swapped its open folder for a closed one.
             if (control.ShowItemImages == true && ResolveImage (control, item, item == control.SelectedItem) is { } image) {
-                var image_bounds = GetImageBounds (control, item, e);
-
-                e.Canvas.DrawBitmap (image, image_bounds, !control.Enabled);
+                if (control.NodeLayout is { } layout)
+                    layout.DrawImage (e, item, image, !control.Enabled);
+                else
+                    e.Canvas.DrawBitmap (image, GetImageBounds (control, item, e), !control.Enabled);
             }
 
             if (string.IsNullOrWhiteSpace (item.Text))
                 return;
 
             var text_bounds = GetTextBounds (control, item, e);
+
+            if (control.NodeLayout is { } text_layout) {
+                var (layout_font, layout_font_size) = TextFont (control, item);
+                text_layout.DrawText (e, item, text_bounds, layout_font, layout_font_size, foreground_color);
+                return;
+            }
 
             // Upstream draws the text 2px into its label, and does not clip it to the label's width.
             if (TreeView.UsesUpstreamLook) {
@@ -172,6 +183,10 @@ namespace Majorsilence.Forms.Renderers
         // one, else the control's -- NodeFont was stored and the renderer always used the theme font (LST-26).
         private static (SkiaSharp.SKTypeface font, int size) TextFont (TreeView control, TreeNode item)
         {
+            // A derived tree that lays its nodes out its own way may draw them in a font of its own.
+            if (item.NodeFont is null && control.NodeLayout?.DefaultFont is { } layout_font)
+                return (layout_font.GetSKTypeface (), control.LogicalToDeviceUnits ((int) System.Math.Round (layout_font.PixelSize)));
+
             var font = item.NodeFont is { } node_font ? node_font.GetSKTypeface () : control.GetEffectiveFont ();
             // A ported app (one that chose its font) draws at the tree's own font size, as upstream does;
             // the theme's size made a 12pt tree's text smaller than WinForms'.
@@ -272,6 +287,11 @@ namespace Majorsilence.Forms.Renderers
             if (!control.ShowLines)
                 return;
 
+            if (control.NodeLayout is { } layout) {
+                layout.DrawLines (e, item);
+                return;
+            }
+
             if (TreeView.UsesUpstreamLook) {
                 RenderUpstreamLines (control, item, e);
                 return;
@@ -340,6 +360,9 @@ namespace Majorsilence.Forms.Renderers
             if (!control.ShowDropdownGlyph)
                 return Rectangle.Empty;
 
+            if (control.NodeLayout is { } layout)
+                return layout.ButtonBounds (item);
+
             if (TreeView.UsesUpstreamLook)
                 return control.UpstreamButtonBounds (item);
 
@@ -359,8 +382,11 @@ namespace Majorsilence.Forms.Renderers
 
         internal Rectangle ImageBoundsFor (TreeView control, TreeNode item)
         {
-            if (!control.ShowItemImages || ResolveImage (control, item, item == control.SelectedItem) is null)
+            if (!control.ShowItemImages || ResolveImage (control, item, item == control.SelectedItem) is not { } image)
                 return Rectangle.Empty;
+
+            if (control.NodeLayout is { } layout)
+                return layout.ImageBounds (item, image);
 
             if (TreeView.UsesUpstreamLook)
                 return control.UpstreamImageBounds (item);
@@ -384,6 +410,9 @@ namespace Majorsilence.Forms.Renderers
         /// label editor (W6 mechanisms). The same arithmetic <see cref="GetTextBounds"/> uses.</summary>
         internal Rectangle TextBoundsFor (TreeView control, TreeNode item)
         {
+            if (control.NodeLayout is { } layout)
+                return layout.LabelBounds (item, control.ShowItemImages ? ResolveImage (control, item, item == control.SelectedItem) : null);
+
             // Upstream's label: after the image column whether or not this node has an image, and 4px
             // wider than its text.
             if (TreeView.UsesUpstreamLook) {
@@ -417,7 +446,8 @@ namespace Majorsilence.Forms.Renderers
         /// -- so a wider indent for a deep hierarchy did nothing (<c>LST-26</c>). The constant remains
         /// the fallback for a control whose Indent has been zeroed.</remarks>
         protected virtual int GetIndentStart (TreeView control, TreeNode item)
-            => TreeView.UsesUpstreamLook ? control.UpstreamContentLeft (item)
+            => control.NodeLayout is { } layout ? layout.ContentLeft (item)
+             : TreeView.UsesUpstreamLook ? control.UpstreamContentLeft (item)
              : item.Bounds.Left + item.IndentLevel * control.LogicalToDeviceUnits (control.Indent > 0 ? control.Indent : INDENT_SIZE) + 2;
 
         /// <summary>

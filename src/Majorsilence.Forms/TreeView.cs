@@ -405,6 +405,10 @@ namespace Majorsilence.Forms
         internal override bool TakesFocusOnPress (MouseButtons button)
             => button is MouseButtons.Left or MouseButtons.Right;
 
+        // Whether gaining the focus with nothing selected selects the node at the top of the view, as
+        // upstream's tree does. A derived tree that leaves the selection alone (Telerik's) says no.
+        internal virtual bool SelectsTopNodeOnFocus => true;
+
         /// <inheritdoc/>
         /// <remarks>A tree that gains the focus with no node selected selects the node at the top of its
         /// view first, as upstream's does (measured: <see cref="BeforeSelect"/> and <see cref="AfterSelect"/>
@@ -412,7 +416,7 @@ namespace Majorsilence.Forms
         /// that focuses the tree selects the pressed node instead.</remarks>
         protected override void OnGotFocus (EventArgs e)
         {
-            if (!FocusingByPress && SelectedNode is null && GetVisibleItems (skipOffscreen: true).FirstOrDefault () is { } top)
+            if (SelectsTopNodeOnFocus && !FocusingByPress && SelectedNode is null && GetVisibleItems (skipOffscreen: true).FirstOrDefault () is { } top)
                 SelectItem (top, TreeViewAction.Unknown);
 
             base.OnGotFocus (e);
@@ -468,7 +472,7 @@ namespace Majorsilence.Forms
         /// In an app that chose its font with <c>Application.SetDefaultFont</c>, an unset ItemHeight is
         /// upstream's: see <see cref="UpstreamItemHeight"/>.</remarks>
         public int ItemHeight {
-            get => !item_height_set && ControlPaint.UsesUpstreamGlyphs ? UpstreamItemHeight : item_height;
+            get => !item_height_set && SizesItemHeightToFont ? UpstreamItemHeight : item_height;
             set {
                 item_height = value;
                 item_height_set = true;
@@ -477,6 +481,10 @@ namespace Majorsilence.Forms
 
         private int item_height = 20;
         private bool item_height_set;
+
+        // Whether an unset ItemHeight is upstream's, sized to the font. A derived tree whose rows keep their
+        // own default height whatever the font (Telerik's) says no.
+        internal virtual bool SizesItemHeightToFont => ControlPaint.UsesUpstreamGlyphs;
 
         /// <summary>
         /// The row height upstream's tree gives an unset ItemHeight: the font's GDI line height plus 2, or
@@ -494,7 +502,7 @@ namespace Majorsilence.Forms
         /// <summary>The logical row height this tree fixes for every node, or null when each row is
         /// measured from its node. A ported app (one that chose its font) always has one, upstream's
         /// unless ItemHeight was set; otherwise a set ItemHeight other than the default 20 does.</summary>
-        internal int? FixedItemHeight
+        internal virtual int? FixedItemHeight
             => ControlPaint.UsesUpstreamGlyphs ? item_height_set && item_height > 0 ? item_height : UpstreamItemHeight
              : item_height > 0 && item_height != 20 ? item_height
              : null;
@@ -1002,6 +1010,9 @@ namespace Majorsilence.Forms
         // upstream's state image goes.
         internal int CheckColumnLeft (TreeNode node)
         {
+            if (NodeLayout is { } layout)
+                return layout.ContentLeft (node);
+
             if (UsesUpstreamLook)
                 return UpstreamContentLeft (node);
 
@@ -1448,12 +1459,16 @@ namespace Majorsilence.Forms
         internal int ScaledItemHeight
             // A fixed ItemHeight (set, or upstream's in a ported app) wins over the measured one, which is
             // what the property is for (LST-26).
+            // The spacing can be negative (Telerik's default overlaps rows by a pixel), but a row is never empty.
             => FixedItemHeight is { } fixed_height
-                ? LogicalToDeviceUnits (fixed_height + ItemSpacing)
+                ? LogicalToDeviceUnits (System.Math.Max (1, fixed_height + ItemSpacing))
                 : (root_item.Items.FirstOrDefault () ?? root_item).GetPreferredSize (Size.Empty).Height;
 
         /// <summary>Extra logical pixels added to every row's height; a derived tree sets it.</summary>
         internal virtual int ItemSpacing => 0;
+
+        /// <summary>How a derived tree lays out and draws its nodes its own way, or null for this tree's.</summary>
+        internal virtual TreeNodeLayout? NodeLayout => null;
 
         // The width, in logical pixels, of the lines joining nodes (Telerik's RadTreeView.LineWidth).
         internal virtual float LineThickness => 1;

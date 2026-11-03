@@ -223,8 +223,10 @@ namespace Majorsilence.Forms
             // A derived tree's extra spacing goes on every row (Telerik's SpacingBetweenNodes).
             var spacing = TreeView is { } owner ? LogicalToDeviceUnits (owner.ItemSpacing) : 0;
 
+            // Spaced in logical pixels, as TreeView.ScaledItemHeight is, so the two agree at every scale; the
+            // spacing can be negative (Telerik's default overlaps rows by a pixel), but a row is never empty.
             if (TreeView?.FixedItemHeight is { } fixed_height)
-                return new Size (0, LogicalToDeviceUnits (fixed_height) + spacing);
+                return new Size (0, LogicalToDeviceUnits (System.Math.Max (1, fixed_height + TreeView.ItemSpacing)));
 
             var font_size = LogicalToDeviceUnits (Theme.FontSize);
             var padding = LogicalToDeviceUnits (10);

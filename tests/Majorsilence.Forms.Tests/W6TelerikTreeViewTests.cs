@@ -107,12 +107,9 @@ public class W6TelerikTreeViewTests
         var node = tree.Nodes.Add ("one");
         form.Show ();
 
-        var before = node.GetPreferredSize (Size.Empty).Height;
-        var row_before = tree.ScaledItemHeight;
-
         tree.SpacingBetweenNodes = 6;
 
-        Assert.Equal (before + tree.LogicalToDeviceUnits (6), node.GetPreferredSize (Size.Empty).Height);
-        Assert.Equal (row_before + tree.LogicalToDeviceUnits (6), tree.ScaledItemHeight);
+        Assert.Equal (tree.LogicalToDeviceUnits (tree.ItemHeight + 6), node.GetPreferredSize (Size.Empty).Height);
+        Assert.Equal (tree.LogicalToDeviceUnits (tree.ItemHeight + 6), tree.ScaledItemHeight);
     }
 }
