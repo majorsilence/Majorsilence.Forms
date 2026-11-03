@@ -10,8 +10,8 @@ namespace Majorsilence.Forms.Tests
 {
     // Exercises the interactive RadGridView pipeline (filtering, sorting, grouping, collapse/expand, and
     // layout XML persistence) at the model level — no rendering required, so these run on the headless
-    // backend. RowCount counts only displayed data rows (group-header rows and collapsed children are
-    // excluded), which makes the view transform observable.
+    // backend. ChildRows are the data rows on display (group-header rows and collapsed children are
+    // excluded), which makes the view transform observable; Rows and RowCount are every row, as Telerik's.
     public class RadGridViewTests
     {
         private static DataTable Depts ()
@@ -57,7 +57,7 @@ namespace Majorsilence.Forms.Tests
             return grid;
         }
 
-        private static string Name (RadGridView grid, int i) => grid.Rows[i].Cells["Name"].Value?.ToString () ?? "";
+        private static string Name (RadGridView grid, int i) => grid.ChildRows[i].Cells["Name"].Value?.ToString () ?? "";
 
         // Binding a RadGridView auto-generates its columns. They must be Telerik-shaped: Columns is
         // typed as GridViewDataColumn, so a base WinForms column makes the indexer and the enumerator
@@ -117,7 +117,7 @@ namespace Majorsilence.Forms.Tests
         public void DataRows_Unaffected_WithoutTransform ()
         {
             using var grid = Populated ();
-            Assert.Equal (5, grid.RowCount);
+            Assert.Equal (5, grid.ChildRows.Count);
             Assert.Equal ("Alice", Name (grid, 0));
             Assert.Equal ("Eve", Name (grid, 4));
         }
@@ -132,10 +132,10 @@ namespace Majorsilence.Forms.Tests
                 SelectedValues = new System.Collections.Generic.HashSet<string> (System.StringComparer.CurrentCultureIgnoreCase) { "Alice", "Bob" }
             });
 
-            Assert.Equal (2, grid.RowCount);
+            Assert.Equal (2, grid.ChildRows.Count);
 
             grid.FilterDescriptors.Clear ();
-            Assert.Equal (5, grid.RowCount);
+            Assert.Equal (5, grid.ChildRows.Count);
         }
 
         [Fact]
@@ -146,8 +146,8 @@ namespace Majorsilence.Forms.Tests
             // Salary renders as "$85,000" (C0) but the < 60000 condition must still compare numerically.
             grid.FilterDescriptors.Add (new FilterDescriptor ("Salary", FilterOperator.IsLessThan, 60000));
 
-            Assert.Equal (2, grid.RowCount); // Bob 48000, Eve 42500
-            foreach (var row in grid.Rows)
+            Assert.Equal (2, grid.ChildRows.Count); // Bob 48000, Eve 42500
+            foreach (var row in grid.ChildRows)
                 Assert.True ((decimal)row.Cells["Salary"].Value! < 60000);
         }
 
@@ -174,13 +174,13 @@ namespace Majorsilence.Forms.Tests
             grid.GroupByColumn ("Dept");
 
             // All five data rows are still displayed (groups expanded by default).
-            Assert.Equal (5, grid.RowCount);
+            Assert.Equal (5, grid.ChildRows.Count);
 
             // Groups ordered ascending by department NAME: Design(2), Engineering(1), Support(3).
             // So the first rows belong to Design (dept 2).
-            Assert.Equal (2, (int)grid.Rows[0].Cells["Dept"].Value!);
-            Assert.Equal (2, (int)grid.Rows[1].Cells["Dept"].Value!);
-            Assert.Equal (1, (int)grid.Rows[2].Cells["Dept"].Value!);
+            Assert.Equal (2, (int)grid.ChildRows[0].Cells["Dept"].Value!);
+            Assert.Equal (2, (int)grid.ChildRows[1].Cells["Dept"].Value!);
+            Assert.Equal (1, (int)grid.ChildRows[2].Cells["Dept"].Value!);
         }
 
         // ---- W6.1 / #176: CurrentRowChanging, the bypassed unsaved-changes guard ----
@@ -283,8 +283,8 @@ namespace Majorsilence.Forms.Tests
 
             grid.RebuildView ();
 
-            Assert.Equal (4, grid.RowCount);
-            Assert.DoesNotContain ("Bob", Enumerable.Range (0, grid.RowCount).Select (i => Name (grid, i)));
+            Assert.Equal (4, grid.ChildRows.Count);
+            Assert.DoesNotContain ("Bob", Enumerable.Range (0, grid.ChildRows.Count).Select (i => Name (grid, i)));
         }
 
         [Fact]
@@ -299,7 +299,7 @@ namespace Majorsilence.Forms.Tests
             grid.RebuildView ();
 
             Assert.Equal (0, raised);
-            Assert.Equal (5, grid.RowCount);
+            Assert.Equal (5, grid.ChildRows.Count);
         }
 
         [Fact]
@@ -312,7 +312,7 @@ namespace Majorsilence.Forms.Tests
 
             grid.RebuildView ();
 
-            Assert.Equal (5, grid.RowCount);
+            Assert.Equal (5, grid.ChildRows.Count);
         }
 
         [Fact]
@@ -464,12 +464,12 @@ namespace Majorsilence.Forms.Tests
             grid.EnableGrouping = true;
             grid.GroupByColumn ("Dept");
 
-            Assert.Equal (5, grid.RowCount);
+            Assert.Equal (5, grid.ChildRows.Count);
 
             var single = grid.Groups.Single (g => g.ItemCount == 1);
             single.Collapse ();
 
-            Assert.Equal (4, grid.RowCount);
+            Assert.Equal (4, grid.ChildRows.Count);
             Assert.False (grid.Groups.Single (g => Equals (g.Key, single.Key)).IsExpanded);
         }
 
@@ -499,10 +499,10 @@ namespace Majorsilence.Forms.Tests
             grid.GroupByColumn ("Dept");
 
             grid.CollapseAllGroups ();
-            Assert.Equal (0, grid.RowCount); // only (hidden) group headers remain
+            Assert.Equal (0, grid.ChildRows.Count); // only (hidden) group headers remain
 
             grid.ExpandAllGroups ();
-            Assert.Equal (5, grid.RowCount);
+            Assert.Equal (5, grid.ChildRows.Count);
         }
 
         [Fact]
@@ -513,7 +513,7 @@ namespace Majorsilence.Forms.Tests
             grid.GroupByColumn ("Dept");
             grid.ClearGrouping ();
 
-            Assert.Equal (5, grid.RowCount);
+            Assert.Equal (5, grid.ChildRows.Count);
             Assert.Empty (grid.GroupDescriptors);
             Assert.Equal ("Alice", Name (grid, 0)); // original order restored
         }
@@ -655,7 +655,7 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal ("344500", tag.Values[2]);     // 85000+48000+64000+105000+42500
 
             // Summary rows do not count as data rows.
-            Assert.Equal (5, grid.RowCount);
+            Assert.Equal (5, grid.ChildRows.Count);
         }
 
         [Fact]
@@ -795,14 +795,14 @@ namespace Majorsilence.Forms.Tests
             using var grid = Populated ();
 
             grid.Search ("ali");                 // matches "Alice" in the Name column
-            Assert.Equal (1, grid.RowCount);
+            Assert.Equal (1, grid.ChildRows.Count);
             Assert.Equal ("Alice", Name (grid, 0));
 
             grid.Search ("Engineering");         // matches the Dept combo display (dept 1 → Alice, Carol)
-            Assert.Equal (2, grid.RowCount);
+            Assert.Equal (2, grid.ChildRows.Count);
 
             grid.SearchText = string.Empty;      // cleared → all rows
-            Assert.Equal (5, grid.RowCount);
+            Assert.Equal (5, grid.ChildRows.Count);
         }
 
         [Fact]
@@ -1000,9 +1000,9 @@ namespace Majorsilence.Forms.Tests
             grid.MasterTemplate.AutoExpandGroups = false;
             grid.GroupByColumn ("Dept");
 
-            Assert.Equal (0, grid.RowCount);   // every group starts collapsed
+            Assert.Equal (0, grid.ChildRows.Count);   // every group starts collapsed
             grid.ExpandAllGroups ();
-            Assert.Equal (5, grid.RowCount);
+            Assert.Equal (5, grid.ChildRows.Count);
         }
 
         [Fact]
@@ -1028,9 +1028,9 @@ namespace Majorsilence.Forms.Tests
             Assert.True (grid.ShowNewRow);                                  // on by default (Telerik)
             Assert.Contains (dgv.Rows, r => r.Tag is GridNewRow);
 
-            var before = grid.RowCount;
+            var before = grid.ChildRows.Count;
             grid.AddNewRow ();
-            Assert.Equal (before + 1, grid.RowCount);
+            Assert.Equal (before + 1, grid.ChildRows.Count);
 
             grid.AllowAddNewRow = false;
             Assert.DoesNotContain (dgv.Rows, r => r.Tag is GridNewRow);
@@ -1044,13 +1044,13 @@ namespace Majorsilence.Forms.Tests
             grid.EnablePaging = true;
 
             Assert.Equal (3, grid.PageCount);   // ceil(5/2)
-            Assert.Equal (2, grid.RowCount);    // page 0
+            Assert.Equal (2, grid.ChildRows.Count);    // page 0
 
             grid.NextPage ();
-            Assert.Equal (2, grid.RowCount);    // page 1
+            Assert.Equal (2, grid.ChildRows.Count);    // page 1
 
             grid.GoToPage (2);
-            Assert.Equal (1, grid.RowCount);    // last page
+            Assert.Equal (1, grid.ChildRows.Count);    // last page
         }
 
         [Fact]
@@ -1103,7 +1103,7 @@ namespace Majorsilence.Forms.Tests
             Assert.Same (alice, dgv.Rows[0]);
             Assert.IsType<GridDetailRow> (dgv.Rows[1].Tag);             // detail row follows its master
             Assert.Single (dgv.Rows, r => r.Tag is GridDetailRow);
-            Assert.Equal (5, grid.RowCount);                            // detail isn't a data row
+            Assert.Equal (5, grid.ChildRows.Count);                            // detail isn't a data row
 
             // Render with an expanded detail + expander glyphs must not throw.
             var info = new SkiaSharp.SKImageInfo (800, 400);
@@ -1114,7 +1114,7 @@ namespace Majorsilence.Forms.Tests
             grid.CollapseRow (alice);
             Assert.False (grid.IsRowExpanded (alice));
             Assert.DoesNotContain (dgv.Rows, r => r.Tag is GridDetailRow);
-            Assert.Equal (5, grid.RowCount);
+            Assert.Equal (5, grid.ChildRows.Count);
         }
 
         [Fact]
@@ -1131,7 +1131,7 @@ namespace Majorsilence.Forms.Tests
             grid.FilterDescriptors.Add (new FilterDescriptor ("Name", FilterOperator.Contains, "ali"));
             Assert.Equal ("ali", grid.CurrentColumnFilterText (grid.ColumnIndexByName ("Name")));
             Assert.Equal (string.Empty, grid.CurrentColumnFilterText (grid.ColumnIndexByName ("Salary")));
-            Assert.Equal (1, grid.RowCount); // live filter applied → only Alice
+            Assert.Equal (1, grid.ChildRows.Count); // live filter applied → only Alice
         }
 
         [Fact]

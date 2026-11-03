@@ -120,10 +120,10 @@ namespace Majorsilence.Forms.Tests
 
             grid.GoToPage (2);
 
-            Assert.Equal ("CODE4", grid.Rows[0].Cells["ItemCode"].Value);
-            Assert.Equal ("Lays Chips", grid.Rows[0].Cells["ItemName"].Value);
-            Assert.Equal (90m, grid.Rows[0].Cells["Onhand"].Value);
-            Assert.Equal ("AMSTE001", grid.Rows[0].Cells["VendorCode"].Value);
+            Assert.Equal ("CODE4", grid.ChildRows[0].Cells["ItemCode"].Value);
+            Assert.Equal ("Lays Chips", grid.ChildRows[0].Cells["ItemName"].Value);
+            Assert.Equal (90m, grid.ChildRows[0].Cells["Onhand"].Value);
+            Assert.Equal ("AMSTE001", grid.ChildRows[0].Cells["VendorCode"].Value);
         }
     }
 }

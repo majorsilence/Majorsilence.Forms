@@ -215,7 +215,7 @@ namespace Majorsilence.Forms.Telerik
     {
         /// <summary>Gets the grid's rows, in the order shown -- the rows of <see cref="RadGridView.MasterView"/>.</summary>
         /// <exception cref="InvalidOperationException">The template is not attached to a grid.</exception>
-        public GridViewRowInfoCollection Rows => Grid?.Rows ?? throw new InvalidOperationException ("The template is not attached to a grid.");
+        public GridViewRowInfoCollection Rows => Grid?.ChildRows ?? throw new InvalidOperationException ("The template is not attached to a grid.");
 
         /// <summary>Gets or sets when the vertical scroll bar shows. AutoHide by default, as Telerik's.</summary>
         /// <remarks>AlwaysHide takes the bar away; AutoHide and AlwaysShow both show it when the rows overflow (the grid has no

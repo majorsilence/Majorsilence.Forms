@@ -70,11 +70,11 @@ namespace Majorsilence.Forms.Tests
             // from the display.
             using var grid = Grouped ();
 
-            var before = grid.RowCount;
+            var before = grid.ChildRows.Count;
             grid.GroupExpanding += (_, e) => e.Cancel = true;
 
             Assert.True (grid.DriveFirstGroupToggle ());
-            Assert.Equal (before, grid.RowCount);
+            Assert.Equal (before, grid.ChildRows.Count);
         }
 
         [Fact]
@@ -84,10 +84,10 @@ namespace Majorsilence.Forms.Tests
             // toggle that never worked looks like.
             using var grid = Grouped ();
 
-            var before = grid.RowCount;
+            var before = grid.ChildRows.Count;
 
             Assert.True (grid.DriveFirstGroupToggle ());
-            Assert.NotEqual (before, grid.RowCount);
+            Assert.NotEqual (before, grid.ChildRows.Count);
         }
 
         [Fact]
@@ -125,12 +125,12 @@ namespace Majorsilence.Forms.Tests
         {
             using var grid = Grouped ();
 
-            var before = grid.RowCount;
+            var before = grid.ChildRows.Count;
             grid.GroupExpanding += (_, e) => e.Cancel = true;
 
             grid.Groups.First ().Collapse ();
 
-            Assert.Equal (before, grid.RowCount);
+            Assert.Equal (before, grid.ChildRows.Count);
         }
 
         [Fact]
@@ -156,10 +156,10 @@ namespace Majorsilence.Forms.Tests
             // GUARD: a raiser that returned false by default would freeze every group.
             using var grid = Grouped ();
 
-            var before = grid.RowCount;
+            var before = grid.ChildRows.Count;
 
             Assert.True (grid.DriveFirstGroupToggle ());
-            Assert.NotEqual (before, grid.RowCount);
+            Assert.NotEqual (before, grid.ChildRows.Count);
         }
 
         // ---------------- GroupSummaryEvaluate

@@ -163,7 +163,7 @@ public class TelerikGridMembersTests
 
             grid.SortDescriptors.Add (new SortDescriptor ("Name", ListSortDirection.Ascending));
             Assert.Equal (new[] { "Add:1" }, seen);
-            Assert.Equal ("", grid.Rows[0].Cells["Name"].Value);   // empty sorts first: the sort was applied
+            Assert.Equal ("", grid.ChildRows[0].Cells["Name"].Value);   // empty sorts first: the sort was applied
 
             grid.SortDescriptors.Clear ();
             Assert.Equal (new[] { "Add:1", "Reset:0" }, seen);
@@ -172,7 +172,7 @@ public class TelerikGridMembersTests
             cancel = true;
             grid.SortDescriptors.Add (new SortDescriptor ("Name", ListSortDirection.Descending));
             Assert.Empty (grid.SortDescriptors);
-            Assert.Equal ("Alice", grid.Rows[0].Cells["Name"].Value);
+            Assert.Equal ("Alice", grid.ChildRows[0].Cells["Name"].Value);
 
             // A header click is one change, announced once, and a cancelled one leaves the sort alone.
             seen.Clear ();
@@ -199,7 +199,7 @@ public class TelerikGridMembersTests
         return grid;
     }
 
-    private static string Order (RadGridView grid) => string.Join (",", grid.Rows.Select (r => r.Cells["Name"].Value));
+    private static string Order (RadGridView grid) => string.Join (",", grid.ChildRows.Select (r => r.Cells["Name"].Value));
 
     // Measured on Telerik 2026.2.520 with Bravo, Alpha, Charlie sorted by Name: no EnableCustomSorting, no event and
     // Alpha,Bravo,Charlie; a handler's SortResult orders the rows; Handled defaults to true, so an empty handler

@@ -257,6 +257,14 @@ namespace Majorsilence.Forms
             if (IsDisposed || data_source is null)
                 return;
 
+            if (!BoundRowsFollowListOrder && e.ListChangedType is ListChangedType.ItemAdded or ListChangedType.ItemDeleted
+                    or ListChangedType.ItemChanged or ListChangedType.ItemMoved) {
+                ApplyBoundChangeToView (e);
+                Invalidate ();
+                RaiseDataBindingComplete (e.ListChangedType);
+                return;
+            }
+
             switch (e.ListChangedType) {
                 case ListChangedType.ItemAdded when e.NewIndex >= 0 && e.NewIndex <= Rows.Count && e.NewIndex < data_source.Count:
                     var previous_current = CurrentRow;
@@ -303,6 +311,32 @@ namespace Majorsilence.Forms
             // Every list change ends in one, carrying the change type: upstream's DataConnection raises
             // it after processing each ListChanged (DataGridView.DataConnection.cs, currencyManager_ListChanged).
             RaiseDataBindingComplete (e.ListChangedType);
+        }
+
+        // Whether the grid's rows are the bound list's items in the list's order, so a change can be applied by its
+        // index. A derived grid whose rows are a view of the list -- filtered, sorted, paged -- says no.
+        internal virtual bool BoundRowsFollowListOrder => true;
+
+        // Every row the grid holds for the bound list, on display or not.
+        internal virtual IEnumerable<DataGridViewRow> BoundRows => Rows.Cast<DataGridViewRow> ();
+
+        // Called when a bound row's values have been refreshed from its item in a grid whose rows are a view of
+        // the list, so the view can place it again.
+        internal virtual void OnBoundRowRefreshed (DataGridViewRow row) { }
+
+        // A change to a list whose items the rows do not follow by index: a changed item refreshes its own row,
+        // found by its item; anything else binds the list again.
+        private void ApplyBoundChangeToView (ListChangedEventArgs e)
+        {
+            if (e.ListChangedType == ListChangedType.ItemChanged && e.NewIndex >= 0 && e.NewIndex < data_source!.Count
+                    && data_source[e.NewIndex] is { } changed
+                    && BoundRows.FirstOrDefault (row => ReferenceEquals (row.DataBoundItem, changed)) is { } row) {
+                FillBoundRow (row, changed);
+                OnBoundRowRefreshed (row);
+                return;
+            }
+
+            OnDataSourceChanged ();
         }
 
         // A deleted row can take the current cell with it. Upstream moves the current cell to the row

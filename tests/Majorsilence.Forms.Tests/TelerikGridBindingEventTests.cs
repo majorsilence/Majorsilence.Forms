@@ -82,7 +82,7 @@ public class TelerikGridBindingEventTests
 
             grid.RebuildView ();
             Assert.All (handled, h => Assert.True (h));
-            Assert.Equal (new object?[] { "Bravo", "Charlie" }, grid.Rows.Select (r => r.Cells["Name"].Value));
+            Assert.Equal (new object?[] { "Bravo", "Charlie" }, grid.ChildRows.Select (r => r.Cells["Name"].Value));
 
             // Handled cleared: the descriptors decide, and with none every row stays.
             clear = true;

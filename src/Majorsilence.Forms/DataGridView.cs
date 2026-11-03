@@ -2348,6 +2348,23 @@ namespace Majorsilence.Forms
             => type is not null
                && (typeof (Majorsilence.Forms.Drawing.Image).IsAssignableFrom (type) || type == typeof (byte[]));
 
+        // Removes a bound row's item from the list the grid is bound to, as the Delete key does; the ListChanged
+        // that follows takes the row out. False when the grid is unbound, the list cannot shrink, or the item is
+        // not in it.
+        internal bool RemoveBoundItem (DataGridViewRow row)
+        {
+            if (data_source is not { IsReadOnly: false, IsFixedSize: false } source || row.DataBoundItem is not { } item)
+                return false;
+
+            var index = source.IndexOf (item);
+
+            if (index < 0)
+                return false;
+
+            source.RemoveAt (index);
+            return true;
+        }
+
         // The list we hold a ListChanged subscription on. Tracked separately from data_source because it
         // must be detached even after data_source has been replaced.
         private System.ComponentModel.IBindingList? bound_list;
