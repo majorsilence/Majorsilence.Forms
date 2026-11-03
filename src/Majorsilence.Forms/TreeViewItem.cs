@@ -156,6 +156,8 @@ namespace Majorsilence.Forms
             expanded = true;
             Invalidate ();
 
+            TreeView?.ScrollExpandedIntoView (this);
+
             // AfterExpand used to fire only from a glyph click, so a lazy-loading tree populated in
             // BeforeExpand had no matching completion hook on the programmatic path (LST-23).
             TreeView?.RaiseAfterExpandCollapse (this, expanded: true);
