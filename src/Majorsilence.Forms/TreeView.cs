@@ -561,8 +561,11 @@ namespace Majorsilence.Forms
         /// <summary>The logical row height this tree fixes for every node, or null when each row is
         /// measured from its node. A ported app (one that chose its font) always has one, upstream's
         /// unless ItemHeight was set; otherwise a set ItemHeight other than the default 20 does.</summary>
+        /// <remarks>Upstream's tree draws an odd ItemHeight above 1 a pixel shorter, as the native control rounds
+        /// it down to even, while ItemHeight reads back what was set. Measured on WinForms: 19 is drawn 18, 21 20,
+        /// 25 24 and 3 2; 1 stays 1.</remarks>
         internal virtual int? FixedItemHeight
-            => ControlPaint.UsesUpstreamGlyphs ? item_height_set && item_height > 0 ? item_height : UpstreamItemHeight
+            => ControlPaint.UsesUpstreamGlyphs ? item_height_set && item_height > 0 ? (item_height > 1 ? item_height & ~1 : item_height) : UpstreamItemHeight
              : item_height > 0 && item_height != 20 ? item_height
              : null;
 
@@ -1682,7 +1685,7 @@ namespace Majorsilence.Forms
         // (border excluded), not ScaledHeight (the full control including its border) -- ListBox uses
         // the equivalent ClientRectangle.Height for the same reason: overcounting here understates
         // vscrollbar.Maximum/LargeChange, shrinking the usable scroll range and the thumb's travel.
-        private int VisibleItemCount => DeviceClientRectangle.Height / ScaledItemHeight;
+        private int VisibleItemCount => DeviceClientRectangle.Height / System.Math.Max (1, ScaledItemHeight);
 
         /// <inheritdoc/>
         public class TreeViewControlStyle : ControlStyle

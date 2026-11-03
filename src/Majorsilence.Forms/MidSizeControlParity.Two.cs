@@ -214,12 +214,9 @@ namespace Majorsilence.Forms
         public event EventHandler? RightToLeftLayoutChanged;
 
         /// <summary>Gets how many nodes fit in the control's height.</summary>
-        public int VisibleCount {
-            get {
-                var itemHeight = Math.Max (1, ItemHeight);
-                return Math.Max (0, DeviceClientRectangle.Height / itemHeight);
-            }
-        }
+        /// <remarks>Whole rows, as upstream's: the client height over the height the rows are drawn. It divided the
+        /// client's device height by the logical ItemHeight, so at 200% it counted twice the rows that fit.</remarks>
+        public int VisibleCount => Math.Max (0, VisibleItemCount);
 
         /// <summary>Returns what part of the control is at the given point.</summary>
         public TreeViewHitTestInfo HitTest (int x, int y) => HitTest (new Point (x, y));

@@ -184,10 +184,11 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void TreeView_VisibleCount_divides_the_client_area_by_the_item_height ()
         {
-            using var tree = new TreeView { Size = new Size (200, 200), ItemHeight = 20 };
+            // A set ItemHeight other than the default 20 fixes the rows' height; 20 itself leaves them measured.
+            using var tree = new TreeView { Size = new Size (200, 200), ItemHeight = 24 };
 
             Assert.True (tree.VisibleCount > 0);
-            Assert.Equal (tree.ClientRectangle.Height / 20, tree.VisibleCount);
+            Assert.Equal (tree.ClientRectangle.Height / 24, tree.VisibleCount);
         }
 
         [Fact]
