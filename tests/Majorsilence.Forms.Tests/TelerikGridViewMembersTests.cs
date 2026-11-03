@@ -31,7 +31,7 @@ public class TelerikGridViewMembersTests
         return grid;
     }
 
-    private static string Order (RadGridView grid) => string.Join (",", grid.Rows.Select (r => r.Cells["Name"].Value));
+    private static string Order (RadGridView grid) => string.Join (",", grid.ChildRows.Select (r => r.Cells["Name"].Value));
 
     [Fact]
     public void BeginEdit_opens_the_editor_on_the_current_cell_and_refuses_a_read_only_one ()

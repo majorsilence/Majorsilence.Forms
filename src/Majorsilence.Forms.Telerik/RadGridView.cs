@@ -23,8 +23,9 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public partial class RadGridView : DataGridView, IGridGroupOwner
     {
-        /// <summary>Top-level rows of the current view. Mirrors Telerik (no hierarchy here, so all rows).</summary>
-        public GridViewRowInfoCollection ChildRows => Rows;
+        /// <summary>Gets the rows on display: the current page's, filtered and sorted, as Telerik's ChildRows are.</summary>
+        /// <remarks>Grouped, these are the data rows on display, where Telerik's are its group rows.</remarks>
+        public GridViewRowInfoCollection ChildRows => new GridViewRowInfoCollection (this, displayed: true);
 
         /// <summary>The current view object (stub: the grid itself).</summary>
         public object CurrentView => this;
@@ -488,7 +489,7 @@ namespace Majorsilence.Forms.Telerik
         }
 
         /// <summary>Gets the data rows, accessible Telerik-style (indexer/enumeration yield <see cref="GridViewRowInfo"/>). Injected group-header rows are not included.</summary>
-        public new GridViewRowInfoCollection Rows => new GridViewRowInfoCollection (base.Rows);
+        public new GridViewRowInfoCollection Rows => new GridViewRowInfoCollection (this, displayed: false);
 
         /// <summary>
         /// Gets the columns, accessible Telerik-style (indexer/enumeration yield
@@ -572,15 +573,44 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Auto-sizes all columns using the specified mode. The mode is advisory in the compat grid; sizing delegates to <see cref="BestFitColumns()"/>.</summary>
         public void BestFitColumns (BestFitColumnMode mode) => BestFitColumns ();
 
-        /// <summary>Gets the number of data rows (excludes injected group-header rows).</summary>
-        public new int RowCount {
-            get {
-                var count = 0;
-                foreach (var row in base.Rows)
-                    if (!IsStructuralRow (row))
-                        count++;
-                return count;
+        /// <summary>Gets the number of data rows the grid holds, on every page and whether filtered out or not.</summary>
+        public new int RowCount => _master.Count;
+
+        // The data rows the grid holds, in the order it holds them -- Rows.
+        internal IReadOnlyList<DataGridViewRow> MasterRows => _master;
+
+        // The data rows on display, in display order -- ChildRows.
+        internal List<DataGridViewRow> DisplayedRows ()
+        {
+            var list = new List<DataGridViewRow> ();
+            foreach (var row in base.Rows)
+                if (!IsStructuralRow (row))
+                    list.Add (row);
+            return list;
+        }
+
+        // Removes a data row the grid holds, shown or not. A bound row goes from its list, as the Delete key
+        // removes one, and the rebind that follows takes it out of the grid.
+        internal void RemoveMasterRow (DataGridViewRow row)
+        {
+            if (DataSource is not null) {
+                if (!RemoveBoundItem (row))
+                    base.Rows.Remove (row);
+                return;
             }
+
+            // On display it goes through the grid's rows; hidden, only the master holds it.
+            if (!base.Rows.Remove (row) && _master.Remove (row))
+                RebuildView ();
+        }
+
+        // Removes every data row, shown or not.
+        internal void ClearMasterRows ()
+        {
+            if (DataSource is null)
+                _master.Clear ();
+
+            base.Rows.Clear ();
         }
 
         // ── Telerik config surface (forwarded to MasterTemplate so grid.X and grid.MasterTemplate.X agree) ──
@@ -1229,14 +1259,47 @@ namespace Majorsilence.Forms.Telerik
                     yield return row;
         }
 
-        // Captures the current data display rows (excluding injected structural rows) as the new master.
+        // Captures the current data display rows (excluding injected structural rows) as the new master. An
+        // unbound grid whose view hides rows -- paged, filtered, collapsed -- keeps them: a row added or removed
+        // through base.Rows changes only what is on display, and recapturing the display alone dropped every
+        // hidden row. Rows new to the display go at the end, as Telerik adds them. A bound grid's rows come
+        // back from its list whole, so they are recaptured as they are.
         private void SyncMasterFromDisplay ()
         {
+            var display = DisplayedRows ();
+
+            if (DataSource is not null || !HasViewTransform || _shown is null) {
+                _master.Clear ();
+                _master.AddRange (display);
+                return;
+            }
+
+            var on_display = new HashSet<DataGridViewRow> (display, RowIdentity);
+            var kept = _master.Where (row => !_shown.Contains (row) || on_display.Contains (row)).ToList ();
+            var held = new HashSet<DataGridViewRow> (kept, RowIdentity);
+
+            kept.AddRange (display.Where (row => !held.Contains (row)));
             _master.Clear ();
-            foreach (var row in base.Rows)
-                if (!IsStructuralRow (row))
-                    _master.Add (row);
+            _master.AddRange (kept);
         }
+
+        // Filtered, sorted, paged or grouped, the rows on display are a view of the bound list, not the list.
+        internal override bool BoundRowsFollowListOrder => !HasViewTransform;
+
+        internal override IEnumerable<DataGridViewRow> BoundRows => _master;
+
+        // A refreshed row may now pass the filter, or sort elsewhere.
+        internal override void OnBoundRowRefreshed (DataGridViewRow row) => RebuildView ();
+
+        // The data rows the view last put on display; the rest of the master rows it hides.
+        private HashSet<DataGridViewRow>? _shown;
+
+        private static IEqualityComparer<DataGridViewRow> RowIdentity =>
+#if NETSTANDARD2_0
+            Majorsilence.Forms.ReferenceEqualityComparer<DataGridViewRow>.Instance;
+#else
+            ReferenceEqualityComparer.Instance;
+#endif
 
         // Rebuilds base.Rows from the master set by applying filters, sorting, grouping, and summary rows.
         internal void RebuildView ()
@@ -1271,6 +1334,8 @@ namespace Majorsilence.Forms.Telerik
                 else
                     display.Add (new_row);
             }
+
+            _shown = new HashSet<DataGridViewRow> (display.Where (row => !IsStructuralRow (row)), RowIdentity);
 
             _applyingView = true;
             try {
@@ -4443,20 +4508,20 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class GridViewRowInfoCollection : IEnumerable<GridViewRowInfo>
     {
+        private readonly RadGridView _grid;
+        private readonly bool _displayed;
         private readonly DataGridViewRowCollection _rows;
 
-        internal GridViewRowInfoCollection (DataGridViewRowCollection rows) => _rows = rows;
-
-        // Underlying data rows (group-header rows excluded), in display order.
-        private List<DataGridViewRow> DataRows {
-            get {
-                var list = new List<DataGridViewRow> ();
-                foreach (var row in _rows)
-                    if (!RadGridView.IsStructuralRow (row))
-                        list.Add (row);
-                return list;
-            }
+        // Every data row the grid holds (Rows), or those on display (ChildRows).
+        internal GridViewRowInfoCollection (RadGridView grid, bool displayed)
+        {
+            _grid = grid;
+            _displayed = displayed;
+            _rows = ((DataGridView) grid).Rows;
         }
+
+        // The underlying data rows: the grid's, in the order it holds them, or those on display in display order.
+        private IReadOnlyList<DataGridViewRow> DataRows => _displayed ? _grid.DisplayedRows () : _grid.MasterRows;
 
         /// <summary>Gets the number of data rows.</summary>
         public int Count => DataRows.Count;
@@ -4485,16 +4550,27 @@ namespace Majorsilence.Forms.Telerik
         }
 
         /// <summary>Returns the index of the row info's underlying row among the data rows, or -1.</summary>
-        public int IndexOf (GridViewRowInfo row) => row is null ? -1 : DataRows.IndexOf (row.DataRow);
+        public int IndexOf (GridViewRowInfo row)
+        {
+            if (row is null)
+                return -1;
+
+            var rows = DataRows;
+            for (var i = 0; i < rows.Count; i++)
+                if (ReferenceEquals (rows[i], row.DataRow))
+                    return i;
+
+            return -1;
+        }
 
         /// <summary>Removes the specified row.</summary>
-        public void Remove (GridViewRowInfo row) => _rows.Remove (row.DataRow);
+        public void Remove (GridViewRowInfo row) => _grid.RemoveMasterRow (row.DataRow);
 
         /// <summary>Removes the data row at the specified index.</summary>
-        public void RemoveAt (int index) => _rows.Remove (DataRows[index]);
+        public void RemoveAt (int index) => _grid.RemoveMasterRow (DataRows[index]);
 
         /// <summary>Removes all rows.</summary>
-        public void Clear () => _rows.Clear ();
+        public void Clear () => _grid.ClearMasterRows ();
 
         /// <inheritdoc/>
         public IEnumerator<GridViewRowInfo> GetEnumerator ()

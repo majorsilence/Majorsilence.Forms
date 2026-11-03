@@ -45,7 +45,7 @@ namespace Majorsilence.Forms.Tests
             HeadlessRenderer.MouseUp (form, loc.X, loc.Y);
         }
 
-        private static string FirstCode (RadGridView grid) => grid.Rows[0].Cells["Code"].Value?.ToString () ?? string.Empty;
+        private static string FirstCode (RadGridView grid) => grid.ChildRows[0].Cells["Code"].Value?.ToString () ?? string.Empty;
 
         [Fact]
         public void The_panel_runs_along_the_bottom_below_the_rows ()
@@ -194,7 +194,7 @@ namespace Majorsilence.Forms.Tests
             grid.DataSource = table;
             grid.MasterTemplate.EnablePaging = true;
 
-            Assert.Equal (20, grid.RowCount);
+            Assert.Equal (20, grid.ChildRows.Count);
             Assert.Equal (2, grid.PageCount);
         }
     }
