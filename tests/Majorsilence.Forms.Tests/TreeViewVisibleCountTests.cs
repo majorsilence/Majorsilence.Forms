@@ -1,3 +1,4 @@
+using System;
 using System.Drawing;
 using Majorsilence.Forms.Headless;
 using Xunit;
@@ -9,6 +10,8 @@ namespace Majorsilence.Forms.Tests
     // font, a borderless 200 x 200 tree of 30 nodes: 9 rows of the unset 22; 10 of ItemHeight 20; 11 of 19, drawn 18;
     // 10 of 21, drawn 20; 8 of 25, drawn 24; 6 of 30; 100 of 3, drawn 2; 200 of 1; 9 in a 199-high tree; 11 in Segoe
     // UI 9pt, whose rows are 18. ItemHeight reads back what was set.
+    // The unset height follows the font, and Microsoft Sans Serif and Segoe UI are Windows fonts: elsewhere they fall
+    // back to others, so those counts are checked against the rows the tree draws, and the measured ones on Windows.
     // Here VisibleCount divided the client's device height by the logical ItemHeight -- right at 100%, twice the rows
     // at 200% -- and an odd ItemHeight was drawn as set.
     [Collection ("Headless")]
@@ -37,9 +40,16 @@ namespace Majorsilence.Forms.Tests
 
         private static int VisibleCount (System.Action<TreeView>? set = null) => WithTree (set, t => t.VisibleCount);
 
+        // The measured count on Windows; elsewhere, the whole rows of the unset height -- the font's -- that fit.
+        private static void FontRows (int measured, System.Action<TreeView>? set = null)
+            => WithTree (set, t => {
+                Assert.Equal (OperatingSystem.IsWindows () ? measured : t.ClientRectangle.Height / t.ItemHeight, t.VisibleCount);
+                return 0;
+            });
+
         [Fact]
         public void The_unset_item_height_s_rows ()
-            => Assert.Equal (9, VisibleCount ());
+            => FontRows (9);
 
         [Theory]
         [InlineData (20, 10)]
@@ -54,11 +64,11 @@ namespace Majorsilence.Forms.Tests
 
         [Fact]
         public void A_part_row_does_not_count ()
-            => Assert.Equal (9, VisibleCount (t => t.Height = 199));
+            => Assert.Equal (9, VisibleCount (t => { t.Height = 199; t.ItemHeight = 22; }));
 
         [Fact]
         public void A_smaller_font_s_rows ()
-            => Assert.Equal (11, VisibleCount (t => t.Font = new Majorsilence.Forms.Drawing.Font ("Segoe UI", 9f)));
+            => FontRows (11, t => t.Font = new Majorsilence.Forms.Drawing.Font ("Segoe UI", 9f));
 
         [Fact]
         public void An_odd_item_height_is_drawn_a_pixel_shorter_and_reads_back_as_set ()
