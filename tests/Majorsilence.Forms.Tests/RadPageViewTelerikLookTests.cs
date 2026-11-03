@@ -23,6 +23,9 @@ namespace Majorsilence.Forms.Tests
     //     #A7A7A7 with a #D2D2D2 line outside, #D9D9D9 inside.
     // Here the strip was the tab control's: flat grey tabs in the form's 12pt font, no buttons, and a border round
     // the whole control -- the same enabled or disabled.
+    // Segoe UI is a Windows font: elsewhere the default font falls back to another, and the tabs, the content frame
+    // below them and the captions move with its height. The checks follow the tab height laid out, and the values
+    // that depend on the font itself are checked on Windows only.
     [Collection ("Headless")]
     public class RadPageViewTelerikLookTests
     {
@@ -30,6 +33,8 @@ namespace Majorsilence.Forms.Tests
         {
             public SKBitmap Bitmap = null!;
             public float Scale;
+            public int Frame;
+            public int TabHeight;
 
             // The pixel at a logical point, sampling the top-left device pixel of that logical pixel.
             public SKColor At (int x, int y) => Bitmap.GetPixel ((int) Math.Round (x * Scale), (int) Math.Round (y * Scale));
@@ -89,6 +94,8 @@ namespace Majorsilence.Forms.Tests
             => WithForm (view, form => new Shot {
                 Bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 380, 260)),
                 Scale = view.LogicalToDeviceUnits (100) / 100f,
+                Frame = FrameTop (view),
+                TabHeight = view.TabStrip.Tabs[0].Bounds.Height,
             });
 
         private static SKColor C (uint rgb) => new SKColor (0xFF000000 | rgb);
@@ -97,6 +104,19 @@ namespace Majorsilence.Forms.Tests
         private static void Near (SKColor expected, SKColor actual)
             => Assert.True (Math.Abs (expected.Red - actual.Red) <= 3 && Math.Abs (expected.Green - actual.Green) <= 3 && Math.Abs (expected.Blue - actual.Blue) <= 3,
                 $"Expected about {expected}, got {actual}.");
+
+        // The measured colour on Windows; elsewhere, where the tab height differs, a gradient sampled at the same point
+        // lands a level or so away.
+        private static void Shade (SKColor expected, SKColor actual)
+        {
+            if (OperatingSystem.IsWindows ())
+                Assert.Equal (expected, actual);
+            else
+                Near (expected, actual);
+        }
+
+        // The y of the content frame's top edge, which the tabs sit on: 32 for Telerik's 28px tabs from y 5.
+        private static int FrameTop (RadPageView view) => 5 + view.TabStrip.Tabs[0].Bounds.Height - 1;
 
         // The darkest pixel in [x0, x1) x [y0, y1).
         private static SKColor Darkest (Shot shot, int x0, int x1, int y0, int y1)
@@ -110,10 +130,16 @@ namespace Majorsilence.Forms.Tests
                 var view = (RadPageView) _.Controls[0];
                 var tabs = view.TabStrip.Tabs;
 
+                var height = tabs[0].Bounds.Height;
+
                 Assert.Equal (new Point (7, 5), tabs[0].Bounds.Location);
-                Assert.Equal (28, tabs[0].Bounds.Height);
+                if (OperatingSystem.IsWindows ())
+                    Assert.Equal (28, height);
                 Assert.Equal (tabs[0].Bounds.Right, tabs[1].Bounds.Left);
-                Assert.Equal (new Rectangle (10, 37, 359, 212), view.Pages[0].Bounds);
+
+                // From y 37 under 28px tabs, down to 11 above the view's bottom.
+                var top = 5 + height + 4;
+                Assert.Equal (new Rectangle (10, top, 359, 249 - top), view.Pages[0].Bounds);
                 return 0;
             });
         }
@@ -152,7 +178,12 @@ namespace Majorsilence.Forms.Tests
                 var tabs = view.TabStrip.Tabs;
 
                 Assert.InRange (tabs[0].Bounds.Width + tabs[1].Bounds.Width, 548, 549);
-                Assert.InRange (tabs[1].Bounds.Width - tabs[0].Bounds.Width, 81, 85);
+
+                // The captions' widths differ by what Windows' fonts measure.
+                if (OperatingSystem.IsWindows ())
+                    Assert.InRange (tabs[1].Bounds.Width - tabs[0].Bounds.Width, 81, 85);
+                else
+                    Assert.True (tabs[1].Bounds.Width > tabs[0].Bounds.Width);
                 return 0;
             });
         }
@@ -165,12 +196,12 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (C (0xBFDBFF), shot.At (250, 10));
             Assert.Equal (C (0x6E99D2), shot.At (60, 5));
             Assert.Equal (C (0xEBF2FA), shot.At (60, 6));
-            Assert.Equal (C (0xD8E6F9), shot.At (60, 10));
+            Shade (C (0xD8E6F9), shot.At (60, 10));
             Assert.Equal (C (0x6E99D2), shot.At (7, 12));
 
             // The selected tab runs down over the content's top edge, which shows beside it.
-            Assert.NotEqual (C (0x6E99D2), shot.At (60, 32));
-            Assert.Equal (C (0x6E99D2), shot.At (250, 32));
+            Assert.NotEqual (C (0x6E99D2), shot.At (60, shot.Frame));
+            Assert.Equal (C (0x6E99D2), shot.At (250, shot.Frame));
         }
 
         [Fact]
@@ -192,11 +223,18 @@ namespace Majorsilence.Forms.Tests
         {
             var shot = Capture (View ());
             var slack = shot.Scale > 1 || !OperatingSystem.IsWindows () ? 1 : 0;
-            var ink = shot.Ink (8, 126, 6, 32);
+            var ink = shot.Ink (8, 126, 6, shot.Frame);
 
             Assert.InRange (ink.Left, 16 - slack, 16 + slack);
-            Assert.InRange (ink.Top, 15 - slack, 15 + slack);
-            Assert.InRange (ink.Bottom, 22 - slack, 22 + slack);
+
+            // Segoe UI's ink, 15..22 down; another font's sits elsewhere in the tab.
+            if (OperatingSystem.IsWindows ()) {
+                Assert.InRange (ink.Top, 15 - slack, 15 + slack);
+                Assert.InRange (ink.Bottom, 22 - slack, 22 + slack);
+            } else {
+                Assert.InRange (ink.Top, 6, 5 + shot.TabHeight - 1);
+                Assert.InRange (ink.Bottom, ink.Top, 5 + shot.TabHeight - 1);
+            }
         }
 
         [Fact]
@@ -241,14 +279,14 @@ namespace Majorsilence.Forms.Tests
 
             Assert.Equal (C (0xCBCBCB), shot.At (250, 10));
             Assert.Equal (C (0xCBCBCB), shot.At (60, 10));
-            Assert.Equal (C (0xA7A7A7), shot.At (60, 32));
+            Assert.Equal (C (0xA7A7A7), shot.At (60, shot.Frame));
             Assert.Equal (C (0xA7A7A7), shot.At (5, 100));
             Assert.Equal (C (0xD2D2D2), shot.At (374, 100));
             Assert.Equal (C (0xD9D9D9), shot.At (7, 100));
             Near (C (0x7B7B7B), Darkest (shot, 356, 372, 11, 27));
 
             // The caption is grey, not navy.
-            var caption = Darkest (shot, 8, 126, 6, 32);
+            var caption = Darkest (shot, 8, 126, 6, shot.Frame);
             Assert.Equal (caption.Red, caption.Blue);
             Near (C (0x7B7B7B), caption);
         }

@@ -209,7 +209,10 @@ namespace Majorsilence.Forms.Tests
 
             Assert.Equal (247, tabs[0].Bounds.Width);
             Assert.Equal (247, tabs[1].Bounds.Width);
-            Assert.Equal (28, tabs[0].Bounds.Height);
+
+            // Segoe UI is a Windows font; elsewhere the tab is as high as the font it falls back to.
+            if (System.OperatingSystem.IsWindows ())
+                Assert.Equal (28, tabs[0].Bounds.Height);
 
             view.GetChildAt (0).StripButtons = StripViewButtons.None;
 
