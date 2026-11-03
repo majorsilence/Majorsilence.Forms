@@ -813,6 +813,8 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets or sets whether grouped data auto-expands. Stub retained for compatibility.</summary>
         public bool AutoExpandGroups { get => MasterTemplate.AutoExpandGroups; set => MasterTemplate.AutoExpandGroups = value; }
+        /// <summary>Gets or sets whether the columns the grid is grouped by stay shown (off by default, as Telerik's).</summary>
+        public bool ShowGroupedColumns { get => MasterTemplate.ShowGroupedColumns; set => MasterTemplate.ShowGroupedColumns = value; }
 
         // On by default, as Telerik's are: a RadGridView shows the "drag a column here to group" panel and
         // groups unless the designer turns them off.
@@ -1285,6 +1287,12 @@ namespace Majorsilence.Forms.Telerik
 
         // Filtered, sorted, paged or grouped, the rows on display are a view of the bound list, not the list.
         internal override bool BoundRowsFollowListOrder => !HasViewTransform;
+
+        // Telerik hides the column the grid is grouped by unless ShowGroupedColumns is set; its IsVisible stays true.
+        // The column is the one the grouping reads, the first whose name matches.
+        internal override bool HidesColumn (DataGridViewColumn column)
+            => !MasterTemplate.ShowGroupedColumns && GroupDescriptors.Count > 0
+            && GroupDescriptors.Any (g => ReferenceEquals (ColumnByName (g.PropertyName), column));
 
         internal override IEnumerable<DataGridViewRow> BoundRows => _master;
 
@@ -1784,6 +1792,8 @@ namespace Majorsilence.Forms.Telerik
                       .Distinct (StringComparer.CurrentCultureIgnoreCase)
                       .OrderBy (v => v, StringComparer.CurrentCultureIgnoreCase)
                       .ToList ();
+
+        internal void OnGroupedColumnsShownChanged () => RefreshLayout ();
 
         private void RefreshLayout ()
         {
@@ -2418,7 +2428,7 @@ namespace Majorsilence.Forms.Telerik
                         new XAttribute ("HeaderText", c.HeaderText ?? string.Empty),
                         new XAttribute ("Width", c.Width),
                         new XAttribute ("Index", i),
-                        new XAttribute ("IsVisible", c.Visible),
+                        new XAttribute ("IsVisible", c.IsVisible),
                         new XAttribute ("SortOrder", c.SortOrder)))),
                 new XElement ("SortDescriptors",
                     SortDescriptors.Select (s => new XElement ("SortDescriptor",
@@ -3867,6 +3877,18 @@ namespace Majorsilence.Forms.Telerik
         public bool EnableSorting { get; set; } = true;
         /// <summary>Gets or sets whether grouped data auto-expands.</summary>
         public bool AutoExpandGroups { get; set; } = true;
+        private bool _showGroupedColumns;
+        /// <summary>Gets or sets whether the columns the grid is grouped by stay shown; off by default, as Telerik's,
+        /// which hides a grouped column while keeping its IsVisible true.</summary>
+        public bool ShowGroupedColumns {
+            get => _showGroupedColumns;
+            set {
+                if (_showGroupedColumns == value)
+                    return;
+                _showGroupedColumns = value;
+                _grid?.OnGroupedColumnsShownChanged ();
+            }
+        }
         private bool _multiSelect;
         /// <summary>Gets or sets whether multiple rows can be selected.</summary>
         /// <remarks>On the master template this is the grid's own <see cref="RadGridView.MultiSelect"/>

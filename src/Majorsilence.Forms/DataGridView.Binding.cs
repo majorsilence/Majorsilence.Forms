@@ -317,6 +317,10 @@ namespace Majorsilence.Forms
         // index. A derived grid whose rows are a view of the list -- filtered, sorted, paged -- says no.
         internal virtual bool BoundRowsFollowListOrder => true;
 
+        // Whether the grid hides a column the app shows, leaving it out of layout and paint: a Telerik grid hides the
+        // column it groups by. The column's Visible then reads false, its IsVisible still true.
+        internal virtual bool HidesColumn (DataGridViewColumn column) => false;
+
         // Every row the grid holds for the bound list, on display or not.
         internal virtual IEnumerable<DataGridViewRow> BoundRows => Rows.Cast<DataGridViewRow> ();
 
