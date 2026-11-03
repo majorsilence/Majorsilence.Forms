@@ -1493,6 +1493,12 @@ namespace Majorsilence.Forms
         {
             if (_skipNextRepaint)
                 return;
+
+            if (PaintsUpstreamField) {
+                PaintUpstreamField (e);
+                return;
+            }
+
             base.OnPaintBackground (e);
         }
 

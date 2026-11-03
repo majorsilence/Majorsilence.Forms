@@ -37,6 +37,9 @@ namespace Majorsilence.Forms
         internal static readonly SKColor TextBoxFocusBottom = new SKColor (0x00, 0x67, 0xC0);
         internal static readonly SKColor ListBoxOutline = new SKColor (0x82, 0x87, 0x90);
 
+        // A FixedSingle tree's (and list box's) outline: the native control's WS_BORDER line.
+        internal static readonly SKColor SingleOutline = new SKColor (0x64, 0x64, 0x64);
+
         // A drop-down list is drawn like a push button: near-white face, light outline, darker bottom.
         internal static readonly SKColor ComboListFace = new SKColor (0xFD, 0xFD, 0xFD);
         internal static readonly SKColor ComboListOutline = new SKColor (0xD2, 0xD2, 0xD2);
@@ -215,6 +218,48 @@ namespace Majorsilence.Forms
 
             var face = Enabled ? GetEffectiveBackgroundColor () : FieldUpstreamLook.Control;
             FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, face, FieldUpstreamLook.ListBoxOutline, null);
+        }
+    }
+
+    // A tree is a native field as a list box is: a white face, and a Fixed3D tree's client area two pixels in -- a
+    // #828790 line, then a pixel of the face -- or a FixedSingle tree's one, inside a #646464 line, enabled or not.
+    // Measured on WinForms (.NET 10): a 120 x 120 tree's client is 116 square from (2, 2), or 118 from (1, 1), and
+    // the line just inside the outline is the tree's BackColor. Here the tree kept the theme's off-white face and a
+    // one-pixel grey frame, whatever its BorderStyle, so it showed two more pixels of rows each way.
+    public partial class TreeView
+    {
+        /// <inheritdoc/>
+        internal override SKColor? UpstreamDefaultBackColor => PaintsUpstreamFieldLook ? FieldUpstreamLook.Window : null;
+
+        // Whether this tree is a native field: a derived tree with a look of its own (Telerik's) says no.
+        internal virtual bool PaintsUpstreamFieldLook => FieldUpstreamLook.Applies;
+
+        // The field's edge, in logical pixels, by BorderStyle.
+        private int UpstreamFieldEdge => border_style switch {
+            BorderStyle.Fixed3D => 2,
+            BorderStyle.FixedSingle => 1,
+            _ => 0,
+        };
+
+        /// <inheritdoc/>
+        internal override System.Drawing.Rectangle DeviceClientRectangle {
+            get {
+                if (!PaintsUpstreamFieldLook)
+                    return base.DeviceClientRectangle;
+
+                var edge = LogicalToDeviceUnits (UpstreamFieldEdge);
+                return new System.Drawing.Rectangle (edge, edge, System.Math.Max (0, ScaledWidth - edge * 2), System.Math.Max (0, ScaledHeight - edge * 2));
+            }
+        }
+
+        private bool PaintsUpstreamField => PaintsUpstreamFieldLook && border_style != BorderStyle.None && BackgroundImage is null;
+
+        private void PaintUpstreamField (PaintEventArgs e)
+        {
+            using var device = e.DeviceSpace ();
+
+            var outline = border_style == BorderStyle.Fixed3D ? FieldUpstreamLook.ListBoxOutline : FieldUpstreamLook.SingleOutline;
+            FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, GetEffectiveBackgroundColor (), outline, null);
         }
     }
 }
