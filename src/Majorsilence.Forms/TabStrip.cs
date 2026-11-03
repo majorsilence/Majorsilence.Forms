@@ -112,7 +112,9 @@ namespace Majorsilence.Forms
 
         /// <summary>The logical band the scroll arrows occupy; empty when nothing overflows.</summary>
         internal Rectangle ScrollArrowBand
-            => TabsOverflow
+            => !TabsOverflow ? Rectangle.Empty
+             : Look is { } look ? look.ScrollButtons
+             : TabsOverflow
                 ? new Rectangle (DeviceToLogicalUnits (DeviceClientRectangle.Width) - ScrollArrowBandWidth, 0, ScrollArrowBandWidth, DeviceToLogicalUnits (DeviceClientRectangle.Height))
                 : Rectangle.Empty;
 
@@ -126,7 +128,7 @@ namespace Majorsilence.Forms
                 return;
 
             var bounds = Tabs[index].Bounds;
-            var visible_right = DeviceToLogicalUnits (DeviceClientRectangle.Width) - (TabsOverflow ? ScrollArrowBandWidth : 0);
+            var visible_right = DeviceToLogicalUnits (DeviceClientRectangle.Width) - (Look is { } look ? look.TrailingWidth : TabsOverflow ? ScrollArrowBandWidth : 0);
 
             if (bounds.Left < 0)
                 scroll_offset = Math.Max (0, scroll_offset + bounds.Left);
@@ -230,6 +232,14 @@ namespace Majorsilence.Forms
             // so on a 2x display tabs got device-sized rows and a logical width, and a click aimed at one
             // tab landed on another. Identity at scaling 1.
             var avail = Math.Max (60, DeviceToLogicalUnits (DeviceClientRectangle.Width) - 2 * TabOrigin);
+
+            // A tab control that lays its strip out its own way (Telerik's): one row of its height, from its origin,
+            // short of its buttons.
+            if (Look is { } look) {
+                avail = Math.Max (1, DeviceToLogicalUnits (DeviceClientRectangle.Width) - look.TabOrigin.X - look.TrailingWidth);
+                LayoutTabsInOneRow (look.RowHeight, Size.Empty, TabSizeMode.Normal, avail);
+                return;
+            }
 
             // A single row (Multiline = false, upstream's default) never wraps: the overflow scrolls
             // behind the arrow band instead (W6 mechanisms). An owner-less strip keeps wrapping.
@@ -338,20 +348,27 @@ namespace Majorsilence.Forms
             if (!TabsOverflow) {
                 scroll_offset = 0;
             } else {
-                // Never scroll past the point where the last tab sits against the arrow band.
-                scroll_offset = Math.Max (0, Math.Min (scroll_offset, total - (available - ScrollArrowBandWidth)));
+                // Never scroll past the point where the last tab sits against the arrow band (or, with a look of
+                // its own, the end of the room it gives the tabs).
+                scroll_offset = Math.Max (0, Math.Min (scroll_offset, total - (available - (Look is null ? ScrollArrowBandWidth : 0))));
             }
 
-            var offset = TabOrigin - scroll_offset;
+            var origin = Look?.TabOrigin ?? new Point (TabOrigin, TabOrigin);
+            var offset = origin.X - scroll_offset;
 
             for (var i = 0; i < Tabs.Count; i++) {
-                Tabs[i].SetBounds (offset, TabOrigin, widths[i], rowHeight);
+                Tabs[i].SetBounds (offset, origin.Y, widths[i], rowHeight);
                 offset += widths[i];
             }
 
-            if (Height != rowHeight + 2 * TabOrigin)
-                ResizeKeepingDockedEdge (Width, rowHeight + 2 * TabOrigin);
+            var height = Look?.StripHeight ?? rowHeight + 2 * TabOrigin;
+
+            if (Height != height)
+                ResizeKeepingDockedEdge (Width, height);
         }
+
+        // How the owning tab control lays its strip out and paints it, when it does so its own way.
+        internal TabStripLook? Look => OwnerTabControl?.StripLook;
 
         // Upstream's themed tabs start 2px in from the strip's corner, and the strip is 2px taller
         // below them, where the page frame's top edge runs (TabControl.UsesUpstreamTabs).
@@ -381,7 +398,8 @@ namespace Majorsilence.Forms
         // tab was laid out -- and hit-tested, and reported by GetTabRect -- twice as wide. A Fixed
         // ItemSize is already logical.
         private int MeasureTab (TabStripItem tab, Size itemSize, TabSizeMode sizeMode)
-            => sizeMode == TabSizeMode.Fixed && itemSize.Width > 0
+            => Look is { } look ? look.TabWidth (tab)
+             : sizeMode == TabSizeMode.Fixed && itemSize.Width > 0
                 ? itemSize.Width
                 : DeviceToLogicalUnits (tab.GetPreferredSize (Size.Empty).Width);
 
@@ -427,6 +445,9 @@ namespace Majorsilence.Forms
             // Click handler observed the tab the user had just left -- and migrated code reads
             // SelectedTab inside Click to decide which tab's data to load.
             if (e.Button == MouseButtons.Left) {
+                if (Look?.OnStripPress (e.Location) == true)
+                    return;
+
                 if (ScrollArrowBand.Contains (e.Location)) {
                     ScrollByArrow (e.Location);
                     return;
