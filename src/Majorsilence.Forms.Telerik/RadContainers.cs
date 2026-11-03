@@ -310,17 +310,23 @@ namespace Majorsilence.Forms.Telerik
         public ContentAlignment ImageAlignment { get; set; } = ContentAlignment.MiddleLeft;
     }
 
-    /// <summary>Telerik-compat split container. Backed by <see cref="Majorsilence.Forms.SplitContainer"/>.</summary>
-    public class RadSplitContainer : SplitContainer
+    /// <summary>Telerik-compat split container: a split panel that shares its room between the split panels it holds,
+    /// along its <see cref="SplitPanel.Orientation"/>, as Telerik's does (see <see cref="SplitLayout"/>).</summary>
+    public class RadSplitContainer : SplitPanel
     {
-        /// <summary>Gets the root element of the container (stub).</summary>
-        public RadElement RootElement { get; } = new RadElement ();
+        /// <summary>Initializes a new instance of the <see cref="RadSplitContainer"/> class.</summary>
+        /// <remarks>Its panels side by side by default (Orientation.Vertical), as Telerik's.</remarks>
+        public RadSplitContainer () => Orientation = Orientation.Vertical;
+
         /// <summary>Gets or sets whether this is a cleanup target during docking layout. Stub.</summary>
         public bool IsCleanUpTarget { get; set; }
-        /// <summary>Gets the size info for the panel (stub).</summary>
-        public SplitPanelSizeInfo SizeInfo { get; } = new SplitPanelSizeInfo ();
-        /// <summary>Gets or sets whether the container is collapsed. Stored stub (designer-assigned).</summary>
-        public bool Collapsed { get; set; }
+
+        /// <inheritdoc/>
+        protected override void OnLayout (LayoutEventArgs e)
+        {
+            base.OnLayout (e);
+            SplitLayout.Arrange (Orientation, SplitterWidth, DockStrip.LogicalClient (this), SplitLayout.PanelsOf (this));
+        }
     }
 
     /// <summary>Telerik-compat split panel. Backed by <see cref="Majorsilence.Forms.Panel"/>.</summary>
@@ -338,18 +344,20 @@ namespace Majorsilence.Forms.Telerik
         public Orientation Orientation { get; set; } = Orientation.Horizontal;
     }
 
-    /// <summary>Telerik-compat split-panel size information. Stub.</summary>
+    /// <summary>Telerik-compat split-panel size information: how a split panel is sized in its container.</summary>
+    /// <remarks>Telerik's defaults, measured: Auto, 200 x 200, no scale and no correction.</remarks>
     public class SplitPanelSizeInfo
     {
         /// <summary>Gets or sets the sizing mode.</summary>
-        public SplitPanelSizeMode SizeMode { get; set; } = SplitPanelSizeMode.Absolute;
-        /// <summary>Gets or sets the absolute size.</summary>
-        public SizeF AbsoluteSize { get; set; }
-        /// <summary>Gets or sets the splitter correction.</summary>
+        public SplitPanelSizeMode SizeMode { get; set; } = SplitPanelSizeMode.Auto;
+        /// <summary>Gets or sets the absolute size: the panel's length beside a Fill panel, or as an Absolute one.</summary>
+        public SizeF AbsoluteSize { get; set; } = new SizeF (200f, 200f);
+        /// <summary>Gets or sets the splitter correction. Stored: Telerik's layout does not read it.</summary>
         public SizeF SplitterCorrection { get; set; }
 
-        /// <summary>Gets or sets the auto-size scale (proportional split size). Stored for Telerik compat.</summary>
-        public SizeF AutoSizeScale { get; set; } = new SizeF (1f, 1f);
+        /// <summary>Gets or sets the auto-size scale: how much more (or less) than an equal share an Auto panel takes, as a
+        /// fraction of the room the Auto panels share.</summary>
+        public SizeF AutoSizeScale { get; set; }
     }
 
     /// <summary>Specifies how a split panel is sized. Compat for Telerik SplitPanelSizeMode.</summary>

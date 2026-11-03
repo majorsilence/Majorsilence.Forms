@@ -370,17 +370,6 @@ namespace Majorsilence.Forms.Telerik
                     break;
             }
         }
-
-        // Fills the container's primary content child (a tab strip / nested container) to the client area.
-        internal static void FillPrimary (Control container)
-        {
-            var primary = container.Controls.OfType<Control> ()
-                .FirstOrDefault (c => c is DocumentTabStrip or ToolTabStrip or DocumentContainer or SplitPanel);
-            if (primary is not null) {
-                primary.Visible = true;
-                primary.Bounds = LogicalClient (container);
-            }
-        }
     }
 
     public partial class RadDock
@@ -444,49 +433,29 @@ namespace Majorsilence.Forms.Telerik
         }
 
         /// <inheritdoc/>
+        /// <remarks>
+        /// The dock shares its room between the split panels it holds -- its tool strips, its main document container and
+        /// any nested split containers -- as Telerik's does (see <see cref="SplitLayout"/>), inside its padding of 5. The
+        /// main document container is a Fill panel; hidden (<see cref="MainDocumentContainerVisible"/> false) or
+        /// collapsed, it takes no room and the others share the dock.
+        /// </remarks>
         protected override void OnLayout (LayoutEventArgs e)
         {
             base.OnLayout (e);
 
-            // Fill the main document container to the dock's client area (the content chain hangs off it).
-            var main = (Control?) MainDocumentContainer
-                       ?? Controls.OfType<DocumentContainer> ().FirstOrDefault ();
+            var main = (Control?) MainDocumentContainer ?? Controls.OfType<DocumentContainer> ().FirstOrDefault ();
+            var hidden = main is not null && !MainDocumentContainerVisible ? main : null;
 
-            if (main is null)
-                return;
+            if (main is not null)
+                main.Visible = MainDocumentContainerVisible && !SplitLayout.IsCollapsed (main);
 
-            // Some designer serializations put the actual content in TOOL strips parented directly
-            // to the dock and leave the main document container EMPTY (the split engine this compat
-            // lacks would have divided the space between them). An empty container has nothing to
-            // show -- filling it frontmost would cover the real content with a blank panel -- so
-            // hide it and promote the first visible content-bearing strip to fill the dock instead.
-            if (main.Controls.Count == 0) {
-                main.Visible = false;
+            if (main is DocumentContainer container)
+                container.SizeInfo.SizeMode = SplitPanelSizeMode.Fill;
 
-                var strip = Controls.OfType<Control> ()
-                    .FirstOrDefault (c => !ReferenceEquals (c, main) && c.Visible
-                        && c is DocumentTabStrip or ToolTabStrip or DocumentContainer or SplitPanel);
-                if (strip is not null) {
-                    strip.Bounds = DockStrip.LogicalClient (this);
-                    if (Controls.GetChildIndex (strip, throwException: false) > 0)
-                        Controls.SetChildIndex (strip, 0);
-                }
+            var client = DockStrip.LogicalClient (this);
+            client.Inflate (-SplitLayout.DockPadding, -SplitLayout.DockPadding);
 
-                return;
-            }
-
-            main.Visible = MainDocumentContainerVisible;
-            if (MainDocumentContainerVisible) {
-                main.Bounds = DockStrip.LogicalClient (this);
-
-                // This compat dock has no SplitPanel engine: sibling tool strips keep their
-                // designer bounds while the main container fills the WHOLE dock, so they always
-                // overlap it. The container must therefore be frontmost (z-index 0) or a sibling
-                // strip serialized before it -- e.g. a top-docked tool strip row -- paints over
-                // the document tab band.
-                if (Controls.GetChildIndex (main, throwException: false) > 0)
-                    Controls.SetChildIndex (main, 0);
-            }
+            SplitLayout.Arrange (Orientation, SplitterWidth, client, SplitLayout.PanelsOf (this, hidden));
         }
 
         private bool _initialFillDone;
@@ -531,10 +500,11 @@ namespace Majorsilence.Forms.Telerik
     public partial class DocumentContainer
     {
         /// <inheritdoc/>
+        /// <remarks>Its document tab strips share it as a split container's panels do (see <see cref="SplitLayout"/>).</remarks>
         protected override void OnLayout (LayoutEventArgs e)
         {
             base.OnLayout (e);
-            DockStrip.FillPrimary (this);
+            SplitLayout.Arrange (Orientation, SplitterWidth, DockStrip.LogicalClient (this), SplitLayout.PanelsOf (this));
         }
     }
 
