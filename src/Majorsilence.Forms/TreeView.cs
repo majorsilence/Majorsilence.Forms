@@ -102,6 +102,65 @@ namespace Majorsilence.Forms
             remove => Events.RemoveHandler (s_drawNode, value);
         }
 
+        // Whether expanding a node scrolls its children into view. Telerik's RadTreeView does not.
+        internal virtual bool ScrollsChildrenIntoViewOnExpand => true;
+
+        // Expanding a node scrolls the tree so its children show, as upstream's native tree does before it raises
+        // AfterExpand -- by Expand (), ExpandAll (), a double-click or the plus/minus alike. Measured (.NET 10) on a
+        // tree 25 rows high: expanding the 21st root's 10 children brought "Root 6" to the top, its last child on the
+        // bottom row; with 40 children the expanded node went to the top. Here the tree stayed where it was, so a
+        // menu node expanded near the bottom opened its children out of sight.
+        internal void ScrollExpandedIntoView (TreeNode node)
+        {
+            if (!ScrollsChildrenIntoViewOnExpand)
+                return;
+
+            var rows = VisibleItemCount;
+
+            if (rows <= 0)
+                return;
+
+            var all_items = root_item.GetVisibleItems ().Skip (1).ToList ();
+            var index = all_items.IndexOf (node);
+
+            if (index < 0)
+                return;
+
+            // The last row of the node's subtree.
+            var last = index;
+
+            while (last + 1 < all_items.Count && IsDescendant (all_items[last + 1], node))
+                last++;
+
+            var target = top_index;
+
+            if (last >= top_index + rows)
+                target = last - rows + 1;
+
+            // The expanded node itself stays in view: a subtree taller than the tree puts it at the top.
+            target = Math.Min (target, index);
+
+            if (target == top_index)
+                return;
+
+            UpdateVerticalScrollBar ();
+
+            target = MathCompat.Clamp (target, vscrollbar.Minimum, vscrollbar.EffectiveMaximum);
+            top_index = target;
+            _scrollOffsetPx = 0;
+            vscrollbar.Value = target;
+            Invalidate ();
+
+            static bool IsDescendant (TreeNode item, TreeNode ancestor)
+            {
+                for (var parent = item.Parent; parent is not null; parent = parent.Parent)
+                    if (ReferenceEquals (parent, ancestor))
+                        return true;
+
+                return false;
+            }
+        }
+
         internal void EnsureItemVisible (TreeNode item)
         {
             // Make sure all parent are expanded so this node is shown

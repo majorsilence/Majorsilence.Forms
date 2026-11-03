@@ -487,6 +487,10 @@ namespace Majorsilence.Forms.Telerik
 
         internal override int ItemSpacing => spacing_between_nodes;
 
+        // Telerik's tree keeps its scroll position when a node expands. Measured (UI for WinForms 2026.2.520) on a tree
+        // 25 rows high: expanding the 21st root's 10 children left the scroll bar at 0.
+        internal override bool ScrollsChildrenIntoViewOnExpand => false;
+
         /// <summary>Gets or sets the indent, in logical pixels, of each level of nodes (Telerik's name for <see cref="Majorsilence.Forms.TreeView.Indent"/>).</summary>
         public int TreeIndent {
             get => Indent;
