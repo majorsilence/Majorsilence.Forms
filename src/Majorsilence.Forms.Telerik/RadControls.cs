@@ -492,6 +492,9 @@ namespace Majorsilence.Forms.Telerik
         // Telerik's tree selects nothing when it gains the focus.
         internal override bool SelectsTopNodeOnFocus => false;
 
+        // Telerik's frame and background, not the native tree's field.
+        internal override bool PaintsUpstreamFieldLook => false;
+
         /// <summary>Gets or sets the theme name. No-op stub.</summary>
         public string ThemeName { get; set; } = string.Empty;
         /// <summary>Gets the root element of the control (stub).</summary>
