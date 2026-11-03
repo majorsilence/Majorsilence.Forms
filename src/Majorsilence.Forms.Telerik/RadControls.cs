@@ -463,18 +463,46 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public class RadTreeView : Majorsilence.Forms.TreeView, ISupportInitializeCompat
     {
+        /// <summary>Initializes a new instance of the <see cref="RadTreeView"/> class.</summary>
+        /// <remarks>
+        /// With Telerik's defaults, measured on UI for WinForms 2026.2.520: white inside a blue border, no lines, the full row selected,
+        /// each level 20 pixels in, rows 20 pixels high whatever the font and one pixel shared between
+        /// neighbours. The nodes are laid out and drawn as Telerik's are.
+        /// </remarks>
+        public RadTreeView ()
+        {
+            ShowLines = false;
+            FullRowSelect = true;
+            Indent = 20;
+
+            // Telerik's frame and background: a 1px #6E99D2 border round white.
+            Style.Border.Color = System.Drawing.Color.FromArgb (0x6E, 0x99, 0xD2).ToSKColor ();
+            Style.BackgroundColor = SkiaSharp.SKColors.White;
+        }
+
+        private RadTreeNodeLayout? node_layout;
+
+        internal override TreeNodeLayout NodeLayout => node_layout ??= new RadTreeNodeLayout (this);
+
+        // Telerik's rows keep their ItemHeight whatever the font.
+        internal override bool SizesItemHeightToFont => false;
+
+        internal override int? FixedItemHeight => ItemHeight > 0 ? ItemHeight : null;
+
+        // Telerik's tree selects nothing when it gains the focus.
+        internal override bool SelectsTopNodeOnFocus => false;
+
         /// <summary>Gets or sets the theme name. No-op stub.</summary>
         public string ThemeName { get; set; } = string.Empty;
         /// <summary>Gets the root element of the control (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
 
         /// <summary>Gets or sets extra vertical space, in logical pixels, added to every node's row.</summary>
-        /// <remarks>Real as of W6 mechanisms (#176): the rows are laid out, drawn and scrolled with it.</remarks>
+        /// <remarks>Real as of W6 mechanisms (#176): the rows are laid out, drawn and scrolled with it. As
+        /// Telerik's, it defaults to -1 and may be negative: each row then starts inside the one above.</remarks>
         public int SpacingBetweenNodes {
             get => spacing_between_nodes;
             set {
-                value = Math.Max (0, value);
-
                 if (spacing_between_nodes == value)
                     return;
 
@@ -483,7 +511,7 @@ namespace Majorsilence.Forms.Telerik
             }
         }
 
-        private int spacing_between_nodes;
+        private int spacing_between_nodes = -1;
 
         internal override int ItemSpacing => spacing_between_nodes;
 

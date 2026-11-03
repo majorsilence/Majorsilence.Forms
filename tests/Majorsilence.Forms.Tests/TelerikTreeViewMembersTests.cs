@@ -172,8 +172,10 @@ public class TelerikTreeViewMembersTests
 
             tree.TreeIndent = tree.Indent + 30;
 
+            // Telerik's node sits in a column of its own, TreeIndent wide, as well as one per level: a child's
+            // text moves twice as far as the indent grows.
             Assert.Equal (tree.Indent, tree.TreeIndent);
-            Assert.Equal (before + tree.LogicalToDeviceUnits (30), TextLeft (tree, invoices));
+            Assert.Equal (before + tree.LogicalToDeviceUnits (2 * 30), TextLeft (tree, invoices));
         }
     }
 
@@ -217,7 +219,8 @@ public class TelerikTreeViewMembersTests
         using var bitmap = PaintSurface.Render (tree);
 
         var root = tree.Nodes[0]!;
-        var centre = root.Bounds.Left + 2 + tree.LogicalToDeviceUnits (10) / 2;
+        // The roots' line runs down the centre of their column, TreeIndent wide.
+        var centre = root.Bounds.Left + tree.LogicalToDeviceUnits (tree.TreeIndent / 2);
         var ink = 0;
 
         foreach (var child in root.Nodes)
