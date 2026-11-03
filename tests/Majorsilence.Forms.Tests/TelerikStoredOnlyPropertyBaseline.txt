@@ -96,10 +96,7 @@ Majorsilence.Forms.Telerik.DockWindowBase.ToolCaptionButtons    -- the tool-wind
 Majorsilence.Forms.Telerik.DockWindowEventArgs.DockWindow    -- event data: set as the event is raised, read by the handler
 Majorsilence.Forms.Telerik.DockWindowPlaceholder.DockWindow    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.DockWindowPlaceholder.DockWindowText    -- the caption of the window a placeholder stands for; the compat dock draws no auto-hide tabs to show it on
-Majorsilence.Forms.Telerik.DocumentContainer.Collapsed    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
-Majorsilence.Forms.Telerik.DocumentContainer.Orientation    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
 Majorsilence.Forms.Telerik.DocumentContainer.SelectedTab    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
-Majorsilence.Forms.Telerik.DocumentContainer.SplitterWidth    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
 Majorsilence.Forms.Telerik.FilterDescriptor.IsFilterEditor    -- marks descriptors made by the Telerik filter editor, which does not exist here
 Majorsilence.Forms.Telerik.FilterOperationContext.FieldName    -- event data: set as the event is raised, read by the handler
 Majorsilence.Forms.Telerik.FilterPopupRequiredEventArgs.Column    -- event data: set as the event is raised, read by the handler
@@ -213,8 +210,6 @@ Majorsilence.Forms.Telerik.RadDesktopAlertCaptionGrip.GradientStyle    -- fills 
 Majorsilence.Forms.Telerik.RadDesktopAlertElement.GradientStyle    -- fills are solid: there is no gradient painting
 Majorsilence.Forms.Telerik.RadDock.IsCleanUpTarget    -- empty-container clean-up is not modelled: the dock keeps its strips
 Majorsilence.Forms.Telerik.RadDock.MdiChildrenDockType    -- read only by MDI-child auto-detection (Telerik AutoDetectMdiChildren, off by default), which the compat dock does not have
-Majorsilence.Forms.Telerik.RadDock.Orientation    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
-Majorsilence.Forms.Telerik.RadDock.SplitterWidth    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
 Majorsilence.Forms.Telerik.RadDock.ToolTabsAlignment    -- there are no auto-hide tool tabs
 Majorsilence.Forms.Telerik.RadDock.ToolTabsVisible    -- there are no auto-hide tool tabs
 Majorsilence.Forms.Telerik.RadDropDownButton.ShowArrow    -- the arrow is always drawn
@@ -278,7 +273,6 @@ Majorsilence.Forms.Telerik.RadSchedulerNavigator.DateFormat    -- the navigator'
 Majorsilence.Forms.Telerik.RadSchedulerNavigator.NavigationStepType    -- the navigator's minimal bar does not draw or use this (documented on the member)
 Majorsilence.Forms.Telerik.RadSchedulerNavigator.ShowWeekendCheckBox_Visible    -- the navigator's minimal bar does not draw or use this (documented on the member)
 Majorsilence.Forms.Telerik.RadSpellChecker.SpellCheckMode    -- spell checking is the browser's own (documented on the member)
-Majorsilence.Forms.Telerik.RadSplitContainer.Collapsed    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
 Majorsilence.Forms.Telerik.RadSplitContainer.IsCleanUpTarget    -- empty-container clean-up is not modelled: the dock keeps its strips
 Majorsilence.Forms.Telerik.RadTabbedForm.ShowCaption    -- form chrome setting with no counterpart in this chrome
 Majorsilence.Forms.Telerik.RadTabbedFormControl.ShowDocumentTabsSeparator    -- form chrome setting with no counterpart in this chrome
@@ -329,12 +323,6 @@ Majorsilence.Forms.Telerik.SortChangingEventArgs.ColumnIndex    -- event data: s
 Majorsilence.Forms.Telerik.SortChangingEventArgs.NewDirection    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.SortChangingEventArgs.OldDirection    -- event data: set by RadGridView as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.SortChangingEventArgs.PropertyName    -- event data: set by RadGridView as it raises the event, read by the handler
-Majorsilence.Forms.Telerik.SplitPanel.Collapsed    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
-Majorsilence.Forms.Telerik.SplitPanel.Orientation    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
-Majorsilence.Forms.Telerik.SplitPanel.SplitterWidth    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
-Majorsilence.Forms.Telerik.SplitPanelSizeInfo.AbsoluteSize    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
-Majorsilence.Forms.Telerik.SplitPanelSizeInfo.AutoSizeScale    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
-Majorsilence.Forms.Telerik.SplitPanelSizeInfo.SizeMode    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
 Majorsilence.Forms.Telerik.SplitPanelSizeInfo.SplitterCorrection    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
 Majorsilence.Forms.Telerik.TabStripItem.Image    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.TabStripItem.IsPinned    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it

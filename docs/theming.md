@@ -553,7 +553,7 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `MonthCalendar` | no | no | no | no | no | `RadCalendar` | The calendar grid; the selected day uses --accent-color. |
 | `NavigationPane` | no | no | no | no | no |  | The Outlook-style side navigation bar. |
 | `NumericUpDown` | no | no | no | no | no |  | Numeric spinners. |
-| `Panel` | no | no | no | no | no | `Card`, `ContainerControl`, `DataGrid`, `DocumentContainer`, `DocumentTabStrip`, `DomainUpDown`, `FlowLayoutPanel`, `LayoutControlGroup`, `LayoutControlItem`, `NavigationHost`, `RadCollapsiblePanel`, `RadDock`, `RadLayoutControl`, `RadPageViewPage`, `RadPanel`, `RadScrollablePanel`, `RadScrollablePanelContainer`, `SplitPanel`, `SplitterPanel`, `StackPanel`, `TabPage`, `TableLayoutPanel`, `ToolStripContainer`, `ToolStripContentPanel`, `ToolStripPanel`, `ToolTabStrip`, `UserControl` | Plain containers, including layout panels and tab pages. |
+| `Panel` | no | no | no | no | no | `Card`, `ContainerControl`, `DataGrid`, `DocumentContainer`, `DocumentTabStrip`, `DomainUpDown`, `FlowLayoutPanel`, `LayoutControlGroup`, `LayoutControlItem`, `NavigationHost`, `RadCollapsiblePanel`, `RadDock`, `RadLayoutControl`, `RadPageViewPage`, `RadPanel`, `RadScrollablePanel`, `RadScrollablePanelContainer`, `RadSplitContainer`, `SplitPanel`, `SplitterPanel`, `StackPanel`, `TabPage`, `TableLayoutPanel`, `ToolStripContainer`, `ToolStripContentPanel`, `ToolStripPanel`, `ToolTabStrip`, `UserControl` | Plain containers, including layout panels and tab pages. |
 | `PictureBox` | no | no | no | no | no |  | Image boxes. |
 | `PopupWindow` | no | no | no | no | no |  | Floating popup windows -- a combo box's list, a tool tip, a menu host: background-color is the popup behind its content. |
 | `PrintPreviewControl` | no | no | no | no | no |  | Print previews: background-color is the surround the pages sit on; the pages themselves are paper and stay white. |
@@ -562,7 +562,7 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `RadioButton` | no | no | no | no | no | `RadRadioButton` | Radio buttons. |
 | `Ribbon` | no | no | no | no | no |  | The ribbon; items paint on its background and highlight with --control-highlight-low-color / --control-highlight-mid-color. |
 | `ScrollBar` | no | no | no | no | no | `HScrollBar`, `HorizontalScrollBar`, `VScrollBar`, `VerticalScrollBar` | Scroll bars: background-color is the track; the grip and the arrow buttons are the ::thumb and ::arrow parts. |
-| `SplitContainer` | no | no | no | no | no | `RadSplitContainer` | Split containers (the splitter bar between the two panels). |
+| `SplitContainer` | no | no | no | no | no |  | Split containers (the splitter bar between the two panels). |
 | `Splitter` | no | no | no | no | no |  | Stand-alone splitter bars. |
 | `StatusBar` | no | no | no | no | no |  | The status bar along the bottom of a form. |
 | `StatusStrip` | no | no | no | no | no |  | Status strips (the ToolStrip-based status bar): background-color is the strip, border-top its seam with the form above. |
@@ -627,7 +627,7 @@ Each `Rad*` control follows the selector named here -- its own, or the core cont
 | `RadSchedulerNavigator` | `RadSchedulerNavigator` |
 | `RadScrollablePanel` | `Panel` |
 | `RadScrollablePanelContainer` | `Panel` |
-| `RadSplitContainer` | `SplitContainer` |
+| `RadSplitContainer` | `Panel` |
 | `RadStatusStrip` | `RadStatusStrip` |
 | `RadTabbedForm` | `Form` |
 | `RadTextBox` | `TextBox` |

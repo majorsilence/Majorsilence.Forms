@@ -8,11 +8,28 @@ namespace Majorsilence.Forms.Telerik
     /// </summary>
     public partial class RadDock : Panel, ISupportInitializeCompat
     {
-        /// <summary>Gets or sets the split orientation. Stored for Telerik compat.</summary>
-        public Orientation Orientation { get; set; } = Orientation.Horizontal;
+        /// <summary>Gets or sets the orientation the dock lays its split panels out along; side by side by default
+        /// (Vertical), as Telerik's.</summary>
+        public Orientation Orientation {
+            get => orientation;
+            set {
+                orientation = value;
+                PerformLayout ();
+            }
+        }
 
-        /// <summary>Gets or sets the splitter width. Stored for Telerik compat.</summary>
-        public int SplitterWidth { get; set; } = 4;
+        private Orientation orientation = Orientation.Vertical;
+
+        /// <summary>Gets or sets the gap between neighbouring split panels.</summary>
+        public int SplitterWidth {
+            get => splitter_width;
+            set {
+                splitter_width = value;
+                PerformLayout ();
+            }
+        }
+
+        private int splitter_width = 4;
 
         /// <summary>Gets the root element (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
@@ -712,12 +729,13 @@ namespace Majorsilence.Forms.Telerik
     {
         /// <summary>Whether the container is collapsed. Stored for Telerik compat.</summary>
         public bool Collapsed { get; set; }
-        /// <summary>Gets or sets the split orientation. Stored for Telerik compat.</summary>
-        public Orientation Orientation { get; set; } = Orientation.Horizontal;
+        /// <summary>Gets or sets the orientation its document tab strips are laid out along; side by side by default
+        /// (Vertical), as Telerik's.</summary>
+        public Orientation Orientation { get; set; } = Orientation.Vertical;
 
         /// <summary>Gets the root element (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
-        /// <summary>Gets the size info (stub).</summary>
+        /// <summary>Gets how the container is sized in the dock.</summary>
         public SplitPanelSizeInfo SizeInfo { get; } = new SplitPanelSizeInfo ();
         /// <summary>Gets or sets the selected tab. Stub.</summary>
         public object? SelectedTab { get; set; }
