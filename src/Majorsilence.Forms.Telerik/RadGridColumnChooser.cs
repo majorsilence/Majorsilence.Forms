@@ -33,7 +33,7 @@ namespace Majorsilence.Forms.Telerik
                 var box = new CheckBox {
                     Text = string.IsNullOrEmpty (column.HeaderText) ? column.Name : column.HeaderText,
                     Left = margin, Top = y, Width = width - margin * 2, Height = rowH,
-                    Checked = column.Visible
+                    Checked = column.IsVisible
                 };
                 box.CheckedChanged += (_, _) => {
                     captured.Visible = box.Checked;

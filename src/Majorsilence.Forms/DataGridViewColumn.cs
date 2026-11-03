@@ -312,9 +312,11 @@ namespace Majorsilence.Forms
         private bool visible = true;
 
         /// <summary>Gets or sets whether the column is visible.</summary>
-        /// <remarks>Notifies the owning grid on change, as upstream's setter does (W6.1, DGV-45).</remarks>
+        /// <remarks>Notifies the owning grid on change, as upstream's setter does (W6.1, DGV-45). Reads false while
+        /// the owning grid hides the column itself (a Telerik grid hides the column it groups by); the value set is
+        /// <see cref="IsVisible"/>.</remarks>
         public bool Visible {
-            get => visible;
+            get => visible && !(DataGridView?.HidesColumn (this) ?? false);
             set {
                 if (EqualityComparer<bool>.Default.Equals (visible, value))
                     return;
@@ -325,8 +327,10 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Telerik-style alias of <see cref="Visible"/> (GridViewColumn.IsVisible).</summary>
+        /// <remarks>Whether the app shows the column: as Telerik's, it stays true while the grid hides the column it
+        /// groups by.</remarks>
         public bool IsVisible {
-            get => Visible;
+            get => visible;
             set => Visible = value;
         }
 
@@ -608,7 +612,7 @@ namespace Majorsilence.Forms
             target.Sortable = Sortable;
             target.SortOrder = SortOrder;
             target.Tag = Tag;
-            target.Visible = Visible;
+            target.Visible = visible;
             target.AutoSizeMode = AutoSizeMode;
             target.FillWeight = FillWeight;
             target.Frozen = Frozen;
