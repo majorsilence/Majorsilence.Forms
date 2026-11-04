@@ -94,16 +94,22 @@ namespace Majorsilence.Forms.Renderers
                 : control.NodeLayout is { } own_layout ? own_layout.ForeColor
                 : Theme.ForegroundColor;
 
+            // A ported app's tree draws a node's own BackColor, its disabled fill and its highlight as upstream
+            // does: behind the label only, or across the whole row with FullRowSelect -- which upstream ignores
+            // while ShowLines is on. Here a node's BackColor filled the whole row whatever FullRowSelect said.
+            var upstream_rows = TreeView.UsesUpstreamLook && control.NodeLayout is null;
+            var full_row = control.FullRowSelect && !(upstream_rows && control.ShowLines);
+
             if (upstream_disabled) {
-                var label = control.FullRowSelect ? item.Bounds : GetTextBounds (control, item, e);
+                var label = full_row ? item.Bounds : GetTextBounds (control, item, e);
                 e.Canvas.FillRectangle (label, (item.BackColor != System.Drawing.Color.Empty ? item.BackColor : SystemColors.Control).ToSKColor ());
             } else if (item.BackColor != System.Drawing.Color.Empty && !is_selected)
-                e.Canvas.FillRectangle (item.Bounds, item.BackColor.ToSKColor ());
+                e.Canvas.FillRectangle (upstream_rows && !full_row ? GetTextBounds (control, item, e) : item.Bounds, item.BackColor.ToSKColor ());
 
             // FullRowSelect: the whole row, or just the label. It was read by nothing, so every tree
             // highlighted the full row -- which is what FullRowSelect = TRUE means, while the property
             // defaults to false. An explorer-style tree therefore looked like a list.
-            var highlight = !is_selected ? Rectangle.Empty : control.FullRowSelect ? item.Bounds : GetTextBounds (control, item, e);
+            var highlight = !is_selected ? Rectangle.Empty : full_row ? item.Bounds : GetTextBounds (control, item, e);
 
             if (upstream_selection)
                 e.Canvas.FillRectangle (highlight, (control.Focused ? SystemColors.Highlight : SystemColors.Control).ToSKColor ());
