@@ -42,7 +42,54 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>The MDI parent form this client belongs to.</summary>
-        internal Form? Owner { get; set; }
+        internal Form? Owner {
+            get => owner;
+            set {
+                if (owner == value)
+                    return;
+
+                if (owner is not null)
+                    owner.BackgroundImageLayoutChanged -= OwnerBackgroundImageLayoutChanged;
+                owner = value;
+                if (owner is not null)
+                    owner.BackgroundImageLayoutChanged += OwnerBackgroundImageLayoutChanged;
+            }
+        }
+
+        private Form? owner;
+
+        // The form's image changing already repaints the client (OnParentBackgroundImageChanged); its layout does not.
+        private void OwnerBackgroundImageLayoutChanged (object? sender, EventArgs e)
+        {
+            if (UpstreamBackground)
+                Invalidate ();
+        }
+
+        // Whether the client shows its form's background image, as upstream's does: in ported mode
+        // (Application.SetDefaultFont). An app that never chose a font keeps the bare workspace.
+        private static bool UpstreamBackground => ControlPaint.UsesUpstreamGlyphs;
+
+        /// <summary>Gets or sets the image drawn on the workspace behind the child windows.</summary>
+        /// <remarks>
+        /// As upstream's MdiClient: with no image of its own the client reports, and draws, its form's
+        /// <see cref="WindowBase.BackgroundImage"/>. The client fills the form, so the form's image was otherwise never
+        /// seen -- an MDI shell with a logo behind its windows showed only the bare workspace colour.
+        /// </remarks>
+        public override Majorsilence.Forms.Drawing.Image? BackgroundImage {
+            get => base.BackgroundImage ?? (UpstreamBackground ? owner?.BackgroundImage : null);
+            set => base.BackgroundImage = value;
+        }
+
+        /// <summary>Gets or sets how <see cref="BackgroundImage"/> is laid out.</summary>
+        /// <remarks>
+        /// As upstream's MdiClient: while there is an image to draw, the form's layout is the one used, even when
+        /// the client was given an image and a layout of its own (measured on WinForms: a client set to Tile under a
+        /// form set to Center draws centred).
+        /// </remarks>
+        public override ImageLayout BackgroundImageLayout {
+            get => UpstreamBackground && owner is not null && BackgroundImage is not null ? owner.BackgroundImageLayout : base.BackgroundImageLayout;
+            set => base.BackgroundImageLayout = value;
+        }
 
         /// <summary>The child forms hosted in this client, in creation order.</summary>
         public IReadOnlyList<Form> ChildForms => frames.Select (f => f.ChildForm).ToList ();
