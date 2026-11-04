@@ -207,6 +207,9 @@ namespace Majorsilence.Forms
 
         private static TextBlock LayOut (string text, SKTypeface font, int fontSize, Size maxSize, TextAlignment alignment, SKColor color, int? maxLines, bool ellipsis, int mnemonicIndex, int decoration = 0)
         {
+            // In a ported app the text is laid out on GDI's pixel grid, as upstream's TextRenderer lays it out.
+            using var gdi = GdiTextLayout.Enter (fontSize);
+
             var tb = new TextBlock {
                 MaxWidth = maxLines.GetValueOrDefault () == 1 ? (float?)null : maxSize.Width,
                 MaxHeight = maxSize.Height == int.MaxValue ? (int?)null : maxSize.Height,
@@ -220,7 +223,8 @@ namespace Majorsilence.Forms
             // drew upright -- a report chart's italic category labels among them.
             var face = StyleOf (font);
 
-            var spacing = GdiBoldSpacing (font, fontSize);
+            // On the grid a synthesized bold already has GDI's emboldened advances.
+            var spacing = gdi.Active ? 0f : GdiBoldSpacing (font, fontSize);
 
             var styleNormal = new Style {
                 FontFamily = face.Family,
@@ -270,6 +274,8 @@ namespace Majorsilence.Forms
                 if (tb.Lines.LastOrDefault ()?.Runs.Count > 1 && !ellipsis)
                     tb.MaxHeight *= 2;
             }
+
+            gdi.Complete (tb);
 
             return tb;
         }
@@ -566,7 +572,9 @@ namespace Majorsilence.Forms
 
             var tb = LayOut (text, font, fontSize, maxSize, TextAlignment.Auto, new SKColor (), null, false, -1);
 
-            return _sizes.Add (key, new SKSize (tb.MeasuredWidth, tb.MeasuredHeight));
+            using var gdi = GdiTextLayout.Enter (fontSize);
+
+            return _sizes.Add (key, new SKSize (gdi.Width (tb.MeasuredWidth), tb.MeasuredHeight));
         }
     }
 }

@@ -31,6 +31,17 @@ namespace Majorsilence.Forms
 
         public override SKTypeface TypefaceFromStyle (IStyle style, bool ignoreFontVariants)
         {
+            var typeface = Find (style, ignoreFontVariants);
+
+            // A ported app's text is shaped on GDI's grid (TextMeasurer.LayOut); its shaper is readied here, as the
+            // typeface of each run is resolved.
+            GdiTextLayout.Prepare (typeface);
+
+            return typeface;
+        }
+
+        private SKTypeface Find (IStyle style, bool ignoreFontVariants)
+        {
             // A family loaded at runtime through PrivateFontCollection is unknown to the system font
             // manager, so the inner mapper cannot find it and silently substitutes a default face.
             // Because a TextBlock carries only the family *name*, that substitution is what the whole

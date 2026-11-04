@@ -63,7 +63,15 @@ namespace Majorsilence.Forms
         /// Replaces the ambient default font, or restores the platform default when passed null.
         /// </summary>
         internal static void SetDefaultFont (Majorsilence.Forms.Drawing.Font? font)
-            => _defaultFontOverride = font;
+        {
+            var was_ported = _defaultFontOverride is not null;
+            _defaultFontOverride = font;
+
+            // Text laid out before is on the other grid (GdiTextLayout): drop it rather than draw a ported app's
+            // captions at the theme's widths, or the reverse.
+            if (was_ported != font is not null)
+                TextMeasurer.ClearTextBlockCache ();
+        }
 
         /// <summary>The font chosen with Application.SetDefaultFont, or null.</summary>
         internal static Majorsilence.Forms.Drawing.Font? DefaultFontOverride => _defaultFontOverride;
