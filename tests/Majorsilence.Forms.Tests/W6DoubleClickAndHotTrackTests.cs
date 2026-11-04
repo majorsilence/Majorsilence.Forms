@@ -142,7 +142,7 @@ public class W6DoubleClickAndHotTrackTests
         form.Controls.Add (tree);
         form.Show ();
         using var bitmap = PaintSurface.Render (tree);
-        var beta = tree.Nodes[1].Bounds; // device units
+        var beta = tree.Nodes[1].DeviceBounds; // device units
         var at = new Point (tree.DeviceToLogicalUnits (beta.Left + 4), tree.DeviceToLogicalUnits (beta.Top + beta.Height / 2));
 
         tree.RaiseMouseMove (Move (at.X, at.Y));

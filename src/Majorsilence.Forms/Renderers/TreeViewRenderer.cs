@@ -95,15 +95,15 @@ namespace Majorsilence.Forms.Renderers
                 : Theme.ForegroundColor;
 
             if (upstream_disabled) {
-                var label = control.FullRowSelect ? item.Bounds : GetTextBounds (control, item, e);
+                var label = control.FullRowSelect ? item.DeviceBounds : GetTextBounds (control, item, e);
                 e.Canvas.FillRectangle (label, (item.BackColor != System.Drawing.Color.Empty ? item.BackColor : SystemColors.Control).ToSKColor ());
             } else if (item.BackColor != System.Drawing.Color.Empty && !is_selected)
-                e.Canvas.FillRectangle (item.Bounds, item.BackColor.ToSKColor ());
+                e.Canvas.FillRectangle (item.DeviceBounds, item.BackColor.ToSKColor ());
 
             // FullRowSelect: the whole row, or just the label. It was read by nothing, so every tree
             // highlighted the full row -- which is what FullRowSelect = TRUE means, while the property
             // defaults to false. An explorer-style tree therefore looked like a list.
-            var highlight = !is_selected ? Rectangle.Empty : control.FullRowSelect ? item.Bounds : GetTextBounds (control, item, e);
+            var highlight = !is_selected ? Rectangle.Empty : control.FullRowSelect ? item.DeviceBounds : GetTextBounds (control, item, e);
 
             if (upstream_selection)
                 e.Canvas.FillRectangle (highlight, (control.Focused ? SystemColors.Highlight : SystemColors.Control).ToSKColor ());
@@ -121,7 +121,7 @@ namespace Majorsilence.Forms.Renderers
                 if (upstream_selection)
                     DrawUpstreamFocusRectangle (e, highlight, SystemColors.Highlight.ToSKColor ());
                 else
-                    e.Canvas.DrawFocusRectangle (item.Bounds, e.LogicalToDeviceUnits (1));
+                    e.Canvas.DrawFocusRectangle (item.DeviceBounds, e.LogicalToDeviceUnits (1));
             }
 
             if (control.DrawMode == TreeViewDrawMode.OwnerDrawText) {
@@ -183,7 +183,7 @@ namespace Majorsilence.Forms.Renderers
             // Upstream draws the text 2px into its label, and does not clip it to the label's width.
             if (TreeView.UsesUpstreamLook) {
                 var inset = e.LogicalToDeviceUnits (2);
-                text_bounds = new Rectangle (text_bounds.Left + inset, text_bounds.Top, System.Math.Max (0, item.Bounds.Right - text_bounds.Left - inset), text_bounds.Height);
+                text_bounds = new Rectangle (text_bounds.Left + inset, text_bounds.Top, System.Math.Max (0, item.DeviceBounds.Right - text_bounds.Left - inset), text_bounds.Height);
             }
 
             // The node's own font when it has one, else the control's -- NodeFont was stored and the
@@ -319,14 +319,14 @@ namespace Majorsilence.Forms.Renderers
             var step = control.LogicalToDeviceUnits (control.Indent > 0 ? control.Indent : INDENT_SIZE);
             var half_glyph = control.LogicalToDeviceUnits (GLYPH_SIZE) / 2;
 
-            var top = item.Bounds.Top;
-            var bottom = item.Bounds.Bottom;
-            var middle = top + item.Bounds.Height / 2;
+            var top = item.DeviceBounds.Top;
+            var bottom = item.DeviceBounds.Bottom;
+            var middle = top + item.DeviceBounds.Height / 2;
 
             // The centre of the gutter a node at this depth sits in -- the same arithmetic
             // GetIndentStart uses, plus half a glyph, so the run passes through the glyph rather than
             // beside it whether or not one is drawn.
-            int Centre (int level) => item.Bounds.Left + level * step + 2 + half_glyph;
+            int Centre (int level) => item.DeviceBounds.Left + level * step + 2 + half_glyph;
 
             var level = item.IndentLevel;
 
@@ -380,7 +380,7 @@ namespace Majorsilence.Forms.Renderers
             if (TreeView.UsesUpstreamLook)
                 return control.UpstreamButtonBounds (item);
 
-            var glyph_area = new Rectangle (GetIndentStart (control, item), item.Bounds.Top, control.LogicalToDeviceUnits (GLYPH_SIZE), item.Bounds.Height);
+            var glyph_area = new Rectangle (GetIndentStart (control, item), item.DeviceBounds.Top, control.LogicalToDeviceUnits (GLYPH_SIZE), item.DeviceBounds.Height);
             var glyph_bounds = DrawingExtensions.CenterSquare (glyph_area, control.LogicalToDeviceUnits (GLYPH_SIZE));
 
             glyph_bounds.Width = control.LogicalToDeviceUnits (GLYPH_SIZE);
@@ -409,7 +409,7 @@ namespace Majorsilence.Forms.Renderers
 
             // The check box sits between the glyph and the image, so the image starts after it.
             left_index += control.ScaledCheckWidth;
-            var image_area = new Rectangle (left_index, item.Bounds.Top, item.Bounds.Height, item.Bounds.Height);
+            var image_area = new Rectangle (left_index, item.DeviceBounds.Top, item.DeviceBounds.Height, item.DeviceBounds.Height);
 
             return DrawingExtensions.CenterSquare (image_area, control.LogicalToDeviceUnits (IMAGE_SIZE));
         }
@@ -435,14 +435,14 @@ namespace Majorsilence.Forms.Renderers
                 var text_width = string.IsNullOrWhiteSpace (item.Text) ? 0
                     : (int) System.Math.Ceiling (TextMeasurer.MeasureText (item.Text.Trim (), font, font_size).Width);
 
-                return new Rectangle (label_left, item.Bounds.Top, text_width + control.LogicalToDeviceUnits (4), item.Bounds.Height);
+                return new Rectangle (label_left, item.DeviceBounds.Top, text_width + control.LogicalToDeviceUnits (4), item.DeviceBounds.Height);
             }
 
             var show_glyph = control.ShowDropdownGlyph;
             var show_image = control.ShowItemImages;
 
             if (!show_glyph && !show_image)
-                return new Rectangle (GetIndentStart (control, item), item.Bounds.Top, item.Bounds.Width - GetIndentStart (control, item), item.Bounds.Height);
+                return new Rectangle (GetIndentStart (control, item), item.DeviceBounds.Top, item.DeviceBounds.Width - GetIndentStart (control, item), item.DeviceBounds.Height);
 
             // One of these will be valid because we handled the other case above
             var padding = control.LogicalToDeviceUnits (6);
@@ -450,7 +450,7 @@ namespace Majorsilence.Forms.Renderers
             var used_bounds = has_image ? ImageBoundsFor (control, item) : GetGlyphBounds (control, item);
             var left = System.Math.Max (used_bounds.Right, has_image ? used_bounds.Right : used_bounds.Right + control.ScaledCheckWidth);
 
-            return new Rectangle (left + padding, item.Bounds.Top, item.Bounds.Right - left - padding, item.Bounds.Height);
+            return new Rectangle (left + padding, item.DeviceBounds.Top, item.DeviceBounds.Right - left - padding, item.DeviceBounds.Height);
         }
 
         /// <summary>
@@ -462,7 +462,7 @@ namespace Majorsilence.Forms.Renderers
         protected virtual int GetIndentStart (TreeView control, TreeNode item)
             => control.NodeLayout is { } layout ? layout.ContentLeft (item)
              : TreeView.UsesUpstreamLook ? control.UpstreamContentLeft (item)
-             : item.Bounds.Left + item.IndentLevel * control.LogicalToDeviceUnits (control.Indent > 0 ? control.Indent : INDENT_SIZE) + 2;
+             : item.DeviceBounds.Left + item.IndentLevel * control.LogicalToDeviceUnits (control.Indent > 0 ? control.Indent : INDENT_SIZE) + 2;
 
         /// <summary>
         /// Gets if the item should draw a dropdown glyph.
@@ -521,8 +521,8 @@ namespace Majorsilence.Forms.Renderers
             var colour = control.LineColor != System.Drawing.Color.Empty ? control.LineColor.ToSKColor () : UpstreamLineColor;
             var dot = e.LogicalToDeviceUnits (1);
             var step = 2 * dot;
-            var top = item.Bounds.Top;
-            var bottom = item.Bounds.Bottom;
+            var top = item.DeviceBounds.Top;
+            var bottom = item.DeviceBounds.Bottom;
             var middle = control.UpstreamCentreY (item);
 
             // Dots on every other row, counted from the row's top, in [from, to).

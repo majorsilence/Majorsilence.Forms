@@ -258,7 +258,7 @@ namespace Majorsilence.Forms
             // Use the already-laid-out list from the most recent LayoutItems() call instead of
             // re-traversing the whole visible tree.
             for (var i = 0; i < _layoutItems.Count; i++)
-                if (_layoutItems[i].Bounds.Contains (device)) return _layoutItems[i];
+                if (_layoutItems[i].DeviceBounds.Contains (device)) return _layoutItems[i];
 
             return null;
         }
@@ -1065,7 +1065,7 @@ namespace Majorsilence.Forms
             var size = LogicalToDeviceUnits (CheckGlyphSize);
             var left = CheckColumnLeft (node);
 
-            return new System.Drawing.Rectangle (left, node.Bounds.Top + System.Math.Max (0, (node.Bounds.Height - size) / 2), size, size);
+            return new System.Drawing.Rectangle (left, node.DeviceBounds.Top + System.Math.Max (0, (node.DeviceBounds.Height - size) / 2), size, size);
         }
 
         // The check box sits after the indent and the glyph, before the image -- which is where
@@ -1078,7 +1078,7 @@ namespace Majorsilence.Forms
             if (UsesUpstreamLook)
                 return UpstreamContentLeft (node);
 
-            var indent = node.Bounds.Left + node.IndentLevel * LogicalToDeviceUnits (Indent) + 2;
+            var indent = node.DeviceBounds.Left + node.IndentLevel * LogicalToDeviceUnits (Indent) + 2;
 
             return ShowPlusMinus ? indent + LogicalToDeviceUnits (CheckGlyphSize) : indent;
         }
@@ -1165,7 +1165,7 @@ namespace Majorsilence.Forms
             if (!Enabled)
                 state |= TreeNodeStates.Grayed;
 
-            var args = new DrawTreeNodeEventArgs (e.Graphics, e.Item, e.Item.Bounds, state) {
+            var args = new DrawTreeNodeEventArgs (e.Graphics, e.Item, e.Item.DeviceBounds, state) {
                 DrawDefault = e.DrawDefault,
                 TreeView = this,
                 Canvas = e.Canvas,

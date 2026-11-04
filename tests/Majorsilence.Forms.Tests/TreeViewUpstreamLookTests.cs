@@ -100,8 +100,8 @@ namespace Majorsilence.Forms.Tests
                     return new Shot {
                         Bitmap = SKBitmap.Decode (png),
                         Scale = scale,
-                        RowTop = (int) Math.Round (tree.Nodes[0].Bounds.Top / scale),
-                        RowHeight = (int) Math.Round (tree.Nodes[0].Bounds.Height / scale),
+                        RowTop = (int) Math.Round (tree.Nodes[0].DeviceBounds.Top / scale),
+                        RowHeight = (int) Math.Round (tree.Nodes[0].DeviceBounds.Height / scale),
                     };
                 }
             });
@@ -185,7 +185,7 @@ namespace Majorsilence.Forms.Tests
 
                 using (form) {
                     HeadlessRenderer.CapturePng (form, 240, 160);
-                    var y = (int) Math.Round ((tree.Nodes[1].Bounds.Top + tree.Nodes[1].Bounds.Height / 2f) / (tree.LogicalToDeviceUnits (100) / 100f));
+                    var y = (int) Math.Round ((tree.Nodes[1].DeviceBounds.Top + tree.Nodes[1].DeviceBounds.Height / 2f) / (tree.LogicalToDeviceUnits (100) / 100f));
 
                     TreeViewHitTestLocations At (int x) => x < 0 ? TreeViewHitTestLocations.PlusMinus : tree.HitTest (x, y).Location;
 
@@ -210,7 +210,7 @@ namespace Majorsilence.Forms.Tests
 
                 using (form) {
                     HeadlessRenderer.CapturePng (form, 240, 160);
-                    var y = (int) Math.Round ((tree.Nodes[1].Bounds.Top + tree.Nodes[1].Bounds.Height / 2f) / (tree.LogicalToDeviceUnits (100) / 100f));
+                    var y = (int) Math.Round ((tree.Nodes[1].DeviceBounds.Top + tree.Nodes[1].DeviceBounds.Height / 2f) / (tree.LogicalToDeviceUnits (100) / 100f));
 
                     return (tree.HitTest (34, y).Location, tree.HitTest (52, y).Location, tree.HitTest (56, y).Location);
                 }

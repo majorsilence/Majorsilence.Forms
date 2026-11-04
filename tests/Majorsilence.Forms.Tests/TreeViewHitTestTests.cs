@@ -36,8 +36,8 @@ namespace Majorsilence.Forms.Tests
         // The logical centre of a node, in the units a mouse event arrives in: the node's own laid-out
         // Bounds are in device pixels, so convert the centre back through the control's scaling.
         private static Point NodeCentreLogical (TreeView tree, TreeNode node) =>
-            new (tree.DeviceToLogicalUnits (node.Bounds.Left + 5),
-                 tree.DeviceToLogicalUnits (node.Bounds.Top + node.Bounds.Height / 2));
+            new (tree.DeviceToLogicalUnits (node.DeviceBounds.Left + 5),
+                 tree.DeviceToLogicalUnits (node.DeviceBounds.Top + node.DeviceBounds.Height / 2));
 
         [Fact]
         public void A_point_inside_a_node_returns_that_node ()
@@ -55,8 +55,8 @@ namespace Majorsilence.Forms.Tests
 
             var last = tree.Nodes.Cast<TreeNode> ().Last ();
             var belowEverything = new Point (
-                tree.DeviceToLogicalUnits (last.Bounds.Left + 5),
-                tree.DeviceToLogicalUnits (last.Bounds.Bottom) + 200);
+                tree.DeviceToLogicalUnits (last.DeviceBounds.Left + 5),
+                tree.DeviceToLogicalUnits (last.DeviceBounds.Bottom) + 200);
 
             Assert.Null (tree.GetItemAtLocation (belowEverything));
         }

@@ -251,7 +251,7 @@ public class W6ListEditingAndVirtualTests
         var dragged = new List<object?> ();
         tree.ItemDrag += (_, e) => dragged.Add (e.Item);
 
-        var b = tree.Nodes[1].Bounds;
+        var b = tree.Nodes[1].DeviceBounds;
         var start = new Point (tree.DeviceToLogicalUnits (b.Left + b.Width / 2), tree.DeviceToLogicalUnits (b.Top + b.Height / 2));
         tree.RaiseMouseDown (Left (start.X, start.Y));
         tree.RaiseMouseMove (Left (start.X + 12, start.Y));
