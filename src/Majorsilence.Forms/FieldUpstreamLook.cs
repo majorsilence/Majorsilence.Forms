@@ -252,6 +252,19 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <inheritdoc/>
+        /// <remarks>Inside the field's edge, where the docked scroll bar sits: upstream's stops short of the outline,
+        /// clear of the pixel of face inside it.</remarks>
+        public override System.Drawing.Rectangle DisplayRectangle {
+            get {
+                if (!PaintsUpstreamFieldLook)
+                    return base.DisplayRectangle;
+
+                var edge = UpstreamFieldEdge;
+                return new System.Drawing.Rectangle (edge, edge, System.Math.Max (0, Width - edge * 2), System.Math.Max (0, Height - edge * 2));
+            }
+        }
+
         private bool PaintsUpstreamField => PaintsUpstreamFieldLook && border_style != BorderStyle.None && BackgroundImage is null;
 
         private void PaintUpstreamField (PaintEventArgs e)
