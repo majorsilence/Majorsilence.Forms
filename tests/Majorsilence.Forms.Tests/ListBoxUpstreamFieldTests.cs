@@ -31,6 +31,7 @@ namespace Majorsilence.Forms.Tests
             public Rectangle Client;
             public Color Back;
             public int Height;
+            public int ItemHeight;
 
             // The pixel at a logical point of the list box, sampling the top-left device pixel of that logical pixel.
             public SKColor At (int x, int y) => Bitmap.GetPixel ((int) Math.Round ((10 + x) * Scale), (int) Math.Round ((10 + y) * Scale));
@@ -59,6 +60,7 @@ namespace Majorsilence.Forms.Tests
                     Client = list.ClientRectangle,
                     Back = list.BackColor,
                     Height = list.Height,
+                    ItemHeight = list.ItemHeight,
                 };
             } finally {
                 Application.SetDefaultFont (null!);
@@ -136,12 +138,21 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Theory]
-        [InlineData (BorderStyle.Fixed3D, 120, 104)]
-        [InlineData (BorderStyle.Fixed3D, 100, 84)]
-        [InlineData (BorderStyle.FixedSingle, 120, 102)]
-        [InlineData (BorderStyle.None, 120, 120)]
-        public void IntegralHeight_snaps_to_whole_rows_inside_the_edge (BorderStyle border, int asked, int expected)
-            => Assert.Equal (expected, Capture (l => { l.IntegralHeight = true; l.Height = asked; l.BorderStyle = border; }).Height);
+        [InlineData (BorderStyle.Fixed3D, 2, 120, 104)]
+        [InlineData (BorderStyle.Fixed3D, 2, 100, 84)]
+        [InlineData (BorderStyle.FixedSingle, 1, 120, 102)]
+        [InlineData (BorderStyle.None, 0, 120, 120)]
+        public void IntegralHeight_snaps_to_whole_rows_inside_the_edge (BorderStyle border, int edge, int asked, int expected)
+        {
+            var shot = Capture (l => { l.IntegralHeight = true; l.Height = asked; l.BorderStyle = border; });
+
+            // The 20px rows are Microsoft Sans Serif's, so only Windows has the measured heights; elsewhere the row
+            // height differs, but the list box still snaps to whole rows inside the edge.
+            Assert.Equal (2 * edge + (asked - 2 * edge) / shot.ItemHeight * shot.ItemHeight, shot.Height);
+
+            if (OperatingSystem.IsWindows ())
+                Assert.Equal (expected, shot.Height);
+        }
 
         [Fact]
         public void Turning_IntegralHeight_off_gives_back_the_height_asked_for ()
