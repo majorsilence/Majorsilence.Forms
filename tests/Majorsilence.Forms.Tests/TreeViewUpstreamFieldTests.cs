@@ -11,7 +11,8 @@ namespace Majorsilence.Forms.Tests
     //   - Fixed3D (the default): a #828790 line, then a pixel of the BackColor, the client 116 square from (2, 2);
     //   - FixedSingle: a #646464 line, the client 118 square from (1, 1);
     //   - None: no line, the client the whole tree;
-    //   - the face white (SystemColors.Window) unless BackColor is set; the same lines when disabled.
+    //   - the face white (SystemColors.Window) unless BackColor is set; the same lines when disabled;
+    //   - the scroll bar inside the pixel of face, clear of the outline.
     // Here the tree kept the theme's off-white face and a one-pixel #ABABAB frame whatever its BorderStyle, its client
     // 118 square for Fixed3D, so it showed two more pixels of rows each way.
     [Collection ("Headless")]
@@ -31,7 +32,7 @@ namespace Majorsilence.Forms.Tests
             public SKColor At (int x, int y) => Bitmap.GetPixel ((int) Math.Round ((10 + x) * Scale), (int) Math.Round ((10 + y) * Scale));
         }
 
-        private static Shot Capture (Action<TreeView>? set = null, bool ported = true)
+        private static Shot Capture (Action<TreeView>? set = null, bool ported = true, int nodes = 1)
         {
             try {
                 if (ported)
@@ -42,7 +43,9 @@ namespace Majorsilence.Forms.Tests
                 var tree = new TreeView { Location = new Point (10, 10), Size = new Size (120, 120) };
                 set?.Invoke (tree);
                 form.Controls.Add (tree);
-                tree.Nodes.Add ("node 0");
+                for (var i = 0; i < nodes; i++)
+                    tree.Nodes.Add ("node " + i);
+
                 form.Show ();
 
                 return new Shot {
@@ -104,6 +107,16 @@ namespace Majorsilence.Forms.Tests
             var shot = Capture (t => t.BackColor = green);
 
             Edges (shot, Outline3D, new SKColor (200, 230, 200));
+        }
+
+        // Measured: with 30 nodes, the scroll bar's face runs to x 117, and the pixel inside the outline stays the tree's.
+        [Fact]
+        public void The_scroll_bar_sits_inside_the_pixel_of_face ()
+        {
+            var shot = Capture (nodes: 30);
+
+            Assert.Equal (SKColors.White, shot.At (118, 90));
+            Assert.NotEqual (SKColors.White, shot.At (117, 90));
         }
 
         [Fact]
