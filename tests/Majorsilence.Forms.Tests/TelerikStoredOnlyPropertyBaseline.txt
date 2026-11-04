@@ -250,7 +250,6 @@ Majorsilence.Forms.Telerik.RadPageViewItem.ImageAlignment    -- element-tree sta
 Majorsilence.Forms.Telerik.RadPageViewItem.Page    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.RadPageViewStripElement.HighlightColor    -- the core tab strip draws the selected tab from the theme
 Majorsilence.Forms.Telerik.RadPageViewStripElement.ShowItemCloseButton    -- the core tab strip draws no close glyph on a tab
-Majorsilence.Forms.Telerik.RadPageViewStripElement.StripButtons    -- the core tab strip scrolls with arrows of its own and has no item-list button
 Majorsilence.Forms.Telerik.RadPageViewTabStripElement.ItemContentOrientation    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.RadPanel.Text    -- not drawn: the panel paints no caption
 Majorsilence.Forms.Telerik.RadPdfViewer.ReadingMode    -- the browser PDF engine decides this (documented on the member)

@@ -22,7 +22,8 @@ namespace Majorsilence.Forms
 
         /// <summary>Whether this tab control lays out and paints as upstream's themed one.</summary>
         internal bool UsesUpstreamTabs
-            => ControlPaint.UsesUpstreamGlyphs
+            => StripLook is null
+               && ControlPaint.UsesUpstreamGlyphs
                && Appearance == TabAppearance.Normal
                && Alignment is TabAlignment.Top or TabAlignment.Bottom
                && !IsOwnerDrawn
@@ -31,6 +32,9 @@ namespace Majorsilence.Forms
         // Upstream's tabs below the page (Alignment = Bottom): the frame's bottom edge runs along the top of
         // the strip and the tabs hang from it, the selected one open up into the page.
         internal bool UpstreamTabsBelow => Alignment == TabAlignment.Bottom;
+
+        /// <summary>How a derived tab control lays out and paints its strip its own way, or null for this one's.</summary>
+        internal virtual TabStripLook? StripLook => null;
 
         /// <summary>The tab padding in effect: as set, else upstream's (6, 3) default under its look.</summary>
         internal System.Drawing.Point EffectiveTabPadding
@@ -42,14 +46,25 @@ namespace Majorsilence.Forms
             // A page fills the space under the strip (Dock = Fill) unless upstream's inset applies, which
             // the dock pass cannot express: it would inset the strip too. Undocked, the page is placed here.
             var upstream = UsesUpstreamTabs;
+            var look = StripLook;
 
             foreach (var page in TabPages) {
-                var dock = upstream ? DockStyle.None : DockStyle.Fill;
+                var dock = upstream || look is not null ? DockStyle.None : DockStyle.Fill;
                 if (page.Dock != dock)
                     page.Dock = dock;
             }
 
             base.OnLayout (e);
+
+            if (look is not null) {
+                var page_bounds = look.PageBounds;
+
+                foreach (var page in TabPages)
+                    if (page.Bounds != page_bounds)
+                        page.Bounds = page_bounds;
+
+                return;
+            }
 
             if (!upstream)
                 return;
@@ -71,6 +86,12 @@ namespace Majorsilence.Forms
         protected override void OnPaintBackground (PaintEventArgs e)
         {
             base.OnPaintBackground (e);
+
+            if (StripLook is { } look) {
+                using var look_device = e.DeviceSpace ();
+                look.Paint (e);
+                return;
+            }
 
             if (!UsesUpstreamTabs)
                 return;

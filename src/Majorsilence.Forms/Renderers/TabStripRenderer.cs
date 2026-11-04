@@ -15,6 +15,11 @@ namespace Majorsilence.Forms.Renderers
             // painting is replaced wholesale rather than drawn underneath.
             var owner = control.Parent as TabControl;
 
+            // A tab control that paints its strip its own way (TabControl.StripLook) paints it from behind the strip,
+            // which is transparent.
+            if (owner?.StripLook is not null)
+                return;
+
             // Single-row scrolling (W6 mechanisms): tabs are clipped short of the arrow band, and the
             // arrows are drawn over it afterwards.
             var arrow_band = control.LogicalToDeviceUnits (control.ScrollArrowBand);

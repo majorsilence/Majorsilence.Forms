@@ -192,8 +192,11 @@ namespace Majorsilence.Forms.Tests
             return view;
         }
 
+        // Measured on Telerik (UI for WinForms 2026.2.520) with the same 562px view: each tab gets half the room up to
+        // the strip's buttons, 247, and is as high as its font (28 in the default Segoe UI 8.25pt) -- the ItemSize the
+        // designer recorded is not read back.
         [Fact]
-        public void RadPageView_EqualWidth_Fill_gives_every_tab_an_equal_share_at_the_designer_height ()
+        public void RadPageView_EqualWidth_Fill_gives_every_tab_an_equal_share_of_the_strip ()
         {
             HeadlessRenderer.Use ();
 
@@ -203,11 +206,17 @@ namespace Majorsilence.Forms.Tests
             view.PerformLayout ();
 
             var tabs = view.TabStrip.Tabs;
-            var share = view.DeviceToLogicalUnits (view.DeviceClientRectangle.Width) / 2;
 
-            Assert.Equal (share, tabs[0].Bounds.Width);
-            Assert.Equal (share, tabs[1].Bounds.Width);
-            Assert.Equal (32, tabs[0].Bounds.Height);
+            Assert.Equal (247, tabs[0].Bounds.Width);
+            Assert.Equal (247, tabs[1].Bounds.Width);
+
+            // Segoe UI is a Windows font; elsewhere the tab is as high as the font it falls back to.
+            if (System.OperatingSystem.IsWindows ())
+                Assert.Equal (28, tabs[0].Bounds.Height);
+
+            view.GetChildAt (0).StripButtons = StripViewButtons.None;
+
+            Assert.Equal (274, tabs[0].Bounds.Width);
             Assert.Equal (ContentAlignment.MiddleLeft, view.TabStrip.ItemTextAlign);
         }
 

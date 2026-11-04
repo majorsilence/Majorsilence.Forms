@@ -19,11 +19,25 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Initializes a new instance of the <see cref="RadPageView"/> class.</summary>
         public RadPageView ()
         {
-            // Telerik's themes frame the whole page view (strip and content) in a 1px border.
-            Style.Border.Width = 1;
             // Telerik's strip items lead with their caption rather than centring it.
             TabStrip.ItemTextAlign = ContentAlignment.MiddleLeft;
-            _strip = new RadPageViewStripElement (PerformLayout);
+            _strip = new RadPageViewStripElement (Relayout);
+            _look = new RadPageViewStripLook (this);
+
+            // The page view paints the whole strip, behind a strip left transparent for its tabs' hit-testing.
+            TabStrip.SetControlBehavior (ControlBehaviors.Transparent, true);
+        }
+
+        private readonly RadPageViewStripLook _look;
+
+        // Telerik's strip, with the tabs above the pages; any other alignment keeps the tab control's.
+        internal override TabStripLook? StripLook => Alignment == TabAlignment.Top ? _look : null;
+
+        private void Relayout ()
+        {
+            TabStrip.PerformLayout ();
+            PerformLayout ();
+            Invalidate ();
         }
 
         // A themed Telerik control takes its text colour from the theme, not from the ambient ForeColor
@@ -216,8 +230,18 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets the strip items. Empty stub -- the compat page view has no per-item element tree.</summary>
         public List<RadPageViewItem> Items { get; } = new ();
-        /// <summary>Gets or sets which strip buttons are shown. Stub.</summary>
-        public StripViewButtons StripButtons { get; set; } = StripViewButtons.None;
+
+        /// <summary>Gets or sets which buttons the strip shows at its end: Auto, as Telerik's, shows the scroll buttons
+        /// and the close button.</summary>
+        public StripViewButtons StripButtons {
+            get => strip_buttons;
+            set {
+                strip_buttons = value;
+                relayout?.Invoke ();
+            }
+        }
+
+        private StripViewButtons strip_buttons = StripViewButtons.Auto;
         /// <summary>Gets or sets whether each item shows a close button. Stub.</summary>
         public bool ShowItemCloseButton { get; set; }
 
