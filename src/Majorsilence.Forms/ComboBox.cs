@@ -26,7 +26,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public ComboBox ()
         {
-            popup_listbox = new PopupList (this) { Dock = DockStyle.Fill, SelectItemOnMouseUp = true, ShowHover = true };
+            popup_listbox = new PopupList (this) { Dock = DockStyle.Fill, SelectItemOnMouseUp = true, ShowHover = true, IsDropDownList = true };
             popup_listbox.SelectedIndexChanged += ListBox_SelectedIndexChanged;
 
             // Owner draw (W6 mechanisms): the drop-down list is a ListBox, so its DrawItem and

@@ -222,6 +222,10 @@ namespace Majorsilence.Forms
 
                 border_style = value;
                 ApplyBorderStyle (value);
+
+                // The edge changes the client height, so whole rows need another height.
+                if (integral_height)
+                    ApplyRequestedHeight ();
             }
         }
 
