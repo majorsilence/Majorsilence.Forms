@@ -72,14 +72,22 @@ namespace Majorsilence.Forms.Renderers
             }
         }
 
-        // Upstream's Windows 11 scroll bar (ScrollBar.PaintsUpstreamLook): a plain track, and a rounded
-        // thumb centred across the bar -- 2px thick at rest, 6px with small arrows under the pointer.
+        // Upstream's Windows 11 scroll bar (ScrollBar.PaintsUpstreamLook): a plain track with a white line
+        // along its leading edge, and a rounded thumb centred on the track -- 2px thick at rest, 6px with
+        // small arrows under the pointer, and never drawn shorter than 17px.
         private void RenderUpstream (ScrollBar control, PaintEventArgs e)
         {
             var client = control.DeviceClientRectangle;
             e.Canvas.FillRectangle (client, ScrollBar.UpstreamTrack);
 
             var vertical = control is VerticalScrollBar;
+            var edge = e.LogicalToDeviceUnits (1);
+            e.Canvas.FillRectangle (vertical ? new Rectangle (client.Left, client.Top, edge, client.Height)
+                                             : new Rectangle (client.Left, client.Top, client.Width, edge), ScrollBar.UpstreamEdge);
+
+            // The track beside the edge line, which the thumb is centred across.
+            var track = vertical ? new Rectangle (client.Left + edge, client.Top, client.Width - edge, client.Height)
+                                 : new Rectangle (client.Left, client.Top + edge, client.Width, client.Height - edge);
             var hovered = control.IsHovering && control.Enabled;
             var colour = control.Enabled ? ScrollBar.UpstreamThumb : Theme.ForegroundDisabledColor;
 
@@ -98,9 +106,26 @@ namespace Majorsilence.Forms.Renderers
                 return;
 
             var thickness = e.LogicalToDeviceUnits (hovered ? 6 : 2);
+
+            // Lengthened to the shortest thumb upstream draws, about its centre and kept inside the track
+            // between the arrows: a long list's 8px thumb is drawn 17px long.
+            var start = vertical ? bounds.Y : bounds.X;
+            var length = (vertical ? bounds.Height : bounds.Width) + 1;
+            var shortest = e.LogicalToDeviceUnits (ScrollBar.UpstreamDrawnThumbMinimum);
+
+            if (length < shortest) {
+                var lane = GetTotalTrackBounds (control);
+                var lane_start = vertical ? lane.Top : lane.Left;
+                var lane_end = vertical ? lane.Bottom : lane.Right;
+
+                start -= (shortest - length) / 2;
+                length = Math.Min (shortest, lane_end - lane_start);
+                start = Math.Max (lane_start, Math.Min (start, lane_end - length));
+            }
+
             var thumb = vertical
-                ? new Rectangle (client.Left + (client.Width - thickness) / 2, bounds.Y, thickness, bounds.Height + 1)
-                : new Rectangle (bounds.X, client.Top + (client.Height - thickness) / 2, bounds.Width + 1, thickness);
+                ? new Rectangle (track.Left + (track.Width - thickness) / 2, start, thickness, length)
+                : new Rectangle (start, track.Top + (track.Height - thickness) / 2, length, thickness);
 
             using var paint = new SkiaSharp.SKPaint { Color = colour, IsAntialias = true };
             var radius = thickness / 2f;
@@ -167,7 +192,8 @@ namespace Majorsilence.Forms.Renderers
             if (control.TouchStyle)
                 return 0;
 
-            var unit_15 = control.LogicalToDeviceUnits (15);
+            // Upstream's arrows are as long as its bar is thick (17); the theme's are 15.
+            var unit_15 = control.LogicalToDeviceUnits (control.PaintsUpstreamLook ? ScrollBar.UpstreamThickness : 15);
 
             if (control is VerticalScrollBar)
                 return control.DeviceClientRectangle.Height < unit_15 * 2 ? control.DeviceClientRectangle.Height / 2 : unit_15;

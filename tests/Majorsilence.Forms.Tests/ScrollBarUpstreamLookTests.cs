@@ -60,7 +60,7 @@ namespace Majorsilence.Forms.Tests
                 var scale = bitmap.Width / 100f;
 
                 int Ink (int top) => Enumerable.Range ((int) (bar.Left * scale), (int) (bar.Width * scale))
-                    .Sum (x => Enumerable.Range ((int) (top * scale), (int) (14 * scale)).Count (y => bitmap.GetPixel (x, y) != ScrollBar.UpstreamTrack));
+                    .Sum (x => Enumerable.Range ((int) (top * scale), (int) (14 * scale)).Count (y => bitmap.GetPixel (x, y) is var c && c != ScrollBar.UpstreamTrack && c != SKColors.White));
 
                 Assert.True (Ink (bar.Top + 1) > 0, "the up arrow");
                 Assert.True (Ink (bar.Bottom - 15) > 0, "the down arrow");

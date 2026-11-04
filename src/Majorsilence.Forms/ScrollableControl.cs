@@ -400,7 +400,7 @@ namespace Majorsilence.Forms
 
             // A finger needs a wider strip than a mouse pointer to hit and drag the thumb. Without AutoScroll no bar
             // is shown, so the size is never used and the walk up to the form is skipped.
-            var bar_size = auto_scroll && FindForm () is { IsSingleViewHost: true } ? 22 : 15;
+            var bar_size = auto_scroll && FindForm () is { IsSingleViewHost: true } ? 22 : ScrollBar.DefaultThickness;
 
             do {
                 prev_right_edge = right_edge;
