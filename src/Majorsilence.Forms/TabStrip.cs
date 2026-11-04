@@ -258,10 +258,15 @@ namespace Majorsilence.Forms
             var x = 0;
             var row = 0;
 
+            // Upstream's right-justified tabs (FillToRight under its look) wrap a pixel early: a row takes a tab
+            // only while it ends short of the strip's edge, so three 54px tabs no longer share a 162px row.
+            var upstream_fill = size_mode == TabSizeMode.FillToRight && owner is { UsesUpstreamTabs: true };
+            var limit = upstream_fill ? avail - 1 : avail;
+
             for (var i = 0; i < Tabs.Count; i++) {
                 var width = Math.Min (Math.Max (1, MeasureTab (Tabs[i], item_size, size_mode)), avail);
 
-                if (x > 0 && x + width > avail) {
+                if (x > 0 && x + width > limit) {
                     x = 0;
                     row++;
                 }
@@ -274,8 +279,14 @@ namespace Majorsilence.Forms
             RowCount = row + 1;
 
             // Only once the tabs wrap: upstream's TCS_RIGHTJUSTIFY leaves a single row at its tabs' own widths.
-            if (size_mode == TabSizeMode.FillToRight && RowCount > 1)
-                FillRowsToRight (widths, rows, avail);
+            if (size_mode == TabSizeMode.FillToRight && RowCount > 1) {
+                if (upstream_fill) {
+                    BalanceRowsAsUpstream (widths, rows, RowCount, avail, avail + 2 * TabOrigin);
+                    JustifyRowsAsUpstream (widths, rows, avail);
+                } else {
+                    FillRowsToRight (widths, rows, avail);
+                }
+            }
 
             // The row holding the selected tab sits next to the page, the others rotating in order, as
             // upstream's multi-row tab control places them: below the rest with the tabs on top, above
@@ -402,6 +413,90 @@ namespace Majorsilence.Forms
              : sizeMode == TabSizeMode.Fixed && itemSize.Width > 0
                 ? itemSize.Width
                 : DeviceToLogicalUnits (tab.GetPreferredSize (Size.Empty).Width);
+
+        // Upstream's TCS_RIGHTJUSTIFY evens out the wrapped rows before it stretches them, moving tabs down so the
+        // last row is not left short. Measured on WinForms over some 24,000 layouts (counts, widths and control
+        // widths): it makes up to one pass per row. Each pass looks at the last two rows and stops unless the
+        // second-last row has a tab to spare, its last tab would fit on the last row with 2px to spare, and the
+        // second-last row is wider than the last by more than an eighth of the control. A pass then moves one
+        // tab down across the last boundary, the next pass across the last two, and so on up the rows, so eleven
+        // 54px tabs in rows of five, five and one end up as three, four and four. Rows keep their tab order.
+        private static void BalanceRowsAsUpstream (int[] widths, int[] rows, int rowCount, int available, int controlWidth)
+        {
+            var counts = new int[rowCount];
+            foreach (var r in rows)
+                counts[r]++;
+
+            int RowWidth (int r)
+            {
+                var start = 0;
+                for (var i = 0; i < r; i++)
+                    start += counts[i];
+
+                var sum = 0;
+                for (var i = start; i < start + counts[r]; i++)
+                    sum += widths[i];
+
+                return sum;
+            }
+
+            var last = rowCount - 1;
+
+            for (var pass = 1; pass <= rowCount; pass++) {
+                if (counts[last - 1] < 2)
+                    break;
+
+                var last_width = RowWidth (last);
+                var previous_width = RowWidth (last - 1);
+                var moving = widths[widths.Length - counts[last] - 1];
+
+                if (last_width + moving > available - 2 || 8 * (previous_width - last_width) <= controlWidth)
+                    break;
+
+                for (var boundary = last - 1; boundary >= Math.Max (0, last - pass); boundary--) {
+                    if (counts[boundary] > 1) {
+                        counts[boundary]--;
+                        counts[boundary + 1]++;
+                    }
+                }
+            }
+
+            var index = 0;
+            for (var r = 0; r < rowCount; r++)
+                for (var i = 0; i < counts[r]; i++)
+                    rows[index++] = r;
+        }
+
+        // Upstream's TCS_RIGHTJUSTIFY stretches every wrapped row to the strip's width, the slack split evenly and the
+        // remainder handed out a pixel at a time from the row's first tab (measured on WinForms: 54px and 61px tabs in a
+        // 246px row are 120 and 126 wide).
+        private static void JustifyRowsAsUpstream (int[] widths, int[] rows, int available)
+        {
+            var start = 0;
+
+            while (start < widths.Length) {
+                var end = start;
+                var used = 0;
+
+                while (end < widths.Length && rows[end] == rows[start]) {
+                    used += widths[end];
+                    end++;
+                }
+
+                var count = end - start;
+                var slack = available - used;
+
+                if (slack > 0) {
+                    var share = slack / count;
+                    var remainder = slack - (share * count);
+
+                    for (var i = start; i < end; i++)
+                        widths[i] += share + (i - start < remainder ? 1 : 0);
+                }
+
+                start = end;
+            }
+        }
 
         // SizeMode.FillToRight (upstream's TCS_RIGHTJUSTIFY): once the tabs wrap, every row is stretched to
         // the strip's width, the slack split evenly and the rounding remainder given to the last tab in the row so
