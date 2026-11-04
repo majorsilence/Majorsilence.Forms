@@ -65,6 +65,15 @@ namespace Majorsilence.Forms.Renderers
             // have had all along. The two siblings genuinely differ; matching them would be the bug.
             var is_selected = item == control.SelectedItem && (control.Focused || !control.HideSelection);
 
+            // A ported app's disabled tree draws every node alike, as upstream's does: each label (or row, with
+            // FullRowSelect) filled with the node's BackColor, else Control, behind its ForeColor, else GrayText,
+            // and no selection. Here a disabled tree's labels were the face's colour, a node's ForeColor gave way
+            // to the theme's disabled colour, and the selected node kept its highlight.
+            var upstream_disabled = !control.Enabled && TreeView.UsesUpstreamLook && control.NodeLayout is null;
+
+            if (upstream_disabled)
+                is_selected = false;
+
             // A ported app (one that chose its font) highlights as upstream does: Highlight behind
             // HighlightText while the tree has the focus, Control behind ControlText while it does not, unless
             // the tree's style names its own selection colour.
@@ -74,7 +83,9 @@ namespace Majorsilence.Forms.Renderers
             // A node's own ForeColor/BackColor win over the theme; Color.Empty means "use the theme".
             // All three were stored and never read at paint, so bold "unread" and red "error" nodes
             // were silently ignored (LST-26).
-            var foreground_color = !control.Enabled
+            var foreground_color = upstream_disabled
+                ? (item.ForeColor != System.Drawing.Color.Empty ? item.ForeColor : SystemColors.GrayText).ToSKColor ()
+                : !control.Enabled
                 ? Theme.ForegroundDisabledColor
                 : item.ForeColor != System.Drawing.Color.Empty ? item.ForeColor.ToSKColor ()
                 : upstream_selection ? (control.Focused ? SystemColors.HighlightText : SystemColors.ControlText).ToSKColor ()
@@ -83,7 +94,10 @@ namespace Majorsilence.Forms.Renderers
                 : control.NodeLayout is { } own_layout ? own_layout.ForeColor
                 : Theme.ForegroundColor;
 
-            if (item.BackColor != System.Drawing.Color.Empty && !is_selected)
+            if (upstream_disabled) {
+                var label = control.FullRowSelect ? item.Bounds : GetTextBounds (control, item, e);
+                e.Canvas.FillRectangle (label, (item.BackColor != System.Drawing.Color.Empty ? item.BackColor : SystemColors.Control).ToSKColor ());
+            } else if (item.BackColor != System.Drawing.Color.Empty && !is_selected)
                 e.Canvas.FillRectangle (item.Bounds, item.BackColor.ToSKColor ());
 
             // FullRowSelect: the whole row, or just the label. It was read by nothing, so every tree
