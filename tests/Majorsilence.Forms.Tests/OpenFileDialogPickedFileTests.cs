@@ -21,10 +21,11 @@ public sealed class OpenFileDialogPickedFileTests : IDisposable
         HeadlessRenderer.OpenFilePickResponse = null;
     }
 
-    private static PickedFile InMemory (string name, string text, bool completesAtOnce = true)
+    // A read held on a gate is still pending however fast the thread pool runs, until the test opens it.
+    private static PickedFile InMemory (string name, string text, Task? gate = null)
         => new (name, null, async ct => {
-            if (!completesAtOnce)
-                await Task.Yield ();
+            if (gate is not null)
+                await gate.WaitAsync (ct);
             return new MemoryStream (Encoding.UTF8.GetBytes (text));
         });
 
@@ -107,12 +108,14 @@ public sealed class OpenFileDialogPickedFileTests : IDisposable
     public async Task OpenFile_refuses_a_read_that_only_completes_later ()
     {
         using var form = ShownForm ();
-        HeadlessRenderer.OpenFilePickResponse = _ => new[] { InMemory ("a.epub", "A", completesAtOnce: false) };
+        var gate = new TaskCompletionSource (TaskCreationOptions.RunContinuationsAsynchronously);
+        HeadlessRenderer.OpenFilePickResponse = _ => new[] { InMemory ("a.epub", "A", gate.Task) };
 
         using var dialog = new OpenFileDialog ();
 
         Assert.Equal (DialogResult.OK, await dialog.ShowDialogAsync (form));
         Assert.Throws<PlatformNotSupportedException> (() => dialog.OpenFile ());
+        gate.SetResult ();
         Assert.Equal ("A", await ReadAll (await dialog.OpenFileAsync (TestContext.Current.CancellationToken)));
     }
 
