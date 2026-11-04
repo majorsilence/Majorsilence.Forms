@@ -115,7 +115,9 @@ namespace Majorsilence.Forms
             // its StartPosition.
             var area = DisplayRectangle;
 
-            switch (child.StartPosition) {
+            if (UpstreamPlacement) {
+                PlaceAsUpstream (frame, child.StartPosition, child.InitialMdiLocation);
+            } else switch (child.StartPosition) {
                 case FormStartPosition.Manual:
                     frame.Location = child.InitialMdiLocation;
                     break;
@@ -150,10 +152,55 @@ namespace Majorsilence.Forms
             frames.Add (frame);
             Controls.Add (frame);
             Activate (child);
-            FitToClient (frame);
+            if (!UpstreamPlacement)
+                FitToClient (frame);
             child.ApplyRequestedMdiState ();
             UpdateScrollExtent ();
             return frame;
+        }
+
+        // Whether children are placed as upstream's MDI client places them: in ported mode
+        // (Application.SetDefaultFont). An app that never chose a font keeps the clamped placement.
+        private static bool UpstreamPlacement => ControlPaint.UsesUpstreamGlyphs;
+
+        // Places a new child where Win32's MDI client puts it (measured against WinForms; Wine's
+        // MDI_CalcDefaultChildPos is the same rule). Nothing is clamped: a child may open past the client's
+        // right or bottom edge, larger than the client, or at a negative Location, and the client scrolls to
+        // reach it instead.
+        //
+        // The default position (WindowsDefaultLocation, and CenterParent, which upstream does not centre for an
+        // MDI child) is a cascade step of one caption plus frame (26px at 96 DPI) per child already open,
+        // restarting at the corner after nstagger + 1 positions, where nstagger is a third of the client's
+        // height in steps -- the client's height alone decides it, not the child's size. WindowsDefaultBounds
+        // also takes the size the cascade leaves: the client less nstagger steps on each axis. CenterScreen
+        // centres in the client, held at the corner when the child is the larger. Manual keeps its Location.
+        private void PlaceAsUpstream (MdiChildWindow frame, FormStartPosition position, Point manual)
+        {
+            AutoScroll = true;
+
+            var width = ViewportWidth;
+            var height = ViewportHeight;
+            var spacing = LogicalToDeviceUnits (CascadeStep);
+            var nstagger = height / (3 * spacing);
+
+            switch (position) {
+                case FormStartPosition.Manual:
+                    frame.Location = manual;
+                    break;
+
+                case FormStartPosition.CenterScreen:
+                    frame.Location = new Point (Math.Max (0, (width - frame.Width) / 2), Math.Max (0, (height - frame.Height) / 2));
+                    break;
+
+                default:
+                    var offset = spacing * (frames.Count % (nstagger + 1));
+                    frame.Location = new Point (offset, offset);
+
+                    if (position == FormStartPosition.WindowsDefaultBounds && width > 0 && height > 0)
+                        frame.Size = new Size (Math.Max (1, width - nstagger * spacing), Math.Max (1, height - nstagger * spacing));
+                        frame.ChildForm.RaiseMdiResize ();
+                    break;
+            }
         }
 
         internal void RemoveChild (MdiChildWindow frame)
@@ -236,10 +283,13 @@ namespace Majorsilence.Forms
 
         // ── Geometry helpers used by the frame during drag/resize ──────────────────
 
-        internal void MoveChild (MdiChildWindow frame, int x, int y)
+        internal void MoveChild (MdiChildWindow frame, int x, int y, bool programmatic = false)
         {
             frame.Location = new Point (x, y);
-            ClampToClient (frame);
+
+            // Upstream moves a child wherever code puts it, past the client's edges too, and scrolls to it.
+            if (!(programmatic && UpstreamPlacement))
+                ClampToClient (frame);
             if (frame.WindowState == FormWindowState.Normal)
                 frame.RestoreBounds = frame.Bounds;
             UpdateScrollExtent ();
@@ -282,7 +332,9 @@ namespace Majorsilence.Forms
                             f.Bounds = new Rectangle (0, 0, area.Width, area.Height);
                             f.ChildForm.RaiseMdiResize ();
                         }
-                    } else if (f.WindowState == FormWindowState.Normal) {
+                    } else if (f.WindowState == FormWindowState.Normal && !UpstreamPlacement) {
+                        // Upstream leaves a child where it is when the client shrinks, scroll bars
+                        // appearing to reach it, rather than shrinking it or pulling it back in.
                         FitToClient (f);
                     }
                 }
@@ -290,7 +342,10 @@ namespace Majorsilence.Forms
                 laying_out = false;
             }
 
-            UpdateScrollExtent ();
+            // In ported mode the scrollable extent is measured from the frames themselves by the layout that
+            // just ran (ScrollableControl.CalculateCanvasSize), scroll offset included.
+            if (!UpstreamPlacement)
+                UpdateScrollExtent ();
         }
 
         // Shrinks a normal child to fit within the client (never larger than the parent) and nudges it
@@ -436,6 +491,14 @@ namespace Majorsilence.Forms
         {
             if (!AutoScroll)
                 return;
+
+            // The extent is the frames' own, which the client's layout measures (scroll offset included);
+            // a minimum size in client coordinates would be stale as soon as the client scrolls.
+            if (UpstreamPlacement) {
+                if (!laying_out)
+                    PerformLayout ();
+                return;
+            }
             var right = 0;
             var bottom = 0;
             foreach (var f in frames) {
