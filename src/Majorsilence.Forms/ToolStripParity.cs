@@ -944,6 +944,11 @@ namespace Majorsilence.Forms
         // A vertical strip is as wide as its widest item and as tall as its items stacked (W6).
         internal override Size GetPreferredSizeCore (Size proposedSize)
         {
+            // A ported app's AutoSize horizontal strip measures as upstream's does (ToolStripAutoSize.cs). One with AutoSize
+            // off keeps its Size as the floor, which is what a ToolStripPanel row lays it out at.
+            if (SizesAsUpstreamStrip && AutoSize && EffectiveLayoutStyle == ToolStripLayoutStyle.HorizontalStackWithOverflow)
+                return UpstreamPreferredSize ();
+
             if (EffectiveLayoutStyle != ToolStripLayoutStyle.VerticalStackWithOverflow)
                 return base.GetPreferredSizeCore (proposedSize);
 

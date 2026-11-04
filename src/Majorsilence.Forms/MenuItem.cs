@@ -124,6 +124,7 @@ namespace Majorsilence.Forms
         /// </remarks>
         protected void InvalidateItemLayout ()
         {
+            (OwnerControl as ToolStrip)?.LayoutParentForItems ();
             OwnerControl?.PerformLayout ();
             OwnerControl?.Invalidate ();
         }
