@@ -1104,6 +1104,10 @@ namespace Majorsilence.Forms
 
         private int requested_height = -1;
 
+        // Sets the height asked for again, snapped to whole rows when IntegralHeight asks.
+        private void ApplyRequestedHeight ()
+            => SetBoundsCore (Left, Top, Width, requested_height > 0 ? requested_height : Height, BoundsSpecified.Height);
+
         /// <inheritdoc/>
         /// <remarks>
         /// A scale starts from the height that was asked for, not the whole-row height it snapped to,
@@ -1322,9 +1326,10 @@ namespace Majorsilence.Forms
                 integral_height = value;
 
                 // Straight to the core: SetBounds skips a call whose bounds have not changed, and
-                // the whole point here is to re-snap the height that is already set.
-                if (value)
-                    SetBoundsCore (Left, Top, Width, Height, BoundsSpecified.Height);
+                // the whole point here is to re-snap the height that is already set. Snapped or not,
+                // the height starts from the one asked for, as upstream's does: turning it off gives
+                // that height back, where the snapped one used to stay.
+                ApplyRequestedHeight ();
             }
         }
 

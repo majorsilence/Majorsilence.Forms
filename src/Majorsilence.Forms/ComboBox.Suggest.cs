@@ -94,7 +94,7 @@ namespace Majorsilence.Forms
             DroppedDown = false;
 
             if (suggest_list is null) {
-                suggest_list = new ListBox { Dock = DockStyle.Fill, SelectItemOnMouseUp = true, ShowHover = true };
+                suggest_list = new ListBox { Dock = DockStyle.Fill, SelectItemOnMouseUp = true, ShowHover = true, IsDropDownList = true };
                 suggest_list.SelectedIndexChanged += SuggestionList_SelectedIndexChanged;
             }
 

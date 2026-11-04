@@ -37,8 +37,12 @@ namespace Majorsilence.Forms
         internal static readonly SKColor TextBoxFocusBottom = new SKColor (0x00, 0x67, 0xC0);
         internal static readonly SKColor ListBoxOutline = new SKColor (0x82, 0x87, 0x90);
 
-        // A FixedSingle tree's (and list box's) outline: the native control's WS_BORDER line.
+        // A FixedSingle tree's outline: the native control's WS_BORDER line.
         internal static readonly SKColor SingleOutline = new SKColor (0x64, 0x64, 0x64);
+
+        // A FixedSingle list box's outline, lighter when the list box is disabled.
+        internal static readonly SKColor ListBoxSingleOutline = new SKColor (0x7A, 0x7A, 0x7A);
+        internal static readonly SKColor ListBoxSingleDisabledOutline = new SKColor (0xCC, 0xCC, 0xCC);
 
         // A drop-down list is drawn like a push button: near-white face, light outline, darker bottom.
         internal static readonly SKColor ComboListFace = new SKColor (0xFD, 0xFD, 0xFD);
@@ -204,20 +208,76 @@ namespace Majorsilence.Forms
         }
     }
 
+    // A list box is the native field: a Fixed3D one's client area two pixels in -- a #828790 line, then a white one
+    // whatever the BackColor -- and a FixedSingle one's one, inside a #7A7A7A line (#CCCCCC disabled); its face the
+    // BackColor, white unless set, enabled or not. Measured on WinForms (.NET 10): a 120 x 120 list box's client is
+    // 116 square from (2, 2), or 118 from (1, 1), and with IntegralHeight it is 104, or 102, high. Here the client
+    // was one pixel in whatever the BorderStyle, inside a #ABABAB line for FixedSingle, and a disabled list box's
+    // face was grey. A combo box's drop-down and suggestion lists keep the field they had.
     public partial class ListBox
     {
         /// <inheritdoc/>
         internal override SKColor? UpstreamDefaultBackColor
-            => FieldUpstreamLook.Applies && Enabled ? FieldUpstreamLook.Window : null;
+            => FieldUpstreamLook.Applies && (Enabled || UsesUpstreamFieldEdge) ? FieldUpstreamLook.Window : null;
 
-        private bool PaintsUpstreamField => FieldUpstreamLook.Applies && BorderStyle == BorderStyle.Fixed3D && BackgroundImage is null;
+        // A combo box's drop-down or suggestion list, drawn as it was: the native drop-down is a window of its own.
+        internal bool IsDropDownList { get; set; }
+
+        // Whether the list box is the native field, edge and all.
+        private bool UsesUpstreamFieldEdge => FieldUpstreamLook.Applies && !IsDropDownList;
+
+        // The field's edge, in logical pixels, by BorderStyle.
+        private int UpstreamFieldEdge => border_style switch {
+            BorderStyle.Fixed3D => 2,
+            BorderStyle.FixedSingle => 1,
+            _ => 0,
+        };
+
+        /// <inheritdoc/>
+        internal override System.Drawing.Rectangle DeviceClientRectangle {
+            get {
+                if (!UsesUpstreamFieldEdge)
+                    return base.DeviceClientRectangle;
+
+                var edge = LogicalToDeviceUnits (UpstreamFieldEdge);
+                return new System.Drawing.Rectangle (edge, edge, System.Math.Max (0, ScaledWidth - edge * 2), System.Math.Max (0, ScaledHeight - edge * 2));
+            }
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>Inside the field's edge, where the docked scroll bar sits: upstream's stops short of the outline,
+        /// clear of the white line inside it.</remarks>
+        public override System.Drawing.Rectangle DisplayRectangle {
+            get {
+                if (!UsesUpstreamFieldEdge)
+                    return base.DisplayRectangle;
+
+                var edge = UpstreamFieldEdge;
+                return new System.Drawing.Rectangle (edge, edge, System.Math.Max (0, Width - edge * 2), System.Math.Max (0, Height - edge * 2));
+            }
+        }
+
+        private bool PaintsUpstreamField
+            => FieldUpstreamLook.Applies && BackgroundImage is null
+            && (UsesUpstreamFieldEdge ? BorderStyle != BorderStyle.None : BorderStyle == BorderStyle.Fixed3D);
 
         private void PaintUpstreamField (PaintEventArgs e)
         {
             using var device = e.DeviceSpace ();
 
-            var face = Enabled ? GetEffectiveBackgroundColor () : FieldUpstreamLook.Control;
-            FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, face, FieldUpstreamLook.ListBoxOutline, null);
+            if (!UsesUpstreamFieldEdge) {
+                var face = Enabled ? GetEffectiveBackgroundColor () : FieldUpstreamLook.Control;
+                FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, face, FieldUpstreamLook.ListBoxOutline, null);
+                return;
+            }
+
+            if (BorderStyle == BorderStyle.Fixed3D) {
+                FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, GetEffectiveBackgroundColor (), FieldUpstreamLook.ListBoxOutline, null);
+                FieldUpstreamLook.InnerLine (e, ScaledWidth, ScaledHeight, FieldUpstreamLook.Window);
+            } else {
+                var outline = Enabled ? FieldUpstreamLook.ListBoxSingleOutline : FieldUpstreamLook.ListBoxSingleDisabledOutline;
+                FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, GetEffectiveBackgroundColor (), outline, null);
+            }
         }
     }
 
