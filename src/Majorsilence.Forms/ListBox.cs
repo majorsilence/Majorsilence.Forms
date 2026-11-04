@@ -704,7 +704,8 @@ namespace Majorsilence.Forms
         {
             base.OnMouseLeave (e);
 
-            if (ShowHover)
+            // Upstream's drop-down keeps its highlight on the row the mouse last crossed.
+            if (ShowHover && !PaintsUpstreamDropDown)
                 Items.HoveredIndex = -1;
         }
 

@@ -194,6 +194,18 @@ namespace Majorsilence.Forms
             // event and the format settings all belong to the combo, so the combo answers (LST-27).
             public override string GetItemText (object? item) => owner.GetItemText (item);
 
+            // Upstream's drop-down window in a ported app; a Simple combo's list is the list box's field.
+            internal override bool PaintsUpstreamDropDown => FieldUpstreamLook.Applies && !owner.IsSimple;
+
+            internal override bool UpstreamDropDownFocusCue => owner.DropDownStyle == ComboBoxStyle.DropDownList;
+
+            // The combo's colours: its own BackColor, white unless set (not the near-white face of a DropDownList's
+            // field), and its ForeColor, which the list shows even where a DropDownList's field draws WindowText.
+            internal override SkiaSharp.SKColor? UpstreamDefaultBackColor
+                => PaintsUpstreamDropDown ? owner.Style.BackgroundColor ?? FieldUpstreamLook.Window : base.UpstreamDefaultBackColor;
+
+            internal override SkiaSharp.SKColor UpstreamDropDownForeColor => owner.GetEffectiveForegroundColor ();
+
             // Hosted inside a Simple combo, the list is part of the combo rather than a stop of its
             // own: the native simple combo keeps the focus in its edit control while the list is
             // clicked (ComboBox/ComboBox.cs reaches the list only through ChildWndProc). In the popup
@@ -678,7 +690,11 @@ namespace Majorsilence.Forms
                     popup.Controls.Add (popup_listbox);
                     popup.Size = ComputePopupSize ();
 
-                    popup.Show (this, 1, Height);
+                    // A highlight left from the last time open goes; upstream's starts on the selected item.
+                    popup_listbox.Items.HoveredIndex = -1;
+
+                    // Upstream's list hangs from the combo's left edge; here it sat a pixel to the right.
+                    popup.Show (this, popup_listbox.PaintsUpstreamDropDown ? 0 : 1, Height);
 
                     OnDropDownOpened (EventArgs.Empty);
                 }
@@ -742,6 +758,9 @@ namespace Majorsilence.Forms
         // font-family pickers in ReportDesigner showed "Times New Ro…".
         internal Size ComputePopupSize ()
         {
+            if (popup_listbox.PaintsUpstreamDropDown)
+                return UpstreamPopupSize ();
+
             var itemHeight = popup_listbox.ItemHeight;
             var rows = Math.Max (1, Math.Min (Items.Count, MaxDropDownItems));
             var height = DropDownHeight != DefaultDropDownHeight
@@ -771,6 +790,21 @@ namespace Majorsilence.Forms
             return new Size (width, height);
         }
 
+        // Upstream's (visual styles on) drop-down, measured on WinForms (.NET 10): as wide as the combo, or
+        // DropDownWidth where that is wider, whatever its items' text; up to 30 rows tall, plus the one-pixel line
+        // top and bottom, whatever MaxDropDownItems says (the common controls' own limit); a DropDownHeight other
+        // than the default is the height. Here the list widened to its longest item, plus a scroll bar, and stopped
+        // at MaxDropDownItems rows.
+        internal const int UpstreamDropDownRows = 30;
+
+        private Size UpstreamPopupSize ()
+        {
+            var rows = Math.Min (Math.Max (Items.Count, 1), UpstreamDropDownRows);
+            var height = DropDownHeight != DefaultDropDownHeight ? DropDownHeight : rows * popup_listbox.ItemHeight + 2;
+
+            return new Size (Math.Max (Width, DropDownWidth), height);
+        }
+
         // The nested ObjectCollection needs the list the items actually live on.
         internal ListBox PopupListBox => popup_listbox;
 
@@ -788,6 +822,10 @@ namespace Majorsilence.Forms
             // Move the bound source's current item with the selection, so a BindingSource driving a
             // detail view follows what the user picked here.
             source_tracker.OnSelectionChanged (popup_listbox.SelectedIndex);
+
+            // Upstream's drop-down has the one highlight: an arrow key moves it off the row under the mouse.
+            if (popup_listbox.PaintsUpstreamDropDown)
+                popup_listbox.Items.HoveredIndex = -1;
 
             var index = popup_listbox.SelectedIndex;
 

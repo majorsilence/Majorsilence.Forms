@@ -220,8 +220,27 @@ namespace Majorsilence.Forms
         internal override SKColor? UpstreamDefaultBackColor
             => FieldUpstreamLook.Applies && (Enabled || UsesUpstreamFieldEdge) ? FieldUpstreamLook.Window : null;
 
-        // A combo box's drop-down or suggestion list, drawn as it was: the native drop-down is a window of its own.
+        // A combo box's drop-down or suggestion list, kept off the list box's field: the native drop-down is a window
+        // of its own (see PaintsUpstreamDropDown).
         internal bool IsDropDownList { get; set; }
+
+        // A combo box's drop-down drawn as upstream's native list window (ComboLBox), measured on WinForms (.NET 10)
+        // under the Windows 11 theme: a one-pixel #7A7A7A line (a FixedSingle list box's) round a face of the combo's
+        // BackColor, white unless set; the highlighted row filled with SystemColors.Highlight under HighlightText,
+        // other rows in the combo's ForeColor; the highlight follows the mouse, there being no hover colour of its
+        // own; and a DropDownList's list a dotted focus cue round the highlighted row. Only the combo's own list
+        // says yes.
+        internal virtual bool PaintsUpstreamDropDown => false;
+
+        // Whether the drop-down draws the dotted focus cue: a DropDownList's does, a DropDown's (whose focus is in the
+        // edit region) does not.
+        internal virtual bool UpstreamDropDownFocusCue => false;
+
+        // The colour of an unhighlighted row's text in the drop-down.
+        internal virtual SKColor UpstreamDropDownForeColor => GetEffectiveForegroundColor ();
+
+        // The row the drop-down highlights: the one under the mouse, else the selected one.
+        internal int UpstreamDropDownHighlight => Items.HoveredIndex >= 0 ? Items.HoveredIndex : SelectedIndex;
 
         // Whether the list box is the native field, edge and all.
         private bool UsesUpstreamFieldEdge => FieldUpstreamLook.Applies && !IsDropDownList;
@@ -236,10 +255,11 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         internal override System.Drawing.Rectangle DeviceClientRectangle {
             get {
-                if (!UsesUpstreamFieldEdge)
+                // The drop-down's client is inside its one-pixel line, at any scale.
+                if (!UsesUpstreamFieldEdge && !PaintsUpstreamDropDown)
                     return base.DeviceClientRectangle;
 
-                var edge = LogicalToDeviceUnits (UpstreamFieldEdge);
+                var edge = LogicalToDeviceUnits (PaintsUpstreamDropDown ? 1 : UpstreamFieldEdge);
                 return new System.Drawing.Rectangle (edge, edge, System.Math.Max (0, ScaledWidth - edge * 2), System.Math.Max (0, ScaledHeight - edge * 2));
             }
         }
@@ -259,11 +279,16 @@ namespace Majorsilence.Forms
 
         private bool PaintsUpstreamField
             => FieldUpstreamLook.Applies && BackgroundImage is null
-            && (UsesUpstreamFieldEdge ? BorderStyle != BorderStyle.None : BorderStyle == BorderStyle.Fixed3D);
+            && (PaintsUpstreamDropDown || (UsesUpstreamFieldEdge ? BorderStyle != BorderStyle.None : BorderStyle == BorderStyle.Fixed3D));
 
         private void PaintUpstreamField (PaintEventArgs e)
         {
             using var device = e.DeviceSpace ();
+
+            if (PaintsUpstreamDropDown) {
+                FieldUpstreamLook.Paint (e, ScaledWidth, ScaledHeight, GetEffectiveBackgroundColor (), FieldUpstreamLook.ListBoxSingleOutline, null);
+                return;
+            }
 
             if (!UsesUpstreamFieldEdge) {
                 var face = Enabled ? GetEffectiveBackgroundColor () : FieldUpstreamLook.Control;
