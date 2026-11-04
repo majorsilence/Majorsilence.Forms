@@ -15,6 +15,6 @@ namespace Majorsilence.Forms
         }
 
         /// <inheritdoc/>
-        protected override Size DefaultSize => new Size (80, 15);
+        protected override Size DefaultSize => new Size (80, DefaultThickness);
     }
 }
