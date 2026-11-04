@@ -43,15 +43,15 @@ namespace Majorsilence.Forms
             var image = UpstreamImageWidth;
             var centre = (columns - 1) * UpstreamIndent + (image > 0 ? image : UpstreamIndent) / 2 + 3;
 
-            return node.Bounds.Left + LogicalToDeviceUnits (centre);
+            return node.DeviceBounds.Left + LogicalToDeviceUnits (centre);
         }
 
         /// <summary>The y, in device pixels, of the centre of <paramref name="node"/>'s button and stub.</summary>
         internal int UpstreamCentreY (TreeNode node)
         {
-            var half = DeviceToLogicalUnits (node.Bounds.Height) / 2;
+            var half = DeviceToLogicalUnits (node.DeviceBounds.Height) / 2;
 
-            return node.Bounds.Top + LogicalToDeviceUnits (half % 2 == 0 ? half : half + 1);
+            return node.DeviceBounds.Top + LogicalToDeviceUnits (half % 2 == 0 ? half : half + 1);
         }
 
         /// <summary>The x, in device pixels, where <paramref name="node"/>'s content (check box, image,
@@ -61,7 +61,7 @@ namespace Majorsilence.Forms
             var columns = UpstreamColumns (node);
             var left = columns <= 0 ? 3 : (columns - 1) * UpstreamIndent + System.Math.Max (UpstreamIndent, UpstreamImageWidth) + 3;
 
-            return node.Bounds.Left + LogicalToDeviceUnits (left);
+            return node.DeviceBounds.Left + LogicalToDeviceUnits (left);
         }
 
         /// <summary>The x, in device pixels, where <paramref name="node"/>'s image starts.</summary>
@@ -86,7 +86,7 @@ namespace Majorsilence.Forms
             var width = LogicalToDeviceUnits (size.Width);
             var height = LogicalToDeviceUnits (size.Height);
 
-            return new Rectangle (UpstreamImageLeft (node), node.Bounds.Top + (node.Bounds.Height - height) / 2, width, height);
+            return new Rectangle (UpstreamImageLeft (node), node.DeviceBounds.Top + (node.DeviceBounds.Height - height) / 2, width, height);
         }
 
         /// <summary>The 9px button rectangle, in device pixels, or empty when the node's row has no button

@@ -105,7 +105,7 @@ namespace Majorsilence.Forms.Tests
             using var tree = Tree ("a", "b", "c", "d");
             tree.LayoutItems ();
 
-            var row = tree.Nodes[3].Bounds;
+            var row = tree.Nodes[3].DeviceBounds;
             var logical = new Point (
                 row.Left + 8, (int)((row.Top + row.Height / 2.0) / tree.ScaleFactor.Height));
 
@@ -318,7 +318,7 @@ namespace Majorsilence.Forms.Tests
 
             // It was stored while the renderer measured every row from the node's preferred size, so
             // taller rows for touch were silently ignored.
-            Assert.Equal (tree.LogicalToDeviceUnits (40), tree.Nodes[1].Bounds.Top - tree.Nodes[0].Bounds.Top);
+            Assert.Equal (tree.LogicalToDeviceUnits (40), tree.Nodes[1].DeviceBounds.Top - tree.Nodes[0].DeviceBounds.Top);
         }
 
         [Fact]

@@ -90,7 +90,7 @@ namespace Majorsilence.Forms.Tests
                     Bitmap = SKBitmap.Decode (HeadlessRenderer.CapturePng (form, 340, 300)),
                     Scale = tree.LogicalToDeviceUnits (100) / 100f,
                     ItemHeight = tree.ItemHeight,
-                    RowPitch = child.Bounds.Top - alpha.Bounds.Top,
+                    RowPitch = child.DeviceBounds.Top - alpha.DeviceBounds.Top,
                     Focused = tree.Focused,
                     Selected = ((TreeView) tree).SelectedNode,
                 };

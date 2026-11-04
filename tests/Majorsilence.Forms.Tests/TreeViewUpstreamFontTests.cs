@@ -77,7 +77,7 @@ namespace Majorsilence.Forms.Tests
                 form.Show ();
                 HeadlessRenderer.CapturePng (form, 200, 120);
 
-                return (tree.Nodes[1].Bounds.Top - tree.Nodes[0].Bounds.Top, tree.LogicalToDeviceUnits (tree.ItemHeight));
+                return (tree.Nodes[1].DeviceBounds.Top - tree.Nodes[0].DeviceBounds.Top, tree.LogicalToDeviceUnits (tree.ItemHeight));
             });
 
             Assert.Equal (expected, step);

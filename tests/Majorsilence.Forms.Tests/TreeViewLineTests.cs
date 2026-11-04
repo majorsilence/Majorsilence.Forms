@@ -160,7 +160,7 @@ namespace Majorsilence.Forms.Tests
             var x = GutterX (tree, node.IndentLevel);
             var ink = 0;
 
-            for (var y = node.Bounds.Top; y < node.Bounds.Bottom && y < bitmap.Height; y++)
+            for (var y = node.DeviceBounds.Top; y < node.DeviceBounds.Bottom && y < bitmap.Height; y++)
                 if (bitmap.GetPixel (x, y) != bitmap.GetPixel (bitmap.Width - 2, y))
                     ink++;
 
@@ -173,7 +173,7 @@ namespace Majorsilence.Forms.Tests
         {
             var step = tree.LogicalToDeviceUnits (tree.Indent > 0 ? tree.Indent : 18);
 
-            return tree.Nodes[0].Bounds.Left + level * step + 2 + tree.LogicalToDeviceUnits (10) / 2;
+            return tree.Nodes[0].DeviceBounds.Left + level * step + 2 + tree.LogicalToDeviceUnits (10) / 2;
         }
 
         // Non-background pixels at a gutter's x, counted ONLY over the rows of nodes deeper than that
@@ -193,7 +193,7 @@ namespace Majorsilence.Forms.Tests
                     continue;
 
                 foreach (var node in Deeper (tree, l))
-                    for (var y = node.Bounds.Top; y < node.Bounds.Bottom && y < bitmap.Height; y++)
+                    for (var y = node.DeviceBounds.Top; y < node.DeviceBounds.Bottom && y < bitmap.Height; y++)
                         if (bitmap.GetPixel (x, y) != bitmap.GetPixel (bitmap.Width - 2, y))
                             ink++;
             }

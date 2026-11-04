@@ -61,9 +61,16 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// Gets the current bounding box of the item.
+        /// Gets the current bounding box of the item, in logical units -- the space the tree's
+        /// <see cref="Control.ClientRectangle"/>, <see cref="TreeView.GetNodeAt(int, int)"/> and mouse
+        /// events are in.
         /// </summary>
-        public Rectangle Bounds { get; private set; }
+        public Rectangle Bounds => TreeView is { } tree ? tree.DeviceToLogicalUnits (DeviceBounds) : DeviceBounds;
+
+        // The laid-out row in device pixels, which painting and hit-testing work in. The public Bounds
+        // returned this, so at a scale of 2 an app's node.Bounds.Contains (e.Location) missed, and a
+        // label editor or tooltip placed from it landed twice as far in.
+        internal Rectangle DeviceBounds { get; private set; }
 
         /// <summary>
         /// Hides this item's children.
@@ -204,7 +211,7 @@ namespace Majorsilence.Forms
                 glyph_bounds.Inflate (4, 4);
 
             // location arrives logical (MouseEventArgs); glyph_bounds is device-pixel (built from the
-            // item's device Bounds). Convert before testing, as TreeView.GetItemAtLocation does.
+            // item's DeviceBounds). Convert before testing, as TreeView.GetItemAtLocation does.
             var device = new Point (tv.LogicalToDeviceUnits (location.X), tv.LogicalToDeviceUnits (location.Y));
 
             if (glyph_bounds.Contains (device))
@@ -363,7 +370,7 @@ namespace Majorsilence.Forms
         /// </summary>
         public void SetBounds (int x, int y, int width, int height, BoundsSpecified specified = BoundsSpecified.All)
         {
-            Bounds = new Rectangle (x, y, width, height);
+            DeviceBounds = new Rectangle (x, y, width, height);
         }
 
         /// <summary>
