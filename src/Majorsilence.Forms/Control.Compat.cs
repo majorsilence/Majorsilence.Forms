@@ -201,7 +201,9 @@ namespace Majorsilence.Forms
 
         private protected void PaintBackgroundImage (PaintEventArgs e)
         {
-            var image = background_image;
+            // The properties, not the fields: a type can report an image or layout it does not store (an MDI client
+            // shows its form's), and that is the one to draw.
+            var image = BackgroundImage;
 
             if (image is null)
                 return;
@@ -216,7 +218,7 @@ namespace Majorsilence.Forms
             var width = ScaledBounds.Width;
             var height = ScaledBounds.Height;
 
-            switch (background_image_layout) {
+            switch (BackgroundImageLayout) {
                 case ImageLayout.None: {
                         e.Canvas.DrawBitmap (skBmp, new SKRect (0, 0, skBmp.Width, skBmp.Height));
                         break;

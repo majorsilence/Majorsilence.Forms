@@ -269,9 +269,13 @@ namespace Majorsilence.Forms.Tests
 
                 Assert.Contains (tool, dock.DockWindows.ToolWindows);
 
+                var removed = new System.Collections.Generic.List<DockWindowBase?> ();
+                dock.DockWindowRemoved += (s, e) => removed.Add (e.DockWindow);
+
                 dock.CloseWindow (tool);
 
                 Assert.DoesNotContain (tool, dock.DockWindows.ToolWindows);
+                Assert.Equal (new DockWindowBase?[] { tool }, removed);
             } finally {
                 form.Close ();
             }

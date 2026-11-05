@@ -81,7 +81,7 @@ namespace Majorsilence.Forms.Telerik
         private int RowHeight => tree.ItemHeight > 0 ? tree.ItemHeight : 20;
 
         // The left of column `column` (0 for the roots') of the node's row.
-        private int ColumnLeft (TreeNode node, int column) => node.Bounds.Left + Device (column * Indent);
+        private int ColumnLeft (TreeNode node, int column) => node.DeviceBounds.Left + Device (column * Indent);
 
         public override int ContentLeft (TreeNode node) => ColumnLeft (node, node.IndentLevel + 1);
 
@@ -93,12 +93,12 @@ namespace Majorsilence.Forms.Telerik
             var size = Device (9);
 
             return new Rectangle (ColumnLeft (node, node.IndentLevel) + Device ((Indent - 9) / 2 + 1),
-                node.Bounds.Top + Device ((RowHeight - 9) / 2 + 1), size, size);
+                node.DeviceBounds.Top + Device ((RowHeight - 9) / 2 + 1), size, size);
         }
 
         // The image element: the image's width plus 2, down the content.
         private Rectangle ImageElement (TreeNode node, SKBitmap? image)
-            => new Rectangle (ContentLeft (node) + tree.ScaledCheckWidth, node.Bounds.Top + Device (1),
+            => new Rectangle (ContentLeft (node) + tree.ScaledCheckWidth, node.DeviceBounds.Top + Device (1),
                 Device ((image?.Width ?? 0) + 2), Device (RowHeight - 2));
 
         public override Rectangle ImageBounds (TreeNode node, SKBitmap? image)
@@ -108,7 +108,7 @@ namespace Majorsilence.Forms.Telerik
         {
             var element = ImageElement (node, image);
 
-            return new Rectangle (element.Right, element.Top, Math.Max (0, node.Bounds.Right - element.Right), element.Height);
+            return new Rectangle (element.Right, element.Top, Math.Max (0, node.DeviceBounds.Right - element.Right), element.Height);
         }
 
         public override Drawing.Font? DefaultFont => ThemeFont;
@@ -147,8 +147,8 @@ namespace Majorsilence.Forms.Telerik
             var dot = Device (1);
             var step = 2 * dot;
             var thickness = Math.Max (1, (int) Math.Round (dot * tree.LineWidth));
-            var top = node.Bounds.Top;
-            var bottom = node.Bounds.Bottom;
+            var top = node.DeviceBounds.Top;
+            var bottom = node.DeviceBounds.Bottom;
             var centre_y = top + Device (RowHeight / 2);
             var level = node.IndentLevel;
 

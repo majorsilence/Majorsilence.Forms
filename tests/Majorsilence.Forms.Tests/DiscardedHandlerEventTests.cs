@@ -28,7 +28,7 @@ public class DiscardedHandlerEventTests
         TreeNode? hovered = null;
         tree.NodeMouseHover += (_, e) => hovered = e.Node;
 
-        var beta = tree.Nodes[1].Bounds; // device units
+        var beta = tree.Nodes[1].DeviceBounds; // device units
         var at = new Point (tree.DeviceToLogicalUnits (beta.Left + 4), tree.DeviceToLogicalUnits (beta.Top + beta.Height / 2));
         tree.RaiseMouseMove (At (at.X, at.Y));
         tree.RaiseHoverAfterRest ();

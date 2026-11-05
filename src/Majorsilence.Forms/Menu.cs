@@ -57,7 +57,12 @@ namespace Majorsilence.Forms
             var visible = Items.Where (i => i.Visible).ToList ();
             var area = LogicalClientRectangle;
 
-            if (UpstreamFont is { } font) {
+            if (SizesAsUpstreamStrip) {
+                // A ported app's menu strip is sized by its AutoSize, as upstream's is (or keeps the Size it was given
+                // with AutoSize off), and lays its items out over its height inside its padding.
+                area = new Rectangle (area.X + Padding.Left, area.Y + Padding.Top,
+                    Math.Max (0, area.Width - Padding.Horizontal), Math.Max (0, area.Height - Padding.Vertical));
+            } else if (UpstreamFont is { } font) {
                 // Upstream's MenuStrip is as tall as its tallest item plus its padding (its AutoSize, which
                 // defaults on there; this strip's AutoSize defaults off, so it is not consulted), and lays
                 // its items out inside that padding.
@@ -102,7 +107,7 @@ namespace Majorsilence.Forms
 
         // An item's height under upstream's metrics: a line of text, or a merged MDI child's 20px icon,
         // inside its padding and the 2px item border.
-        private static int UpstreamItemHeight (MenuItem item, Majorsilence.Forms.Drawing.Font font)
+        internal static int UpstreamItemHeight (MenuItem item, Majorsilence.Forms.Drawing.Font font)
             => item is MdiControlItem ? 24 : UpstreamTextHeight (font) + item.Padding.Vertical + 4;
 
         // A line of text as upstream's item measures it -- TextRenderer's line height, GDI's tmHeight -- and never less

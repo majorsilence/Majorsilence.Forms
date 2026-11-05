@@ -35,7 +35,7 @@ namespace Majorsilence.Forms.Tests
         }
 
         // The whole rows the tree shows (node bounds are in device pixels).
-        private static int Rows (TreeView tree) => tree.DeviceClientRectangle.Height / tree.Nodes[0].Bounds.Height;
+        private static int Rows (TreeView tree) => tree.DeviceClientRectangle.Height / tree.Nodes[0].DeviceBounds.Height;
 
         [Fact]
         public void Expanding_a_node_near_the_bottom_brings_its_last_child_onto_the_bottom_row ()

@@ -277,6 +277,11 @@ namespace Majorsilence.Forms
         internal int ViewportWidth
             => Math.Max (0, base.DisplayRectangle.Width - (vscrollbar.Visible ? vscrollbar.Width : 0) - Padding.Horizontal);
 
+        /// <summary>The height counterpart of <see cref="ViewportWidth"/>: the client area less the padding and a visible
+        /// horizontal scroll bar.</summary>
+        internal int ViewportHeight
+            => Math.Max (0, base.DisplayRectangle.Height - (hscrollbar.Visible ? hscrollbar.Height : 0) - Padding.Vertical);
+
         /// <inheritdoc/>
         /// <remarks>
         /// <para>
@@ -400,7 +405,7 @@ namespace Majorsilence.Forms
 
             // A finger needs a wider strip than a mouse pointer to hit and drag the thumb. Without AutoScroll no bar
             // is shown, so the size is never used and the walk up to the form is skipped.
-            var bar_size = auto_scroll && FindForm () is { IsSingleViewHost: true } ? 22 : 15;
+            var bar_size = auto_scroll && FindForm () is { IsSingleViewHost: true } ? 22 : ScrollBar.DefaultThickness;
 
             do {
                 prev_right_edge = right_edge;
@@ -442,7 +447,10 @@ namespace Majorsilence.Forms
                 hscrollbar.SmallChange = 5;
                 // The bar's own convention: the last offset is Maximum - LargeChange + 1. Setting Maximum to the last offset itself left
                 // the thumb with a range of (content - 2 x viewport), none for a page under two screens.
-                hscrollbar.Maximum = canvas.Width - client.Width + bar_size + hscrollbar.LargeChange - 1;
+                // The page is right_edge itself, not the bar's LargeChange read back: that getter is clamped to the bar's current
+                // range, so a bar just shown (range 0..100) got a Maximum built from a 101px page, and the range only crept up to
+                // the content's extent over several layouts -- until then the far end could not be scrolled to.
+                hscrollbar.Maximum = canvas.Width - client.Width + bar_size + right_edge - 1;
 
             } else {
                 if (hscrollbar.Visible)
@@ -454,7 +462,7 @@ namespace Majorsilence.Forms
             if (vscroll_visible) {
                 vscrollbar.LargeChange = bottom_edge;
                 vscrollbar.SmallChange = 5;
-                vscrollbar.Maximum = canvas.Height - client.Height + bar_size + vscrollbar.LargeChange - 1;
+                vscrollbar.Maximum = canvas.Height - client.Height + bar_size + bottom_edge - 1;
 
             } else {
                 if (vscrollbar.Visible)

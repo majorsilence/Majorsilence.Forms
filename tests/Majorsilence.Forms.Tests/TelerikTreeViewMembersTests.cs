@@ -201,8 +201,8 @@ public class TelerikTreeViewMembersTests
     {
         using var bitmap = PaintSurface.Render (tree);
 
-        var y_from = node.Bounds.Top;
-        var y_to = System.Math.Min (node.Bounds.Bottom, bitmap.Height);
+        var y_from = node.DeviceBounds.Top;
+        var y_to = System.Math.Min (node.DeviceBounds.Bottom, bitmap.Height);
 
         // Past the control's border, which is ink on every row.
         for (var x = tree.LogicalToDeviceUnits (3); x < bitmap.Width - 2; x++)
@@ -220,11 +220,11 @@ public class TelerikTreeViewMembersTests
 
         var root = tree.Nodes[0]!;
         // The roots' line runs down the centre of their column, TreeIndent wide.
-        var centre = root.Bounds.Left + tree.LogicalToDeviceUnits (tree.TreeIndent / 2);
+        var centre = root.DeviceBounds.Left + tree.LogicalToDeviceUnits (tree.TreeIndent / 2);
         var ink = 0;
 
         foreach (var child in root.Nodes)
-            for (var y = child.Bounds.Top; y < child.Bounds.Bottom && y < bitmap.Height; y++)
+            for (var y = child.DeviceBounds.Top; y < child.DeviceBounds.Bottom && y < bitmap.Height; y++)
                 for (var x = System.Math.Max (0, centre - 4); x <= centre + 4; x++)
                     if (bitmap.GetPixel (x, y) != bitmap.GetPixel (bitmap.Width - 2, y))
                         ink++;

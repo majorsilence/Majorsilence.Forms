@@ -2650,6 +2650,7 @@ namespace Majorsilence.Forms
         public ToolStrip ()
         {
             _items = CreateItemsFacade ();
+            InitializeUpstreamAutoSize ();
         }
 
         /// <summary>
@@ -2660,6 +2661,7 @@ namespace Majorsilence.Forms
         protected ToolStrip (MenuItem root) : base (root)
         {
             _items = CreateItemsFacade ();
+            InitializeUpstreamAutoSize ();
         }
 
         // The facade collection must forward into the base MenuBase root collection: that base
@@ -2698,6 +2700,8 @@ namespace Majorsilence.Forms
         /// </remarks>
         internal void NotifyItemAdded (MenuItem item)
         {
+            LayoutParentForItems ();
+
             if (item is not ToolStripItem stripItem || suppress_item_notifications)
                 return;
 
@@ -2713,6 +2717,8 @@ namespace Majorsilence.Forms
         /// <inheritdoc cref="NotifyItemAdded"/>
         internal void NotifyItemRemoved (MenuItem item)
         {
+            LayoutParentForItems ();
+
             if (item is not ToolStripItem stripItem || suppress_item_notifications)
                 return;
 
@@ -3769,7 +3775,8 @@ namespace Majorsilence.Forms
         protected override Padding DefaultPadding => new Padding (1, 0, 16, 0);
 
         /// <inheritdoc/>
-        protected override Size DefaultSize => new Size (600, 22);
+        /// <remarks>Upstream's 200 x 22 for a ported app's status strip, the floor of its height.</remarks>
+        protected override Size DefaultSize => SizesAsUpstreamStrip ? new Size (200, 22) : new Size (600, 22);
 
         /// <inheritdoc/>
         public new static ControlStyle DefaultStyle = new ControlStyle (Control.DefaultStyle,
@@ -3817,7 +3824,7 @@ namespace Majorsilence.Forms
             // the window resizes. It was stored and read by nothing, so every item took a fixed width
             // and a "spring" label sat next to its neighbour with a gap after it.
             var springs = visible.Count (IsSpring);
-            var fixed_width = visible.Where (i => !IsSpring (i)).Sum (Width);
+            var fixed_width = visible.Where (i => !IsSpring (i)).Sum (ItemWidth);
             var spacing = ItemSpacing * Math.Max (0, visible.Count - 1);
             var spring_width = springs == 0
                 ? 0
@@ -3826,7 +3833,7 @@ namespace Majorsilence.Forms
             var x = rect.X;
 
             foreach (var item in visible) {
-                var width = IsSpring (item) ? spring_width : Width (item);
+                var width = IsSpring (item) ? spring_width : ItemWidth (item);
 
                 item.SetBounds (x, rect.Y, width, rect.Height);
 
@@ -3835,11 +3842,12 @@ namespace Majorsilence.Forms
 
             static bool IsSpring (MenuItem item) => item is ToolStripStatusLabel label && label.Spring;
 
-            static int Width (MenuItem item)
-                => item is ToolStripItem tsi && tsi.Size.Width > 0 ? tsi.Size.Width : DefaultItemWidth;
-
             OnLayoutCompletedCore ();
         }
+
+        // The width an item is laid out at: its own, or DefaultItemWidth when it has none.
+        internal static int ItemWidth (MenuItem item)
+            => item is ToolStripItem tsi && tsi.Size.Width > 0 ? tsi.Size.Width : DefaultItemWidth;
 
         /// <summary>Width used for an item that hasn't been given an explicit Size.</summary>
         internal const int DefaultItemWidth = 120;

@@ -857,7 +857,7 @@ namespace Majorsilence.Forms
                     return;
 
                 if (MdiHost != null)
-                    MdiHost.Client.MoveChild (MdiHost, value.X, value.Y);
+                    MdiHost.Client.MoveChild (MdiHost, value.X, value.Y, programmatic: true);
                 else if (PanelHost != null)
                     PanelHost.Location = value;
                 else

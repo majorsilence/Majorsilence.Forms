@@ -177,7 +177,7 @@ public class TelerikTreeNodeCheckStateTests
 
         using (form) {
             // Bounds are device pixels; GetNodeAt takes the logical client point.
-            var row = b.Bounds;
+            var row = b.DeviceBounds;
             var at = new Point ((int) ((row.Left + 30) / tree.Scaling), (int) ((row.Top + row.Height / 2) / tree.Scaling));
 
             Assert.Same (b, ((TreeView) tree).GetNodeAt (at));

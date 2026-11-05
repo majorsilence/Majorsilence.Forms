@@ -91,7 +91,8 @@ namespace Majorsilence.Forms
             bool Ellipsis,
             int MnemonicIndex,
             int Rasterisation,     // -1 for the default; see CreateTextBlock
-            int Decoration);       // DecorationUnderline / DecorationStrikeout over the whole text
+            int Decoration,        // DecorationUnderline / DecorationStrikeout over the whole text
+            TextDirection Direction = TextDirection.Auto);  // the paragraph's reading order; see CreateTextBlock
 
         // Paint-safe TextBlock cache. TextBlock layout is idempotent; Paint() is read-only (painting one block on
         // several threads at once is covered by TextBlockConcurrentPaintTests). Reusing cached instances
@@ -184,7 +185,9 @@ namespace Majorsilence.Forms
         internal static int DecorationOf (Majorsilence.Forms.Drawing.Font? font)
             => font is null ? 0 : (font.Underline ? DecorationUnderline : 0) | (font.Strikeout ? DecorationStrikeout : 0);
 
-        internal static TextBlock CreateTextBlock (string text, SKTypeface font, int fontSize, Size maxSize, TextAlignment alignment = TextAlignment.Auto, SKColor color = new SKColor (), int? maxLines = null, bool ellipsis = false, int mnemonicIndex = -1, int rasterisation = -1, int decoration = 0)
+        // direction is the paragraph's reading order: Auto takes it from the first strong character (the theme's way),
+        // LTR or RTL fixes it, as upstream's DrawTextEx without or with DT_RTLREADING does (see ReadingDirectionOf).
+        internal static TextBlock CreateTextBlock (string text, SKTypeface font, int fontSize, Size maxSize, TextAlignment alignment = TextAlignment.Auto, SKColor color = new SKColor (), int? maxLines = null, bool ellipsis = false, int mnemonicIndex = -1, int rasterisation = -1, int decoration = 0, TextDirection direction = TextDirection.Auto)
         {
             // rasterisation keys the cache only. RichTextKit builds each run's SKTextBlob on the FIRST
             // paint, with that paint's edging and hinting, and reuses it for every later paint -- so a
@@ -197,15 +200,15 @@ namespace Majorsilence.Forms
                 text = text.Replace ("\r", "»");
             }
 
-            var key = new TextBlockKey (text, font, fontSize, maxSize.Width, maxSize.Height, alignment, (uint)color, maxLines ?? -1, ellipsis, mnemonicIndex, rasterisation, decoration);
+            var key = new TextBlockKey (text, font, fontSize, maxSize.Width, maxSize.Height, alignment, (uint)color, maxLines ?? -1, ellipsis, mnemonicIndex, rasterisation, decoration, direction);
 
             if (_blocks.TryGet (key, out var cached))
                 return cached;
 
-            return _blocks.Add (key, LayOut (text, font, fontSize, maxSize, alignment, color, maxLines, ellipsis, mnemonicIndex, decoration));
+            return _blocks.Add (key, LayOut (text, font, fontSize, maxSize, alignment, color, maxLines, ellipsis, mnemonicIndex, decoration, direction));
         }
 
-        private static TextBlock LayOut (string text, SKTypeface font, int fontSize, Size maxSize, TextAlignment alignment, SKColor color, int? maxLines, bool ellipsis, int mnemonicIndex, int decoration = 0)
+        private static TextBlock LayOut (string text, SKTypeface font, int fontSize, Size maxSize, TextAlignment alignment, SKColor color, int? maxLines, bool ellipsis, int mnemonicIndex, int decoration = 0, TextDirection direction = TextDirection.Auto)
         {
             // In a ported app the text is laid out on GDI's pixel grid, as upstream's TextRenderer lays it out.
             using var gdi = GdiTextLayout.Enter (fontSize);
@@ -216,6 +219,7 @@ namespace Majorsilence.Forms
                 Alignment = alignment,
                 MaxLines = maxLines,
                 EllipsisEnabled = ellipsis,
+                BaseDirection = direction,
             };
 
             // The typeface's slant has to travel with its weight: RichTextKit re-resolves the face
@@ -460,6 +464,25 @@ namespace Majorsilence.Forms
             tb.AddText (text, new Style ());
 
             return tb.CaretIndicies[tb.CaretIndicies.Count - 1];
+        }
+
+        /// <summary>
+        /// The reading order a control's text is laid out in. A ported app's control reads as upstream's does: right to
+        /// left when <see cref="Control.RightToLeft"/> is Yes (<c>DT_RTLREADING</c>), else left to right whatever its
+        /// first letter. Elsewhere the first strong character decides, as it always has.
+        /// </summary>
+        /// <remarks>
+        /// Measured on WinForms (.NET 10), 8.25pt labels: with RightToLeft.Yes ":Cheque Total" shows "Cheque Total:" at the
+        /// right (the colon, a neutral before the first letter, takes the paragraph's direction), "-5.00" shows "5.00-" and
+        /// "#1 Fee" shows "Fee #1", each pixel for pixel the reordered caption drawn left to right. With RightToLeft.No a
+        /// caption beginning in Hebrew (":שלום") is still a left-to-right paragraph: the colon stays at the left.
+        /// </remarks>
+        internal static TextDirection ReadingDirectionOf (Control control)
+        {
+            if (!ControlPaint.UsesUpstreamGlyphs)
+                return TextDirection.Auto;
+
+            return control.RightToLeft == RightToLeft.Yes ? TextDirection.RTL : TextDirection.LTR;
         }
 
         internal static TextAlignment GetTextAlign (ContentAlignment alignment)

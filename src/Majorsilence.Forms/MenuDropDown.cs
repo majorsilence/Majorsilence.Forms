@@ -189,6 +189,11 @@ namespace Majorsilence.Forms
             }
         }
 
+        /// <inheritdoc/>
+        /// <remarks>A ported app's drop-down prefers the size it opens at for its items, as upstream's does.</remarks>
+        internal override Size GetPreferredSizeCore (Size proposedSize)
+            => SizesAsUpstreamStrip && AutoSize && Items.Any (i => i.Visible) ? PreferredPopupSize : base.GetPreferredSizeCore (proposedSize);
+
         /// <summary>The screen point the drop-down was last shown at (W6 mechanisms; tests).</summary>
         internal Point LastShowLocation { get; private set; }
 
@@ -241,6 +246,11 @@ namespace Majorsilence.Forms
         /// </summary>
         public virtual void Show (Control parent, Point location)
         {
+            // A ported app's drop-down with AutoSize turned off keeps the Size it was given, as upstream's does; an
+            // AutoSize one (the default) is as big as its items, whatever its Size said. Read before the drop-down
+            // first goes into its popup, which docks it to the popup's own size.
+            var fixed_size = SizesAsUpstreamStrip && !AutoSize && Width > 0 && Height > 0 ? Size : Size.Empty;
+
             if (popup == null) {
                 if (parent.FindWindow () is not WindowBase parent_window)
                     throw new InvalidOperationException ("Control 'parent' must belong to a window.");
@@ -253,6 +263,11 @@ namespace Majorsilence.Forms
             popup.ScopeOwner = parent;
 
             LayoutItems ();
+
+            if (!fixed_size.IsEmpty) {
+                width = fixed_size.Width;
+                height = fixed_size.Height;
+            }
 
             // width/height come from the items' preferred sizes, which are already logical (each is run
             // through DeviceToLogicalUnits by MenuItem.GetPreferredSize). Window Size is logical too --

@@ -82,7 +82,7 @@ namespace Majorsilence.Forms
         /// <remarks>The control font's Underline and Strikeout are drawn, as upstream draws a control's text in
         /// an underlined or struck-out font.</remarks>
         public static void DrawText (this SKCanvas canvas, string text, Rectangle bounds, Control control, ContentAlignment alignment, int selectionStart = -1, int selectionEnd = -1, SKColor? selectionColor = null, int? maxLines = null, bool ellipsis = false)
-            => DrawText (canvas, text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, control.Enabled ? control.GetEffectiveForegroundColor () : control.DisabledForeColor, alignment, selectionStart, selectionEnd, selectionColor, maxLines, ellipsis, paintOptions: null, TextMeasurer.DecorationOf (control.Font));
+            => DrawText (canvas, text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, control.Enabled ? control.GetEffectiveForegroundColor () : control.DisabledForeColor, alignment, selectionStart, selectionEnd, selectionColor, maxLines, ellipsis, paintOptions: null, TextMeasurer.DecorationOf (control.Font), TextMeasurer.ReadingDirectionOf (control));
 
         /// <summary>
         /// Draws a string of text.
@@ -94,7 +94,7 @@ namespace Majorsilence.Forms
         /// Draws a string of text with caller-chosen glyph rasterisation; null means the library default.
         /// <c>Graphics.TextRenderingHint</c> reaches the text through here (GFX-08).
         /// </summary>
-        internal static void DrawText (SKCanvas canvas, string text, SKTypeface font, int fontSize, Rectangle bounds, SKColor color, ContentAlignment alignment, int selectionStart, int selectionEnd, SKColor? selectionColor, int? maxLines, bool ellipsis, TextPaintOptions? paintOptions, int decoration = 0)
+        internal static void DrawText (SKCanvas canvas, string text, SKTypeface font, int fontSize, Rectangle bounds, SKColor color, ContentAlignment alignment, int selectionStart, int selectionEnd, SKColor? selectionColor, int? maxLines, bool ellipsis, TextPaintOptions? paintOptions, int decoration = 0, TextDirection direction = TextDirection.Auto)
         {
             if (string.IsNullOrWhiteSpace (text))
                 return;
@@ -111,7 +111,7 @@ namespace Majorsilence.Forms
             // nothing paints outside the control regardless.
             var align = GridAlignment (TextMeasurer.GetTextAlign (alignment), out var centre);
             var tb = TextMeasurer.CreateTextBlock (text, font, fontSize, new Size (bounds.Width, int.MaxValue), align, color, maxLines, ellipsis,
-                rasterisation: paintOptions is null ? -1 : ((int)paintOptions.Edging << 4) | (int)paintOptions.Hinting, decoration: decoration);
+                rasterisation: paintOptions is null ? -1 : ((int)paintOptions.Edging << 4) | (int)paintOptions.Hinting, decoration: decoration, direction: direction);
             var location = bounds.Location;
             var vertical = TextMeasurer.GetVerticalAlign (alignment);
 
@@ -177,7 +177,7 @@ namespace Majorsilence.Forms
         /// <remarks>The access key is underlined only while the control's form shows keyboard cues
         /// (<see cref="Control.ShowKeyboardCues"/>).</remarks>
         public static void DrawMnemonicText (this SKCanvas canvas, string text, Rectangle bounds, Control control, ContentAlignment alignment, int? maxLines = null, bool ellipsis = false)
-            => canvas.DrawMnemonicText (text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, control.Enabled ? control.GetEffectiveForegroundColor () : control.DisabledForeColor, alignment, maxLines, ellipsis, control.ShowKeyboardCues, TextMeasurer.DecorationOf (control.Font));
+            => canvas.DrawMnemonicText (text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, control.Enabled ? control.GetEffectiveForegroundColor () : control.DisabledForeColor, alignment, maxLines, ellipsis, control.ShowKeyboardCues, TextMeasurer.DecorationOf (control.Font), TextMeasurer.ReadingDirectionOf (control));
 
         /// <summary>
         /// Draws a string of text, interpreting WinForms mnemonic prefixes: an ampersand marks the
@@ -189,7 +189,7 @@ namespace Majorsilence.Forms
 
         // As above; with underline false the access key is drawn like the rest of the text, as upstream
         // draws it while keyboard cues are hidden. The ampersands are still interpreted.
-        internal static void DrawMnemonicText (this SKCanvas canvas, string text, SKTypeface font, int fontSize, Rectangle bounds, SKColor color, ContentAlignment alignment, int? maxLines, bool ellipsis, bool underline, int decoration = 0)
+        internal static void DrawMnemonicText (this SKCanvas canvas, string text, SKTypeface font, int fontSize, Rectangle bounds, SKColor color, ContentAlignment alignment, int? maxLines, bool ellipsis, bool underline, int decoration = 0, TextDirection direction = TextDirection.Auto)
         {
             if (string.IsNullOrWhiteSpace (text))
                 return;
@@ -206,7 +206,7 @@ namespace Majorsilence.Forms
             // control shorter than one line's natural text height still draws (clipped by
             // canvas.Clip(bounds) below, not by refusing to lay out any text at all).
             var align = GridAlignment (TextMeasurer.GetTextAlign (alignment), out var centre);
-            var tb = TextMeasurer.CreateTextBlock (display, font, fontSize, new Size (bounds.Width, int.MaxValue), align, color, maxLines, ellipsis, mnemonicIndex, decoration: decoration);
+            var tb = TextMeasurer.CreateTextBlock (display, font, fontSize, new Size (bounds.Width, int.MaxValue), align, color, maxLines, ellipsis, mnemonicIndex, decoration: decoration, direction: direction);
             var location = bounds.Location;
             var vertical = TextMeasurer.GetVerticalAlign (alignment);
 
@@ -283,6 +283,6 @@ namespace Majorsilence.Forms
         /// Draws a single line of text.
         /// </summary>
         public static void DrawTextLine (this SKCanvas canvas, string text, Rectangle bounds, Control control, ContentAlignment alignment, bool ellipsis = false)
-            => canvas.DrawText (text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, control.Enabled ? control.GetEffectiveForegroundColor () : control.DisabledForeColor, alignment, maxLines: 1, ellipsis: ellipsis);
+            => DrawText (canvas, text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, control.Enabled ? control.GetEffectiveForegroundColor () : control.DisabledForeColor, alignment, -1, -1, null, 1, ellipsis, paintOptions: null, direction: TextMeasurer.ReadingDirectionOf (control));
     }
 }
