@@ -202,10 +202,10 @@ namespace Majorsilence.Forms.Renderers
                 return new Size (control.LogicalToDeviceUnits (mdi.LogicalWidth), item.DeviceBounds.Height);
 
             // Upstream's metrics (Menu.UpstreamFont): the text as GDI measures it -- with its padding of
-            // a sixth of the line height on each side -- inside the item padding and a 2px border.
+            // a sixth of the line height before it and half as much again after -- inside the item padding and a 2px border.
             if (control.UpstreamFont is { } font) {
                 var measured = TextMeasurer.MeasureText (Mnemonics.Strip (item.Text), control.ItemTypeface, control.LogicalToDeviceUnits (control.ItemFontSize));
-                var gdi_padding = 2 * (int) Math.Ceiling (font.Height / 6.0);
+                var gdi_padding = TextRenderer.HorizontalPadding (font);
                 var extra = control.LogicalToDeviceUnits (gdi_padding + item.Padding.Horizontal + 4);
 
                 return new Size ((int) Math.Ceiling (measured.Width) + extra, item.DeviceBounds.Height);

@@ -90,17 +90,24 @@ namespace Majorsilence.Forms.Tests
         [Fact]
         public void A_tab_is_as_wide_as_its_caption_and_the_default_padding ()
             => WithChosenFont (true, tabs => {
-                var caption = TextMeasurer.MeasureText ("General", tabs.TabStrip.GetEffectiveFont (), tabs.TabStrip.GetEffectiveFontSize ()).Width;
-                Assert.Equal ((int) System.Math.Ceiling (caption) + 12, tabs.GetTabRect (0).Width);
+                Assert.Equal (TabWidth (tabs, "General", 6), tabs.GetTabRect (0).Width);
                 Assert.Equal (new Point (0, 0), tabs.Padding);   // the property keeps what was set
             });
 
         [Fact]
         public void A_padding_set_by_the_designer_is_used ()
             => WithChosenFont (true, tabs => {
-                var caption = TextMeasurer.MeasureText ("General", tabs.TabStrip.GetEffectiveFont (), tabs.TabStrip.GetEffectiveFontSize ()).Width;
-                Assert.Equal ((int) System.Math.Ceiling (caption) + 20, tabs.GetTabRect (0).Width);
+                Assert.Equal (TabWidth (tabs, "General", 10), tabs.GetTabRect (0).Width);
             }, tabs => tabs.Padding = new Point (10, 3));
+
+        // The caption as the strip measures it, at the device font size (a ported app's text is on GDI's pixel grid,
+        // where 18px text is not one and a half times 12px text), with the padding either side, back in logical units.
+        private static int TabWidth (TabControl tabs, string caption, int padding)
+        {
+            var strip = tabs.TabStrip;
+            var width = TextMeasurer.MeasureText (caption, strip.GetEffectiveFont (), strip.LogicalToDeviceUnits (strip.GetEffectiveFontSize ())).Width;
+            return strip.DeviceToLogicalUnits ((int) System.Math.Ceiling (width) + (2 * strip.LogicalToDeviceUnits (padding)));
+        }
 
         [Theory]
         [InlineData (false)]
@@ -124,8 +131,12 @@ namespace Majorsilence.Forms.Tests
                 }
             }
 
+            // A ported app's text is on GDI's pixel grid, where each glyph's advance is rounded to a whole device pixel
+            // at each size: up to half a logical pixel per glyph at scale 1 and a quarter at scale 2. Without a font the
+            // advances are linear, so only the tab's own rounding remains.
             var single = WidthAt (1);
-            Assert.InRange (WidthAt (2), single - 1, single + 1);
+            var slack = choose ? (int) System.Math.Ceiling (0.75 * "General".Length) + 1 : 1;
+            Assert.InRange (WidthAt (2), single - slack, single + slack);
         }
 
         [Fact]

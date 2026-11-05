@@ -109,7 +109,8 @@ namespace Majorsilence.Forms
             // control's real (short) height here silently produced completely invisible text. The
             // canvas.Clip(bounds) call below still constrains what's actually visible to bounds, so
             // nothing paints outside the control regardless.
-            var tb = TextMeasurer.CreateTextBlock (text, font, fontSize, new Size (bounds.Width, int.MaxValue), TextMeasurer.GetTextAlign (alignment), color, maxLines, ellipsis,
+            var align = GridAlignment (TextMeasurer.GetTextAlign (alignment), out var centre);
+            var tb = TextMeasurer.CreateTextBlock (text, font, fontSize, new Size (bounds.Width, int.MaxValue), align, color, maxLines, ellipsis,
                 rasterisation: paintOptions is null ? -1 : ((int)paintOptions.Edging << 4) | (int)paintOptions.Hinting, decoration: decoration, direction: direction);
             var location = bounds.Location;
             var vertical = TextMeasurer.GetVerticalAlign (alignment);
@@ -129,8 +130,44 @@ namespace Majorsilence.Forms
 
             canvas.Save ();
             canvas.Clip (bounds);
-            tb.Paint (canvas, new SKPoint (location.X, location.Y), options);
+            Paint (canvas, tb, location, options, centre ? bounds.Width : null);
             canvas.Restore ();
+        }
+
+        // A ported app's text is on GDI's pixel grid (GdiTextLayout), where every line is a whole number of pixels wide.
+        // GDI centres each line on a whole pixel, rounding odd slack down (DT_CENTER halves it in integer arithmetic);
+        // RichTextKit centres by halving it exactly, so a line with odd slack sat half a pixel right, every stem smeared
+        // across two columns. So centred text is laid out left aligned and each line painted where GDI centres it.
+        private static TextAlignment GridAlignment (TextAlignment alignment, out bool centre)
+        {
+            centre = alignment == TextAlignment.Center && GdiTextLayout.Applies;
+            return centre ? TextAlignment.Left : alignment;
+        }
+
+        // Paints the block at location; with a width, each line centred in it on a whole pixel (see GridAlignment).
+        private static void Paint (SKCanvas canvas, TextBlock tb, Point location, TextPaintOptions options, int? centreIn)
+        {
+            if (centreIn is not int width || tb.Lines.Count == 0) {
+                tb.Paint (canvas, new SKPoint (location.X, location.Y), options);
+                return;
+            }
+
+            var lines = tb.Lines;
+
+            for (var i = 0; i < lines.Count; i++) {
+                var line = lines[i];
+                var slack = width - (int) Math.Round (line.Width);
+                var offset = slack >= 0 ? slack / 2 : -(-slack / 2);
+
+                // Each line's own band; the first and last are open above and below, so no ink is lost there.
+                var top = i == 0 ? float.MinValue / 4 : location.Y + line.YCoord;
+                var bottom = i == lines.Count - 1 ? float.MaxValue / 4 : location.Y + line.YCoord + line.Height;
+
+                canvas.Save ();
+                canvas.ClipRect (new SKRect (float.MinValue / 4, top, float.MaxValue / 4, bottom));
+                tb.Paint (canvas, new SKPoint (location.X + offset, location.Y), options);
+                canvas.Restore ();
+            }
         }
 
         /// <summary>
@@ -168,7 +205,8 @@ namespace Majorsilence.Forms
             // See the matching comment in DrawText above: height is deliberately unconstrained so a
             // control shorter than one line's natural text height still draws (clipped by
             // canvas.Clip(bounds) below, not by refusing to lay out any text at all).
-            var tb = TextMeasurer.CreateTextBlock (display, font, fontSize, new Size (bounds.Width, int.MaxValue), TextMeasurer.GetTextAlign (alignment), color, maxLines, ellipsis, mnemonicIndex, decoration: decoration, direction: direction);
+            var align = GridAlignment (TextMeasurer.GetTextAlign (alignment), out var centre);
+            var tb = TextMeasurer.CreateTextBlock (display, font, fontSize, new Size (bounds.Width, int.MaxValue), align, color, maxLines, ellipsis, mnemonicIndex, decoration: decoration, direction: direction);
             var location = bounds.Location;
             var vertical = TextMeasurer.GetVerticalAlign (alignment);
 
@@ -176,7 +214,7 @@ namespace Majorsilence.Forms
 
             canvas.Save ();
             canvas.Clip (bounds);
-            tb.Paint (canvas, new SKPoint (location.X, location.Y), _defaultPaintOptions);
+            Paint (canvas, tb, location, _defaultPaintOptions, centre ? bounds.Width : null);
             canvas.Restore ();
         }
 

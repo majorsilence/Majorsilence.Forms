@@ -59,11 +59,11 @@ namespace Majorsilence.Forms.Tests
                     Assert.Equal (6, file.Bounds.X);
                     Assert.Equal (Math.Max (TextLineHeight.Of (font), 16) + 4 + 4, menu.Height);
 
-                    // Text plus GDI's sixth-of-a-line padding each side, the item padding and its 2px border.
+                    // Text plus GDI's padding (a sixth of the line before it, a quarter after), the item padding and its 2px border.
                     // Measured and rounded in device pixels, as the renderer does, then taken back to logical, rounded up
                     // so the item still holds its text (an odd device width under scale 2 would otherwise lose a pixel).
                     var text = TextMeasurer.MeasureText ("File", menu.ItemTypeface, menu.LogicalToDeviceUnits (menu.ItemFontSize)).Width;
-                    var extra = menu.LogicalToDeviceUnits (2 * (int) Math.Ceiling (font.Height / 6.0) + 8 + 4);
+                    var extra = menu.LogicalToDeviceUnits ((int) Math.Ceiling (font.Height / 6.0) + (int) Math.Ceiling (font.Height / 4.0) + 8 + 4);
                     Assert.Equal (menu.DeviceToLogicalUnitsCovering (new Size ((int) Math.Ceiling (text) + extra, 0)).Width, file.Bounds.Width);
                 }
             } finally {
@@ -108,7 +108,7 @@ namespace Majorsilence.Forms.Tests
         }
 
         // TextRenderer's padding: a sixth of the line height on each side.
-        private static int GdiPadding (Majorsilence.Forms.Drawing.Font font) => 2 * (int) Math.Ceiling (font.Height / 6.0);
+        private static int GdiPadding (Majorsilence.Forms.Drawing.Font font) => (int) Math.Ceiling (font.Height / 6.0) + (int) Math.Ceiling (font.Height / 4.0);
 
         // A designer's MenuStrip.Font = Microsoft Sans Serif 12pt. Upstream sizes its drop-down items from GDI's line
         // height (20px, where Skia's outline metrics give 18): 20 + 2 of text padding + 2 of item padding = 24, against

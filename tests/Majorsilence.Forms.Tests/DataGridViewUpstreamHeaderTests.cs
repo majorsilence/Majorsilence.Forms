@@ -50,11 +50,11 @@ namespace Majorsilence.Forms.Tests
 
                 using (form) {
                     // Upstream's header: a 1px border, 2px margins either side, and the caption with TextRenderer's padding (a
-                    // sixth of the line height either side) -- and with room for it all, 4px to spare.
+                    // sixth of the line height before it, a quarter after) -- and with room for it all, 4px to spare.
                     var font = new Majorsilence.Forms.Drawing.Font ("Microsoft Sans Serif", 12f);
                     var (typeface, size) = grid.HeaderFallbackFont ();
                     var text = (int) Math.Ceiling (TextMeasurer.MeasureText ("Hold Back", typeface, size).Width);
-                    var gdi_padding = 2 * (int) Math.Ceiling (font.Height / 6.0);
+                    var gdi_padding = (int) Math.Ceiling (font.Height / 6.0) + (int) Math.Ceiling (font.Height / 4.0);
                     column.Width = text + gdi_padding + 1 + 2 * 2 + 4;
                     var line = TextLineHeight.Of (font);
 

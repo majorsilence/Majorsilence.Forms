@@ -3745,7 +3745,7 @@ namespace Majorsilence.Forms
         }
 
         // TextRenderer's padding either side of a string, in logical pixels.
-        internal static int GdiTextPadding (Majorsilence.Forms.Drawing.Font font) => 2 * (int) Math.Ceiling (font.Height / 6.0);
+        internal static int GdiTextPadding (Majorsilence.Forms.Drawing.Font font) => TextRenderer.HorizontalPadding (font);
 
         // The logical width a header's caption wraps in, as upstream measures it -- less GDI's padding, which TextRenderer
         // counts in a string's width and Skia does not draw.

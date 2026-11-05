@@ -413,21 +413,27 @@ namespace Majorsilence.Forms
         /// <remarks>
         /// Upstream hands <c>DrawTextEx</c> a <c>DRAWTEXTPARAMS</c> whose margins come from the padding
         /// option: the default <see cref="TextFormatFlags.GlyphOverhangPadding"/> adds
-        /// <c>ceil(fontHeight / 6)</c> each side, <see cref="TextFormatFlags.LeftAndRightPadding"/>
-        /// doubles it, and only <see cref="TextFormatFlags.NoPadding"/> gives zero
+        /// <c>ceil(fontHeight / 6)</c> before the text and <c>ceil(fontHeight / 4)</c> after it,
+        /// <see cref="TextFormatFlags.LeftAndRightPadding"/> twice the overhang each side, and only <see cref="TextFormatFlags.NoPadding"/> gives zero
         /// (<c>TextExtensions.cs</c>). Layout code is calibrated against that slack -- roughly 6px for a
         /// 15px font -- so without it AutoSize labels and buttons come out that much too narrow, italic
         /// text has its last glyph shaved, and any control whose preferred size is MeasureText clips its
         /// own caption. It stacks with the point-vs-pixel bug above, both in the same direction.
         /// </remarks>
-        private static int HorizontalPadding (Majorsilence.Forms.Drawing.Font font, TextFormatFlags flags)
+        internal static int HorizontalPadding (Majorsilence.Forms.Drawing.Font font, TextFormatFlags flags = TextFormatFlags.GlyphOverhangPadding)
         {
             if (flags.HasFlag (TextFormatFlags.NoPadding))
                 return 0;
 
-            var margin = (int) Math.Ceiling (font.Height / 6f);
+            // Upstream's margins: [overhang][text][overhang][italic], the italic slack half an overhang and added
+            // whether or not the font is italic. Measured with TextRenderer on Windows: 7px for 13px and 16px fonts,
+            // 9px for 19px, 10px for 21px -- not twice ceil(h / 6), which is a pixel short for each of them.
+            var overhang = font.Height / 6f;
 
-            return flags.HasFlag (TextFormatFlags.LeftAndRightPadding) ? margin * 4 : margin * 2;
+            if (flags.HasFlag (TextFormatFlags.LeftAndRightPadding))
+                return (int) Math.Ceiling (2 * overhang) + (int) Math.Ceiling (overhang * 2.5f);
+
+            return (int) Math.Ceiling (overhang) + (int) Math.Ceiling (overhang * 1.5f);
         }
 
         // WinForms' point-based DrawText measures the text and draws it in that box, rather than

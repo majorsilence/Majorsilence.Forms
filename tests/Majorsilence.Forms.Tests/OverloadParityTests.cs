@@ -253,8 +253,9 @@ namespace Majorsilence.Forms.Tests
         public void MeasureText_adds_the_GDI_padding_unless_told_not_to ()
         {
             // The well-known reason TextRenderer.MeasureText is wider than Graphics.MeasureString:
-            // DrawTextEx is given margins of ceil(fontHeight / 6) each side by default, doubled for
-            // LeftAndRightPadding, zero for NoPadding. Layout code is calibrated against that slack
+            // DrawTextEx is given margins of [overhang][text][overhang][italic], the overhang fontHeight / 6
+            // and the italic slack half an overhang (whatever the style): ceil(h / 6) + ceil(h / 4) by
+            // default, ceil(2h / 6) + ceil(2.5h / 6) for LeftAndRightPadding, zero for NoPadding. Layout code is calibrated against that slack
             // (finding GFX-26), and without it AutoSize captions clip themselves.
             using var font = new Majorsilence.Forms.Drawing.Font ("Arial", 10f);
             var box = new Size (int.MaxValue, int.MaxValue);
@@ -263,10 +264,12 @@ namespace Majorsilence.Forms.Tests
             var unpadded = TextRenderer.MeasureText ("W", font, box, TextFormatFlags.NoPadding);
             var doubled = TextRenderer.MeasureText ("W", font, box, TextFormatFlags.LeftAndRightPadding);
 
-            var margin = (int) System.Math.Ceiling (font.Height / 6f);
+            var overhang = font.Height / 6f;
+            var margins = (int) System.Math.Ceiling (overhang) + (int) System.Math.Ceiling (overhang * 1.5f);
+            var double_margins = (int) System.Math.Ceiling (overhang * 2) + (int) System.Math.Ceiling (overhang * 2.5f);
 
-            Assert.Equal (unpadded.Width + (margin * 2), padded.Width);
-            Assert.Equal (unpadded.Width + (margin * 4), doubled.Width);
+            Assert.Equal (unpadded.Width + margins, padded.Width);
+            Assert.Equal (unpadded.Width + double_margins, doubled.Width);
             Assert.Equal (unpadded.Height, padded.Height);
         }
 
