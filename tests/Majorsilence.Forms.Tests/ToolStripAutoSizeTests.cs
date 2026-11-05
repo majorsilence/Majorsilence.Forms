@@ -175,6 +175,7 @@ namespace Majorsilence.Forms.Tests
         {
             Rectangle bounds;
             Size preferred;
+            int scale;
 
             try {
                 Ported ();
@@ -185,6 +186,7 @@ namespace Majorsilence.Forms.Tests
                 });
 
                 using (form) {
+                    scale = strip.LogicalToDeviceUnits (1);
                     bounds = strip.Bounds;
                     preferred = strip.GetPreferredSize (Size.Empty);
                 }
@@ -197,8 +199,9 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (preferred, bounds.Size);
             Assert.True (bounds.Width < 250, $"width {bounds.Width}");
 
-            // Two "FileN" items in Segoe UI 9pt, the menu font, are 43px each: upstream's bar is 6 + 86 + 2 wide.
-            if (kind == "MenuStrip" && OperatingSystem.IsWindows ())
+            // Two "FileN" items in Segoe UI 9pt, the menu font, are 43px each: upstream's bar is 6 + 86 + 2 wide. At scale
+            // 2 each item's text is measured in device pixels and rounded up to whole logical ones, which can add one.
+            if (kind == "MenuStrip" && OperatingSystem.IsWindows () && scale == 1)
                 Assert.Equal (94, bounds.Width);
         }
 

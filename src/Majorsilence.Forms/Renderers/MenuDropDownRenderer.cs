@@ -49,10 +49,9 @@ namespace Majorsilence.Forms.Renderers
         private static Majorsilence.Forms.Drawing.Font UpstreamFont (MenuDropDown control, MenuItem item)
             => StripItemFont.ResolveFont (item, control) ?? control.Font;
 
-        // The padding TextRenderer measures a string with, in logical pixels: a sixth of the line height each side,
-        // as the menu bar measures its items.
+        // The padding TextRenderer measures a string with, in logical pixels, as the menu bar measures its items.
         private static int GdiPadding (Majorsilence.Forms.Drawing.Font font)
-            => 2 * (int) Math.Ceiling (font.Height / 6.0);
+            => TextRenderer.HorizontalPadding (font);
 
         /// <inheritdoc/>
         protected override void Render (MenuDropDown control, PaintEventArgs e)
