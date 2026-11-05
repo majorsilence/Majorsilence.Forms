@@ -131,8 +131,12 @@ namespace Majorsilence.Forms.Tests
                 }
             }
 
+            // A ported app's text is on GDI's pixel grid, where each glyph's advance is rounded to a whole device pixel
+            // at each size: up to half a logical pixel per glyph at scale 1 and a quarter at scale 2. Without a font the
+            // advances are linear, so only the tab's own rounding remains.
             var single = WidthAt (1);
-            Assert.InRange (WidthAt (2), single - 1, single + 1);
+            var slack = choose ? (int) System.Math.Ceiling (0.75 * "General".Length) + 1 : 1;
+            Assert.InRange (WidthAt (2), single - slack, single + slack);
         }
 
         [Fact]

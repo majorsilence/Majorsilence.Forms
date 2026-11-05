@@ -173,19 +173,26 @@ namespace Majorsilence.Forms.Tests
         public void Text_keeps_its_linear_advances_without_a_default_font ()
         {
             HeadlessRenderer.Use ();
-            Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font ("Microsoft Sans Serif", 8.25f));
             var (face, size) = FontOf ("Microsoft Sans Serif", 8.25f, false);
+            var before = TextMeasurer.MeasureText ("Clear Fields", face, size).Width;
+
+            Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font ("Microsoft Sans Serif", 8.25f));
             var ported = TextMeasurer.MeasureText ("Clear Fields", face, size).Width;
             Application.SetDefaultFont (null!);
 
+            // Leaving ported mode lays the text out exactly as before it was entered, on every platform.
             var width = TextMeasurer.MeasureText ("Clear Fields", face, size).Width;
+            Assert.Equal (before, width);
 
-            using var font = new SKFont (face, size) { LinearMetrics = true, Hinting = SKFontHinting.None, Subpixel = true };
-            Assert.Equal (font.MeasureText ("Clear Fields"), width, 0.5f);
+            // Microsoft Sans Serif has no kerning, so its shaped width is the font's linear one. Other platforms
+            // substitute a font that kerns, which HarfBuzz applies and SKFont.MeasureText does not.
+            if (System.OperatingSystem.IsWindows ()) {
+                using var font = new SKFont (face, size) { LinearMetrics = true, Hinting = SKFontHinting.None, Subpixel = true };
+                Assert.Equal (font.MeasureText ("Clear Fields"), width, 0.5f);
 
-            // The cache is not shared between the two: text laid out for the ported app is not reused.
-            if (System.OperatingSystem.IsWindows ())
+                // The cache is not shared between the two: text laid out for the ported app is not reused.
                 Assert.NotEqual (ported, width);
+            }
         }
 
         // The device pixel size of a control's font, at the headless scale, and its typeface.
