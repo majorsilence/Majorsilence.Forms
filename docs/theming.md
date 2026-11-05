@@ -539,7 +539,7 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `ComboBox` | no | no | no | no | no | `CompatComboBox`, `DataGridViewComboBoxEditingControl`, `RadCheckedDropDownList`, `RadDropDownList` | Drop-down selectors (the closed box; the open list is a ListBox). |
 | `DataGridView` | no | no | no | no | no | `RadGridView` | Data grids: the control background and border. Cells follow the tokens (--control-low-color, --border-low-color); headers, selection and alternating rows are parts. |
 | `DateTimePicker` | no | no | no | no | no | `RadDateTimePicker` | Date pickers: background-color is behind the date text; the drop button and the check box follow the tokens. |
-| `Form` | no | no | no | no | no | `ColorDialog`, `FontDialog`, `MessageBoxForm`, `PageSetupDialog`, `PrintDialog`, `PrintPreviewDialog`, `RadDesktopAlertPopup`, `RadForm`, `RadRibbonForm`, `RadTabbedForm`, `SchedulerPrintSettingsDialog`, `ThreadExceptionDialog` | The window. background-color is the window background; border sets the window frame on platforms that draw their own; font-family / font-size / color here become the ambient defaults every child control inherits when it sets none of its own. |
+| `Form` | no | no | no | no | no | `AutoHidePopup`, `ColorDialog`, `FloatingWindow`, `FontDialog`, `MessageBoxForm`, `PageSetupDialog`, `PrintDialog`, `PrintPreviewDialog`, `RadDesktopAlertPopup`, `RadForm`, `RadRibbonForm`, `RadTabbedForm`, `SchedulerPrintSettingsDialog`, `ThreadExceptionDialog` | The window. background-color is the window background; border sets the window frame on platforms that draw their own; font-family / font-size / color here become the ambient defaults every child control inherits when it sets none of its own. |
 | `FormTitleBar` | no | no | no | no | no |  | The title bar a window draws for itself (every platform but macOS, which uses the system's). background-color is the bar, color the caption text. On macOS's merged title bar it blends with the window background instead. |
 | `GroupBox` | no | no | no | no | no | `RadGroupBox` | Titled group frames: the border colour is the frame, color is the caption. |
 | `HostedSurface` | no | no | no | no | no |  | A Majorsilence.Forms surface embedded in an Avalonia or Uno host. Transparent by default so the host shows through; a background-color rule makes it opaque. |
@@ -553,7 +553,7 @@ offending declaration (or rule) is dropped and the rest of the sheet still appli
 | `MonthCalendar` | no | no | no | no | no | `RadCalendar` | The calendar grid; the selected day uses --accent-color. |
 | `NavigationPane` | no | no | no | no | no |  | The Outlook-style side navigation bar. |
 | `NumericUpDown` | no | no | no | no | no |  | Numeric spinners. |
-| `Panel` | no | no | no | no | no | `Card`, `ContainerControl`, `DataGrid`, `DocumentContainer`, `DocumentTabStrip`, `DomainUpDown`, `FlowLayoutPanel`, `LayoutControlGroup`, `LayoutControlItem`, `NavigationHost`, `RadCollapsiblePanel`, `RadDock`, `RadLayoutControl`, `RadPageViewPage`, `RadPanel`, `RadScrollablePanel`, `RadScrollablePanelContainer`, `RadSplitContainer`, `SplitPanel`, `SplitterPanel`, `StackPanel`, `TabPage`, `TableLayoutPanel`, `ToolStripContainer`, `ToolStripContentPanel`, `ToolStripPanel`, `ToolTabStrip`, `UserControl` | Plain containers, including layout panels and tab pages. |
+| `Panel` | no | no | no | no | no | `AutoHideTabStrip`, `Card`, `ContainerControl`, `DataGrid`, `DocumentContainer`, `DocumentTabStrip`, `DomainUpDown`, `FlowLayoutPanel`, `LayoutControlGroup`, `LayoutControlItem`, `NavigationHost`, `RadCollapsiblePanel`, `RadDock`, `RadLayoutControl`, `RadPageViewPage`, `RadPanel`, `RadScrollablePanel`, `RadScrollablePanelContainer`, `RadSplitContainer`, `SplitPanel`, `SplitterPanel`, `StackPanel`, `TabPage`, `TableLayoutPanel`, `ToolStripContainer`, `ToolStripContentPanel`, `ToolStripPanel`, `ToolTabStrip`, `UserControl` | Plain containers, including layout panels and tab pages. |
 | `PictureBox` | no | no | no | no | no |  | Image boxes. |
 | `PopupWindow` | no | no | no | no | no |  | Floating popup windows -- a combo box's list, a tool tip, a menu host: background-color is the popup behind its content. |
 | `PrintPreviewControl` | no | no | no | no | no |  | Print previews: background-color is the surround the pages sit on; the pages themselves are paper and stay white. |
@@ -587,11 +587,14 @@ Each `Rad*` control follows the selector named here -- its own, or the core cont
 
 | Control | Follows |
 |---|---|
+| `AutoHidePopup` | `Form` |
+| `AutoHideTabStrip` | `Panel` |
 | `DockWindow` | `DockWindowBase` |
 | `DockWindowPlaceholder` | `DockWindowBase` |
 | `DocumentContainer` | `Panel` |
 | `DocumentTabStrip` | `Panel` |
 | `DocumentWindow` | `DockWindowBase` |
+| `FloatingWindow` | `Form` |
 | `LayoutControlGroup` | `Panel` |
 | `LayoutControlItem` | `Panel` |
 | `RadButton` | `Button` |

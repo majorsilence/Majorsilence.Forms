@@ -87,7 +87,7 @@ namespace Majorsilence.Forms.Tests
 
             using (form) {
                 HeadlessRenderer.CapturePng (form);
-                var row = tree.Nodes[1].Bounds;
+                var row = tree.Nodes[1].DeviceBounds;
                 var scale = tree.LogicalToDeviceUnits (100) / 100f;
 
                 HeadlessRenderer.Click (form, (int) ((row.Left + row.Width / 4) / scale), (int) ((row.Top + row.Height / 2) / scale));

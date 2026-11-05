@@ -253,6 +253,35 @@ namespace Majorsilence.Forms.Tests
             }
         }
 
+        [Fact]
+        public void TreeNode_Bounds_is_in_logical_units ()
+        {
+            // TreeNode.Bounds returned the laid-out row in device pixels, so at 2x a node twice as tall and
+            // twice as far down as the ItemHeight the application set, and node.Bounds.Contains (e.Location)
+            // missed the node the mouse was on.
+            using var tree = new TreeView { Width = 250, Height = 200, ItemHeight = 22 };
+            for (var i = 0; i < 3; i++)
+                tree.Nodes.Add ("node " + i);
+            using var form = Scaled (2, tree);
+
+            try {
+                PaintSurface.Render (tree).Dispose ();
+
+                var node = tree.Nodes[2];
+                var bounds = node.Bounds;
+
+                Assert.Equal (tree.ItemHeight, bounds.Height);
+                Assert.Equal (2 * tree.ItemHeight, bounds.Top - tree.Nodes[0].Bounds.Top);
+                Assert.True (bounds.Right <= tree.ClientRectangle.Right, $"a node must not run past the control ({bounds.Right} vs {tree.ClientRectangle.Right})");
+
+                var centre = new Point (bounds.Left + 10, bounds.Top + bounds.Height / 2);
+                Assert.Same (node, tree.GetNodeAt (centre));
+                Assert.Same (node, tree.HitTest (centre).Node);
+            } finally {
+                form.Close ();
+            }
+        }
+
         // ---------------- DataGridView
 
         [Fact]

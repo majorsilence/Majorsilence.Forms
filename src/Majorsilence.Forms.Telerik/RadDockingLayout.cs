@@ -12,7 +12,7 @@ namespace Majorsilence.Forms.Telerik
     // nothing and never tabbed. This fills the content chain (RadDock -> DocumentContainer ->
     // Document/ToolTabStrip) and renders the tab strips as real tabs (header row + the selected window
     // filling the rest), so the forms actually show. It is deliberately simple: single-child fill, no
-    // draggable splitters/floating/auto-hide.
+    // draggable splitters (floating and auto-hide are in RadDockFloating.cs and RadDockAutoHide.cs).
     internal static class DockStrip
     {
         internal const int HeaderHeight = 26;
@@ -47,12 +47,109 @@ namespace Majorsilence.Forms.Telerik
         }
 
         internal static Shape ShapeOf (Control strip) => strip switch {
-            // Left and Right place the tabs at the bottom: vertical tab headers are not drawn.
+            // An auto-hide popup's strip shows the one window that is out, under its own caption (see CaptionArea).
+            AutoHideTabStrip => new Shape (false, false, 0, close: false),
+            // Left and Right place the tabs at the bottom: vertical tab headers are not drawn. A strip whose caption
+            // sits in its inset (see InsetOf) has no caption band of its own.
             ToolTabStrip tool => new Shape (tool.TabStripVisible, tool.TabStripAlignment != TabStripAlignment.Top,
-                tool.CaptionVisible ? CaptionHeight : 0, close: false),
+                tool.CaptionVisible && InsetOf (tool) == Padding.Empty ? CaptionHeight : 0, close: false),
             DocumentTabStrip document => new Shape (true, false, 0, (document.DocumentButtons & DocumentStripButtons.Close) != 0),
             _ => new Shape (true, false, 0, false),
         };
+
+        // How far a tool strip's window sits inside the strip, as Telerik's (measured on 2026.2.520): a floating form's
+        // strip 1 at the sides and 2 at the top and bottom; an auto-hide popup's 3, 26 (under the caption), 2 and 2,
+        // with its 3 wide splitter more on the side facing the dock; a docked strip with a caption 1, 26, 1 and 2 --
+        // in ported mode only, so an app that never chose a font keeps the 22 high caption band it had.
+        internal static Padding InsetOf (Control strip)
+        {
+            if (strip is AutoHideTabStrip popup) {
+                var splitter = popup.SplitterWidth;
+
+                return popup.AutoHideDock switch {
+                    DockStyle.Right => new Padding (3 + splitter, 26, 2, 2),
+                    DockStyle.Top => new Padding (3, 26, 2, 2 + splitter),
+                    DockStyle.Bottom => new Padding (3, 26 + splitter, 2, 2),
+                    _ => new Padding (3, 26, 2 + splitter, 2),
+                };
+            }
+
+            if (strip is not ToolTabStrip tool)
+                return Padding.Empty;
+
+            if (tool.ContentInset != Padding.Empty)
+                return tool.ContentInset;
+
+            return tool.CaptionVisible && ControlPaint.UsesUpstreamGlyphs ? new Padding (1, 26, 1, 2) : Padding.Empty;
+        }
+
+        // The caption a strip draws in its inset, if any: an auto-hide popup's from 2,2 (below its splitter at the
+        // bottom), a docked strip's from 1,1, both 24 high.
+        internal static Rectangle? CaptionArea (Control strip)
+        {
+            var inset = InsetOf (strip);
+
+            if (inset.Top < 26)
+                return null;
+
+            var client = LogicalClient (strip);
+
+            return strip is AutoHideTabStrip
+                ? new Rectangle (client.Left + inset.Left - 1, client.Top + inset.Top - 24, Math.Max (0, client.Width - inset.Left - inset.Right + 4), 24)
+                : new Rectangle (client.Left + inset.Left, client.Top + inset.Top - 25, Math.Max (0, client.Width - inset.Left - inset.Right), 24);
+        }
+
+        internal enum CaptionButton { Close, Pin }
+
+        // The caption buttons, right to left as Telerik places them: close 18 wide ending 1 short of the caption's right
+        // edge, then the pin 14 wide, 2 before it. (Telerik's menu button, 20 before the pin, is not drawn.) In an
+        // auto-hide popup 18 high from 3 down, in a docked strip 20 high from 2 down.
+        internal static List<(CaptionButton button, Rectangle rect)> CaptionButtons (Control strip, DockWindowBase window)
+        {
+            var result = new List<(CaptionButton, Rectangle)> ();
+
+            if (CaptionArea (strip) is not { } caption)
+                return result;
+
+            var popup = strip is AutoHideTabStrip;
+            var top = caption.Top + (popup ? 3 : 2);
+            var height = popup ? 18 : 20;
+            var close = new Rectangle (caption.Right - 19, top, 18, height);
+            var pin = new Rectangle (close.Left - 16, top, 14, height);
+
+            if ((window.ToolCaptionButtons & ToolStripCaptionButtons.Close) != 0)
+                result.Add ((CaptionButton.Close, close));
+
+            if ((window.ToolCaptionButtons & ToolStripCaptionButtons.AutoHide) != 0 && (window.AllowedDockState & AllowedDockState.AutoHide) != 0)
+                result.Add ((CaptionButton.Pin, pin));
+
+            return result;
+        }
+
+        // A click on a caption button: close closes the window; the pin auto-hides a docked window and docks an
+        // auto-hidden one back. Returns whether a button was hit.
+        internal static bool ClickCaptionButton (Control strip, DockWindowBase? window, Point p)
+        {
+            if (window is null)
+                return false;
+
+            foreach (var (button, rect) in CaptionButtons (strip, window)) {
+                if (!rect.Contains (p))
+                    continue;
+
+                if (button == CaptionButton.Close) {
+                    window.Close ();
+                } else if (strip is AutoHideTabStrip) {
+                    window.DockState = DockState.Docked;
+                } else {
+                    window.DockManager?.AutoHideWindow (window);
+                }
+
+                return true;
+            }
+
+            return false;
+        }
 
         // Whether a window is the selected tab of the strip it is in.
         internal static bool IsSelected (DockWindowBase window) => window.Parent switch {
@@ -130,10 +227,24 @@ namespace Majorsilence.Forms.Telerik
             if (ws.Count == 0)
                 return;
 
+            if (strip is AutoHideTabStrip popup) {
+                selected = popup.Shown;
+
+                if (selected is null) {
+                    foreach (var w in ws)
+                        w.Visible = false;
+
+                    return;
+                }
+            }
+
             selected ??= ws[0];
 
             var shape = ShapeOf (strip);
             var client = LogicalClient (strip);
+            var inset = InsetOf (strip);
+            client = Rectangle.FromLTRB (client.Left + inset.Left, client.Top + inset.Top,
+                Math.Max (client.Left + inset.Left, client.Right - inset.Right), Math.Max (client.Top + inset.Top, client.Bottom - inset.Bottom));
             var header = HeaderBand (strip, ws, shape);
             var top = client.Top + shape.Caption + (shape.Bottom ? 0 : header);
             var content = new Rectangle (client.Left, top, client.Width, Math.Max (0, client.Height - shape.Caption - header));
@@ -196,6 +307,46 @@ namespace Majorsilence.Forms.Telerik
             Rectangle Device (Rectangle r) => new (
                 strip.LogicalToDeviceUnits (r.Left), strip.LogicalToDeviceUnits (r.Top),
                 strip.LogicalToDeviceUnits (r.Width), strip.LogicalToDeviceUnits (r.Height));
+
+            // The caption in the inset, with its close and pin buttons (an auto-hide popup's, a ported docked strip's).
+            var shown = strip is AutoHideTabStrip popup ? popup.Shown : selected ?? (ws.Count > 0 ? ws[0] : null);
+
+            if (CaptionArea (strip) is { } area && shown is not null) {
+                var band = Device (area);
+                using var caption_border = new SKPaint { Color = new SKColor (0x9E, 0xB8, 0xDE), IsStroke = true };
+                e.Canvas.FillRectangle (band, Theme.ControlMidColor);
+                e.Canvas.DrawRect (band.Left - 0.5f, band.Top - 0.5f, band.Width + 1, band.Height + 1, caption_border);
+
+                var buttons = CaptionButtons (strip, shown);
+                var text_right = buttons.Count > 0 ? Device (buttons.Last ().rect).Left : band.Right;
+                e.Canvas.DrawText (Caption (shown), font, deviceFontSize,
+                    new Rectangle (band.Left + pad, band.Top, Math.Max (0, text_right - band.Left - pad), band.Height),
+                    fore, ContentAlignment.MiddleLeft, maxLines: 1);
+
+                using var glyph = new SKPaint { Color = fore, IsStroke = true, StrokeWidth = Math.Max (1, strip.LogicalToDeviceUnits (1)), IsAntialias = true };
+
+                foreach (var (button, rect) in buttons) {
+                    var d = Device (rect);
+                    var cx = d.Left + d.Width / 2f;
+                    var cy = d.Top + d.Height / 2f;
+                    var r = strip.LogicalToDeviceUnits (4);
+
+                    if (button == CaptionButton.Close) {
+                        e.Canvas.DrawLine (cx - r, cy - r, cx + r, cy + r, glyph);
+                        e.Canvas.DrawLine (cx + r, cy - r, cx - r, cy + r, glyph);
+                    } else if (strip is AutoHideTabStrip) {
+                        // The pin lying down: the window is out, a click pins it back.
+                        e.Canvas.DrawRect (cx - r, cy - r / 2f, r * 1.5f, r, glyph);
+                        e.Canvas.DrawLine (cx - r - r / 2f, cy, cx - r, cy, glyph);
+                        e.Canvas.DrawLine (cx + r / 2f, cy - r, cx + r / 2f, cy + r, glyph);
+                    } else {
+                        // The pin standing: the window is docked, a click auto-hides it.
+                        e.Canvas.DrawRect (cx - r / 2f, cy - r, r, r * 1.5f, glyph);
+                        e.Canvas.DrawLine (cx, cy + r / 2f, cx, cy + r + r / 2f, glyph);
+                        e.Canvas.DrawLine (cx - r, cy + r / 2f, cx + r, cy + r / 2f, glyph);
+                    }
+                }
+            }
 
             // The caption band: the selected window's caption across the top (a tool strip's title).
             if (shape.Caption > 0 && ws.Count > 0) {
@@ -385,7 +536,17 @@ namespace Majorsilence.Forms.Telerik
 
         internal void NotifySelectedTabChanged (DockWindowBase? previous, DockWindowBase current, bool raise = true)
         {
+            // ActiveWindowChanging and ActiveWindowChanged come before SelectedTabChanged, as Telerik raises them for a
+            // tab switch (measured).
+            var was_active = active_window;
+
+            if (!ReferenceEquals (was_active, current))
+                RaiseActiveWindowChanging (was_active, current);
+
             active_window = current;
+
+            if (!ReferenceEquals (was_active, current))
+                RaiseActiveWindowChanged (current);
 
             if (raise)
                 SelectedTabChanged?.Invoke (this, new SelectedTabChangedEventArgs { OldWindow = previous, NewWindow = current });
@@ -452,8 +613,8 @@ namespace Majorsilence.Forms.Telerik
             if (main is DocumentContainer container)
                 container.SizeInfo.SizeMode = SplitPanelSizeMode.Fill;
 
-            var client = DockStrip.LogicalClient (this);
-            client.Inflate (-SplitLayout.DockPadding, -SplitLayout.DockPadding);
+            // The room inside the padding, less the bands auto-hidden windows' tabs sit in (RadDockAutoHide.cs).
+            var (_, client) = AutoHideLayout ();
 
             SplitLayout.Arrange (Orientation, SplitterWidth, client, SplitLayout.PanelsOf (this, hidden));
         }
@@ -484,6 +645,7 @@ namespace Majorsilence.Forms.Telerik
             }
 
             base.OnPaint (e);
+            PaintAutoHideTabs (e);
         }
 
         private static IEnumerable<Control> DockDescendants (Control root)
@@ -705,6 +867,9 @@ namespace Majorsilence.Forms.Telerik
             }
         }
 
+        // How far the window sits inside the strip when set: a floating form's strip sets it (see DockStrip.InsetOf).
+        internal Padding ContentInset { get; set; } = Padding.Empty;
+
         private bool caption_visible = true;
         private bool tab_strip_visible = true;
         private TabStripAlignment tab_strip_alignment = TabStripAlignment.Top;
@@ -729,7 +894,7 @@ namespace Majorsilence.Forms.Telerik
                 pending_index = -1;
             }
 
-            _selectedWindow = DockStrip.Normalize (this, _selectedWindow);
+            _selectedWindow = this is AutoHideTabStrip popup ? popup.Shown : DockStrip.Normalize (this, _selectedWindow);
             DockStrip.LayoutTabs (this, _selectedWindow);
         }
 
@@ -759,6 +924,11 @@ namespace Majorsilence.Forms.Telerik
         protected override void OnMouseDown (MouseEventArgs e)
         {
             base.OnMouseDown (e);
+
+            var shown = this is AutoHideTabStrip popup ? popup.Shown : _selectedWindow ?? DockStrip.Windows (this).FirstOrDefault ();
+
+            if (e.Button == MouseButtons.Left && DockStrip.ClickCaptionButton (this, shown, e.Location))
+                return;
 
             if (DockStrip.HitTest (_headers, e.Location) is not { } hit)
                 return;

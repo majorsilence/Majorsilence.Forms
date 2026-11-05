@@ -3,8 +3,9 @@ using System.Drawing;
 namespace Majorsilence.Forms.Telerik
 {
     /// <summary>
-    /// Telerik-compat docking manager. Backed by <see cref="Majorsilence.Forms.Panel"/>. Docking is not
-    /// implemented; windows are tracked and hosted as child panels so layout/code compiles and runs.
+    /// Telerik-compat docking manager. Backed by <see cref="Majorsilence.Forms.Panel"/>: it lays its split panels out,
+    /// floats windows in <see cref="FloatingWindow"/>s (RadDockFloating.cs) and auto-hides them to tabs along its sides
+    /// (RadDockAutoHide.cs), as Telerik's does. Dragging windows to dock them is not implemented.
     /// </summary>
     public partial class RadDock : Panel, ISupportInitializeCompat
     {
@@ -72,7 +73,11 @@ namespace Majorsilence.Forms.Telerik
 
             var windows = AllWindowsInTree ().Where (w => w is not DockWindowPlaceholder).ToList ();
 
-            foreach (var side in sides) {
+            var positions = new[] { AutoHidePosition.Left, AutoHidePosition.Top, AutoHidePosition.Right, AutoHidePosition.Bottom };
+
+            for (var s = 0; s < sides.Length; s++) {
+                var side = sides[s];
+
                 foreach (var group in side) {
                     foreach (var named in group.Windows) {
                         var window = named is DockWindowPlaceholder placeholder
@@ -80,21 +85,12 @@ namespace Majorsilence.Forms.Telerik
                             : windows.Contains (named) ? named : null;
 
                         if (window is not null)
-                            window.DockState = DockState.AutoHide;
+                            AutoHide (window, positions[s]);
                     }
                 }
 
                 side.Clear ();
             }
-        }
-
-        /// <summary>Floats the specified dock window. Compat: records the Floating state (no separate window is shown).</summary>
-        /// <remarks>Honours <see cref="DockWindowBase.AllowedDockState"/> as of W6 mechanisms (#176): a
-        /// window not allowed to float stays as it is.</remarks>
-        public void FloatWindow (DockWindowBase window)
-        {
-            if (window is not null && (window.AllowedDockState & AllowedDockState.Floating) != 0)
-                window.DockState = DockState.Floating;
         }
 
         /// <summary>Removes the specified dock window from this dock (compat alias for CloseWindow).</summary>
@@ -113,8 +109,9 @@ namespace Majorsilence.Forms.Telerik
         /// <remarks>
         /// Real as of W6 mechanisms (#176), and bounded: the layout is what this dock models -- each
         /// named window's <see cref="DockWindowBase.DockState"/> and whether it is the selected tab of
-        /// its strip. Telerik's full layout also records split sizes and floating positions, which this
-        /// dock does not lay out; <see cref="LoadFromXml(System.IO.Stream)"/> restores what is saved. A
+        /// its strip, with where a floating window floats and the side and size of an auto-hidden one's tab.
+        /// Telerik's full layout also records split sizes, which this dock does not save;
+        /// <see cref="LoadFromXml(System.IO.Stream)"/> restores what is saved. A
         /// window with no <see cref="Control.Name"/> cannot be matched on the way back and is skipped.
         /// </remarks>
         public void SaveToXml (System.IO.Stream stream)
@@ -123,14 +120,27 @@ namespace Majorsilence.Forms.Telerik
 
             var root = new System.Xml.Linq.XElement ("DockLayout");
 
-            foreach (var window in AllWindowsInTree ()) {
+            foreach (var window in AllWindowsInTree ().Concat (detached_windows.Where (w => !w.IsDisposed)).Distinct ()) {
                 if (string.IsNullOrEmpty (window.Name))
                     continue;
 
-                root.Add (new System.Xml.Linq.XElement ("Window",
+                var element = new System.Xml.Linq.XElement ("Window",
                     new System.Xml.Linq.XAttribute ("Name", window.Name),
                     new System.Xml.Linq.XAttribute ("DockState", window.DockState.ToString ()),
-                    new System.Xml.Linq.XAttribute ("Selected", DockStrip.IsSelected (window) ? "true" : "false")));
+                    new System.Xml.Linq.XAttribute ("Selected", DockStrip.IsSelected (window) ? "true" : "false"));
+
+                // Where a floating window floats, and the side and size of an auto-hidden one's tab.
+                if (window.FloatingParent is { } host)
+                    element.Add (new System.Xml.Linq.XAttribute ("FloatingBounds", Join (host.Location.X, host.Location.Y, host.Size.Width, host.Size.Height)));
+
+                if (window.DockState == DockState.AutoHide) {
+                    element.Add (new System.Xml.Linq.XAttribute ("AutoHidePosition", window.auto_hide_side.ToString ()));
+
+                    if (window is ToolWindow tool)
+                        element.Add (new System.Xml.Linq.XAttribute ("AutoHideSize", Join (tool.AutoHideSize.Width, tool.AutoHideSize.Height)));
+                }
+
+                root.Add (element);
             }
 
             new System.Xml.Linq.XDocument (root).Save (stream);
@@ -158,7 +168,7 @@ namespace Majorsilence.Forms.Telerik
                 return;
             }
 
-            var windows = AllWindowsInTree ()
+            var windows = AllWindowsInTree ().Concat (detached_windows.Where (w => !w.IsDisposed))
                 .Where (w => !string.IsNullOrEmpty (w.Name))
                 .GroupBy (w => w.Name, StringComparer.Ordinal)
                 .ToDictionary (g => g.Key, g => g.First (), StringComparer.Ordinal);
@@ -169,7 +179,17 @@ namespace Majorsilence.Forms.Telerik
                 if ((string?) element.Attribute ("Name") is not { } name || !windows.TryGetValue (name, out var window))
                     continue;
 
-                if (Enum.TryParse<DockState> ((string?) element.Attribute ("DockState"), out var state))
+                if (!Enum.TryParse<DockState> ((string?) element.Attribute ("DockState"), out var state))
+                    continue;
+
+                if (state == DockState.Floating && Numbers ((string?) element.Attribute ("FloatingBounds")) is { Length: 4 } b)
+                    Float (window, new Rectangle (b[0], b[1], b[2], b[3]), activate: false);
+                else if (state == DockState.AutoHide) {
+                    if (window is ToolWindow tool && Numbers ((string?) element.Attribute ("AutoHideSize")) is { Length: 2 } size)
+                        tool.AutoHideSize = new Size (size[0], size[1]);
+
+                    AutoHide (window, Enum.TryParse<AutoHidePosition> ((string?) element.Attribute ("AutoHidePosition"), out var side) ? side : AutoHidePosition.Auto);
+                } else
                     window.DockState = state;
 
                 if ((string?) element.Attribute ("Selected") == "true")
@@ -181,15 +201,35 @@ namespace Majorsilence.Forms.Telerik
                 ActivateWindow (window);
         }
 
+        private static string Join (params int[] values) => string.Join (",", values.Select (v => v.ToString (System.Globalization.CultureInfo.InvariantCulture)));
+
+        // "250, 180" or "250,180,640,330": the numbers a layout writes a point, size or rectangle as; null when one is not a number.
+        private static int[]? Numbers (string? text)
+        {
+            if (string.IsNullOrWhiteSpace (text))
+                return null;
+
+            var parts = text!.Split (',');
+            var result = new int[parts.Length];
+
+            for (var i = 0; i < parts.Length; i++)
+                if (!int.TryParse (parts[i].Trim (), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out result[i]))
+                    return null;
+
+            return result;
+        }
+
         // A layout Telerik's own dock saved -- what an app that ran on Telerik has stored: the dock's control
         // tree, each tab strip listing its windows in tab order with their Text, and the strip's
         // SelectedIndex. Measured on Telerik (UI for WinForms 2026.2.520), loading one gives each listed
         // window the saved Text and tab order and selects the saved tab; a window saved hidden comes back
         // as a tab, and a window in the strip that the layout does not list is closed and disposed. Split
-        // sizes and floating positions are not modelled here and are not read.
+        // sizes are not read. Its floating windows (SerializableFloatingWindows: a Location, a ClientSize and the
+        // placeholders of the windows floated together) float again there, and the windows its auto-hide groups
+        // name (SerializableAutoHideContainer, a placeholder's AutoHideSize with each) auto-hide on their side.
         private void LoadTelerikLayout (System.Xml.Linq.XElement root)
         {
-            var windows = OwnWindows ()
+            var windows = OwnWindows ().Concat (detached_windows.Where (w => !w.IsDisposed))
                 .Where (w => !string.IsNullOrEmpty (w.Name))
                 .GroupBy (w => w.Name, StringComparer.Ordinal)
                 .ToDictionary (g => g.Key, g => g.First (), StringComparer.Ordinal);
@@ -225,6 +265,45 @@ namespace Majorsilence.Forms.Telerik
                 if (int.TryParse ((string?) strip_element.Attribute ("SelectedIndex"), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var index)
                     && index >= 0 && index < listed.Count)
                     selected.Add (listed[index]);
+            }
+
+            DockWindowBase? Placeholder (System.Xml.Linq.XElement element)
+                => (string?) element.Attribute ("DockWindowName") is { } name && windows.TryGetValue (name, out var window) ? window : null;
+
+            foreach (var floating in root.Element ("SerializableFloatingWindows")?.Elements () ?? Enumerable.Empty<System.Xml.Linq.XElement> ()) {
+                if (Numbers ((string?) floating.Attribute ("Location")) is not { Length: 2 } location
+                    || Numbers ((string?) floating.Attribute ("ClientSize")) is not { Length: 2 } client)
+                    continue;
+
+                var floated = floating.Descendants ().Where (e => e.Name.LocalName.EndsWith ("DockWindowPlaceholder", StringComparison.Ordinal))
+                    .Select (Placeholder).OfType<DockWindowBase> ().ToList ();
+
+                if (floated.Count == 0)
+                    continue;
+
+                FloatingWindow? host = null;
+
+                foreach (var window in floated) {
+                    Float (window, new Rectangle (location[0], location[1], client[0], client[1]), activate: false, host);
+                    host ??= window.floating_parent;
+                }
+
+                if (host is not null)
+                    host.ClientSize = new Size (client[0], client[1]);
+            }
+
+            if (root.Element ("SerializableAutoHideContainer") is { } auto_hide) {
+                foreach (var (group_name, side) in new[] { ("LeftAutoHideGroups", AutoHidePosition.Left), ("TopAutoHideGroups", AutoHidePosition.Top), ("RightAutoHideGroups", AutoHidePosition.Right), ("BottomAutoHideGroups", AutoHidePosition.Bottom) }) {
+                    foreach (var placeholder in auto_hide.Element (group_name)?.Descendants ().Where (e => e.Name.LocalName.EndsWith ("DockWindowPlaceholder", StringComparison.Ordinal)) ?? Enumerable.Empty<System.Xml.Linq.XElement> ()) {
+                        if (Placeholder (placeholder) is not { } window)
+                            continue;
+
+                        if (window is ToolWindow tool && Numbers ((string?) placeholder.Attribute ("AutoHideSize")) is { Length: 2 } size)
+                            tool.AutoHideSize = new Size (size[0], size[1]);
+
+                        AutoHide (window, side);
+                    }
+                }
             }
 
             foreach (var window in selected)
@@ -332,21 +411,57 @@ namespace Majorsilence.Forms.Telerik
         /// window twice is not a move.
         /// </remarks>
         public void DockWindow (DockWindowBase window, DockPosition position = DockPosition.Fill)
+            => DockWindowCore (window, null, position);
+
+        /// <summary>Docks the specified window relative to another: <see cref="DockPosition.Fill"/> makes it a tab of the other's strip.</summary>
+        public void DockWindow (DockWindowBase window, DockWindowBase relativeTo, DockPosition position)
+            => DockWindowCore (window, relativeTo, position);
+
+        // A floating or auto-hidden window leaves its floating form or auto-hide tab first and becomes Docked, as
+        // Telerik's does (measured: DockStateChanging and DockStateChanged, then the document is active again). A tool
+        // window docked to a side gets a strip of its own there (see DockToolStrip); one docked to Fill is parented
+        // to the dock as it always was. A window that already has a parent in the dock is left where it is.
+        private void DockWindowCore (DockWindowBase window, DockWindowBase? relativeTo, DockPosition position)
         {
+            Guard.ThrowIfNull (window);
+
+            var added = !Has (window);
+
             if (window is ToolWindow tw && !_toolWindows.Contains (tw))
                 _toolWindows.Add (tw);
 
-            if (window.Parent is not null)
+            var leaving = window.DockState is DockState.Floating or DockState.AutoHide && window.manager is not null;
+
+            if (leaving) {
+                if (!RaiseDockStateChanging (window, DockState.Docked))
+                    return;
+
+                Detach (window);
+                detached_windows.Remove (window);
+                window.SetStateField (DockState.Docked);
+                window.Visible = true;
+            } else if (window.Parent is not null) {
                 return;
+            }
 
-            if (window is DocumentWindow)
+            window.manager = this;
+
+            if (relativeTo?.Parent is ToolTabStrip or DocumentTabStrip && position == DockPosition.Fill && IsInDock (relativeTo.Parent))
+                relativeTo.Parent.Controls.Add (window);
+            else if (window is DocumentWindow)
                 GetDefaultDocumentTabStrip (createIfMissing: true).Controls.Add (window);
-            else
+            else if (position == DockPosition.Fill)
                 Controls.Add (window);
-        }
+            else
+                DockToolStrip (window, position);
 
-        /// <summary>Docks the specified window relative to another. Stub.</summary>
-        public void DockWindow (DockWindowBase window, DockWindowBase relativeTo, DockPosition position) => DockWindow (window, position);
+            if (leaving) {
+                RaiseDockStateChanged (window);
+                ActivateDocument ();
+            } else if (added) {
+                RaiseDockWindowAdded (window);
+            }
+        }
 
         /// <summary>Gets the windows in the specified state.</summary>
         /// <remarks>
@@ -370,7 +485,7 @@ namespace Majorsilence.Forms.Telerik
         // were missing before, so DockWindows.DocumentWindows was always empty however the dock was
         // populated -- including by the designer-generated structure the rest of the layout reads.
         private IEnumerable<DockWindowBase> AllDockWindows ()
-            => _toolWindows.Cast<DockWindowBase> ().Concat (AllDocumentWindows ());
+            => _toolWindows.Cast<DockWindowBase> ().Concat (AllDocumentWindows ()).Concat (detached_windows.Where (w => !w.IsDisposed)).Distinct ();
 
         /// <summary>Closes the specified dock window: removes it from this dock and closes it.</summary>
         /// <remarks>
@@ -383,7 +498,14 @@ namespace Majorsilence.Forms.Telerik
             if (window is ToolWindow tool)
                 _toolWindows.Remove (tool);
 
+            window.manager ??= this;
             window.Close ();
+
+            if (window.IsDisposed)
+                detached_windows.Remove (window);
+
+            if (!AllDockWindows ().Contains (window))
+                RaiseDockWindowRemoved (window);
         }
 
         /// <summary>Gets the tab strip hosting document windows, creating one if asked to.</summary>
@@ -467,6 +589,24 @@ namespace Majorsilence.Forms.Telerik
                 if (dock_state == value)
                     return;
 
+                // Floating and auto-hide are the dock's to do, as are the ways back from them; a window that belongs to
+                // no dock yet only records the state, as a designer's assignment does.
+                if (DockManager is { } dock && (value is DockState.Floating or DockState.AutoHide || dock_state is DockState.Floating or DockState.AutoHide)) {
+                    dock.SetWindowState (this, value);
+                    return;
+                }
+
+                SetStateDirect (value);
+            }
+        }
+
+        // The state change the window makes for itself: in and out of its strip's tabs.
+        internal void SetStateDirect (DockState value)
+        {
+            {
+                if (dock_state == value)
+                    return;
+
                 // Hiding the selected tab hands it on, to the tab after it or else the one before.
                 var successor = value == DockState.Hidden ? DockStrip.Successor (this) : null;
 
@@ -480,10 +620,44 @@ namespace Majorsilence.Forms.Telerik
                     Parent.PerformLayout ();
                 else
                     Visible = value != DockState.Hidden;
+
+                if (Parent is ToolTabStrip strip && DockManager is { } manager_dock) {
+                    manager_dock.UpdateStripVisibility (strip);
+                    manager_dock.PerformLayout ();
+                }
             }
         }
 
+        // The state change the dock makes moving the window between floating, auto-hide and docked: the state alone.
+        // Telerik's PreviousDockState only moves when a window is hidden (measured), so it stays.
+        internal void SetStateField (DockState value) => dock_state = value;
+
         private DockState dock_state = DockState.Docked;
+
+        // The dock that floated, auto-hid or docked the window, the strip it was docked in and its place there, the
+        // floating form it is (or was last) in and the side it auto-hides to.
+        internal RadDock? manager { get; set; }
+        internal Control? home { get; set; }
+        internal int home_index { get; set; }
+        internal FloatingWindow? floating_parent { get; set; }
+        internal AutoHidePosition auto_hide_side { get; set; } = AutoHidePosition.Left;
+
+        /// <summary>Gets the dock the window belongs to: the one it is in, or the one holding it floating or auto-hidden.</summary>
+        public RadDock? DockManager {
+            get {
+                for (var p = Parent; p is not null; p = p.Parent)
+                    if (p is RadDock dock)
+                        return dock;
+
+                return manager is { IsDisposed: false } held ? held : null;
+            }
+        }
+
+        /// <summary>Gets the floating form the window is in, while it floats.</summary>
+        public FloatingWindow? FloatingParent => dock_state == DockState.Floating && floating_parent is { } host && ReferenceEquals (Parent, host.Strip) ? host : null;
+
+        /// <summary>Gets whether the window floats.</summary>
+        public bool IsInFloatingMode => FloatingParent is not null;
 
         /// <summary>Gets the dock state the window was in before the current one.</summary>
         /// <remarks>Kept by <see cref="DockState"/> as of W6 mechanisms (#176); settable for designer code.</remarks>
@@ -496,8 +670,8 @@ namespace Majorsilence.Forms.Telerik
         public ToolStripCaptionButtons ToolCaptionButtons { get; set; } = ToolStripCaptionButtons.All;
         /// <summary>Gets or sets the close action.</summary>
         public DockWindowCloseAction CloseAction { get; set; } = DockWindowCloseAction.Hide;
-        /// <summary>Gets or sets the default floating size. Stub.</summary>
-        public Size DefaultFloatingSize { get; set; }
+        /// <summary>Gets or sets the size of the floating form the window floats in: 300 x 300 by default, as Telerik's.</summary>
+        public Size DefaultFloatingSize { get; set; } = FloatingWindow.DefaultFloatingSize;
         /// <summary>Closes the window, honouring <see cref="CloseAction"/>.</summary>
         /// <remarks>
         /// <see cref="DockWindowCloseAction.Hide"/> hides it; <see cref="DockWindowCloseAction.CloseAndDispose"/>
@@ -505,14 +679,39 @@ namespace Majorsilence.Forms.Telerik
         /// </remarks>
         public void Close ()
         {
+            // In a dock, with the events Telerik raises around a close (measured): DockStateChanging (Hidden),
+            // DockWindowClosing, DockStateChanged and DockWindowClosed; a floating or auto-hidden window leaves its
+            // form or tab.
+            if (DockManager is { } dock) {
+                dock.CloseCore (this, CloseNow);
+                return;
+            }
+
+            CloseNow ();
+        }
+
+        private void CloseNow ()
+        {
             if (CloseAction == DockWindowCloseAction.CloseAndDispose) {
                 CloseAndDispose ();
                 return;
             }
 
             // Hidden, as Telerik's hide-on-close is: the tab goes too, not only the content.
-            DockState = DockState.Hidden;
+            HideDirect ();
             Visible = false;
+        }
+
+        // Hidden, remembering the state it leaves: what Show brings back.
+        private void HideDirect ()
+        {
+            if (dock_state == DockState.Hidden)
+                return;
+
+            if (dock_state is DockState.Floating or DockState.AutoHide && DockManager is { } dock)
+                dock.Detach (this);
+
+            SetStateDirect (DockState.Hidden);
         }
         /// <summary>Closes and disposes the window.</summary>
         public void CloseAndDispose () { Visible = false; Dispose (); }
@@ -523,7 +722,7 @@ namespace Majorsilence.Forms.Telerik
         /// before when it was last), raising Leave and Enter but not SelectedTabChanged, and the hidden window
         /// left its strip. Control.Hide, which this used to be, only cleared Visible, so the
         /// tab stayed and the next tab click showed the window again.</remarks>
-        public new void Hide () => DockState = DockState.Hidden;
+        public new void Hide () => HideDirect ();
 
         /// <summary>Brings a hidden window back to the state it had, as the first tab of its strip; otherwise shows it.</summary>
         /// <remarks>Measured on Telerik: Show after Hide put a document back as the first tab of its strip,
@@ -536,6 +735,13 @@ namespace Majorsilence.Forms.Telerik
             }
 
             Parent?.Controls.SetChildIndex (this, 0);
+
+            // Back into the floating form or onto the auto-hide tab it was hidden from.
+            if (PreviousDockState is DockState.Floating or DockState.AutoHide && DockManager is { } dock) {
+                dock.SetWindowState (this, PreviousDockState);
+                return;
+            }
+
             DockState = PreviousDockState;
         }
     }
@@ -583,8 +789,18 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets the caption.</summary>
         public string Caption { get; set; } = string.Empty;
         // ToolCaptionButtons is inherited from DockWindowBase.
-        /// <summary>Gets or sets the auto-hide size. Stub.</summary>
+        /// <summary>Gets or sets how far the window slides out when auto-hidden; empty until it is first auto-hidden,
+        /// when it takes its strip's size, as Telerik's.</summary>
         public Size AutoHideSize { get; set; }
+
+        /// <summary>Floats the window at the given screen bounds.</summary>
+        public void Float (Rectangle bounds) => DockManager?.FloatWindow (this, bounds);
+
+        /// <summary>Floats the window at the given screen location and size.</summary>
+        public void Float (Point location, Size size) => Float (new Rectangle (location, size));
+
+        /// <summary>Auto-hides the window, with the other windows of its strip.</summary>
+        public void AutoHide () => DockManager?.AutoHideWindow (this);
         // CloseAction and DefaultFloatingSize are inherited from DockWindowBase.
         /// <summary>Gets the tab strip hosting this window.</summary>
         /// <remarks>The strip the window is in as of W6 mechanisms (#176); a detached strip while it is

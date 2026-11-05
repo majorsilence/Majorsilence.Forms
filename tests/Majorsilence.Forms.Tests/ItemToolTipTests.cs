@@ -119,7 +119,7 @@ namespace Majorsilence.Forms.Tests
                 // TreeNode.Bounds is in DEVICE pixels while GetToolTipText -- like GetItemAtLocation
                 // beneath it -- takes LOGICAL, the space MouseEventArgs arrives in. Building the point
                 // straight from Bounds passes at scale 1 and misses the node at MF_HEADLESS_SCALE=2.
-                var bounds = node.Bounds;
+                var bounds = node.DeviceBounds;
                 var at = new Point (tree.DeviceToLogicalUnits (bounds.Left) + 20,
                     tree.DeviceToLogicalUnits (bounds.Top + bounds.Height / 2));
 

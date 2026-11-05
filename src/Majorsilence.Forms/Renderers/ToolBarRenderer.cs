@@ -559,8 +559,13 @@ namespace Majorsilence.Forms.Renderers
                 width += DropDownArrowGutter (control.LogicalToDeviceUnits (16));
 
             // Height was previously the item's current box, which made a strip's preferred height
-            // depend on whatever it had already been given rather than on its content.
-            var size = new Size (width, Math.Max (height + control.LogicalToDeviceUnits (item.Padding.Vertical), item.DeviceBounds.Height));
+            // depend on whatever it had already been given rather than on its content. That box is still a
+            // floor, except on a ported app's strip, which sizes itself from its items as upstream's AutoSize
+            // strip does: there the floor kept a strip that had once been taller from ever shrinking back.
+            var content_height = height + control.LogicalToDeviceUnits (item.Padding.Vertical);
+            var size = new Size (width, control is ToolStrip { SizesAsUpstreamStrip: true }
+                ? content_height
+                : Math.Max (content_height, item.DeviceBounds.Height));
 
             // A legacy button is never smaller than the bar's ButtonSize, and reserves its arrow gutter (W6).
             if (control.ButtonFor (item) is { } legacy) {

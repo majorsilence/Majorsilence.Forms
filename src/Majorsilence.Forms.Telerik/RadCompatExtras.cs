@@ -1017,7 +1017,7 @@ namespace Majorsilence.Forms.Telerik
     public class DockWindowEventArgs : EventArgs
     {
         /// <summary>The dock window involved.</summary>
-        public object? DockWindow { get; set; }
+        public DockWindowBase? DockWindow { get; set; }
     }
 }
 

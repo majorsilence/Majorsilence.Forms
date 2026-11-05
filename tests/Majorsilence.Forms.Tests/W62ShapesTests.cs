@@ -51,7 +51,7 @@ namespace Majorsilence.Forms.Tests
         {
             using var bitmap = PaintSurface.Render (tree);
 
-            var bounds = tree.Items[0].Bounds;
+            var bounds = tree.Items[0].DeviceBounds;
             var builder = new System.Text.StringBuilder ();
 
             for (var y = System.Math.Max (0, bounds.Top); y < bounds.Bottom && y < bitmap.Height; y++)

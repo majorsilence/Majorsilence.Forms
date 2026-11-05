@@ -47,6 +47,7 @@
 # Regenerate with MAJORSILENCE_WRITE_STORED_ONLY_BASELINE=1.
 Majorsilence.Forms.Telerik.AppointmentEditDialogShowingEventArgs.Cancel    -- there is no built-in edit dialog for Cancel to suppress; the event is where a handler shows its own
 Majorsilence.Forms.Telerik.AppointmentElement.ToolTipText    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.AutoHideTabStrip.FixedSplitter    -- the auto-hide popup's splitter is drawn as a margin; it cannot be dragged here
 Majorsilence.Forms.Telerik.BaseDateTimeEditorElement.CustomFormat    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.BaseDateTimeEditorElement.Format    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.BaseDateTimeEditorElement.Value    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
@@ -91,11 +92,9 @@ Majorsilence.Forms.Telerik.CurrentRowChangingEventArgs.OldRow    -- event data: 
 Majorsilence.Forms.Telerik.DataGroup.HeaderText    -- set by the grid as it builds Groups, read by the application
 Majorsilence.Forms.Telerik.DataGroup.Level    -- set by the grid as it builds Groups, read by the application
 Majorsilence.Forms.Telerik.DockWindowBase.AutoScaleMode    -- designer-shape value: scaling follows the host form
-Majorsilence.Forms.Telerik.DockWindowBase.DefaultFloatingSize    -- windows do not float here: tabbed docking only
-Majorsilence.Forms.Telerik.DockWindowBase.ToolCaptionButtons    -- the tool-window caption band draws no buttons yet (BACKLOG.md, dock caption buttons)
 Majorsilence.Forms.Telerik.DockWindowEventArgs.DockWindow    -- event data: set as the event is raised, read by the handler
 Majorsilence.Forms.Telerik.DockWindowPlaceholder.DockWindow    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
-Majorsilence.Forms.Telerik.DockWindowPlaceholder.DockWindowText    -- the caption of the window a placeholder stands for; the compat dock draws no auto-hide tabs to show it on
+Majorsilence.Forms.Telerik.DockWindowPlaceholder.DockWindowText    -- the caption of the window a placeholder stands for; the auto-hide tabs show the window's own caption, as Telerik's do
 Majorsilence.Forms.Telerik.DocumentContainer.SelectedTab    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
 Majorsilence.Forms.Telerik.FilterDescriptor.IsFilterEditor    -- marks descriptors made by the Telerik filter editor, which does not exist here
 Majorsilence.Forms.Telerik.FilterOperationContext.FieldName    -- event data: set as the event is raised, read by the handler
@@ -208,9 +207,11 @@ Majorsilence.Forms.Telerik.RadCommandBarBaseItem.VisibleInOverflowMenu    -- ele
 Majorsilence.Forms.Telerik.RadDateTimePickerCalendar.ShowTimePicker    -- the drop-down calendar has no time panel
 Majorsilence.Forms.Telerik.RadDesktopAlertCaptionGrip.GradientStyle    -- fills are solid: there is no gradient painting
 Majorsilence.Forms.Telerik.RadDesktopAlertElement.GradientStyle    -- fills are solid: there is no gradient painting
+Majorsilence.Forms.Telerik.RadDock.AutoHideAnimation    -- the auto-hide popup shows and hides at once: there is no slide animation
+Majorsilence.Forms.Telerik.RadDock.AutoHideAnimationDuration    -- the auto-hide popup shows and hides at once: there is no slide animation
 Majorsilence.Forms.Telerik.RadDock.IsCleanUpTarget    -- empty-container clean-up is not modelled: the dock keeps its strips
 Majorsilence.Forms.Telerik.RadDock.MdiChildrenDockType    -- read only by MDI-child auto-detection (Telerik AutoDetectMdiChildren, off by default), which the compat dock does not have
-Majorsilence.Forms.Telerik.RadDock.ToolTabsAlignment    -- there are no auto-hide tool tabs
+Majorsilence.Forms.Telerik.RadDock.ToolTabsAlignment    -- auto-hide tabs sit on the side their window was docked to; this setting is not read
 Majorsilence.Forms.Telerik.RadDock.ToolTabsVisible    -- there are no auto-hide tool tabs
 Majorsilence.Forms.Telerik.RadDropDownButton.ShowArrow    -- the arrow is always drawn
 Majorsilence.Forms.Telerik.RadDropDownList.DropDownAnimationEnabled    -- the drop-down opens without animation
@@ -327,7 +328,6 @@ Majorsilence.Forms.Telerik.TabStripItem.Image    -- element-tree stand-in: there
 Majorsilence.Forms.Telerik.TabStripItem.IsPinned    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.TabStripItem.IsSelected    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.ToolTabStrip.SplitterWidth    -- split-layout setting: split layout is deferred (BACKLOG.md, dock split layout)
-Majorsilence.Forms.Telerik.ToolWindow.AutoHideSize    -- there is no auto-hide slide-out
 Majorsilence.Forms.Telerik.ToolWindow.DocumentButtons    -- a tool strip draws no document buttons; DocumentTabStrip.DocumentButtons is the one read
 Majorsilence.Forms.Telerik.ValueChangingEventArgs.NewValue    -- event data; Cancel is honoured, but a handler changing NewValue is not applied
 Majorsilence.Forms.Telerik.ValueChangingEventArgs.OldValue    -- event data: set as the event is raised, read by the handler
