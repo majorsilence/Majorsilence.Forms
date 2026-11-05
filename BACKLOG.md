@@ -216,10 +216,9 @@ the legacy `ToolBar.Buttons` collection is not rendered at all, unlike `Items`.
   `AutoSizeRowsMode`, which sizes rows as upstream's does since 2026-10-26. The Telerik flag is still
   stored only: Telerik sizes its rows by its own rules, which were not measured, so it does not take
   the WinForms ones.
-- **Dock tool-window caption buttons (deferred 2026-09-30, #176).** `ToolCaptionButtons` has nothing
-  to show or hide: the tool strip's caption band draws only the caption. A close box there would be the
-  same code as the document tabs' one, but auto-hide and the menu button need the auto-hide and floating
-  windowing deferred under floating and auto-hide below.
+- **Dock tool-window caption menu button (deferred 2026-11-04).** The close and pin caption buttons are
+  drawn and honour `ToolCaptionButtons` (a docked strip's in ported mode, an auto-hide popup's always);
+  Telerik's menu button, 20 before the pin, is not, and its place is left empty.
 - **`RadCheckedDropDownList`'s check boxes (deferred 2026-09-30, #176).** The model is real (`CheckedItems`
   follows each item's `Checked`) but the drop-down is the plain `ComboBox` list, so a user cannot check
   anything: it needs a checked list as the drop-down, and a display of the checked items in the box.
@@ -234,7 +233,7 @@ merely unimplemented yet.
 | Item | Area | Why deferred |
 |---|---|---|
 | Month/week calendar grid UI | Scheduler | `RadScheduler` (`src/Majorsilence.Forms/Telerik/RadScheduler.cs`) implements a real data-binding layer, navigation, and a scrollable **agenda/list view** (appointments grouped by day) — this covers the audited Financial usage (`Reminders.vb`, print/export). The full Telerik month/week/day calendar *grid* rendering (drag-resize appointments, timeline swimlanes, etc.) was judged too large/behaviorally rich to fake and is not implemented; `GetMonthView()`/`GetWeekView()`/`GetDayView()`/`GetTimelineView()` return settable-but-not-rendered compat carriers so migrated code still compiles and runs against the agenda view. |
-| Floating and auto-hide | Docking | Floating windows and auto-hide need windowing this dock does not have; `FloatWindow` records the state only. The split layout is real (the dock, split and document containers share their room by `Orientation`, `SplitterWidth`, `Collapsed` and `SizeInfo`, as measured on Telerik), as are tabs, captions, close boxes, hidden windows, the docking events and state save/load; dragging a splitter is not, and `SplitterCorrection`, which Telerik's layout does not read either, is stored. |
+| Dragging windows to dock or float them; auto-hide slide animation and hover | Docking | Floating windows (`FloatWindow`, `DockState.Floating`) and auto-hide (tabs along the dock's sides, the slide-out popup, its pin and close buttons) are real as of 2026-11-04, as measured on Telerik, and are saved and loaded with the layout; what is not is dragging a window to dock or float it, the popup's slide animation (it shows at once) and opening it when the pointer rests on a tab. The split layout is real (the dock, split and document containers share their room by `Orientation`, `SplitterWidth`, `Collapsed` and `SizeInfo`, as measured on Telerik), as are tabs, captions, close boxes, hidden windows, the docking events and state save/load; dragging a splitter is not, and `SplitterCorrection`, which Telerik's layout does not read either, is stored. |
 | `Telerik.WinControls.Themes` (e.g. `Office2007BlackTheme`) | Visual themes | Still unused by Financial (excluding `.bak` files) as of this audit. The migrator continues to warn-and-leave references under this namespace (`NamespaceMap.UnsupportedNamespaces`) rather than rewrite them into something that doesn't exist. |
 | `Telerik.WinControls.Design`, `Telerik.WinControls.Primitives`, `Telerik.WinControls.Layouts` | Designer/primitive/layout infrastructure | Also warn-and-leave. Mapping `.Layouts` flat would require a type named `Dock` in `Majorsilence.Forms.Telerik`, colliding with `Control.Dock` resolution in VB consumers that import both namespaces. |
 
