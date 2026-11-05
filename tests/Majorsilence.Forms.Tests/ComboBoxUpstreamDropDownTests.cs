@@ -35,6 +35,10 @@ namespace Majorsilence.Forms.Tests
             public Size PopupSize;
             public int PopupLeft;
             public int ComboLeft;
+            public int RowHeight;
+
+            // The row's top, in logical pixels of the popup: the one-pixel line, then the list's rows.
+            public int Row (int index) => 1 + index * RowHeight;
 
             public SKColor At (int x, int y) => Bitmap.GetPixel ((int) Math.Round (x * Scale), (int) Math.Round (y * Scale));
 
@@ -84,6 +88,7 @@ namespace Majorsilence.Forms.Tests
                         PopupSize = popup.Size,
                         PopupLeft = popup.Location.X,
                         ComboLeft = form.PointToScreen (combo.Location).X,
+                        RowHeight = combo.PopupListBox.ItemHeight,
                     };
                 } finally {
                     combo.DroppedDown = false;
@@ -93,25 +98,24 @@ namespace Majorsilence.Forms.Tests
             }
         }
 
-        // The row's top, in logical pixels of the popup: the one-pixel line, then 20px rows.
-        private static int Row (int index) => 1 + index * 20;
-
         [Fact]
         public void The_list_hangs_from_the_combo_as_wide_as_it_and_shows_every_row_up_to_thirty ()
         {
             var shot = DropDown ();
 
-            Assert.Equal (new Size (150, 12 * 20 + 2), shot.PopupSize);
+            Assert.Equal (new Size (150, 12 * shot.RowHeight + 2), shot.PopupSize);
             Assert.Equal (shot.ComboLeft, shot.PopupLeft);
         }
 
         [Fact]
         public void MaxDropDownItems_does_not_limit_the_rows_thirty_do ()
         {
-            Assert.Equal (30 * 20 + 2, DropDown (items: 40).PopupSize.Height);
-            Assert.Equal (30 * 20 + 2, DropDown (items: 40, set: c => c.MaxDropDownItems = 4).PopupSize.Height);
-            Assert.Equal (12 * 20 + 2, DropDown (set: c => c.MaxDropDownItems = 20).PopupSize.Height);
-            Assert.Equal (3 * 20 + 2, DropDown (items: 3).PopupSize.Height);
+            var rows = DropDown (items: 40).RowHeight;
+
+            Assert.Equal (30 * rows + 2, DropDown (items: 40).PopupSize.Height);
+            Assert.Equal (30 * rows + 2, DropDown (items: 40, set: c => c.MaxDropDownItems = 4).PopupSize.Height);
+            Assert.Equal (12 * rows + 2, DropDown (set: c => c.MaxDropDownItems = 20).PopupSize.Height);
+            Assert.Equal (3 * rows + 2, DropDown (items: 3).PopupSize.Height);
         }
 
         [Fact]
@@ -126,7 +130,7 @@ namespace Majorsilence.Forms.Tests
         {
             var shot = DropDown (items: 3, set: c => c.Items.Add ("A much much longer item than the combo is wide"));
 
-            Assert.Equal (new Size (150, 4 * 20 + 2), shot.PopupSize);
+            Assert.Equal (new Size (150, 4 * shot.RowHeight + 2), shot.PopupSize);
         }
 
         [Theory]
@@ -144,21 +148,21 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (Outline, shot.At (75, h - 1));
             Assert.Equal (SKColors.White, shot.At (1, 100));
             Assert.Equal (SKColors.White, shot.At (w - 2, 100));
-            Assert.Equal (SKColors.White, shot.At (140, Row (0) + 10));
+            Assert.Equal (SKColors.White, shot.At (140, shot.Row (0) + 10));
 
             // The selected row, the whole width of the client, and nothing above or below it.
-            Assert.Equal (Highlight, shot.At (140, Row (2) + 10));
-            Assert.Equal (Highlight, shot.At (3, Row (2) + 1));
-            Assert.Equal (SKColors.White, shot.At (140, Row (2) - 1));
-            Assert.Equal (SKColors.White, shot.At (140, Row (3)));
+            Assert.Equal (Highlight, shot.At (140, shot.Row (2) + 10));
+            Assert.Equal (Highlight, shot.At (3, shot.Row (2) + 1));
+            Assert.Equal (SKColors.White, shot.At (140, shot.Row (2) - 1));
+            Assert.Equal (SKColors.White, shot.At (140, shot.Row (3)));
         }
 
         [Fact]
         public void A_DropDownList_draws_a_dotted_focus_cue_round_the_highlighted_row ()
         {
             var shot = DropDown ();
-            var top = Row (2);
-            var bottom = top + 19;
+            var top = shot.Row (2);
+            var bottom = top + shot.RowHeight - 1;
             var right = shot.PopupSize.Width - 2;
 
             // Every other pixel of the row's edge is the highlight's inverse, starting one along from the top left.
@@ -181,9 +185,9 @@ namespace Majorsilence.Forms.Tests
         {
             var shot = DropDown (style: ComboBoxStyle.DropDown);
 
-            Assert.Equal (Highlight, shot.At (2, Row (2)));
-            Assert.Equal (Highlight, shot.At (1, Row (2) + 1));
-            Assert.Equal (Highlight, shot.At (3, Row (2) + 19));
+            Assert.Equal (Highlight, shot.At (2, shot.Row (2)));
+            Assert.Equal (Highlight, shot.At (1, shot.Row (2) + 1));
+            Assert.Equal (Highlight, shot.At (3, shot.Row (3) - 1));
         }
 
         [Fact]
@@ -195,9 +199,9 @@ namespace Majorsilence.Forms.Tests
                 list.RaiseMouseLeave (EventArgs.Empty);
             });
 
-            Assert.Equal (Highlight, shot.At (140, Row (0) + 10));
-            Assert.Equal (SKColors.White, shot.At (140, Row (2) + 10));
-            Assert.Equal (FocusDot, shot.At (2, Row (0)));
+            Assert.Equal (Highlight, shot.At (140, shot.Row (0) + 10));
+            Assert.Equal (SKColors.White, shot.At (140, shot.Row (2) + 10));
+            Assert.Equal (FocusDot, shot.At (2, shot.Row (0)));
         }
 
         [Fact]
@@ -209,12 +213,12 @@ namespace Majorsilence.Forms.Tests
                 c.ForeColor = Color.Red;
             });
 
-            Assert.Equal (green, shot.At (1, Row (4) + 10));
-            Assert.Equal (green, shot.At (140, Row (0) + 10));
+            Assert.Equal (green, shot.At (1, shot.Row (4) + 10));
+            Assert.Equal (green, shot.At (140, shot.Row (0) + 10));
 
             // A plain row's text is red; the highlighted row's is white.
-            Assert.True (shot.FirstInk (Row (0), Row (1), c => c.Red > 200 && c.Green < 100 && c.Blue < 100) >= 0);
-            Assert.True (shot.FirstInk (Row (2) + 2, Row (3) - 2, c => c.Red > 230 && c.Green > 230 && c.Blue > 230) >= 0);
+            Assert.True (shot.FirstInk (shot.Row (0), shot.Row (1), c => c.Red > 200 && c.Green < 100 && c.Blue < 100) >= 0);
+            Assert.True (shot.FirstInk (shot.Row (2) + 2, shot.Row (3) - 2, c => c.Red > 230 && c.Green > 230 && c.Blue > 230) >= 0);
         }
 
         [Fact]
@@ -225,8 +229,8 @@ namespace Majorsilence.Forms.Tests
 
             var shot = DropDown ();
 
-            Assert.Equal (4, shot.FirstInk (Row (3) + 2, Row (4) - 2, c => c.Red + c.Green + c.Blue < 384));
-            Assert.Equal (4, shot.FirstInk (Row (2) + 2, Row (3) - 2, c => c.Red + c.Green + c.Blue > 600));
+            Assert.Equal (4, shot.FirstInk (shot.Row (3) + 2, shot.Row (4) - 2, c => c.Red + c.Green + c.Blue < 384));
+            Assert.Equal (4, shot.FirstInk (shot.Row (2) + 2, shot.Row (3) - 2, c => c.Red + c.Green + c.Blue > 600));
         }
 
         [Fact]
@@ -237,7 +241,7 @@ namespace Majorsilence.Forms.Tests
             Assert.NotEqual (Outline, shot.At (0, 50));
             Assert.True (shot.PopupLeft > shot.ComboLeft);
             Assert.True (shot.PopupSize.Width > 150);
-            Assert.True (shot.PopupSize.Height < 12 * 20);
+            Assert.True (shot.PopupSize.Height < 12 * shot.RowHeight);
         }
     }
 }
