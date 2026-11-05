@@ -19,7 +19,7 @@ namespace Majorsilence.Forms
 
         public int Index => (Dark ? 1 : 0) | (ReducedMotion ? 2 : 0);
 
-        public static MediaEnvironment Current => new (SystemInformation.PrefersDarkColorScheme, SystemInformation.PrefersReducedMotion);
+        public static MediaEnvironment Current => new (Theme.MediaPrefersDark, SystemInformation.PrefersReducedMotion);
 
         public static readonly MediaEnvironment[] All = { new (false, false), new (true, false), new (false, true), new (true, true) };
     }

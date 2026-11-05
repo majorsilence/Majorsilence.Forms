@@ -400,6 +400,10 @@ Form { background-color: var(--page); }
   `Media` says which query it sits in).
 - Size, input-device and the other media features are errors that say why: there is no one viewport
   for a theme that styles every window, and the backends do not report the rest.
+- `Theme.ColorScheme` lets the application choose instead: `ThemeColorScheme.Light` or `Dark` fixes what
+  `prefers-color-scheme` answers (a user's Light / Dark setting, or a host such as a real System.Windows.Forms app that has no
+  backend to ask), and `System` -- the default -- follows the operating system. Changing it applies the current sheet again,
+  so the theme and the host appliers switch at once.
 - The operating system's appearance is read by the Avalonia backend (`SystemInformation.PrefersDarkColorScheme`,
   which `Application.SystemColorMode` now reports as well); a backend that cannot tell answers light. A
   `ThemeScope` evaluates its sheet's queries when it is applied, but does not re-apply on a change.
