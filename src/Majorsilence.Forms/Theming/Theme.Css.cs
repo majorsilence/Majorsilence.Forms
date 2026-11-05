@@ -44,11 +44,6 @@ namespace Majorsilence.Forms
         /// </summary>
         public static event EventHandler<ThemeStyleSheetEventArgs>? StyleSheetApplied;
 
-        /// <summary>
-        /// The CSS stylesheets whose control rules are currently installed, base first (the last is the
-        /// one applied). Empty when no CSS theme is in effect, including after
-        /// <see cref="SetBuiltInTheme"/>.
-        /// </summary>
         private static volatile ThemeColorScheme color_scheme;
 
         /// <summary>
@@ -81,6 +76,11 @@ namespace Majorsilence.Forms
             _ => SystemInformation.PrefersDarkColorScheme,
         };
 
+        /// <summary>
+        /// The CSS stylesheets whose control rules are currently installed, base first (the last is the
+        /// one applied). Empty when no CSS theme is in effect, including after
+        /// <see cref="SetBuiltInTheme"/>.
+        /// </summary>
         public static IReadOnlyList<ThemeStyleSheet> CurrentStyleSheets {
             get {
                 lock (_lock)
