@@ -17,12 +17,14 @@ namespace Majorsilence.Forms.Tests
             HeadlessRenderer.Use ();
             HeadlessRenderer.PrefersDarkColorScheme = false;
             HeadlessRenderer.PrefersReducedMotion = false;
+            Theme.ColorScheme = ThemeColorScheme.System;
             Theme.SetBuiltInTheme (BuiltInTheme.Light);
         }
 
         public void Dispose ()
         {
             GC.SuppressFinalize (this);
+            Theme.ColorScheme = ThemeColorScheme.System;
             HeadlessRenderer.PrefersDarkColorScheme = false;
             HeadlessRenderer.PrefersReducedMotion = false;
             Theme.SetBuiltInTheme (BuiltInTheme.Light);
@@ -357,6 +359,46 @@ namespace Majorsilence.Forms.Tests
             HeadlessRenderer.PrefersDarkColorScheme = false;
             Assert.Equal (SKColors.White, Panel.DefaultStyle.BackgroundColor);
         }
+
+        [Fact]
+        public void The_application_can_choose_the_colour_scheme ()
+        {
+            Theme.LoadFromCss (@"
+                :root { --page: #ffffff; }
+                @media (prefers-color-scheme: dark) { :root { --page: #000000; } }
+                Panel { background-color: var(--page); }");
+
+            // Dark by choice while the system is light: the sheet applies again with its dark block.
+            Theme.ColorScheme = ThemeColorScheme.Dark;
+            Assert.Equal (SKColors.Black, Panel.DefaultStyle.BackgroundColor);
+
+            // A system change does not override the choice.
+            HeadlessRenderer.PrefersDarkColorScheme = false;
+            Assert.Equal (SKColors.Black, Panel.DefaultStyle.BackgroundColor);
+
+            // Light by choice while the system is dark.
+            HeadlessRenderer.PrefersDarkColorScheme = true;
+            Theme.ColorScheme = ThemeColorScheme.Light;
+            Assert.Equal (SKColors.White, Panel.DefaultStyle.BackgroundColor);
+
+            // Back to following the system, which is dark.
+            Theme.ColorScheme = ThemeColorScheme.System;
+            Assert.Equal (SKColors.Black, Panel.DefaultStyle.BackgroundColor);
+        }
+
+        [Fact]
+        public void A_parsed_sheet_reads_the_chosen_colour_scheme ()
+        {
+            var sheet = ThemeStyleSheet.Parse ("@media (prefers-color-scheme: dark) { Panel { color: #010203; } }");
+            Assert.Empty (sheet.Rules);
+
+            Theme.ColorScheme = ThemeColorScheme.Dark;
+            Assert.Single (sheet.Rules);
+        }
+
+        [Fact]
+        public void The_colour_scheme_rejects_an_undefined_value ()
+            => Assert.Throws<ArgumentOutOfRangeException> (() => Theme.ColorScheme = (ThemeColorScheme) 7);
 
         [Fact]
         public void Reduced_motion_can_turn_transitions_off_in_css ()

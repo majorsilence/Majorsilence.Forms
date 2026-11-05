@@ -44,6 +44,38 @@ namespace Majorsilence.Forms
         /// </summary>
         public static event EventHandler<ThemeStyleSheetEventArgs>? StyleSheetApplied;
 
+        private static volatile ThemeColorScheme color_scheme;
+
+        /// <summary>
+        /// The colour scheme <c>@media (prefers-color-scheme: ...)</c> tests. <see cref="ThemeColorScheme.System"/> (the default)
+        /// follows the operating system through the backend (<see cref="SystemInformation.PrefersDarkColorScheme"/>);
+        /// <see cref="ThemeColorScheme.Light"/> or <see cref="ThemeColorScheme.Dark"/> is the application's own choice -- a user
+        /// setting, or a host with no backend to ask (a real System.Windows.Forms app, a native Avalonia app), where the system
+        /// answer is always light. Changing it applies the current stylesheet again when it uses media queries, so the theme and
+        /// every host applier that follows <see cref="StyleSheetApplied"/> switch at once; a sheet parsed but not applied reads
+        /// the new scheme the next time its <see cref="ThemeStyleSheet.Rules"/> or <see cref="ThemeStyleSheet.Tokens"/> are read.
+        /// Set it on the UI thread.
+        /// </summary>
+        public static ThemeColorScheme ColorScheme {
+            get => color_scheme;
+            set {
+                if (value is not (ThemeColorScheme.System or ThemeColorScheme.Light or ThemeColorScheme.Dark))
+                    throw new ArgumentOutOfRangeException (nameof (value), value, "Expected System, Light or Dark.");
+                if (color_scheme == value)
+                    return;
+
+                color_scheme = value;
+                OnMediaPreferenceChanged (null, EventArgs.Empty);
+            }
+        }
+
+        // What (prefers-color-scheme: dark) answers: the application's choice, else the system's.
+        internal static bool MediaPrefersDark => color_scheme switch {
+            ThemeColorScheme.Light => false,
+            ThemeColorScheme.Dark => true,
+            _ => SystemInformation.PrefersDarkColorScheme,
+        };
+
         /// <summary>
         /// The CSS stylesheets whose control rules are currently installed, base first (the last is the
         /// one applied). Empty when no CSS theme is in effect, including after
