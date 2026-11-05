@@ -80,11 +80,15 @@ namespace Majorsilence.Forms.Theming.WinForms
             if (Current is null || WinFormsCssTheme.Exclude?.Invoke (control) == true)
                 return;
 
-            ApplyControl (control, Current);
             HookChildren (control);
 
-            if (control.ContextMenuStrip is { } contextMenu)
-                ApplyControl (contextMenu, Current);
+            // Skipped: nothing written to the control itself, but its children are still walked.
+            if (WinFormsCssTheme.Skip?.Invoke (control) != true) {
+                ApplyControl (control, Current);
+
+                if (control.ContextMenuStrip is { } contextMenu)
+                    ApplyControl (contextMenu, Current);
+            }
 
             foreach (WF.Control child in control.Controls)
                 ApplyTree (child);

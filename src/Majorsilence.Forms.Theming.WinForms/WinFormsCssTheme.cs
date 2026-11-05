@@ -74,6 +74,17 @@ namespace Majorsilence.Forms.Theming.WinForms
         public static Func<WF.Control, bool>? Exclude { get; set; }
 
         /// <summary>
+        /// Controls the theme must leave alone while still theming the ordinary controls inside them:
+        /// return true to skip just that control. For a container another theming engine paints (a
+        /// third-party page, panel or form) that hosts standard controls of its own -- unlike
+        /// <see cref="Exclude"/>, which also skips everything under it. Checked on every apply and for
+        /// controls added later; null (the default) skips nothing. <see cref="Exclude"/> wins when both
+        /// match. Skipped controls are never written to, and nothing is hooked on them except the
+        /// ControlAdded handler that themes children added later.
+        /// </summary>
+        public static Func<WF.Control, bool>? Skip { get; set; }
+
+        /// <summary>
         /// Whether the theme repaints the borders System.Windows.Forms draws in system colours -- the 1px frame of text boxes,
         /// lists, trees, panels, combo boxes, up-down controls and group boxes -- in the theme's <c>border-color</c> (or, for
         /// the controls that have one by default, <c>--border-low-color</c>). WinForms exposes no border colour, so this
