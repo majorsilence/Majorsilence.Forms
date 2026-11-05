@@ -38,6 +38,7 @@ static void Main ()
 | `WinFormsCssTheme.Watch (path)` | Applies the file now and again on every save (debounced). Dispose the returned watcher to stop. The Theme Studio workflow. |
 | `WinFormsCssTheme.Track (form)` | Styles a form and hooks `ControlAdded` (recursively) and `HandleCreated`, so late controls and the title bar are themed. Forms open at apply time are tracked automatically. |
 | `WinFormsCssTheme.Exclude` | A `Func<Control, bool>`: controls it returns true for — and everything under them — are left alone, on every apply and when added later. For subtrees another theming engine owns (e.g. Telerik `RadForm`s and `RadControl`s). Nothing is written to them, but a control that sets no `BackColor` / `ForeColor` / `Font` of its own still inherits its themed parent's (WinForms ambient properties). |
+| `WinFormsCssTheme.Skip` | A `Func<Control, bool>`: controls it returns true for are left alone, but the ordinary controls inside them are still themed, on every apply and when added later. For a container another theming engine paints that hosts standard controls (e.g. a Telerik `RadPageViewPage` holding `Label`s and `TextBox`es). `Exclude` wins when both match. |
 | `WinFormsCssTheme.PaintBorders` | Repaint the 1px frame WinForms draws in system colours in the theme's border colour (default `true`; see [Borders](#borders)). |
 | `WinFormsCssTheme.PaintEffects` | Paint shadows, outlines and gradients WinForms has no property for (default `true`; see [Effects](#effects)). |
 | `WinFormsCssTheme.Animate` | Fade state changes and play `@keyframes` on the colours a state swaps (default `true`; see [Motion](#motion)). |
@@ -96,7 +97,8 @@ detaching it (`PaintBorders = false`, then an apply) puts the system frame back.
 
 A control whose class paints itself — a type outside System.Windows.Forms that overrides `OnPaint`,
 `OnPaintBackground` or `WndProc` — keeps its own border and is reported once as an info diagnostic.
-`WinFormsCssTheme.Exclude` leaves a control alone entirely.
+`WinFormsCssTheme.Exclude` leaves a control alone entirely; `WinFormsCssTheme.Skip` leaves the control alone but
+themes the controls inside it.
 
 ### States
 

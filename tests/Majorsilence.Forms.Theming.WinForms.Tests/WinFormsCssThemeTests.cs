@@ -106,6 +106,53 @@ Form { font-family: ""Segoe UI"", sans-serif; font-size: 14px; }
             }
         }
 
+        // Skipped means the applier sets nothing on that control, but still themes the controls inside it,
+        // including ones added later; Exclude still wins over Skip.
+        [Fact]
+        public void Skip_LeavesTheControlAlone_ButThemesWhatIsInsideIt ()
+        {
+            var host = Add (new WF.Panel { Name = "host" });
+            var inner = new WF.Button { Text = "Inner" };
+            host.Controls.Add (inner);
+
+            WinFormsCssTheme.Skip = c => c.Name == "host";
+            try {
+                TrackAndApply ();
+
+                var late = new WF.Button { Text = "Late" };
+                host.Controls.Add (late);
+
+                Assert.False (ExplicitlySet (host, "BackColor"), "the skipped host had BackColor set");
+                Assert.False (ExplicitlySet (host, "ForeColor"), "the skipped host had ForeColor set");
+                foreach (var button in new[] { inner, late }) {
+                    Assert.Equal (WF.FlatStyle.Flat, button.FlatStyle);
+                    AssertColor ("#38383d", button.BackColor);
+                }
+            } finally {
+                WinFormsCssTheme.Skip = null;
+            }
+        }
+
+        [Fact]
+        public void Exclude_WinsOverSkip ()
+        {
+            var host = Add (new WF.Panel { Name = "host" });
+            var inner = new WF.Button { Text = "Inner" };
+            host.Controls.Add (inner);
+
+            WinFormsCssTheme.Skip = c => c.Name == "host";
+            WinFormsCssTheme.Exclude = c => c.Name == "host";
+            try {
+                TrackAndApply ();
+
+                Assert.Equal (WF.FlatStyle.Standard, inner.FlatStyle);
+                Assert.False (ExplicitlySet (inner, "BackColor"));
+            } finally {
+                WinFormsCssTheme.Skip = null;
+                WinFormsCssTheme.Exclude = null;
+            }
+        }
+
         private static bool ExplicitlySet (WF.Control control, string property)
             => System.ComponentModel.TypeDescriptor.GetProperties (control)[property]!.ShouldSerializeValue (control);
 
