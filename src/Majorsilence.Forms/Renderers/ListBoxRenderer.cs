@@ -42,6 +42,12 @@ namespace Majorsilence.Forms.Renderers
             // lost focus gives up its highlight only when the application asked for that.
             var selected = control.Items.SelectedIndexes.Contains (index) && control.ShowsSelection;
 
+            // A combo box's drop-down drawn as upstream's: one highlight, which follows the mouse.
+            var upstream_drop_down = control.PaintsUpstreamDropDown;
+
+            if (upstream_drop_down)
+                selected = index == control.UpstreamDropDownHighlight;
+
             // Owner draw (W6 mechanisms): the application paints the item; nothing here does.
             if (control.DrawMode != DrawMode.Normal) {
                 var state = DrawItemState.None;
@@ -57,6 +63,11 @@ namespace Majorsilence.Forms.Renderers
 
                 bounds.Height = control.ItemHeightDeviceAt (index);
                 control.RaiseDrawItem (index, bounds, state, e);
+                return;
+            }
+
+            if (upstream_drop_down) {
+                RenderUpstreamDropDownItem (control, item, index, bounds, selected, e);
                 return;
             }
 
@@ -92,6 +103,61 @@ namespace Majorsilence.Forms.Renderers
                 e.Canvas.DrawText (text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, selection_fg, ContentAlignment.MiddleLeft, maxLines: 1);
             else
                 e.Canvas.DrawText (text, bounds, control, ContentAlignment.MiddleLeft, maxLines: 1);
+        }
+
+        // A row of a combo box's drop-down as upstream's native list draws it (ListBox.PaintsUpstreamDropDown): the
+        // highlighted row filled with SystemColors.Highlight, its text HighlightText, and for a DropDownList a dotted
+        // focus cue round it; the other rows' text in the combo's ForeColor on the face. The text is laid out two pixels
+        // in, its first ink four pixels in as upstream's (the theme's list lays it out four in).
+        private void RenderUpstreamDropDownItem (ListBox control, object item, int index, Rectangle bounds, bool highlighted, PaintEventArgs e)
+        {
+            bounds.Height = control.ItemHeightDeviceAt (index);
+
+            if (highlighted) {
+                e.Canvas.FillRectangle (bounds, SystemColors.Highlight.ToSKColor ());
+
+                if (control.UpstreamDropDownFocusCue)
+                    DrawUpstreamDropDownFocus (e, bounds, SystemColors.Highlight.ToSKColor ());
+            }
+
+            var colour = highlighted ? SystemColors.HighlightText.ToSKColor () : control.UpstreamDropDownForeColor;
+            var text = control.GetItemText (item);
+            var inset = e.LogicalToDeviceUnits (2);
+            bounds = new Rectangle (bounds.Left + inset, bounds.Top, Math.Max (0, bounds.Width - inset * 2), bounds.Height);
+
+            if (control.UseTabStops && text.Contains ('\t')) {
+                RenderTabbedText (control, text, bounds, colour, e);
+                return;
+            }
+
+            e.Canvas.DrawText (text, control.GetEffectiveFont (), control.LogicalToDeviceUnits (control.GetEffectiveFontSize ()), bounds, colour, ContentAlignment.MiddleLeft, maxLines: 1);
+        }
+
+        // Upstream's focus cue in the drop-down, measured: a one-pixel border round the highlighted row, every other
+        // pixel the inverse of the highlight (#FF8728 on #0078D7) and the rest left alone, the top-left one left.
+        private static void DrawUpstreamDropDownFocus (PaintEventArgs e, Rectangle bounds, SkiaSharp.SKColor background)
+        {
+            var dot = e.LogicalToDeviceUnits (1);
+            var inverse = new SkiaSharp.SKColor ((byte) (255 - background.Red), (byte) (255 - background.Green), (byte) (255 - background.Blue));
+
+            void Dot (int x, int y)
+            {
+                if (((x - bounds.Left) / dot + (y - bounds.Top) / dot) % 2 == 1)
+                    e.Canvas.FillRectangle (x, y, dot, dot, inverse);
+            }
+
+            var right = bounds.Right - dot;
+            var bottom = bounds.Bottom - dot;
+
+            for (var x = bounds.Left; x <= right; x += dot) {
+                Dot (x, bounds.Top);
+                Dot (x, bottom);
+            }
+
+            for (var y = bounds.Top + dot; y < bottom; y += dot) {
+                Dot (bounds.Left, y);
+                Dot (right, y);
+            }
         }
 
         /// <summary>
