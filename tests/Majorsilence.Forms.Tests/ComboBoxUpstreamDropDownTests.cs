@@ -165,16 +165,24 @@ namespace Majorsilence.Forms.Tests
             var bottom = top + shot.RowHeight - 1;
             var right = shot.PopupSize.Width - 2;
 
-            // Every other pixel of the row's edge is the highlight's inverse, starting one along from the top left.
+            // Every other pixel of the row's edge is the highlight's inverse, starting one along from the top left. The
+            // dots are a checkerboard from that corner, so which edge pixels carry one depends on the row height and
+            // the list's width (Microsoft Sans Serif's 20px rows on Windows, a substitute font's elsewhere).
+            SKColor Edge (int x, int y) => ((x - 1) + (y - top)) % 2 == 1 ? FocusDot : Highlight;
+
             Assert.Equal (Highlight, shot.At (1, top));
             Assert.Equal (FocusDot, shot.At (2, top));
             Assert.Equal (Highlight, shot.At (3, top));
             Assert.Equal (FocusDot, shot.At (1, top + 1));
-            Assert.Equal (FocusDot, shot.At (1, bottom));
-            Assert.Equal (Highlight, shot.At (2, bottom));
-            Assert.Equal (FocusDot, shot.At (3, bottom));
-            Assert.Equal (Highlight, shot.At (right, top + 1));
-            Assert.Equal (FocusDot, shot.At (right, top + 2));
+            Assert.Equal (Edge (1, bottom), shot.At (1, bottom));
+            Assert.Equal (Edge (2, bottom), shot.At (2, bottom));
+            Assert.Equal (Edge (3, bottom), shot.At (3, bottom));
+            Assert.Equal (Edge (right, top + 1), shot.At (right, top + 1));
+            Assert.Equal (Edge (right, top + 2), shot.At (right, top + 2));
+            if (OperatingSystem.IsWindows ()) {
+                Assert.Equal (FocusDot, shot.At (1, bottom));
+                Assert.Equal (Highlight, shot.At (right, top + 1));
+            }
 
             // Inside the edge, the highlight.
             Assert.Equal (Highlight, shot.At (2, top + 1));
