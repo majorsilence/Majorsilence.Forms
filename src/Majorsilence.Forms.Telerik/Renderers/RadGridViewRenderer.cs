@@ -221,6 +221,39 @@ namespace Majorsilence.Forms.Renderers
         }
 
         /// <inheritdoc/>
+        /// <remarks>
+        /// Telerik's cells share their lines, measured (UI for WinForms 2026.2.520): each one's edges fall on its
+        /// neighbours', so a pixel's line runs between two cells and between two rows, and the first column, with no row
+        /// header column beside it, has its own line on its left, a pixel inside the grid's edge. Each cell here drew its
+        /// left and top edges beside its neighbours' right and bottom ones, two pixels of line between every pair.
+        /// </remarks>
+        protected override void RenderCellBorders (DataGridView control, DataGridViewAdvancedBorderStyle borderStyle, Rectangle bounds, PaintEventArgs e)
+        {
+            if (control is not RadGridView) {
+                base.RenderCellBorders (control, borderStyle, bounds, e);
+                return;
+            }
+
+            var shared = new DataGridViewAdvancedBorderStyle {
+                Right = borderStyle.Right,
+                Bottom = borderStyle.Bottom,
+                Top = DataGridViewAdvancedCellBorderStyle.None,
+                Left = !control.RowHeadersVisible && IsFirstColumnAt (control, bounds.Left) ? borderStyle.Right : DataGridViewAdvancedCellBorderStyle.None,
+            };
+
+            base.RenderCellBorders (control, shared, bounds, e);
+        }
+
+        // Whether a cell starting at a device x is the first visible column's (scrolled or not).
+        private static bool IsFirstColumnAt (DataGridView control, int left)
+        {
+            for (var i = 0; i < control.Columns.Count; i++)
+                if (control.Columns[i].Visible)
+                    return control.GetColumnDeviceLeft (i) == left;
+            return false;
+        }
+
+        /// <inheritdoc/>
         protected override int? CellTextMaxLines (DataGridViewColumn column)
             => column is Majorsilence.Forms.Telerik.GridViewColumn { WrapText: true } ? null : 1;
 
