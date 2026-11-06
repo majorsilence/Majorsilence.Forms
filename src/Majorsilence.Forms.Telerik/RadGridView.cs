@@ -1386,6 +1386,9 @@ namespace Majorsilence.Forms.Telerik
         }
 
         // The master data rows after applying any active column filters and the quick-search text.
+        // How many rows the filter lets through, before paging.
+        internal int FilteredMasterCount => FilteredMaster ().Count;
+
         private List<DataGridViewRow> FilteredMaster ()
         {
             IEnumerable<DataGridViewRow> rows = _master;

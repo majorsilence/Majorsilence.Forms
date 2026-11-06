@@ -13,7 +13,9 @@ namespace Majorsilence.Forms.Telerik
     // - the image buttons are 24px wide and "..." its text plus 5, each pair 3px either side of a 2px separator, and the
     //   page buttons share what the strip leaves equally, five pages to a group;
     // - the labels are their text wide and the box 30px, its height the font's line height plus 3 (20 at least), all together
-    //   4px in from the right.
+    //   4px in from the right;
+    // - with no rows to page there are no page buttons: the second "...", next and last follow the first three, and they
+    //   are shown enabled, the first two disabled, as Telerik's are.
     //
     // Text is measured as GDI+ measures it, a sixth of the em wider either side than the glyphs, and the line height is the
     // font's Height.
@@ -72,6 +74,10 @@ namespace Majorsilence.Forms.Telerik
         private static int LabelWidth (string text, SKTypeface typeface, int size)
             => (int) Math.Ceiling (GdiPlusWidth (text, typeface, size) + 0.5f);
 
+        /// <summary>Whether there are no rows to page (none, or none the filter lets through): Telerik's paging panel then
+        /// has no page buttons, and shows "...", next and last enabled.</summary>
+        internal bool PagesNoRows => FilteredMasterCount == 0;
+
         /// <summary>The first page of the group of page buttons the current page is in.</summary>
         internal int PagingGroupStart => _currentPage / PagingNumericButtonsCount * PagingNumericButtonsCount;
 
@@ -126,6 +132,23 @@ namespace Majorsilence.Forms.Telerik
             x += fast + gap;
             layout.Separators.Add (Item (x, separator));
             var pages_left = x + separator + gap;
+
+            // With no rows, no page buttons: the rest follows on from the first three, as Telerik's strip packs them.
+            if (PagesNoRows) {
+                x = pages_left + gap;
+                layout.Separators.Add (Item (x, separator));
+                x += separator + gap;
+                layout.FastForward = Item (x, fast);
+                x += fast + gap;
+                layout.Separators.Add (Item (x, separator));
+                x += separator + gap;
+                layout.Next = Item (x, image);
+                x += image + gap;
+                layout.Separators.Add (Item (x, separator));
+                x += separator + gap;
+                layout.Last = Item (x, image);
+                return layout;
+            }
 
             x = right - image;
             layout.Last = Item (x, image);

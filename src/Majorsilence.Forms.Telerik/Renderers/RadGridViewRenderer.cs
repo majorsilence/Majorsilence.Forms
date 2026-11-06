@@ -80,14 +80,17 @@ namespace Majorsilence.Forms.Renderers
 
             SKColor Ink (bool enabled) => enabled && grid.Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor;
 
+            // With no rows to page, Telerik's next, last and second "..." show enabled.
+            var empty = grid.PagesNoRows;
+
             DrawArrows (grid, e, layout.First, left: true, count: 2, Ink (page > 0));
             DrawArrows (grid, e, layout.Previous, left: true, count: 1, Ink (page > 0));
-            DrawArrows (grid, e, layout.Next, left: false, count: 1, Ink (page < last));
-            DrawArrows (grid, e, layout.Last, left: false, count: 2, Ink (page < last));
+            DrawArrows (grid, e, layout.Next, left: false, count: 1, Ink (empty || page < last));
+            DrawArrows (grid, e, layout.Last, left: false, count: 2, Ink (empty || page < last));
 
             var group = grid.PagingGroupStart;
             e.Canvas.DrawText ("...", font, scaled, layout.FastBack, Ink (group > 0), ContentAlignment.MiddleCenter, maxLines: 1);
-            e.Canvas.DrawText ("...", font, scaled, layout.FastForward, Ink (group + RadGridView.PagingNumericButtonsCount <= last), ContentAlignment.MiddleCenter, maxLines: 1);
+            e.Canvas.DrawText ("...", font, scaled, layout.FastForward, Ink (empty || group + RadGridView.PagingNumericButtonsCount <= last), ContentAlignment.MiddleCenter, maxLines: 1);
 
             foreach (var (number, bounds) in layout.Pages) {
                 var current = number == page;
