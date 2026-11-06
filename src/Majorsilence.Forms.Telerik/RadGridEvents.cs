@@ -303,6 +303,20 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Telerik's default row height.</summary>
         internal const int DefaultRowHeight = 24;
+
+        /// <summary>Gets or sets the height of the filtering row: 26 unless set, as Telerik's.</summary>
+        /// <remarks>While the grid's <c>AutoSizeRows</c> is on, Telerik sizes the filtering row to its font instead and keeps
+        /// this for when it is turned off, as here.</remarks>
+        public int FilterRowHeight {
+            get => filter_row_height;
+            set {
+                filter_row_height = value;
+                Grid?.ApplyRowSizing ();
+            }
+        }
+
+        private int filter_row_height = 26;
+
         /// <summary>Gets the owning view element (the grid's root element).</summary>
         public RadElement? ViewElement { get; set; }
 
