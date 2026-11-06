@@ -299,6 +299,12 @@ namespace Majorsilence.Forms.Theming.WinForms
                 case WF.Splitter splitter:
                     ApplyDeclaredOnly (splitter, "Splitter", ctx);
                     break;
+                case WF.MdiClient mdiClient:
+                    // The workspace behind MDI children. Only a declared colour: without a rule it keeps
+                    // SystemColors.AppWorkspace, as in WinForms.
+                    if (ctx.Rules.Color ("MdiClient", null, false, "background-color") is { } workspace)
+                        SetBackColor (mdiClient, TokenSnapshot.Flatten (workspace, ctx.Tokens.Background));
+                    break;
                 case WF.MenuStrip menuStrip:
                     ApplyStrip (menuStrip, "Menu", ctx, ctx.Strips.MenuBackground);
                     break;
