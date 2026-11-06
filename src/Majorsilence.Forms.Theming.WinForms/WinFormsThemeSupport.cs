@@ -321,6 +321,10 @@ namespace Majorsilence.Forms.Theming.WinForms
             Add ("SplitContainer", null, false, P ("background-color", "color"), WinFormsThemeSupportLevel.Native, "SplitContainer.BackColor / ForeColor.");
             Fill ("SplitContainer", null, false, WinFormsThemeSupportLevel.Unsupported, "Only colours apply to the splitter bar.");
 
+            Map ("MdiClient", "MdiClient", "BackColor: the workspace behind an MDI parent's child windows (SystemColors.AppWorkspace without a rule).");
+            Add ("MdiClient", null, false, P ("background-color"), WinFormsThemeSupportLevel.Native, "MdiClient.BackColor.");
+            Fill ("MdiClient", null, false, WinFormsThemeSupportLevel.Unsupported, "Only the workspace colour applies; the MDI children draw their own frames.");
+
             Map ("Splitter", "Splitter", "BackColor.");
             Add ("Splitter", null, false, P ("background-color", "color"), WinFormsThemeSupportLevel.Native, "Splitter.BackColor / ForeColor.");
             Fill ("Splitter", null, false, WinFormsThemeSupportLevel.Unsupported, "Only colours apply to a splitter bar.");
@@ -471,7 +475,6 @@ namespace Majorsilence.Forms.Theming.WinForms
             Map ("Ribbon", null, "System.Windows.Forms has no ribbon control; the rule is reported as an info diagnostic and skipped.");
             Map ("FormTitleBar", null, "No counterpart: the Windows title bar is themed through the Form rule (DwmSetWindowAttribute); the rule is reported as an info diagnostic and skipped.");
             Map ("HostedSurface", null, "No counterpart: it is the surface Majorsilence.Forms embeds in another UI toolkit; the rule is reported as an info diagnostic and skipped.");
-            Map ("MdiClient", null, "No counterpart: the WinForms MDI workspace is native-drawn; the rule is reported as an info diagnostic and skipped.");
             Map ("PopupWindow", null, "No counterpart: WinForms popups are native windows; the rule is reported as an info diagnostic and skipped.");
             Map ("PrintPreviewControl", null, "No counterpart: the WinForms print preview is native-drawn; the rule is reported as an info diagnostic and skipped.");
             Map ("DockWindowBase", null, "A Majorsilence.Forms.Telerik control with no System.Windows.Forms counterpart; the rule is reported as an info diagnostic and skipped.");

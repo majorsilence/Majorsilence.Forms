@@ -153,6 +153,30 @@ Form { font-family: ""Segoe UI"", sans-serif; font-size: 14px; }
             }
         }
 
+        [Fact]
+        public void MdiClient_TakesTheWorkspaceColour ()
+        {
+            using var parent = new WF.Form { IsMdiContainer = true, ClientSize = new Size (400, 300) };
+            var workspace = parent.Controls.OfType<WF.MdiClient> ().Single ();
+
+            WinFormsCssTheme.Track (parent);
+            WinFormsCssTheme.Apply (Sheet + "MdiClient { background-color: #101820; }");
+
+            AssertColor ("#101820", workspace.BackColor);
+        }
+
+        [Fact]
+        public void MdiClient_WithoutRule_KeepsAppWorkspace ()
+        {
+            using var parent = new WF.Form { IsMdiContainer = true, ClientSize = new Size (400, 300) };
+            var workspace = parent.Controls.OfType<WF.MdiClient> ().Single ();
+
+            WinFormsCssTheme.Track (parent);
+            WinFormsCssTheme.Apply (Sheet);
+
+            Assert.Equal (SystemColors.AppWorkspace.ToArgb (), workspace.BackColor.ToArgb ());
+        }
+
         private static bool ExplicitlySet (WF.Control control, string property)
             => System.ComponentModel.TypeDescriptor.GetProperties (control)[property]!.ShouldSerializeValue (control);
 
