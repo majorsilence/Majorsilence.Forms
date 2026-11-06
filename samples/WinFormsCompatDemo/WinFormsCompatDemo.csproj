@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Demo/validation sample for the Majorsilence.Forms.WinFormsShims.Compat source generator: an
+  <!-- Demo/validation sample for the Majorsilence.Forms.WinFormsShims.Compat generated System.Windows.Forms build of Majorsilence.Forms: an
        unmodified `using System.Windows.Forms;` WinForms-style Form1.cs/Form1.Designer.cs pair plus
        a Program.cs that calls Application.Run/MessageBox.Show, checking how much of it compiles,
        and, with the Avalonia backend referenced below, actually runs, against Majorsilence.Forms
@@ -15,9 +15,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Majorsilence.Forms\Majorsilence.Forms.csproj" />
-    <ProjectReference Include="..\..\src\Majorsilence.Forms.Avalonia\Majorsilence.Forms.Avalonia.csproj" />
-    <ProjectReference Include="..\..\src\Majorsilence.Forms.WinFormsShims.Compat\Majorsilence.Forms.WinFormsShims.Compat.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <!-- Not Majorsilence.Forms / Majorsilence.Forms.Avalonia: the generated System.Windows.Forms builds of
+         them replace those, so the unmodified `using System.Windows.Forms;` source below binds to these. -->
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.WinFormsShims.Compat\Majorsilence.Forms.WinFormsShims.Compat.csproj" />
+    <ProjectReference Include="..\..\src\Majorsilence.Forms.WinFormsShims.Compat.Avalonia\Majorsilence.Forms.WinFormsShims.Compat.Avalonia.csproj" />
   </ItemGroup>
 
 </Project>

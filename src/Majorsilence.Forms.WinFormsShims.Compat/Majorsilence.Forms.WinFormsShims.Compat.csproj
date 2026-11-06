@@ -1,41 +1,29 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Proof-of-concept Roslyn source generator: emits thin subclasses of Majorsilence.Forms'
-       Control/Component hierarchy into the real "System.Windows.Forms" namespace, so a consumer
-       (typically a distributed control library that cannot rewrite its own public API namespace)
-       can reference this package instead of System.Windows.Forms and keep unmodified `using
-       System.Windows.Forms;` source, including WinForms Designer.cs files.
+  <!-- Generated copy of Majorsilence.Forms with its namespaces rewritten to System.Windows.Forms (and the
+       GDI+-shaped parts to System.Drawing.*), so C# and Visual Basic source written against real WinForms
+       compiles unchanged, Designer files included. Contains no hand-written code: everything under
+       generated/ is produced at build time by tools/CompatSync from the real project, which is never
+       modified. This replaces the earlier Roslyn source generator, which emitted subclasses and wrappers,
+       could not make Control a wrapper, and cannot serve Visual Basic.
 
-       Scope is deliberately narrow for this PoC: Component/Control/WindowBase-derived public,
-       non-sealed types only. Majorsilence.Forms.Drawing's sealed leaf types (Font, Pen, Brush, ...)
-       and events typed to Majorsilence-specific EventArgs are out of scope; see the feasibility
-       writeup this project exists to validate. -->
+       Use it INSTEAD OF Majorsilence.Forms, not alongside: both define Form and Button, in different
+       namespaces and assemblies. -->
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <LangVersion>latest</LangVersion>
-    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
-    <IncludeBuildOutput>false</IncludeBuildOutput>
-    <IsRoslynComponent>true</IsRoslynComponent>
-    <!-- An analyzer package carries no lib/ref assets: everything ships under analyzers/dotnet/cs, so
-         the dependency group's netstandard2.0 has no matching lib folder. NU5128 says so, and Release
-         turns warnings into errors, which is why `dotnet pack` on this project failed outright: no
-         amount of adding it to a publish list would have shipped it. Same suppression, for the same
-         reason, as Majorsilence.Forms.Migrator's. -->
-    <NoWarn>$(NoWarn);RS1036;NU5128</NoWarn>
+    <CompatSyncProject>core</CompatSyncProject>
+    <!-- The original's embedded-resource names derive from this, and its code looks them up by name. -->
+    <RootNamespace>Majorsilence.Forms</RootNamespace>
   </PropertyGroup>
 
   <PropertyGroup>
     <PackageId>Majorsilence.Forms.WinFormsShims.Compat</PackageId>
-    <Description>PoC: source-generates a System.Windows.Forms-namespace compatibility surface backed by Majorsilence.Forms, for control libraries that cannot rewrite their own public API namespace.</Description>
-    <PackageTags>Majorsilence;Forms;Winforms;Migration;SourceGenerator;Compat</PackageTags>
+    <Description>Cross-platform System.Windows.Forms: Majorsilence.Forms generated with the real WinForms namespaces and type names, so existing C# and Visual Basic WinForms source and Designer files compile unchanged on Windows, macOS and Linux. Requires a backend (Majorsilence.Forms.WinFormsShims.Compat.Avalonia).</Description>
+    <PackageTags>Majorsilence;Forms;Winforms;System.Windows.Forms;Compat;Migration;VisualBasic;vb;cross-platform</PackageTags>
     <PackageOutputPath>../../nupkg</PackageOutputPath>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <!-- Deliberately NOT DevelopmentDependency. That flag makes the consuming PackageReference
-         private, which suppresses everything flowing out of this package, including its dependency on
-         Majorsilence.Forms, the assembly the generated types derive from. A consumer of this generator
-         puts those generated types in its OWN public API, so the runtime reference has to flow to its
-         consumers as well. -->
   </PropertyGroup>
 
   <ItemGroup>
@@ -43,23 +31,69 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The reason this is here is packaging, not compilation: the generator emits source that
-         subclasses Majorsilence.Forms' Control/Component types, so a consumer installing only the
-         analyzer gets a few thousand compile errors. `dotnet pack` turns this ProjectReference into a
-         nuspec dependency on the Majorsilence.Forms package at the same version, which is what makes
-         installing this one sufficient. The generator's own code does not use the assembly. -->
-    <ProjectReference Include="..\Majorsilence.Forms\Majorsilence.Forms.csproj" />
+    <ProjectReference Include="..\Majorsilence.Forms.WinFormsShims.Compat.Drawing\Majorsilence.Forms.WinFormsShims.Compat.Drawing.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
+    <PackageReference Include="Topten.RichTextKit" />
+    <PackageReference Include="System.Formats.Nrbf" />
+    <PackageReference Include="System.Resources.Extensions" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Ship the generator under analyzers/dotnet/cs so consumers pick it up automatically, per the
-         standard analyzer-package convention. -->
-    <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <EmbeddedResource Include="..\Majorsilence.Forms\SpellCheck\en_US.words.gz" LogicalName="Majorsilence.Forms.SpellCheck.en_US.words.gz" />
   </ItemGroup>
+
+  <!-- Generated alongside the sources, with its assembly and type names rewritten. Added from a target, after
+       the tool has run: on a clean checkout the file does not exist when the project is evaluated, so an item
+       declared (or an Exists condition) at the top level would silently leave it out of the assembly. -->
+  <Target Name="EmbedGeneratedLinkerDescriptor" BeforeTargets="AssignTargetPaths" DependsOnTargets="CompatSyncGenerate"
+          Condition=" '$(TargetFramework)' != '' ">
+    <ItemGroup>
+      <EmbeddedResource Include="$(CompatGeneratedDir)ILLink.Descriptors.xml" LogicalName="ILLink.Descriptors.xml" />
+    </ItemGroup>
+  </Target>
+
+  <!-- The resx-compatibility stand-in assemblies, embedded rather than referenced for the reason given in
+       Majorsilence.Forms.csproj (their assembly names deliberately differ from their project names). The
+       code that loads them is copied verbatim and looks them up by these resource names. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Majorsilence.Forms.WinFormsEnumShims\Majorsilence.Forms.WinFormsEnumShims.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <ProjectReference Include="..\Majorsilence.Forms.DrawingShims\Majorsilence.Forms.DrawingShims.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+
+  <Target Name="EmbedWinFormsEnumShims" BeforeTargets="AssignTargetPaths">
+    <MSBuild Projects="..\Majorsilence.Forms.WinFormsEnumShims\Majorsilence.Forms.WinFormsEnumShims.csproj"
+             Targets="Build"
+             Properties="TargetFramework=$(TargetFramework);Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_WinFormsEnumShimsBuildOutput" />
+    </MSBuild>
+    <ItemGroup>
+      <EmbeddedResource Include="@(_WinFormsEnumShimsBuildOutput)" Condition="'%(Extension)' == '.dll'">
+        <LogicalName>Majorsilence.Forms.WinFormsEnumShims.dll</LogicalName>
+      </EmbeddedResource>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="EmbedDrawingShims" BeforeTargets="AssignTargetPaths">
+    <MSBuild Projects="..\Majorsilence.Forms.DrawingShims\Majorsilence.Forms.DrawingShims.csproj"
+             Targets="Build"
+             Properties="TargetFramework=$(TargetFramework);Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_DrawingShimsBuildOutput" />
+    </MSBuild>
+    <ItemGroup>
+      <EmbeddedResource Include="@(_DrawingShimsBuildOutput)" Condition="'%(Extension)' == '.dll'">
+        <LogicalName>Majorsilence.Forms.DrawingShims.dll</LogicalName>
+      </EmbeddedResource>
+    </ItemGroup>
+  </Target>
+
+  <Import Project="..\..\tools\CompatSync\CompatSync.targets" />
 
 </Project>

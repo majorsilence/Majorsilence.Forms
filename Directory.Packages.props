@@ -71,9 +71,9 @@
          so the panel wires the ViewModel's PropertyChanged/ICommand by hand, which needs nothing rooted
          under trimming or NativeAOT. -->
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <!-- Compiler-integrated Roslyn source generator API (IIncrementalGenerator), used by the
-         Majorsilence.Forms.WinFormsShims.Compat PoC generator. Pinned well below the Workspaces
-         packages' 5.6.0 (which tracks this repo's own net10.0 SDK) deliberately: a generator loads
+    <!-- Roslyn compiler API, used by the Majorsilence.Forms.Analyzers analyzer and by tools/CompatSync (which
+         has no loading-host constraint, so the same pin just keeps one version). Pinned well below the
+         Workspaces packages' 5.6.0 (which tracks this repo's own net10.0 SDK) deliberately: an analyzer loads
          into whatever Roslyn version the *consumer's* SDK/IDE ships, and referencing a newer
          compiler API than the host has makes the host refuse to load the analyzer outright
          (CS9057); confirmed hitting exactly that against this repo's own installed SDK before

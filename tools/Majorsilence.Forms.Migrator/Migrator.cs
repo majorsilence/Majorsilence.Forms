@@ -398,7 +398,9 @@ internal sealed class Migrator
 
     /// <summary>
     /// The <c>--shims</c> source path: no namespace rewriting at all, because leaving the namespaces
-    /// alone is the entire point -- the compat surface the project now references resolves them.
+    /// alone is the entire point -- the generated System.Windows.Forms build the project now references
+    /// resolves them, in C# and Visual Basic alike. Nothing else needs editing: <c>Control</c> there is the
+    /// real base class, so the polymorphic-base alias the earlier wrapper-based shim needed is gone.
     ///
     /// VB still gets the constructor injection, which is NOT part of the namespace rewrite and is still
     /// required: the project converter forces <c>MyType=Empty</c> either way (VB's My framework reaches
@@ -413,12 +415,6 @@ internal sealed class Migrator
 
         if (language == SourceLanguage.VisualBasic)
             converted = SourceConverter.ApplyVbConstructor(converted, vbConstructor, warnings.Add);
-
-        converted = SourceConverter.AddPolymorphicBaseAliases(converted, language, out var inheritedBases);
-        foreach (var type in inheritedBases)
-            warnings.Add($"derives from '{type}' by its bare name, so it was left unaliased — an alias would move " +
-                $"this class onto the real Majorsilence.Forms.{type} and cost it the compat enum-property and event " +
-                $"shadowing. Any polymorphic use of '{type}' in this file still needs the real base named explicitly.");
 
         return new SourceConverter.Result(converted, Changed: !string.Equals(converted, text, StringComparison.Ordinal), Warnings: warnings);
     }

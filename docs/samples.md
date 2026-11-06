@@ -455,13 +455,17 @@ dotnet run --project samples/WinFormsInterop
 Not to be confused with `WinFormsInterop` above: there is no real `System.Windows.Forms` assembly
 anywhere in this process. `Form1.cs`/`Form1.Designer.cs` here are ordinary, unmodified WinForms
 designer-generated source — a `Button`, `Label`, `TextBox`, a `MessageBox.Show(...)` call — that
-compile against `Majorsilence.Forms` because the
-[`Majorsilence.Forms.WinFormsShims.Compat`](../src/Majorsilence.Forms.WinFormsShims.Compat)
-Roslyn source generator emits a same-named `System.Windows.Forms` namespace backed by it, purely at
-compile time. This sample references the Avalonia backend so `Application.Run` opens a real window,
-not just a compile check — see its own [`RESULTS.md`](../samples/WinFormsCompatDemo/RESULTS.md) for
-what does and doesn't survive that translation today.
+compile against Majorsilence.Forms because the
+[`Majorsilence.Forms.WinFormsShims.Compat`](../src/Majorsilence.Forms.WinFormsShims.Compat) projects are
+a copy of it generated at build time with the real `System.Windows.Forms` namespaces
+([`tools/CompatSync`](../tools/CompatSync)). This sample references the Avalonia backend's generated
+counterpart so `Application.Run` opens a real window, not just a compile check. The Visual Basic twin,
+`samples/WinFormsCompatDemoVb`, is the same idea with `Imports System.Windows.Forms` and `Handles`. See
+the C# sample's own [`RESULTS.md`](../samples/WinFormsCompatDemo/RESULTS.md) for what was learned under the
+earlier, generator-based design — its gaps no longer apply.
+
 
 ```bash
-dotnet run --project samples/WinFormsCompatDemo
+dotnet run --project samples/WinFormsCompatDemo      # C#
+dotnet run --project samples/WinFormsCompatDemoVb    # Visual Basic
 ```

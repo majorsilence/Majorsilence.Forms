@@ -1,3 +1,8 @@
+> **Historical.** This file records the original Roslyn-generator proof of concept, which emitted
+> subclasses and wrappers into `System.Windows.Forms`. That design was replaced on 2026-10-24 by generated
+> copies of Majorsilence.Forms itself (`tools/CompatSync`); the gaps below, and the `Control`-as-wrapper
+> limit in particular, no longer exist. The sample is unchanged and compiles against the new projects.
+
 # PoC results
 
 Validates the feasibility plan's step 4/5 ("take one small unmodified WinForms sample... report
