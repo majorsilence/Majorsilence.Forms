@@ -148,6 +148,13 @@ namespace Majorsilence.Forms.Renderers
 
         // ── Inline filter row ──
 
+        // Telerik's filtering row, measured (UI for WinForms 2026.2.520): each cell leads with its operator's label
+        // ("Contains:") in the grid's own font and colour, a pixel in from its left, then the filter's value, aligned as
+        // the column's cells are; a 21px operator button runs a pixel down from its top to a pixel above its bottom, its
+        // right edge on the cell's right line, 2px right of the label. The label is as wide as its text, cut short with
+        // "..." to leave the value its room, and takes the rest of the cell while there is no value.
+        internal const int FilterButtonLogicalWidth = 21;
+
         private static void RenderFilterRow (RadGridView grid, PaintEventArgs e)
         {
             var content = grid.GetContentArea ();
@@ -158,25 +165,51 @@ namespace Majorsilence.Forms.Renderers
             e.Canvas.FillRectangle (band, Theme.ControlLowColor);
             e.Canvas.DrawLine (band.Left, band.Bottom - 1, band.Right, band.Bottom - 1, Theme.BorderMidColor);
 
-            var fontSize = grid.LogicalToDeviceUnits (Theme.ItemFontSize);
             var left0 = content.Left + (grid.RowHeadersVisible ? grid.ScaledRowHeadersWidth : 0);
             var leftEnd = left0 + grid.FrozenColumnsWidth;
             var rightStart = content.Right - grid.RightPinnedColumnsWidth;
 
             // Scrollable filter cells (clipped to the middle band), then pinned cells on top — matches the data rows.
-            DrawFilterCells (grid, e, y, h, fontSize, c => !c.Frozen && !c.PinnedRight,
+            DrawFilterCells (grid, e, y, h, c => !c.Frozen && !c.PinnedRight,
                 new Rectangle (leftEnd, y, Math.Max (0, rightStart - leftEnd), h));
             if (grid.FrozenColumnsWidth > 0)
-                DrawFilterCells (grid, e, y, h, fontSize, c => c.Frozen, new Rectangle (left0, y, grid.FrozenColumnsWidth, h));
+                DrawFilterCells (grid, e, y, h, c => c.Frozen, new Rectangle (left0, y, grid.FrozenColumnsWidth, h));
             if (grid.RightPinnedColumnsWidth > 0)
-                DrawFilterCells (grid, e, y, h, fontSize, c => c.PinnedRight, new Rectangle (rightStart, y, grid.RightPinnedColumnsWidth, h));
+                DrawFilterCells (grid, e, y, h, c => c.PinnedRight, new Rectangle (rightStart, y, grid.RightPinnedColumnsWidth, h));
         }
 
-        private static void DrawFilterCells (RadGridView grid, PaintEventArgs e, int y, int h, int fontSize,
+        /// <summary>Where a filtering-row cell's operator label, value and operator button go, in device pixels.</summary>
+        internal static (Rectangle Label, Rectangle Value, Rectangle Button) LayoutFilterCell (RadGridView grid, DataGridViewColumn column, Rectangle cell)
+        {
+            var one = grid.LogicalToDeviceUnits (1);
+            var button_width = grid.LogicalToDeviceUnits (FilterButtonLogicalWidth);
+            var button = new Rectangle (cell.Right - one - button_width, cell.Top + one, button_width, Math.Max (0, cell.Height - 2 * one));
+
+            var text = new Rectangle (cell.Left + one, cell.Top + one, Math.Max (0, button.Left - grid.LogicalToDeviceUnits (2) - cell.Left - one), button.Height);
+            var value = grid.FilterRowValueText (column);
+
+            if (value.Length == 0)
+                return (text, Rectangle.Empty, button);
+
+            var (font, size) = grid.CellFallbackFont ();
+            var scaled = grid.LogicalToDeviceUnits (size);
+            var label_width = (int) Math.Ceiling (TextMeasurer.MeasureText (grid.FilterRowOperatorLabel (column), font, scaled).Width);
+            var value_width = (int) Math.Ceiling (TextMeasurer.MeasureText (value, font, scaled).Width);
+            label_width = Math.Max (0, Math.Min (label_width, text.Width - value_width));
+
+            return (new Rectangle (text.Left, text.Top, label_width, text.Height),
+                    Rectangle.FromLTRB (text.Left + label_width, text.Top, text.Right, text.Bottom), button);
+        }
+
+        private static void DrawFilterCells (RadGridView grid, PaintEventArgs e, int y, int h,
             Func<DataGridViewColumn, bool> include, Rectangle clip)
         {
             e.Canvas.Save ();
             e.Canvas.Clip (clip);
+
+            var (font, size) = grid.CellFallbackFont ();
+            var scaled = grid.LogicalToDeviceUnits (size);
+            var ink = grid.Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor;
 
             for (var i = 0; i < grid.Columns.Count; i++) {
                 var column = grid.Columns[i];
@@ -191,14 +224,27 @@ namespace Majorsilence.Forms.Renderers
                 if (i == grid.FilterEditColumn || !RadGridView.ColumnAllowsFiltering (column))
                     continue;   // editor overlays this cell, or filtering not allowed
 
-                var rect = cell;
-                rect.Inflate (-6, 0);
+                var (label, value, button) = LayoutFilterCell (grid, column, cell);
 
-                var text = grid.CurrentColumnFilterText (i);
-                if (string.IsNullOrEmpty (text))
-                    e.Canvas.DrawText ("Filter…", Theme.UIFont, fontSize, rect, Theme.ForegroundDisabledColor, ContentAlignment.MiddleLeft, maxLines: 1);
-                else
-                    e.Canvas.DrawText (text, Theme.UIFont, fontSize, rect, Theme.ForegroundColor, ContentAlignment.MiddleLeft, maxLines: 1);
+                // A check-box column filters by a check box, not by an operator and text.
+                if (!column.DisplaysAsCheckBox) {
+                    e.Canvas.DrawText (grid.FilterRowOperatorLabel (column), font, scaled, label, ink, ContentAlignment.MiddleLeft, maxLines: 1, ellipsis: true);
+
+                    if (!value.IsEmpty) {
+                        var align = column.DefaultCellStyleAlignment switch {
+                            ContentAlignment.TopRight or ContentAlignment.MiddleRight or ContentAlignment.BottomRight => ContentAlignment.MiddleRight,
+                            ContentAlignment.TopCenter or ContentAlignment.MiddleCenter or ContentAlignment.BottomCenter => ContentAlignment.MiddleCenter,
+                            _ => ContentAlignment.MiddleLeft,
+                        };
+                        e.Canvas.DrawText (grid.FilterRowValueText (column), font, scaled, value, ink, align, maxLines: 1, ellipsis: true);
+                    }
+                }
+
+                // The operator button's funnel, in the accent colour while the column is filtered, as the header's is.
+                var glyph = grid.LogicalToDeviceUnits (12);
+                var glyph_rect = new Rectangle (button.Left + (button.Width - glyph) / 2, button.Top + (button.Height - glyph) / 2, glyph, glyph);
+                var active = grid.ColumnHasActiveFilter (column);
+                DrawFunnel (e, glyph_rect, active ? Theme.AccentColor : Theme.BorderHighColor, active);
             }
 
             e.Canvas.Restore ();

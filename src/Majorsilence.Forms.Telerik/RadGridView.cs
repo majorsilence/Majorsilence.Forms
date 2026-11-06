@@ -931,8 +931,41 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>The text an empty grid shows in its rows area, as Telerik's does.</summary>
         internal const string NoDataText = "No data to display";
 
-        /// <summary>Logical height of the inline filter row.</summary>
-        internal const int FilterRowLogicalHeight = 26;
+        /// <summary>Logical height of the inline filter row: <see cref="GridTableElement.FilterRowHeight"/>, as Telerik's.</summary>
+        /// <remarks>Measured (UI for WinForms 2026.2.520): 26 by default, whatever the font and RowHeight; with AutoSizeRows a
+        /// line of the header font plus 3, as the header row, but 22 at least (25 in Segoe UI 12pt, 22 in Microsoft Sans Serif
+        /// 12pt and in Segoe UI 8.25pt).</remarks>
+        internal int FilterRowLogicalHeight => AutoSizeRows
+            ? Math.Max (22, FontHeight ((ColumnHeadersDefaultCellStyle.Font ?? HeaderFallbackFont ().Typeface, ColumnHeadersDefaultCellStyle.FontSize ?? HeaderFallbackFont ().Size)) + 3)
+            : TableElement.FilterRowHeight;
+
+        /// <summary>The operator label a column's filtering-row cell leads with, as Telerik's: the operator of the column's
+        /// filter ("GreaterThan:"), else the column's default one, Contains for text and Equals for anything else.</summary>
+        internal string FilterRowOperatorLabel (DataGridViewColumn column)
+        {
+            var op = ColumnFilter (column)?.Operator
+                ?? (column.ValueType is null || column.ValueType == typeof (string) ? FilterOperator.Contains : FilterOperator.IsEqualTo);
+
+            return op switch {
+                FilterOperator.None => "No filter:",
+                FilterOperator.IsEqualTo => "Equals:",
+                FilterOperator.IsNotEqualTo => "NotEquals:",
+                FilterOperator.IsGreaterThan => "GreaterThan:",
+                FilterOperator.IsGreaterThanOrEqualTo => "GreaterThanOrEquals:",
+                FilterOperator.IsLessThan => "LessThan:",
+                FilterOperator.IsLessThanOrEqualTo => "LessThanOrEquals:",
+                FilterOperator.IsNotNull => "NotNull:",
+                _ => op + ":",   // Contains, NotContains, StartsWith, EndsWith, IsNull: their own names
+            };
+        }
+
+        /// <summary>The value a column's filtering-row cell shows after its operator: its filter's, if it has one.</summary>
+        internal string FilterRowValueText (DataGridViewColumn column)
+            => Convert.ToString (ColumnFilter (column)?.Value, CultureInfo.CurrentCulture) ?? string.Empty;
+
+        // The filter a column has of its own (the filtering row's, or one set in code).
+        private FilterDescriptor? ColumnFilter (DataGridViewColumn column)
+            => FilterDescriptors.Find (f => NameMatches (f.PropertyName, column));
 
         private bool? _showFilterRow;
         /// <summary>Gets or sets whether the inline filter row (a live per-column quick filter) is shown below the headers.</summary>
