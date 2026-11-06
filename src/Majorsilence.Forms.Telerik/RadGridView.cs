@@ -164,6 +164,9 @@ namespace Majorsilence.Forms.Telerik
             // Telerik's rows are 24px and its header row 30, whatever the font, not the WinForms grid's sized to the font.
             ApplyRowSizing ();
 
+            // And its row header column is 20px wide (the current-row arrow's strip), not the WinForms grid's 41.
+            base.RowHeadersWidth = GridTableElement.DefaultRowHeaderColumnWidth;
+
             // Telerik's grid selects whole rows by default (GridViewSelectionMode.FullRowSelect), which is also
             // what the Telerik-typed SelectionMode reports; the WinForms default underneath selects cells.
             base.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
@@ -655,6 +658,15 @@ namespace Majorsilence.Forms.Telerik
         public bool ShowFilteringRow {
             get => MasterTemplate.ShowFilteringRow;
             set => MasterTemplate.ShowFilteringRow = value;
+        }
+
+        /// <summary>Gets or sets whether the row header column (the current-row indicator left of the cells) is shown
+        /// (Telerik's <c>ShowRowHeaderColumn</c>, on by default; forwards to the master template).</summary>
+        /// <remarks>It is the grid's row headers, <see cref="DataGridView.RowHeadersVisible"/>, as wide as
+        /// <see cref="GridTableElement.RowHeaderColumnWidth"/> says.</remarks>
+        public bool ShowRowHeaderColumn {
+            get => MasterTemplate.ShowRowHeaderColumn;
+            set => MasterTemplate.ShowRowHeaderColumn = value;
         }
 
         // Telerik draws filter buttons in the header cells only with ShowHeaderCellButtons (Excel-like
@@ -4005,6 +4017,18 @@ namespace Majorsilence.Forms.Telerik
                     return;
                 _showFilteringRow = value;
                 Grid?.OnFilteringLayoutChanged ();
+            }
+        }
+
+        private bool _showRowHeaderColumn = true;
+        /// <summary>Gets or sets whether the row header column is shown. On by default, as Telerik's is.</summary>
+        /// <remarks>The grid's row headers (<see cref="DataGridView.RowHeadersVisible"/>), so either says the same.</remarks>
+        public bool ShowRowHeaderColumn {
+            get => Grid is { } grid ? ((DataGridView) grid).RowHeadersVisible : _showRowHeaderColumn;
+            set {
+                _showRowHeaderColumn = value;
+                if (Grid is { } grid)
+                    ((DataGridView) grid).RowHeadersVisible = value;
             }
         }
 

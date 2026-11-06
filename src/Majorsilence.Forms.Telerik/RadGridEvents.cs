@@ -267,6 +267,22 @@ namespace Majorsilence.Forms.Telerik
 
         private int table_header_height = 30;
 
+        /// <summary>Gets or sets the width of the row header column: 20 unless set, as Telerik's.</summary>
+        /// <remarks>The grid's <see cref="DataGridView.RowHeadersWidth"/>.</remarks>
+        public int RowHeaderColumnWidth {
+            get => Grid is { } grid ? ((DataGridView) grid).RowHeadersWidth : row_header_column_width;
+            set {
+                row_header_column_width = value;
+                if (Grid is { } grid)
+                    ((DataGridView) grid).RowHeadersWidth = value;
+            }
+        }
+
+        private int row_header_column_width = DefaultRowHeaderColumnWidth;
+
+        /// <summary>Telerik's default row header column width.</summary>
+        internal const int DefaultRowHeaderColumnWidth = 20;
+
         /// <summary>Gets or sets the colour of every other row, shown when the grid's <c>EnableAlternatingRowColor</c> is on.</summary>
         /// <remarks>Real as of W6 mechanisms (#176): it is the grid's alternating-row background.
         /// Empty leaves the theme's alternating colour.</remarks>
