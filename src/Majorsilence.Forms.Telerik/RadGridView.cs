@@ -1160,9 +1160,13 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Auto-sizes every visible column to fit its header and (formatted) cell content.</summary>
         /// <remarks>
-        /// Measured in the fonts the headers and cells are drawn in -- the grid's own once it has one, as Telerik's cells
-        /// take the control's Font -- and padded as they are drawn: a caption is inset 6px a side and keeps the room for
-        /// its filter button or sort glyph, a cell's text 4px a side.
+        /// As Telerik's, measured on UI for WinForms 2026.2.520 in Microsoft Sans Serif 12pt and Segoe UI 8.25 and 12pt: a
+        /// column is as wide as the widest of its caption, its cells and its filtering-row cell, each measured as GDI+
+        /// measures text (see <see cref="GdiPlusTextWidth"/>) in the font it is drawn in -- the grid's own once it has one --
+        /// and rounded up. A caption takes 4 more, and 15 more in a check-box column, 13 more for its filter button while
+        /// the header cells show them, or 18 for its sort glyph while the column is sorted; a cell 4 more; a filtering-row
+        /// cell is its operator's label ("Contains:", or "Equals:" in a column of other than text) and 25 more for the
+        /// operator button. A check-box column's cells and filtering-row cell take no room of their own.
         /// </remarks>
         public void BestFitColumns ()
         {
@@ -1172,23 +1176,26 @@ namespace Majorsilence.Forms.Telerik
             var cell_fallback = CellFallbackFont ();
             var cell_font = DefaultCellStyle.Font ?? cell_fallback.Typeface;
             var cell_size = DefaultCellStyle.FontSize ?? cell_fallback.Size;
+            var filter_row = ShowsFilterRow;
 
             foreach (DataGridViewColumn column in base.Columns) {
                 if (!column.Visible)
                     continue;
 
-                var width = (int)Math.Ceiling (TextMeasurer.MeasureText (column.HeaderDisplayText, header_font, header_size).Width)
-                    + 2 * HeaderTextInset + HeaderGlyphRoom (column);
+                var width = GdiPlusTextWidth (column.HeaderDisplayText, header_font, header_size) + BestFitHeaderRoom (column);
                 var columnIndex = column.Index;
 
                 // Check-box columns render a fixed-size glyph, so size to the header only.
                 if (!column.DisplaysAsCheckBox && columnIndex >= 0) {
+                    if (filter_row && ColumnAllowsFiltering (column))
+                        width = Math.Max (width, GdiPlusTextWidth (FilterOperatorLabel (column), cell_font, cell_size) + BestFitFilterCellRoom);
+
                     foreach (var row in base.Rows) {
                         if (IsStructuralRow (row) || columnIndex >= row.Cells.Count)
                             continue;
 
                         var text = ComputeFormattedText (row.Cells[columnIndex], column);
-                        var w = (int)Math.Ceiling (TextMeasurer.MeasureText (text, cell_font, cell_size).Width) + 2 * CellTextInset;
+                        var w = GdiPlusTextWidth (text, cell_font, cell_size) + BestFitCellRoom;
 
                         if (w > width)
                             width = w;
@@ -1208,10 +1215,38 @@ namespace Majorsilence.Forms.Telerik
         internal const int HeaderFunnelRoom = 26;
         internal const int HeaderSortGlyphRoom = 16;
 
-        internal int HeaderGlyphRoom (DataGridViewColumn column)
-            => ShowsHeaderFilterButtons && ColumnAllowsFiltering (column) ? HeaderFunnelRoom
-                : column.Sortable && column.SortOrder != SortOrder.None ? HeaderSortGlyphRoom
-                : 0;
+        // What Telerik's best fit adds to the measured text, in logical pixels (see BestFitColumns).
+        internal const int BestFitCellRoom = 4;
+        internal const int BestFitCheckBoxRoom = 15;
+        internal const int BestFitFilterButtonRoom = 13;
+        internal const int BestFitSortGlyphRoom = 18;
+        internal const int BestFitFilterCellRoom = 25;
+
+        // The room Telerik's best fit gives a caption beside its text.
+        internal int BestFitHeaderRoom (DataGridViewColumn column)
+            => BestFitCellRoom
+                + (column.DisplaysAsCheckBox ? BestFitCheckBoxRoom : 0)
+                + (ShowsHeaderFilterButtons && ColumnAllowsFiltering (column) ? BestFitFilterButtonRoom
+                    : column.Sortable && column.SortOrder != SortOrder.None ? BestFitSortGlyphRoom
+                    : 0);
+
+        /// <summary>The label of a column's operator in the filtering row while it has no filter of its own: Telerik's
+        /// default operator, Contains for text and Equals for anything else.</summary>
+        internal static string FilterOperatorLabel (DataGridViewColumn column)
+            => column.ValueType is null || column.ValueType == typeof (string) ? "Contains:" : "Equals:";
+
+        /// <summary>A string's width as GDI+'s <c>Graphics.MeasureString</c> gives it, rounded up, in logical pixels.</summary>
+        /// <remarks>GDI+ lays text out with hinted glyphs, unkerned, and a sixth of the em either side. Measured against it
+        /// in Microsoft Sans Serif 12pt and Segoe UI 8.25 and 12pt (84 strings), its width is the glyphs' unkerned advance
+        /// widths 3% wider, and a third of the em: rounded up, every one came out as GDI+'s.</remarks>
+        internal static int GdiPlusTextWidth (string text, SKTypeface typeface, int size)
+        {
+            if (string.IsNullOrEmpty (text))
+                return 0;
+
+            using var font = new SKFont (typeface, size);
+            return (int) Math.Ceiling (font.MeasureText (text) * 1.03f + size * 0.333f);
+        }
 
         /// <summary>Begins a batch update. Suspends view rebuilds until <see cref="EndUpdate"/>.</summary>
         public new void BeginUpdate () => _suspendRebuild = true;
