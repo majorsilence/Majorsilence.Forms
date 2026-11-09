@@ -158,25 +158,4 @@ namespace Majorsilence.Forms
             return new Size (size.Width, UpstreamItemHeight (item, (item as ToolStripItem)?.Font ?? font));
         }
     }
-
-    public partial class StatusStrip
-    {
-        // Status items keep the width this strip lays them out at, and are a line of their font tall (or their image's
-        // 16px), as upstream's status label is. A fixed-size item keeps its Size.
-        internal override Size UpstreamItemSize (MenuItem item)
-        {
-            if (item is ToolStripSeparator)
-                return base.UpstreamItemSize (item);
-
-            if (item is ToolStripItem { AutoSize: false } fixed_size && fixed_size.Size is { Width: > 0, Height: > 0 } size)
-                return size;
-
-            var font = Renderers.StripItemFont.ResolveFont (item, this) ?? SystemFonts.MenuFont;
-            var text = item.Text.HasValue () ? TextLineHeight.Of (font) : 0;
-            var image = item.ImageSK is null ? 0 : 16;
-
-            // The gap this strip's layout leaves after each item is counted with it, so an undocked strip holds them all.
-            return new Size (ItemWidth (item) + ItemSpacing, Math.Max (text, image));
-        }
-    }
 }
