@@ -32,6 +32,11 @@ namespace Majorsilence.Forms.Telerik
     {
         /// <summary>Gets the root element of the control (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
+
+        /// <summary>Gets the text box's element, whose <c>TextBoxItem.TextBoxControl</c> is this text box (the control that takes the keyboard), as Telerik's hosted one does.</summary>
+        public RadTextBoxElement TextBoxElement => text_box_element ??= new RadTextBoxElement (this);
+
+        private RadTextBoxElement? text_box_element;
         /// <summary>Gets or sets the theme name. No-op stub.</summary>
         public string ThemeName { get; set; } = string.Empty;
     }
@@ -522,6 +527,32 @@ namespace Majorsilence.Forms.Telerik
         // 25 rows high: expanding the 21st root's 10 children left the scroll bar at 0.
         internal override bool ScrollsChildrenIntoViewOnExpand => false;
 
+        /// <summary>Gets or sets the order the nodes are sorted in by their text, every level; <see cref="Majorsilence.Forms.SortOrder.None"/> (the default) leaves them as added.</summary>
+        /// <remarks>As Telerik's (measured on UI for WinForms 2026.2.520): Ascending puts "All", "Not Null", "Null" in that order.
+        /// Going back to None leaves the nodes where the sort put them (Telerik's restores the order they were added in).</remarks>
+        public Majorsilence.Forms.SortOrder SortOrder {
+            get => sort_order;
+            set {
+                if (sort_order == value)
+                    return;
+                sort_order = value;
+                if (value == Majorsilence.Forms.SortOrder.None)
+                    return;
+                TreeViewNodeSorter = new NodeTextComparer (value == Majorsilence.Forms.SortOrder.Descending);
+            }
+        }
+
+        private Majorsilence.Forms.SortOrder sort_order = Majorsilence.Forms.SortOrder.None;
+
+        private sealed class NodeTextComparer (bool descending) : System.Collections.IComparer
+        {
+            public int Compare (object? x, object? y)
+            {
+                var order = string.Compare ((x as Majorsilence.Forms.TreeNode)?.Text, (y as Majorsilence.Forms.TreeNode)?.Text, StringComparison.CurrentCultureIgnoreCase);
+                return descending ? -order : order;
+            }
+        }
+
         /// <summary>Gets or sets the indent, in logical pixels, of each level of nodes (Telerik's name for <see cref="Majorsilence.Forms.TreeView.Indent"/>).</summary>
         public int TreeIndent {
             get => Indent;
@@ -921,6 +952,9 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets the parent node, typed as <see cref="RadTreeNode"/> (or null for a root-level or detached node).</summary>
         public new RadTreeNode? Parent => base.Parent as RadTreeNode;
+
+        /// <summary>Gets the tree the node is in, typed as <see cref="RadTreeView"/> (or null for a detached node, or one in another kind of tree).</summary>
+        public new RadTreeView? TreeView => base.TreeView as RadTreeView;
 
         /// <summary>Gets or sets the node's check state: on, off, or indeterminate.</summary>
         /// <remarks>

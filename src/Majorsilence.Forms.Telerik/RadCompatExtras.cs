@@ -596,8 +596,22 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets the text.</summary>
         public string Text { get; set; } = string.Empty;
 
+        /// <summary>Gets the control that edits the text, when the item belongs to a text box; null otherwise.</summary>
+        public TextBox? TextBoxControl => text_box_control;
+
+        internal TextBox? text_box_control;
+
         /// <summary>Gets or sets the text alignment.</summary>
         public ContentAlignment Alignment { get; set; } = ContentAlignment.MiddleLeft;
+    }
+
+    /// <summary>Telerik-compat element of a <see cref="RadTextBox"/>.</summary>
+    public class RadTextBoxElement : RadElement
+    {
+        internal RadTextBoxElement (TextBox owner) => TextBoxItem = new RadTextBoxItem { text_box_control = owner };
+
+        /// <summary>Gets the text item, whose <see cref="RadTextBoxItem.TextBoxControl"/> is the text box.</summary>
+        public RadTextBoxItem TextBoxItem { get; }
     }
 
     /// <summary>Compat stand-in for a text-box editor's visual element.</summary>
@@ -999,8 +1013,8 @@ namespace Majorsilence.Forms.Telerik
     /// <summary>Provides data for grid filter-popup creation. Mirrors Telerik's shape.</summary>
     public class FilterPopupRequiredEventArgs : EventArgs
     {
-        /// <summary>The column the popup is for.</summary>
-        public Majorsilence.Forms.DataGridViewColumn? Column { get; set; }
+        /// <summary>The column the popup is for, typed as Telerik's is, so it can be handed straight to a popup's constructor.</summary>
+        public GridViewDataColumn? Column { get; set; }
 
         /// <summary>The popup to show (assign to supply one).</summary>
         public object? FilterPopup { get; set; }
