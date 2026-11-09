@@ -102,7 +102,7 @@ namespace Majorsilence.Forms.Tests
                 var find = await PostJson (http, $"session/{sid}/element", "{\"using\":\"id\",\"value\":\"childOk\"}");
                 var id = find.RootElement.GetProperty ("value").GetProperty ("element-6066-11e4-a52e-4f735466cecf").GetString ();
                 await PostJson (http, $"session/{sid}/element/{id}/click", "{}");
-            });
+            }, TestContext.Current.CancellationToken);
 
             var deadline = DateTime.UtcNow.AddSeconds (10);
             while (!task.IsCompleted && DateTime.UtcNow < deadline) {
@@ -178,7 +178,7 @@ namespace Majorsilence.Forms.Tests
                             dialog.DialogResult = DialogResult.Cancel;
                     });
                 }
-            });
+            }, TestContext.Current.CancellationToken);
 
             // Pump the UI thread, as a running application does; the click's dialog pumps it in turn.
             var deadline = DateTime.UtcNow.AddSeconds (15);
