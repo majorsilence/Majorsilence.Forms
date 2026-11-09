@@ -2464,6 +2464,48 @@ namespace Majorsilence.Forms
     /// </summary>
     public partial class ToolStripStatusLabel : ToolStripItem
     {
+        // Upstream's constructors. Designer and hand-written code build a status label from its text,
+        // `New ToolStripStatusLabel("Ready")`, which did not compile against the implicit one alone.
+
+        /// <summary>Initializes a new instance of the ToolStripStatusLabel class.</summary>
+        public ToolStripStatusLabel () { }
+
+        /// <summary>Initializes a new instance of the ToolStripStatusLabel class that displays the specified text.</summary>
+        public ToolStripStatusLabel (string? text)
+        {
+            Text = text ?? string.Empty;
+        }
+
+        /// <summary>Initializes a new instance of the ToolStripStatusLabel class that displays the specified image.</summary>
+        public ToolStripStatusLabel (Majorsilence.Forms.Drawing.Image? image)
+        {
+            Image = image;
+        }
+
+        /// <summary>Initializes a new instance of the ToolStripStatusLabel class that displays the specified text and image.</summary>
+        public ToolStripStatusLabel (string? text, Majorsilence.Forms.Drawing.Image? image)
+            : this (text)
+        {
+            Image = image;
+        }
+
+        /// <summary>Initializes a new instance of the ToolStripStatusLabel class that displays the specified text and image
+        /// and raises the Click event.</summary>
+        public ToolStripStatusLabel (string? text, Majorsilence.Forms.Drawing.Image? image, EventHandler? onClick)
+            : this (text, image)
+        {
+            if (onClick is not null)
+                Click += onClick;
+        }
+
+        /// <summary>Initializes a new instance of the ToolStripStatusLabel class with the specified name that displays the
+        /// specified text and image and raises the Click event.</summary>
+        public ToolStripStatusLabel (string? text, Majorsilence.Forms.Drawing.Image? image, EventHandler? onClick, string? name)
+            : this (text, image, onClick)
+        {
+            Name = name ?? string.Empty;
+        }
+
         /// <summary>Gets or sets the label width. Mirrors WinForms (wraps Size).</summary>
         public new int Width {
             get => Size.Width;
