@@ -484,6 +484,10 @@ namespace Majorsilence.Forms
                 if (!SizingGrip)
                     return Rectangle.Empty;
 
+                // A ported app's: upstream's 12px grip in the trailing bottom corner (StatusStripUpstreamLayout.cs).
+                if (LaysOutAsUpstream)
+                    return UpstreamSizeGripBounds ();
+
                 // WinForms reserves a square the height of the strip at the trailing edge, mirrored
                 // for a right-to-left layout.
                 var size = Height;

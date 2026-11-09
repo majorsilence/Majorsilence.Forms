@@ -1463,7 +1463,20 @@ namespace Majorsilence.Forms
              // Asked first: until its drop-down is built, a submenu item's owner is still the menu bar.
              : IsOnDropDown ? ControlPaint.UsesUpstreamGlyphs ? new Padding (0, 1, 0, 1) : base.DefaultPadding
              : OwnerControl is Menu { UpstreamFont: not null } ? new Padding (4, 0, 4, 0)
+             // Upstream's item has no padding of its own; on a ported app's status strip it measures to its content.
+             : OwnerControl is StatusStrip { LaysOutAsUpstream: true } ? Padding.Empty
              : base.DefaultPadding;
+
+        // Upstream's margin for an item on a StatusStrip (ToolStripItem's defaultStatusStripMargin, ToolStripStatusLabel's
+        // and ToolStripProgressBar's own): a label (0, 3, 0, 2), a progress bar (1, 3, 1, 3), a separator none, anything
+        // else (0, 2, 0, 0).
+        private protected Padding UpstreamStatusStripMargin
+            => this switch {
+                ToolStripStatusLabel => new Padding (0, 3, 0, 2),
+                ToolStripProgressBar => new Padding (1, 3, 1, 3),
+                ToolStripSeparator => Padding.Empty,
+                _ => new Padding (0, 2, 0, 0)
+            };
 
         // A ToolStrip in its own right rather than one of the menu or status strips that derive from it.
         internal bool IsOnPlainToolStrip => OwnerControl is ToolStrip and not (Menu or MenuDropDown or StatusStrip);
@@ -1475,7 +1488,8 @@ namespace Majorsilence.Forms
         /// (1, 0, 1, 0). They had none, and the strip came out 3px short of upstream's.
         /// </remarks>
         protected override Padding DefaultMargin
-            => !IsOnPlainToolStrip || !ControlPaint.UsesUpstreamGlyphs ? base.DefaultMargin
+            => OwnerControl is StatusStrip { LaysOutAsUpstream: true } ? UpstreamStatusStripMargin
+             : !IsOnPlainToolStrip || !ControlPaint.UsesUpstreamGlyphs ? base.DefaultMargin
              : this is ToolStripButton or ToolStripLabel or ToolStripDropDownButton or ToolStripSplitButton ? new Padding (0, 1, 0, 2)
              : this is ToolStripComboBox ? new Padding (1, 0, 1, 0)
              : base.DefaultMargin;
@@ -3769,10 +3783,15 @@ namespace Majorsilence.Forms
 
             // A status strip spans its rafting panel's row, as upstream's Stretch default for StatusStrip has it (W6).
             Stretch = true;
+
+            // Upstream's StatusStrip is a Table, which runs down the strip when it is docked to a side
+            // (StatusStripUpstreamLayout.cs lays it out).
+            if (SizesAsUpstreamStrip)
+                LayoutStyle = ToolStripLayoutStyle.Table;
         }
 
         /// <inheritdoc/>
-        protected override Padding DefaultPadding => new Padding (1, 0, 16, 0);
+        protected override Padding DefaultPadding => LaysOutAsUpstream ? UpstreamStatusPadding : new Padding (1, 0, 16, 0);
 
         /// <inheritdoc/>
         /// <remarks>Upstream's 200 x 22 for a ported app's status strip, the floor of its height.</remarks>
@@ -3802,6 +3821,12 @@ namespace Majorsilence.Forms
         /// </remarks>
         protected override void LayoutItems ()
         {
+            if (LaysOutAsUpstream) {
+                LayoutItemsAsUpstream ();
+                OnLayoutCompletedCore ();
+                return;
+            }
+
             // PaddedClientRectangle is DEVICE-scaled while item Bounds are LOGICAL, which is the
             // mismatch MenuBase.LogicalClientRectangle exists for. Laying out straight into it stored
             // device geometry in logical fields: at scaling 2 a 400px strip laid its items out 800

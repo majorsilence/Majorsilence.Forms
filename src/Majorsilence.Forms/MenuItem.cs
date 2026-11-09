@@ -154,6 +154,10 @@ namespace Majorsilence.Forms
             if (owner is MenuDropDown mdd && renderer is MenuDropDownRenderer mdd_renderer)
                 return MeasureOwnerDrawn (owner.DeviceToLogicalUnitsCovering (mdd_renderer.GetPreferredItemSize (mdd, this, proposedSize)));
 
+            // A ported app's status strip measures its items itself, in logical units, as upstream's do.
+            if (owner is StatusStrip { LaysOutAsUpstream: true } status)
+                return status.UpstreamStatusItemSize (this);
+
             if (owner is ToolBar tb && renderer is ToolBarRenderer tb_renderer)
                 return owner.DeviceToLogicalUnitsCovering (tb_renderer.GetPreferredItemSize (tb, this, proposedSize));
 
