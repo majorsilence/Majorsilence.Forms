@@ -1457,7 +1457,8 @@ namespace Majorsilence.Forms
         /// were pushed off the end and never shown. Menus and status strips keep the menu metrics.
         /// </remarks>
         protected override Padding DefaultPadding
-            => IsOnPlainToolStrip ? new Padding (2)
+            // A ported app's label has no border, as upstream's ToolStripLabel: "Lbl" is its text wide, 23px, not 27.
+            => IsOnPlainToolStrip ? (ControlPaint.UsesUpstreamGlyphs && this is ToolStripLabel ? Padding.Empty : new Padding (2))
              // A menu bar under upstream's metrics (Menu.UpstreamFont): upstream's top-level menu item padding.
              // On a drop-down under upstream's metrics (see MenuDropDownRenderer): upstream's drop-down item padding.
              // Asked first: until its drop-down is built, a submenu item's owner is still the menu bar.

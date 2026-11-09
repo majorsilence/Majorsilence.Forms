@@ -156,7 +156,7 @@ namespace Majorsilence.Forms.Renderers
             var font_color = !item.Enabled ? Theme.ForegroundDisabledColor
                 : is_link ? LinkColour (link!)
                 : explicit_color ?? item_style.GetForegroundColor ();
-            var (item_typeface, item_font_size) = StripItemFont.Resolve (item, control);
+            var (item_typeface, item_font_size) = ItemFont (control, item);
             var font_size = e.LogicalToDeviceUnits (item_font_size);
 
             // ToolStripItem carries the image/text placement knobs; a plain MenuItem keeps the
@@ -484,6 +484,21 @@ namespace Majorsilence.Forms.Renderers
             e.Canvas.DrawLine (center.X, item.DeviceBounds.Top + padding.Top + thickness, center.X, item.DeviceBounds.Bottom - padding.Bottom - thickness, item.Enabled ? Theme.ControlHighlightLowColor : Theme.ForegroundDisabledColor, thickness);
         }
 
+        // The font an item on a ported app's plain ToolStrip is measured and drawn in: its own or its strip's, else upstream's
+        // ToolStrip default, SystemFonts.MenuFont (a ToolStrip does not take the app's font). Null for any other item, which
+        // keeps StripItemFont's resolution and the theme's font. Measured with a WinForms probe (Microsoft Sans Serif 12pt as
+        // the app font): "Button0" is 53px wide, Segoe UI 9pt's 42 with GDI's 7 of padding and the 2px border either side.
+        // MF measured and drew it in the theme's 14px font, without GDI's padding, and it came out 54.
+        internal static Majorsilence.Forms.Drawing.Font? UpstreamPlainItemFont (ToolBar control, MenuItem item)
+            => ControlPaint.UsesUpstreamGlyphs && item is ToolStripItem { IsOnPlainToolStrip: true }
+                ? StripItemFont.ResolveFont (item, control) ?? SystemFonts.MenuFont
+                : null;
+
+        private static (SkiaSharp.SKTypeface Typeface, int Size) ItemFont (ToolBar control, MenuItem item)
+            => UpstreamPlainItemFont (control, item) is { } font
+                ? (TypefaceCache.Resolve (font), (int) Math.Round (font.PixelSize))
+                : StripItemFont.Resolve (item, control);
+
         /// <summary>
         /// Gets the preferred size of a MenuItem.
         /// </summary>
@@ -502,7 +517,8 @@ namespace Majorsilence.Forms.Renderers
             var strip_item = item as ToolStripItem;
 
             // Measured exactly as RenderItem draws: only the halves DisplayStyle shows (TSM-07).
-            var (item_typeface, item_font_size) = StripItemFont.Resolve (item, control);
+            var upstream_font = UpstreamPlainItemFont (control, item);
+            var (item_typeface, item_font_size) = ItemFont (control, item);
             var font_size = control.LogicalToDeviceUnits (item_font_size);
             var text = strip_item is { DisplaysText: false } ? string.Empty : item.Text;
             var measured = TextMeasurer.MeasureText (text, item_typeface, font_size);
@@ -511,6 +527,11 @@ namespace Majorsilence.Forms.Renderers
             var text_width = strip_item is { IsOnPlainToolStrip: true }
                 ? (int) Math.Ceiling (measured.Width)
                 : (int) Math.Round (measured.Width);
+
+            // Under the upstream look, as TextRenderer measures it: on GDI's grid, in logical pixels, with GDI's padding
+            // either side of the text, so the item is the same logical width at any scale.
+            if (upstream_font is not null && !string.IsNullOrEmpty (text))
+                text_width = control.LogicalToDeviceUnits (TextRenderer.MeasureText (text, upstream_font).Width);
             var text_height = (int) Math.Ceiling (measured.Height);
 
             // Vertical text swaps the two (TextDirection, W6 mechanisms).
@@ -547,8 +568,9 @@ namespace Majorsilence.Forms.Renderers
                 height = Math.Max (image_size.Height, text_height);
 
                 // RenderItem puts a gap between the two. A native item's padding absorbs it; a compat
-                // item's (2px) cannot, so it is measured.
-                if (strip_item is { IsOnPlainToolStrip: true } && !image_size.IsEmpty && text_width > 0)
+                // item's (2px) cannot, so it is measured -- except under the upstream look, where the text's
+                // GDI padding is the gap, as upstream's: "Btn1" beside a 16px image is 51px wide, not 55.
+                if (strip_item is { IsOnPlainToolStrip: true } && upstream_font is null && !image_size.IsEmpty && text_width > 0)
                     width += control.LogicalToDeviceUnits (4);
             }
 
@@ -566,6 +588,10 @@ namespace Majorsilence.Forms.Renderers
             var size = new Size (width, control is ToolStrip { SizesAsUpstreamStrip: true }
                 ? content_height
                 : Math.Max (content_height, item.DeviceBounds.Height));
+
+            // Upstream's ToolStripButton is never narrower than its StandardButtonWidth, 23px: an image-only button is 23 wide.
+            if (upstream_font is not null && item is ToolStripButton)
+                size.Width = Math.Max (size.Width, control.LogicalToDeviceUnits (23));
 
             // A legacy button is never smaller than the bar's ButtonSize, and reserves its arrow gutter (W6).
             if (control.ButtonFor (item) is { } legacy) {
