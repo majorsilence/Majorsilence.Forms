@@ -45,9 +45,18 @@ namespace Majorsilence.Forms.Renderers
                     + GdiPadding (UpstreamFont (control, item)) / 2
                 : ShowsImageMargin (control) ? ThemeImageMarginWidth : 6;
 
-        // The font upstream measures an item with: its own, else its drop-down's chain's, else the drop-down's.
+        // The font upstream measures an item with: its own, else its drop-down's chain's, else the strip default,
+        // SystemFonts.MenuFont -- a ToolStripDropDown does not take the application's default font, so a context menu in
+        // an app that chose Microsoft Sans Serif 12pt is still Segoe UI 9pt. It fell back to the drop-down's Font, the
+        // app's 12pt font, and a context menu of three "FileN" items was 112 x 76 where upstream's is 99 x 70.
         private static Majorsilence.Forms.Drawing.Font UpstreamFont (MenuDropDown control, MenuItem item)
-            => StripItemFont.ResolveFont (item, control) ?? control.Font;
+            => StripItemFont.ResolveFont (item, control) ?? SystemFonts.MenuFont;
+
+        // The typeface and size an item is measured and drawn in: under upstream's metrics, the font above; otherwise
+        // the item's own, its chain's, or the theme's. Drawn in the theme's font while measured in another, a context
+        // menu's captions did not fill the width they were given.
+        private static (SkiaSharp.SKTypeface Typeface, int Size) ItemFont (MenuDropDown control, MenuItem item)
+            => UpstreamMetrics ? StripItemFont.Of (UpstreamFont (control, item)) : StripItemFont.Resolve (item, control);
 
         // The padding TextRenderer measures a string with, in logical pixels, as the menu bar measures its items.
         private static int GdiPadding (Majorsilence.Forms.Drawing.Font font)
@@ -189,7 +198,7 @@ namespace Majorsilence.Forms.Renderers
             // Text
             var font_color = item.Enabled ? item_style.GetForegroundColor ()
                 : MenuUpstreamLook.Applies ? MenuUpstreamLook.DisabledText : Theme.ForegroundDisabledColor;
-            var (item_typeface, item_font_size) = StripItemFont.Resolve (item, control);
+            var (item_typeface, item_font_size) = ItemFont (control, item);
             var font_size = e.LogicalToDeviceUnits (item_font_size);
             var bounds = item.DeviceBounds;
 
@@ -298,7 +307,7 @@ namespace Majorsilence.Forms.Renderers
                 return GetPreferredSeparatorItemSize (control, tss, proposedSize);
 
             var padding = control.LogicalToDeviceUnits (ItemPadding (item));
-            var (item_typeface, item_font_size) = StripItemFont.Resolve (item, control);
+            var (item_typeface, item_font_size) = ItemFont (control, item);
             var font_size = control.LogicalToDeviceUnits (item_font_size);
             var text_size = TextMeasurer.MeasureText (Mnemonics.Strip (item.Text), item_typeface, font_size);
             var text_width = (int)Math.Round (text_size.Width, 0, MidpointRounding.AwayFromZero);
@@ -315,9 +324,12 @@ namespace Majorsilence.Forms.Renderers
             text_height = control.LogicalToDeviceUnits (TextLineHeight.Of (font));
 
             // While ShowShortcutKeys is on, as it is by default, upstream adds a tab and the shortcut after the
-            // caption -- the tab whether or not the item has a shortcut, each measured with its own padding.
+            // caption -- the tab whether or not the item has a shortcut, each measured with its own padding. TextRenderer
+            // measures a tab as no width at all, in every font (measured: "	" is GDI's padding wide, 7px in Segoe UI 9pt,
+            // 9 in Microsoft Sans Serif 12pt); GDI's own extent for it, 8px for Segoe UI here, made every context menu
+            // that much wider than upstream's.
             if (item is ToolStripMenuItem { ShowShortcutKeys: true } menu_item) {
-                text_width += control.LogicalToDeviceUnits (TextLineHeight.TabAdvanceOf (font)) + gdi_padding;
+                text_width += gdi_padding;
 
                 if (menu_item.ShortcutDisplayText is { Length: > 0 } shortcut)
                     text_width += (int)Math.Round (TextMeasurer.MeasureText (shortcut, item_typeface, font_size).Width, 0, MidpointRounding.AwayFromZero) + gdi_padding;
