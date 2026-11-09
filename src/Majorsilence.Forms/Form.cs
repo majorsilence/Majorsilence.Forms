@@ -426,7 +426,7 @@ namespace Majorsilence.Forms
             // An MDI child has no OS window to close — remove its frame from the parent's client instead.
             if (MdiHost != null) {
                 var args = new CancelEventArgs ();
-                OnClosing (args);
+                RaiseClosing (args);
                 if (args.Cancel)
                     return;
 
@@ -443,7 +443,7 @@ namespace Majorsilence.Forms
             // top of each other.
             if (PanelHost != null) {
                 var args = new CancelEventArgs ();
-                OnClosing (args);
+                RaiseClosing (args);
                 if (args.Cancel)
                     return;
 
@@ -519,8 +519,23 @@ namespace Majorsilence.Forms
         /// <summary>Whether a modal <see cref="ShowDialog()"/> is currently running for this form.</summary>
         internal bool IsModalDialog => dialog_task is not null;
 
+        // Set while Closing/FormClosing is being raised. A handler that sets DialogResult there -- the
+        // common "if (!okClicked) DialogResult = DialogResult.Cancel;" -- is choosing the result of the
+        // close already under way, as in WinForms; the setter must not start another close, which
+        // raised Closing again and recursed until the process died of a stack overflow.
+        private bool raising_closing;
+
         // Lets WindowBase run the closing sequence on a Form it holds a reference to.
-        internal void RaiseClosing (CancelEventArgs e) => OnClosing (e);
+        internal void RaiseClosing (CancelEventArgs e)
+        {
+            var wasRaising = raising_closing;
+            raising_closing = true;
+            try {
+                OnClosing (e);
+            } finally {
+                raising_closing = wasRaising;
+            }
+        }
 
         /// <summary>Raised before the form is closed, allowing close to be programatically canceled.</summary>
         public event CancelEventHandler? Closing;
@@ -783,7 +798,10 @@ namespace Majorsilence.Forms
                 // `dialog_parent is not null` test left an ownerless ShowDialog -- the first dialog of
                 // an application, before Application.Run -- unable to close itself by setting
                 // DialogResult, which is how every OK button does it.
-                if (dialog_result != DialogResult.None && (dialog_task is not null || dialog_parent is not null))
+                //
+                // Not from a Closing/FormClosing handler, though: that close is already happening and
+                // returns the result just set (see raising_closing).
+                if (dialog_result != DialogResult.None && !raising_closing && (dialog_task is not null || dialog_parent is not null))
                     Close ();
             }
         }
