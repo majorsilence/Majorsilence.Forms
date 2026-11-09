@@ -11,20 +11,19 @@ namespace Majorsilence.Forms.Tests
 {
     // A font registered with PrivateFontCollection is unknown to the system font manager, and the CSS font-family resolver asked only
     // that manager. So `new Font ("Caladea", ...)` drew the font while `font-family: "Caladea"` silently fell back to the default face:
-    // the theme could not name a bundled typeface. Every test names a family that exists only because a collection loaded it.
+    // the theme could not name a bundled typeface. Every test names a family that exists only because a collection loaded it: the
+    // bundled Caladea renamed (PrivateTestFont), since some hosts have Caladea itself installed.
     [Collection ("Headless")]
     public class ThemeCssPrivateFontTests : IDisposable
     {
         private const string Missing = "No Such Family 4E5A9C";
-
-        private static readonly string fontFile = Path.Combine (Majorsilence.Forms.Drawing.FontResourceLoader.GetFontDirectory (), "Caladea-Regular.ttf");
 
         // Registered on demand, not in the constructor, so a test can resolve a name before the font exists.
         private PrivateFontCollection? collection;
 
         public ThemeCssPrivateFontTests ()
         {
-            Assert.True (File.Exists (fontFile), $"expected the bundled font at {fontFile}");
+            Assert.True (File.Exists (PrivateTestFont.BundledFile), $"expected the bundled font at {PrivateTestFont.BundledFile}");
             Theme.SetBuiltInTheme (BuiltInTheme.Light);
         }
 
@@ -39,18 +38,18 @@ namespace Majorsilence.Forms.Tests
             Theme.SetBuiltInTheme (BuiltInTheme.Light);
         }
 
-        // The family name the bundled file declares, read without leaving it registered.
-        private static string FamilyOfBundledFont ()
+        // The family name the font declares, read without leaving it registered.
+        private static string FamilyOfPrivateFont ()
         {
             using var scratch = new PrivateFontCollection ();
-            scratch.AddFontFile (fontFile);
+            scratch.AddMemoryFont (PrivateTestFont.Data);
             return scratch.Families[0].Name;
         }
 
         private string Register ()
         {
             collection = new PrivateFontCollection ();
-            collection.AddFontFile (fontFile);
+            collection.AddMemoryFont (PrivateTestFont.Data);
             return collection.Families[0].Name;
         }
 
@@ -112,7 +111,7 @@ namespace Majorsilence.Forms.Tests
         {
             // The resolver caches by family list. A cached fallback must not hide a font registered later, which is what
             // loading a bundled font after the first theme load would otherwise do.
-            var family = FamilyOfBundledFont ();
+            var family = FamilyOfPrivateFont ();
             var list = new[] { family };
 
             var before = ThemeCssValues.GetTypeface (list, SKFontStyleWeight.Normal, SKFontStyleSlant.Upright);
