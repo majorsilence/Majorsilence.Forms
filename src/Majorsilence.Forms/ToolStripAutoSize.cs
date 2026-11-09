@@ -32,6 +32,10 @@ namespace Majorsilence.Forms
 
             CommonProperties.SetAutoSize (this, true);
             CommonProperties.SetAutoSizeMode (this, AutoSizeMode.GrowAndShrink);
+
+            // Upstream's default layout, which runs down a strip docked Left or Right (ToolStripVerticalLayout.cs).
+            if (StacksWithOverflowAsUpstream)
+                layout_style = ToolStripLayoutStyle.StackWithOverflow;
         }
 
         // An AutoSize strip's size follows its items, so an item added, removed or changed lays its parent out again:

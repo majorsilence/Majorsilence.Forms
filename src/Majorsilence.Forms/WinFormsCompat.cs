@@ -2836,8 +2836,12 @@ namespace Majorsilence.Forms
         private ToolStripLayoutStyle layout_style = ToolStripLayoutStyle.HorizontalStackWithOverflow;
 
         /// <summary>Gets or sets the layout style. Stub in Majorsilence.Forms.</summary>
+        /// <remarks>A ported app's ToolStrip and MenuStrip start, as upstream's, at StackWithOverflow, which reads back as the
+        /// horizontal or vertical stack the strip's docked edge gives it (ToolStripVerticalLayout.cs).</remarks>
         public ToolStripLayoutStyle LayoutStyle {
-            get => layout_style;
+            get => layout_style == ToolStripLayoutStyle.StackWithOverflow && StacksWithOverflowAsUpstream
+                ? (DockedOrientation == Orientation.Vertical ? ToolStripLayoutStyle.VerticalStackWithOverflow : ToolStripLayoutStyle.HorizontalStackWithOverflow)
+                : layout_style;
             set {
                 if (layout_style == value)
                     return;
