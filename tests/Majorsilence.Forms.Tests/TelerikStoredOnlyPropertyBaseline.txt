@@ -234,7 +234,6 @@ Majorsilence.Forms.Telerik.RadForm.IconScaling    -- form chrome setting with no
 Majorsilence.Forms.Telerik.RadForm.ThemeName    -- Telerik theme name: Telerik themes are not mapped (CSS themes instead; COMPATIBILITY_MATRIX, Telerik.WinControls.Themes)
 Majorsilence.Forms.Telerik.RadGridView.AutoScroll    -- the grid manages its own scroll bars
 Majorsilence.Forms.Telerik.RadGridView.SynchronizeCurrentRowInSplitMode    -- there is no split mode
-Majorsilence.Forms.Telerik.RadGridView.ThemeName    -- Telerik theme name; the compat controls have no theme engine
 Majorsilence.Forms.Telerik.RadGridView.UseScrollbarsInHierarchy    -- inert by necessity: a child view is a band painted into the row, with no child control or scroll region to gate (member remarks)
 Majorsilence.Forms.Telerik.RadGroupBox.FooterText    -- not drawn: Telerik shows the footer only with FooterVisibility, which this layer does not have
 Majorsilence.Forms.Telerik.RadItem.ToolTipText    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
