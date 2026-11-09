@@ -12,7 +12,7 @@ namespace Majorsilence.Forms.Renderers
     /// it derives from the DataGridView renderer it re-declares its <see cref="Type"/> as
     /// <see cref="RadGridView"/> so <see cref="RenderManager"/> resolves it for that control.
     /// </summary>
-    public class RadGridViewRenderer : DataGridViewRenderer
+    public partial class RadGridViewRenderer : DataGridViewRenderer
     {
         /// <inheritdoc/>
         public override Type Type => typeof (RadGridView);
@@ -28,6 +28,7 @@ namespace Majorsilence.Forms.Renderers
             // The header/row passes repopulate these (cleared each frame for fresh hit-test rects).
             grid.FilterGlyphRects.Clear ();
             grid.GroupPillLayouts.Clear ();
+            grid.FormattedHeaders.Clear ();
 
             base.Render (control, e);
 
@@ -47,6 +48,8 @@ namespace Majorsilence.Forms.Renderers
 
             if (grid.DragActive)
                 RenderDragIndicator (grid, e);
+
+            grid.SettleFormattedHeights ();
         }
 
         // A Telerik theme's current cell is outlined inside its edges (Fluent: 2px, dark grey, or white in FluentDark), focused
@@ -283,7 +286,10 @@ namespace Majorsilence.Forms.Renderers
         /// <inheritdoc/>
         protected override void RenderColumnHeader (DataGridView control, DataGridViewColumn column, int columnIndex, Rectangle bounds, PaintEventArgs e)
         {
-            base.RenderColumnHeader (control, column, columnIndex, bounds, e);
+            if (control is RadGridView formatted && formatted.FormatHeaderCell (column, columnIndex) is { } element)
+                RenderFormattedColumnHeader (formatted, column, columnIndex, bounds, element, e);
+            else
+                base.RenderColumnHeader (control, column, columnIndex, bounds, e);
 
             if (control is not RadGridView grid || !grid.ShowsHeaderFilterButtons || !RadGridView.ColumnAllowsFiltering (column) || !FunnelFits (column))
                 return;
@@ -310,6 +316,12 @@ namespace Majorsilence.Forms.Renderers
         {
             if (control is not RadGridView) {
                 base.RenderCellBorders (control, borderStyle, bounds, e);
+                return;
+            }
+
+            // A cell whose formatting gave it a border of its own draws that instead of the grid lines.
+            if (painting_border is { } border) {
+                RenderFormattedBorder (control, border, bounds, e);
                 return;
             }
 
@@ -399,6 +411,7 @@ namespace Majorsilence.Forms.Renderers
             }
 
             base.RenderRow (control, row, rowIndex, bounds, e);
+            RestoreFormattedRowEdge (control, row, e);
 
             RenderCurrentCellBorder (control, row, rowIndex, e);
 

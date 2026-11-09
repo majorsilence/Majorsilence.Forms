@@ -3655,8 +3655,10 @@ namespace Majorsilence.Forms.Telerik
                     GridViewCommandColumn or DataGridViewButtonColumn => new GridCommandCellElement (),
                     GridViewDateTimeColumn => new GridDateTimeCellElement (),
                     GridViewComboBoxColumn => new GridComboBoxCellElement (),
-                    _ => new GridCellElement ()
+                    _ => new GridDataCellElement ()
                 };
+                PrepareCellElement (element, DataCellBorderWidth);
+                var initial_font = element.Font!;
                 element.Value = cell.Value;
                 element.Text = displayText;
                 element.RowIndex = rowIndex;
@@ -3690,6 +3692,23 @@ namespace Majorsilence.Forms.Telerik
 
                 // A handler may style through e.CellElement.Style as well as the element's own colours.
                 element.Style.ApplyTo (cell);
+
+                // Its font, padding, fill over the selection, border and the height AutoSizeRows takes from them.
+                ApplyFormattedElement (row, cell, element, initial_font);
+            } else if (FormattingOf (cell) is { } stale) {
+                // The handlers are gone: what they last applied goes with them.
+                stale.Fill = null;
+                stale.Border = null;
+                if (stale.FontApplied) {
+                    cell.Style.Font = null;
+                    cell.Style.FontSize = null;
+                    stale.FontApplied = false;
+                    RadCellStyle.Existing (cell)?.ApplyTo (cell);
+                }
+                if (stale.PaddingApplied) {
+                    cell.Style.Padding = Padding.Empty;
+                    stale.PaddingApplied = false;
+                }
             }
 
             // Only override the displayed text when formatting actually changed it.

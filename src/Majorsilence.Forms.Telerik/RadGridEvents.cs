@@ -86,7 +86,9 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>Telerik-compat cell visual element, exposed by formatting/create-cell events.</summary>
-    public class GridViewCellElement : RadElement, IDisposable
+    /// <remarks>A <see cref="LightVisualElement"/>, as Telerik's cell elements are, so code written against that type
+    /// (its fill, font and per-side border) takes a cell element.</remarks>
+    public class GridViewCellElement : LightVisualElement, IDisposable
     {
         /// <summary>Gets whether the element has been disposed.</summary>
         public bool IsDisposed { get; private set; }
@@ -111,23 +113,16 @@ namespace Majorsilence.Forms.Telerik
             Value = null;
         }
 
-        /// <summary>Gets or sets the displayed text.</summary>
-        public string Text { get; set; } = string.Empty;
+        // Text, DrawFill, NumberOfColors, GradientStyle, Font, TextAlignment and the border are LightVisualElement's.
         /// <summary>Gets or sets the cell value.</summary>
         public object? Value { get; set; }
-        /// <summary>Gets or sets whether the element draws its fill.</summary>
-        public bool DrawFill { get; set; }
-        // DrawBorder is inherited from RadElement.
-        /// <summary>Gets or sets the number of gradient colors.</summary>
-        public int NumberOfColors { get; set; } = 1;
-        /// <summary>Gets or sets the gradient style. Stub.</summary>
-        public object? GradientStyle { get; set; }
         /// <summary>Gets or sets whether text wraps.</summary>
         public bool TextWrap { get; set; }
         /// <summary>Gets or sets whether drawing is clipped.</summary>
         public bool ClipDrawing { get; set; }
-        /// <summary>Gets or sets the text alignment.</summary>
-        public ContentAlignment TextAlignment { get; set; } = ContentAlignment.MiddleLeft;
+
+        // Whether a formatting handler gave the element a font of its own (it starts with the grid's).
+        internal bool FontChanged { get; set; }
         /// <summary>Gets or sets the row index of the cell.</summary>
         public int RowIndex { get; set; }
         /// <summary>Gets or sets the column index of the cell.</summary>
@@ -140,17 +135,21 @@ namespace Majorsilence.Forms.Telerik
         public RadCellStyle Style { get; } = new RadCellStyle ();
     }
 
-    /// <summary>Telerik-compat cell visual element for a data (non-command, non-date) cell.</summary>
+    /// <summary>Telerik-compat base of the grid's cell elements: data cells (<see cref="GridDataCellElement"/>) and column header cells (<see cref="GridHeaderCellElement"/>).</summary>
     public class GridCellElement : GridViewCellElement { }
 
+    /// <summary>Telerik-compat element of a data cell: what a formatting handler gets for each cell of a data row.</summary>
+    /// <remarks>As Telerik's, the date, combo box and command cells are data cells too.</remarks>
+    public class GridDataCellElement : GridCellElement { }
+
     /// <summary>Telerik-compat cell visual element for a <see cref="GridViewDateTimeColumn"/> cell.</summary>
-    public class GridDateTimeCellElement : GridCellElement { }
+    public class GridDateTimeCellElement : GridDataCellElement { }
 
     /// <summary>Telerik-compat cell visual element for a <see cref="GridViewComboBoxColumn"/> cell.</summary>
-    public class GridComboBoxCellElement : GridCellElement { }
+    public class GridComboBoxCellElement : GridDataCellElement { }
 
     /// <summary>Telerik-compat cell visual element for a command (button) column cell.</summary>
-    public class GridCommandCellElement : GridCellElement
+    public class GridCommandCellElement : GridDataCellElement
     {
         /// <summary>Gets the button element hosted by this command cell.</summary>
         public RadButtonElement CommandButton { get; } = new RadButtonElement ();

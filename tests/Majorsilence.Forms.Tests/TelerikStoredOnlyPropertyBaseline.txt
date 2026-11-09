@@ -111,9 +111,6 @@ Majorsilence.Forms.Telerik.GridViewCellCancelEventArgs.RowIndex    -- event data
 Majorsilence.Forms.Telerik.GridViewCellElement.ClipDrawing    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.GridViewCellElement.ColumnIndex    -- element data handed to the formatting handler, which reads it
 Majorsilence.Forms.Telerik.GridViewCellElement.ColumnInfo    -- element data handed to the formatting handler, which reads it
-Majorsilence.Forms.Telerik.GridViewCellElement.DrawFill    -- the fill is drawn whenever BackColor is set; DrawFill = false does not suppress it
-Majorsilence.Forms.Telerik.GridViewCellElement.GradientStyle    -- fills are solid: there is no gradient painting
-Majorsilence.Forms.Telerik.GridViewCellElement.NumberOfColors    -- fills are solid: there is no gradient painting
 Majorsilence.Forms.Telerik.GridViewCellElement.RowIndex    -- element data handed to the formatting handler, which reads it
 Majorsilence.Forms.Telerik.GridViewCellElement.Value    -- element data handed to the formatting handler, which reads it
 Majorsilence.Forms.Telerik.GridViewCellEventArgs.CellBounds    -- event data: set by RadGridView as it raises the event, read by the handler
@@ -161,12 +158,14 @@ Majorsilence.Forms.Telerik.GroupSummaryEvaluationEventArgs.SummaryItem    -- eve
 Majorsilence.Forms.Telerik.HtmlExportSettings.DocumentExportLevel    -- export option not implemented: the compat exporters always write plain, full, flat data (documented on the member)
 Majorsilence.Forms.Telerik.HtmlExportSettings.StylesExportMode    -- export option not implemented: the compat exporters always write plain, full, flat data (documented on the member)
 Majorsilence.Forms.Telerik.LightVisualElement.GradientStyle    -- fills are solid: there is no gradient painting
+Majorsilence.Forms.Telerik.LightVisualElement.NumberOfColors    -- fills are solid: there is no gradient painting
 Majorsilence.Forms.Telerik.MasterGridViewTemplate.AllowDragToGroup    -- there is no group panel to drag a column to
 Majorsilence.Forms.Telerik.MasterGridViewTemplate.PagingBeforeGrouping    -- the order of paging and grouping is not configurable here
 Majorsilence.Forms.Telerik.MasterGridViewTemplate.ShowTotals    -- no totals row is drawn for this flag; summary rows come from SummaryRowsBottom/Top
 Majorsilence.Forms.Telerik.MasterGridViewTemplate.ThrowExceptionOnDataOperationInVirtualMode    -- the grid has no virtual mode
 Majorsilence.Forms.Telerik.Primitives.BorderPrimitive.ForeColor    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.Primitives.FillPrimitive.GradientStyle    -- fills are solid: there is no gradient painting
+Majorsilence.Forms.Telerik.Primitives.FillPrimitive.NumberOfColors    -- fills are solid: there is no gradient painting
 Majorsilence.Forms.Telerik.PropertyGridCheckBoxItemElement.Value    -- Telerik editor-element stand-in; the grid edits with real controls, see EditorRequired
 Majorsilence.Forms.Telerik.PropertyGridEditorRequiredEventArgs.Item    -- event data: set by RadPropertyGrid as it raises the event, read by the handler
 Majorsilence.Forms.Telerik.PropertyGridGroupElement.Data    -- visual-element data slot; group rows are painted by the core grid
@@ -221,16 +220,13 @@ Majorsilence.Forms.Telerik.RadDropDownListEditorElement.DropDownSizingMode    --
 Majorsilence.Forms.Telerik.RadElement.AccessibleRole    -- element-tree stand-in: Telerik reports it only from the element's own accessible object, which no control's accessibility tree here exposes; the control keeps its own role, as it does in Telerik
 Majorsilence.Forms.Telerik.RadElement.AllowDrop    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.RadElement.ControlBounds    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
-Majorsilence.Forms.Telerik.RadElement.DrawBorder    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.RadElement.Enabled    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.RadElement.MaxSize    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.RadElement.MinSize    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.RadElement.Name    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
-Majorsilence.Forms.Telerik.RadElement.Padding    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.RadElement.StretchHorizontally    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.RadElement.StretchVertically    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.RadElement.Tag    -- application storage, read back by the application
-Majorsilence.Forms.Telerik.RadElement.Visibility    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.RadForm.IconScaling    -- form chrome setting with no counterpart in this chrome
 Majorsilence.Forms.Telerik.RadForm.ThemeName    -- Telerik theme name: Telerik themes are not mapped (CSS themes instead; COMPATIBILITY_MATRIX, Telerik.WinControls.Themes)
 Majorsilence.Forms.Telerik.RadGridView.AutoScroll    -- the grid manages its own scroll bars
@@ -330,6 +326,5 @@ Majorsilence.Forms.Telerik.ToolTabStrip.SplitterWidth    -- split-layout setting
 Majorsilence.Forms.Telerik.ToolWindow.DocumentButtons    -- a tool strip draws no document buttons; DocumentTabStrip.DocumentButtons is the one read
 Majorsilence.Forms.Telerik.ValueChangingEventArgs.NewValue    -- event data; Cancel is honoured, but a handler changing NewValue is not applied
 Majorsilence.Forms.Telerik.ValueChangingEventArgs.OldValue    -- event data: set as the event is raised, read by the handler
-Majorsilence.Forms.Telerik.VisualElement.TextAlignment    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.WaitingBarContentElement.WaitingStyle    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.WaitingBarSeparatorElement.Dash    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it

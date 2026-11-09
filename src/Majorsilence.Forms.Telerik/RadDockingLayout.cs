@@ -902,6 +902,7 @@ namespace Majorsilence.Forms.Telerik
         protected override void OnPaint (PaintEventArgs e)
         {
             base.OnPaint (e);
+            PaintChromeFill (e);
             DockStrip.PaintHeaders (this, e, _selectedWindow, _headers);
         }
 
