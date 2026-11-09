@@ -36,6 +36,39 @@ namespace Majorsilence.Forms
         };
 
         /// <summary>
+        /// The index of the item whose <paramref name="valueMember"/> is <paramref name="value"/>, as ListControl.SelectedValue
+        /// finds it (CurrencyManager.Find): through the list's own <see cref="IBindingList.Find"/> when it supports searching,
+        /// otherwise the first item whose value <see cref="object.Equals(object, object)"/> it. -1 when there is none.
+        /// </summary>
+        /// <remarks>
+        /// The list's own search matters for a DataView: it compares as the DataTable does, so a char column's padded
+        /// 'MISCINV   ' is found for "MISCINV" (and, with the table's default CaseSensitive = false, "miscinv"). Comparing
+        /// with Equals found nothing, left the selection empty and SelectedValue null, where WinForms selects the row.
+        /// </remarks>
+        internal static int FindValue (IList list, string? valueMember, object value)
+        {
+            if (!string.IsNullOrEmpty (valueMember) && list is IBindingList { SupportsSearching: true } searchable
+                    && ItemProperties (list)?.Find (valueMember, true) is { } descriptor)
+                return searchable.Find (descriptor, value);
+
+            for (var i = 0; i < list.Count; i++) {
+                var item_value = string.IsNullOrEmpty (valueMember) ? list[i] : MemberValue (list[i], valueMember);
+
+                if (Equals (item_value, value))
+                    return i;
+            }
+
+            return -1;
+        }
+
+        [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage ("Trimming", "IL2026", Justification = "Bound item types are inspected at runtime, as in WinForms.")]
+        private static PropertyDescriptorCollection? ItemProperties (IList list) => list switch {
+            ITypedList typed => typed.GetItemProperties (null),
+            _ when list.Count > 0 && list[0] is { } first => TypeDescriptor.GetProperties (first),
+            _ => null,
+        };
+
+        /// <summary>
         /// Tracks a list data source for a list control: re-reads it whenever the source's contents
         /// change, and keeps the control's selection and the source's current-item position in step.
         /// </summary>
