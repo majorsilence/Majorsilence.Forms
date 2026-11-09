@@ -471,6 +471,9 @@ namespace Majorsilence.Forms
         private int InteriorX (MouseEventArgs e) => e.X - Border;
         private int InteriorY (MouseEventArgs e) => e.Y - (Border + Caption);
 
+        /// <summary>Where the child's client area starts in this frame, in logical pixels.</summary>
+        internal Point ContentOrigin => new Point (Border, Border + Caption);
+
         private void ForwardToChild (MouseEventArgs e, Action<Form> dispatch)
         {
             if (WindowState == FormWindowState.Minimized)

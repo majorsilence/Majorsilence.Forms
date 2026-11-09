@@ -196,6 +196,26 @@ namespace Majorsilence.Forms
         // the form is a real top-level window. Panel hosting and MDI hosting both go through a frame.
         private Control? HostFrame => (Control?)PanelHost ?? MdiHost;
 
+        // A hosted form's client area is where its frame draws it: inside the MDI frame's border and caption,
+        // or filling the panel host.
+        internal override bool TryHostedPointToScreen (System.Drawing.Point client, out System.Drawing.Point screen)
+        {
+            switch (HostFrame) {
+                case MdiChildWindow frame:
+                    var origin = frame.ContentOrigin;
+                    screen = frame.PointToScreen (new System.Drawing.Point (origin.X + client.X, origin.Y + client.Y));
+                    return true;
+
+                case Control host:
+                    screen = host.PointToScreen (client);
+                    return true;
+
+                default:
+                    screen = default;
+                    return false;
+            }
+        }
+
         // A hosted form with no font of its own takes its host's, as upstream's does: an MDI child sits in the
         // MDI client, a panel-hosted form in its panel, and Font is ambient through that parent chain -- so
         // a child of an MDI parent set to 12pt draws its fontless controls at 12pt. Null when not hosted or
