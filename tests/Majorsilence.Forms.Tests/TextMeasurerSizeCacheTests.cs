@@ -83,8 +83,9 @@ namespace Majorsilence.Forms.Tests
                 }
             });
 
+            // That the cache stays bounded while threads swap its generations is GenerationCacheTests', on a cache of its
+            // own: this one is process-wide, and anything else measuring text while these threads run adds to its count.
             Assert.Empty (wrong);
-            Assert.InRange (TextMeasurer.CachedBlockCount, 1, 2000 + 8);
         }
 
         [Theory]

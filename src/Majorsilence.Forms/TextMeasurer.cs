@@ -97,86 +97,14 @@ namespace Majorsilence.Forms
         // Paint-safe TextBlock cache. TextBlock layout is idempotent; Paint() is read-only (painting one block on
         // several threads at once is covered by TextBlockConcurrentPaintTests). Reusing cached instances
         // eliminates repeated RichTextKit layout on every frame.
-        private static readonly GenerationCache<TextBlock> _blocks = new ();
+        private static readonly GenerationCache<TextBlockKey, TextBlock> _blocks = new ();
 
         // MeasureText's answers. Measuring needs only the size, and keeping the whole block for it (its lines, runs
         // and glyph buffers, about 4 KB) kept every measured string's layout alive long enough to be promoted by
         // the garbage collector: a report measuring new values spent a third of its time collecting
         // (ConcurrentMeasureBenchmarks). Nothing else asks for a block with MeasureText's key (default alignment
         // and colour, no line limit), so no caller loses a block it used to get from the cache.
-        private static readonly GenerationCache<SKSize> _sizes = new ();
-
-        // Two generations rather than one dictionary emptied when full: new entries go into the recent generation,
-        // and when that has had GenerationSize entries added it becomes the older one and the previous older
-        // generation is dropped. An entry found in the older generation is added back to the recent one. So text in
-        // use (a grid's headers, a report's repeated values) survives a stream of strings seen once, which used to
-        // empty the whole cache every 2000 new strings and lay the working set out again.
-        //
-        // Lock-free. MeasureText is also called off the UI thread (report engines measure on whatever thread
-        // renders the report), and with one lock around two Dictionaries, eight threads measuring at once spent a
-        // quarter of their time queueing for it (ConcurrentMeasureBenchmarks). A swap replaces the whole pair at
-        // once, so a reader sees either the old pair or the new one. Two threads that miss on the same key both lay
-        // it out and the first one stored wins.
-        private sealed class GenerationCache<TValue>
-        {
-            private const int GenerationSize = 1000;   // two generations: at most 2000 entries, the old single limit
-
-            private sealed class Generations
-            {
-                internal Generations (ConcurrentDictionary<TextBlockKey, TValue>? older) => Older = older;
-
-                // Sized for a whole generation up front: growing takes every one of the dictionary's locks, which
-                // threads adding blocks queued on (9 % of eight threads measuring new strings).
-                internal readonly ConcurrentDictionary<TextBlockKey, TValue> Recent = new (Environment.ProcessorCount, GenerationSize + GenerationSize / 4);
-                internal readonly ConcurrentDictionary<TextBlockKey, TValue>? Older;
-
-                // Entries added to Recent: the thread that adds the GenerationSize-th one swaps. Recent.Count would
-                // take every one of the dictionary's locks.
-                internal int Added;
-            }
-
-            private volatile Generations generations = new (null);
-
-            internal bool TryGet (TextBlockKey key, out TValue value)
-            {
-                var current = generations;
-                if (current.Recent.TryGetValue (key, out value!))
-                    return true;
-
-                if (current.Older is { } older && older.TryGetValue (key, out value!)) {
-                    Add (key, value);
-                    return true;
-                }
-
-                return false;
-            }
-
-            // The value now cached for key: value, or the one another thread stored first.
-            internal TValue Add (TextBlockKey key, TValue value)
-            {
-                var current = generations;
-                if (!current.Recent.TryAdd (key, value))
-                    return current.Recent.TryGetValue (key, out var stored) ? stored : value;
-
-                // An entry left in the older generation as well as the recent one is harmless: the older one goes at
-                // the next swap. A thread that read the generations just before a swap adds to what is now the older
-                // one, which only lets that generation run an entry or two over GenerationSize.
-                if (System.Threading.Interlocked.Increment (ref current.Added) == GenerationSize)
-                    generations = new Generations (current.Recent);
-
-                return value;
-            }
-
-            internal void Clear () => generations = new Generations (null);
-
-            // A key in both generations counts twice.
-            internal int Count {
-                get {
-                    var current = generations;
-                    return current.Recent.Count + (current.Older?.Count ?? 0);
-                }
-            }
-        }
+        private static readonly GenerationCache<TextBlockKey, SKSize> _sizes = new ();
 
         // A font's Underline and Strikeout, which the typeface (family, weight, slant) does not carry.
         internal const int DecorationUnderline = 1;
