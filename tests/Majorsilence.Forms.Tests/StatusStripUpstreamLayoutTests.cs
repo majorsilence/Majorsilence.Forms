@@ -139,7 +139,7 @@ namespace Majorsilence.Forms.Tests
         public void An_item_that_runs_into_the_sizing_grip_is_not_shown ()
         {
             ToolStripItemPlacement[] placements;
-            Rectangle last;
+            Rectangle[] bounds;
 
             try {
                 Ported ();
@@ -147,17 +147,24 @@ namespace Majorsilence.Forms.Tests
 
                 using (form) {
                     placements = strip.Items.Cast<ToolStripItem> ().Select (i => i.Placement).ToArray ();
-                    last = strip.Items[3].Bounds;
+                    bounds = strip.Items.Cast<ToolStripItem> ().Select (i => i.Bounds).ToArray ();
                 }
             } finally {
                 Application.SetDefaultFont (null!);
             }
 
-            Assert.Equal (ToolStripItemPlacement.None, placements[3]);
-            Assert.Equal (new Point (302, 23), last.Location);
+            // An item the row shows ends inside the display rectangle; one it drops is parked past the strip's right
+            // edge. How far the labels run is their text width, so only Windows has the font to say which item that is.
+            for (var i = 0; i < placements.Length; i++)
+                if (placements[i] == ToolStripItemPlacement.Main)
+                    Assert.True (bounds[i].Right <= 286, $"item {i} shown at {bounds[i]}");
+                else
+                    Assert.Equal (302, bounds[i].X);
 
-            if (OperatingSystem.IsWindows ())
+            if (OperatingSystem.IsWindows ()) {
                 Assert.Equal (new[] { ToolStripItemPlacement.Main, ToolStripItemPlacement.Main, ToolStripItemPlacement.Main, ToolStripItemPlacement.None }, placements);
+                Assert.Equal (new Point (302, 23), bounds[3].Location);
+            }
         }
 
         [Fact]
