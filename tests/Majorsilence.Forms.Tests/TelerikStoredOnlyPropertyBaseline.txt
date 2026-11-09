@@ -282,7 +282,6 @@ Majorsilence.Forms.Telerik.RadTextBoxItem.Alignment    -- element-tree stand-in:
 Majorsilence.Forms.Telerik.RadTextBoxItem.Text    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.RadTimePicker.ThemeName    -- Telerik theme name: Telerik themes are not mapped (CSS themes instead; COMPATIBILITY_MATRIX, Telerik.WinControls.Themes)
 Majorsilence.Forms.Telerik.RadTreeNode.DataBoundItem    -- set by the tree as it binds; the application reads it back
-Majorsilence.Forms.Telerik.RadTreeNode.Value    -- set by the tree as it binds (ValueMember) or by the application; the application reads it back
 Majorsilence.Forms.Telerik.RadTreeView.ThemeName    -- Telerik theme name; the compat controls have no theme engine
 Majorsilence.Forms.Telerik.RadWaitingBar.WaitingStep    -- read by MarqueeStep, which the core marquee timer calls; the Telerik scan does not follow calls in from core
 Majorsilence.Forms.Telerik.RadWaitingBar.WaitingStyle    -- every style draws as the dash; the data cloud, rotating and spinner styles are not drawn

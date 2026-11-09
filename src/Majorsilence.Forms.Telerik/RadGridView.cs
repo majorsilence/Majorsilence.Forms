@@ -2490,8 +2490,15 @@ namespace Majorsilence.Forms.Telerik
             var column = base.Columns[columnIndex];
 
             if (FilterPopupRequired is not null) {
-                var popupArgs = new FilterPopupRequiredEventArgs { Column = column };
+                var popupArgs = new FilterPopupRequiredEventArgs { Column = column as GridViewDataColumn };
                 FilterPopupRequired.Invoke (this, popupArgs);
+
+                // A Telerik popup (a RadListFilterPopup or a subclass) is shown in place of the built-in one, and
+                // what it confirms filters the column.
+                if (popupArgs.FilterPopup is BaseFilterPopup supplied) {
+                    ShowSuppliedFilterPopup (supplied, column, columnIndex);
+                    return;
+                }
 
                 // The application supplied its own popup, so showing ours as well would put two filter
                 // UIs on screen for one click.
