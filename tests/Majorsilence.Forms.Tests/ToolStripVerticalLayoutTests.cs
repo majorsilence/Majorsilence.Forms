@@ -95,10 +95,19 @@ namespace Majorsilence.Forms.Tests
             Assert.True (bounds.Width < 80, $"width {bounds.Width}");
 
             // Below the 9px grip band, each item its own height in its margin (a button's 1 above and 2 below, a separator's
-            // none): 19, 20, 6, 20 and 15 tall. The strip prefers them stacked, 2px after the last.
-            Assert.Equal (new[] { 10, 32, 54, 61, 84 }, items.Select (i => i.Y));
-            Assert.Equal (new[] { 19, 20, 6, 20, 15 }, items.Select (i => i.Height));
-            Assert.Equal (103, preferred.Height);
+            // none): 19, 20, 6, 20 and 15 tall. The strip prefers them stacked, a constant after the last. A text-only
+            // item is as tall as the font's line, which only Windows has Microsoft Sans Serif to measure; the two 16px
+            // image buttons and the separator are the same everywhere.
+            Assert.Equal (10, items[0].Y);
+            Assert.Equal (new[] { 20, 6, 20 }, new[] { items[1].Height, items[2].Height, items[3].Height });
+            Assert.All (items.Skip (1).Zip (items), p => Assert.True (p.First.Y >= p.Second.Bottom, $"{p.First.Y} after {p.Second.Bottom}"));
+            Assert.Equal (items[^1].Bottom + 4, preferred.Height);
+
+            if (OperatingSystem.IsWindows ()) {
+                Assert.Equal (new[] { 10, 32, 54, 61, 84 }, items.Select (i => i.Y));
+                Assert.Equal (new[] { 19, 20, 6, 20, 15 }, items.Select (i => i.Height));
+                Assert.Equal (103, preferred.Height);
+            }
 
             // All one width: the strip's, less its 1px right padding twice and a pixel, as upstream's split stack pads them.
             Assert.All (items, i => Assert.Equal ((0, bounds.Width - 3), (i.X, i.Width)));
@@ -127,12 +136,18 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (200, bounds.Height);
 
             // Inside the (6, 2, 0, 2) padding: three items a line of Segoe UI 9pt in its 2px border, and a 6px separator.
-            Assert.Equal (new[] { 2, 21, 40, 46 }, items.Select (i => i.Y));
-            Assert.Equal (69, preferred.Height);
+            // The menu items are as tall as that line, which only Windows has the font to measure.
+            Assert.Equal (2, items[0].Y);
+            Assert.Equal (6, items[2].Height);
+            Assert.All (items.Skip (1).Zip (items), p => Assert.True (p.First.Y >= p.Second.Bottom, $"{p.First.Y} after {p.Second.Bottom}"));
+            Assert.Equal (items[^1].Bottom + 4, preferred.Height);
             Assert.All (items, i => Assert.Equal ((6, bounds.Width - 13), (i.X, i.Width)));
 
-            if (OperatingSystem.IsWindows ())
+            if (OperatingSystem.IsWindows ()) {
+                Assert.Equal (new[] { 2, 21, 40, 46 }, items.Select (i => i.Y));
                 Assert.Equal (new[] { 19, 19, 6, 19 }, items.Select (i => i.Height));
+                Assert.Equal (69, preferred.Height);
+            }
         }
 
         // A strip with AutoSize off pads its items to its display rectangle less a pixel instead.
