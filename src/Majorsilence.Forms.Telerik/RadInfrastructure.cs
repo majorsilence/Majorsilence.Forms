@@ -161,6 +161,9 @@ namespace Majorsilence.Forms.Telerik
         public DisplayStyle DisplayStyle { get; set; } = DisplayStyle.ImageAndText;
         /// <summary>Gets or sets the button image.</summary>
         public Majorsilence.Forms.Drawing.Image? Image { get; set; }
+        /// <summary>Gets or sets where the button's image sits: <see cref="ContentAlignment.MiddleLeft"/> by default, as
+        /// Telerik's.</summary>
+        public ContentAlignment ImageAlignment { get; set; } = ContentAlignment.MiddleLeft;
         /// <summary>Gets or sets how the image is scaled. Stub.</summary>
         public ImageScaling ImageScaling { get; set; } = ImageScaling.None;
         /// <summary>Gets or sets whether the button border is drawn. Stub.</summary>

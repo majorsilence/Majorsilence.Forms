@@ -36,6 +36,10 @@ namespace Majorsilence.Forms
         /// <summary>How a derived tab control lays out and paints its strip its own way, or null for this one's.</summary>
         internal virtual TabStripLook? StripLook => null;
 
+        /// <summary>Whether a derived control places the pages itself, after the layout here, which then leaves them undocked
+        /// where they are (Telerik's page view in its ExplorerBar mode, which stacks them).</summary>
+        internal virtual bool LaysOutPagesItself => false;
+
         /// <summary>The tab padding in effect: as set, else upstream's (6, 3) default under its look.</summary>
         internal System.Drawing.Point EffectiveTabPadding
             => !tab_padding_set && UsesUpstreamTabs ? new System.Drawing.Point (6, 3) : tab_padding;
@@ -47,14 +51,18 @@ namespace Majorsilence.Forms
             // the dock pass cannot express: it would inset the strip too. Undocked, the page is placed here.
             var upstream = UsesUpstreamTabs;
             var look = StripLook;
+            var own = LaysOutPagesItself;
 
             foreach (var page in TabPages) {
-                var dock = upstream || look is not null ? DockStyle.None : DockStyle.Fill;
+                var dock = upstream || look is not null || own ? DockStyle.None : DockStyle.Fill;
                 if (page.Dock != dock)
                     page.Dock = dock;
             }
 
             base.OnLayout (e);
+
+            if (own)
+                return;
 
             if (look is not null) {
                 var page_bounds = look.PageBounds;

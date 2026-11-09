@@ -189,6 +189,7 @@ Majorsilence.Forms.Telerik.RadBrowseEditorElement.Value    -- element-tree stand
 Majorsilence.Forms.Telerik.RadButton.ThemeName    -- Telerik theme name: Telerik themes are not mapped (CSS themes instead; COMPATIBILITY_MATRIX, Telerik.WinControls.Themes)
 Majorsilence.Forms.Telerik.RadButtonElement.DisplayStyle    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.RadButtonElement.Image    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
+Majorsilence.Forms.Telerik.RadButtonElement.ImageAlignment    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.RadButtonElement.ImageScaling    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.RadButtonElement.ShowBorder    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it
 Majorsilence.Forms.Telerik.RadButtonElement.UseDefaultDisabledPaint    -- element-tree stand-in: there is no Telerik element tree here to lay this out or paint it

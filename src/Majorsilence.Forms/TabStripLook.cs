@@ -40,9 +40,9 @@ namespace Majorsilence.Forms
         public abstract bool OnStripPress (Point location);
 
         /// <summary>The typeface a font draws in.</summary>
-        protected static SkiaSharp.SKTypeface TypefaceOf (Drawing.Font font) => font.GetSKTypeface ();
+        protected internal static SkiaSharp.SKTypeface TypefaceOf (Drawing.Font font) => font.GetSKTypeface ();
 
         /// <summary>A font's em, in logical pixels.</summary>
-        protected static float PixelSizeOf (Drawing.Font font) => font.PixelSize;
+        protected internal static float PixelSizeOf (Drawing.Font font) => font.PixelSize;
     }
 }
