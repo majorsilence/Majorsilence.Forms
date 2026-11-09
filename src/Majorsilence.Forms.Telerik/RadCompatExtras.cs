@@ -953,17 +953,11 @@ namespace Majorsilence.Forms.Telerik
     }
 
     /// <summary>
-    /// Compat stand-in for the grid header cell element. Derives from
-    /// <see cref="Majorsilence.Forms.Telerik.GridViewCellElement"/> (Telerik parity) so formatting
-    /// handlers that narrow a cell-formatting event's CellElement with
-    /// <c>TypeOf e.CellElement Is GridHeaderCellElement</c> compile.
+    /// The element of a column header cell, as a <see cref="RadGridView.ViewCellFormatting"/> handler gets it.
+    /// A <see cref="GridCellElement"/>, as Telerik's, so handlers narrow a cell-formatting event's CellElement
+    /// with <c>TypeOf e.CellElement Is GridHeaderCellElement</c>.
     /// </summary>
-    public class GridHeaderCellElement : GridViewCellElement
-    {
-    }
-
-    /// <summary>Compat stand-in for the grid data cell element.</summary>
-    public class GridDataCellElement : RadElement
+    public class GridHeaderCellElement : GridCellElement
     {
     }
 
@@ -1030,6 +1024,9 @@ namespace Majorsilence.Forms.Telerik.Primitives
 
         /// <summary>The gradient style (stored for compat).</summary>
         public object? GradientStyle { get; set; }
+
+        /// <summary>How many colours the fill's gradient blends. Fills are drawn solid, in <see cref="Majorsilence.Forms.Telerik.RadElement.BackColor"/>.</summary>
+        public int NumberOfColors { get; set; } = 2;
     }
 
     /// <summary>Relative-qualification seam for Telerik's Primitives.BorderPrimitive.</summary>

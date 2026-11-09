@@ -113,7 +113,7 @@ public class TelerikGridMembersTests
 
             PaintSurface.Render (grid).Dispose ();
 
-            Assert.Equal (typeof (GridCellElement), kinds["Name"]);
+            Assert.Equal (typeof (GridDataCellElement), kinds["Name"]);
             Assert.Equal (typeof (GridComboBoxCellElement), kinds["Choice"]);
             Assert.NotNull (picked);
             Assert.Equal ("Picked", ((DataGridView) grid).Rows[picked.Value.Row].Cells[picked.Value.Column].FormattedTextOverride);

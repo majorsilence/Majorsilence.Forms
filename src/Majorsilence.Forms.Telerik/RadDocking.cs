@@ -907,8 +907,9 @@ namespace Majorsilence.Forms.Telerik
         // SelectedIndex, ActiveWindow, CaptionVisible, TabStripVisible and TabStripAlignment live with
         // the tab behaviour in RadDockingLayout.cs.
 
-        /// <summary>Gets the root element (stub).</summary>
-        public RadElement RootElement { get; } = new RadElement ();
+        /// <summary>Gets the root of the strip's element tree: its panel element, with the fill and border primitives of its chrome.</summary>
+        /// <remarks>Setting the fill primitive's <see cref="RadElement.BackColor"/> fills the strip with it, as Telerik's does.</remarks>
+        public RadElement RootElement => root_element ??= BuildChrome ();
         /// <summary>Gets the size info (stub).</summary>
         public SplitPanelSizeInfo SizeInfo { get; } = new SplitPanelSizeInfo ();
         /// <summary>Gets or sets the splitter width. Stub.</summary>

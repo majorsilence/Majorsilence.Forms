@@ -25,7 +25,7 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets whether the element is enabled.</summary>
         public bool Enabled { get; set; } = true;
         /// <summary>Gets or sets the element visibility.</summary>
-        public ElementVisibility Visibility { get; set; } = ElementVisibility.Visible;
+        public ElementVisibility Visibility { get => visibility; set { visibility = value; Changed?.Invoke (); } }
         /// <summary>Gets or sets the minimum size of the element.</summary>
         public Size MinSize { get; set; }
         /// <summary>Gets or sets the maximum size of the element.</summary>
@@ -33,7 +33,13 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets the bounds of the element.</summary>
         public Rectangle ControlBounds { get; set; }
         /// <summary>Gets or sets the element background color.</summary>
-        public Color BackColor { get; set; } = Color.Empty;
+        public Color BackColor { get => back_color; set { back_color = value; Changed?.Invoke (); } }
+
+        private ElementVisibility visibility = ElementVisibility.Visible;
+        private Color back_color = Color.Empty;
+
+        // Called when a member the owning control draws from changes, for elements a control does draw from.
+        internal Action? Changed { get; set; }
         /// <summary>Gets or sets the element foreground color.</summary>
         public Color ForeColor { get; set; } = Color.Empty;
         /// <summary>Gets or sets the element's padding. Stub — stored but not applied to layout.</summary>
@@ -53,8 +59,8 @@ namespace Majorsilence.Forms.Telerik
         public bool StretchVertically { get; set; }
         /// <summary>Gets the child elements of this element.</summary>
         public System.Collections.Generic.List<RadElement> Children { get; } = new ();
-        /// <summary>Returns the child element at the specified index, or a new stub element.</summary>
-        public virtual RadElement GetChildAt (int index) => new RadElement ();
+        /// <summary>Returns the child element at the specified index, or a new stub element when there is none.</summary>
+        public virtual RadElement GetChildAt (int index) => index >= 0 && index < Children.Count ? Children[index] : new RadElement ();
         /// <summary>Returns the element at the given control coordinates, or null. Stub — the compat element tree has no hit testing.</summary>
         public RadElement? GetElementAtPoint (Point point) => null;
         /// <summary>Suspends element updates while values change. No-op stub (Telerik grid element BeginEdit).</summary>
@@ -125,6 +131,73 @@ namespace Majorsilence.Forms.Telerik
 
         /// <summary>Gets the element bounds in control coordinates (forwards to ControlBounds).</summary>
         public System.Drawing.Rectangle ControlBoundingRectangle => ControlBounds;
+
+        /// <summary>Gets or sets whether the element fills its background with <see cref="RadElement.BackColor"/>.</summary>
+        public bool DrawFill { get; set; }
+
+        /// <summary>Gets or sets how many colours the fill's gradient blends. Fills are drawn solid, in <see cref="RadElement.BackColor"/>.</summary>
+        public int NumberOfColors { get; set; } = 1;
+
+        private BorderBoxStyle border_box_style = BorderBoxStyle.SingleBorder;
+        private float border_width = 1, border_left_width = 1, border_top_width = 1, border_right_width = 1, border_bottom_width = 1;
+        private Color border_color = Color.Empty, border_left_color = Color.Empty, border_top_color = Color.Empty, border_right_color = Color.Empty, border_bottom_color = Color.Empty;
+
+        /// <summary>Gets or sets how the border is drawn: one line all round (<see cref="BorderWidth"/>, <see cref="BorderColor"/>) or a line per side.</summary>
+        public BorderBoxStyle BorderBoxStyle { get => border_box_style; set { border_box_style = value; BordersChanged = true; } }
+        /// <summary>Gets or sets the width of a <see cref="Telerik.BorderBoxStyle.SingleBorder"/> border.</summary>
+        public float BorderWidth { get => border_width; set { border_width = value; BordersChanged = true; } }
+        /// <summary>Gets or sets the colour of a <see cref="Telerik.BorderBoxStyle.SingleBorder"/> border.</summary>
+        public Color BorderColor { get => border_color; set { border_color = value; BordersChanged = true; } }
+        /// <summary>Gets or sets the width of the left side of a <see cref="Telerik.BorderBoxStyle.FourBorders"/> border.</summary>
+        public float BorderLeftWidth { get => border_left_width; set { border_left_width = value; BordersChanged = true; } }
+        /// <summary>Gets or sets the width of the top side of a <see cref="Telerik.BorderBoxStyle.FourBorders"/> border.</summary>
+        public float BorderTopWidth { get => border_top_width; set { border_top_width = value; BordersChanged = true; } }
+        /// <summary>Gets or sets the width of the right side of a <see cref="Telerik.BorderBoxStyle.FourBorders"/> border.</summary>
+        public float BorderRightWidth { get => border_right_width; set { border_right_width = value; BordersChanged = true; } }
+        /// <summary>Gets or sets the width of the bottom side of a <see cref="Telerik.BorderBoxStyle.FourBorders"/> border.</summary>
+        public float BorderBottomWidth { get => border_bottom_width; set { border_bottom_width = value; BordersChanged = true; } }
+        /// <summary>Gets or sets the colour of the left side of a <see cref="Telerik.BorderBoxStyle.FourBorders"/> border.</summary>
+        public Color BorderLeftColor { get => border_left_color; set { border_left_color = value; BordersChanged = true; } }
+        /// <summary>Gets or sets the colour of the top side of a <see cref="Telerik.BorderBoxStyle.FourBorders"/> border.</summary>
+        public Color BorderTopColor { get => border_top_color; set { border_top_color = value; BordersChanged = true; } }
+        /// <summary>Gets or sets the colour of the right side of a <see cref="Telerik.BorderBoxStyle.FourBorders"/> border.</summary>
+        public Color BorderRightColor { get => border_right_color; set { border_right_color = value; BordersChanged = true; } }
+        /// <summary>Gets or sets the colour of the bottom side of a <see cref="Telerik.BorderBoxStyle.FourBorders"/> border.</summary>
+        public Color BorderBottomColor { get => border_bottom_color; set { border_bottom_color = value; BordersChanged = true; } }
+
+        // Whether code set any border member since the element was made or given its defaults.
+        internal bool BordersChanged { get; set; }
+
+        // The widths of the four sides (left, top, right, bottom) as the element draws them: one width all round for a
+        // single border, each side's own for four borders, none when the border is not drawn.
+        internal (float Left, float Top, float Right, float Bottom) BorderThickness
+            => !DrawBorder ? (0, 0, 0, 0)
+             : border_box_style == BorderBoxStyle.FourBorders ? (border_left_width, border_top_width, border_right_width, border_bottom_width)
+             : (border_width, border_width, border_width, border_width);
+
+        // The colours of the four sides, in the same order.
+        internal (Color Left, Color Top, Color Right, Color Bottom) BorderColors
+            => border_box_style == BorderBoxStyle.FourBorders ? (border_left_color, border_top_color, border_right_color, border_bottom_color)
+             : (border_color, border_color, border_color, border_color);
+
+        // Gives the border its defaults (a style and one width for every side) without counting as a change.
+        internal void SetDefaultBorder (BorderBoxStyle style, float width)
+        {
+            border_box_style = style;
+            border_width = border_left_width = border_top_width = border_right_width = border_bottom_width = width;
+            BordersChanged = false;
+        }
+    }
+
+    /// <summary>How a <see cref="LightVisualElement"/> draws its border. Mirrors Telerik's <c>BorderBoxStyle</c>.</summary>
+    public enum BorderBoxStyle
+    {
+        /// <summary>One line all round, <see cref="LightVisualElement.BorderWidth"/> wide.</summary>
+        SingleBorder,
+        /// <summary>A line per side, each with its own width and colour.</summary>
+        FourBorders,
+        /// <summary>An outer and an inner line all round. Drawn as a single border.</summary>
+        OuterInnerBorders,
     }
 
     /// <summary>Compat for Telerik's <c>RootRadElement</c> (the top-level element of a control's element tree).</summary>
