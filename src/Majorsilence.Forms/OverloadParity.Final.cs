@@ -13,11 +13,10 @@ namespace Majorsilence.Forms
     {
         /// <summary>Shows the form modally, without an explicit owner, and without blocking the caller.</summary>
         /// <remarks>Owned by the window <see cref="ShowDialog()"/> would pick -- the innermost modal dialog
-        /// showing, otherwise the first open form -- so a call ported from <c>ShowDialog ()</c> to this one
-        /// (the browser target needs it; issue #406) lands over the same window. It used to take the most
-        /// recently opened form instead, which is not the choice <c>ShowDialog ()</c> makes.</remarks>
+        /// showing, otherwise the active form -- so a call ported from <c>ShowDialog ()</c> to this one
+        /// (the browser target needs it; issue #406) lands over the same window.</remarks>
         public Task<DialogResult> ShowDialogAsync ()
-            => ShowDialogAsync ((Application.ActiveModalForm != this ? Application.ActiveModalForm : null) ?? FindModalOwner (this));
+            => ShowDialogAsync (Application.DefaultOwnerFor (this));
 
         /// <summary>Shows the form modally, owned by the given window, without blocking the caller.</summary>
         /// <remarks>A control owner means the form it is on, as for <see cref="ShowDialog(IWin32Window)"/>;

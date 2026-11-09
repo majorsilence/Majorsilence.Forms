@@ -2793,8 +2793,13 @@ namespace Majorsilence.Forms
             var parentWindow = parent.PresentationWindow;
             scope_dialog_parent = parent;
 
+            // A window that is not on screen cannot hold the native owner link: Avalonia throws ("Cannot
+            // show window with non-visible owner"), WPF too. The dialog is still modal against it -- every
+            // other window is disabled below -- it is just shown, and placed, without a native owner.
+            var nativeOwner = parentWindow.CanOwnWindows ? parentWindow : null;
+
             PrepareForFirstShowIfNeeded ();
-            SetWindowStartupLocation (parentWindow);
+            SetWindowStartupLocation (nativeOwner);
             DisableWindowsForModalLoop ();
             Backend.ShowActivated = ShowsActivated;
 
@@ -2802,9 +2807,15 @@ namespace Majorsilence.Forms
             // establishes the native owner link so the window manager keeps this dialog above its
             // parent and raises it together with the parent; a plain Show() left it a detached
             // top-level that alt-tab could bury behind the main window with no way back to it.
-            Backend.ShowDialog (parentWindow.Backend);
+            Backend.ShowDialog (nativeOwner?.Backend);
             EnsureShownBookkeeping ();
         }
+
+        /// <summary>
+        /// Whether this window is on screen and so can own another: shown, or in the middle of being shown
+        /// (Load runs before <see cref="Visible"/> is set, as upstream, but the window is already up).
+        /// </summary>
+        internal bool CanOwnWindows => !IsDisposed && (visible || in_show_bookkeeping);
 
         // The windows this dialog disabled, so CompleteClose can restore exactly those and leave alone
         // any that were already disabled for another reason.
