@@ -483,18 +483,30 @@ namespace Majorsilence.Forms
                 return;
 
             Font = dataGridViewCellStyle.Font ?? Font;
-            ForeColor = dataGridViewCellStyle.ForeColor;
-
-            // A text box cannot draw a translucent background, so WinForms forces the colour opaque
-            // rather than letting it composite to something the caller did not choose.
-            BackColor = dataGridViewCellStyle.BackColor.A < 255
-                ? Color.FromArgb (255, dataGridViewCellStyle.BackColor)
-                : dataGridViewCellStyle.BackColor;
+            ApplyEditingColors (this, dataGridViewCellStyle);
 
             if (dataGridViewCellStyle.WrapMode == DataGridViewTriState.True)
                 WordWrap = true;
 
             TextAlign = TranslateAlignment (dataGridViewCellStyle.Alignment);
+        }
+
+        // The style's colours on an editing control. An editing control cannot draw a translucent background, so
+        // WinForms forces the colour opaque rather than letting it composite to something the caller did not
+        // choose. An empty colour is not translucent, though: it is unset, left to the grid's default, which here
+        // comes from the theme rather than the style. Forcing it opaque made it black, so a column given a fresh
+        // style that only set alignment or a format showed a black box while a value was typed into it.
+        internal static void ApplyEditingColors (Control editor, DataGridViewCellStyle style)
+        {
+            if (style.ForeColor.IsEmpty)
+                editor.ResetForeColor ();
+            else
+                editor.ForeColor = style.ForeColor;
+
+            if (style.BackColor.IsEmpty)
+                editor.ResetBackColor ();
+            else
+                editor.BackColor = style.BackColor.A < 255 ? Color.FromArgb (255, style.BackColor) : style.BackColor;
         }
 
         /// <summary>Returns whether this control wants the given key rather than the grid.</summary>
@@ -588,12 +600,7 @@ namespace Majorsilence.Forms
                 return;
 
             Font = dataGridViewCellStyle.Font ?? Font;
-            ForeColor = dataGridViewCellStyle.ForeColor;
-
-            // As on the text box: a combo cannot draw a translucent background.
-            BackColor = dataGridViewCellStyle.BackColor.A < 255
-                ? Color.FromArgb (255, dataGridViewCellStyle.BackColor)
-                : dataGridViewCellStyle.BackColor;
+            DataGridViewTextBoxEditingControl.ApplyEditingColors (this, dataGridViewCellStyle);
         }
 
         /// <summary>Returns whether this control wants the given key rather than the grid.</summary>
