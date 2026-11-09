@@ -66,7 +66,9 @@ public class ToolStripStackedItemLayoutTests
             // Where upstream's layout puts it for the caption as this backend measures it: the image's half of
             // the field runs from the field's top to the bottom of the image in the centred pair, and the
             // image is centred in that half.
-            var (typeface, size) = StripItemFont.Resolve (button, strip);
+            // The caption is in the font the item is drawn in: a ported app's tool strip item's is the menu font.
+            var font = ToolBarRenderer.UpstreamPlainItemFont (strip, button)!;
+            var (typeface, size) = (TypefaceCache.Resolve (font), (int) System.Math.Round (font.PixelSize));
             var caption = (int) System.Math.Ceiling (TextMeasurer.MeasureText (button.Text, typeface, strip.LogicalToDeviceUnits (size)).Height);
             var bounds = button.DeviceBounds;
             var field_top = bounds.Top + 2;
