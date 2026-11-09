@@ -1073,16 +1073,14 @@ namespace Majorsilence.Forms
             Application.ModalOwnerCandidates.FirstOrDefault (f => f != dialog);
 
         /// <summary>Displays the window modally, owned by the innermost currently-shown modal dialog
-        /// if one is open, otherwise the first open form.</summary>
+        /// if one is open, otherwise the active form, as a message box is.</summary>
         public DialogResult ShowDialog ()
         {
             BlockingModal.ThrowIfUnsupported ("Form.ShowDialog", "Form.ShowDialogAsync");
 
             // A dialog opened from inside another modal dialog belongs to that dialog, not to the
-            // main window sitting behind it (which FindModalOwner would pick). Same reasoning as
-            // Application.ModalStack.
-            var parent = (Application.ActiveModalForm != this ? Application.ActiveModalForm : null)
-                ?? FindModalOwner (this);
+            // main window sitting behind it. Same reasoning as Application.ModalStack.
+            var parent = Application.DefaultOwnerFor (this);
 
             return parent is null
                 ? RunModal (ShowDialogAsync (null))
@@ -1208,12 +1206,32 @@ namespace Majorsilence.Forms
             // Call the base window-show-modally helpers, NOT this Form.ShowDialog(Form) overload.
             // With no owner there is nothing to disable, but the dialog is still modal: the caller
             // blocks on dialog_task either way.
-            if (parent is null)
-                ShowDialogOwnerless ();
-            else
-                base.ShowDialog (parent);
+            try {
+                if (parent is null)
+                    ShowDialogOwnerless ();
+                else
+                    base.ShowDialog (parent);
+            } catch {
+                // Nothing will close a dialog that failed to show, so undo what it set up: every other window
+                // was disabled and it was the innermost modal. Left as they were, the application stopped
+                // taking input with no dialog on screen, and the next dialog took this one as its owner.
+                AbandonModal ();
+                throw;
+            }
 
             return dialog_task.Task;
+        }
+
+        private void AbandonModal ()
+        {
+            RestoreWindowsAfterModalLoop ();
+
+            if (Application.ModalStack.Count > 0 && Application.ModalStack.Peek () == this)
+                Application.ModalStack.Pop ();
+
+            dialog_parent = null;
+            dialog_task = null;
+            Modal = false;
         }
 
         /// <summary>Gets a value indicating a focus rectangle should be drawn on the selected control.</summary>

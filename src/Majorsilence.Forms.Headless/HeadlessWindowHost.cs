@@ -57,6 +57,11 @@ namespace Majorsilence.Forms.Headless
 
         public void ShowDialog (IWindowBackend? owner)
         {
+            // Avalonia ("Cannot show window with non-visible owner") and WPF refuse an owner that is not on
+            // screen, so a dialog owned by a hidden form must fail here too rather than pass unnoticed.
+            if (owner is HeadlessWindowHost { IsShown: false })
+                throw new InvalidOperationException ("Cannot show window with non-visible owner.");
+
             LastDialogOwner = owner;
             Show ();
         }

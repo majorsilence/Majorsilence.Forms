@@ -286,11 +286,28 @@ namespace Majorsilence.Forms
         /// a modal owner disables a backend that was never realized and then blocks forever in the modal
         /// loop, so every owner search goes through here instead of over OpenForms directly.
         /// </remarks>
-        internal static IEnumerable<Form> ModalOwnerCandidates => OpenForms.Where (f => !f.IsFrameHosted);
+        /// <remarks>A form that is not on screen is left out too: a hidden form cannot own a shown window
+        /// (Avalonia refuses one), and a dialog over a window nobody can see reads as a hang.</remarks>
+        internal static IEnumerable<Form> ModalOwnerCandidates => OpenForms.Where (f => !f.IsFrameHosted && f.CanOwnWindows);
 
         // The owner a dialog shown with none takes: the innermost open modal dialog, else the thread's active form
         // (upstream's GetActiveWindow), else the first form opened.
-        internal static Form? DefaultDialogOwner => ActiveModalForm ?? WindowBase.ThreadActiveForm ?? ModalOwnerCandidates.FirstOrDefault ();
+        internal static Form? DefaultDialogOwner => DefaultOwnerFor (null);
+
+        // DefaultDialogOwner for a dialog that is a Form, which cannot own itself. Form.ShowDialog () with no owner
+        // takes it as MessageBox.Show does: upstream gives both GetActiveWindow. ShowDialog () took the first form
+        // opened instead, which put the dialog over a window the user was not looking at -- or, when the
+        // application keeps its first form hidden, over no window at all.
+        internal static Form? DefaultOwnerFor (Form? dialog)
+        {
+            if (ActiveModalForm is { } modal && modal != dialog)
+                return modal;
+
+            if (WindowBase.ThreadActiveForm is { } active && active != dialog)
+                return active;
+
+            return ModalOwnerCandidates.FirstOrDefault (f => f != dialog);
+        }
 
         /// <summary>Gets the main form of the application (the first form passed to Run).</summary>
         public static Form? MainForm => OpenForms.Count > 0 ? OpenForms[0] : null;
