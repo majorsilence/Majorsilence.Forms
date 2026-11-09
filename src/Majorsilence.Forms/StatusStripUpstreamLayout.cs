@@ -205,6 +205,7 @@ namespace Majorsilence.Forms
             foreach (var item in visible) {
                 var hide = overflow
                         || (!grip.IsEmpty && item.Bounds.IntersectsWith (grip))
+                        || StartsPastTheStrip (item.Bounds)
                         || (last.Width > 0 && last.IntersectsWith (item.Bounds));
 
                 if (!hide && item.Bounds.Width == 1 && IsSpring (item))
@@ -220,6 +221,17 @@ namespace Majorsilence.Forms
                     strip_item.Placement = hide ? ToolStripItemPlacement.None : ToolStripItemPlacement.Main;
             }
         }
+
+        // An item the row has pushed off the end is not shown either, though no grip reaches it. Measured on WinForms:
+        // with a sizing grip an item is shown while its right edge is at or before the grip's left (287 and 288 of a
+        // 300px strip are shown, 289 is not); past that the grip catches it. Without one the grip catches nothing, and
+        // the cut is the item's own start: on a 300px strip an item at x 296 is shown and one at x 300 is not, however
+        // far it runs. A row wider than the strip -- a font wider than the one it was laid out for -- lands a later item
+        // beyond the grip entirely, touching neither it nor the item before it.
+        private bool StartsPastTheStrip (Rectangle bounds)
+            => IsVerticalStatusStrip ? bounds.Y >= Height
+             : RightToLeft == RightToLeft.Yes ? bounds.Right <= 0
+             : bounds.X >= Width;
 
         // Upstream's preferred size is its items' whatever the strip's own size or AutoSize: one with AutoSize off and 30px
         // tall still prefers 107 x 22 for two labels.

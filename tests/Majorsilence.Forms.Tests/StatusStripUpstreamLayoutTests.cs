@@ -140,6 +140,8 @@ namespace Majorsilence.Forms.Tests
         {
             ToolStripItemPlacement[] placements;
             Rectangle[] bounds;
+            Rectangle grip;
+            int width;
 
             try {
                 Ported ();
@@ -148,16 +150,19 @@ namespace Majorsilence.Forms.Tests
                 using (form) {
                     placements = strip.Items.Cast<ToolStripItem> ().Select (i => i.Placement).ToArray ();
                     bounds = strip.Items.Cast<ToolStripItem> ().Select (i => i.Bounds).ToArray ();
+                    grip = strip.SizeGripBounds;
+                    width = strip.Width;
                 }
             } finally {
                 Application.SetDefaultFont (null!);
             }
 
-            // An item the row shows ends inside the display rectangle; one it drops is parked past the strip's right
-            // edge. How far the labels run is their text width, so only Windows has the font to say which item that is.
+            // A shown item stops at or before the grip and starts inside the strip; a dropped one is parked past the
+            // strip's right edge. How far the labels run is their text width, so only Windows, which has Microsoft Sans
+            // Serif and Segoe UI, measures which item is the one that runs into the grip.
             for (var i = 0; i < placements.Length; i++)
                 if (placements[i] == ToolStripItemPlacement.Main)
-                    Assert.True (bounds[i].Right <= 286, $"item {i} shown at {bounds[i]}");
+                    Assert.True (bounds[i].Right <= grip.Left && bounds[i].X < width, $"item {i} shown at {bounds[i]}");
                 else
                     Assert.Equal (302, bounds[i].X);
 
@@ -165,6 +170,39 @@ namespace Majorsilence.Forms.Tests
                 Assert.Equal (new[] { ToolStripItemPlacement.Main, ToolStripItemPlacement.Main, ToolStripItemPlacement.Main, ToolStripItemPlacement.None }, placements);
                 Assert.Equal (new Point (302, 23), bounds[3].Location);
             }
+        }
+
+        // Upstream drops an item that starts at or past the strip's end as well, which no sizing grip reaches: a row
+        // laid out in a font wider than the strip was measured for pushes a later item clean off it, touching neither
+        // the grip nor the item before it. Measured on WinForms with AutoSize off, so no font takes part: on a 300px
+        // strip with a grip, an item ending at 287 or 288 is shown and one ending at 289 is not; without a grip an item
+        // starting at 296 is shown and one starting at 300 is not, however far it runs.
+        [Theory]
+        [InlineData (true, 400, 10, false, false)]  // the wide item runs into the grip; the next starts past the strip
+        [InlineData (true, 280, 7, true, true)]     // ends at 288, on the grip's left edge
+        [InlineData (true, 280, 8, true, false)]    // ends at 289, into the grip
+        [InlineData (false, 400, 10, true, false)]  // no grip: the wide item stays, the next starts past the strip
+        [InlineData (false, 295, 10, true, true)]   // no grip: starts at 296, inside
+        [InlineData (false, 299, 10, true, false)]  // no grip: starts at 300, the strip's end
+        public void An_item_that_starts_past_the_strip_is_not_shown (bool sizing_grip, int first, int second, bool first_shown, bool second_shown)
+        {
+            ToolStripItemPlacement[] placements;
+
+            try {
+                Ported ();
+                var (form, strip) = Show (s => s.SizingGrip = sizing_grip, 300, 120,
+                    new ToolStripStatusLabel { Text = "A", AutoSize = false, Width = first },
+                    new ToolStripStatusLabel { Text = "B", AutoSize = false, Width = second });
+
+                using (form)
+                    placements = strip.Items.Cast<ToolStripItem> ().Select (i => i.Placement).ToArray ();
+            } finally {
+                Application.SetDefaultFont (null!);
+            }
+
+            var shown = new[] { first_shown, second_shown }.Select (b => b ? ToolStripItemPlacement.Main : ToolStripItemPlacement.None);
+
+            Assert.Equal (shown, placements);
         }
 
         [Fact]
