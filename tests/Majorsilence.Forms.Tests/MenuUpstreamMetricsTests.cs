@@ -97,7 +97,7 @@ namespace Majorsilence.Forms.Tests
                     var gdi_padding = GdiPadding (font);
                     var text = TextMeasurer.MeasureText ("Open", menu.ItemTypeface, menu.LogicalToDeviceUnits (menu.ItemFontSize)).Width;
                     var device = (int) Math.Round (text, 0, MidpointRounding.AwayFromZero)
-                        + menu.LogicalToDeviceUnits (gdi_padding + TextLineHeight.TabAdvanceOf (font) + gdi_padding + 25 + 8 + 9 + 10 + 8);
+                        + menu.LogicalToDeviceUnits (gdi_padding + gdi_padding + 25 + 8 + 9 + 10 + 8);
 
                     Assert.Equal (22, size.Height);
                     Assert.Equal (menu.DeviceToLogicalUnitsCovering (new Size (device, 0)).Width, size.Width);
@@ -144,7 +144,7 @@ namespace Majorsilence.Forms.Tests
                     int Logical (int device) => menu.DeviceToLogicalUnitsCovering (new Size (device, 0)).Width;
                     var caption = Measure ("Attribute Link To Vendors") + menu.LogicalToDeviceUnits (gdi_padding);
                     var chrome = menu.LogicalToDeviceUnits (25 + 8 + 9 + 10 + 8);
-                    var tab = menu.LogicalToDeviceUnits (TextLineHeight.TabAdvanceOf (chosen) + gdi_padding);
+                    var tab = menu.LogicalToDeviceUnits (gdi_padding);
 
                     Assert.Equal (Logical (caption + tab + chrome), size.Width);
                     Assert.Equal (Logical (caption + chrome), quiet.GetPreferredSize (Size.Empty).Width);

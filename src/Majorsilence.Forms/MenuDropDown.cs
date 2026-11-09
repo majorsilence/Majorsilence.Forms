@@ -57,9 +57,9 @@ namespace Majorsilence.Forms
         /// <remarks>
         /// Restores Control's zero default: <see cref="ToolBar"/> (now an ancestor via ToolStrip)
         /// defaults to a 600x34 docked bar, which a drop-down is not. The popup's real size comes from
-        /// <see cref="LayoutItems"/>.
+        /// <see cref="LayoutItems"/>. A ported app's ToolStripDropDown has upstream's 100 x 25, the size an empty one opens at.
         /// </remarks>
-        protected override Size DefaultSize => Size.Empty;
+        protected override Size DefaultSize => SizesAsUpstreamStrip ? new Size (100, 25) : Size.Empty;
 
         /// <summary>
         /// Gets the collection of menu items in this drop down. Re-exposed past
@@ -122,8 +122,15 @@ namespace Majorsilence.Forms
 
             var visible_items = Items.Where (i => i.Visible).ToList ();
 
-            if (visible_items.Count == 0)
+            if (visible_items.Count == 0) {
+                // A ported app's empty drop-down opens at upstream's DefaultSize, 100 x 25; it opened 400 x 400.
+                if (SizesAsUpstreamStrip) {
+                    width = DefaultSize.Width;
+                    height = DefaultSize.Height;
+                }
+
                 return;
+            }
 
             // Columns (W6 mechanisms): an item with Break or BarBreak starts a new one, laid out to
             // the right of the previous; a BarBreak column also gets a bar in the gap before it. One

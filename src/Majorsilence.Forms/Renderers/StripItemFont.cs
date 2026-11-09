@@ -48,6 +48,9 @@ namespace Majorsilence.Forms.Renderers
 
         private static (SKTypeface, int) Default => (Theme.UIFont, Theme.FontSize);
 
+        // The typeface and logical pixel size of a font.
+        internal static (SKTypeface Typeface, int Size) Of (Majorsilence.Forms.Drawing.Font font) => From (font);
+
         private static (SKTypeface, int) From (Majorsilence.Forms.Drawing.Font font)
             => (TypefaceCache.Resolve (font), (int) System.Math.Round (font.PixelSize));
     }
