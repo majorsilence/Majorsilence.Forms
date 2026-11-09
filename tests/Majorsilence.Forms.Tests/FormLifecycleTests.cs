@@ -47,6 +47,8 @@ public class FormLifecycleTests
 
     // ── Reuse ────────────────────────────────────────────────────────────────────────────────────
 
+    // A form shown again after closing is a modal dialog kept for reuse: closing a modeless form disposes it,
+    // and upstream refuses to show it again (see ShowDisposedFormTests).
     [Fact]
     public void Load_and_FormClosed_fire_on_every_show_close_cycle ()
     {
@@ -58,10 +60,10 @@ public class FormLifecycleTests
         form.Load += (_, _) => loads++;
         form.FormClosed += (_, _) => closes++;
 
-        form.Show ();
-        form.Close ();
-        form.Show ();
-        form.Close ();
+        Platform.Backend.Post (() => form.DialogResult = DialogResult.OK);
+        RunModalWithTimeout (form.ShowDialog);
+        Platform.Backend.Post (() => form.DialogResult = DialogResult.OK);
+        RunModalWithTimeout (form.ShowDialog);
 
         Assert.Equal (2, loads);
         Assert.Equal (2, closes);
@@ -81,17 +83,26 @@ public class FormLifecycleTests
     }
 
     [Fact]
-    public void A_closed_form_can_be_shown_again_and_rejoins_OpenForms ()
+    public void A_closed_dialog_can_be_shown_again_and_rejoins_OpenForms ()
     {
-        using var form = ShowForm ();
-        form.Close ();
+        HeadlessRenderer.Use ();
+        using var form = new Form { Size = new System.Drawing.Size (300, 200) };
 
-        form.Show ();
+        Platform.Backend.Post (() => form.DialogResult = DialogResult.OK);
+        RunModalWithTimeout (form.ShowDialog);
+        Assert.DoesNotContain (form, Application.OpenForms.Cast<Form> ());
 
-        Assert.True (form.Visible);
-        Assert.Contains (form, Application.OpenForms.Cast<Form> ());
+        var visible = false;
+        var open = false;
+        form.Shown += (_, _) => {
+            visible = form.Visible;
+            open = Application.OpenForms.Cast<Form> ().Contains (form);
+            form.DialogResult = DialogResult.OK;
+        };
+        RunModalWithTimeout (form.ShowDialog);
 
-        form.Close ();
+        Assert.True (visible);
+        Assert.True (open);
     }
 
     [Fact]

@@ -31,6 +31,16 @@ namespace Majorsilence.Forms
 #endif
         }
 
+        public static void ThrowIfDisposed (bool condition, object instance)
+        {
+#if NETSTANDARD2_0
+            if (condition)
+                throw new ObjectDisposedException (instance.GetType ().FullName);
+#else
+            ObjectDisposedException.ThrowIf (condition, instance);
+#endif
+        }
+
         public static void ThrowIfNullOrEmpty ([NotNull] string? argument, [CallerArgumentExpression (nameof (argument))] string? paramName = null)
         {
 #if NETSTANDARD2_0
