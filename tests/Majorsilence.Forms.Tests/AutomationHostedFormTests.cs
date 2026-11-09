@@ -115,6 +115,29 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void A_button_on_a_form_hosted_in_a_panel_is_clicked_where_it_is_drawn ()
+        {
+            HeadlessRenderer.Use ();
+            using var window = new Form { Size = new Size (600, 400), UseSystemDecorations = true };
+            var panel = new Panel { Left = 40, Top = 30, Width = 400, Height = 300 };
+            window.Controls.Add (panel);
+            var page = new Form { TopLevel = false, FormBorderStyle = FormBorderStyle.None, Dock = DockStyle.Fill };
+            var ok = new Button { Name = "pageOk", Text = "OK", Left = 50, Top = 60, Width = 100, Height = 30 };
+            page.Controls.Add (ok);
+            panel.Controls.Add (page);
+            page.Show ();
+            window.Show ();
+            HeadlessRenderer.CapturePng (window, 600, 400);
+            var clicks = 0;
+            ok.Click += (_, _) => clicks++;
+
+            var session = new AutomationSession (window);
+            session.Click (session.FindOrThrow (By.Id ("pageOk")));
+
+            Assert.Equal (1, clicks);
+        }
+
+        [Fact]
         public void A_menu_item_in_a_closed_menu_runs_its_command ()
         {
             HeadlessRenderer.Use ();

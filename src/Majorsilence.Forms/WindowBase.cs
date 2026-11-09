@@ -1598,6 +1598,16 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// The inverse of <see cref="DeviceToLogical"/>, for a host that has a point in logical units and
+        /// passes it to this window's pointer handlers, which take device pixels.
+        /// </summary>
+        internal int LogicalToDevice (int value)
+        {
+            var scaling = Scaling;
+            return scaling is <= 0 or 1 ? value : (int)System.Math.Round (value * scaling);
+        }
+
+        /// <summary>
         /// Whether the capture holder sits in a form that is <em>hosted inside this window</em> — its own
         /// WindowBase, so this window's dispatch will not reach it, yet visually part of this window and
         /// so entitled to this window's pointer input.

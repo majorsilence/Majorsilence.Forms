@@ -84,25 +84,29 @@ namespace Majorsilence.Forms
 
         // ── Input ────────────────────────────────────────────────────────────────
 
-        // The whole frame is the hosted form's client area -- there is no chrome to subtract -- so
-        // pointer coordinates pass straight through.
+        // The whole frame is the hosted form's client area -- there is no chrome to subtract. The
+        // coordinates arrive in logical units and the form's pointer handlers take device pixels, so they
+        // are converted with the form's own scaling; passed through as they were, a click on a scaled
+        // display landed at 1/scale of where it was aimed.
+        private int X (MouseEventArgs e) => ChildForm.LogicalToDevice (e.X);
+        private int Y (MouseEventArgs e) => ChildForm.LogicalToDevice (e.Y);
 
         protected override void OnMouseDown (MouseEventArgs e)
         {
             base.OnMouseDown (e);
-            ChildForm.HandlePointerPressed (e.Button, e.X, e.Y, e.Modifiers);
+            ChildForm.HandlePointerPressed (e.Button, X (e), Y (e), e.Modifiers);
         }
 
         protected override void OnMouseMove (MouseEventArgs e)
         {
             base.OnMouseMove (e);
-            ChildForm.HandlePointerMoved (e.Button, e.X, e.Y, e.Modifiers);
+            ChildForm.HandlePointerMoved (e.Button, X (e), Y (e), e.Modifiers);
         }
 
         protected override void OnMouseUp (MouseEventArgs e)
         {
             base.OnMouseUp (e);
-            ChildForm.HandlePointerReleased (e.Button, e.X, e.Y, e.Modifiers);
+            ChildForm.HandlePointerReleased (e.Button, X (e), Y (e), e.Modifiers);
         }
 
         /// <inheritdoc/>
@@ -111,7 +115,7 @@ namespace Majorsilence.Forms
         protected override void OnMouseWheel (MouseEventArgs e)
         {
             base.OnMouseWheel (e);
-            ChildForm.HandlePointerWheel (e.Button, e.X, e.Y, e.DeltaPoint, e.Modifiers);
+            ChildForm.HandlePointerWheel (e.Button, X (e), Y (e), e.DeltaPoint, e.Modifiers);
         }
 
         protected override void OnMouseLeave (EventArgs e)

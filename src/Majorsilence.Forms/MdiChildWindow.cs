@@ -467,9 +467,12 @@ namespace Majorsilence.Forms
         }
 
         // e.X/e.Y are in this frame's logical coordinates (see OnMouseDown); the child's client area
-        // starts one border in and one caption down.
-        private int InteriorX (MouseEventArgs e) => e.X - Border;
-        private int InteriorY (MouseEventArgs e) => e.Y - (Border + Caption);
+        // starts one border in and one caption down. The child's pointer handlers take device pixels
+        // and convert them back with its own scaling, so a logical point passed through as it was
+        // landed at 1/scale of where it was aimed: on a scaled display a click in a child window hit
+        // the wrong control, or none.
+        private int InteriorX (MouseEventArgs e) => ChildForm.LogicalToDevice (e.X - Border);
+        private int InteriorY (MouseEventArgs e) => ChildForm.LogicalToDevice (e.Y - (Border + Caption));
 
         /// <summary>Where the child's client area starts in this frame, in logical pixels.</summary>
         internal Point ContentOrigin => new Point (Border, Border + Caption);
