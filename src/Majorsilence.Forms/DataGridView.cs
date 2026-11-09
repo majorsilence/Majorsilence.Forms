@@ -3608,6 +3608,10 @@ namespace Majorsilence.Forms
         // EnableHeadersVisualStyles the theme's header items.
         internal virtual bool UsesUpstreamHeaders => ControlPaint.UsesUpstreamGlyphs;
 
+        // The grid colours of a named toolkit theme the grid paints with (a Telerik-compatible grid's ThemeName), or null
+        // for the theme tokens and the type-level part styles, as always.
+        internal virtual DataGridViewThemePalette? ThemePalette => null;
+
         // A caption broken into lines the way upstream's word-breaking header text breaks it: between words
         // only, a word too wide for the line keeping a line to itself rather than being split. The layout splits
         // such a word mid-way, so a one-word caption a few pixels too wide ("EmpCode") read "EmpCod" over "e"

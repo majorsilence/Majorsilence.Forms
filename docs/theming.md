@@ -720,6 +720,8 @@ A rule for the selector these follow styles their background and border; the con
 | `animation-play-state` | running | paused | A paused animation holds its starting frame. |
 <!-- END GENERATED: reference -->
 
+**Telerik themes.** A `RadGridView` whose Telerik theme is `"Fluent"` or `"FluentDark"` paints with that theme's colours instead, as measured from Telerik UI for WinForms: rows, header band, grid lines, alternating and hovered rows, selection, current cell, filtering row, group panel and paging panel. The theme is Telerik's: `ThemeResolutionService.ApplicationThemeName` when set, otherwise the grid's own `ThemeName`. `ThemeResolutionService.ApplicationAccentColor` moves the theme's accent to another hue (an app's usual recolouring of Fluent, which has no accent setting); for example `Theme.AccentColor` after loading a stylesheet. Any other theme name, or none, leaves the grid on its selector in the Telerik controls table above. The grid's own styles (`DefaultCellStyle`, `GridColor`, cell formatting) still win over the theme's colours.
+
 Two things to know about **fonts**, because they are the one place the tokens and the rules meet:
 
 - `--ui-font`, `--ui-font-bold`, `--font-size` and `--item-font-size` are the *theme font*, read directly

@@ -52,6 +52,29 @@ namespace Majorsilence.Forms.Renderers
             grid.SettleFormattedHeights ();
         }
 
+        // A Telerik theme's current cell is outlined inside its edges (Fluent: 2px, dark grey, or white in FluentDark), focused
+        // or not, over the row's fill and lines.
+        private static void RenderCurrentCellBorder (DataGridView control, DataGridViewRow row, int rowIndex, PaintEventArgs e)
+        {
+            if (control.ThemePalette is not { CurrentCellBorder: { } colour } palette)
+                return;
+
+            var current = control.CurrentCellAddress;
+            if (current.Y != rowIndex || current.X < 0 || current.X >= row.Cells.Count || !control.Columns[current.X].Visible)
+                return;
+
+            var cell = row.Cells[current.X].Bounds;
+            var width = control.LogicalToDeviceUnits (palette.CurrentCellBorderWidth);
+            if (cell.Width < 2 * width || cell.Height < 2 * width)
+                return;
+
+            using var paint = new SKPaint { Color = colour, IsAntialias = false, Style = SKPaintStyle.Fill };
+            e.Canvas.DrawRect (new SKRect (cell.Left, cell.Top, cell.Right, cell.Top + width), paint);
+            e.Canvas.DrawRect (new SKRect (cell.Left, cell.Bottom - width, cell.Right, cell.Bottom), paint);
+            e.Canvas.DrawRect (new SKRect (cell.Left, cell.Top + width, cell.Left + width, cell.Bottom - width), paint);
+            e.Canvas.DrawRect (new SKRect (cell.Right - width, cell.Top + width, cell.Right, cell.Bottom - width), paint);
+        }
+
         // A grid with no columns says it has no data, centred in it, as Telerik's does.
         private static void RenderNoDataText (RadGridView grid, PaintEventArgs e)
         {
@@ -75,13 +98,16 @@ namespace Majorsilence.Forms.Renderers
             var page = grid.CurrentPageIndex;
             var last = grid.PageCount - 1;
 
-            e.Canvas.FillRectangle (band, Theme.ControlLowColor);
-            e.Canvas.DrawLine (band.Left, band.Top, band.Right, band.Top, Theme.BorderMidColor);
+            var theme = grid.TelerikTheme;
+            var line = theme?.Grid.GridLine ?? Theme.BorderMidColor;
+
+            e.Canvas.FillRectangle (band, theme?.PagerBackground ?? Theme.ControlLowColor);
+            e.Canvas.DrawLine (band.Left, band.Top, band.Right, band.Top, line);
 
             foreach (var separator in layout.Separators)
-                e.Canvas.DrawLine (separator.Left, separator.Top, separator.Left, separator.Bottom, Theme.BorderMidColor);
+                e.Canvas.DrawLine (separator.Left, separator.Top, separator.Left, separator.Bottom, line);
 
-            SKColor Ink (bool enabled) => enabled && grid.Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor;
+            SKColor Ink (bool enabled) => enabled && grid.Enabled ? theme?.PagerForeground ?? Theme.ForegroundColor : Theme.ForegroundDisabledColor;
 
             // With no rows to page, Telerik's next, last and second "..." show enabled.
             var empty = grid.PagesNoRows;
@@ -99,9 +125,9 @@ namespace Majorsilence.Forms.Renderers
                 var current = number == page;
 
                 if (current)
-                    e.Canvas.FillRectangle (bounds, DataGridView.DefaultSelectionStyle.GetBackgroundColor ());
+                    e.Canvas.FillRectangle (bounds, theme?.Accent ?? DataGridView.DefaultSelectionStyle.GetBackgroundColor ());
 
-                var ink = current && DataGridView.DefaultSelectionStyle.ForegroundColor is { } selected ? selected : Ink (true);
+                var ink = current && (theme?.AccentForeground ?? DataGridView.DefaultSelectionStyle.ForegroundColor) is { } selected ? selected : Ink (true);
                 e.Canvas.DrawText ((number + 1).ToString (System.Globalization.CultureInfo.CurrentCulture), font, scaled, bounds, ink, ContentAlignment.MiddleCenter, maxLines: 1);
             }
 
@@ -110,8 +136,8 @@ namespace Majorsilence.Forms.Renderers
             e.Canvas.DrawText (grid.PageCount.ToString (System.Globalization.CultureInfo.CurrentCulture), font, scaled, layout.CountLabel, Ink (true), ContentAlignment.MiddleCenter, maxLines: 1);
 
             var box = layout.PageBox;
-            e.Canvas.FillRectangle (box, Theme.BackgroundColor);
-            e.Canvas.DrawRectangle (box, Theme.BorderMidColor);
+            e.Canvas.FillRectangle (box, theme?.PagerBackground ?? Theme.BackgroundColor);
+            e.Canvas.DrawRectangle (box, line);
 
             if (!grid.EditingPageBox) {
                 var inner = Rectangle.Inflate (box, -grid.LogicalToDeviceUnits (2), 0);
@@ -165,8 +191,9 @@ namespace Majorsilence.Forms.Renderers
             var h = grid.FilterRowBandHeight;
             var band = new Rectangle (content.Left, y, content.Width, h);
 
-            e.Canvas.FillRectangle (band, Theme.ControlLowColor);
-            e.Canvas.DrawLine (band.Left, band.Bottom - 1, band.Right, band.Bottom - 1, Theme.BorderMidColor);
+            var theme = grid.TelerikTheme;
+            e.Canvas.FillRectangle (band, theme?.FilterRowBackground ?? Theme.ControlLowColor);
+            e.Canvas.DrawLine (band.Left, band.Bottom - 1, band.Right, band.Bottom - 1, theme?.Grid.GridLine ?? Theme.BorderMidColor);
 
             var left0 = content.Left + (grid.RowHeadersVisible ? grid.ScaledRowHeadersWidth : 0);
             var leftEnd = left0 + grid.FrozenColumnsWidth;
@@ -212,7 +239,9 @@ namespace Majorsilence.Forms.Renderers
 
             var (font, size) = grid.CellFallbackFont ();
             var scaled = grid.LogicalToDeviceUnits (size);
-            var ink = grid.Enabled ? Theme.ForegroundColor : Theme.ForegroundDisabledColor;
+            // A Telerik theme's filter cells show their operator and value in the accent, undivided when its cells are.
+            var theme = grid.TelerikTheme;
+            var ink = !grid.Enabled ? Theme.ForegroundDisabledColor : theme?.FilterRowForeground ?? Theme.ForegroundColor;
 
             for (var i = 0; i < grid.Columns.Count; i++) {
                 var column = grid.Columns[i];
@@ -222,7 +251,8 @@ namespace Majorsilence.Forms.Renderers
                 var x = grid.GetColumnDeviceLeft (i);
                 var w = grid.LogicalToDeviceUnits (column.Width);
                 var cell = new Rectangle (x, y, w, h);
-                e.Canvas.DrawLine (cell.Right - 1, cell.Top, cell.Right - 1, cell.Bottom, Theme.BorderLowColor);
+                if (theme is null || theme.Grid.VerticalGridLines)
+                    e.Canvas.DrawLine (cell.Right - 1, cell.Top, cell.Right - 1, cell.Bottom, theme?.Grid.GridLine ?? Theme.BorderLowColor);
 
                 if (i == grid.FilterEditColumn || !RadGridView.ColumnAllowsFiltering (column))
                     continue;   // editor overlays this cell, or filtering not allowed
@@ -247,7 +277,7 @@ namespace Majorsilence.Forms.Renderers
                 var glyph = grid.LogicalToDeviceUnits (12);
                 var glyph_rect = new Rectangle (button.Left + (button.Width - glyph) / 2, button.Top + (button.Height - glyph) / 2, glyph, glyph);
                 var active = grid.ColumnHasActiveFilter (column);
-                DrawFunnel (e, glyph_rect, active ? Theme.AccentColor : Theme.BorderHighColor, active);
+                DrawFunnel (e, glyph_rect, active ? theme?.Accent ?? Theme.AccentColor : theme?.FilterButtonForeground ?? Theme.BorderHighColor, active);
             }
 
             e.Canvas.Restore ();
@@ -272,7 +302,7 @@ namespace Majorsilence.Forms.Renderers
             grid.FilterGlyphRects[columnIndex] = glyphRect;
 
             var active = grid.ColumnHasActiveFilter (column);
-            DrawFunnel (e, glyphRect, active ? Theme.AccentColor : Theme.BorderHighColor, active);
+            DrawFunnel (e, glyphRect, active ? grid.TelerikTheme?.Accent ?? Theme.AccentColor : Theme.BorderHighColor, active);
         }
 
         /// <inheritdoc/>
@@ -295,11 +325,13 @@ namespace Majorsilence.Forms.Renderers
                 return;
             }
 
+            // A Telerik theme whose cells have no vertical lines (Fluent's) leaves them undivided.
+            var vertical = control.ThemePalette is not { VerticalGridLines: false };
             var shared = new DataGridViewAdvancedBorderStyle {
-                Right = borderStyle.Right,
+                Right = vertical ? borderStyle.Right : DataGridViewAdvancedCellBorderStyle.None,
                 Bottom = borderStyle.Bottom,
                 Top = DataGridViewAdvancedCellBorderStyle.None,
-                Left = !control.RowHeadersVisible && IsFirstColumnAt (control, bounds.Left) ? borderStyle.Right : DataGridViewAdvancedCellBorderStyle.None,
+                Left = vertical && !control.RowHeadersVisible && IsFirstColumnAt (control, bounds.Left) ? borderStyle.Right : DataGridViewAdvancedCellBorderStyle.None,
             };
 
             base.RenderCellBorders (control, shared, bounds, e);
@@ -380,6 +412,8 @@ namespace Majorsilence.Forms.Renderers
 
             base.RenderRow (control, row, rowIndex, bounds, e);
             RestoreFormattedRowEdge (control, row, e);
+
+            RenderCurrentCellBorder (control, row, rowIndex, e);
 
             // Master-detail expander glyph at the left of a data row.
             if (control is RadGridView mdGrid && mdGrid.HasChildView)
@@ -537,8 +571,13 @@ namespace Majorsilence.Forms.Renderers
             var height = grid.GroupPanelBandHeight;
             var band = new Rectangle (client.Left, client.Top, client.Width, height);
 
-            e.Canvas.FillRectangle (band, Theme.ControlLowColor);
-            e.Canvas.DrawLine (band.Left, band.Bottom - 1, band.Right, band.Bottom - 1, Theme.BorderMidColor);
+            // A Telerik theme's group panel is one fill, with no line between it and the column headers.
+            if (grid.TelerikTheme is { } theme) {
+                e.Canvas.FillRectangle (band, theme.GroupPanelBackground);
+            } else {
+                e.Canvas.FillRectangle (band, Theme.ControlLowColor);
+                e.Canvas.DrawLine (band.Left, band.Bottom - 1, band.Right, band.Bottom - 1, Theme.BorderMidColor);
+            }
 
             var fontSize = grid.LogicalToDeviceUnits (Theme.ItemFontSize);
 
