@@ -272,6 +272,12 @@ namespace Majorsilence.Forms
         {
             base.Dispose (disposing);
 
+            // Only from Dispose (): a finalizer runs on the GC's thread, and closing the drop-down's window there throws
+            // (Avalonia: "The calling thread cannot access this object") and takes the process down. The windows are
+            // the finalizer's to leave alone; they are not unmanaged resources of this control.
+            if (!disposing)
+                return;
+
             popup?.Close ();
             popup = null;
 
@@ -1349,17 +1355,9 @@ namespace Majorsilence.Forms
                     return;
                 }
 
-                for (int i = 0; i < list.Count; i++) {
-                    var item_value = string.IsNullOrEmpty (ValueMember) ? list[i] : GetPropValue (list[i], ValueMember);
-
-                    if (Equals (item_value, value)) {
-                        SelectedIndex = i;
-                        return;
-                    }
-                }
-
-                // A miss clears the selection; see ListBox.SelectedValue (LST-29).
-                SelectedIndex = -1;
+                // Found as WinForms finds it (see DataSourceBinding.FindValue); a miss clears the selection, see
+                // ListBox.SelectedValue (LST-29).
+                SelectedIndex = DataSourceBinding.FindValue (list, ValueMember, value);
             }
         }
 

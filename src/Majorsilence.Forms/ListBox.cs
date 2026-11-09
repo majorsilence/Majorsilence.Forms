@@ -1164,16 +1164,11 @@ namespace Majorsilence.Forms
                     return;
                 }
 
-                for (int i = 0; i < list.Count; i++) {
-                    var item = list[i];
-                    var item_value = string.IsNullOrEmpty (ValueMember)
-                        ? item
-                        : DataSourceBinding.MemberValue (item, ValueMember);
-
-                    if (Equals (item_value, value)) {
-                        SelectedIndex = i;
-                        return;
-                    }
+                // Found as WinForms finds it (see DataSourceBinding.FindValue).
+                var found = DataSourceBinding.FindValue (list, ValueMember, value);
+                if (found >= 0) {
+                    SelectedIndex = found;
+                    return;
                 }
 
                 // A bound list with no row holding this value clears the selection, as upstream's
