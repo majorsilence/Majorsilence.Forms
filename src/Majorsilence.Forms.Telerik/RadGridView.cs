@@ -448,8 +448,30 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets the master template (Telerik configuration façade over this grid).</summary>
         public MasterGridViewTemplate MasterTemplate { get; }
 
-        /// <summary>Gets or sets the theme name. No-op stub.</summary>
-        public string ThemeName { get; set; } = string.Empty;
+        private string theme_name = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the Telerik theme the grid paints with while <see cref="ThemeResolutionService.ApplicationThemeName"/>
+        /// is empty (which, when set, wins, as in Telerik). "Fluent" and "FluentDark" are painted; any other name leaves the
+        /// grid in this library's theme colours.
+        /// </summary>
+        public string ThemeName {
+            get => theme_name;
+            set {
+                value ??= string.Empty;
+                if (value == theme_name)
+                    return;
+
+                theme_name = value;
+                Invalidate ();
+            }
+        }
+
+        // The Telerik theme's colours the grid paints with (ThemeResolutionService decides the theme), or null.
+        internal RadGridThemePalette? TelerikTheme
+            => RadGridThemePalette.For (ThemeResolutionService.ResolveThemeName (theme_name), ThemeResolutionService.ApplicationAccentColor);
+
+        internal override DataGridViewThemePalette? ThemePalette => TelerikTheme?.Grid;
 
         /// <summary>Gets the root element of the grid (stub).</summary>
         public RadElement GridViewElement { get; } = new RadElement ();
