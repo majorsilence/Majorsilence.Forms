@@ -2738,6 +2738,12 @@ namespace Majorsilence.Forms
         /// <summary>Displays the window to the user.</summary>
         public void Show ()
         {
+            // A closed modeless form is disposed, and upstream refuses to show it again: Show and Visible = true
+            // try to create a handle and throw ObjectDisposedException. Here the form came back -- an MDI child
+            // as an empty frame in its parent -- with its data already torn down, so code that closes a form
+            // and then shows it in a Finally block left a blank window and failed later somewhere unrelated.
+            Guard.ThrowIfDisposed (IsDisposed, this);
+
             // Upstream, showing a window that is already shown does nothing -- Form.Show sets Visible,
             // which is already true. Here it used to run the whole first-show path again and hand one
             // form a SECOND backend window. Both surfaces stay alive: input goes to the newer one on

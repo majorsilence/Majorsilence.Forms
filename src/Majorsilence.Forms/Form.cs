@@ -1210,6 +1210,10 @@ namespace Majorsilence.Forms
         /// <summary>Displays the window to the user modally, preventing interaction with other windows until closed.</summary>
         public Task<DialogResult> ShowDialogAsync (Form? parent)
         {
+            // Before any modal state is set up: refused afterwards, the owner would be left disabled and this
+            // form on the modal stack with nothing on screen. Upstream's ShowDialog throws the same way.
+            Guard.ThrowIfDisposed (IsDisposed, this);
+
             dialog_task = new TaskCompletionSource<DialogResult> ();
 
             // Clear the previous answer before showing, as upstream does (Form.ShowDialog sets
