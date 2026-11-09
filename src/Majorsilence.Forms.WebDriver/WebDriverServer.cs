@@ -175,9 +175,9 @@ namespace Majorsilence.Forms.WebDriver
                 }
 
                 switch (method, verb) {
-                    case ("POST", "click"): OnUi (() => Session ().Click (Resolve (elem))); WriteValue (ctx, (object?)null); return;
+                    case ("POST", "click"): Act (() => Session ().Click (Resolve (elem))); WriteValue (ctx, (object?)null); return;
                     case ("POST", "value"): SendKeys (ctx, elem); return;
-                    case ("POST", "clear"): OnUi (() => { var s = Session (); s.Clear (Resolve (elem)); }); WriteValue (ctx, (object?)null); return;
+                    case ("POST", "clear"): Act (() => { var s = Session (); s.Clear (Resolve (elem)); }); WriteValue (ctx, (object?)null); return;
                     case ("GET", "text"): WriteValue (ctx, OnUi (() => Session ().GetText (Resolve (elem)))); return;
                     case ("GET", "name"): WriteValue (ctx, OnUi (() => Resolve (elem).Role)); return;
                     case ("GET", "enabled"): WriteValue (ctx, OnUi (() => Resolve (elem).Enabled)); return;
@@ -241,7 +241,7 @@ namespace Majorsilence.Forms.WebDriver
             else if (body.TryGetProperty ("value", out var arr) && arr.ValueKind == JsonValueKind.Array)
                 text = string.Concat (arr.EnumerateArray ().Select (e => e.GetString ()));
 
-            OnUi (() => Session ().SendKeys (Resolve (elem), text));
+            Act (() => Session ().SendKeys (Resolve (elem), text));
             WriteValue (ctx, (object?)null);
         }
 
@@ -356,6 +356,60 @@ namespace Majorsilence.Forms.WebDriver
                 action ();
             else
                 Platform.Backend.Invoke (action);
+        }
+
+        // An action a user takes (click, type, clear) may open a modal dialog, and ShowDialog does not return
+        // until the dialog closes. Waiting for the action to finish therefore left the request unanswered for
+        // as long as the dialog stayed up, and the client could never reach the dialog to close it. The action
+        // is posted instead, and the request answers when it finishes or as soon as a modal dialog it opened
+        // is pumping -- the signal is posted from EnterThreadModal, so it runs inside the dialog's own loop,
+        // once the dialog is on screen. A failure after that point is the application's, reported as any
+        // other UI-thread exception, since the request it came from has already been answered.
+        private static void Act (Action action)
+        {
+            if (Platform.Backend.CheckAccess ()) {
+                action ();
+                return;
+            }
+
+            using var answered = new ManualResetEventSlim (false);
+            var gate = new object ();
+            var open = true;
+            Exception? error = null;
+
+            void Answer (Exception? ex)
+            {
+                lock (gate) {
+                    if (!open)
+                        return;
+                    open = false;
+                    error = ex;
+                    answered.Set ();
+                }
+            }
+
+            void OnModal (object? sender, EventArgs e) => Platform.Backend.Post (() => Answer (null));
+
+            Platform.Backend.Post (() => {
+                Application.EnterThreadModal += OnModal;
+                try {
+                    action ();
+                    Answer (null);
+                } catch (Exception ex) {
+                    bool mine;
+                    lock (gate)
+                        mine = open;
+                    if (!mine)
+                        throw;
+                    Answer (ex);
+                } finally {
+                    Application.EnterThreadModal -= OnModal;
+                }
+            });
+
+            answered.Wait ();
+            if (error is not null)
+                throw error;
         }
 
         // ── JSON I/O ──

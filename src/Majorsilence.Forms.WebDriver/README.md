@@ -35,6 +35,10 @@ Supported commands: new/delete session, find element(s), click, send keys, clear
 (role), get attribute, get rect, get enabled, page source and screenshot. It is a practical subset,
 not a full conformance implementation.
 
+A click, send keys or clear that opens a modal dialog answers as soon as the dialog is up, so the
+client can go on to drive the dialog. The tree includes the contents of MDI child windows, and a click
+on a menu item inside a closed menu runs that item's command, as UI Automation's Invoke does.
+
 The same automation tree also backs in-process UI tests, Windows screen readers via
 [`Majorsilence.Forms.WindowsUIAutomation`](https://www.nuget.org/packages/Majorsilence.Forms.WindowsUIAutomation),
 and AI agents through the repository's MCP server.

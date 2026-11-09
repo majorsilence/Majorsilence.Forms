@@ -85,6 +85,22 @@ namespace Majorsilence.Forms.Automation
             if (c is ListBox list)
                 children.AddRange (BuildListItems (list, origin));
 
+            // An MDI child's frame and a panel-hosted form paint a whole form inside them, but that form's
+            // controls belong to the form, not to the frame's Controls, so the walk stopped at the frame and
+            // nothing on a child window could be found or clicked. The form's tree hangs under the frame,
+            // offset by where its client area starts.
+            (Form? Form, Point Client) hosted = c switch {
+                MdiChildWindow frame when frame.WindowState != FormWindowState.Minimized => (frame.ChildForm, frame.ContentOrigin),
+                FormHost host => (host.ChildForm, Point.Empty),
+                _ => (null, Point.Empty),
+            };
+
+            if (hosted.Form is { } form) {
+                var adapter = form.adapter;
+                var at = new Point (origin.X + hosted.Client.X + adapter.Bounds.X, origin.Y + hosted.Client.Y + adapter.Bounds.Y);
+                children.AddRange (BuildChildren (adapter, at));
+            }
+
             // A custom-painted control's own IAutomationStateProvider fully replaces the built-in-control
             // inference for value (not blended with it): a control that opts in owns what its value means.
             var stateProvider = c as IAutomationStateProvider;
@@ -196,6 +212,10 @@ namespace Majorsilence.Forms.Automation
         {
             if (!string.IsNullOrEmpty (c.AccessibleName))
                 return c.AccessibleName!;
+
+            // A child window is named by its form's title, as the frame's caption shows it.
+            if (c is MdiChildWindow frame)
+                return frame.ChildForm.Text ?? string.Empty;
 
             // The accessible name is what a user hears and reads, so the mnemonic marker is not part of
             // it: "&File" is named "File", matching what UI Automation and MSAA report on Windows. It
