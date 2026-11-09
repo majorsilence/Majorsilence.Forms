@@ -53,6 +53,15 @@ namespace Majorsilence.Forms.Automation
         {
             Guard.ThrowIfNull (element);
 
+            // An item inside a drop-down is not on screen until its menu opens, and its tree bounds are
+            // laid out on the strip rather than in the popup, so a pointer click there only opened (or
+            // closed) the top-level menu. Run its command instead, as UI Automation's Invoke pattern does
+            // for a menu item.
+            if (element.Source is MenuItem { Parent: not null and not MenuRootItem } item) {
+                item.PerformClick ();
+                return;
+            }
+
             // ClickPoint comes from the element's logical Bounds; the pointer handlers take device
             // pixels. Identity at scaling 1, so this went unnoticed -- on a scaled display every
             // automated click landed at a fraction of its intended position and hit the wrong control,
