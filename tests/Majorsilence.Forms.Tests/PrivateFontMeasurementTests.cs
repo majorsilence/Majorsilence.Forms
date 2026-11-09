@@ -14,20 +14,15 @@ public class PrivateFontMeasurementTests
 {
     private const string Sample = "Measuring private font metrics";
 
-    // Caladea ships with the library and is not normally installed on a host, so a Font naming it
-    // only resolves because the collection loaded it -- exactly the case that used to be missed.
-    private static string PrivateFontFile ()
-    {
-        var file = Path.Combine (Majorsilence.Forms.Drawing.FontResourceLoader.GetFontDirectory (), "Caladea-Regular.ttf");
-        Assert.True (File.Exists (file), $"expected the bundled font at {file}");
-        return file;
-    }
-
+    // The bundled Caladea under a family name no host has installed (PrivateTestFont), so a Font naming it only
+    // resolves because the collection loaded it -- exactly the case that used to be missed. Caladea's own name would
+    // not do: where it is installed, the system answered for it and these tests passed without the collection.
     private static PrivateFontCollection LoadPrivate ()
     {
+        Assert.True (File.Exists (PrivateTestFont.BundledFile), $"expected the bundled font at {PrivateTestFont.BundledFile}");
         var collection = new PrivateFontCollection ();
-        collection.AddFontFile (PrivateFontFile ());
-        Assert.NotEmpty (collection.Families);
+        collection.AddMemoryFont (PrivateTestFont.Data);
+        Assert.Equal (PrivateTestFont.Family, Assert.Single (collection.Families).Name);
         return collection;
     }
 
