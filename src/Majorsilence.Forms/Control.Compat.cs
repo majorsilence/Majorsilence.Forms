@@ -86,7 +86,8 @@ namespace Majorsilence.Forms
             if (window is null)
                 return delta;
 
-            var scale = window.DesktopScaling;
+            // A form drawn inside another window converts through that window's display factor.
+            var scale = window.PresentationWindow.DesktopScaling;
 
             return scale is 0 or 1
                 ? delta

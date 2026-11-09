@@ -942,6 +942,14 @@ namespace Majorsilence.Forms
         // own. Overridden by Form, which can be an MDI child or panel-hosted.
         internal virtual bool IsFrameHosted => false;
 
+        // Where a point in this window's client area is on the desktop, when the window is drawn inside another
+        // window and so has no on-screen window of its own; false for a window that has one. Overridden by Form.
+        internal virtual bool TryHostedPointToScreen (System.Drawing.Point client, out System.Drawing.Point screen)
+        {
+            screen = default;
+            return false;
+        }
+
         /// <summary>Raised when the window is deactivated.</summary>
         public event EventHandler? Deactivated;
 
@@ -1545,6 +1553,9 @@ namespace Majorsilence.Forms
         /// </remarks>
         internal System.Drawing.Point ClientOriginOnScreen {
             get {
+                if (TryHostedPointToScreen (System.Drawing.Point.Empty, out var hosted))
+                    return hosted;
+
                 try {
                     return Backend.PointToScreen (System.Drawing.Point.Empty);
                 } catch (System.Exception) {
@@ -2478,10 +2489,33 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>Converts a point from screen coordinates to window coordinates.</summary>
-        public System.Drawing.Point PointToClient (System.Drawing.Point point) => Backend.PointToClient (point);
+        /// <remarks>
+        /// A form drawn inside another window -- an MDI child, a panel-hosted form -- converts through the control
+        /// drawing it, as <see cref="PointToScreen"/> does.
+        /// </remarks>
+        public System.Drawing.Point PointToClient (System.Drawing.Point point)
+        {
+            if (!TryHostedPointToScreen (System.Drawing.Point.Empty, out var origin))
+                return Backend.PointToClient (point);
+
+            var scale = PresentationWindow.DesktopScaling;
+            var delta = new System.Drawing.Point (point.X - origin.X, point.Y - origin.Y);
+
+            return scale is 0 or 1
+                ? delta
+                : new System.Drawing.Point ((int) Math.Round (delta.X / scale), (int) Math.Round (delta.Y / scale));
+        }
 
         /// <summary>Converts a point from window coordinates to screen coordinates.</summary>
-        public System.Drawing.Point PointToScreen (System.Drawing.Point point) => Backend.PointToScreen (point);
+        /// <remarks>
+        /// A form drawn inside another window -- an MDI child, a panel-hosted form -- has no on-screen window of
+        /// its own: its point is where the control drawing it puts it, as upstream's child window is placed by
+        /// its parent. Its own backend window is never shown, and its position is only whatever was last
+        /// assigned to it before it was hosted: a centred MDI child reported the client's top-left, so its
+        /// combo boxes, tool tips and context menus opened there instead of over the form.
+        /// </remarks>
+        public System.Drawing.Point PointToScreen (System.Drawing.Point point)
+            => TryHostedPointToScreen (point, out var screen) ? screen : Backend.PointToScreen (point);
 
         /// <summary>
         /// Converts a rectangle from client to screen coordinates. The companion to

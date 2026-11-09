@@ -2340,6 +2340,10 @@ namespace Majorsilence.Forms
                 if (window is null)
                     return point;
 
+                // A form drawn inside another window converts through the control drawing it (logical in).
+                if (window.TryHostedPointToScreen (point, out var hosted))
+                    return hosted;
+
                 // The CLIENT origin, not the window's -- they differ by the title bar on a window with
                 // native chrome, and everything downstream (Cursor.Position, PointToClient, cross-window
                 // hit tests) has to agree on one screen space.
