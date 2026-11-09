@@ -164,7 +164,7 @@ namespace Majorsilence.Forms
             var selected = GetPageFromTab (tab_strip.SelectedTab);
 
             foreach (var page in TabPages)
-                page.Visible = page == selected;
+                page.Visible = ShowsPage (page, selected);
 
             current_page = selected;
         }
@@ -642,10 +642,10 @@ namespace Majorsilence.Forms
             }
 
             if (old_selected != null)
-                old_selected.Visible = false;
+                old_selected.Visible = ShowsPage (old_selected, new_selected);
 
             if (new_selected != null)
-                new_selected.Visible = true;
+                new_selected.Visible = ShowsPage (new_selected, new_selected);
 
             current_page = new_selected;
 
@@ -661,6 +661,11 @@ namespace Majorsilence.Forms
                 OnSelectedIndexChanged (EventArgs.Empty);
             }
         }
+
+        /// <summary>Whether <paramref name="page"/> is shown while <paramref name="selected"/> is the selected page: only the
+        /// selected one, for a tab control. A derived control that shows several pages at once (Telerik's page view in
+        /// its ExplorerBar mode) answers for itself.</summary>
+        internal virtual bool ShowsPage (TabPage page, TabPage? selected) => page == selected;
 
         // Set while restoring the strip after a cancelled Selecting/Deselecting, so the resulting second
         // trip through this handler does not raise the cancelable pair again (and cancel its own revert).

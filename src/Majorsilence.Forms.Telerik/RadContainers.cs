@@ -3,7 +3,7 @@ using System.Drawing;
 namespace Majorsilence.Forms.Telerik
 {
     /// <summary>Telerik-compat tabbed page view. Backed by <see cref="Majorsilence.Forms.TabControl"/>.</summary>
-    public class RadPageView : TabControl, ISupportInitializeCompat
+    public partial class RadPageView : TabControl, ISupportInitializeCompat
     {
         /// <summary>Gets the root element of the page view (stub).</summary>
         public RadElement RootElement { get; } = new RadElement ();
@@ -30,8 +30,9 @@ namespace Majorsilence.Forms.Telerik
 
         private readonly RadPageViewStripLook _look;
 
-        // Telerik's strip, with the tabs above the pages; any other alignment keeps the tab control's.
-        internal override TabStripLook? StripLook => Alignment == TabAlignment.Top ? _look : null;
+        // Telerik's strip, with the tabs above the pages; any other alignment keeps the tab control's. The ExplorerBar
+        // mode has no strip: it stacks the pages itself (RadPageViewExplorerBar.cs).
+        internal override TabStripLook? StripLook => Alignment == TabAlignment.Top && !IsExplorerBar ? _look : null;
 
         private void Relayout ()
         {
@@ -95,8 +96,13 @@ namespace Majorsilence.Forms.Telerik
         /// <inheritdoc/>
         protected override void OnLayout (LayoutEventArgs e)
         {
-            ApplyStripItemSizing ();
+            if (!IsExplorerBar)
+                ApplyStripItemSizing ();
+
             base.OnLayout (e);
+
+            if (IsExplorerBar)
+                LayoutExplorerBar ();
 
             // Not from ControlAdded: the tab list is not up to date yet at that moment.
             ApplyDefaultPage ();
@@ -174,19 +180,6 @@ namespace Majorsilence.Forms.Telerik
 
             return !e.Cancel;
         }
-
-        // Real, and never raised -- deliberately. Telerik's PageCollapsed belongs to RadPageView's
-        // ExplorerBar/Outlook/Accordion modes, where a page's content region collapses in place. This
-        // page view is a TabControl, which has no collapse concept at all and exposes no Mode, so
-        // there is no moment at which a page collapses. Declared as a real event rather than
-        // `add { } remove { }` so a handler at least survives being attached.
-#pragma warning disable CS0067
-        /// <summary>
-        /// Raised when a page is collapsed. Never raised here: collapsing requires an accordion or
-        /// ExplorerBar page-view mode, which this compat page view does not implement.
-        /// </summary>
-        public event EventHandler<RadPageViewEventArgs>? PageCollapsed;
-#pragma warning restore CS0067
     }
 
     /// <summary>Telerik-compat page-view page. Backed by <see cref="Majorsilence.Forms.TabPage"/>.</summary>
@@ -213,6 +206,81 @@ namespace Majorsilence.Forms.Telerik
         public ContentAlignment ImageAlignment {
             get => Item.ImageAlignment;
             set => Item.ImageAlignment = value;
+        }
+
+        /// <summary>Gets or sets the image the page's item shows before its caption.</summary>
+        /// <remarks>Shown in the <see cref="PageViewMode.ExplorerBar"/> mode, where it sets the height of the items. The
+        /// strip does not draw images on its tabs yet.</remarks>
+        public Majorsilence.Forms.Drawing.Image? Image {
+            get => image;
+            set {
+                image = value;
+                image_bitmap = value?.ToSKBitmap ();
+                Parent?.PerformLayout ();
+                Parent?.Invalidate ();
+            }
+        }
+
+        private Majorsilence.Forms.Drawing.Image? image;
+        private SkiaSharp.SKBitmap? image_bitmap;
+
+        internal SkiaSharp.SKBitmap? ImageBitmap => image_bitmap;
+
+        /// <summary>Gets or sets whether the page's content shows under its item: in the <see cref="PageViewMode.ExplorerBar"/>
+        /// mode, whether the page is expanded. False by default, as Telerik's.</summary>
+        /// <remarks>In the ExplorerBar mode a change raises the owning page view's <c>PageExpanding</c> and
+        /// <c>PageExpanded</c>, or <c>PageCollapsing</c> and <c>PageCollapsed</c>, as Telerik's does, whether made in
+        /// code or by clicking the item; in the other modes it is only stored.</remarks>
+        public bool IsContentVisible {
+            get => content_visible;
+            set {
+                if (content_visible == value)
+                    return;
+
+                if (Parent is RadPageView { IsExplorerBar: true } view)
+                    view.SetContentVisible (this, value);
+                else
+                    content_visible = value;
+            }
+        }
+
+        private bool content_visible;
+
+        internal void StoreContentVisible (bool value) => content_visible = value;
+
+        /// <inheritdoc/>
+        /// <remarks>A colour set here wins over the owning page view's <see cref="RadPageView.PageBackColor"/>.</remarks>
+        public override Color BackColor {
+            get => base.BackColor;
+            set {
+                back_from_view = false;
+                base.BackColor = value;
+            }
+        }
+
+        // Whether the page's BackColor is the page view's PageBackColor, which a later PageBackColor replaces, rather
+        // than one of its own.
+        private bool back_from_view;
+
+        // Takes the page view's PageBackColor, unless the page has a colour of its own; an empty one hands the page back
+        // to the ambient colour.
+        internal void ApplyViewBackColor (Color color)
+        {
+            if (Style.BackgroundColor is not null && !back_from_view)
+                return;
+
+            if (color.IsEmpty) {
+                if (!back_from_view)
+                    return;
+
+                back_from_view = false;
+                Style.BackgroundColor = null;
+                OnBackColorChanged (EventArgs.Empty);
+                return;
+            }
+
+            base.BackColor = color;
+            back_from_view = true;
         }
     }
 
@@ -441,17 +509,26 @@ namespace Majorsilence.Forms.Telerik
         Fill = 3
     }
 
-    /// <summary>Specifies the overall visual mode of a <see cref="RadPageView"/>. Compat for Telerik PageViewMode.</summary>
+    /// <summary>Specifies the overall visual mode of a <see cref="RadPageView"/>. Compat for Telerik PageViewMode, with its
+    /// names and values.</summary>
+    /// <remarks><see cref="Strip"/> and <see cref="ExplorerBar"/> are laid out as Telerik's; the other modes show the
+    /// strip.</remarks>
     public enum PageViewMode
     {
-        /// <summary>Classic tab-strip mode.</summary>
-        Tabs = 0,
-        /// <summary>Ribbon-bar style mode.</summary>
-        RibbonBar = 1,
-        /// <summary>Outlook-style explorer bar mode.</summary>
-        ExplorerBar = 2,
-        /// <summary>Backstage (full-screen menu) mode.</summary>
-        Backstage = 3
+        /// <summary>A strip of tabs above the selected page.</summary>
+        Strip = 0,
+        /// <summary>A stack of items, the selected page above them.</summary>
+        Stack = 1,
+        /// <summary>Outlook's navigation pane.</summary>
+        Outlook = 2,
+        /// <summary>A stack of items that each expand to show their page under them, several at once.</summary>
+        ExplorerBar = 3,
+        /// <summary>A backstage (full-window menu).</summary>
+        Backstage = 4,
+        /// <summary>A navigation view (a hamburger menu).</summary>
+        NavigationView = 5,
+        /// <summary>Office's navigation bar.</summary>
+        OfficeNavigationBar = 6
     }
 
     /// <summary>Specifies the layout orientation of page-view strip content. Compat for Telerik PageViewContentOrientation.</summary>
