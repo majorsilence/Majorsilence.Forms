@@ -242,10 +242,24 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void OnClick (EventArgs e)
         {
-            if (FindForm () is Form form)
-                form.DialogResult = DialogResult;
+            if (FindForm () is not Form form) {
+                base.OnClick (e);
+                return;
+            }
 
-            base.OnClick (e);
+            // The form's result is set before the Click handlers, as in WinForms, but the dialog closes after
+            // them (WinForms ends the modal loop once the click message is done): a handler may still change
+            // the result, set what the form's Closing handler reads, or close the form itself.
+            form.deferring_dialog_close++;
+            try {
+                form.DialogResult = DialogResult;
+                base.OnClick (e);
+            } finally {
+                form.deferring_dialog_close--;
+            }
+
+            if (form.deferring_dialog_close == 0)
+                form.CloseForDialogResult ();
         }
 
         /// <inheritdoc/>

@@ -231,6 +231,38 @@ public class FormLifecycleTests
     }
 
     [Fact]
+    public void An_OK_button_whose_handler_sets_the_result_returns_that_result ()
+    {
+        // A print options dialog: its OK button carries DialogResult = Cancel from the designer, its Click
+        // handler sets okClicked, DialogResult = OK and calls Close, and its Closing handler turns anything
+        // not OK into Cancel. The button sets the form's result before the Click handlers run; closing
+        // right there ran Closing before okClicked was set, which recursed (stack overflow) and would
+        // have returned Cancel. WinForms closes after the click and returns OK.
+        HeadlessRenderer.Use ();
+        using var dialog = new Form { Size = new System.Drawing.Size (200, 120) };
+        var ok = new Button { Text = "OK", DialogResult = DialogResult.Cancel };
+        dialog.Controls.Add (ok);
+
+        var okClicked = false;
+        var closings = 0;
+        ok.Click += (_, _) => {
+            okClicked = true;
+            dialog.DialogResult = DialogResult.OK;
+            dialog.Close ();
+        };
+        dialog.Closing += (_, _) => {
+            if (++closings < 20 && !okClicked)
+                dialog.DialogResult = DialogResult.Cancel;
+        };
+
+        Platform.Backend.Post (ok.PerformClick);
+        var result = RunModalWithTimeout (dialog.ShowDialog);
+
+        Assert.Equal (1, closings);
+        Assert.Equal (DialogResult.OK, result);
+    }
+
+    [Fact]
     public void A_Closing_handler_chooses_the_result_of_the_close_under_way ()
     {
         // WinForms: DialogResult set while the dialog is closing is what ShowDialog returns.

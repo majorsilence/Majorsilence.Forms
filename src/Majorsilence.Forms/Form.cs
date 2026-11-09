@@ -799,11 +799,28 @@ namespace Majorsilence.Forms
                 // an application, before Application.Run -- unable to close itself by setting
                 // DialogResult, which is how every OK button does it.
                 //
-                // Not from a Closing/FormClosing handler, though: that close is already happening and
-                // returns the result just set (see raising_closing).
-                if (dialog_result != DialogResult.None && !raising_closing && (dialog_task is not null || dialog_parent is not null))
+                // Not from a Closing/FormClosing handler: that close is already happening and returns the
+                // result just set (see raising_closing). Not while a button click is being handled either:
+                // WinForms ends the modal loop after the click, so the Click handlers still run and may
+                // change the result or close the form themselves (see Button.OnClick).
+                if (dialog_result != DialogResult.None && !raising_closing && deferring_dialog_close == 0
+                    && (dialog_task is not null || dialog_parent is not null))
                     Close ();
             }
+        }
+
+        // Set by Button.OnClick while the button's Click handlers run. The button sets the form's
+        // DialogResult before them, as in WinForms; closing right there ran Closing before the handlers
+        // did, so an OK button whose handler sets DialogResult = OK (or a flag its Closing handler reads)
+        // returned the button's own result -- or, when the Closing handler set DialogResult again,
+        // recursed until the stack overflowed.
+        internal int deferring_dialog_close;
+
+        /// <summary>Closes a modal dialog whose DialogResult was set while a button click deferred it.</summary>
+        internal void CloseForDialogResult ()
+        {
+            if (dialog_result != DialogResult.None && (dialog_task is not null || dialog_parent is not null))
+                Close ();
         }
 
         /// <summary>Gets the next control in tab order.</summary>
