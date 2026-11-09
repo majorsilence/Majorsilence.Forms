@@ -62,6 +62,13 @@ namespace Majorsilence.Forms
                 // with AutoSize off), and lays its items out over its height inside its padding.
                 area = new Rectangle (area.X + Padding.Left, area.Y + Padding.Top,
                     Math.Max (0, area.Width - Padding.Horizontal), Math.Max (0, area.Height - Padding.Vertical));
+
+                // Docked to a side, it runs down it, as upstream's does (ToolStripVerticalLayout.cs).
+                if (LaysOutVerticallyAsUpstream) {
+                    LayoutItemsVerticallyAsUpstream (area, visible);
+                    PinTrailing (visible, area, vertical: true);
+                    return;
+                }
             } else if (UpstreamFont is { } font) {
                 // Upstream's MenuStrip is as tall as its tallest item plus its padding (its AutoSize, which
                 // defaults on there; this strip's AutoSize defaults off, so it is not consulted), and lays

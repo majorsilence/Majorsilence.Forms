@@ -865,7 +865,7 @@ namespace Majorsilence.Forms
 
             int Extent (MenuItem item)
             {
-                var size = item.GetPreferredSize (Size.Empty);
+                var size = vertical && LaysOutVerticallyAsUpstream ? UpstreamVerticalItemSize (item) : item.GetPreferredSize (Size.Empty);
                 return vertical ? size.Height + item.Margin.Vertical : size.Width + item.Margin.Horizontal;
             }
 
@@ -908,7 +908,11 @@ namespace Majorsilence.Forms
                 overflow_button.SetBounds (0, 0, 0, 0);
             }
 
-            (vertical ? StackLayoutEngine.VerticalExpand : StackLayoutEngine.HorizontalExpand).Layout (area, main.Cast<ILayoutable> ());
+            if (vertical && LaysOutVerticallyAsUpstream)
+                LayoutItemsVerticallyAsUpstream (UpstreamVerticalDisplay (area), main);
+            else
+                (vertical ? StackLayoutEngine.VerticalExpand : StackLayoutEngine.HorizontalExpand).Layout (area, main.Cast<ILayoutable> ());
+
             PinTrailing (main, area, vertical);
 
             foreach (var item in main.OfType<ToolStripItem> ())
@@ -948,6 +952,10 @@ namespace Majorsilence.Forms
             // off keeps its Size as the floor, which is what a ToolStripPanel row lays it out at.
             if (SizesAsUpstreamStrip && AutoSize && EffectiveLayoutStyle == ToolStripLayoutStyle.HorizontalStackWithOverflow)
                 return UpstreamPreferredSize ();
+
+            // And a vertical one (ToolStripVerticalLayout.cs).
+            if (AutoSize && LaysOutVerticallyAsUpstream)
+                return UpstreamPreferredSizeVertical ();
 
             if (EffectiveLayoutStyle != ToolStripLayoutStyle.VerticalStackWithOverflow)
                 return base.GetPreferredSizeCore (proposedSize);
