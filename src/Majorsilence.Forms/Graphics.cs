@@ -72,6 +72,31 @@ namespace Majorsilence.Forms.Drawing
             };
         }
 
+        /// <summary>
+        /// Creates a Graphics object that draws onto an existing SkiaSharp canvas, such as an
+        /// <c>SKSvgCanvas</c>, an <c>SKDocument</c> page or an <c>SKPictureRecorder</c>'s canvas.
+        /// A Majorsilence.Forms extension; System.Drawing has no equivalent.
+        /// </summary>
+        /// <param name="canvas">The canvas to draw onto. The caller keeps ownership: disposing the
+        /// Graphics does not dispose the canvas. Disposing it undoes the clip it set, but not a
+        /// <see cref="Transform"/> or <see cref="PageUnit"/> it applied, so wrap the drawing in
+        /// <c>canvas.Save ()</c>/<c>canvas.RestoreToCount ()</c> if the canvas is used again afterwards.</param>
+        /// <param name="dpi">How many canvas units make an inch. It sets <see cref="DpiX"/> and
+        /// <see cref="DpiY"/>, the size fonts are drawn at, and the scale <see cref="PageUnit"/> applies.
+        /// The default, 96, is the figure a screen and <see cref="Majorsilence.Forms.Drawing.Font.PixelSize"/> use.</param>
+        /// <remarks>The canvas's current matrix is taken as the device origin, as a control's client
+        /// origin is: <see cref="Transform"/> starts as identity relative to it.</remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="canvas"/> is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="dpi"/> is not a positive, finite number.</exception>
+        public static Graphics FromCanvas (SKCanvas canvas, float dpi = 96f)
+        {
+            Guard.ThrowIfNull (canvas);
+            if (!(dpi > 0f) || float.IsInfinity (dpi))
+                throw new ArgumentOutOfRangeException (nameof (dpi), dpi, "The resolution must be a positive, finite number.");
+
+            return new Graphics (canvas, ownsCanvas: false) { UnitsPerInch = dpi };
+        }
+
         /// <summary>Creates a Graphics object for the specified window handle. Returns a no-op instance in Majorsilence.Forms.</summary>
         public static Graphics FromHwnd (IntPtr hwnd) => new Graphics ();
 
