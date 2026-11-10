@@ -222,11 +222,28 @@ namespace Majorsilence.Forms.Telerik
         // A layout Telerik's own dock saved -- what an app that ran on Telerik has stored: the dock's control
         // tree, each tab strip listing its windows in tab order with their Text, and the strip's
         // SelectedIndex. Measured on Telerik (UI for WinForms 2026.2.520), loading one gives each listed
-        // window the saved Text and tab order and selects the saved tab; a window saved hidden comes back
-        // as a tab, and a window in the strip that the layout does not list is closed and disposed. Split
-        // sizes are not read. Its floating windows (SerializableFloatingWindows: a Location, a ClientSize and the
+        // window the saved Text and tab order and selects the saved tab, and a window saved hidden comes back
+        // as a tab. Its floating windows (SerializableFloatingWindows: a Location, a ClientSize and the
         // placeholders of the windows floated together) float again there, and the windows its auto-hide groups
         // name (SerializableAutoHideContainer, a placeholder's AutoHideSize with each) auto-hide on their side.
+        //
+        // A window the layout does not name is NOT handled the same way for both kinds. Measured on
+        // 2026.2.520 by saving a layout and loading it into a dock holding one extra window of each kind:
+        //
+        //   tool window      DockState.Hidden, Parent null, IsDisposed FALSE -- hidden, kept alive
+        //   document window  DockState.Hidden, Parent null, IsDisposed TRUE  -- hidden and disposed
+        //
+        // and each named window takes the state of the strip that names it: TabbedDocument from a
+        // DocumentTabStrip, Docked from a ToolTabStrip. An auto-hidden window is named by a ToolTabStrip AND
+        // by the auto-hide container, and the auto-hide pass below runs last, so it still ends AutoHide.
+        //
+        // NOT read: the split tree. Telerik's document is a tree of nested RadSplitContainers, each with a
+        // SizeInfo, and loading one restores the saved sizes (a strip forced to 377 wide came back at the
+        // saved 198). This compat layer has no SizeInfo/SplitPanel engine at all (see DockStrip), so a
+        // layout restores which windows are in which strip, in what order, with what text and state, but
+        // not how the strips are arranged or sized. Telerik also CREATES a window the layout names that the
+        // dock does not have, by deserialising it from the element; matching by Name as this does cannot,
+        // so such a window stays absent.
         private void LoadTelerikLayout (System.Xml.Linq.XElement root)
         {
             var windows = OwnWindows ().Concat (detached_windows.Where (w => !w.IsDisposed))
@@ -236,8 +253,34 @@ namespace Majorsilence.Forms.Telerik
 
             var selected = new List<DockWindowBase> ();
 
+            // Every window the document names anywhere -- strips, floating groups, auto-hide groups. The
+            // sweep after the strip loop needs this: a window can sit in a strip the layout never mentions,
+            // and the per-strip pass below only ever reaches strips that hold a named window, so without it
+            // an extra panel stayed docked and visible where Telerik hides it.
+            var named = new HashSet<string> (StringComparer.Ordinal);
+
+            foreach (var element in root.Descendants ()) {
+                if ((string?) element.Attribute ("Name") is { Length: > 0 } element_name)
+                    named.Add (element_name);
+                if ((string?) element.Attribute ("DockWindowName") is { Length: > 0 } placeholder_name)
+                    named.Add (placeholder_name);
+            }
+
+            // Hidden the way Telerik leaves it: out of its strip, Hidden, and disposed only if it is a
+            // document. Disposing a tool window as well used to take a panel out of the form for good --
+            // the application still held the reference, but the control behind it was gone.
+            static void Drop (DockWindowBase window)
+            {
+                window.DockState = DockState.Hidden;
+                window.Parent?.Controls.Remove (window);
+
+                if (window is DocumentWindow)
+                    window.Dispose ();
+            }
+
             foreach (var strip_element in root.Descendants ().Where (e => e.Name.LocalName.EndsWith ("TabStrip", StringComparison.Ordinal))) {
                 var listed = new List<DockWindowBase> ();
+                var documents = strip_element.Name.LocalName.EndsWith ("DocumentTabStrip", StringComparison.Ordinal);
 
                 foreach (var element in strip_element.Element ("Controls")?.Elements () ?? Enumerable.Empty<System.Xml.Linq.XElement> ()) {
                     if ((string?) element.Attribute ("Name") is not { } name || !windows.TryGetValue (name, out var window))
@@ -245,6 +288,14 @@ namespace Majorsilence.Forms.Telerik
 
                     if ((string?) element.Attribute ("Text") is { } text)
                         window.Text = text;
+
+                    // The strip the layout puts it in decides its state, as Telerik's deserialised tree does.
+                    // Without this a document restored into the document strip kept whatever state it was
+                    // built with -- Docked, where Telerik gives TabbedDocument.
+                    var state = documents ? DockState.TabbedDocument : DockState.Docked;
+
+                    if (window.DockState != state && window.DockState is not (DockState.Floating or DockState.AutoHide))
+                        window.DockState = state;
 
                     listed.Add (window);
                 }
@@ -256,16 +307,21 @@ namespace Majorsilence.Forms.Telerik
                     if (listed[i].Parent == strip)
                         strip.Controls.SetChildIndex (listed[i], i);
 
-                foreach (var unlisted in strip.Controls.OfType<DockWindowBase> ().Except (listed).ToList ()) {
-                    unlisted.DockState = DockState.Hidden;
-                    strip.Controls.Remove (unlisted);
-                    unlisted.Dispose ();
-                }
+                foreach (var unlisted in strip.Controls.OfType<DockWindowBase> ().Except (listed).ToList ())
+                    Drop (unlisted);
 
                 if (int.TryParse ((string?) strip_element.Attribute ("SelectedIndex"), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var index)
                     && index >= 0 && index < listed.Count)
                     selected.Add (listed[index]);
             }
+
+            // The windows the document never names, wherever they sit. Only docked ones: what Telerik does
+            // with an unnamed window that is floating or auto-hidden was not measured, and leaving those
+            // alone keeps this to what was. A window with no Name cannot be matched by name either way, so
+            // it is left alone rather than guessed at.
+            foreach (var window in windows.Values.ToList ())
+                if (!named.Contains (window.Name) && window.DockState is DockState.Docked or DockState.TabbedDocument)
+                    Drop (window);
 
             DockWindowBase? Placeholder (System.Xml.Linq.XElement element)
                 => (string?) element.Attribute ("DockWindowName") is { } name && windows.TryGetValue (name, out var window) ? window : null;
