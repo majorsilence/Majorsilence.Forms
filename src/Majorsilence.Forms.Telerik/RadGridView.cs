@@ -473,6 +473,30 @@ namespace Majorsilence.Forms.Telerik
 
         internal override DataGridViewThemePalette? ThemePalette => TelerikTheme?.Grid;
 
+        // Telerik's grid marks a selected row in its default theme's pale amber and leaves the text black,
+        // where the WinForms grid underneath uses SystemColors.Highlight with HighlightText -- blue with
+        // white text, which is what every grid in a migrated application showed. Measured on UI for WinForms
+        // 2026.2.520 under the default theme (probes/wfgridsel): a row selected but not current fills a flat
+        // #FFE7AE right across its width and keeps #000000 text.
+        //
+        // Only the fallback, so a named theme still wins: Fluent paints its selection in the accent colour,
+        // and ThemePalette is consulted before either of these. A selection colour the application set on
+        // DefaultCellStyle wins over both, which is why these defer to it rather than being set there -- the
+        // constructor setting it outright made the grid ignore the Fluent palette.
+        //
+        // Not matched: Telerik fills the CURRENT row with a vertical gradient around #FFE3A2, a shade darker
+        // than the selection. There is no current-row style in the model underneath and no per-row gradient,
+        // so a current row takes this same flat fill.
+        internal override SkiaSharp.SKColor SelectionBackgroundFallback
+            => DefaultCellStyle.SelectionBackColor.IsEmpty
+                ? new SkiaSharp.SKColor (0xFF, 0xE7, 0xAE)
+                : base.SelectionBackgroundFallback;
+
+        internal override SkiaSharp.SKColor? SelectionForegroundFallback
+            => DefaultCellStyle.SelectionForeColor.IsEmpty
+                ? SkiaSharp.SKColors.Black
+                : base.SelectionForegroundFallback;
+
         /// <summary>Gets the root element of the grid (stub).</summary>
         public RadElement GridViewElement { get; } = new RadElement ();
 

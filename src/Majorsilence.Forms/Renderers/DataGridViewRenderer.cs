@@ -374,7 +374,7 @@ namespace Majorsilence.Forms.Renderers
             // is what made Row.Selected and MultiSelect invisible (DGV-14). The colour comes from the
             // themable selection style, so a CSS theme still drives it.
             if (control.IsRowPaintedSelected (rowIndex))
-                bg = palette?.SelectionBackground ?? DataGridView.DefaultSelectionStyle.GetBackgroundColor ();
+                bg = palette?.SelectionBackground ?? control.SelectionBackgroundFallback;
             else if (control.HoveredRowIndex == rowIndex)
                 bg = palette?.HoverRow ?? Theme.ControlMidColor;
             else if (!row.DefaultCellStyle.BackColor.IsEmpty)
@@ -757,7 +757,7 @@ namespace Majorsilence.Forms.Renderers
             // unselected. A cell style's own SelectionBackColor is painted over this further down.
             if (paintParts.HasFlag (DataGridViewPaintParts.SelectionBackground)
                 && control.IsCellPaintedSelected (rowIndex, columnIndex))
-                e.Canvas.FillRectangle (bounds, control.ThemePalette?.SelectionBackground ?? DataGridView.DefaultSelectionStyle.GetBackgroundColor ());
+                e.Canvas.FillRectangle (bounds, control.ThemePalette?.SelectionBackground ?? control.SelectionBackgroundFallback);
 
             if (!paintParts.HasFlag (DataGridViewPaintParts.ContentForeground)
                 && !paintParts.HasFlag (DataGridViewPaintParts.ContentBackground))
@@ -796,7 +796,7 @@ namespace Majorsilence.Forms.Renderers
 
             var fg = in_selection && cellStyle is { } sel_fg_style && !sel_fg_style.SelectionForeColor.IsEmpty
                 ? ToSK (sel_fg_style.SelectionForeColor)
-                : in_selection && !is_link && (control.ThemePalette?.SelectionForeground ?? DataGridView.DefaultSelectionStyle.ForegroundColor) is { } selection_fg
+                : in_selection && !is_link && (control.ThemePalette?.SelectionForeground ?? control.SelectionForegroundFallback) is { } selection_fg
                     ? selection_fg
                     : cellStyle?.ForegroundColor ?? control.DefaultCellStyle.ForegroundColor ?? control.ThemePalette?.Foreground ?? control.GetEffectiveForegroundColor ();
             var (ambient_font, ambient_size) = control.CellFallbackFont ();
