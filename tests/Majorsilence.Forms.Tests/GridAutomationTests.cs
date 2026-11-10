@@ -82,6 +82,31 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal ("true", row.Children [1].State ["selected"]);
         }
 
+        // A cell is typed into through its editor, which only exists while the cell is being edited, so text
+        // sent to a cell went to the grid itself and was lost. Typing replaces the value and commits it, as
+        // typing a value and leaving the cell does; clearing empties it.
+        [Theory, MemberData (nameof (Grids))]
+        public void Typing_into_a_cell_replaces_and_commits_its_value (string kind)
+        {
+            var grid = Make (kind, 3);
+            var edits = 0;
+            grid.CellEndEdit += (_, _) => edits++;
+            using var form = Host (grid);
+            var session = new AutomationSession (form);
+
+            session.SendKeys (session.FindOrThrow (By.Name ("Jones2")), "Brown");
+
+            Assert.Equal ("Brown", grid.Rows [1].Cells [1].Value?.ToString ());
+            Assert.False (grid.IsCurrentCellInEditMode);
+            Assert.Equal (1, edits);
+            Assert.Equal ("Jones1", grid.Rows [0].Cells [1].Value?.ToString ());
+
+            session.Clear (session.FindOrThrow (By.Name ("Brown")));
+
+            Assert.Equal (string.Empty, grid.Rows [1].Cells [1].Value?.ToString () ?? string.Empty);
+            Assert.False (grid.IsCurrentCellInEditMode);
+        }
+
         [Theory, MemberData (nameof (Grids))]
         public void Only_rows_scrolled_into_view_are_in_the_tree (string kind)
         {
