@@ -1214,7 +1214,10 @@ namespace Majorsilence.Forms
             // form on the modal stack with nothing on screen. Upstream's ShowDialog throws the same way.
             Guard.ThrowIfDisposed (IsDisposed, this);
 
-            dialog_task = new TaskCompletionSource<DialogResult> ();
+            // Held locally as well: a Load handler that calls Close () ends the dialog during the show below,
+            // and ending it completes and clears dialog_task, so the field is null by the time it is returned.
+            var task = new TaskCompletionSource<DialogResult> ();
+            dialog_task = task;
 
             // Clear the previous answer before showing, as upstream does (Form.ShowDialog sets
             // _dialogResult = None up front). There used to be an "already decided, return it" check
@@ -1258,7 +1261,7 @@ namespace Majorsilence.Forms
                 throw;
             }
 
-            return dialog_task.Task;
+            return task.Task;
         }
 
         private void AbandonModal ()
