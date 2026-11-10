@@ -46,7 +46,10 @@ namespace Majorsilence.Forms
                     Filters = filters
                 };
 
-                var files = owner.Backend is IPickedFileBackend picker
+                // An answer queued by automation stands in for the picker (Automation.FileDialogAnswers).
+                var files = Automation.FileDialogAnswers.TryTakeOpen (out var answered)
+                    ? answered.Select (PickedFile.FromPath).ToArray ()
+                    : owner.Backend is IPickedFileBackend picker
                     ? await picker.ShowOpenFilePicker (request)
                     : (await owner.Backend.ShowOpenFileDialog (request)).Select (PickedFile.FromPath).ToArray ();
 

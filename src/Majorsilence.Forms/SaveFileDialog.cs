@@ -52,7 +52,10 @@ namespace Majorsilence.Forms
                     Filters = filters
                 };
 
-                var file = owner.Backend is ISavedFileBackend picker
+                // An answer queued by automation stands in for the picker (Automation.FileDialogAnswers).
+                var file = Automation.FileDialogAnswers.TryTakeSave (out var answered)
+                    ? answered is null ? null : SavedFile.FromPath (answered)
+                    : owner.Backend is ISavedFileBackend picker
                     ? await picker.ShowSaveFilePicker (request)
                     : await owner.Backend.ShowSaveFileDialog (request) is { } path ? SavedFile.FromPath (path) : null;
 

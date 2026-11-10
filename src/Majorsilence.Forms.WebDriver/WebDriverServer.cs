@@ -151,6 +151,15 @@ namespace Majorsilence.Forms.WebDriver
                 return;
             }
 
+            // POST /session/{id}/majorsilence/file-dialog -- a vendor extension (W3C's extension-command
+            // form): answers the next file dialogs, which a desktop backend shows as the operating system's
+            // picker, outside the automation tree. {"open": [paths]} (empty cancels), {"save": path} (null
+            // cancels), {"clear": true} drops what is queued. Queue it before the click that opens the dialog.
+            if (method == "POST" && segments is [_, _, "majorsilence", "file-dialog"]) {
+                AnswerFileDialog (ctx);
+                return;
+            }
+
             // GET /session/{id}/screenshot
             if (method == "GET" && segments is [_, _, "screenshot"]) {
                 Screenshot (ctx);
@@ -232,6 +241,40 @@ namespace Majorsilence.Forms.WebDriver
             }
 
             WriteValue (ctx, Wrap (Register (by, 0, matches[0].Element.AutomationId, matches[0].IdIndex)));
+        }
+
+        private void AnswerFileDialog (HttpListenerContext ctx)
+        {
+            var body = ReadJson (ctx);
+
+            if (body.ValueKind != JsonValueKind.Object) {
+                TryWriteError (ctx, 400, "invalid argument", "expected {\"open\": [paths]}, {\"save\": path} or {\"clear\": true}");
+                return;
+            }
+
+            if (body.TryGetProperty ("clear", out var clear) && clear.ValueKind == JsonValueKind.True)
+                FileDialogAnswers.Clear ();
+
+            if (body.TryGetProperty ("open", out var open)) {
+                if (open.ValueKind != JsonValueKind.Array || open.EnumerateArray ().Any (p => p.ValueKind != JsonValueKind.String)) {
+                    TryWriteError (ctx, 400, "invalid argument", "\"open\" must be an array of paths");
+                    return;
+                }
+                FileDialogAnswers.EnqueueOpen (open.EnumerateArray ().Select (p => p.GetString ()!).ToArray ());
+            }
+
+            if (body.TryGetProperty ("save", out var save)) {
+                if (save.ValueKind is not (JsonValueKind.String or JsonValueKind.Null)) {
+                    TryWriteError (ctx, 400, "invalid argument", "\"save\" must be a path or null");
+                    return;
+                }
+                FileDialogAnswers.EnqueueSave (save.ValueKind == JsonValueKind.Null ? null : save.GetString ());
+            }
+
+            WriteValue (ctx, new Dictionary<string, int> {
+                ["open"] = FileDialogAnswers.PendingOpen,
+                ["save"] = FileDialogAnswers.PendingSave,
+            });
         }
 
         private void SendKeys (HttpListenerContext ctx, ElementRef elem)

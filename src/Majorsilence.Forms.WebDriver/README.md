@@ -39,6 +39,12 @@ A click, send keys or clear that opens a modal dialog answers as soon as the dia
 client can go on to drive the dialog. The tree includes the contents of MDI child windows, and a click
 on a menu item inside a closed menu runs that item's command, as UI Automation's Invoke does.
 
+File dialogs are the operating system's picker on a desktop backend, outside the automation tree. Queue
+the answer before the click that opens one, with the vendor command
+`POST /session/{id}/majorsilence/file-dialog`: `{"open": ["/path/a.txt"]}` (an empty list cancels),
+`{"save": "/path/out.csv"}` (`null` cancels) or `{"clear": true}`. The next dialog takes the answer instead
+of showing the picker. In-process tests do the same through `Majorsilence.Forms.Automation.FileDialogAnswers`.
+
 The same automation tree also backs in-process UI tests, Windows screen readers via
 [`Majorsilence.Forms.WindowsUIAutomation`](https://www.nuget.org/packages/Majorsilence.Forms.WindowsUIAutomation),
 and AI agents through the repository's MCP server.
