@@ -56,7 +56,17 @@ namespace Majorsilence.Forms
         /// the constant 0, not a clamped index into a list it does not have (BND-31).</remarks>
         public virtual int Position {
             get => position;
-            set => SetPositionCore (value, forceCurrentChanged: false);
+            set {
+                // Upstream ends the current edit before moving (ChangeRecordState with endCurrentEdit): the
+                // bound controls' values are pulled into the row being left and its edit is committed.
+                // Moving without it left the values in the controls and the row's edit open, so a form
+                // that edits through bound boxes and then reads its table lost every edit.
+                var target = Count == 0 ? -1 : MathCompat.Clamp (value, 0, Count - 1);
+                if (target != position && position >= 0 && position < Count)
+                    EndCurrentEditBeforeMove ();
+
+                SetPositionCore (value, forceCurrentChanged: false);
+            }
         }
 
         // The one place position moves. Order is upstream's and it is observable: CurrentChanged (and
@@ -190,6 +200,24 @@ namespace Majorsilence.Forms
 
         /// <summary>Raised when the current item changes.</summary>
         public event EventHandler? CurrentChanged;
+
+        // The move's half of EndCurrentEdit: only bindings whose control was edited are pulled, as
+        // upstream's CurrencyManager.PullData does; an explicit EndCurrentEdit still writes them all.
+        private void EndCurrentEditBeforeMove ()
+        {
+            try {
+                foreach (Binding? binding in Bindings)
+                    if (binding is { IsModifiedSinceSync: true })
+                        binding.WriteValue ();
+
+                (Current as IEditableObject)?.EndEdit ();
+            } catch (Exception e) when (ReportDataError (e)) {
+                return;
+            }
+
+            if (list is ICancelAddNew cancellable && position >= 0)
+                cancellable.EndNew (position);
+        }
 
         /// <summary>
         /// Commits any pending edit: writes every registered binding back to the source, then completes
