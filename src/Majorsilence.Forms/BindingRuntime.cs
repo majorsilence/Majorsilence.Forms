@@ -23,6 +23,24 @@ namespace Majorsilence.Forms
         private IBindableComponent? bindable;
         private PropertyDescriptor? target_property;
         private EventInfo? target_changed_event;
+
+        // What the control held when this binding last pushed a value into it or wrote one out of it.
+        // A control that still holds it has not been edited since, and is not pulled when the manager
+        // moves to another item: upstream pulls only modified bindings there, so two controls bound to
+        // one member -- one typed into, one left alone -- do not overwrite the edit with the stale value.
+        private object? synced_value;
+        private bool synced;
+
+        internal bool IsModifiedSinceSync => !synced || target_property is null || bindable is null
+            || !Equals (target_property.GetValue (bindable), synced_value);
+
+        private void MarkSynced ()
+        {
+            if (target_property is null || bindable is null)
+                return;
+            synced_value = target_property.GetValue (bindable);
+            synced = true;
+        }
         private Delegate? target_changed_handler;
         private INotifyPropertyChanged? watched_source;
         private BindingManagerBase? watched_manager;
@@ -182,6 +200,7 @@ namespace Majorsilence.Forms
             }
 
             Assign (() => target_property.SetValue (bindable, coerced));
+            MarkSynced ();
             ReportCompletion (BindingCompleteContext.ControlUpdate, exception: null);
         }
 
@@ -274,6 +293,7 @@ namespace Majorsilence.Forms
                 return Fail (e);
             }
 
+            MarkSynced ();
             ReportCompletion (BindingCompleteContext.DataSourceUpdate, exception: null);
 
             return true;

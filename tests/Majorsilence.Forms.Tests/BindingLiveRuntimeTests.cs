@@ -230,6 +230,38 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void Moving_to_another_row_commits_the_edits_made_to_the_current_one ()
+        {
+            // A layout-style form: a grid picks the row, and text boxes bound to the same source edit it,
+            // one typed into and one filled by code (a looked-up name). Upstream's CurrencyManager ends the
+            // current edit before it moves -- pulling every bound control's value into the row and
+            // committing it. Here it moved without either, so the values never reached the table and a
+            // save read the rows as they were before the edit.
+            var table = new DataTable ();
+            table.Columns.Add ("Edits", typeof (string));
+            table.Rows.Add ("");
+            table.Rows.Add ("");
+
+            var source = new BindingSource { DataSource = table };
+            using var typed = Box ();
+            using var filled = Box ();
+            typed.DataBindings.Add ("Text", source, "Edits");
+            filled.DataBindings.Add ("Text", source, "Edits");
+
+            typed.Text = "100.00";
+            source.Position = 1;
+
+            Assert.Equal ("100.00", table.Rows[0]["Edits", DataRowVersion.Current]);
+            Assert.False (table.Rows[0].HasVersion (DataRowVersion.Proposed));
+
+            filled.Text = "Permit Holder";
+            source.Position = 0;
+
+            Assert.Equal ("Permit Holder", table.Rows[1]["Edits", DataRowVersion.Current]);
+            Assert.False (table.Rows[1].HasVersion (DataRowVersion.Proposed));
+        }
+
+        [Fact]
         public void The_target_property_name_is_case_insensitive ()   // BND-30
         {
             var person = new Person { Name = "Ada" };
