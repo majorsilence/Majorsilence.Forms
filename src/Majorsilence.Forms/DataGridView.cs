@@ -3612,6 +3612,15 @@ namespace Majorsilence.Forms
         // for the theme tokens and the type-level part styles, as always.
         internal virtual DataGridViewThemePalette? ThemePalette => null;
 
+        // The selection colours a grid falls back to when no theme palette applies. Upstream's grid marks a
+        // selected row with SystemColors.Highlight and HighlightText, which DefaultSelectionStyle carries,
+        // while a Telerik-compatible grid's own default theme marks one differently (see RadGridView) -- so
+        // which colour a bare grid uses belongs to the control rather than being a constant in the renderer.
+        // A theme palette outranks both, and so does a selection colour the application set for itself.
+        internal virtual SkiaSharp.SKColor SelectionBackgroundFallback => DefaultSelectionStyle.GetBackgroundColor ();
+
+        internal virtual SkiaSharp.SKColor? SelectionForegroundFallback => DefaultSelectionStyle.ForegroundColor;
+
         // A caption broken into lines the way upstream's word-breaking header text breaks it: between words
         // only, a word too wide for the line keeping a line to itself rather than being split. The layout splits
         // such a word mid-way, so a one-word caption a few pixels too wide ("EmpCode") read "EmpCod" over "e"
