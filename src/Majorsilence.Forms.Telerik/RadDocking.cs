@@ -234,8 +234,12 @@ namespace Majorsilence.Forms.Telerik
         //   document window  DockState.Hidden, Parent null, IsDisposed TRUE  -- hidden and disposed
         //
         // and each named window takes the state of the strip that names it: TabbedDocument from a
-        // DocumentTabStrip, Docked from a ToolTabStrip. An auto-hidden window is named by a ToolTabStrip AND
-        // by the auto-hide container, and the auto-hide pass below runs last, so it still ends AutoHide.
+        // DocumentTabStrip, Docked from a ToolTabStrip. That holds whatever state the window is in when the
+        // load starts. Measured on 2026.2.520, loading the same document into a dock whose twFilter was
+        // auto-hidden, and again into one where it was floating: both came back Docked and visible in a
+        // ToolTabStrip, because the saved tree puts twFilter in one. An auto-hidden window is named by a
+        // ToolTabStrip AND by the auto-hide container, and the auto-hide pass below runs last, so a window
+        // the layout really does hide still ends AutoHide.
         //
         // NOT read: the split tree. Telerik's document is a tree of nested RadSplitContainers, each with a
         // SizeInfo, and loading one restores the saved sizes (a strip forced to 377 wide came back at the
@@ -291,10 +295,14 @@ namespace Majorsilence.Forms.Telerik
 
                     // The strip the layout puts it in decides its state, as Telerik's deserialised tree does.
                     // Without this a document restored into the document strip kept whatever state it was
-                    // built with -- Docked, where Telerik gives TabbedDocument.
+                    // built with -- Docked, where Telerik gives TabbedDocument. A window that is floating or
+                    // auto-hidden right now takes it too: the saved tree holds it in a strip, so that is
+                    // where Telerik puts it back, and leaving those two states alone used to strand a panel
+                    // on its auto-hide tab for the rest of the session with no way back to the layout the
+                    // user saved.
                     var state = documents ? DockState.TabbedDocument : DockState.Docked;
 
-                    if (window.DockState != state && window.DockState is not (DockState.Floating or DockState.AutoHide))
+                    if (window.DockState != state)
                         window.DockState = state;
 
                     listed.Add (window);

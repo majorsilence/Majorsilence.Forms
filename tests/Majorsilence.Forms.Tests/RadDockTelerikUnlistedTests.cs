@@ -15,7 +15,8 @@ namespace Majorsilence.Forms.Tests
     // "Notes for Asset : 00003") and one auto-hidden tool window (twSide). Loading it back there gives:
     //
     //   a named window          the saved Text, tab order and the state of the strip that names it --
-    //                           TabbedDocument from a DocumentTabStrip, Docked from a ToolTabStrip
+    //                           TabbedDocument from a DocumentTabStrip, Docked from a ToolTabStrip,
+    //                           whatever state that window is in when the load starts
     //   an unnamed tool window  DockState.Hidden, Parent null, IsDisposed FALSE
     //   an unnamed document     DockState.Hidden, Parent null, IsDisposed TRUE
     //
@@ -148,6 +149,47 @@ namespace Majorsilence.Forms.Tests
             Assert.Equal (DockState.Docked, Window<ToolWindow> (dock, "twNotes").DockState);
             Assert.Equal (DockState.AutoHide, Window<ToolWindow> (dock, "twSide").DockState);
             Assert.False (Window<ToolWindow> (dock, "twSide").Visible);
+
+            form.Dispose ();
+        }
+
+        // The layout holds twFilter in a ToolTabStrip, so Telerik puts it back in one however it is
+        // sitting at the time. Measured on 2026.2.520: auto-hidden before the load, Docked and visible
+        // in a ToolTabStrip after it.
+        [Fact]
+        public void An_auto_hidden_window_the_layout_docks_comes_back_docked ()
+        {
+            var (form, dock) = Build ();
+            var filter = Window<ToolWindow> (dock, "twFilter");
+            dock.AutoHideWindow (filter);
+            Assert.Equal (DockState.AutoHide, filter.DockState);
+
+            Load (dock);
+
+            Assert.Equal (DockState.Docked, filter.DockState);
+            Assert.True (filter.Visible);
+            Assert.IsType<ToolTabStrip> (filter.Parent);
+
+            // And the window the layout really does hide is still hidden: the auto-hide pass runs last.
+            Assert.Equal (DockState.AutoHide, Window<ToolWindow> (dock, "twSide").DockState);
+
+            form.Dispose ();
+        }
+
+        // The same for the other state a window can be in when the load starts.
+        [Fact]
+        public void A_floating_window_the_layout_docks_comes_back_docked ()
+        {
+            var (form, dock) = Build ();
+            var filter = Window<ToolWindow> (dock, "twFilter");
+            dock.FloatWindow (filter);
+            Assert.Equal (DockState.Floating, filter.DockState);
+
+            Load (dock);
+
+            Assert.Equal (DockState.Docked, filter.DockState);
+            Assert.True (filter.Visible);
+            Assert.IsType<ToolTabStrip> (filter.Parent);
 
             form.Dispose ();
         }
