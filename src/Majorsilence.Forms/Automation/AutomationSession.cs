@@ -89,6 +89,18 @@ namespace Majorsilence.Forms.Automation
 
             Click (element);
 
+            // A grid cell is typed into through its editor, which only exists while the cell is being
+            // edited, and a keystroke over the cell (which opens it) is not a text event. Open the editor
+            // with its text selected, type over it, and commit, as typing a value and leaving the cell does.
+            if (element.Source is DataGridViewCell { DataGridView: { } grid }) {
+                if (!grid.IsCurrentCellInEditMode)
+                    grid.BeginEdit (true);
+                if (!string.IsNullOrEmpty (text))
+                    _window.HandleTextInput (text);
+                grid.EndEdit ();
+                return;
+            }
+
             if (!string.IsNullOrEmpty (text))
                 _window.HandleTextInput (text);
         }
@@ -105,6 +117,13 @@ namespace Majorsilence.Forms.Automation
 
             if (element.Source is TextBox tb)
                 tb.Text = string.Empty;
+            else if (element.Source is DataGridViewCell { DataGridView: { } grid }) {
+                if (!grid.IsCurrentCellInEditMode)
+                    grid.BeginEdit (true);
+                if (grid.EditingControl is TextBox editor)
+                    editor.Text = string.Empty;
+                grid.EndEdit ();
+            }
         }
 
         /// <summary>Gets the element's value if it has one, otherwise its accessible name.</summary>

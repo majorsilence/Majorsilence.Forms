@@ -850,6 +850,39 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
+        /// Renders the window's current scene offscreen and returns it as PNG bytes, at the window's
+        /// client size and its current <see cref="Scaling"/> (so a 2x display yields a 2x image).
+        /// </summary>
+        /// <remarks>
+        /// Works on every backend, not only Headless: the scene is drawn by this library into a Skia
+        /// surface on every host, so rendering it into a surface of our own is the same pipeline the
+        /// host's frame loop runs, without asking the host toolkit (or the OS) for its pixels. That is
+        /// also its limit: what the host draws itself is not in the image -- native title bar and
+        /// decorations, and natively hosted controls such as a web view. Call it on the UI thread.
+        /// </remarks>
+        public byte[] CapturePng ()
+        {
+            var scaling = Scaling > 0 ? Scaling : 1;
+            var client = Backend.ClientSize;
+            var physW = Math.Max (1, (int) Math.Round (client.Width * scaling));
+            var physH = Math.Max (1, (int) Math.Round (client.Height * scaling));
+
+            using (var surface = SkiaSharp.SKSurface.Create (new SkiaSharp.SKImageInfo (physW, physH, SkiaSharp.SKColorType.Bgra8888, SkiaSharp.SKAlphaType.Premul))) {
+                RenderFrame (surface.Canvas, physW, physH, scaling);
+
+                using var image = surface.Snapshot ();
+                using var data = image.Encode (SkiaSharp.SKEncodedImageFormat.Png, 100);
+
+                // Painting clears the controls' dirty flags, and a host frame loop that skips clean
+                // frames (Avalonia's does) would then never present a change that arrived just before
+                // the capture. Asking for a frame keeps the screen in step with what was captured.
+                Backend.Invalidate ();
+
+                return data.ToArray ();
+            }
+        }
+
+        /// <summary>
         /// Raised after any window draws a frame. The browser's accessibility DOM (AriaDomMirror) follows
         /// the UI by it: whatever a reader would notice changing also repaints.
         /// </summary>

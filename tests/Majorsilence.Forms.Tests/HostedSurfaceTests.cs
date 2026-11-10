@@ -17,7 +17,7 @@ public class HostedSurfaceTests
     // A minimal stand-in for a host toolkit's presenter (Avalonia/Uno). Geometry is fixed; everything
     // else is a no-op, mirroring what an embedding control provides over the IWindowBackend seam.
     // Also records native-overlay calls to verify the NativeControlHost airspace seam.
-    private sealed class FakeHostBackend : IWindowBackend, INativeControlHostBackend
+    internal sealed class FakeHostBackend : IWindowBackend, INativeControlHostBackend
     {
         public Size ClientSizeValue = new (200, 100);
 
@@ -83,8 +83,12 @@ public class HostedSurfaceTests
         public byte SampledLuma;
         private bool _rendering;
 
+        public int Invalidates;
+
         public void Invalidate ()
         {
+            Invalidates++;
+
             if (!SyncRenderOnInvalidate || RenderTarget is null || _rendering)
                 return;
 
@@ -396,5 +400,29 @@ public class HostedSurfaceTests
         // Showing it again has to bring it back into the paint pass.
         hidden.Visible = true;
         Assert.True (panel.NeedsPaint, "showing a hidden child must mark the tree for repaint");
+    }
+
+    [Fact]
+    public void CapturePng_renders_a_window_on_a_backend_other_than_Headless ()
+    {
+        var backend = new FakeHostBackend ();
+        using var surface = new HostedSurface (backend);
+        surface.Content = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb (255, 0, 0) };
+
+        // The gap this closes: the headless renderer refuses a window it does not host.
+        Assert.False (Majorsilence.Forms.Headless.HeadlessRenderer.IsHosted (surface));
+        Assert.Throws<InvalidOperationException> (() => Majorsilence.Forms.Headless.HeadlessRenderer.CapturePng (surface));
+
+        var before = backend.Invalidates;
+        var png = surface.CapturePng ();
+
+        using var bitmap = SKBitmap.Decode (png);
+        Assert.Equal (backend.ClientSize.Width, bitmap.Width);
+        Assert.Equal (backend.ClientSize.Height, bitmap.Height);
+        Assert.Equal (new SKColor (255, 0, 0), bitmap.GetPixel (100, 50));
+
+        // Painting for the capture clears the dirty flags a host frame loop checks, so it must ask the
+        // host for a frame, or the screen would miss a change made just before the screenshot.
+        Assert.True (backend.Invalidates > before);
     }
 }

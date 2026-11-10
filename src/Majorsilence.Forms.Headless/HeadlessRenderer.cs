@@ -191,6 +191,17 @@ namespace Majorsilence.Forms.Headless
         }
 
         /// <summary>
+        /// Whether the window was created on the Headless backend -- whether <see cref="CapturePng"/> and
+        /// the input injectors here can drive it. A window on any other backend can still be captured
+        /// with <see cref="WindowBase.CapturePng"/>.
+        /// </summary>
+        public static bool IsHosted (WindowBase window)
+        {
+            ArgumentNullException.ThrowIfNull (window);
+            return window.Backend is HeadlessWindowHost;
+        }
+
+        /// <summary>
         /// Whether the window currently owns a shown OS window — what <c>Form.TopLevel</c> decides.
         /// </summary>
         public static bool OwnsShownWindow (WindowBase window)
