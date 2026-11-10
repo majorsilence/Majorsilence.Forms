@@ -683,7 +683,8 @@ else, including on desktop backends: there is still no UI Automation bridge for 
 `pointer-events: none` -- input still belongs to the canvas -- so click at the element's bounding box
 (Playwright: `locator.boundingBox ()` then `page.mouse.click`) rather than with a DOM click.
 
-**Limits, today.** Grids and list views expose what the automation tree does, which is not their rows. A
+**Limits, today.** A grid's rows and cells are in the automation tree, but are mirrored here as generic
+elements carrying their names -- no `grid`/`row`/`gridcell` roles yet -- and list views' rows are not. A
 form hidden with `Hide` (rather than closed) leaves the mirror only at the next repaint. Arrow keys in an
 editable combo box are not announced (indistinguishable from typing). Popups hosting arbitrary controls
 (`Control.TopLevel`, a date picker's calendar) are mirrored as generic containers of whatever the

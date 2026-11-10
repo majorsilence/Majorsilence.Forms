@@ -58,9 +58,9 @@ curl -s "http://127.0.0.1:4444/session/$SID/source"
 
 ## Two things this sample will teach you the hard way
 
-- **Screenshots need the Headless backend.** This sample runs on Avalonia, so
-  `GET /session/{id}/screenshot` (and the MCP server's `ui_screenshot`) will tell you screenshots are
-  unavailable. That is the endpoint's boundary, not a bug: capture images from a headless test run.
+- **A screenshot is what this library paints, not what the OS shows.** This sample runs on Avalonia;
+  `GET /session/{id}/screenshot` (and the MCP server's `ui_screenshot`) renders the window's client area
+  offscreen, so the native title bar is not in it. Use an OS screenshot when you need the chrome.
 - **A list's items are nodes, but they have no `id`.** `logList`'s entries are in the tree as `listitem`
   nodes with their own bounds, so you can read the history and click a row — but locate them by name, text
   or XPath (`//*[@role='listitem']`), since an item has no `Name` of its own. Which row is selected is read

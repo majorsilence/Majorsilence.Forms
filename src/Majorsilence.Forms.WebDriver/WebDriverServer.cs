@@ -247,7 +247,9 @@ namespace Majorsilence.Forms.WebDriver
 
         private void Screenshot (HttpListenerContext ctx)
         {
-            var png = OnUi (() => HeadlessRenderer.CapturePng (_window));
+            // A Headless window keeps the renderer it has always used, so existing golden images do not
+            // move; any other backend renders the same scene offscreen through the window itself.
+            var png = OnUi (() => HeadlessRenderer.IsHosted (_window) ? HeadlessRenderer.CapturePng (_window) : _window.CapturePng ());
             WriteValue (ctx, Convert.ToBase64String (png));
         }
 

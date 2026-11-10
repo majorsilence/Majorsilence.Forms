@@ -228,13 +228,15 @@ public sealed class WebDriverClient : IDisposable
             }
             catch (WebDriverProtocolException ex) when (ex.Message.Contains("Headless", StringComparison.Ordinal))
             {
-                // The server renders screenshots through HeadlessRenderer, which refuses a window it does
-                // not host — so this is what every desktop app hits, and the raw message ("Window is not
-                // hosted on the Headless backend") reads like a bug rather than a boundary.
+                // An app built against a release before WindowBase.CapturePng renders screenshots only
+                // through HeadlessRenderer, which refuses a window it does not host — so every desktop app
+                // on such a release hits this, and the raw message ("Window is not hosted on the Headless
+                // backend") reads like a bug rather than a boundary.
                 throw new WebDriverProtocolException("screenshots unavailable",
-                    "This app is not running on the Headless backend, and the automation endpoint can only "
-                    + "render screenshots for windows the headless renderer hosts. Read the control tree "
-                    + "instead (ui_snapshot), or capture images from a headless test run.");
+                    "This app is not running on the Headless backend, and its version of the automation "
+                    + "endpoint can only render screenshots for windows the headless renderer hosts. Update "
+                    + "Majorsilence.Forms.WebDriver in the app, read the control tree instead (ui_snapshot), "
+                    + "or capture images from a headless test run.");
             }
         }, cancellationToken);
 

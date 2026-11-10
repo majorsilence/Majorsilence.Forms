@@ -79,6 +79,30 @@ index would shift under you as the list scrolls — so locate them by name, text
 `value` is its selected item; an item's own text stays its text. Only the items scrolled into view appear,
 because an item off screen has no rectangle to click.
 
+**Grids are the same.** A `DataGridView` — and so every grid built on it, `RadGridView` included — paints
+its rows, so they are nodes too: a `columnheader` per visible column, then a `row` per displayed row
+holding a `cell` per displayed cell.
+
+```xml
+<RadGridView id="results" name="results" role="radgridview" ... >
+  <GridViewDataColumn id="" name="Surname" role="columnheader" state-column="Surname" ... />
+  <DataGridViewRow id="" name="P7;Smith" role="row" value="P7;Smith" state-row="6" state-selected="true" ... >
+    <DataGridViewTextBoxCell id="" name="P7"    role="cell" value="P7"    state-row="6" state-column="Id" ... />
+    <DataGridViewTextBoxCell id="" name="Smith" role="cell" value="Smith" state-row="6" state-column="Surname" ... />
+  </DataGridViewRow>
+</RadGridView>
+```
+
+A cell is **named by the text it shows**, so `By.Name ("Smith")` finds it and a click on it selects that row,
+the way a user's would. A row's name and value are its cells' text joined with `;` (upstream's row value),
+including columns scrolled out of view, so one read answers what a row says. Where a node sits is state,
+not its name: `//*[@role='cell'][@state-column='Surname']`, `//*[@role='row'][@state-selected='true']`. A
+cell reports selected when it, its row or its column is, as upstream's does — so a full-row-select grid
+marks every cell of the selected row. As with a list, only what is scrolled into view is in the tree;
+scroll with `FirstDisplayedScrollingRowIndex` (or filter the grid) to bring a row in. Rows and cells
+carry no `id`, for the same reason items do not, and neither do column headers: column names repeat
+across grids, and a WebDriver reference re-resolves by id first.
+
 *Menu and toolbar items, list items, and the HiDPI hit-test fix behind clicking them landed after 26.0.30
 — on a pinned 26.0.30 you'll see the strip and the list but not their contents.*
 
@@ -760,11 +784,11 @@ End Using
 (role), get attribute, get rect, get enabled, **page source** (`GET …/source`, XML), screenshot (PNG, via
 the offscreen renderer), and `GET /status`.
 
-One asymmetry to know about: everything above works against a window on any backend, but **screenshots
-are Headless-only**. `GET …/screenshot` renders through `HeadlessRenderer`, which refuses a window it
-doesn't host — point it at a desktop app on the Avalonia backend and it answers `Window is not hosted on
-the Headless backend`. Read the tree instead, and take screenshots in the headless test run where
-[golden images](#visual-regression-with-golden-images) live anyway.
+Screenshots work against a window on any backend. A Headless window is captured by `HeadlessRenderer`
+as before; any other — a desktop app on Avalonia, say — by `WindowBase.CapturePng ()`, which renders the
+window's scene offscreen through the same Skia pipeline the host's frame loop runs. That is also what it
+leaves out: whatever the host toolkit draws itself — a native title bar, and natively hosted controls such
+as a web view — is not in the image. Use an OS screenshot when you need those.
 
 **Locator strategies:** `id`, `name`, `tag name` (role), `xpath`, `css selector` (`#id` and `[name='…']`
 forms), plus the custom `role`, `type`, and `link text`. Element references re-resolve against a fresh
@@ -1562,7 +1586,7 @@ The tools it exposes:
 | `ui_click` | `target`, `strategy` | confirmation, or why it was refused |
 | `ui_type` | `target`, `text`, `strategy`, `clear` | what the control reads afterwards |
 | `ui_wait_for` | `target`, `strategy`, `timeoutMs`, `requireEnabled` | readiness, or why the wait timed out |
-| `ui_screenshot` | — | a PNG of the window — [Headless-hosted windows only](#level-2--selenium-and-the-webdriver-server) |
+| `ui_screenshot` | — | a PNG of the window's client area — [native chrome and hosted native controls are not in it](#level-2--selenium-and-the-webdriver-server) |
 
 Three decisions in there worth copying if you build your own:
 
@@ -1776,8 +1800,9 @@ Other boundaries worth knowing before you design a suite around them:
 | Limit | Consequence |
 |---|---|
 | One window per WebDriver session | No frame or window switching; multi-window flows belong at level 1 |
-| Screenshots need the Headless backend | `GET …/screenshot` fails against a desktop-hosted window ([above](#level-2--selenium-and-the-webdriver-server)); capture in the headless run |
-| Tab headers and grid cells aren't in the tree | Menu, toolbar and list items are ([above](#one-tree-three-consumers)); tabs and `DataGridView` cells still need their own nodes |
+| Screenshots show only what this library paints | Native title bar and natively hosted controls (web view) are missing ([above](#level-2--selenium-and-the-webdriver-server)); use an OS screenshot for those |
+| Tab headers and tree nodes aren't in the tree | Menu, toolbar, list items and grid rows/cells are ([above](#one-tree-three-consumers)); tabs and tree nodes still need their own nodes |
+| Only displayed grid rows are in the tree | Scroll (`FirstDisplayedScrollingRowIndex`) or filter the grid to bring a row in; a row's `value` covers its off-screen columns |
 | No per-item selection state | Read the list's `value` for its selected item; an item cannot report "selected" on its own yet |
 | Hidden controls omitted from the tree | You can't assert on an invisible control's contents — assert visibility instead |
 | No JavaScript execution endpoint | Selenium APIs built on `execute/sync` (`ExecuteScript`, `GetAttribute`, JS-based waits) are unavailable; use `GetDomAttribute` and your own polling |
@@ -1805,14 +1830,15 @@ And the two habits that cause most of the pain:
 - Complete the UIA patterns: `Value`/`Toggle` write support, structure-changed events, and `TextBox`
   per-keystroke value events (raising `TextChanged` from the editor).
 - **AT-SPI (Linux)** and **NSAccessibility (macOS)** bridges over the same tree.
-- ✅ **Non-control items**: menu items, toolbar buttons and `ListBox` items are in the tree, with their own
-  bounds, and clickable.
+- ✅ **Non-control items**: menu items, toolbar buttons, `ListBox` items and `DataGridView`/`RadGridView`
+  rows, cells and column headers are in the tree, with their own bounds, and clickable.
+- ✅ **Screenshots from any backend** (`WindowBase.CapturePng`), not only Headless.
 - ✅ **Custom-painted controls can publish their own value and extra state** (`IAutomationStateProvider`) —
   see [above](#custom-painted-controls-publishing-your-own-value-and-state).
 - Expand roles and states (selection, expand/collapse, value ranges) — a `ListBox` item cannot yet report
   that it is selected on its own, which is why the list carries that; `IAutomationStateProvider`'s own
   `State` field is there for a built-in control to use for this too, not wired up for `ListBox` yet.
-- Surface the remaining painted items: tab headers, `DataGridView` cells, tree nodes.
+- Surface the remaining painted items: tab headers, tree nodes; a `RadGridView` group row has no group-specific role yet.
 - A higher-level `Majorsilence.Forms.Testing` ergonomics layer — fluent helpers and golden-image asserts,
   so the [wait helper](#waiting-without-threadsleep) and [golden-image plumbing](#visual-regression-with-golden-images) above stop being yours to own.
 

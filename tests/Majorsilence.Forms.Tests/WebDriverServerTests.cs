@@ -233,6 +233,35 @@ namespace Majorsilence.Forms.Tests
             server.Stop ();
         }
 
+        [Fact]
+        public void Screenshot_works_for_a_window_not_hosted_on_the_Headless_backend ()
+        {
+            // A desktop-hosted window (Avalonia and the rest) answered "Window is not hosted on the Headless
+            // backend"; a host other than Headless stands in for it here.
+            using var surface = new HostedSurface (new HostedSurfaceTests.FakeHostBackend ());
+            surface.Content = new Panel { Dock = DockStyle.Fill, BackColor = System.Drawing.Color.FromArgb (0, 0, 255) };
+
+            using var server = new WebDriverServer (surface, FreePort ());
+            server.Start ();
+            var baseUrl = server.Url.ToString ();
+
+            var base64 = RunPumped (async () => {
+                using var http = new HttpClient { BaseAddress = new Uri (baseUrl) };
+
+                var session = await PostJson (http, "session", "{}");
+                var sid = session.RootElement.GetProperty ("value").GetProperty ("sessionId").GetString ();
+
+                var shot = await GetJson (http, $"session/{sid}/screenshot");
+                return shot.RootElement.GetProperty ("value").GetString ();
+            });
+
+            using var bitmap = SkiaSharp.SKBitmap.Decode (Convert.FromBase64String (base64!));
+            Assert.Equal (200, bitmap.Width);
+            Assert.Equal (new SkiaSharp.SKColor (0, 0, 255), bitmap.GetPixel (100, 50));
+
+            server.Stop ();
+        }
+
         private static async Task<JsonDocument> PostJson (HttpClient http, string path, string body)
         {
             var resp = await http.PostAsync (path, new StringContent (body, Encoding.UTF8, "application/json"));

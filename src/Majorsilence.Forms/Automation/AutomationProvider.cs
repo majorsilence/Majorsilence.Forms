@@ -85,6 +85,12 @@ namespace Majorsilence.Forms.Automation
             if (c is ListBox list)
                 children.AddRange (BuildListItems (list, origin));
 
+            // A DataGridView paints its rows and cells too, so the walk stopped at the grid and an automated
+            // test could neither read a result set nor click a row in it. Every grid that derives from it
+            // (RadGridView among them) inherits these nodes.
+            if (c is DataGridView grid)
+                children.AddRange (BuildGridItems (grid, origin));
+
             // An MDI child's frame and a panel-hosted form paint a whole form inside them, but that form's
             // controls belong to the form, not to the frame's Controls, so the walk stopped at the frame and
             // nothing on a child window could be found or clicked. The form's tree hangs under the frame,
@@ -195,6 +201,137 @@ namespace Majorsilence.Forms.Automation
                         list.DeviceToLogicalUnits (device.Width),
                         list.DeviceToLogicalUnits (device.Height)),
                     children: System.Array.Empty<AutomationElement> ()));
+            }
+
+            return items;
+        }
+
+        // Column headers, then one row node per displayed row holding one cell node per displayed cell. As
+        // with a list, only what is scrolled into view is added -- a row off screen has no rectangle to click
+        // -- using the grid's own display rectangles, which are logical and already clipped to the grid, so a
+        // partly visible row or column is still present and its click point is on screen.
+        //
+        // Names follow what is on screen rather than upstream's UIA names ("Row 3", "Name Row 3"): a test
+        // looks for the text it can see, and By.Name ("Smith") should find the cell showing Smith. Where a
+        // cell sits is reported as state instead (state-row, state-column), which an xpath can still select on.
+        private static List<AutomationElement> BuildGridItems (DataGridView grid, Point origin)
+        {
+            var items = new List<AutomationElement> ();
+            var columns = grid.Columns;
+
+            if (columns.Count == 0)
+                return items;
+
+            Rectangle ToTree (Rectangle r) => new (origin.X + r.X, origin.Y + r.Y, r.Width, r.Height);
+
+            if (grid.ColumnHeadersVisible) {
+                for (var col = 0; col < columns.Count; col++) {
+                    var column = columns [col];
+                    if (!column.Visible)
+                        continue;
+
+                    var header = grid.GetCellDisplayRectangle (col, -1, cutOverflow: true);
+                    if (header.Width <= 0 || header.Height <= 0)
+                        continue;
+
+                    items.Add (new AutomationElement (
+                        source: column,
+                        // Not the column's Name: ids are meant to be unique in the window, and two grids (or a
+                        // grid and a control) commonly share column names like "colName". A WebDriver reference
+                        // re-resolves by id first, so a shared one would land on the other grid's column.
+                        automationId: string.Empty,
+                        name: column.HeaderText ?? string.Empty,
+                        role: "columnheader",
+                        controlType: column.GetType ().Name,
+                        value: null,
+                        state: new Dictionary<string, string> { ["column"] = column.Name ?? string.Empty },
+                        enabled: grid.Enabled,
+                        visible: true,
+                        focused: false,
+                        bounds: ToTree (header),
+                        children: System.Array.Empty<AutomationElement> ()));
+                }
+            }
+
+            var rows = grid.Rows;
+            var first = System.Math.Max (0, grid.FirstDisplayedScrollingRowIndex);
+            var end = System.Math.Min (rows.Count, first + grid.DisplayedRowCount (includePartialRow: true));
+
+            // DisplayedRowCount skips hidden rows without counting them, so the window has to be widened by
+            // the hidden ones met inside it, or a hidden row near the top hides the last displayed row too.
+            for (var index = first; index < end; index++) {
+                var row = rows [index];
+                if (!row.Visible) {
+                    end = System.Math.Min (rows.Count, end + 1);
+                    continue;
+                }
+
+                var cells = new List<AutomationElement> ();
+                var texts = new List<string> ();
+                var row_bounds = Rectangle.Empty;
+
+                for (var col = 0; col < columns.Count && col < row.Cells.Count; col++) {
+                    var column = columns [col];
+                    if (!column.Visible)
+                        continue;
+
+                    var cell = row.Cells [col];
+                    var text = cell.FormattedValue?.ToString () ?? string.Empty;
+                    texts.Add (text);
+
+                    var bounds = grid.GetCellDisplayRectangle (col, index, cutOverflow: true);
+                    if (bounds.Width <= 0 || bounds.Height <= 0)
+                        continue;
+
+                    row_bounds = row_bounds.IsEmpty ? bounds : Rectangle.Union (row_bounds, bounds);
+
+                    cells.Add (new AutomationElement (
+                        source: cell,
+                        automationId: string.Empty,
+                        name: text,
+                        role: "cell",
+                        controlType: cell.GetType ().Name,
+                        value: text,
+                        state: new Dictionary<string, string> {
+                            ["row"] = index.ToString (System.Globalization.CultureInfo.InvariantCulture),
+                            ["column"] = column.Name ?? string.Empty,
+                            // Upstream's cell is selected when it, its row or its column is
+                            // (DataGridViewCell.GetSelected), so a full-row-select grid -- RadGridView's
+                            // default -- reports every cell of the selected row, not none of them.
+                            ["selected"] = cell.Selected || row.Selected || column.Selected ? "true" : "false",
+                        },
+                        enabled: grid.Enabled,
+                        visible: true,
+                        focused: false,
+                        bounds: ToTree (bounds),
+                        children: System.Array.Empty<AutomationElement> ()));
+                }
+
+                // A row scrolled sideways out of every column still exists but has nothing to click.
+                if (row_bounds.IsEmpty)
+                    continue;
+
+                // The row's own value is every cell's text, ';'-separated as upstream's row accessible object
+                // reports it (DataGridViewRow.DataGridViewRowAccessibleObject.Value), so one read of a row
+                // answers "what does it say?" -- including columns scrolled out of view.
+                var joined = string.Join (";", texts);
+
+                items.Add (new AutomationElement (
+                    source: row,
+                    automationId: string.Empty,
+                    name: joined,
+                    role: "row",
+                    controlType: row.GetType ().Name,
+                    value: joined,
+                    state: new Dictionary<string, string> {
+                        ["row"] = index.ToString (System.Globalization.CultureInfo.InvariantCulture),
+                        ["selected"] = row.Selected ? "true" : "false",
+                    },
+                    enabled: grid.Enabled,
+                    visible: true,
+                    focused: false,
+                    bounds: ToTree (row_bounds),
+                    children: cells));
             }
 
             return items;

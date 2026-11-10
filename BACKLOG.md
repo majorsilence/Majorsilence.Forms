@@ -578,22 +578,17 @@ still exactly what the scoping entry above describes: qualify the variable as th
 `Control` too) remains unattempted and is still the honest answer for that specific case -- see the
 scoping entry's own remarks on its cost.
 
-## Wanted: screenshots from a desktop-hosted window
+## Done: screenshots from a desktop-hosted window
 
-**Status: a real gap, found while driving `samples/AutomationTarget` over the MCP server.** The WebDriver
-endpoint's `GET /session/{id}/screenshot` renders through `HeadlessRenderer`, which refuses a window it
-does not host, so it only works when the app under test runs on the Headless backend. Against a normal
-desktop app on Avalonia it fails with `Window is not hosted on the Headless backend` — every other
-command (tree, find, click, keys, rect, attributes) works there.
-
-That is the one asymmetry between headless and desktop automation, and it is the first thing anyone hits
-when they point an assistant at a running app: the tree is readable but the window is not viewable.
-Avalonia can render a control tree to a `RenderTargetBitmap`, so the backend seam could grow a
-`CaptureWindow` that the endpoint prefers when the host provides one, falling back to `HeadlessRenderer`.
-
-Documented as a boundary in `docs/automation.md` (level 2 and the limits table) and in the MCP tool's
-README until then. `tools/Majorsilence.Forms.Mcp` translates the raw message into an actionable one,
-because on its own it reads like a bug rather than a limit.
+**Status: closed.** The WebDriver endpoint's `GET /session/{id}/screenshot` rendered only through
+`HeadlessRenderer`, which refuses a window it does not host, so a desktop app on Avalonia answered `Window
+is not hosted on the Headless backend`. It now falls back to `WindowBase.CapturePng ()`, which renders the
+window's scene offscreen through `RenderFrame` -- the same pipeline every host's frame loop runs -- so it
+needs nothing from the host toolkit. Headless windows keep `HeadlessRenderer.CapturePng`, so golden images
+do not move. What it cannot show is what the host draws itself: the native title bar and natively hosted
+controls (a web view). If those are ever wanted, the backend seam would need a host capture
+(Avalonia's `RenderTargetBitmap`) that the endpoint prefers when present. The MCP client still translates
+the old message, for apps built against an earlier release.
 
 ## Reimplemented where the BCL is already cross-platform (found 2026-09-17)
 
