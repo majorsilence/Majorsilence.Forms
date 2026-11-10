@@ -323,6 +323,24 @@ public class FormLifecycleTests
     }
 
     [Fact]
+    public void A_dialog_that_closes_itself_in_Load_returns_Cancel ()
+    {
+        // A form that finds it has nothing to show -- missing setup, no data -- calls Close () from Load.
+        // Upstream's ShowDialog then returns Cancel. Here the close completed and cleared the dialog's task
+        // inside ShowDialogAsync, which then read the cleared field and threw NullReferenceException.
+        HeadlessRenderer.Use ();
+        using var owner = new Form { Size = new System.Drawing.Size (300, 200) };
+        owner.Show ();
+        using var dialog = new Form { Size = new System.Drawing.Size (200, 120) };
+        dialog.Load += (_, _) => dialog.Close ();
+
+        Assert.Equal (DialogResult.Cancel, RunModalWithTimeout (() => dialog.ShowDialog (owner)));
+        Assert.False (dialog.Modal);
+        Assert.True (owner.Enabled);
+        Assert.DoesNotContain (dialog, Application.ModalStack);
+    }
+
+    [Fact]
     public void A_modal_dialog_is_not_disposed_by_its_own_close ()
     {
         // The caller still has to read DialogResult, and may show it again.
