@@ -101,7 +101,7 @@ cell reports selected when it, its row or its column is, as upstream's does — 
 marks every cell of the selected row. As with a list, only what is scrolled into view is in the tree;
 scroll with `FirstDisplayedScrollingRowIndex` (or filter the grid) to bring a row in. Rows and cells
 carry no `id`, for the same reason items do not, and neither do column headers: column names repeat
-across grids, and a WebDriver reference re-resolves by id first.
+across grids, so `By.Id` would match every grid's column of that name — select on `state-column` instead.
 
 *Menu and toolbar items, list items, and the HiDPI hit-test fix behind clicking them landed after 26.0.30
 — on a pinned 26.0.30 you'll see the strip and the list but not their contents.*

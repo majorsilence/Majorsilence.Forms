@@ -236,9 +236,9 @@ namespace Majorsilence.Forms.Automation
 
                     items.Add (new AutomationElement (
                         source: column,
-                        // Not the column's Name: ids are meant to be unique in the window, and two grids (or a
-                        // grid and a control) commonly share column names like "colName". A WebDriver reference
-                        // re-resolves by id first, so a shared one would land on the other grid's column.
+                        // Not the column's Name: an id is how a test names one control, and two grids (or a
+                        // grid and a control) commonly share column names like "colName", so By.Id would match
+                        // every grid's column of that name. The name is still there, as state-column.
                         automationId: string.Empty,
                         name: column.HeaderText ?? string.Empty,
                         role: "columnheader",

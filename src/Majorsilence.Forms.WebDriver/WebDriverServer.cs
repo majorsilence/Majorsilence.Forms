@@ -206,9 +206,12 @@ namespace Majorsilence.Forms.WebDriver
                 body.TryGetProperty ("using", out var u) ? u.GetString () ?? string.Empty : string.Empty,
                 body.TryGetProperty ("value", out var v) ? v.GetString () ?? string.Empty : string.Empty);
 
-            IReadOnlyList<AutomationElement> matches;
+            List<(AutomationElement Element, int IdIndex)> matches;
             try {
-                matches = OnUi (() => Session ().FindAll (by));
+                matches = OnUi (() => {
+                    var root = Session ().Root;
+                    return by.Select (root).Select (m => (m, IdIndexOf (root, m))).ToList ();
+                });
             } catch (System.Xml.XPath.XPathException ex) {
                 // A malformed XPath selector is a client error, not a server fault.
                 TryWriteError (ctx, 400, "invalid selector", ex.Message);
@@ -218,7 +221,7 @@ namespace Majorsilence.Forms.WebDriver
             if (plural) {
                 var refs = new List<object> ();
                 for (var i = 0; i < matches.Count; i++)
-                    refs.Add (Wrap (Register (by, i, matches[i].AutomationId)));
+                    refs.Add (Wrap (Register (by, i, matches[i].Element.AutomationId, matches[i].IdIndex)));
                 WriteValue (ctx, refs);
                 return;
             }
@@ -228,7 +231,7 @@ namespace Majorsilence.Forms.WebDriver
                 return;
             }
 
-            WriteValue (ctx, Wrap (Register (by, 0, matches[0].AutomationId)));
+            WriteValue (ctx, Wrap (Register (by, 0, matches[0].Element.AutomationId, matches[0].IdIndex)));
         }
 
         private void SendKeys (HttpListenerContext ctx, ElementRef elem)
@@ -258,24 +261,33 @@ namespace Majorsilence.Forms.WebDriver
         // A reference is re-resolved on every use against a fresh snapshot. Prefer the stable
         // AutomationId (control Name); fall back to the original locator + index. Resolving by the
         // locator's accessible name would be fragile — e.g. a text box's name becomes its typed text.
-        private sealed record ElementRef (By By, int Index, string AutomationId);
+        // A Name is only unique among siblings: a user control used several times on a form repeats its
+        // children's Names, so the reference also keeps which of the elements with that Name it was.
+        private sealed record ElementRef (By By, int Index, string AutomationId, int IdIndex);
 
-        private string Register (By by, int index, string automationId)
+        private string Register (By by, int index, string automationId, int idIndex)
         {
             var id = "elem-" + Interlocked.Increment (ref _elementCounter);
-            _elements[id] = new ElementRef (by, index, automationId);
+            _elements[id] = new ElementRef (by, index, automationId, idIndex);
             return id;
         }
 
+        private static List<AutomationElement> WithId (AutomationElement root, string automationId) =>
+            root.Self ().Where (e => e.AutomationId == automationId).ToList ();
+
+        private static int IdIndexOf (AutomationElement root, AutomationElement element) =>
+            string.IsNullOrEmpty (element.AutomationId) ? -1 : WithId (root, element.AutomationId).IndexOf (element);
+
         private AutomationElement Resolve (ElementRef elem)
         {
-            if (!string.IsNullOrEmpty (elem.AutomationId)) {
-                var byId = Session ().Find (By.Id (elem.AutomationId));
-                if (byId != null)
-                    return byId;
+            var root = Session ().Root;
+            if (!string.IsNullOrEmpty (elem.AutomationId) && elem.IdIndex >= 0) {
+                var byId = WithId (root, elem.AutomationId);
+                if (elem.IdIndex < byId.Count)
+                    return byId[elem.IdIndex];
             }
 
-            var matches = Session ().FindAll (elem.By);
+            var matches = elem.By.Select (root).ToList ();
             if (elem.Index >= matches.Count)
                 throw new InvalidOperationException ($"stale element reference: {elem.By.Description}[{elem.Index}]");
             return matches[elem.Index];

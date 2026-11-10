@@ -262,6 +262,58 @@ namespace Majorsilence.Forms.Tests
             server.Stop ();
         }
 
+        // A user control used twice on a form repeats its children's Names: both of these text boxes are
+        // "amount". Each reference must keep pointing at the box it was found as, not at the first "amount".
+        [Fact]
+        public void Elements_that_share_a_Name_are_each_driven_where_they_were_found ()
+        {
+            using var form = new Form { UseSystemDecorations = true };
+            var costBox = new TextBox { Name = "amount", Left = 0, Top = 0, Width = 100, Height = 24 };
+            var quantityBox = new TextBox { Name = "amount", Left = 0, Top = 0, Width = 100, Height = 24 };
+            var cost = new Panel { Name = "cost", Left = 10, Top = 10, Width = 120, Height = 30 };
+            var quantity = new Panel { Name = "quantity", Left = 10, Top = 60, Width = 120, Height = 30 };
+            cost.Controls.Add (costBox);
+            quantity.Controls.Add (quantityBox);
+            form.Controls.Add (cost);
+            form.Controls.Add (quantity);
+            HeadlessRenderer.CapturePng (form, 300, 200);
+
+            using var server = new WebDriverServer (form, FreePort ());
+            server.Start ();
+            var baseUrl = server.Url.ToString ();
+
+            var (costText, rects) = RunPumped (async () => {
+                using var http = new HttpClient { BaseAddress = new Uri (baseUrl) };
+                var session = await PostJson (http, "session", "{}");
+                var sid = session.RootElement.GetProperty ("value").GetProperty ("sessionId").GetString ();
+
+                var find = await PostJson (http, $"session/{sid}/element",
+                    "{\"using\":\"xpath\",\"value\":\"//*[@id='cost']/TextBox\"}");
+                var costId = find.RootElement.GetProperty ("value").GetProperty (ElementKey).GetString ();
+                await PostJson (http, $"session/{sid}/element/{costId}/value", "{\"text\":\"25\"}");
+                var text = await GetJson (http, $"session/{sid}/element/{costId}/text");
+
+                var all = await PostJson (http, $"session/{sid}/elements", "{\"using\":\"id\",\"value\":\"amount\"}");
+                var tops = new System.Collections.Generic.List<int> ();
+                foreach (var e in all.RootElement.GetProperty ("value").EnumerateArray ()) {
+                    var eid = e.GetProperty (ElementKey).GetString ();
+                    if (tops.Count == 1)
+                        await PostJson (http, $"session/{sid}/element/{eid}/value", "{\"text\":\"3\"}");
+                    var rect = await GetJson (http, $"session/{sid}/element/{eid}/rect");
+                    tops.Add (rect.RootElement.GetProperty ("value").GetProperty ("y").GetInt32 ());
+                }
+                return (text.RootElement.GetProperty ("value").GetString (), tops);
+            });
+
+            Assert.Equal ("25", costBox.Text);
+            Assert.Equal ("25", costText);
+            Assert.Equal ("3", quantityBox.Text);
+            Assert.Equal (2, rects.Count);
+            Assert.True (rects[1] > rects[0], $"both references resolved to one box at y={rects[0]}");
+
+            server.Stop ();
+        }
+
         private static async Task<JsonDocument> PostJson (HttpClient http, string path, string body)
         {
             var resp = await http.PostAsync (path, new StringContent (body, Encoding.UTF8, "application/json"));
