@@ -927,6 +927,24 @@ Capabilities are ignored — the server always grants a session, so pass whateve
 
 ---
 
+### File dialogs
+
+On a desktop backend `OpenFileDialog` and `SaveFileDialog` show the operating system's picker, which no
+automation tree reaches. Queue the answer before the action that opens the dialog; the next dialog takes it
+instead of showing the picker, then runs as after a real pick (`FileOk`, `DefaultExt`, `FilterIndex`):
+
+```csharp
+FileDialogAnswers.EnqueueOpen ("/tmp/invoice.pdf");   // no paths = Cancel
+FileDialogAnswers.EnqueueSave ("/tmp/report");        // null = Cancel
+session.Click (session.FindOrThrow (By.Id ("btnAttach")));
+```
+
+Over WebDriver it is a vendor command:
+
+```bash
+curl -s -X POST $B/session/$SID/majorsilence/file-dialog -d '{"open": ["/tmp/invoice.pdf"]}'
+```
+
 ## Recording locators with an inspector
 
 Because the server exposes XML **page source** *and* an `xpath` strategy evaluated against exactly that
