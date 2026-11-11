@@ -236,14 +236,13 @@ jobs:
               src/Majorsilence.Forms.WinFormsShims.Compat/Majorsilence.Forms.WinFormsShims.Compat.csproj
           - os: macos-latest
             artifact: nuget-packages-macos
-            # android + ios together so the Essentials and Avalonia packages carry both rows; pinned like the ios job.
-            workload: android ios --version 10.0.401
-            # No 11.0.x here: workload set 10.0.401 is an SDK 10 band, and an SDK 11 would be the one
-            # resolving it. So Essentials and Avalonia carry no net11.0 row yet; net11.0 consumers
-            # resolve their net10.0 asset.
+            # android + ios together so the Essentials and Avalonia packages carry both rows. SDK 11's own
+            # workload set, pinned like release.yml's pack-macos (see the note there for why 11.0.100.1).
+            workload: android ios --version 11.0.100.1
             dotnet: |
               8.0.x
               10.0.x
+              11.0.x
             pack_args: -p:EnableAndroidTarget=true -p:EnableIOSTarget=true
             projects: >-
               src/Majorsilence.Forms.Essentials/Majorsilence.Forms.Essentials.csproj
