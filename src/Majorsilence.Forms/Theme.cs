@@ -39,6 +39,7 @@ namespace Majorsilence.Forms
         static Theme ()
         {
             CachingFontMapper.Install ();
+            CachingCharacterMatcher.Install ();
 
             SetBuiltInTheme (BuiltInTheme.Default);
         }
