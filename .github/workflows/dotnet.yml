@@ -40,6 +40,15 @@ jobs:
             10.0.x
             11.0.x
 
+      # windows-latest ships the android workload preinstalled for SDK 10, and that pack being on disk is
+      # what Directory.Build.props keys EnableMobileHeads on. So the solution build compiles
+      # Gallery.Android and Majorsilence.Forms.Avalonia's net10.0-android row. With SDK 11 installed
+      # above, the build runs on SDK 11, which has no android workload of its own and fails with
+      # NETSDK1147. Installing it here keeps that row compiled on Windows instead of switching it off.
+      - name: Install android workload (Windows)
+        if: runner.os == 'Windows'
+        run: dotnet workload install android
+
       # Builds the whole solution in Release on every OS — this is the cross-platform
       # compile gate (Release also turns on TreatWarningsAsErrors + doc generation).
       - name: Build
