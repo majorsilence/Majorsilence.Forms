@@ -24,7 +24,8 @@ namespace Majorsilence.Forms
     /// </list>
     /// <para>
     /// A 3 MB report's source in a <see cref="RichTextBox"/> never finished laying out. So, for long text only, the
-    /// buffers are sized once up front, and the text is cut into segments (each paragraph, and long unbroken stretches
+    /// buffers are sized once up front (by reflection, a HACK to delete on RichTextKit 0.6.171; see ShapingBuffers),
+    /// and the text is cut into segments (each paragraph, and long unbroken stretches
     /// at a space) that RichTextKit cannot shape together: a split then only ever shifts the rest of one segment.
     /// What keeps two segments out of one shaping call is a <see cref="Style.LetterSpacing"/> that differs by
     /// <see cref="LetterSpacingNudge"/> on alternate segments, the one style property RichTextKit compares there that
@@ -163,8 +164,21 @@ namespace Majorsilence.Forms
             }
         }
 
-        // RichTextKit's shaping buffers are private to TextBlock, of a type internal to it, so they are reached by name,
-        // as GdiTextLayout reaches the shaper. Either missing (another RichTextKit) leaves them to grow as they did.
+        // ============================================================================================================
+        // HACK: reflection into RichTextKit's private state. This is not wanted here and must not be copied elsewhere.
+        // ============================================================================================================
+        // It exists only because RichTextKit 0.4.167's Buffer<T> grows to exactly the length asked for, so without it
+        // every segment's shaping call copies all the glyphs before it (#683). The buffers are a private field of
+        // TextBlock, of a type internal to RichTextKit, so the only way to size them is by name.
+        //
+        // REMOVE IT, with PresizedTextBlock above, once Forms is on RichTextKit 0.6.171 or later, which grows its
+        // buffers geometrically (toptensoftware/RichTextKit#104). That needs SkiaSharp 4, which RichTextKit 0.5 and
+        // later require. The segmenting in TextBlockAppender is still needed until RichTextKit stops shaping a whole
+        // document as one run and splitting it at every line.
+        //
+        // If a RichTextKit upgrade moves the field, nothing breaks: each missing buffer is skipped and layout is only
+        // slow again. LongTextLayoutTests.RichTextKitsShapingBuffersCanBeSizedUpFront fails and says so, and that is
+        // the moment to delete this rather than chase the new name.
         private static class ShapingBuffers
         {
             private static readonly System.Reflection.FieldInfo? buffers =

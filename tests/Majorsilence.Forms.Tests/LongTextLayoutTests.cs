@@ -159,8 +159,9 @@ namespace Majorsilence.Forms.Tests
             // They are private to TextBlock and reached by name. If a RichTextKit upgrade moves them, layout still
             // works, but every segment's shaping call copies all the glyphs before it again: quadratic once more.
             Assert.True (TextBlockAppender.ShapingBuffersFound,
-                "RichTextKit's TextBlock._textShapingBuffers (a TextShaper.ResultBufferSet) or one of its buffers moved; " +
-                "update TextBlockAppender.ShapingBuffers to match the new RichTextKit.");
+                "RichTextKit's TextBlock._textShapingBuffers (a TextShaper.ResultBufferSet) or one of its buffers moved. " +
+                "On RichTextKit 0.6.171 or later, delete the reflection hack in TextBlockAppender (ShapingBuffers and " +
+                "PresizedTextBlock) and this test; only on an older one update the names.");
         }
 
         [Fact]
