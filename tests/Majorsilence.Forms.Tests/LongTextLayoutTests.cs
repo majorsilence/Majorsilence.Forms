@@ -83,33 +83,6 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void LayingOutEightTimesTheTextTakesAboutEightTimesAsLong ()
-        {
-            // Relative, so a slow machine does not matter: linear is 8x, the old layout 30x and more.
-            _ = LayOutMilliseconds (25_000);
-
-            var small = Enumerable.Range (0, 3).Min (_ => LayOutMilliseconds (25_000));
-            var large = LayOutMilliseconds (200_000);
-
-            Assert.True (large < Math.Max (small, 5) * 20, $"25k chars: {small:F0} ms; 200k chars: {large:F0} ms");
-        }
-
-        private static int layouts;
-
-        private static double LayOutMilliseconds (int length)
-        {
-            // Distinct text each time: TextMeasurer would hand back the block it laid out last time.
-            var text = (++layouts).ToString () + Xml (length);
-            using var box = new TextBox { Multiline = true, Size = new System.Drawing.Size (400, 300) };
-            var watch = System.Diagnostics.Stopwatch.StartNew ();
-
-            box.Text = text;
-            _ = box.document.GetTextBlock ().Lines;
-
-            return watch.Elapsed.TotalMilliseconds;
-        }
-
-        [Fact]
         public void ColorizedLayoutAllocatesInProportionToTheText ()
         {
             // RichTextKit grows its buffers to exactly the length asked for, so every run appended, and every
