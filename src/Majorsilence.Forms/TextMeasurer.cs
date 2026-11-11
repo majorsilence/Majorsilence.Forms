@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Drawing;
 using SkiaSharp;
 using Topten.RichTextKit;
@@ -76,7 +76,12 @@ namespace Majorsilence.Forms
         // not otherwise touched on a pure measuring path, so a caller that measured text before
         // anything read a theme value silently got RichTextKit's built-in mapper -- losing both the
         // typeface cache this exists for and PrivateFontCollection resolution.
-        static TextMeasurer () => CachingFontMapper.Install ();
+        // Its font fallback is installed alongside, for the same reason.
+        static TextMeasurer ()
+        {
+            CachingFontMapper.Install ();
+            CachingCharacterMatcher.Install ();
+        }
 
         // All parameters that uniquely determine a TextBlock's content and layout.
         private readonly record struct TextBlockKey (
@@ -121,12 +126,7 @@ namespace Majorsilence.Forms
             // paint, with that paint's edging and hinting, and reuses it for every later paint -- so a
             // block shared between an aliased and an antialiased draw of the same text rendered with
             // whichever came first (Graphics.TextRenderingHint, GFX-08).
-            // One vectorised scan instead of three Replace passes on every call, cache hits included.
-            if (maxLines == 1 && text.AsSpan ().IndexOfAny ('\n', '\r') >= 0) {
-                text = text.Replace ("\n\r", "»");
-                text = text.Replace ("\n", "»");
-                text = text.Replace ("\r", "»");
-            }
+            text = OneLine (text, maxLines);
 
             var key = new TextBlockKey (text, font, fontSize, maxSize.Width, maxSize.Height, alignment, (uint)color, maxLines ?? -1, ellipsis, mnemonicIndex, rasterisation, decoration, direction);
 
@@ -136,19 +136,45 @@ namespace Majorsilence.Forms
             return _blocks.Add (key, LayOut (text, font, fontSize, maxSize, alignment, color, maxLines, ellipsis, mnemonicIndex, decoration, direction));
         }
 
+        /// <summary>
+        /// Lays out a block as <see cref="CreateTextBlock"/> does, but leaves it out of the shared cache: for a caller
+        /// that keeps its own block, like a text box's document.
+        /// </summary>
+        /// <remarks>
+        /// The shared cache keeps up to a couple of thousand blocks. A text box's whole document went into it on every
+        /// edit, each a new key, so typing in a 400,000-character document kept 18 MB alive per keystroke (#683).
+        /// </remarks>
+        internal static TextBlock CreateUnsharedTextBlock (string text, SKTypeface font, int fontSize, Size maxSize, TextAlignment alignment, SKColor color, int? maxLines)
+            => LayOut (OneLine (text, maxLines), font, fontSize, maxSize, alignment, color, maxLines, ellipsis: false, mnemonicIndex: -1);
+
+        // A single line shows its line ends as a visible mark. One vectorised scan instead of three Replace passes on
+        // every call, cache hits included.
+        private static string OneLine (string text, int? maxLines)
+        {
+            if (maxLines == 1 && text.AsSpan ().IndexOfAny ('\n', '\r') >= 0) {
+                text = text.Replace ("\n\r", "»");
+                text = text.Replace ("\n", "»");
+                text = text.Replace ("\r", "»");
+            }
+
+            return text;
+        }
+
         private static TextBlock LayOut (string text, SKTypeface font, int fontSize, Size maxSize, TextAlignment alignment, SKColor color, int? maxLines, bool ellipsis, int mnemonicIndex, int decoration = 0, TextDirection direction = TextDirection.Auto)
         {
             // In a ported app the text is laid out on GDI's pixel grid, as upstream's TextRenderer lays it out.
             using var gdi = GdiTextLayout.Enter (fontSize);
 
-            var tb = new TextBlock {
-                MaxWidth = maxLines.GetValueOrDefault () == 1 ? (float?)null : maxSize.Width,
-                MaxHeight = maxSize.Height == int.MaxValue ? (int?)null : maxSize.Height,
-                Alignment = alignment,
-                MaxLines = maxLines,
-                EllipsisEnabled = ellipsis,
-                BaseDirection = direction,
-            };
+            var tb = TextBlockAppender.CreateBlock (text.Length);
+            tb.MaxWidth = maxLines.GetValueOrDefault () == 1 ? (float?)null : maxSize.Width;
+            tb.MaxHeight = maxSize.Height == int.MaxValue ? (int?)null : maxSize.Height;
+            tb.Alignment = alignment;
+            tb.MaxLines = maxLines;
+            tb.EllipsisEnabled = ellipsis;
+            tb.BaseDirection = direction;
+
+            // Long text (a TextBox's whole document) is cut into runs RichTextKit lays out in linear time (#683).
+            var appender = new TextBlockAppender (tb, text);
 
             // The typeface's slant has to travel with its weight: RichTextKit re-resolves the face
             // from the style's family name, weight and FontItalic, so without it every italic font
@@ -184,16 +210,16 @@ namespace Majorsilence.Forms
                 };
 
                 if (mnemonicIndex > 0)
-                    AddTextWithEmojiPresentation (tb, text.AsSpan (0, mnemonicIndex), styleNormal);
+                    AddTextWithEmojiPresentation (ref appender, text.AsSpan (0, mnemonicIndex), styleNormal);
 
                 // The mnemonic character itself is never an emoji base character in practice (an access key is
                 // a plain letter or digit), so it is added as-is, exactly as before.
-                tb.AddText (text.AsSpan (mnemonicIndex, 1), styleMnemonic);
+                appender.Add (text.AsSpan (mnemonicIndex, 1), styleMnemonic);
 
                 if (mnemonicIndex + 1 < text.Length)
-                    AddTextWithEmojiPresentation (tb, text.AsSpan (mnemonicIndex + 1), styleNormal);
+                    AddTextWithEmojiPresentation (ref appender, text.AsSpan (mnemonicIndex + 1), styleNormal);
             } else {
-                AddTextWithEmojiPresentation (tb, text, styleNormal);
+                AddTextWithEmojiPresentation (ref appender, text.AsSpan (), styleNormal);
             }
 
             // Above, for a single line, we did not limit the width, and we need to fix it here
@@ -248,7 +274,7 @@ namespace Majorsilence.Forms
         // one level up, at the run-building step this project owns. Found and evidenced on
         // majorsilence/alert-buddy's tracker (#271/#281): the warning sign drew as a monochrome outline
         // rather than the coloured triangle. Filed as #271 in this tracker as well.
-        private static void AddTextWithEmojiPresentation (TextBlock tb, ReadOnlySpan<char> text, Style style)
+        private static void AddTextWithEmojiPresentation (ref TextBlockAppender tb, ReadOnlySpan<char> text, Style style)
         {
             var runStart = 0;
             var i = 0;
@@ -267,9 +293,9 @@ namespace Majorsilence.Forms
                     // run, same as if it had not been recognised at all, rather than force a pointless split.
                     if (emojiFamily is not null) {
                         if (i > runStart)
-                            tb.AddText (text.Slice (runStart, i - runStart), style);
+                            tb.Add (text.Slice (runStart, i - runStart), style);
 
-                        tb.AddText (text.Slice (i, length + 1), new Style {
+                        tb.Add (text.Slice (i, length + 1), new Style {
                             FontFamily = emojiFamily,
                             FontSize = style.FontSize,
                             TextColor = style.TextColor,
@@ -288,9 +314,9 @@ namespace Majorsilence.Forms
             }
 
             if (runStart == 0)
-                tb.AddText (text, style); // No selector sequence found: exactly the unmodified original call.
+                tb.Add (text, style); // No selector sequence found: exactly the unmodified original call.
             else if (runStart < text.Length)
-                tb.AddText (text.Slice (runStart), style);
+                tb.Add (text.Slice (runStart), style);
         }
 
         /// <summary>

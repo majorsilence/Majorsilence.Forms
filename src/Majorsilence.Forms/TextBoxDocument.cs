@@ -415,7 +415,7 @@ namespace Majorsilence.Forms
 
             var block = textbox.Colorizer is { } colorizer && DisplayText.HasValue ()
                 ? BuildColorizedTextBlock (colorizer, max_size, color)
-                : TextMeasurer.CreateTextBlock (DisplayText, typeface, font_size, max_size, alignment, color, MaxLines);
+                : TextMeasurer.CreateUnsharedTextBlock (DisplayText, typeface, font_size, max_size, alignment, color, MaxLines);
 
             cached_text_block_font_size = font_size;
             cached_text_block_font = typeface;
@@ -431,12 +431,15 @@ namespace Majorsilence.Forms
         private TextBlock BuildColorizedTextBlock (System.Func<string, System.Collections.Generic.IEnumerable<TextSpanStyle>> colorizer, Size max_size, SKColor defaultColor)
         {
             var text = DisplayText;
-            var tb = new TextBlock {
-                MaxWidth = max_size.Width,
-                MaxHeight = max_size.Height == int.MaxValue ? (int?)null : max_size.Height,
-                Alignment = alignment,
-                MaxLines = MaxLines,
-            };
+            var tb = TextBlockAppender.CreateBlock (text.Length);
+            tb.MaxWidth = max_size.Width;
+            tb.MaxHeight = max_size.Height == int.MaxValue ? (int?)null : max_size.Height;
+            tb.Alignment = alignment;
+            tb.MaxLines = MaxLines;
+
+            // A colorized document is thousands of runs, which RichTextKit lays out in quadratic time unless they
+            // are appended through this (#683).
+            var appender = new TextBlockAppender (tb, text);
 
             var defaultStyle = new Style { FontFamily = font.FamilyName, FontSize = textbox.CurrentFontSize, TextColor = defaultColor, FontWeight = font.FontWeight, LetterSpacing = TextMeasurer.GdiBoldSpacing (font, textbox.CurrentFontSize) };
             var next = 0;
@@ -446,7 +449,7 @@ namespace Majorsilence.Forms
                     continue;
 
                 if (span.Start > next)
-                    tb.AddText (text.AsSpan (next, span.Start - next), defaultStyle);
+                    appender.Add (text.AsSpan (next, span.Start - next), defaultStyle);
 
                 var spanStyle = new Style {
                     FontFamily = font.FamilyName,
@@ -464,12 +467,12 @@ namespace Majorsilence.Forms
                                 : span.CharOffset < 0 ? FontVariant.SubScript
                                 : FontVariant.Normal,
                 };
-                tb.AddText (text.AsSpan (span.Start, span.Length), spanStyle);
+                appender.Add (text.AsSpan (span.Start, span.Length), spanStyle);
                 next = span.Start + span.Length;
             }
 
             if (next < text.Length)
-                tb.AddText (text.AsSpan (next), defaultStyle);
+                appender.Add (text.AsSpan (next), defaultStyle);
 
             return tb;
         }
