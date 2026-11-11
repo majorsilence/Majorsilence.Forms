@@ -938,11 +938,16 @@ namespace Majorsilence.Forms
         /// </remarks>
         internal void SyncAdapterBounds ()
         {
-            // A form hosted inside another window (MDI child, panel host) draws through its host's
-            // RenderFrame at whatever size the host allots it, which is not this window's client size --
-            // there the hosting paint pass is the authority and this stands aside.
-            if (IsFrameHosted)
+            // A form hosted inside another window (MDI child, panel host) is drawn at whatever size its host
+            // allots it, which is not this window's client size. It used to stand aside here and leave the
+            // host's paint pass to size it, so a hosted form laid out only when painted: an MDI child kept
+            // the layout it was shown with through maximize, a parent resize and a ClientSize assignment
+            // (issue #682), its ClientSize reporting the new size and its Dock = Fill controls the old.
+            if (IsFrameHosted) {
+                if (HostedContentSize is { } hosted)
+                    SyncAdapterBounds (hosted.Width, hosted.Height);
                 return;
+            }
 
             SyncAdapterBounds (Backend.ClientSize.Width, Backend.ClientSize.Height);
         }
@@ -974,6 +979,10 @@ namespace Majorsilence.Forms
         // Whether this window's content is drawn inside another window rather than into a surface of its
         // own. Overridden by Form, which can be an MDI child or panel-hosted.
         internal virtual bool IsFrameHosted => false;
+
+        // The logical size the host of a frame-hosted window gives its content, or null when there is none
+        // to lay out against (not hosted, or minimized to a caption). Overridden by Form.
+        internal virtual System.Drawing.Size? HostedContentSize => null;
 
         // Where a point in this window's client area is on the desktop, when the window is drawn inside another
         // window and so has no on-screen window of its own; false for a window that has one. Overridden by Form.
@@ -1022,11 +1031,20 @@ namespace Majorsilence.Forms
             });
 
         /// <summary>Gets the unscaled bounds of the form not including borders.</summary>
-        public System.Drawing.Rectangle DisplayRectangle => new System.Drawing.Rectangle (
-            CurrentStyle.Border.Left.GetWidth (),
-            CurrentStyle.Border.Top.GetWidth (),
-            Backend.ClientSize.Width - CurrentStyle.Border.Right.GetWidth () - CurrentStyle.Border.Left.GetWidth (),
-            Backend.ClientSize.Height - CurrentStyle.Border.Top.GetWidth () - CurrentStyle.Border.Bottom.GetWidth ());
+        public System.Drawing.Rectangle DisplayRectangle {
+            get {
+                // A hosted window's backend is never shown, and its client size is the one it had when it was
+                // hosted; the area it is laid out in is the root adapter's, which its host sizes (#682).
+                var size = IsFrameHosted ? adapter.Size : Backend.ClientSize;
+                var border = CurrentStyle.Border;
+
+                return new System.Drawing.Rectangle (
+                    border.Left.GetWidth (),
+                    border.Top.GetWidth (),
+                    size.Width - border.Right.GetWidth () - border.Left.GetWidth (),
+                    size.Height - border.Top.GetWidth () - border.Bottom.GetWidth ());
+            }
+        }
 
         /// <summary>
         /// Gets the client area of the window, as WinForms' <c>Control.ClientRectangle</c> does: the size

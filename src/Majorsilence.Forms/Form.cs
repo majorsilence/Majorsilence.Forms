@@ -39,6 +39,15 @@ namespace Majorsilence.Forms
         // True while this form is drawn inside another control tree rather than its own OS window.
         internal override bool IsFrameHosted => MdiHost != null || PanelHost != null;
 
+        // A minimized MDI child is only its caption, and its content is not drawn: it keeps the layout it
+        // had, as the host's paint pass (which skips it) always left it, rather than collapsing every
+        // docked control to zero height and back on restore.
+        internal override System.Drawing.Size? HostedContentSize => MdiHost switch {
+            { WindowState: FormWindowState.Minimized } => null,
+            { } frame => frame.ContentSize,
+            _ => PanelHost?.Size,
+        };
+
         /// <summary>
         /// Initializes a new instance of the Form class.
         /// </summary>
@@ -2245,7 +2254,14 @@ namespace Majorsilence.Forms
         private EventHandler? mdi_child_activate;
 
         /// <summary>Lets a child react to its MDI frame being resized (re-lays out its client area).</summary>
-        internal void RaiseMdiResize () => OnClientLayoutChanged ();
+        internal void RaiseMdiResize ()
+        {
+            // The frame's size can stay put while the content inside it changes -- maximizing under a menu
+            // bar merges the caption away -- so the layout area is brought up to date here as well as on
+            // the frame's resize.
+            SyncAdapterBounds ();
+            OnClientLayoutChanged ();
+        }
 
         // The designer-set client size, used to size a child's frame when it's first hosted. We read
         // Backend.Size (the size set via the Size setter) rather than Backend.ClientSize: a hosted child

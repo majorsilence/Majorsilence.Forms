@@ -77,6 +77,10 @@ namespace Majorsilence.Forms
         protected override void OnResize (EventArgs e)
         {
             base.OnResize (e);
+
+            // The hosted form lays out against its new size now, not at the next paint: code that resizes
+            // and then reads a docked control's size (and headless code, which never paints) saw the old one.
+            ChildForm.SyncAdapterBounds ();
             Invalidate ();
         }
 
