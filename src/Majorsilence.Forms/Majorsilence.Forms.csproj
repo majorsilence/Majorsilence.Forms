@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFrameworks>net8.0;net10.0;netstandard2.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(EnableNet11Target)' == 'true'">$(TargetFrameworks);net11.0</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- Trimming/NativeAOT concepts don't apply to the netstandard2.0 consumers (.NET Framework 4.7.2+,
          Mono, older Unity). On the .NET TFMs IsAotCompatible turns on the trim + AOT + single-file

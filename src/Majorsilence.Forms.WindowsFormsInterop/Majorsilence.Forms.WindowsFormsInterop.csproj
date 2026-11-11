@@ -11,6 +11,7 @@
 
   <PropertyGroup Condition="'$(_IsWindowsBuild)' == 'true'">
     <TargetFrameworks>net8.0-windows;net10.0-windows</TargetFrameworks>
+    <TargetFrameworks Condition="'$(EnableNet11Target)' == 'true'">$(TargetFrameworks);net11.0-windows</TargetFrameworks>
     <UseWindowsForms>true</UseWindowsForms>
     <PackageId>Majorsilence.Forms.WindowsFormsInterop</PackageId>
     <Description>Windows-only bridge to host legacy System.Windows.Forms forms from a Majorsilence.Forms app, and the reverse — so a WinForms application can be migrated cross-platform one screen at a time instead of all at once.</Description>

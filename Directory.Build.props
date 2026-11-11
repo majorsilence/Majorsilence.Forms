@@ -104,4 +104,24 @@
         ('$(EnableMobileHeads)' == 'true' and $([MSBuild]::IsOSPlatform('OSX'))))">true</EnableIOSHead>
     <EnableIOSHead Condition="'$(EnableIOSHead)' == ''">false</EnableIOSHead>
   </PropertyGroup>
+
+  <!--
+    EnableNet11Target adds the net11.0 (and net11.0-windows) row to every multi-targeted library.
+    A net11.0 TFM fails with NETSDK1045 on an older SDK, so the row switches on only when the SDK doing
+    the build is 11 or newer. Contributors with only the .NET 10 SDK still build the whole solution;
+    CI installs 11.0.x, so every CI build and every pack carries the row.
+
+    $(NETCoreSdkVersion) is not set yet this early in evaluation (the SDK imports BundledVersions.props
+    after Directory.Build.props). $(MSBuildToolsPath) is, and under the dotnet CLI it is the
+    dotnet/sdk/<version> folder, so its name is the SDK version. Under Visual Studio's own MSBuild it is
+    ...\MSBuild\Current\Bin, the match comes back empty and the row stays off. Pass
+    -p:EnableNet11Target=true there, or -p:EnableNet11Target=false to drop the row on an 11 SDK.
+
+    Runtime async for those rows is switched on in Directory.Build.targets.
+  -->
+  <PropertyGroup>
+    <_SdkMajorVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.Path]::GetFileName('$(MSBuildToolsPath)')), '^\d+').Value)</_SdkMajorVersion>
+    <EnableNet11Target Condition="'$(EnableNet11Target)' == '' and '$(_SdkMajorVersion)' != '' and $(_SdkMajorVersion) &gt;= 11">true</EnableNet11Target>
+    <EnableNet11Target Condition="'$(EnableNet11Target)' == ''">false</EnableNet11Target>
+  </PropertyGroup>
 </Project>

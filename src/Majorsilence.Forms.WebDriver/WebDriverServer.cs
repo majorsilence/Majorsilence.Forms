@@ -475,9 +475,11 @@ namespace Majorsilence.Forms.WebDriver
         {
             using var reader = new StreamReader (ctx.Request.InputStream, Encoding.UTF8);
             var raw = reader.ReadToEnd ();
-            if (string.IsNullOrWhiteSpace (raw))
-                return JsonDocument.Parse ("{}").RootElement;
-            return JsonDocument.Parse (raw).RootElement;
+            // Clone and dispose rather than handing out RootElement: an undisposed JsonDocument never
+            // returns its pooled buffer (CA2026). JsonElement.Parse does this in one call, but it is
+            // .NET 10+ only and this assembly still targets net8.0.
+            using var doc = JsonDocument.Parse (string.IsNullOrWhiteSpace (raw) ? "{}" : raw);
+            return doc.RootElement.Clone ();
         }
 
         private static void WriteValue (HttpListenerContext ctx, object? value) =>

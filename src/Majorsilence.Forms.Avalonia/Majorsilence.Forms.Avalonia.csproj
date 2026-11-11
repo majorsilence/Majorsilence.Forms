@@ -5,6 +5,7 @@
          flavor of the backend, selected automatically when a browser-wasm head project (samples/Gallery.Wasm)
          references this project. Desktop consumers keep resolving net8.0/net10.0 as before. -->
     <TargetFrameworks>net8.0;net10.0;net10.0-browser</TargetFrameworks>
+    <TargetFrameworks Condition="'$(EnableNet11Target)' == 'true'">$(TargetFrameworks);net11.0</TargetFrameworks>
     <!-- net10.0-android is likewise an extra row, but opt-in rather than unconditional like the browser
          row above: unlike wasm-tools (only needed for `dotnet publish`), the `android` workload's
          reference assemblies (Activity/Bundle/etc.) are required just to *compile* against net10.0-android,

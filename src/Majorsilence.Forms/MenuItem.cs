@@ -181,7 +181,7 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Gets a value indicating if this menu item has any child items.
         /// </summary>
-        public bool HasItems => items?.Any () == true;
+        public bool HasItems => items?.Count > 0;
 
         /// <summary>
         /// Closes the menu item's drop down.

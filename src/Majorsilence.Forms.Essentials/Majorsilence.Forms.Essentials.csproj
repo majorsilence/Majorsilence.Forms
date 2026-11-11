@@ -6,6 +6,7 @@
          Majorsilence.Forms.Avalonia's own rows are: compiling against those TFMs needs their workload's reference assemblies
          installed, which not every contributor or CI leg has. -->
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(EnableNet11Target)' == 'true'">$(TargetFrameworks);net11.0</TargetFrameworks>
     <TargetFrameworks Condition="'$(EnableAndroidHead)' == 'true'">$(TargetFrameworks);net10.0-android</TargetFrameworks>
     <TargetFrameworks Condition="'$(EnableIOSHead)' == 'true'">$(TargetFrameworks);net10.0-ios</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

@@ -38,6 +38,7 @@ jobs:
           dotnet-version: |
             8.0.x
             10.0.x
+            11.0.x
 
       # Builds the whole solution in Release on every OS — this is the cross-platform
       # compile gate (Release also turns on TreatWarningsAsErrors + doc generation).
@@ -156,6 +157,20 @@ jobs:
           --filter "FullyQualifiedName!~Migrator"
           -- xunit.parallelizeTestCollections=false
 
+      # The runs above test the net10.0 build. The net11.0 rows are compiled with runtime async (see
+      # Directory.Build.targets), which changes the IL emitted for every await: no state machine,
+      # different stack traces, different continuation behaviour. Only running the suite on net11.0
+      # exercises that code. -p:_TargetFramework moves just the test project; the libraries it
+      # references resolve their own net11.0 row. It builds on its own because the earlier build
+      # produced no net11.0 test output. Linux only: what this gates is the compiler/runtime change,
+      # and the chrome and scale shapes above already cover the platform differences.
+      - name: Test (Linux, net11.0 runtime async)
+        if: ${{ !cancelled() && runner.os == 'Linux' }}
+        run: >-
+          dotnet test tests/Majorsilence.Forms.Tests/Majorsilence.Forms.Tests.csproj
+          --configuration Release -p:_TargetFramework=net11.0
+          --filter "FullyQualifiedName!~Migrator"
+
       # API gap gate. Compares both reimplemented surfaces -- Majorsilence.Forms.Drawing against
       # System.Drawing.Common, and Majorsilence.Forms against System.Windows.Forms -- and fails if
       # either gap set grew since its committed baseline. Reflection-only, so it runs anywhere despite
@@ -190,6 +205,10 @@ jobs:
           - os: ubuntu-latest
             artifact: nuget-packages
             workload: android
+            dotnet: |
+              8.0.x
+              10.0.x
+              11.0.x
             projects: >-
               src/Majorsilence.Forms/Majorsilence.Forms.csproj
               src/Majorsilence.Forms.Theming.Avalonia/Majorsilence.Forms.Theming.Avalonia.csproj
@@ -210,6 +229,12 @@ jobs:
             artifact: nuget-packages-macos
             # android + ios together so the Essentials and Avalonia packages carry both rows; pinned like the ios job.
             workload: android ios --version 10.0.401
+            # No 11.0.x here: workload set 10.0.401 is an SDK 10 band, and an SDK 11 would be the one
+            # resolving it. So Essentials and Avalonia carry no net11.0 row yet; net11.0 consumers
+            # resolve their net10.0 asset.
+            dotnet: |
+              8.0.x
+              10.0.x
             pack_args: -p:EnableAndroidTarget=true -p:EnableIOSTarget=true
             projects: >-
               src/Majorsilence.Forms.Essentials/Majorsilence.Forms.Essentials.csproj
@@ -217,6 +242,10 @@ jobs:
           - os: windows-latest
             artifact: nuget-packages-windows
             workload: ''
+            dotnet: |
+              8.0.x
+              10.0.x
+              11.0.x
             projects: >-
               src/Majorsilence.Forms.WinForms/Majorsilence.Forms.WinForms.csproj
               src/Majorsilence.Forms.WindowsFormsInterop/Majorsilence.Forms.WindowsFormsInterop.csproj
@@ -236,9 +265,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: |
-            8.0.x
-            10.0.x
+          dotnet-version: ${{ matrix.dotnet }}
 
       - name: Install workload
         if: matrix.workload != ''

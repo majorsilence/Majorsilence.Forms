@@ -19,6 +19,7 @@
   <PropertyGroup>
     <_IsWindowsBuild Condition="'$(OS)' == 'Windows_NT'">true</_IsWindowsBuild>
     <TargetFrameworks Condition="'$(_IsWindowsBuild)' == 'true'">net48;net8.0-windows;net10.0-windows</TargetFrameworks>
+    <TargetFrameworks Condition="'$(_IsWindowsBuild)' == 'true' and '$(EnableNet11Target)' == 'true'">$(TargetFrameworks);net11.0-windows</TargetFrameworks>
     <!-- Off Windows: net48 builds for real (reference assemblies); net8.0 stays an empty placeholder
          so a modern-.NET off-Windows consumer still resolves *something*. -->
     <TargetFrameworks Condition="'$(_IsWindowsBuild)' != 'true'">net48;net8.0</TargetFrameworks>

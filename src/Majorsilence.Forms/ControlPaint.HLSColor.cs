@@ -118,14 +118,21 @@ namespace Majorsilence.Forms
             }
 
             // From one system colour towards another by the fraction, channel by channel, truncating as upstream does.
+            //
+            // Lightening goes towards a larger channel, so (from - to) * perc is negative and the inner
+            // byte cast has to wrap: (byte)-7 is 249, and 227 - 249 wraps again to 234. That double wrap is
+            // what produces upstream's values. Casting the float straight to byte gave 249 on .NET 10 but
+            // saturates to 0 on .NET 11, which turned Light (Control, 0.25f) into ControlLight unchanged.
+            // Going through int makes the float conversion exact and the byte wrap a defined integer
+            // narrowing on every runtime.
             private static Color Between (Color from, Color to, float perc)
             {
                 from = Majorsilence.Forms.Drawing.SystemColorPalette.Resolve (from);
                 to = Majorsilence.Forms.Drawing.SystemColorPalette.Resolve (to);
                 return Color.FromArgb (
-                    (byte)(from.R - (byte)((from.R - to.R) * perc)),
-                    (byte)(from.G - (byte)((from.G - to.G) * perc)),
-                    (byte)(from.B - (byte)((from.B - to.B) * perc)));
+                    (byte)(from.R - (byte)(int)((from.R - to.R) * perc)),
+                    (byte)(from.G - (byte)(int)((from.G - to.G) * perc)),
+                    (byte)(from.B - (byte)(int)((from.B - to.B) * perc)));
             }
 
             // Upstream's NewLuma takes a `scale` flag; every caller here passes true, so the unscaled
