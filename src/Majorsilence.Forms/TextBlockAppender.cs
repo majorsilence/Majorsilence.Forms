@@ -145,6 +145,9 @@ namespace Majorsilence.Forms
                 or System.Globalization.UnicodeCategory.SpacingCombiningMark
                 or System.Globalization.UnicodeCategory.EnclosingMark;
 
+        /// <summary>Whether RichTextKit's shaping buffers were found to size up front; see <c>ShapingBuffers</c>.</summary>
+        internal static bool ShapingBuffersFound => ShapingBuffers.Found;
+
         // A block whose code-point buffer, and shaping buffers, are sized for its whole text before any of it is added,
         // so RichTextKit's exact-size growth never runs (see the class remarks).
         private sealed class PresizedTextBlock : TextBlock
@@ -174,6 +177,16 @@ namespace Majorsilence.Forms
             private static readonly System.Reflection.FieldInfo? positions = set_type?.GetField ("GlyphPositions");
             private static readonly System.Reflection.FieldInfo? clusters = set_type?.GetField ("Clusters");
             private static readonly System.Reflection.FieldInfo? x_coords = set_type?.GetField ("CodePointXCoords");
+
+            // Whether every buffer was found, as the type Presize casts it to. Each one missing is skipped silently and
+            // only brings back the slow growth, so a test asserts this rather than leave a RichTextKit upgrade that moved
+            // them to show up as a timing failure.
+            internal static bool Found
+                => buffers?.FieldType == set_type
+                    && glyphs?.FieldType == typeof (Buffer<ushort>)
+                    && positions?.FieldType == typeof (Buffer<SKPoint>)
+                    && clusters?.FieldType == typeof (Buffer<int>)
+                    && x_coords?.FieldType == typeof (Buffer<float>);
 
             internal static void Presize (TextBlock block, int length)
             {

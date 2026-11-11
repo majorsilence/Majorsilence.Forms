@@ -154,6 +154,16 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
+        public void RichTextKitsShapingBuffersCanBeSizedUpFront ()
+        {
+            // They are private to TextBlock and reached by name. If a RichTextKit upgrade moves them, layout still
+            // works, but every segment's shaping call copies all the glyphs before it again: quadratic once more.
+            Assert.True (TextBlockAppender.ShapingBuffersFound,
+                "RichTextKit's TextBlock._textShapingBuffers (a TextShaper.ResultBufferSet) or one of its buffers moved; " +
+                "update TextBlockAppender.ShapingBuffers to match the new RichTextKit.");
+        }
+
+        [Fact]
         public void ShortTextIsAppendedExactlyAsGiven ()
         {
             // Every label and button: one run, the style it was given, nothing segmented.
