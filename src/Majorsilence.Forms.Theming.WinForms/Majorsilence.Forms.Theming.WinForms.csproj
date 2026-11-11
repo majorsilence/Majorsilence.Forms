@@ -19,6 +19,7 @@
   <PropertyGroup>
     <_IsWindowsBuild Condition="'$(OS)' == 'Windows_NT'">true</_IsWindowsBuild>
     <TargetFrameworks Condition="'$(_IsWindowsBuild)' == 'true'">net8.0-windows;net10.0-windows</TargetFrameworks>
+    <TargetFrameworks Condition="'$(_IsWindowsBuild)' == 'true' and '$(EnableNet11Target)' == 'true'">$(TargetFrameworks);net11.0-windows</TargetFrameworks>
     <TargetFrameworks Condition="'$(_IsWindowsBuild)' != 'true'">net8.0</TargetFrameworks>
     <PackageId>Majorsilence.Forms.Theming.WinForms</PackageId>
     <Description>Applies Majorsilence.Forms CSS themes to real System.Windows.Forms controls — one stylesheet restyles both halves of a mixed migration app. Walks the control tree and sets native properties (colors, fonts, FlatAppearance, DataGridView cell styles, a ToolStrip renderer, the Windows 11 title bar), keeps styling controls created later, and reports what WinForms cannot express as diagnostics instead of silently ignoring it.</Description>

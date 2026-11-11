@@ -12,6 +12,7 @@
 
   <PropertyGroup Condition="'$(_IsWindowsBuild)' == 'true'">
     <TargetFrameworks>net8.0-windows;net10.0-windows</TargetFrameworks>
+    <TargetFrameworks Condition="'$(EnableNet11Target)' == 'true'">$(TargetFrameworks);net11.0-windows</TargetFrameworks>
     <UseWindowsForms>true</UseWindowsForms>
     <!-- Pulls in the Microsoft.WindowsDesktop.App.WPF framework reference, which ships WindowsBase,
          UIAutomationProvider and UIAutomationTypes — the assemblies the bare <Reference>s below resolve

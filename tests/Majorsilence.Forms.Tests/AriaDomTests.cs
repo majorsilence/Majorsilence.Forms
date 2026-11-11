@@ -246,7 +246,7 @@ public partial class AriaDomTests
             upsert.GetProperty ("w").GetInt32 (), upsert.GetProperty ("h").GetInt32 ()));
 
         var window = AriaDom.ToJson (new List<AriaDomOp> { AriaDomOp.Upsert (nodes[0]) });
-        Assert.Equal (JsonValueKind.Null, JsonDocument.Parse (window).RootElement[0].GetProperty ("parent").ValueKind);
+        Assert.Equal (JsonValueKind.Null, JsonElement.Parse (window)[0].GetProperty ("parent").ValueKind);
     }
 
     private sealed class RecordingSink : IAriaDomSink
@@ -274,7 +274,7 @@ public partial class AriaDomTests
 
         mirror.SyncNow ();
         Assert.Single (sink.Batches);
-        Assert.Equal (mirror.Current.Count, JsonDocument.Parse (sink.Batches[0]).RootElement.GetArrayLength ());
+        Assert.Equal (mirror.Current.Count, JsonElement.Parse (sink.Batches[0]).GetArrayLength ());
 
         mirror.SyncNow ();
         Assert.Single (sink.Batches);   // nothing changed, nothing sent
@@ -283,7 +283,7 @@ public partial class AriaDomTests
         mirror.SyncNow ();
 
         Assert.Equal (2, sink.Batches.Count);
-        var op = Assert.Single (JsonDocument.Parse (sink.Batches[1]).RootElement.EnumerateArray ());
+        var op = Assert.Single (JsonElement.Parse (sink.Batches[1]).EnumerateArray ());
         Assert.Equal ("Name is required", op.GetProperty ("text").GetString ());
 
         form.Close ();

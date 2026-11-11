@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(EnableNet11Target)' == 'true'">$(TargetFrameworks);net11.0</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- The Skia frame is rendered straight into the Cairo image-surface buffer via a pinned
          pointer (see Gtk4WindowHost.Render); that one hot path needs unsafe. -->

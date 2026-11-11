@@ -79,6 +79,7 @@ jobs:
           dotnet-version: |
             8.0.x
             10.0.x
+            11.0.x
 
       - name: Pack Windows-only NuGet packages
         shell: bash
@@ -119,6 +120,8 @@ jobs:
             8.0.x
             10.0.x
 
+      # No 11.0.x in the SDK list above: an SDK 11 would be the one resolving the SDK-10-band workload set
+      # below. So Essentials and Avalonia carry no net11.0 row yet (see the pack job in dotnet.yml).
       # Pinned to workload set 10.0.401 (iOS 26.5.10318), same as the ios job in dotnet.yml: set 10.0.401.1
       # brought .NET for iOS 27.0, which refuses to build without Xcode 27, and the macos runner image
       # still ships Xcode 26.6. Drop the pin when that job's does. android and ios go in together so
@@ -168,6 +171,7 @@ jobs:
           dotnet-version: |
             8.0.x
             10.0.x
+            11.0.x
 
       # Majorsilence.Forms.Avalonia itself is packed in pack-macos (it carries a net10.0-ios row), but
       # Majorsilence.Forms.Theming.Avalonia still builds against it here; with the workload installed

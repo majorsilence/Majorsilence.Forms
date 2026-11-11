@@ -93,8 +93,13 @@ namespace Majorsilence.Forms.Essentials
                     if (tts.SynthesizeToFile (SampleLine, null, file, utteranceId) != OperationResult.Success)
                         return VoiceGender.Unknown;
 
-                    if (await Task.WhenAny (done.Task, Task.Delay (TimeSpan.FromSeconds (10))).ConfigureAwait (false) != done.Task)
+                    // WaitAsync rather than WhenAny with a Task.Delay: that leaves the ten-second timer
+                    // running after the sample finishes (CA2027).
+                    try {
+                        await done.Task.WaitAsync (TimeSpan.FromSeconds (10)).ConfigureAwait (false);
+                    } catch (TimeoutException) {
                         return VoiceGender.Unknown;
+                    }
 
                     var wav = VoicePitch.ReadWav (System.IO.File.ReadAllBytes (file.AbsolutePath));
                     var pitch = wav is { } w ? VoicePitch.Estimate (w.Samples, w.Rate) : null;
