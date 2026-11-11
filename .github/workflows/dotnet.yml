@@ -236,8 +236,9 @@ jobs:
               src/Majorsilence.Forms.WinFormsShims.Compat/Majorsilence.Forms.WinFormsShims.Compat.csproj
           - os: macos-latest
             artifact: nuget-packages-macos
-            # android + ios together so the Essentials and Avalonia packages carry both rows; pinned like the ios job.
-            workload: android ios
+            # android + ios together so the Essentials and Avalonia packages carry both rows. SDK 11's own
+            # workload set, pinned like release.yml's pack-macos (see the note there for why 11.0.100.1).
+            workload: android ios --version 11.0.100.1
             dotnet: |
               8.0.x
               10.0.x
@@ -277,16 +278,6 @@ jobs:
       - name: Install workload
         if: matrix.workload != ''
         run: dotnet workload install ${{ matrix.workload }}
-
-      # TEMPORARY diagnostics for the SDK 11 iOS experiment.
-      - name: Xcode / workload info (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          ls -d /Applications/Xcode* || true
-          xcodebuild -version || true
-          dotnet --version
-          dotnet workload --info || true
-          find "$(dirname "$(which dotnet)")/packs" -maxdepth 1 -name 'Microsoft.iOS*' -exec ls {} \; -print || true
 
       - name: Pack
         shell: bash
