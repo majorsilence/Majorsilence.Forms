@@ -1288,11 +1288,11 @@ namespace Majorsilence.Forms.Telerik
         }
 
         // The renderer's insets, in logical pixels: a caption's either side, a cell's text's either side, and the room a
-        // header keeps right of its caption for the filter button, or for the sort glyph alone.
+        // header keeps right of its caption for the filter button. Nothing is kept for the sort glyph, which Telerik
+        // draws above the caption rather than beside it (see RadGridViewRenderer.RenderSortGlyph).
         internal const int HeaderTextInset = 6;
         internal const int CellTextInset = 4;
         internal const int HeaderFunnelRoom = 26;
-        internal const int HeaderSortGlyphRoom = 16;
 
         // What Telerik's best fit adds to the measured text, in logical pixels (see BestFitColumns).
         internal const int BestFitCellRoom = 4;
