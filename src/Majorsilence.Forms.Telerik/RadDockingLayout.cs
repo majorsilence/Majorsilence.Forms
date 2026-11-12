@@ -99,6 +99,46 @@ namespace Majorsilence.Forms.Telerik
                 : new Rectangle (client.Left + inset.Left, client.Top + inset.Top - 25, Math.Max (0, client.Width - inset.Left - inset.Right), 24);
         }
 
+        // A docked tool strip's caption is a pale blue, very slightly graded, with a lighter line along its
+        // top and bottom. Measured on Telerik UI for WinForms 2026.2.520 (probes/wfdockcaption), down a 24
+        // high caption clear of its text:
+        //
+        //   y0        #DCEAFD
+        //   y1..y22   #B7D5FA -> #ABCAF0
+        //   y23       #DCEAFD
+        //
+        // It was filled flat with Theme.ControlMidColor, a grey, so a docked panel's caption had none of
+        // Telerik's tint. The #9EB8DE border around it was already measured and is unchanged.
+        //
+        // Only the docked strip's: what an auto-hide popup's caption is filled with was not measured, so it
+        // keeps the colour it had.
+        private static readonly SKColor CaptionEdge = new SKColor (0xDC, 0xEA, 0xFD);
+        private static readonly SKColor CaptionTop = new SKColor (0xB7, 0xD5, 0xFA);
+        private static readonly SKColor CaptionBottom = new SKColor (0xAB, 0xCA, 0xF0);
+
+        private static void FillCaption (Control strip, PaintEventArgs e, Rectangle band)
+        {
+            if (strip is AutoHideTabStrip || band.Width <= 0 || band.Height <= 0) {
+                e.Canvas.FillRectangle (band, Theme.ControlMidColor);
+                return;
+            }
+
+            var px = strip.LogicalToDeviceUnits (1);
+
+            e.Canvas.FillRectangle (band, CaptionEdge);
+
+            var face = new Rectangle (band.Left, band.Top + px, band.Width, band.Height - px * 2);
+
+            if (face.Height <= 0)
+                return;
+
+            using var shader = SKShader.CreateLinearGradient (
+                new SKPoint (face.Left, face.Top), new SKPoint (face.Left, face.Bottom),
+                new[] { CaptionTop, CaptionBottom }, SKShaderTileMode.Clamp);
+            using var paint = new SKPaint { Shader = shader };
+            e.Canvas.DrawRect (new SKRect (face.Left, face.Top, face.Right, face.Bottom), paint);
+        }
+
         internal enum CaptionButton { Close, Pin }
 
         // The caption buttons, right to left as Telerik places them: close 18 wide ending 1 short of the caption's right
@@ -314,7 +354,7 @@ namespace Majorsilence.Forms.Telerik
             if (CaptionArea (strip) is { } area && shown is not null) {
                 var band = Device (area);
                 using var caption_border = new SKPaint { Color = new SKColor (0x9E, 0xB8, 0xDE), IsStroke = true };
-                e.Canvas.FillRectangle (band, Theme.ControlMidColor);
+                FillCaption (strip, e, band);
                 e.Canvas.DrawRect (band.Left - 0.5f, band.Top - 0.5f, band.Width + 1, band.Height + 1, caption_border);
 
                 var buttons = CaptionButtons (strip, shown);
