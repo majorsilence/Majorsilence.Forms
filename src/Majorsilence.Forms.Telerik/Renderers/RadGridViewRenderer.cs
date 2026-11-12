@@ -124,10 +124,14 @@ namespace Majorsilence.Forms.Renderers
             foreach (var (number, bounds) in layout.Pages) {
                 var current = number == page;
 
-                if (current)
-                    e.Canvas.FillRectangle (bounds, theme?.Accent ?? DataGridView.DefaultSelectionStyle.GetBackgroundColor ());
+                if (current) {
+                    if (theme?.Accent is { } accent)
+                        e.Canvas.FillRectangle (bounds, accent);
+                    else
+                        FillDefaultThemeCurrentPage (grid, e, bounds);
+                }
 
-                var ink = current && (theme?.AccentForeground ?? DataGridView.DefaultSelectionStyle.ForegroundColor) is { } selected ? selected : Ink (true);
+                var ink = current ? theme?.AccentForeground ?? SKColors.Black : Ink (true);
                 e.Canvas.DrawText ((number + 1).ToString (System.Globalization.CultureInfo.CurrentCulture), font, scaled, bounds, ink, ContentAlignment.MiddleCenter, maxLines: 1);
             }
 
@@ -143,6 +147,65 @@ namespace Majorsilence.Forms.Renderers
                 var inner = Rectangle.Inflate (box, -grid.LogicalToDeviceUnits (2), 0);
                 e.Canvas.DrawText ((page + 1).ToString (System.Globalization.CultureInfo.CurrentCulture), font, scaled, inner, Ink (true), ContentAlignment.MiddleLeft, maxLines: 1);
             }
+        }
+
+        // The current page's button under Telerik's DEFAULT theme, where there is no palette to ask.
+        // Measured on UI for WinForms 2026.2.520 (probes/wfpagerfill), down a 24px tall button, sampled
+        // clear of its digit:
+        //
+        //   y0       #FFBE6A            border
+        //   y1       #FEF5C3            highlight
+        //   y2..y11  #FFCD91 -> #FFBD71 the upper face
+        //   y12,y13  #FFB862, #FFB243   the fold, where the two faces meet
+        //   y14..y21 #FFB748 -> #FEDB68 the lower face
+        //   y22      #FEF5C3            highlight
+        //   y23      #FFBE6A            border
+        //
+        // and black text over it. The button was filled with DataGridView.DefaultSelectionStyle instead --
+        // SystemColors.Highlight, white on blue -- so the current page was marked in the system colour on
+        // every pager in a migrated application. That is the same leak the grid's selected row had; the
+        // fallback that fixed the row did not reach here, because this reads the static default style rather
+        // than asking the grid.
+        //
+        // A named theme is unaffected: it fills the button flat in its own accent, as it did before.
+        private static readonly SKColor PagerBorder = new SKColor (0xFF, 0xBE, 0x6A);
+        private static readonly SKColor PagerHighlight = new SKColor (0xFE, 0xF5, 0xC3);
+
+        private static readonly SKColor[] PagerFace = {
+            new SKColor (0xFF, 0xCD, 0x91), new SKColor (0xFF, 0xBD, 0x71),
+            new SKColor (0xFF, 0xB2, 0x43), new SKColor (0xFE, 0xDB, 0x68),
+        };
+
+        // Where the fold falls in the face: y11 and y13 of the twenty rows y2 to y21.
+        private static readonly float[] PagerFaceStops = { 0f, 9f / 19f, 11f / 19f, 1f };
+
+        private static void FillDefaultThemeCurrentPage (RadGridView grid, PaintEventArgs e, Rectangle bounds)
+        {
+            if (bounds.Width <= 0 || bounds.Height <= 0)
+                return;
+
+            var px = grid.LogicalToDeviceUnits (1);
+
+            e.Canvas.FillRectangle (bounds, PagerBorder);
+
+            var inner = Rectangle.Inflate (bounds, -px, -px);
+
+            if (inner.Width <= 0 || inner.Height <= 0)
+                return;
+
+            // The highlight is the top and bottom row of the inner rectangle; the face covers the rest.
+            e.Canvas.FillRectangle (inner, PagerHighlight);
+
+            var face = Rectangle.Inflate (inner, 0, -px);
+
+            if (face.Width <= 0 || face.Height <= 0)
+                return;
+
+            using var shader = SKShader.CreateLinearGradient (
+                new SKPoint (face.Left, face.Top), new SKPoint (face.Left, face.Bottom),
+                PagerFace, PagerFaceStops, SKShaderTileMode.Clamp);
+            using var paint = new SKPaint { Shader = shader };
+            e.Canvas.DrawRect (new SKRect (face.Left, face.Top, face.Right, face.Bottom), paint);
         }
 
         // One or two 4 x 7 arrowheads, a pixel apart, centred in a button.
