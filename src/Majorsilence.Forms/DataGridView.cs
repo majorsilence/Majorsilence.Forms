@@ -2814,14 +2814,25 @@ namespace Majorsilence.Forms
             return null;
         }
 
+        // Whether cells and headers draw in the ambient font rather than the theme's.
+        //
+        // A control in the tree having been given a Font of its own is one way an application chooses a font.
+        // Application.SetDefaultFont is the other, and it is the one a ported WinForms app makes: there the
+        // grid's Font already IS that font, but nothing was ever assigned one, so HasAmbientFontChoice alone
+        // said no and the cells drew the theme font instead. Measured against WinForms with Microsoft Sans
+        // Serif 12pt as the application default and no Font anywhere else (probes/wfgridfont): a
+        // "04-01-2021" cell is 79x12 of ink there, and was 57x9 here -- the grid's data a third smaller than
+        // its own headers, which a designer-set ColumnHeadersDefaultCellStyle.Font kept right.
+        //
+        // A grid in an application that chose no font at all still keeps the theme's own fonts, as before.
+        private bool UsesAmbientCellFont () => HasAmbientFontChoice () || SystemFonts.HasDefaultFontOverride;
+
         // The font cells draw with when neither the cell styles nor DefaultCellStyle name one. Upstream's
         // DefaultCellStyle.Font IS the grid's Font -- ambient, so a grid inside a container whose designer set
-        // Font = Tahoma 8pt draws its cells in Tahoma 8pt. Every cell here drew the theme font regardless. The
-        // ambient font is used once the grid or an ancestor has chosen one; a grid in an app that never set a
-        // font keeps the theme's item font, as before.
+        // Font = Tahoma 8pt draws its cells in Tahoma 8pt. Every cell here drew the theme font regardless.
         internal (SkiaSharp.SKTypeface Typeface, int Size) CellFallbackFont ()
         {
-            if (HasAmbientFontChoice ())
+            if (UsesAmbientCellFont ())
                 return (GetEffectiveFont (), GetEffectiveFontSize ());
 
             return (Theme.UIFont, Theme.ItemFontSize);
@@ -2829,11 +2840,10 @@ namespace Majorsilence.Forms
 
         // The font column headers draw with when ColumnHeadersDefaultCellStyle names none. Upstream's header
         // style inherits the grid's Font too, so a grid whose container chose Tahoma 8pt has Tahoma 8pt
-        // (regular) headers; here they always drew in the theme's bold font. As for cells, the ambient font is
-        // used once the grid or an ancestor has chosen one, and the theme's header style otherwise.
+        // (regular) headers; here they always drew in the theme's bold font.
         internal (SkiaSharp.SKTypeface Typeface, int Size) HeaderFallbackFont ()
         {
-            if (HasAmbientFontChoice ())
+            if (UsesAmbientCellFont ())
                 return (GetEffectiveFont (), GetEffectiveFontSize ());
 
             return (DefaultColumnHeaderStyle.GetFont (), DefaultColumnHeaderStyle.GetFontSize ());
