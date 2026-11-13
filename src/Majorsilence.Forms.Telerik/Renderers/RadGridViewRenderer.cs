@@ -349,10 +349,18 @@ namespace Majorsilence.Forms.Renderers
         /// <inheritdoc/>
         protected override void RenderColumnHeader (DataGridView control, DataGridViewColumn column, int columnIndex, Rectangle bounds, PaintEventArgs e)
         {
-            if (control is RadGridView formatted && formatted.FormatHeaderCell (column, columnIndex) is { } element)
-                RenderFormattedColumnHeader (formatted, column, columnIndex, bounds, element, e);
-            else
-                base.RenderColumnHeader (control, column, columnIndex, bounds, e);
+            // RenderSortGlyph is called from inside the base header render and is not given the control, so
+            // it is recorded here for the few lines that need it -- the same way painting_border is.
+            painting_header = control as RadGridView;
+
+            try {
+                if (control is RadGridView formatted && formatted.FormatHeaderCell (column, columnIndex) is { } element)
+                    RenderFormattedColumnHeader (formatted, column, columnIndex, bounds, element, e);
+                else
+                    base.RenderColumnHeader (control, column, columnIndex, bounds, e);
+            } finally {
+                painting_header = null;
+            }
 
             if (control is not RadGridView grid || !grid.ShowsHeaderFilterButtons || !RadGridView.ColumnAllowsFiltering (column) || !FunnelFits (column))
                 return;
@@ -366,6 +374,53 @@ namespace Majorsilence.Forms.Renderers
 
             var active = grid.ColumnHasActiveFilter (column);
             DrawFunnel (e, glyphRect, active ? grid.TelerikTheme?.Accent ?? Theme.AccentColor : Theme.BorderHighColor, active);
+        }
+
+        private RadGridView? painting_header;
+
+        // Telerik's sort glyph, measured on UI for WinForms 2026.2.520 (probes/wfgridhints): an 8 x 4
+        // triangle one pixel below the top of the header cell, centred across it, in #15428B. Ascending
+        // points up and descending points down:
+        //
+        //   ....#...        .#######
+        //   ...###..        ..#####.
+        //   ..#####.        ...###..
+        //   .#######        ....#...
+        //
+        // It sits in the same place whatever the column's width -- on a 260px header and a 54px one alike,
+        // its centre is the cell's centre. The upstream glyph this replaces is a 6 x 6 triangle against the
+        // right edge, vertically centred, which is where a WinForms grid puts it but not a Telerik one.
+        private static readonly SKColor SortGlyph = new SKColor (0x15, 0x42, 0x8B);
+
+        /// <inheritdoc/>
+        protected override void RenderSortGlyph (PaintEventArgs e, Rectangle bounds, SortOrder sortOrder, SKColor color)
+        {
+            if (painting_header is not { } grid) {
+                base.RenderSortGlyph (e, bounds, sortOrder, color);
+                return;
+            }
+
+            var width = grid.LogicalToDeviceUnits (8);
+            var height = grid.LogicalToDeviceUnits (4);
+            var x = bounds.Left + (bounds.Width - width) / 2;
+            var y = bounds.Top + grid.LogicalToDeviceUnits (1);
+
+            using var path = new SKPath ();
+
+            if (sortOrder == SortOrder.Ascending) {
+                path.MoveTo (x + width / 2f, y);
+                path.LineTo (x, y + height);
+                path.LineTo (x + width, y + height);
+            } else {
+                path.MoveTo (x, y);
+                path.LineTo (x + width, y);
+                path.LineTo (x + width / 2f, y + height);
+            }
+
+            path.Close ();
+
+            using var paint = new SKPaint { Color = grid.ThemePalette?.HeaderForeground ?? SortGlyph, IsAntialias = true };
+            e.Canvas.DrawPath (path, paint);
         }
 
         /// <inheritdoc/>
@@ -423,8 +478,10 @@ namespace Majorsilence.Forms.Renderers
         {
             if (control is RadGridView grid && grid.ShowsHeaderFilterButtons && RadGridView.ColumnAllowsFiltering (column) && FunnelFits (column))
                 return control.LogicalToDeviceUnits (RadGridView.HeaderFunnelRoom);   // keep text left of the funnel (drawn at Right-30)
-            if (column.Sortable && column.SortOrder != SortOrder.None)
-                return control.LogicalToDeviceUnits (RadGridView.HeaderSortGlyphRoom);   // room for the sort glyph alone
+            // Nothing is kept for the sort glyph: Telerik draws it above the caption, not beside it, and the
+            // caption does not move when a column is sorted. Measured on 2026.2.520 (probes/wfgridhints) on a
+            // 260px header: the caption's ink is x 107..194 both sorted and unsorted, 87px in from the left
+            // and 85 from the right either way. Keeping 16px here narrowed every sorted column's caption.
             return 0;
         }
 
@@ -647,8 +704,13 @@ namespace Majorsilence.Forms.Renderers
             if (grid.GroupDescriptors.Count == 0) {
                 var hintRect = band;
                 hintRect.Inflate (-grid.LogicalToDeviceUnits (10), 0);
+                // Centred, as Telerik draws it. Measured on UI for WinForms 2026.2.520 (probes/wfgridhints):
+                // the group panel element's own TextAlignment is MiddleCenter, and the hint's ink sits 339px
+                // from the left of an 898px panel against 340 from the right. It was drawn hard against the
+                // left edge here. The colour stays the theme's disabled foreground: Telerik's own #575D64 is
+                // a darker grey, but this is the one thing on the panel that a theme should get to recolour.
                 e.Canvas.DrawText ("Drag a column here to group by this column.",
-                    Theme.UIFont, fontSize, hintRect, Theme.ForegroundDisabledColor, ContentAlignment.MiddleLeft, maxLines: 1);
+                    Theme.UIFont, fontSize, hintRect, Theme.ForegroundDisabledColor, ContentAlignment.MiddleCenter, maxLines: 1);
                 return;
             }
 
