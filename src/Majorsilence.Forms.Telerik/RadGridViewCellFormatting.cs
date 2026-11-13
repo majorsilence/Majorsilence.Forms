@@ -183,14 +183,15 @@ namespace Majorsilence.Forms.Telerik
                     if (RowTemplate.Height != common || AnyRowHeightDiffers (common.Value))
                         ApplyRowHeight (common.Value);
                 } else {
+                    // Rows of differing heights, each laid out a pixel under what it asked for, as above.
                     foreach (var (row, height) in formatted_row_heights)
-                        if (row.Height != height)
-                            row.Height = height;
+                        if (row.Height != RadGridView.Pitch (height))
+                            row.Height = RadGridView.Pitch (height);
                 }
             }
 
-            if (AutoSizeRows && formatted_header_height > 0 && base.ColumnHeadersHeight != formatted_header_height)
-                base.ColumnHeadersHeight = formatted_header_height;
+            if (AutoSizeRows && formatted_header_height > 0 && base.ColumnHeadersHeight != RadGridView.Pitch (formatted_header_height))
+                base.ColumnHeadersHeight = RadGridView.Pitch (formatted_header_height);
 
             formatted_row_heights.Clear ();
             formatted_header_height = 0;

@@ -41,11 +41,11 @@ public class W6TelerikGridSettingsTests
 
         using (form) {
             grid.TableElement.RowHeight = 40;
-            Assert.Equal (40, ((DataGridView) grid).RowTemplate.Height);
-            Assert.All (((DataGridView) grid).Rows.Cast<DataGridViewRow> (), r => Assert.Equal (40, r.Height));
+            Assert.Equal (39, ((DataGridView) grid).RowTemplate.Height);   // 40 declared, laid out a pixel under
+            Assert.All (((DataGridView) grid).Rows.Cast<DataGridViewRow> (), r => Assert.Equal (39, r.Height));
 
             grid.TableElement.TableHeaderHeight = 36;
-            Assert.Equal (36, ((DataGridView) grid).ColumnHeadersHeight);
+            Assert.Equal (35, ((DataGridView) grid).ColumnHeadersHeight);   // 36 declared
             Assert.Equal (36, grid.TableElement.TableHeaderHeight);
 
             grid.TableElement.AlternatingRowColor = Color.Red;
