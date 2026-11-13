@@ -114,9 +114,11 @@ See [Platform backends](docs/backends.md) for the details and how to add your ow
   approximated, and what's deliberately out of scope, once your code compiles.
 - [`Majorsilence.Forms.WinFormsShims.Compat`](src/Majorsilence.Forms.WinFormsShims.Compat) — for
   the case where rewriting `using System.Windows.Forms;` isn't an option (a distributed control
-  library whose own public API is typed to it): a source generator that makes unmodified WinForms
-  source, including Designer.cs files, compile against Majorsilence.Forms instead. Proof of concept;
-  see its README for current scope.
+  library whose own public API is typed to it, or a codebase you want running before touching it):
+  Majorsilence.Forms generated at build time with the real `System.Windows.Forms`/`System.Drawing`
+  namespaces, so unmodified C# **and Visual Basic** source, Designer files included, compiles against it.
+  Used instead of Majorsilence.Forms, with `Majorsilence.Forms.WinFormsShims.Compat.Avalonia` as the
+  backend. Desktop only so far; see its README.
 
 ## Getting started
 
@@ -156,7 +158,7 @@ Explore real apps built with Majorsilence.Forms in the [`samples/`](samples) fol
 - [`ThemeStudio`](samples/ThemeStudio) — write a CSS theme and watch it apply live to every control, with the parser's diagnostics beside the editor. See [Theming with CSS](docs/theming.md).
 - [`ThemeStudio.WinForms`](samples/ThemeStudio.WinForms) — the same Studio against **real `System.Windows.Forms` controls**, themed from the same stylesheet through `Majorsilence.Forms.Theming.WinForms`, with WinForms' gaps listed as diagnostics (Windows-only). See [CSS theming for WinForms apps](docs/theming-winforms.md).
 - [`WinFormsInterop`](samples/WinFormsInterop) — bi-directional WinForms ↔ Majorsilence.Forms interop (Windows-only). See [WinForms Interop](docs/winforms-interop.md).
-- [`WinFormsCompatDemo`](samples/WinFormsCompatDemo) — unmodified `System.Windows.Forms` designer-generated source compiling and running against Majorsilence.Forms through a source generator, no real WinForms assembly involved. See [`Majorsilence.Forms.WinFormsShims.Compat`](src/Majorsilence.Forms.WinFormsShims.Compat).
+- [`WinFormsCompatDemo`](samples/WinFormsCompatDemo) — unmodified `System.Windows.Forms` designer-generated source compiling and running against a generated `System.Windows.Forms` build of Majorsilence.Forms, no real WinForms assembly involved. A Visual Basic twin is [`WinFormsCompatDemoVb`](samples/WinFormsCompatDemoVb). See [`Majorsilence.Forms.WinFormsShims.Compat`](src/Majorsilence.Forms.WinFormsShims.Compat).
 - [`EmbeddingWinForms`](samples/EmbeddingWinForms) — Majorsilence.Forms controls embedded inside a classic WinForms app via the **WinForms backend** (`MajorsilenceFormsPresenter`/`ToWinFormsControl()`), the port-one-control-at-a-time migration path (Windows-only). See [Platform backends](docs/backends.md).
 - [`EmbeddingGtk4`](samples/EmbeddingGtk4) — Majorsilence.Forms controls embedded inside a host **GTK 4** app via `MajorsilenceFormsPresenter` / `ToGtkWidget()`, with `ToGtkWindow()` handing an MF `Form` back as a `Gtk.Window`. Needs a display session and GTK 4. See [Platform backends](docs/backends.md).
 - [`AutomationTarget`](samples/AutomationTarget) — a small app that exposes its own automation endpoint, so you have something real to drive from the [MCP server](tools/Majorsilence.Forms.Mcp), Selenium, or `curl`. See [Automation & UI testing](docs/automation.md).

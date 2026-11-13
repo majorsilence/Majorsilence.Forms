@@ -202,16 +202,13 @@ static void PrintUsage()
                                   rewritten references in the file body are unconditional either way.
               --shims             Don't rewrite namespaces. Leave System.Windows.Forms/System.Drawing
                                   source exactly as written and reference
-                                  Majorsilence.Forms.WinFormsShims.Compat, whose generated compat
-                                  surface those namespaces resolve against. The project-file half of
-                                  the migration still happens (TFM, UseWindowsForms/UseWPF, vendor
-                                  WinForms packages, VB MyType). Best for a large codebase, or one
-                                  whose own public API exposes WinForms types and so can't be
-                                  rewritten without breaking its consumers. The shim surface is
-                                  generated and has documented gaps -- see that package's README.
-                                  NOTE: it is a C#-only generator, so a .vbproj gets nothing from the
-                                  package reference alone; VB projects are warned and need to
-                                  reference a C# assembly that hosts the generator instead.
+                                  Majorsilence.Forms.WinFormsShims.Compat(.Avalonia), generated copies
+                                  of Majorsilence.Forms that declare those namespaces for real. C# and
+                                  Visual Basic alike. The project-file half of the migration still
+                                  happens (TFM, UseWindowsForms/UseWPF, vendor WinForms packages, VB
+                                  MyType). Best for a large codebase, or one whose own public API
+                                  exposes WinForms types and so can't be rewritten without breaking
+                                  its consumers. Only the Avalonia backend has a generated build yet.
               --strict            Exit non-zero if any manual-review warning is produced (CI gate).
               --report <file>     Path for the Markdown report (default: migration-report.md by output).
               --no-report         Do not write the migration report.

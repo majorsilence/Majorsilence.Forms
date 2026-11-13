@@ -336,3 +336,6 @@ ASALocalRun/
 
 graphify-out/
 .claude/settings.local.json
+
+# Produced at build time by tools/CompatSync from the real sources; never edit or commit.
+src/Majorsilence.Forms.WinFormsShims.Compat*/generated/

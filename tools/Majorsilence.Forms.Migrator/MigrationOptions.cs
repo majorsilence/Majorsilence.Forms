@@ -113,8 +113,8 @@ internal sealed class MigrationOptions
 
     /// <summary>
     /// Leave source namespaces alone and reference <c>Majorsilence.Forms.WinFormsShims.Compat</c>
-    /// instead, so <c>System.Windows.Forms</c> / <c>System.Drawing</c> source compiles as written
-    /// against a generated compat surface. The project-file half of the migration is unchanged --
+    /// (and its Avalonia backend) instead, so <c>System.Windows.Forms</c> / <c>System.Drawing</c> source,
+    /// C# or Visual Basic, compiles as written against generated copies that declare those namespaces. The project-file half of the migration is unchanged --
     /// the <c>-windows</c> TFM suffix, <c>UseWindowsForms</c>/<c>UseWPF</c>, the vendor WinForms
     /// packages and (for VB) <c>MyType</c> are all still dealt with; only the namespace rewriting
     /// is skipped.
