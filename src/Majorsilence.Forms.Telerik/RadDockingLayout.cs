@@ -6,13 +6,12 @@ using SkiaSharp;
 
 namespace Majorsilence.Forms.Telerik
 {
-    // Minimal docking-layout rendering for the Telerik-compat dock. Telerik lays a RadDock out through a
-    // SizeInfo/SplitPanel/tab-strip engine this compat layer doesn't have, so migrated docked forms
-    // (frmMaintainCustomer/Property, frmMainBK, ...) parented their content correctly but it sized to
-    // nothing and never tabbed. This fills the content chain (RadDock -> DocumentContainer ->
-    // Document/ToolTabStrip) and renders the tab strips as real tabs (header row + the selected window
-    // filling the rest), so the forms actually show. It is deliberately simple: single-child fill, no
-    // draggable splitters (floating and auto-hide are in RadDockFloating.cs and RadDockAutoHide.cs).
+    // Docking-layout rendering for the Telerik-compat dock. Migrated docked forms (frmMaintainCustomer/Property,
+    // frmMainBK, ...) parented their content correctly but it sized to nothing and never tabbed. This fills the
+    // content chain (RadDock -> DocumentContainer -> Document/ToolTabStrip) and renders the tab strips as real
+    // tabs (header row + the selected window filling the rest), so the forms actually show. How the panels of a
+    // container share its room is SplitLayout's job (added later, #619); there are still no draggable splitters,
+    // and floating and auto-hide are in RadDockFloating.cs and RadDockAutoHide.cs.
     internal static class DockStrip
     {
         internal const int HeaderHeight = 26;

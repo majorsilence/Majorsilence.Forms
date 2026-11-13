@@ -11,7 +11,8 @@ namespace Majorsilence.Forms.Telerik
     //   - the room is the container's length, inside the dock's padding of 5 (a nested container has none), with a
     //     SplitterWidth gap (4 by default) between neighbouring panels; a collapsed panel takes no room and no gap;
     //   - with a Fill panel (the main document container is one): the first fills what the others leave, and every
-    //     other panel -- Auto, Absolute or a second Fill -- is its AbsoluteSize long;
+    //     other panel -- Auto, Absolute or a second Fill -- is its AbsoluteSize long. A panel that merely HOLDS the
+    //     Fill panel, at any depth, fills its own container the same way;
     //   - without one: an Absolute panel is its AbsoluteSize long, and each Auto panel takes L x (1 / n +
     //     AutoSizeScale), rounded, of L, the room the Absolute panels and n - 1 splitters leave the n Auto panels --
     //     except the last, which takes whatever is left;
@@ -46,6 +47,18 @@ namespace Majorsilence.Forms.Telerik
                     && ((Layout.IArrangedElement) c).ParticipatesInLayout)
                 .ToList ();
 
+        // Whether a Fill panel sits anywhere below this one -- the panel itself does not count, since Arrange looks for
+        // that first.
+        private static bool HoldsFill (Control control)
+        {
+            foreach (Control child in control.Controls) {
+                if (SizeInfoOf (child)?.SizeMode == SplitPanelSizeMode.Fill || HoldsFill (child))
+                    return true;
+            }
+
+            return false;
+        }
+
         internal static void Arrange (Orientation orientation, int splitterWidth, Rectangle client, IReadOnlyList<Control> panels)
         {
             var count = panels.Count;
@@ -63,6 +76,14 @@ namespace Majorsilence.Forms.Telerik
             int Along (SizeF size) => (int) Math.Round (side_by_side ? size.Width : size.Height);
 
             var fill = infos.FindIndex (i => i.SizeMode == SplitPanelSizeMode.Fill);
+
+            // A panel that only HOLDS the Fill panel fills in its own container too, however deep it is. Measured on
+            // 2026.2.520 with the main document container two levels down: a 900 x 420 dock holding a tool strip
+            // (AbsoluteSize 200) and a split container gave the strip exactly 200 and the container the remaining 686,
+            // rather than the even 443 each two Auto panels share. Telerik writes Auto on those containers, so without
+            // this a layout it saved lays out differently from the dock it was saved from.
+            if (fill < 0)
+                fill = panels.ToList ().FindIndex (HoldsFill);
 
             if (fill >= 0) {
                 var others = 0;

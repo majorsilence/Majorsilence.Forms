@@ -193,5 +193,35 @@ namespace Majorsilence.Forms.Tests
 
             form.Dispose ();
         }
+
+        // This document was saved from a dock nobody had resized, so Telerik left AbsoluteSize out of it
+        // entirely -- it only writes one that is not the default 200 x 200. A panel the document says nothing
+        // about still has to go back to that default rather than keep whatever length it has now: measured on
+        // 2026.2.520, loading this very layout into a dock whose strips had been forced to 377 brought them
+        // back to 200.
+        [Fact]
+        public void A_strip_the_layout_is_silent_about_goes_back_to_Teleriks_default_200 ()
+        {
+            var (form, dock) = Build ();
+            var strip = (ToolTabStrip) Window<ToolWindow> (dock, "twFilter").Parent!;
+
+            // Every tool strip, as the Telerik run did: forcing them one at a time leaves the dock the same size
+            // overall, and nothing then cascades the layout down to the container this strip shares.
+            foreach (var tool in new[] { "twFilter", "twNotes", "twSide" })
+                ((ToolTabStrip) Window<ToolWindow> (dock, tool).Parent!).SizeInfo.AbsoluteSize = new SizeF (377, 377);
+
+            dock.PerformLayout ();
+            HeadlessRenderer.CapturePng (form);
+            Assert.Equal (377, strip.Bounds.Width);
+
+            Load (dock);
+            form.PerformLayout ();
+            HeadlessRenderer.CapturePng (form);
+
+            Assert.Equal (new SizeF (200, 200), strip.SizeInfo.AbsoluteSize);
+            Assert.Equal (200, strip.Bounds.Width);
+
+            form.Dispose ();
+        }
     }
 }
