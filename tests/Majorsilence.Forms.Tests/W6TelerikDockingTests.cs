@@ -239,7 +239,12 @@ public class W6TelerikDockingTests
         dock.DockWindow (new DocumentWindow ("Doc") { Name = "Doc" });
 
         Assert.Equal (1, asked);
-        Assert.Same (dock, mine.Parent);
+        // Into the dock's main document container, which is where Telerik puts a supplied strip too: measured on
+        // 2026.2.520, a dock given one through DockTabStripNeeded holds it as DocumentContainer -> DocumentTabStrip,
+        // the container filling the dock at (5, 5, 470, 350). This used to assert the dock itself, which was the
+        // fork's own shape rather than Telerik's.
+        Assert.Same (dock.MainDocumentContainer, mine.Parent);
+        Assert.Same (dock, mine.Parent!.Parent);
         Assert.Same (mine, dock.GetDefaultDocumentTabStrip (createIfMissing: true));
         Assert.Equal (1, asked);   // found, not needed again
     }
