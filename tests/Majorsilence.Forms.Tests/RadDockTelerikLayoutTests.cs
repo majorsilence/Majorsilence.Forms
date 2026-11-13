@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Linq;
 using System.Text;
 using Majorsilence.Forms.Headless;
@@ -56,6 +56,13 @@ namespace Majorsilence.Forms.Tests
         private static string[] Tabs (DocumentTabStrip strip)
             => strip.Controls.OfType<DocumentWindow> ().Where (w => w.DockState != DockState.Hidden).Select (w => w.Name).ToArray ();
 
+        // The strip holding a window now. A load REBUILDS the dock's tree from the document, so the strip the
+        // designer built is not the one holding the tabs afterwards -- it is disposed, and a strip carrying the
+        // document's own name takes its place. Telerik's loader does the same (measured on 2026.2.520: loading a
+        // layout back into the dock it was saved from replaced six of seven panels although every name matched),
+        // so these tests read the strip back rather than keeping the one they built.
+        private static DocumentTabStrip Strip (DocumentWindow window) => (DocumentTabStrip) window.Parent!;
+
         [Fact]
         public void The_saved_text_order_and_selected_tab_are_restored ()
         {
@@ -63,9 +70,13 @@ namespace Majorsilence.Forms.Tests
             try {
                 Load (dock);
 
-                Assert.Equal (new[] { "w3", "w0", "w1", "w2" }, Tabs (strip));
+                Assert.Equal (new[] { "w3", "w0", "w1", "w2" }, Tabs (Strip (w[0])));
                 Assert.Equal ("Saved Text", w[0].Text);
-                Assert.Same (w[1], strip.SelectedTab);
+                Assert.Same (w[1], Strip (w[0]).SelectedTab);
+
+                // And the strip the designer built is gone, as Telerik leaves it.
+                Assert.NotSame (strip, Strip (w[0]));
+                Assert.True (strip.IsDisposed);
                 Assert.True (w[1].Visible);
                 Assert.False (w[0].Visible);
             } finally {
@@ -82,7 +93,7 @@ namespace Majorsilence.Forms.Tests
 
                 Assert.Null (w[4].Parent);
                 Assert.True (w[4].IsDisposed);
-                Assert.Equal (new[] { "w3", "w0", "w1", "w2" }, Tabs (strip));
+                Assert.Equal (new[] { "w3", "w0", "w1", "w2" }, Tabs (Strip (w[0])));
             } finally {
                 form.Close ();
             }
