@@ -156,8 +156,8 @@ namespace Majorsilence.Forms.Tests
                 Assert.True (header >= plain_header + 17, $"header {header}, unformatted {plain_header}");
 
                 if (System.OperatingSystem.IsWindows ()) {
-                    Assert.Equal (38, ((DataGridView) grid).Rows[0].Height);
-                    Assert.Equal (42, header);
+                    Assert.Equal (37, ((DataGridView) grid).Rows[0].Height);
+                    Assert.Equal (41, header);
                 }
             }
         }

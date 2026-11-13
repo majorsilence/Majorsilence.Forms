@@ -107,7 +107,7 @@ public class TelerikGridRowMembersTests
 
             grid.Rows[0].Height = 80;
             Assert.Equal (80, grid.Rows[0].Height);
-            Assert.Equal (80, dgv.Rows[0].Height);
+            Assert.Equal (79, dgv.Rows[0].Height);   // laid out a pixel under, as every row is
             Assert.Equal (-1, grid.Rows[1].Height);
             Assert.Equal (standard, dgv.Rows[1].Height);
 
@@ -138,18 +138,19 @@ public class TelerikGridRowMembersTests
             grid.Rows[0].Height = 60;
             grid.TableElement.RowHeight = 30;
 
-            Assert.Equal (60, dgv.Rows[0].Height);
-            Assert.Equal (30, dgv.Rows[1].Height);
+            Assert.Equal (59, dgv.Rows[0].Height);   // 60 as set, laid out a pixel under, as every row is
+            Assert.Equal (60, grid.Rows[0].Height);  // and it still answers what it was given
+            Assert.Equal (29, dgv.Rows[1].Height);
 
             // A row with a height of zero follows the grid's row height, as one with none does.
             grid.Rows[2].Height = 0;
             grid.TableElement.RowHeight = 34;
-            Assert.Equal (34, grid.Rows.Single (r => Equals (r.Cells["Name"].Value, "Charlie")).DataRow.Height);
+            Assert.Equal (33, grid.Rows.Single (r => Equals (r.Cells["Name"].Value, "Charlie")).DataRow.Height);
 
             grid.SortDescriptors.Add (new SortDescriptor ("Name", System.ComponentModel.ListSortDirection.Descending));
             var bravo = grid.Rows.Single (r => Equals (r.Cells["Name"].Value, "Bravo"));
             Assert.Equal (60, bravo.Height);
-            Assert.Equal (60, bravo.DataRow.Height);
+            Assert.Equal (59, bravo.DataRow.Height);
         }
     }
 

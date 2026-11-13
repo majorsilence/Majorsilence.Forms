@@ -76,15 +76,29 @@ namespace Majorsilence.Forms.Telerik
 
             if (AutoSizeRows) {
                 ApplyRowHeight (FontHeight (CellFallbackFont ()) + 5);
-                base.ColumnHeadersHeight = FontHeight ((ColumnHeadersDefaultCellStyle.Font ?? HeaderFallbackFont ().Typeface, ColumnHeadersDefaultCellStyle.FontSize ?? HeaderFallbackFont ().Size)) + 3;
+                base.ColumnHeadersHeight = Pitch (FontHeight ((ColumnHeadersDefaultCellStyle.Font ?? HeaderFallbackFont ().Typeface, ColumnHeadersDefaultCellStyle.FontSize ?? HeaderFallbackFont ().Size)) + 3);
                 return;
             }
 
             if (TableElement.RowHeight > 0)
                 ApplyRowHeight (TableElement.RowHeight);
 
-            base.ColumnHeadersHeight = TableElement.TableHeaderHeight;
+            base.ColumnHeadersHeight = Pitch (TableElement.TableHeaderHeight);
         }
+
+        // How far apart Telerik puts rows that it calls <paramref name="declared"/> tall.
+        //
+        // A Telerik row's bottom border IS the next row's top border, so a grid of rows it reports as 24
+        // tall advances 23 a row. Measured on UI for WinForms 2026.2.520 (probes/wfrowheight), rows at
+        // y29/52/75/98 for a declared 24, y45/84/123 for 40, y38/70/102 for 33, and the rows start at
+        // TableHeaderHeight - 1, not at TableHeaderHeight. The rows container comes to n * (declared - 1) + 1,
+        // the + 1 being the last row's own bottom border: 185 for 8 rows of 24, 313 of 40, 257 of 33.
+        //
+        // DataGridView advances by exactly the row's height, which is right for upstream and is left alone;
+        // the subtraction belongs here, where a Telerik height is turned into a laid-out one. Without it a
+        // grid gained a pixel a row, so a tall grid showed fewer rows than Telerik's in the same space --
+        // finding 9 of the TCA/Budgeting/Work Order comparison, "the rows are also taller on MF".
+        internal static int Pitch (int declared) => Math.Max (1, declared - 1);
 
         // A font's Height (its line spacing, rounded up), from the typeface and pixel size the grid draws with.
         private static int FontHeight ((SKTypeface Typeface, int Size) font)
@@ -591,8 +605,13 @@ namespace Majorsilence.Forms.Telerik
                     : DataGridViewClipboardCopyMode.EnableWithAutoHeaderText;
 
         // TableElement.RowHeight: the template for new rows, and every row already here.
+        //
+        // The argument is a height as Telerik declares it; Pitch turns it into the laid-out one. Doing
+        // that here rather than at the call sites is what keeps the three paths that size rows -- this
+        // one, AutoSizeRows, and the cell-formatting one -- from disagreeing by a pixel.
         internal void ApplyRowHeight (int height)
         {
+            height = Pitch (height);
             RowTemplate.Height = height;
 
             // A snapshot: resizing a row can make the grid rebuild its view.
@@ -4816,14 +4835,16 @@ namespace Majorsilence.Forms.Telerik
         /// <summary>Gets or sets the row's own height; -1 (the default), or zero, draws it at the grid's row height.</summary>
         /// <remarks>As Telerik's (measured on UI.for.WinForms 2026.2.520): the value reads back as set; a
         /// positive height is drawn at no less than 5; a row with one keeps it when the grid's row height
-        /// changes, and through sorting.</remarks>
+        /// changes, and through sorting. It is laid out a pixel under what it was given, as every row is --
+        /// a row given 60 draws 60 tall and the row after it starts 59 lower, the two sharing a border
+        /// (probes/wfrowheight). The value this answers is the one that was set, not the laid-out one.</remarks>
         public int Height {
             get => own_heights.TryGetValue (_row, out var height) ? height.Value : -1;
             set {
                 own_heights.GetValue (_row, _ => new System.Runtime.CompilerServices.StrongBox<int> ()).Value = value;
 
                 if (value > 0)
-                    _row.Height = Math.Max (value, MinimumOwnHeight);
+                    _row.Height = Math.Max (RadGridView.Pitch (value), MinimumOwnHeight);
                 else if (_row.DataGridView is { } grid)
                     _row.Height = grid.RowTemplate.Height;
             }
