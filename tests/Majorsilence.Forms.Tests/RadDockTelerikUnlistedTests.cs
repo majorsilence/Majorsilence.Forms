@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -218,8 +218,13 @@ namespace Majorsilence.Forms.Tests
             form.PerformLayout ();
             HeadlessRenderer.CapturePng (form);
 
-            Assert.Equal (new SizeF (200, 200), strip.SizeInfo.AbsoluteSize);
-            Assert.Equal (200, strip.Bounds.Width);
+            // Read the strip back: the load rebuilds the dock's tree, so the strip forced to 377 above is a
+            // disposed orphan and the one holding twFilter now is the document's. Telerik replaces it too.
+            var restored = (ToolTabStrip) Window<ToolWindow> (dock, "twFilter").Parent!;
+            Assert.NotSame (strip, restored);
+
+            Assert.Equal (new SizeF (200, 200), restored.SizeInfo.AbsoluteSize);
+            Assert.Equal (200, restored.Bounds.Width);
 
             form.Dispose ();
         }

@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 
 namespace Majorsilence.Forms.Telerik
 {
@@ -241,18 +241,27 @@ namespace Majorsilence.Forms.Telerik
         // ToolTabStrip AND by the auto-hide container, and the auto-hide pass below runs last, so a window
         // the layout really does hide still ends AutoHide.
         //
-        // The SIZES the saved tree holds are read, by ApplySavedSizes below; the ARRANGEMENT is not. Telerik's
-        // document is a tree of nested RadSplitContainers each carrying a SizeInfo, and loading one rebuilds that
-        // tree outright rather than reconciling the one the dock has: measured on 2026.2.520, a dock whose twFilter
-        // was docked RIGHT came back with it LEFT, where the saved tree holds it, and every strip carried the NAME
-        // the document gave it rather than its own. Here the windows are matched by name into the strips they
-        // already sit in, so a layout that re-docks a window somewhere else restores its sizes but not its place.
+        // The saved tree is REBUILT, which is what Telerik's loader does rather than reconciling the tree the dock
+        // has. Measured on 2026.2.520: a dock whose twFilter was docked RIGHT came back with it LEFT, where the saved
+        // tree holds it, and every strip carried the NAME the document gave it rather than its own. Loading a layout
+        // back into the very dock it was saved from -- where every name in the document matches a live panel -- still
+        // replaced six of its seven panels and left the originals DISPOSED with Parent null, so Telerik does not
+        // reuse a panel even when it could.
         //
-        // (An earlier note here said the split tree was "not read" because this layer had "no SizeInfo/SplitPanel
-        // engine at all". It had one by then -- #619 -- which is why the sizes could be read at all.)
+        // (One strip survived each of those runs: the strip of the window docked LAST, wherever it sat in the tree.
+        // Measured four ways, varying which window was docked last and which side its strip was on, and it followed
+        // the docking order every time. It looks like an artifact of Telerik's own bookkeeping rather than a rule,
+        // nothing but ReferenceEquals can see it, and reproducing it would mean keeping one arbitrary panel alive --
+        // so every panel is rebuilt here.)
+        //
+        // Two consequences an application sees, both Telerik's as well. A designer-generated DocumentTabStrip the
+        // form holds a field for is disposed by a load, leaving that field pointing at an orphan. And a strip
+        // supplied through DockTabStripNeeded is replaced by the document's own, without the event being raised
+        // again to ask for another (measured: raised 0 times by a load).
         //
         // Telerik also CREATES a window the layout names that the dock does not have, by deserialising it from the
-        // element; matching by Name as this does cannot, so such a window stays absent.
+        // element; matching by Name as this does cannot, so such a window stays absent -- and now leaves an empty
+        // strip where Telerik has a full one.
         private void LoadTelerikLayout (System.Xml.Linq.XElement root)
         {
             var windows = OwnWindows ().Concat (detached_windows.Where (w => !w.IsDisposed))
@@ -287,9 +296,76 @@ namespace Majorsilence.Forms.Telerik
                     window.Dispose ();
             }
 
-            foreach (var strip_element in root.Descendants ().Where (e => e.Name.LocalName.EndsWith ("TabStrip", StringComparison.Ordinal))) {
+            // ---- the tree the document describes, built fresh ----
+            //
+            // Nothing is parented to the dock while it is being built, so a half-built tree is never laid out; and
+            // the windows are moved into it BEFORE the dock's own panels go, because taking a window out of a
+            // floating form or off an auto-hide tab goes through DockState, which docks it back into the tree the
+            // dock still has. Doing that with the old tree already gone sent the window through DockToolStrip
+            // instead, which gave it a brand new strip on the dock's left that the document never asked for.
+            var fills = new List<(Majorsilence.Forms.Control Strip, System.Xml.Linq.XElement Element)> ();
+            DocumentContainer? main = null;
+
+            Majorsilence.Forms.Control? Build (System.Xml.Linq.XElement element)
+            {
+                var local = element.Name.LocalName;
+
+                Majorsilence.Forms.Control? panel =
+                    local.EndsWith ("DocumentTabStrip", StringComparison.Ordinal) ? new DocumentTabStrip ()
+                    : local.EndsWith ("ToolTabStrip", StringComparison.Ordinal) ? new ToolTabStrip { TabStripAlignment = TabStripAlignment.Bottom }
+                    : local.EndsWith ("DocumentContainer", StringComparison.Ordinal) ? new DocumentContainer ()
+                    : local.EndsWith ("RadSplitContainer", StringComparison.Ordinal) || local.EndsWith ("SplitPanel", StringComparison.Ordinal) ? new RadSplitContainer ()
+                    : null;
+
+                if (panel is null)
+                    return null;
+
+                // The names come from the document, as Telerik's do: a dock holding DockTabStrip17-20 came back
+                // holding DockTabStrip3/2/4/5, the names the document carried.
+                if ((string?) element.Attribute ("Name") is { Length: > 0 } panel_name)
+                    panel.Name = panel_name;
+
+                if (Enum.TryParse<Orientation> ((string?) element.Attribute ("Orientation"), out var panel_orientation)) {
+                    if (panel is RadSplitContainer split)
+                        split.Orientation = panel_orientation;
+                    else if (panel is DocumentContainer oriented)
+                        oriented.Orientation = panel_orientation;
+                }
+
+                if (panel is DocumentContainer container && (string?) element.Attribute ("IsMainDocumentContainer") == "True")
+                    main = container;
+
+                // The sizes this panel was saved with. A new panel starts at Telerik's defaults, so an attribute the
+                // document leaves out needs nothing done -- but they are all set explicitly anyway, because the
+                // defaults are what a MISSING attribute MEANS (measured: a dock whose strips were forced to 377 came
+                // back at 200 from a document that mentions no AbsoluteSize at all), and that belongs here rather
+                // than resting on a constructor somewhere else.
+                if (SplitLayout.SizeInfoOf (panel) is { } info) {
+                    var size = element.Element ("SizeInfo");
+
+                    info.AbsoluteSize = Measure (size, "AbsoluteSize") ?? new SizeF (200, 200);
+                    info.AutoSizeScale = Measure (size, "AutoSizeScale") ?? SizeF.Empty;
+                    info.SizeMode = Enum.TryParse<SplitPanelSizeMode> ((string?) size?.Attribute ("SizeMode"), out var mode) ? mode : SplitPanelSizeMode.Auto;
+                }
+
+                // A strip's windows are moved in once the whole tree stands; a container's children are panels.
+                if (panel is ToolTabStrip or DocumentTabStrip)
+                    fills.Add ((panel, element));
+                else
+                    foreach (var child in element.Element ("Controls")?.Elements () ?? Enumerable.Empty<System.Xml.Linq.XElement> ())
+                        if (Build (child) is { } nested)
+                            panel.Controls.Add (nested);
+
+                return panel;
+            }
+
+            var rebuilt = (root.Element ("Controls")?.Elements () ?? Enumerable.Empty<System.Xml.Linq.XElement> ())
+                .Select (Build).OfType<Majorsilence.Forms.Control> ().ToList ();
+
+            // Each strip's windows, in the order the document lists them.
+            foreach (var (strip, strip_element) in fills) {
                 var listed = new List<DockWindowBase> ();
-                var documents = strip_element.Name.LocalName.EndsWith ("DocumentTabStrip", StringComparison.Ordinal);
+                var documents = strip is DocumentTabStrip;
 
                 foreach (var element in strip_element.Element ("Controls")?.Elements () ?? Enumerable.Empty<System.Xml.Linq.XElement> ()) {
                     if ((string?) element.Attribute ("Name") is not { } name || !windows.TryGetValue (name, out var window))
@@ -298,30 +374,23 @@ namespace Majorsilence.Forms.Telerik
                     if ((string?) element.Attribute ("Text") is { } text)
                         window.Text = text;
 
-                    // The strip the layout puts it in decides its state, as Telerik's deserialised tree does.
-                    // Without this a document restored into the document strip kept whatever state it was
-                    // built with -- Docked, where Telerik gives TabbedDocument. A window that is floating or
-                    // auto-hidden right now takes it too: the saved tree holds it in a strip, so that is
-                    // where Telerik puts it back, and leaving those two states alone used to strand a panel
-                    // on its auto-hide tab for the rest of the session with no way back to the layout the
-                    // user saved.
+                    // The strip the layout puts it in decides its state, as Telerik's deserialised tree does: a
+                    // document restored into a DocumentTabStrip is TabbedDocument, a window in a ToolTabStrip is
+                    // Docked, whatever state it was in when the load started. A window that is floating or
+                    // auto-hidden right now takes it too -- the saved tree holds it in a strip, so that is where
+                    // Telerik puts it back, and leaving those two states alone used to strand a panel on its
+                    // auto-hide tab for the rest of the session with no way back to the layout the user saved.
+                    //
+                    // The state change comes FIRST and the move second: the state change is what pulls the window
+                    // out of its floating form, and it lands the window in the old tree, which is still standing.
                     var state = documents ? DockState.TabbedDocument : DockState.Docked;
 
                     if (window.DockState != state)
                         window.DockState = state;
 
+                    strip.Controls.Add (window);
                     listed.Add (window);
                 }
-
-                if (listed.Count == 0 || listed[0].Parent is not { } strip)
-                    continue;
-
-                for (var i = 0; i < listed.Count; i++)
-                    if (listed[i].Parent == strip)
-                        strip.Controls.SetChildIndex (listed[i], i);
-
-                foreach (var unlisted in strip.Controls.OfType<DockWindowBase> ().Except (listed).ToList ())
-                    Drop (unlisted);
 
                 if (int.TryParse ((string?) strip_element.Attribute ("SelectedIndex"), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var index)
                     && index >= 0 && index < listed.Count)
@@ -332,14 +401,57 @@ namespace Majorsilence.Forms.Telerik
             // with an unnamed window that is floating or auto-hidden was not measured, and leaving those
             // alone keeps this to what was. A window with no Name cannot be matched by name either way, so
             // it is left alone rather than guessed at.
+            //
+            // Before the old panels go, so a tool window sharing one is taken out of it alive: disposing a strip
+            // with the window still inside would dispose the window too, and Telerik keeps tool windows.
             foreach (var window in windows.Values.ToList ())
                 if (!named.Contains (window.Name) && window.DockState is DockState.Docked or DockState.TabbedDocument)
                     Drop (window);
 
-            // The saved sizes, now that every named window sits in the strip the document puts it in: matching a
-            // saved panel to a live one goes through the windows underneath it, so it has to happen before the
-            // floating and auto-hide passes take windows back out of the strips.
-            ApplySavedSizes (root, windows);
+            // ---- the new tree in place of the old ----
+            if (rebuilt.Count > 0) {
+                SuspendLayout ();
+
+                var discarded = Controls.OfType<Majorsilence.Forms.Control> ()
+                    .Where (c => c is not AutoHideTabStrip && SplitLayout.SizeInfoOf (c) is not null).ToList ();
+
+                foreach (var panel in discarded)
+                    Controls.Remove (panel);
+
+                foreach (var panel in rebuilt)
+                    Controls.Add (panel);
+
+                if (Enum.TryParse<Orientation> ((string?) root.Attribute ("Orientation"), out var dock_orientation))
+                    orientation = dock_orientation;
+
+                // Telerik writes IsMainDocumentContainer="True" on the container holding the documents, and the
+                // rebuilt one takes over: the dock's old main container is among the panels about to be disposed.
+                MainDocumentContainer = main;
+
+                // Whatever is still inside a discarded panel is taken out alive rather than disposed with it. A
+                // named window the document places only in a floating or auto-hide group is never moved into the
+                // new tree -- the passes below put it where it belongs -- and a window with no Name is never
+                // matched at all. What Telerik does with a nameless window was not measured, so it is left out of
+                // the tree and otherwise untouched rather than hidden or disposed.
+                foreach (var panel in discarded) {
+                    foreach (var window in WindowsUnder (panel).ToList ())
+                        window.Parent?.Controls.Remove (window);
+
+                    panel.Dispose ();
+                }
+
+                ResumeLayout (false);
+            }
+
+            // The cascade matters as much as the sizes. A panel deeper in the tree can change length without any
+            // ancestor changing size -- a tool strip and the documents beside it just swap room inside the container
+            // they share -- and assigning a container the bounds it already has raises no resize, so its own layout
+            // pass, where that swap happens, would never run. The saved width would then sit in SizeInfo unused until
+            // something else moved.
+            PerformLayout ();
+
+            foreach (var panel in DockDescendants (this))
+                panel.PerformLayout ();
 
             DockWindowBase? Placeholder (System.Xml.Linq.XElement element)
                 => (string?) element.Attribute ("DockWindowName") is { } name && windows.TryGetValue (name, out var window) ? window : null;
@@ -384,115 +496,43 @@ namespace Majorsilence.Forms.Telerik
                 ActivateWindow (window);
         }
 
-        // The sizes a saved layout holds, put back on the panels this dock already has.
+        // Every dock window inside a panel of this dock's tree. A nested RadDock's windows are its own layout's
+        // business, so the walk stops at one, as OwnWindows does.
+        private static IEnumerable<DockWindowBase> WindowsUnder (Majorsilence.Forms.Control panel)
+        {
+            foreach (Majorsilence.Forms.Control child in panel.Controls) {
+                if (child is DockWindowBase window) {
+                    yield return window;
+                    continue;
+                }
+
+                if (child is RadDock)
+                    continue;
+
+                foreach (var nested in WindowsUnder (child))
+                    yield return nested;
+            }
+        }
+
+        // A size a panel element carries: "260, 150", or "0.185633, 0" -- an AutoSizeScale is fractional.
         //
-        // Telerik keeps a split panel's length in its SizeInfo.AbsoluteSize and writes it into the document only when
-        // it is not the default 200 x 200 -- so a layout saved from an untouched dock carries no AbsoluteSize at all,
+        // Telerik keeps a split panel's length in SizeInfo.AbsoluteSize and writes it into the document only when it
+        // is not the default 200 x 200 -- so a layout saved from an untouched dock carries no AbsoluteSize at all,
         // which is why the first reading of one of these documents concluded the sizes were not in it. Dragging a
         // splitter does put it there: saving a dock whose tool strips had been set to 260 x 150 wrote
         // AbsoluteSize="260, 150" on each of them (probes/wfdocksplit).
-        //
-        // An attribute the document leaves out means the DEFAULT, not "leave this one alone": Telerik loading that
-        // untouched layout into a dock whose strips had been forced to 377 brought them back to 200, so a missing
-        // AbsoluteSize has to reset the live panel rather than keep its current length.
-        //
-        // Panels are matched to the document through the windows under them -- a saved ToolTabStrip naming twFilter
-        // is this dock's ToolTabStrip holding twFilter -- and the kinds have to agree, since a DocumentContainer and
-        // the single DocumentTabStrip inside it otherwise look alike. Where the arrangement itself differs from the
-        // saved one the sets stop matching and those panels keep their own sizes, which is as far as this goes:
-        // rebuilding the arrangement is not done here (see the remarks on LoadTelerikLayout).
-        private void ApplySavedSizes (System.Xml.Linq.XElement root, Dictionary<string, DockWindowBase> windows)
+        private static SizeF? Measure (System.Xml.Linq.XElement? element, string attribute)
         {
-            // What a panel is, for matching: a saved element and a live control agree when these agree.
-            static string? KindOf (string name) =>
-                name.EndsWith ("DocumentTabStrip", StringComparison.Ordinal) ? "documents"
-                : name.EndsWith ("ToolTabStrip", StringComparison.Ordinal) ? "tools"
-                : name.EndsWith ("DocumentContainer", StringComparison.Ordinal) ? "container"
-                : name.EndsWith ("RadSplitContainer", StringComparison.Ordinal) || name.EndsWith ("SplitPanel", StringComparison.Ordinal) ? "split"
+            if ((string?) element?.Attribute (attribute) is not { } text)
+                return null;
+
+            var parts = text.Split (',');
+
+            return parts.Length == 2
+                && float.TryParse (parts[0].Trim (), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var width)
+                && float.TryParse (parts[1].Trim (), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var height)
+                ? new SizeF (width, height)
                 : null;
-
-            // The live panels, by kind and by the windows under them. An AutoHideTabStrip is a ToolTabStrip by type
-            // but is not one of the dock's split panels -- it holds the tabs of hidden windows -- so it is left out.
-            var live = new List<(string Kind, HashSet<string> Names, Majorsilence.Forms.Control Panel)> ();
-
-            void Collect (Majorsilence.Forms.Control parent)
-            {
-                foreach (Majorsilence.Forms.Control child in parent.Controls) {
-                    if (child is not AutoHideTabStrip && SplitLayout.SizeInfoOf (child) is not null && KindOf (child.GetType ().Name) is { } kind) {
-                        var names = new HashSet<string> (Names (child), StringComparer.Ordinal);
-
-                        if (names.Count > 0)
-                            live.Add ((kind, names, child));
-                    }
-
-                    Collect (child);
-                }
-
-                static IEnumerable<string> Names (Majorsilence.Forms.Control panel)
-                {
-                    foreach (var window in panel.Controls.OfType<DockWindowBase> ())
-                        if (!string.IsNullOrEmpty (window.Name))
-                            yield return window.Name;
-
-                    foreach (Majorsilence.Forms.Control child in panel.Controls)
-                        foreach (var name in Names (child))
-                            yield return name;
-                }
-            }
-
-            Collect (this);
-
-            foreach (var element in root.Descendants ()) {
-                if (KindOf (element.Name.LocalName) is not { } kind)
-                    continue;
-
-                var saved = new HashSet<string> (
-                    element.Descendants ().Select (e => (string?) e.Attribute ("Name")).OfType<string> ().Where (windows.ContainsKey),
-                    StringComparer.Ordinal);
-
-                if (saved.Count == 0)
-                    continue;
-
-                var match = live.FirstOrDefault (p => p.Kind == kind && p.Names.SetEquals (saved));
-
-                if (match.Panel is null || SplitLayout.SizeInfoOf (match.Panel) is not { } info)
-                    continue;
-
-                var size = element.Element ("SizeInfo");
-
-                info.AbsoluteSize = Measure (size, "AbsoluteSize") ?? new SizeF (200, 200);
-                info.AutoSizeScale = Measure (size, "AutoSizeScale") ?? SizeF.Empty;
-
-                if (Enum.TryParse<SplitPanelSizeMode> ((string?) size?.Attribute ("SizeMode"), out var mode))
-                    info.SizeMode = mode;
-                else
-                    info.SizeMode = SplitPanelSizeMode.Auto;
-            }
-
-            // The cascade matters as much as the sizes. A panel deeper in the tree can change length without any
-            // ancestor changing size -- a tool strip and the documents beside it just swap room inside the container
-            // they share -- and assigning a container the bounds it already has raises no resize, so its own layout
-            // pass, where that swap happens, would never run. The saved width would then sit in SizeInfo unused until
-            // something else moved.
-            PerformLayout ();
-
-            foreach (var panel in DockDescendants (this))
-                panel.PerformLayout ();
-
-            // "260, 150", or "0.185633, 0" -- an AutoSizeScale is fractional.
-            static SizeF? Measure (System.Xml.Linq.XElement? element, string attribute)
-            {
-                if ((string?) element?.Attribute (attribute) is not { } text)
-                    return null;
-
-                var parts = text.Split (',');
-
-                return parts.Length == 2
-                    && float.TryParse (parts[0].Trim (), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var width)
-                    && float.TryParse (parts[1].Trim (), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var height)
-                    ? new SizeF (width, height)
-                    : null;
-            }
         }
 
         // The windows in this dock's own strips: not those of a dock nested inside one of its windows, which
