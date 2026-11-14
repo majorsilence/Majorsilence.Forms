@@ -1,4 +1,7 @@
 #:sdk Cake.Sdk
+// A file-based app turns nullable on after Directory.Build.props is read, so it has to be switched off here;
+// the script's optional strings are not worth annotating.
+#:property Nullable=disable
 
 // The build pipeline: what CI and a release do, as targets you can also run on a laptop.
 //
