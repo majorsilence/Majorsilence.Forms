@@ -393,16 +393,27 @@ jobs:
           dotnet-version: |
             8.0.x
             10.0.x
+            11.0.x
 
       # Not preinstalled on GitHub-hosted runners -- required for `dotnet publish` below
       # to be able to run the wasm-tools IL-linking/packaging pipeline at all.
+      #
+      # Both ids, and SDK 11 named above, because the workload belongs to the SDK that runs the
+      # publish, not to the project's target: under SDK 11 plain `wasm-tools` brings only the net11
+      # packs, and Gallery.Wasm targets net10.0-browser, which needs `wasm-tools-net10`. The runner
+      # image began shipping SDK 11 on 2026-11-11 and it wins over the 10.0.x installed here, so the
+      # job went red with no code change: the publish "succeeded" without linking libSkiaSharp.a and
+      # the app died at boot on SKImageInfo's type initializer.
       - name: Install wasm-tools workload
-        run: dotnet workload install wasm-tools
+        run: dotnet workload install wasm-tools wasm-tools-net10
 
       # The real gate: this is the first point in CI that exercises wasm-tools, since
       # `dotnet build` (in the `build` job above) never touches it.
+      #
+      # WasmBuildNative is what publish defaults to when the workload is present. Stating it turns
+      # a missing workload from a warning ("native references won't be linked in") into an error.
       - name: Publish Gallery.Wasm
-        run: dotnet publish samples/Gallery.Wasm/Gallery.Wasm.csproj --configuration Release
+        run: dotnet publish samples/Gallery.Wasm/Gallery.Wasm.csproj --configuration Release -p:WasmBuildNative=true
 
       - name: Setup Node
         uses: actions/setup-node@v4

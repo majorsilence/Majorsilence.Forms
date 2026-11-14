@@ -337,13 +337,18 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: |
+            10.0.x
+            11.0.x
+      # Both ids and WasmBuildNative for the reason given on the `wasm` job in dotnet.yml: under the
+      # runner's SDK 11, plain `wasm-tools` does not cover a net10.0-browser project, and without the
+      # property the publish only warns and zips a site that cannot boot. Nothing here boots it.
       - name: Install wasm-tools workload
-        run: dotnet workload install wasm-tools
+        run: dotnet workload install wasm-tools wasm-tools-net10
       - name: Publish Gallery.Wasm
         run: >-
           dotnet publish samples/Gallery.Wasm/Gallery.Wasm.csproj
-          --configuration Release -p:CompressionEnabled=false
+          --configuration Release -p:CompressionEnabled=false -p:WasmBuildNative=true
           -o "${{ github.workspace }}/wasm-out"
       - name: Zip the WASM site
         shell: bash
