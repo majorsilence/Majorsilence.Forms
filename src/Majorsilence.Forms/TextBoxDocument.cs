@@ -19,6 +19,10 @@ namespace Majorsilence.Forms
         // half the size on a scale-2 display. Text, font and width changes reset the cache; a scale change does not, so it is keyed here.
         private int cached_text_block_font_size;
 
+        // The block counts code points; the document's text, caret and selection are UTF-16 indices. This converts between
+        // them for the text cached_text_block was laid out from, and is replaced with it (#689).
+        private TextIndexMap cached_index_map = TextIndexMap.Identity;
+
         private bool enabled = true;
         private int cursor_index;
         private bool read_only;
@@ -358,15 +362,28 @@ namespace Majorsilence.Forms
             }
         }
 
-        public HitTestResult GetCharIndexFromPosition (int x, int y)
-        {
-            var hit = GetTextBlock ().HitTest (x, y);
+        /// <summary>The UTF-16 index of the character at the point <paramref name="x"/>, <paramref name="y"/> of the laid-out text.</summary>
+        public int GetCharIndexFromPosition (float x, float y)
+            => CharIndexFromCodePoint (GetTextBlock ().HitTest (x, y).ClosestCodePointIndex);
 
-            return hit;
+        // The block's code-point indices and the document's UTF-16 ones (#689). Both go through GetTextBlock first, so the
+        // map is the one for the layout the index came from or is going to.
+        internal int CharIndexFromCodePoint (int codePoint)
+        {
+            GetTextBlock ();
+            return cached_index_map.ToUtf16 (codePoint);
         }
 
+        internal int CodePointFromCharIndex (int index)
+        {
+            GetTextBlock ();
+            return cached_index_map.ToCodePoint (index);
+        }
+
+        // Selection ends are UTF-16 indices; the block paints a selection by code point. -1 is "none" and stays so.
         public TextSelection GetTextSelection ()
-            => new TextSelection (selection_start, selection_end, SelectionColor) {
+            => new TextSelection (selection_start < 0 ? selection_start : CodePointFromCharIndex (selection_start),
+                                  selection_end < 0 ? selection_end : CodePointFromCharIndex (selection_end), SelectionColor) {
                 TextColor = selection_color is null && FieldUpstreamLook.Applies ? SystemColors.HighlightText.ToSKColor () : null,
             };
 
@@ -420,6 +437,7 @@ namespace Majorsilence.Forms
             cached_text_block_font_size = font_size;
             cached_text_block_font = typeface;
             cached_text_block_placeholder = shows_placeholder;
+            cached_index_map = TextIndexMap.For (DisplayText, foldLineEnds: multiline);
             return cached_text_block = block;
         }
 
@@ -686,23 +704,24 @@ namespace Majorsilence.Forms
 
             var new_index = -1;
             var block = GetTextBlock ();
-            var current_caret = block.GetCaretInfo (new CaretPosition (cursor_index));
+            // The block is addressed by code point and the caret is a UTF-16 index; every index crosses the map here (#689).
+            var current_caret = block.GetCaretInfo (new CaretPosition (CodePointFromCharIndex (cursor_index)));
 
             switch (direction) {
                 case ArrowDirection.Left:
 
                     // Ctrl-Home - Go to the beginning of the document
                     if (end && wholeWord)
-                        new_index = block.CaretIndicies[0];
+                        new_index = CharIndexFromCodePoint (block.CaretIndicies[0]);
                     // Home - Go to the beginning of the current line
                     else if (end)
-                        new_index = block.HitTest (0, current_caret.CaretRectangle.MidY).ClosestCodePointIndex;
+                        new_index = GetCharIndexFromPosition (0, current_caret.CaretRectangle.MidY);
                     // Ctrl-Left - Go left one word
                     else if (wholeWord)
                         new_index = TextMeasurer.FindNextSeparator (text, cursor_index, false);
                     // Left - Go left one character
                     else
-                        new_index = block.CaretIndicies.ElementAt (Math.Max (cursor_index - 1, 0));
+                        new_index = StepCaret (block, -1);
 
                     break;
 
@@ -710,10 +729,10 @@ namespace Majorsilence.Forms
 
                     // Multiline - Go up one line
                     if (multiline)
-                        new_index = GetCharIndexFromPosition ((int)current_caret.CaretXCoord, (int)current_caret.CaretRectangle.MidY - textbox.CurrentFontSize).ClosestCodePointIndex;
+                        new_index = GetCharIndexFromPosition ((int)current_caret.CaretXCoord, (int)current_caret.CaretRectangle.MidY - textbox.CurrentFontSize);
                     // Single line - Go left one character
                     else
-                        new_index = block.CaretIndicies.ElementAt (Math.Max (cursor_index - 1, 0));
+                        new_index = StepCaret (block, -1);
 
                     break;
 
@@ -721,16 +740,16 @@ namespace Majorsilence.Forms
 
                     // Ctrl-End - Go to the end of the document
                     if (end && wholeWord)
-                        new_index = block.CaretIndicies.Last ();
+                        new_index = CharIndexFromCodePoint (block.CaretIndicies.Last ());
                     // End - Go to the end of the current line
                     else if (end)
-                        new_index = block.HitTest (int.MaxValue, current_caret.CaretRectangle.MidY).ClosestCodePointIndex;
+                        new_index = GetCharIndexFromPosition (int.MaxValue, current_caret.CaretRectangle.MidY);
                     // Ctrl-Right - Go right one word
                     else if (wholeWord)
                         new_index = TextMeasurer.FindNextSeparator (text, cursor_index, true);
                     // Right - Go right one character
                     else
-                        new_index = block.CaretIndicies.ElementAt (Math.Min (cursor_index + 1, block.CaretIndicies.Count - 1));
+                        new_index = StepCaret (block, 1);
 
                     break;
 
@@ -738,10 +757,10 @@ namespace Majorsilence.Forms
 
                     // Multiline - Go down one line
                     if (multiline)
-                        new_index = GetCharIndexFromPosition ((int)current_caret.CaretXCoord, (int)current_caret.CaretRectangle.MidY + textbox.CurrentFontSize).ClosestCodePointIndex;
+                        new_index = GetCharIndexFromPosition ((int)current_caret.CaretXCoord, (int)current_caret.CaretRectangle.MidY + textbox.CurrentFontSize);
                     // Single line - Go left one character
                     else
-                        new_index = block.CaretIndicies.ElementAt (Math.Min (cursor_index + 1, block.CaretIndicies.Count - 1));
+                        new_index = StepCaret (block, 1);
 
                     break;
             }
@@ -762,6 +781,36 @@ namespace Majorsilence.Forms
             }
 
             return false;
+        }
+
+        // The UTF-16 index of the caret stop one step from the caret, in the block's own list of stops: a CRLF, a surrogate
+        // pair and a combining sequence are each one step. A caret inside one (which SetSelection can leave it) steps to the
+        // stop that starts it going left, and to the next going right.
+        private int StepCaret (TextBlock block, int step)
+        {
+            var stops = block.CaretIndicies;
+
+            if (stops.Count == 0)
+                return cursor_index;
+
+            var code_point = cached_index_map.ToCodePoint (cursor_index);
+            var lo = 0;
+            var hi = stops.Count;
+
+            // The number of stops at or before the caret.
+            while (lo < hi) {
+                var mid = lo + (hi - lo) / 2;
+
+                if (stops[mid] <= code_point)
+                    lo = mid + 1;
+                else
+                    hi = mid;
+            }
+
+            var at = lo - 1;
+            var target = step < 0 ? (at >= 0 && stops[at] == code_point ? at - 1 : at) : at + 1;
+
+            return cached_index_map.ToUtf16 (stops[MathCompat.Clamp (target, 0, stops.Count - 1)]);
         }
 
         public char? PasswordCharacter {

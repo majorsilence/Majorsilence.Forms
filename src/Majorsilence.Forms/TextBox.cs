@@ -188,7 +188,7 @@ namespace Majorsilence.Forms
                 return 0;
 
             var device = LogicalToDeviceUnits (pt);
-            return document.GetCharIndexFromPosition (device.X - TextOrigin.X, device.Y - TextOrigin.Y).ClosestCodePointIndex;
+            return document.GetCharIndexFromPosition (device.X - TextOrigin.X, device.Y - TextOrigin.Y);
         }
 
         /// <inheritdoc/>
@@ -210,7 +210,7 @@ namespace Majorsilence.Forms
         internal Rectangle CaretRectangle (int index)
         {
             var block = document.GetTextBlock ();
-            return TextMeasurer.GetCursorLocation (block, TextOrigin, index, CurrentFontSize, block.MeasuredHeight == 0 ? document.EmptyLineHeight : 0);
+            return TextMeasurer.GetCursorLocation (block, TextOrigin, document.CodePointFromCharIndex (index), CurrentFontSize, block.MeasuredHeight == 0 ? document.EmptyLineHeight : 0);
         }
 
         /// <summary>
@@ -320,12 +320,12 @@ namespace Majorsilence.Forms
                 return false;
 
             var block = document.GetTextBlock ();
-            var caret = block.GetCaretInfo (new CaretPosition (document.CursorIndex));
+            var caret = block.GetCaretInfo (new CaretPosition (document.CodePointFromCharIndex (document.CursorIndex)));
             var page = Math.Max (PaddedClientRectangle.Height, CurrentFontSize);
             var y = caret.CaretRectangle.MidY + (up ? -page : page);
             var index = y < 0 ? 0
                       : y > block.MeasuredHeight ? document.Text.Length
-                      : block.HitTest (caret.CaretXCoord, y).ClosestCodePointIndex;
+                      : document.GetCharIndexFromPosition (caret.CaretXCoord, y);
 
             return document.MoveCaretTo (index, select);
         }
@@ -1084,7 +1084,8 @@ namespace Majorsilence.Forms
 
             var lines = document.GetTextBlock ().Lines;
 
-            index = MathCompat.Clamp (index, 0, document.Text.Length);
+            // A line's Start and Length count code points, the index UTF-16 units (#689).
+            index = document.CodePointFromCharIndex (MathCompat.Clamp (index, 0, document.Text.Length));
 
             for (var i = 0; i < lines.Count; i++)
                 if (index < lines[i].Start + lines[i].Length)
@@ -1109,7 +1110,7 @@ namespace Majorsilence.Forms
 
             var lines = document.GetTextBlock ().Lines;
 
-            return lineNumber < lines.Count ? lines[lineNumber].Start : -1;
+            return lineNumber < lines.Count ? document.CharIndexFromCodePoint (lines[lineNumber].Start) : -1;
         }
 
         // TXT-25: upstream's TextBoxBase.BackColor -- with no colour of its own, a read-only box answers
