@@ -16,6 +16,14 @@ name: Publish to nuget.org
 #   2. No GitHub secret needed for the API key. NUGET_USER below can be a plain repo
 #      variable (vars.NUGET_USER) or a secret if you'd rather not expose the nuget.org
 #      username in workflow runs -- either works, it's not sensitive on its own.
+#
+# Packing is the same `Pack` target release.yml and dotnet.yml run (build/build.cs), one job per OS because
+# each OS can only pack its own share (Windows-only projects, the packages with a net10.0-ios row, the rest);
+# the project lists are in that file. The push itself deliberately stays here, in YAML, next to the OIDC login
+# that produces its key.
+#
+# This checks out and builds from the release's TAG, so build/build.cs must exist at that tag: a release
+# tagged before the Cake build landed cannot be published by this workflow.
 
 on:
   release:
@@ -25,48 +33,29 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
-  # Cross-platform packages — packed on Linux in the `publish` job.
-  # Keep this in sync with PACKABLE_PROJECTS in release.yml and dotnet.yml (the `pack` job).
-  PACKABLE_PROJECTS: >-
-    src/Majorsilence.Forms/Majorsilence.Forms.csproj
-    src/Majorsilence.Forms.Theming.Avalonia/Majorsilence.Forms.Theming.Avalonia.csproj
-    src/Majorsilence.Forms.Headless/Majorsilence.Forms.Headless.csproj
-    src/Majorsilence.Forms.Terminal/Majorsilence.Forms.Terminal.csproj
-    src/Majorsilence.Forms.Mvvm/Majorsilence.Forms.Mvvm.csproj
-    src/Majorsilence.Forms.Uno/Majorsilence.Forms.Uno.csproj
-    src/Majorsilence.Forms.Gtk4/Majorsilence.Forms.Gtk4.csproj
-    src/Majorsilence.Forms.Telerik/Majorsilence.Forms.Telerik.csproj
-    src/Majorsilence.Forms.Drawing.Common/Majorsilence.Forms.Drawing.Common.csproj
-    src/Majorsilence.Forms.WebDriver/Majorsilence.Forms.WebDriver.csproj
-    src/Majorsilence.Forms.Wpf/Majorsilence.Forms.Wpf.csproj
-    tools/Majorsilence.Forms.Templates/Majorsilence.Forms.Templates.csproj
-    tools/Majorsilence.Forms.Migrator/Majorsilence.Forms.Migrator.csproj
-    tools/Majorsilence.Forms.Mcp/Majorsilence.Forms.Mcp.csproj
-    src/Majorsilence.Forms.WinFormsShims.Compat/Majorsilence.Forms.WinFormsShims.Compat.csproj
-  # Windows-only packages (net*-windows, UseWindowsForms/UseWPF). Off Windows these
-  # projects compile to an empty IsPackable=false placeholder, so they're packed on a
-  # windows-latest runner (see the pack-windows job) and pushed alongside the rest.
-  PACKABLE_PROJECTS_WINDOWS: >-
-    src/Majorsilence.Forms.WinForms/Majorsilence.Forms.WinForms.csproj
-    src/Majorsilence.Forms.WindowsFormsInterop/Majorsilence.Forms.WindowsFormsInterop.csproj
-    src/Majorsilence.Forms.WindowsUIAutomation/Majorsilence.Forms.WindowsUIAutomation.csproj
-    src/Majorsilence.Forms.Theming.WinForms/Majorsilence.Forms.Theming.WinForms.csproj
-  # Packages that need a macOS runner because they carry a net10.0-ios row (Apple's toolchain is a hard
-  # requirement). Majorsilence.Forms.Essentials and Majorsilence.Forms.Avalonia each ship android + ios +
-  # desktop (+ browser, for Avalonia) in ONE package, so they are packed here with both workloads, and
-  # deliberately not in PACKABLE_PROJECTS above (two packs of the same id would collide on nuget.org).
-  # Packing Avalonia on Linux shipped every release without its net10.0-ios asset, so an iOS head
-  # silently got the desktop build. Keep in sync with the other two workflows.
-  PACKABLE_PROJECTS_MACOS: >-
-    src/Majorsilence.Forms.Essentials/Majorsilence.Forms.Essentials.csproj
-    src/Majorsilence.Forms.Avalonia/Majorsilence.Forms.Avalonia.csproj
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
-  # Windows-only packages build only on a Windows runner; pack them here and hand the
-  # .nupkg/.snupkg files to the `publish` job as an artifact so the OIDC push stays in
-  # one place.
-  pack-windows:
-    runs-on: windows-latest
+  # The Windows-only and macOS-only packages build only on their own OS; pack them there and hand the
+  # .nupkg/.snupkg files to the `publish` job as artifacts so the OIDC push stays in one place.
+  #
+  # Not continue-on-error, macOS especially: failing here beats publishing Essentials or Avalonia to nuget.org
+  # without its iOS asset, which could not be corrected later (versions are immutable).
+  pack:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            workloads: none
+            artifact: nupkg-windows
+          - os: macos-latest
+            workloads: mac-pack
+            artifact: nupkg-macos
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -81,79 +70,20 @@ jobs:
             10.0.x
             11.0.x
 
-      - name: Pack Windows-only NuGet packages
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p nupkg
-          for proj in $PACKABLE_PROJECTS_WINDOWS; do
-            echo "::group::pack $proj"
-            dotnet pack "$proj" --configuration Release --output nupkg
-            echo "::endgroup::"
-          done
-          ls -lh nupkg
+      - name: Pack this OS's NuGet packages
+        run: dotnet build/build.cs -- --target=Pack --workloads=${{ matrix.workloads }}
 
-      - name: Upload Windows-only packages
+      - name: Upload packages
         uses: actions/upload-artifact@v4
         with:
-          name: nupkg-windows
-          path: |
-            nupkg/*.nupkg
-            nupkg/*.snupkg
-          if-no-files-found: error
-
-  # Packages with a net10.0-ios row build only on a macOS runner (Apple's toolchain). Same hand-off
-  # as pack-windows. Not continue-on-error: failing here beats publishing Essentials or Avalonia
-  # to nuget.org without its iOS asset, which could not be corrected later (versions are immutable).
-  pack-macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.release.tag_name }}
-          fetch-depth: 0
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: |
-            8.0.x
-            10.0.x
-            11.0.x
-
-      # SDK 11 with its own workload set, pinned to 11.0.100.1: verified on macos-latest (Xcode 26.6) to
-      # build the net10.0-ios row against Microsoft.iOS.Sdk.net10.0_26.0, which SDK 11's set carries for
-      # .NET 10 targets, while adding the net11.0 row. The pin is for the same reason the 10.0.401 one was:
-      # an unpinned set once moved .NET for iOS to a version that demands an Xcode the runner image lacks,
-      # and every iOS build went red overnight. Move it deliberately, with the runner's Xcode in view.
-      # android and ios go in together so the Essentials and Avalonia packages carry both rows.
-      - name: Install android and ios workloads
-        run: dotnet workload install android ios --version 11.0.100.1
-
-      - name: Pack macOS-only NuGet packages
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p nupkg
-          for proj in $PACKABLE_PROJECTS_MACOS; do
-            echo "::group::pack $proj"
-            dotnet pack "$proj" --configuration Release --output nupkg \
-              -p:EnableAndroidTarget=true -p:EnableIOSTarget=true
-            echo "::endgroup::"
-          done
-          ls -lh nupkg
-
-      - name: Upload macOS-only packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: nupkg-macos
+          name: ${{ matrix.artifact }}
           path: |
             nupkg/*.nupkg
             nupkg/*.snupkg
           if-no-files-found: error
 
   publish:
-    needs: [pack-windows, pack-macos]
+    needs: [pack]
     runs-on: ubuntu-latest
     permissions:
       id-token: write   # required for NuGet/login's OIDC token exchange
@@ -174,23 +104,11 @@ jobs:
             10.0.x
             11.0.x
 
-      # Majorsilence.Forms.Avalonia itself is packed in pack-macos (it carries a net10.0-ios row), but
-      # Majorsilence.Forms.Theming.Avalonia still builds against it here; with the workload installed
+      # Majorsilence.Forms.Avalonia itself is packed in the macOS job (it carries a net10.0-ios row), but
+      # Majorsilence.Forms.Theming.Avalonia still builds against it here; with the android workload installed
       # that build resolves the same android row the published package has.
-      - name: Install android workload
-        run: dotnet workload install android
-
-      - name: Pack NuGet packages
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p nupkg
-          for proj in $PACKABLE_PROJECTS; do
-            echo "::group::pack $proj"
-            dotnet pack "$proj" --configuration Release --output nupkg
-            echo "::endgroup::"
-          done
-          ls -lh nupkg
+      - name: Pack the cross-platform NuGet packages
+        run: dotnet build/build.cs -- --target=Pack --workloads=android
 
       - name: Download Windows-only packages
         uses: actions/download-artifact@v4
@@ -216,7 +134,6 @@ jobs:
           user: ${{ vars.NUGET_USER }}
 
       - name: Push to nuget.org
-        shell: bash
         run: |
           set -euo pipefail
           dotnet nuget push "nupkg/*.nupkg" \

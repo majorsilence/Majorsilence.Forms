@@ -13,6 +13,12 @@ name: Release Packages
 # Publishing to nuget.org is a SEPARATE workflow (publish-nuget.yml), triggered only when
 # a human clicks "Publish release" on the draft this workflow creates -- see that file for
 # the Trusted Publishing (OIDC) setup. This workflow never has nuget.org credentials.
+#
+# What each job DOES lives in build/build.cs (Cake.Sdk). Notably there is one list of packable projects, there,
+# instead of the three that used to be kept in sync by hand across this file, publish-nuget.yml and dotnet.yml:
+# the `Pack` target packs whichever share (cross-platform, Windows-only, macOS-only) the runner's OS can.
+# The version is resolved there too (the `Version` target): a tag push uses the tag, otherwise the
+# workflow_dispatch input reaches it as $PACK_VERSION, otherwise it is left to the csproj files.
 
 on:
   push:
@@ -34,6 +40,8 @@ on:
     paths:
       - 'src/**'
       - 'tools/**'
+      - 'build/**'
+      - 'global.json'
       - 'Directory.Build.props'
       - 'Directory.Packages.props'
       - '.github/workflows/release.yml'
@@ -51,82 +59,46 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
-  # Cross-platform packages that produce shipped NuGet packages — packed on Linux.
-  # Keep this in sync with PACKABLE_PROJECTS in publish-nuget.yml and dotnet.yml (the `pack` job).
-  PACKABLE_PROJECTS: >-
-    src/Majorsilence.Forms/Majorsilence.Forms.csproj
-    src/Majorsilence.Forms.Theming.Avalonia/Majorsilence.Forms.Theming.Avalonia.csproj
-    src/Majorsilence.Forms.Headless/Majorsilence.Forms.Headless.csproj
-    src/Majorsilence.Forms.Terminal/Majorsilence.Forms.Terminal.csproj
-    src/Majorsilence.Forms.Mvvm/Majorsilence.Forms.Mvvm.csproj
-    src/Majorsilence.Forms.Uno/Majorsilence.Forms.Uno.csproj
-    src/Majorsilence.Forms.Gtk4/Majorsilence.Forms.Gtk4.csproj
-    src/Majorsilence.Forms.Telerik/Majorsilence.Forms.Telerik.csproj
-    src/Majorsilence.Forms.Drawing.Common/Majorsilence.Forms.Drawing.Common.csproj
-    src/Majorsilence.Forms.WebDriver/Majorsilence.Forms.WebDriver.csproj
-    src/Majorsilence.Forms.Wpf/Majorsilence.Forms.Wpf.csproj
-    tools/Majorsilence.Forms.Templates/Majorsilence.Forms.Templates.csproj
-    tools/Majorsilence.Forms.Migrator/Majorsilence.Forms.Migrator.csproj
-    tools/Majorsilence.Forms.Mcp/Majorsilence.Forms.Mcp.csproj
-    src/Majorsilence.Forms.WinFormsShims.Compat/Majorsilence.Forms.WinFormsShims.Compat.csproj
-  # Windows-only packages (net*-windows, UseWindowsForms/UseWPF). Off Windows these
-  # projects compile to an empty IsPackable=false placeholder, so they must be packed
-  # on a windows-latest runner (see the pack-windows job).
-  PACKABLE_PROJECTS_WINDOWS: >-
-    src/Majorsilence.Forms.WinForms/Majorsilence.Forms.WinForms.csproj
-    src/Majorsilence.Forms.WindowsFormsInterop/Majorsilence.Forms.WindowsFormsInterop.csproj
-    src/Majorsilence.Forms.WindowsUIAutomation/Majorsilence.Forms.WindowsUIAutomation.csproj
-    src/Majorsilence.Forms.Theming.WinForms/Majorsilence.Forms.Theming.WinForms.csproj
-  # Packages that need a macOS runner because they carry a net10.0-ios row (Apple's toolchain is a hard
-  # requirement). Majorsilence.Forms.Essentials and Majorsilence.Forms.Avalonia each ship android + ios +
-  # desktop (+ browser, for Avalonia) in ONE package, so they are packed here with both workloads, and
-  # deliberately not in PACKABLE_PROJECTS above (two packs of the same id would collide on nuget.org).
-  # Packing Avalonia on Linux shipped every release without its net10.0-ios asset, so an iOS head
-  # silently got the desktop build. Keep in sync with the other two workflows.
-  PACKABLE_PROJECTS_MACOS: >-
-    src/Majorsilence.Forms.Essentials/Majorsilence.Forms.Essentials.csproj
-    src/Majorsilence.Forms.Avalonia/Majorsilence.Forms.Avalonia.csproj
+  # The workflow_dispatch version, handed to build/build.cs through the environment rather than interpolated
+  # into a shell line. Empty on every other trigger; a tag push is resolved from the tag itself.
+  PACK_VERSION: ${{ github.event.inputs.version }}
+
+# One shell everywhere: windows-latest would otherwise default to PowerShell (where `ls -lh` is not a valid
+# command, which once failed a job whose pack had succeeded).
+defaults:
+  run:
+    shell: bash
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Resolve the version once so every package + binary shares it.
-  # ---------------------------------------------------------------------------
-  version:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.resolve.outputs.version }}
-      is_release: ${{ steps.resolve.outputs.is_release }}
-    steps:
-      - id: resolve
-        shell: bash
-        run: |
-          # Any tag that got this far matched the `on.push.tags` filters above, so the
-          # test is "is this a tag" rather than a second copy of the naming rule -- one
-          # place decides what a release tag looks like, and it is the trigger.
-          if [ "${{ github.event_name }}" = "push" ] && [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            # refs/tags/v1.2.3 -> 1.2.3, and refs/tags/1.2.3 -> 1.2.3 (the strip is a no-op).
-            VERSION="${GITHUB_REF_NAME#v}"
-            echo "is_release=true" >> "$GITHUB_OUTPUT"
-          elif [ -n "${{ github.event.inputs.version }}" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-            echo "is_release=false" >> "$GITHUB_OUTPUT"
-          else
-            # Fall back to whatever the csproj files declare.
-            VERSION=""
-            echo "is_release=false" >> "$GITHUB_OUTPUT"
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Resolved version: '${VERSION:-(from csproj)}'"
-
-  # ---------------------------------------------------------------------------
-  # Pack the NuGet packages. Platform-agnostic, so a single runner is enough.
-  # Majorsilence.Forms.Avalonia (android + ios + browser + desktop rows) packs in the macOS
-  # job instead; the `android` workload stays installed here because
-  # Majorsilence.Forms.Theming.Avalonia builds against it.
+  # Pack the NuGet packages: one job per OS, each packing the share only it can.
+  #
+  #  - Linux: the cross-platform packages. The `android` workload stays installed because
+  #    Majorsilence.Forms.Theming.Avalonia builds against Majorsilence.Forms.Avalonia.
+  #  - macOS: the packages that carry a net10.0-ios row (iOS only compiles on macOS). Not
+  #    continue-on-error: a release must fail loudly rather than quietly ship Essentials or Avalonia without
+  #    its iOS (or Android) asset.
+  #  - Windows: the net*-windows packages (UseWindowsForms/UseWPF), which the Linux job sees as empty
+  #    IsPackable=false placeholders.
   # ---------------------------------------------------------------------------
   pack:
-    needs: version
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            workloads: android
+            artifact: nuget-packages
+            symbols: symbol-packages
+          - os: macos-latest
+            workloads: mac-pack
+            artifact: nuget-packages-macos
+            symbols: symbol-packages-macos
+          - os: windows-latest
+            workloads: none
+            artifact: nuget-packages-windows
+            symbols: symbol-packages-windows
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -139,185 +111,21 @@ jobs:
             8.0.x
             10.0.x
             11.0.x
-
-      - name: Install android workload
-        run: dotnet workload install android
-
-      - name: Build version arg
-        id: args
-        shell: bash
-        run: |
-          if [ -n "${{ needs.version.outputs.version }}" ]; then
-            echo "version_arg=-p:Version=${{ needs.version.outputs.version }} -p:PackageVersion=${{ needs.version.outputs.version }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "version_arg=" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Pack NuGet packages
-        shell: bash
-        run: |
-          set -euo pipefail
-          for proj in $PACKABLE_PROJECTS; do
-            echo "::group::pack $proj"
-            dotnet pack "$proj" \
-              --configuration Release \
-              --output "${{ github.workspace }}/nupkg" \
-              ${{ steps.args.outputs.version_arg }}
-            echo "::endgroup::"
-          done
-
-      - name: List packages
-        shell: bash
-        run: ls -lh "${{ github.workspace }}/nupkg"
+        run: dotnet build/build.cs -- --target=Pack --workloads=${{ matrix.workloads }}
 
       - name: Upload NuGet packages
         uses: actions/upload-artifact@v4
         with:
-          name: nuget-packages
+          name: ${{ matrix.artifact }}
           path: nupkg/*.nupkg
           if-no-files-found: error
 
       - name: Upload symbol packages
         uses: actions/upload-artifact@v4
         with:
-          name: symbol-packages
-          path: nupkg/*.snupkg
-          if-no-files-found: ignore
-
-  # ---------------------------------------------------------------------------
-  # Pack the packages that carry a net10.0-ios row. iOS only compiles on macOS, so these cannot
-  # be packed by the Linux `pack` job. Not continue-on-error: a release must fail loudly rather
-  # than quietly ship Essentials or Avalonia without its iOS (or Android) asset.
-  # ---------------------------------------------------------------------------
-  pack-macos:
-    needs: version
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # full history so SourceLink embeds correct commit info
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: |
-            8.0.x
-            10.0.x
-            11.0.x
-
-      # SDK 11 with its own workload set, pinned to 11.0.100.1: verified on macos-latest (Xcode 26.6) to
-      # build the net10.0-ios row against Microsoft.iOS.Sdk.net10.0_26.0, which SDK 11's set carries for
-      # .NET 10 targets, while adding the net11.0 row. The pin is for the same reason the 10.0.401 one was:
-      # an unpinned set once moved .NET for iOS to a version that demands an Xcode the runner image lacks,
-      # and every iOS build went red overnight. Move it deliberately, with the runner's Xcode in view.
-      # android and ios go in together so the Essentials and Avalonia packages carry both rows.
-      - name: Install android and ios workloads
-        run: dotnet workload install android ios --version 11.0.100.1
-
-      - name: Build version arg
-        id: args
-        shell: bash
-        run: |
-          if [ -n "${{ needs.version.outputs.version }}" ]; then
-            echo "version_arg=-p:Version=${{ needs.version.outputs.version }} -p:PackageVersion=${{ needs.version.outputs.version }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "version_arg=" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Pack macOS-only NuGet packages
-        shell: bash
-        run: |
-          set -euo pipefail
-          for proj in $PACKABLE_PROJECTS_MACOS; do
-            echo "::group::pack $proj"
-            dotnet pack "$proj" \
-              --configuration Release \
-              --output "${{ github.workspace }}/nupkg" \
-              ${{ steps.args.outputs.version_arg }} \
-              -p:EnableAndroidTarget=true -p:EnableIOSTarget=true
-            echo "::endgroup::"
-          done
-
-      - name: List packages
-        shell: bash
-        run: ls -lh "${{ github.workspace }}/nupkg"
-
-      - name: Upload NuGet packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: nuget-packages-macos
-          path: nupkg/*.nupkg
-          if-no-files-found: error
-
-      - name: Upload symbol packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: symbol-packages-macos
-          path: nupkg/*.snupkg
-          if-no-files-found: ignore
-
-  # ---------------------------------------------------------------------------
-  # Pack the Windows-only NuGet packages. These target net*-windows with
-  # UseWindowsForms / UseWPF, so they only build on a Windows runner -- the Linux
-  # `pack` job above sees them as empty IsPackable=false placeholders.
-  # ---------------------------------------------------------------------------
-  pack-windows:
-    needs: version
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # full history so SourceLink embeds correct commit info
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: |
-            8.0.x
-            10.0.x
-            11.0.x
-
-      - name: Build version arg
-        id: args
-        shell: bash
-        run: |
-          if [ -n "${{ needs.version.outputs.version }}" ]; then
-            echo "version_arg=-p:Version=${{ needs.version.outputs.version }} -p:PackageVersion=${{ needs.version.outputs.version }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "version_arg=" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Pack Windows-only NuGet packages
-        shell: bash
-        run: |
-          set -euo pipefail
-          for proj in $PACKABLE_PROJECTS_WINDOWS; do
-            echo "::group::pack $proj"
-            dotnet pack "$proj" \
-              --configuration Release \
-              --output "${{ github.workspace }}/nupkg" \
-              ${{ steps.args.outputs.version_arg }}
-            echo "::endgroup::"
-          done
-
-      - name: List packages
-        # windows-latest defaults `run:` to PowerShell, where `ls` is Get-ChildItem and
-        # `-lh` is not a valid parameter, so this step failed even when the pack above it
-        # succeeded. Pin bash, the way the pack steps already do.
-        shell: bash
-        run: ls -lh "${{ github.workspace }}/nupkg"
-
-      - name: Upload NuGet packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: nuget-packages-windows
-          path: nupkg/*.nupkg
-          if-no-files-found: error
-
-      - name: Upload symbol packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: symbol-packages-windows
+          name: ${{ matrix.symbols }}
           path: nupkg/*.snupkg
           if-no-files-found: ignore
 
@@ -325,10 +133,10 @@ jobs:
   # Build the runnable sample heads (the ControlGallery on each mobile/web target)
   # and attach them to the release so people can try the framework without a
   # toolchain: a static WASM site, a sideloadable Android APK/AAB, an iOS
-  # simulator .app. None are code-signed for distribution.
+  # simulator .app. None are code-signed for distribution. File names carry the
+  # release version when there is one.
   # ---------------------------------------------------------------------------
   sample-wasm:
-    needs: version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -340,31 +148,18 @@ jobs:
           dotnet-version: |
             10.0.x
             11.0.x
-      # Both ids and WasmBuildNative for the reason given on the `wasm` job in dotnet.yml: under the
-      # runner's SDK 11, plain `wasm-tools` does not cover a net10.0-browser project, and without the
-      # property the publish only warns and zips a site that cannot boot. Nothing here boots it.
-      - name: Install wasm-tools workload
-        run: dotnet workload install wasm-tools wasm-tools-net10
-      - name: Publish Gallery.Wasm
-        run: >-
-          dotnet publish samples/Gallery.Wasm/Gallery.Wasm.csproj
-          --configuration Release -p:CompressionEnabled=false -p:WasmBuildNative=true
-          -o "${{ github.workspace }}/wasm-out"
-      - name: Zip the WASM site
-        shell: bash
-        run: |
-          set -euo pipefail
-          V="${{ needs.version.outputs.version }}"
-          cd "${{ github.workspace }}/wasm-out/wwwroot"
-          zip -r "${{ github.workspace }}/gallery-wasm${V:+-$V}.zip" .
+      # The workload profile and WasmBuildNative are explained in build/build.cs: under the runner's SDK 11,
+      # plain `wasm-tools` does not cover a net10.0-browser project, and without the property the publish only
+      # warns and zips a site that cannot boot. Nothing here boots it; the CI `wasm` job does.
+      - name: Publish and zip Gallery.Wasm
+        run: dotnet build/build.cs -- --target=SampleWasm --workloads=wasm
       - uses: actions/upload-artifact@v4
         with:
           name: sample-wasm
-          path: gallery-wasm*.zip
+          path: sample-out/gallery-wasm*.zip
           if-no-files-found: error
 
   sample-android:
-    needs: version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -376,33 +171,15 @@ jobs:
           dotnet-version: |
             8.0.x
             10.0.x
-      - name: Install android workload
-        run: dotnet workload install android
-      # -p:EnableAndroidTarget=true, not the EnableMobileHeads umbrella: see the android job in
-      # dotnet.yml. The umbrella also drags in ios and is self-gated on workload detection; this is the
-      # ungated force for the one platform this runner installed.
       - name: Publish Gallery.Android
-        run: >-
-          dotnet publish samples/Gallery.Android/Gallery.Android.csproj
-          -p:EnableAndroidTarget=true --configuration Release
-          "-p:AndroidPackageFormats=apk%3Baab"
-      - name: Collect APK/AAB
-        shell: bash
-        run: |
-          set -euo pipefail
-          V="${{ needs.version.outputs.version }}"
-          out="samples/Gallery.Android/bin/Release/net10.0-android"
-          mkdir -p android
-          cp "$out"/*-Signed.apk "android/gallery-android${V:+-$V}.apk"
-          cp "$out"/*-Signed.aab "android/gallery-android${V:+-$V}.aab"
+        run: dotnet build/build.cs -- --target=SampleAndroid --workloads=android
       - uses: actions/upload-artifact@v4
         with:
           name: sample-android
-          path: android/*
+          path: sample-out/gallery-android*
           if-no-files-found: error
 
   sample-ios:
-    needs: version
     runs-on: macos-latest
     # See the ios job in dotnet.yml: the head compiles, but iOS has only a couple of green runs and
     # nobody has run it on a device. Do not fail the release for it until it is proven stable.
@@ -417,31 +194,12 @@ jobs:
           dotnet-version: |
             8.0.x
             10.0.x
-      # Pinned to workload set 10.0.401 (iOS 26.5.10318). Set 10.0.401.1 brought .NET for iOS 27.0,
-      # which refuses to build without Xcode 27, and the macos runner image still ships Xcode 26.6 --
-      # every iOS build went red on 2026-09-29 with no code change. Drop the pin once the runner
-      # image carries Xcode 27 (the build error names the version it wants).
-      - name: Install ios workload
-        run: dotnet workload install ios --version 10.0.401
-      # `dotnet build` (not publish) with a simulator RID: iOS `publish` refuses a simulator RID.
-      # -p:EnableIOSTarget=true names the one platform this runner has a workload for; the
-      # EnableMobileHeads umbrella would pull the net10.0-android row in too and fail with NETSDK1147.
-      - name: Build Gallery.iOS (simulator)
-        run: >-
-          dotnet build samples/Gallery.iOS/Gallery.iOS.csproj
-          -p:EnableIOSTarget=true --configuration Release
-          -p:RuntimeIdentifier=iossimulator-arm64
-      - name: Zip the simulator .app
-        shell: bash
-        run: |
-          set -euo pipefail
-          V="${{ needs.version.outputs.version }}"
-          APP=$(find samples/Gallery.iOS/bin/Release -name 'Gallery.iOS.app' -type d | head -n1)
-          ditto -c -k --sequesterRsrc --keepParent "$APP" "gallery-ios-simulator${V:+-$V}.zip"
+      - name: Build and zip Gallery.iOS (simulator)
+        run: dotnet build/build.cs -- --target=SampleIos --workloads=ios
       - uses: actions/upload-artifact@v4
         with:
           name: sample-ios
-          path: gallery-ios-simulator*.zip
+          path: sample-out/gallery-ios-simulator*.zip
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
@@ -456,7 +214,6 @@ jobs:
   # rather than cross-publishing.
   # ---------------------------------------------------------------------------
   sample-themestudio:
-    needs: version
     strategy:
       fail-fast: false
       matrix:
@@ -476,48 +233,20 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      # -p:EnableMobileHeads=false: windows-latest ships the android workload's SDK pack
-      # preinstalled, which auto-adds a net10.0-android row to Majorsilence.Forms.Avalonia
-      # (see Directory.Build.props' EnableAndroidHead detection) -- fine for a plain
-      # `dotnet build`, but a self-contained `dotnet publish -r win-x64` then tries to
-      # restore a Mono runtime pack for that TFM against the win-x64 RID, which doesn't
-      # exist (NU1102: Microsoft.NETCore.App.Runtime.Mono.win-x64). ThemeStudio never
-      # targets android, so force the row off explicitly rather than relying on runner
-      # image contents.
-      - name: Publish ThemeStudio (${{ matrix.rid }}, self-contained)
-        run: >-
-          dotnet publish samples/ThemeStudio/ThemeStudio.csproj
-          --configuration Release -r ${{ matrix.rid }} --self-contained true
-          -p:EnableMobileHeads=false
-          -o "${{ github.workspace }}/themestudio-out"
-      # zip isn't on the GitHub-hosted windows-latest image (Git Bash has no `zip`), so
-      # Windows uses PowerShell's Compress-Archive instead.
-      - name: Zip ThemeStudio (${{ matrix.rid }}, Unix)
-        if: matrix.os != 'windows-latest'
-        shell: bash
-        run: |
-          set -euo pipefail
-          V="${{ needs.version.outputs.version }}"
-          cd "${{ github.workspace }}/themestudio-out"
-          zip -r "${{ github.workspace }}/themestudio-${{ matrix.rid }}${V:+-$V}.zip" .
-      - name: Zip ThemeStudio (${{ matrix.rid }}, Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          $v = "${{ needs.version.outputs.version }}"
-          $suffix = if ($v) { "-$v" } else { "" }
-          Compress-Archive -Path "${{ github.workspace }}\themestudio-out\*" `
-            -DestinationPath "${{ github.workspace }}\themestudio-${{ matrix.rid }}$suffix.zip"
+      # Why EnableMobileHeads is forced off for this publish is in build/build.cs (SampleThemeStudio). The
+      # target also does the zip: zip(1) on Unix, so the launcher keeps its executable bit, and a .NET zip on
+      # Windows, which has none.
+      - name: Publish and zip ThemeStudio (${{ matrix.rid }}, self-contained)
+        run: dotnet build/build.cs -- --target=SampleThemeStudio --rid=${{ matrix.rid }}
       - uses: actions/upload-artifact@v4
         with:
           name: sample-themestudio-${{ matrix.rid }}
-          path: themestudio-*.zip
+          path: sample-out/themestudio-*.zip
           if-no-files-found: error
 
   # ThemeStudio.WinForms only builds and runs on Windows (real System.Windows.Forms,
   # via Majorsilence.Forms.Theming.WinForms) -- one RID, no matrix needed.
   sample-themestudio-winforms:
-    needs: version
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -527,39 +256,35 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      - name: Publish ThemeStudio.WinForms (win-x64, self-contained)
-        run: >-
-          dotnet publish samples/ThemeStudio.WinForms/ThemeStudio.WinForms.csproj
-          --configuration Release -r win-x64 --self-contained true
-          -o "${{ github.workspace }}/themestudio-winforms-out"
-      # zip isn't on the GitHub-hosted windows-latest image (Git Bash has no `zip`), so
-      # use PowerShell's Compress-Archive instead -- see the matching comment above.
-      - name: Zip ThemeStudio.WinForms
-        shell: pwsh
-        run: |
-          $v = "${{ needs.version.outputs.version }}"
-          $suffix = if ($v) { "-$v" } else { "" }
-          Compress-Archive -Path "${{ github.workspace }}\themestudio-winforms-out\*" `
-            -DestinationPath "${{ github.workspace }}\themestudio-winforms-win-x64$suffix.zip"
+      - name: Publish and zip ThemeStudio.WinForms (win-x64, self-contained)
+        run: dotnet build/build.cs -- --target=SampleThemeStudioWinForms
       - uses: actions/upload-artifact@v4
         with:
           name: sample-themestudio-winforms
-          path: themestudio-winforms-*.zip
+          path: sample-out/themestudio-winforms-*.zip
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
-  # On a tag build (or manual dispatch with a version), collect everything into a
-  # draft GitHub Release. Nothing here touches nuget.org -- see publish-nuget.yml.
+  # On a tag build, collect everything into a draft GitHub Release. Nothing here
+  # touches nuget.org -- see publish-nuget.yml. A manual dispatch with a version
+  # packs and uploads artifacts but does not create a release.
   # ---------------------------------------------------------------------------
   release:
-    needs: [version, pack, pack-windows, pack-macos, sample-wasm, sample-android, sample-ios, sample-themestudio, sample-themestudio-winforms]
+    needs: [pack, sample-wasm, sample-android, sample-ios, sample-themestudio, sample-themestudio-winforms]
     runs-on: ubuntu-latest
-    if: needs.version.outputs.is_release == 'true'
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     steps:
+      # The checkout is only here for build/build.cs, which resolves the version.
+      - uses: actions/checkout@v4
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+
+      - name: Resolve the release version
+        id: version
+        run: dotnet build/build.cs -- --target=Version
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -567,7 +292,6 @@ jobs:
           path: artifacts
 
       - name: Stage release files
-        shell: bash
         run: |
           set -euo pipefail
           mkdir -p release
@@ -580,10 +304,9 @@ jobs:
       # `release: published` -- i.e. only after a human clicks "Publish release" on the
       # draft below. Nothing in this workflow can push a package to nuget.org.
       - name: Create GitHub Release (draft)
-        if: needs.version.outputs.is_release == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          name: Majorsilence.Forms ${{ needs.version.outputs.version }}
+          name: Majorsilence.Forms ${{ steps.version.outputs.version }}
           generate_release_notes: true
           draft: true
           files: release/*

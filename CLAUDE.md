@@ -48,27 +48,46 @@ A new library project meant for consumers (not a sample/test/internal tool) must
 1. Be packable: set `<PackageId>`, `<Description>`, `<PackageTags>`, `<PackageOutputPath>../../nupkg</PackageOutputPath>`,
    and a `README.md` via `<PackageReadmeFile>` — copy `src/Majorsilence.Forms.Theming.WinForms/`'s
    csproj as a template, including its Windows-only-placeholder pattern if applicable.
-2. Be added to the `PACKABLE_PROJECTS` (cross-platform), `PACKABLE_PROJECTS_WINDOWS`
-   (`net*-windows` / `UseWindowsForms`/`UseWPF`) or `PACKABLE_PROJECTS_MACOS` (carries a `net10.0-ios` row,
-   so only a macOS runner can pack it; `Majorsilence.Forms.Essentials` and `Majorsilence.Forms.Avalonia` today) list in **all three** places that enumerate them by
-   hand: the `pack` job matrix in `.github/workflows/dotnet.yml`, and the top-level env block in both
-   `.github/workflows/release.yml` and `.github/workflows/publish-nuget.yml`. Each already says "keep
-   in sync" in a comment for exactly this reason — miss one and the package either builds in CI but
-   never reaches a GitHub Release/nuget.org, or ships from a path CI never packed.
+2. Be added to **one** list in `build/build.cs`: `crossPlatformProjects`, `windowsProjects`
+   (`net*-windows` / `UseWindowsForms`/`UseWPF`) or `macProjects` (carries a `net10.0-ios` row, so only a
+   macOS runner can pack it; `Majorsilence.Forms.Essentials` and `Majorsilence.Forms.Avalonia` today). The
+   `Pack` target packs whichever list matches the OS it runs on, and `dotnet.yml`, `release.yml` and
+   `publish-nuget.yml` all call that target, so there is nothing to keep in sync. (These used to be three
+   hand-maintained copies in the workflows; missing one meant a package built in CI but never reached a
+   GitHub Release or nuget.org.)
 
 There is no wildcard/auto-discovery for this today, and it's a deliberate choice, not an oversight: the
-split between the two lists exists because Windows-only projects need a `windows-latest` runner and
+split into three lists exists because Windows-only projects need a `windows-latest` runner and
 compile to an empty placeholder on the Linux/macOS legs, so a naive `**/*.csproj` glob would either pack
 those (empty package) on Linux or need an `IsPackable` probe run per-OS before every pack step. That's
 possible (`dotnet msbuild <path> -getProperty:IsPackable`, filtered per runner OS) but nobody has built
-and proven it, so for now update the three lists by hand — grep the repo for `PACKABLE_PROJECTS` to find
-all of them before adding a project.
+and proven it, so for now add the project to its list by hand.
 
 A new consumer-facing **sample** worth shipping prebuilt (a runnable desktop/mobile/web app, not source)
-follows a different path: add a `sample-<name>` job to `release.yml` that publishes and zips/packages
-it (see `sample-wasm`, `sample-android`, `sample-themestudio` for the pattern), then add that job's name
-to the `release` job's `needs:` list — it already globs `*.zip`/`*.apk`/`*.aab`/`*.nupkg`/`*.snupkg` out
-of the downloaded `artifacts/` directory, so nothing else changes there.
+follows a different path: add a `Sample<Name>` target to `build/build.cs` that publishes it and zips it
+into `./sample-out` (see `SampleWasm`, `SampleAndroid`, `SampleThemeStudio` for the pattern), add a
+`sample-<name>` job to `release.yml` that calls it and uploads `sample-out/<name>*`, then add that job's
+name to the `release` job's `needs:` list — it already globs `*.zip`/`*.apk`/`*.aab`/`*.nupkg`/`*.snupkg`
+out of the downloaded `artifacts/` directory, so nothing else changes there.
+
+## The build script (`build/build.cs`)
+
+CI and release steps are [Cake.Sdk](https://cakebuild.net/docs/running-builds/runners/cake-sdk) targets in one
+file-based app, so they run the same on a laptop: `dotnet build/build.cs -- --target=Test --shape=scale2`.
+Run `--target=Info` to see what a machine would do. The workflows keep only what Actions must own
+(triggers, runner matrix, `setup-dotnet`, artifact upload/download, the OIDC login and push to nuget.org,
+the draft Release, the emulator runner); the reasoning for each workload pin and test shape is in comments
+on the target, not in the YAML.
+
+- The Cake.Sdk version is pinned in `global.json` (`msbuild-sdks`) so Dependabot tracks it. That file has no
+  `sdk` section on purpose: `Directory.Build.props` keys the net11.0 row off whichever SDK resolves, and the
+  CI matrix relies on that, so do **not** add an `sdk` version there.
+- `build/Directory.Build.props`, `.targets` and `Directory.Packages.props` are deliberately near-empty.
+  A file-based app inherits the nearest MSBuild files above it, so without them the script would get the
+  repo's `TreatWarningsAsErrors`, central package management and net11 runtime-async targets.
+- It needs the .NET 10 SDK or later (the same `setup-dotnet` step that provides the SDK for the real build).
+- `publish-nuget.yml` builds from the release's **tag**, so it can only publish a tag that contains
+  `build/build.cs`.
 
 ## Conventions the analyzers do not enforce
 

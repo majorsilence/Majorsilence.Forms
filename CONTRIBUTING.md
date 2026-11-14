@@ -45,6 +45,11 @@ MF_FORCE_CUSTOM_CHROME=1 MF_HEADLESS_SCALE=2 dotnet test -c Release -- xunit.par
 - The migrator suite takes over ten minutes (it builds generated projects) against seconds for
   everything else, and is OS-agnostic. CI runs it once, on Windows. Exclude it locally with
   `--filter "FullyQualifiedName!~Migrator"`.
+- CI runs these shapes through the build script, so you can reproduce a CI step by name instead of
+  retyping its environment: `dotnet build/build.cs -- --target=Test --shape=scale2` (shapes: `default`,
+  `full`, `scale2`, `custom-chrome`, `custom-chrome-scale2`, `net11`; add `--test-project=<csproj>` to run
+  one project). The shape table, with the reasoning, is in `build/build.cs`. Run `--target=Build` first: the
+  shapes use `--no-build`, except `net11`, which builds its own test project.
 
 **One thing that does not have an environment variable:** the ambient default font measures **11px of
 text height on macOS and 13px on Windows and Linux**. Any assertion comparing two controls' heights, or

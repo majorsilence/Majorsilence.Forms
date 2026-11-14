@@ -336,3 +336,9 @@ ASALocalRun/
 
 graphify-out/
 .claude/settings.local.json
+
+# Output of build/build.cs targets
+sample-out/
+wasm-out/
+themestudio-out/
+themestudio-winforms-out/
