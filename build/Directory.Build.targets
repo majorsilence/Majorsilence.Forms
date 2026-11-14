@@ -1,0 +1,3 @@
+<Project>
+  <!-- Intentionally empty: stops the repo-root Directory.Build.targets applying to build.cs. See Directory.Build.props. -->
+</Project>

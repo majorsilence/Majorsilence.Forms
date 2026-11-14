@@ -2,11 +2,20 @@ name: CI
 
 # Build / test gate. Runs on every PR and on demand.
 #
-# Real releases live in release.yml (version injection + the draft GitHub Release, and its
-# PR-time pack only fires on PRs that touch packable paths) and publishing in publish-nuget.yml.
-# The `pack` job here is the plain convenience artifact: every CI run, whatever changed, uploads
-# installable .nupkg/.snupkg files (e.g. to test Majorsilence.Forms.Gtk4 against a real app).
-# Keep its two project lists in sync with release.yml / publish-nuget.yml.
+# What each step DOES lives in build/build.cs (Cake.Sdk), as a named target: this file keeps only what
+# GitHub Actions has to own -- triggers, the runner matrix, setup-dotnet, artifact upload/download and the
+# emulator runner. To reproduce a step locally, run the same target:
+#
+#     dotnet build/build.cs -- --target=Test --shape=scale2
+#
+# The comments on each target in build.cs carry the reasoning that used to live here (why these workload pins,
+# why these test shapes, why EnableAndroidTarget and not the EnableMobileHeads umbrella, ...).
+#
+# Real releases live in release.yml (version injection + the draft GitHub Release, and its PR-time pack only
+# fires on PRs that touch packable paths) and publishing in publish-nuget.yml. The `pack` job here is the plain
+# convenience artifact: every CI run, whatever changed, uploads installable .nupkg/.snupkg files (e.g. to test
+# Majorsilence.Forms.Gtk4 against a real app). All three run the same `Pack` target, so there is one list of
+# packable projects, in build/build.cs.
 #
 # Note: there is deliberately no `dotnet format --verify-no-changes` gate. The repo's
 # hand-maintained style (e.g. space-before-paren) does not match what `dotnet format`
@@ -20,6 +29,12 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
 
+# One shell everywhere: windows-latest would otherwise default to PowerShell, which has bitten this repo
+# before (`ls -lh` is not a PowerShell command) and quotes arguments differently.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build:
     strategy:
@@ -32,6 +47,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Cake.Sdk (build/build.cs) needs the .NET 10 SDK or later to run at all, so setup-dotnet stays here.
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -40,172 +56,89 @@ jobs:
             10.0.x
             11.0.x
 
-      # windows-latest ships the android workload preinstalled for SDK 10, and that pack being on disk is
-      # what Directory.Build.props keys EnableMobileHeads on. So the solution build compiles
-      # Gallery.Android and Majorsilence.Forms.Avalonia's net10.0-android row. With SDK 11 installed
-      # above, the build runs on SDK 11, which has no android workload of its own and fails with
-      # NETSDK1147. Installing it here keeps that row compiled on Windows instead of switching it off.
-      - name: Install android workload (Windows)
-        if: runner.os == 'Windows'
-        run: dotnet workload install android
-
-      # Builds the whole solution in Release on every OS — this is the cross-platform
-      # compile gate (Release also turns on TreatWarningsAsErrors + doc generation).
+      # The cross-platform compile gate: the whole solution in Release (which turns on TreatWarningsAsErrors
+      # and doc generation). On Windows the target also installs the android workload first; see
+      # EffectiveWorkloads in build.cs for why SDK 11 makes that necessary.
       - name: Build
-        run: dotnet build --configuration Release
+        run: dotnet build/build.cs -- --target=Build
 
-      # The CJK font-fallback tests (DrawString / AddString / TextRenderer) assert that a
-      # non-Latin string renders as real glyphs rather than a row of identical tofu boxes. That
-      # can only work if a CJK face is actually installed for SkiaSharp to fall back TO — the
-      # Windows and macOS runners ship one, ubuntu-latest ships none, so those tests saw tofu and
-      # failed. This is the whole point of the Linux test job added alongside this matrix.
-      #
-      # fonts-noto-color-emoji is the same requirement for EmojiVariationSelectorTests: it asserts a
-      # VARIATION SELECTOR-16 sequence renders with real colour ink, which needs a colour emoji face
-      # installed for MatchCharacter (hinted "und-Zsye") to find, exactly as CJK fallback needs a CJK
-      # face installed.
       - name: Install CJK and emoji fonts (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk fonts-noto-color-emoji
+        run: dotnet build/build.cs -- --target=Fonts
 
-      # ── Test matrix ────────────────────────────────────────────────────────────────────────
+      # ── Test matrix ──────────────────────────────────────────────────────────────────────────────────
       #
-      # Two things vary independently and both have bitten this repo, so both are gated on every
-      # platform that can express them:
+      # The shapes (chrome x scale x runtime) are defined in build.cs; each is its own step here so a red
+      # shape is visible in the run's UI. `!cancelled()` on each: without it a failure in one step skips the
+      # rest, so a single red gate hides every gate after it. That is not hypothetical -- the HiDPI gate was
+      # skipped on two consecutive PRs while the plain run was red, and the HiDPI-only failure underneath
+      # (EVT-39) cost a round trip each time to find.
       #
-      #   CHROME. macOS is the ONLY platform that uses system decorations; every other one draws the
-      #   library's own title bar. Anything touching the caption -- client-area geometry, hit-testing
-      #   near the top of a form, tab order through the caption buttons, the automation tree -- takes a
-      #   different path on each side. MF_FORCE_CUSTOM_CHROME makes a macOS process take the other one,
-      #   so both are covered rather than whichever the runner happens to be.
-      #
-      #   SCALE. MF_HEADLESS_SCALE makes the headless backend report a scaled display, so the
-      #   logical->device conversions are exercised instead of being identity as they are at scale 1 --
-      #   which is how a coordinate bug sits undetected until it meets a real HiDPI screen.
-      #
-      # Every run below is the whole solution EXCEPT the migrator suite, which takes over ten minutes
-      # (it builds generated projects) against roughly eight seconds for everything else, and is
-      # OS-agnostic besides. It runs once, in the full Windows pass. Windows is also the only platform
-      # where the UI Automation project has anything to run.
-      #
-      # `!cancelled()` on each: without it a failure in one step skips the rest, so a single red gate
-      # hides every gate after it. That is not hypothetical -- the HiDPI gate was skipped on two
-      # consecutive PRs while the plain run was red, and the HiDPI-only failure underneath (EVT-39)
-      # cost a round trip each time to find.
-      #
-      # Collections run serially in the scaled runs: a test that opens a modal dialog picks its owner
-      # out of the global Application.OpenForms and in parallel can pick another test's window and
-      # block forever. That is a test-isolation problem rather than a product one, but it makes a
-      # parallel run hang, so these gates do not rely on it.
+      # Every shape is the whole solution EXCEPT the migrator suite, which takes over ten minutes. It runs
+      # once, in the full Windows pass, which is also the only platform where the UI Automation project has
+      # anything to run.
 
-      # The one full pass: migrator + UI Automation + everything else, on the platform that can run all
-      # of it. Custom chrome, scale 1.
+      # Custom chrome, scale 1.
       - name: Test (Windows, full solution)
         if: runner.os == 'Windows'
-        run: dotnet test --configuration Release --no-build
+        run: dotnet build/build.cs -- --target=Test --shape=full
 
       - name: Test (Windows, custom chrome, scale 2)
         if: ${{ !cancelled() && runner.os == 'Windows' }}
-        env:
-          MF_HEADLESS_SCALE: '2'
-        run: >-
-          dotnet test --configuration Release --no-build
-          --filter "FullyQualifiedName!~Migrator"
-          -- xunit.parallelizeTestCollections=false
+        run: dotnet build/build.cs -- --target=Test --shape=scale2
 
-      # Linux draws the library's own chrome, like Windows, and had no test coverage at all before
-      # this -- the build step alone proved only that it compiles.
+      # Linux draws the library's own chrome, like Windows, and had no test coverage at all before this --
+      # the build step alone proved only that it compiles.
       - name: Test (Linux, custom chrome, scale 1)
         if: ${{ !cancelled() && runner.os == 'Linux' }}
-        run: >-
-          dotnet test --configuration Release --no-build
-          --filter "FullyQualifiedName!~Migrator"
+        run: dotnet build/build.cs -- --target=Test --shape=default
 
       - name: Test (Linux, custom chrome, scale 2)
         if: ${{ !cancelled() && runner.os == 'Linux' }}
-        env:
-          MF_HEADLESS_SCALE: '2'
-        run: >-
-          dotnet test --configuration Release --no-build
-          --filter "FullyQualifiedName!~Migrator"
-          -- xunit.parallelizeTestCollections=false
+        run: dotnet build/build.cs -- --target=Test --shape=scale2
 
       # macOS runs both sides of the chrome branch: its own system decorations, and the custom chrome
-      # every other platform gets. The system-decorations path is the shape most contributors develop
-      # against and, before this, the one path nothing tested.
+      # every other platform gets.
       - name: Test (macOS, system decorations, scale 1)
         if: ${{ !cancelled() && runner.os == 'macOS' }}
-        run: >-
-          dotnet test --configuration Release --no-build
-          --filter "FullyQualifiedName!~Migrator"
+        run: dotnet build/build.cs -- --target=Test --shape=default
 
       - name: Test (macOS, system decorations, scale 2)
         if: ${{ !cancelled() && runner.os == 'macOS' }}
-        env:
-          MF_HEADLESS_SCALE: '2'
-        run: >-
-          dotnet test --configuration Release --no-build
-          --filter "FullyQualifiedName!~Migrator"
-          -- xunit.parallelizeTestCollections=false
+        run: dotnet build/build.cs -- --target=Test --shape=scale2
 
       - name: Test (macOS, custom chrome, scale 1)
         if: ${{ !cancelled() && runner.os == 'macOS' }}
-        env:
-          MF_FORCE_CUSTOM_CHROME: '1'
-        run: >-
-          dotnet test --configuration Release --no-build
-          --filter "FullyQualifiedName!~Migrator"
+        run: dotnet build/build.cs -- --target=Test --shape=custom-chrome
 
       - name: Test (macOS, custom chrome, scale 2)
         if: ${{ !cancelled() && runner.os == 'macOS' }}
-        env:
-          MF_FORCE_CUSTOM_CHROME: '1'
-          MF_HEADLESS_SCALE: '2'
-        run: >-
-          dotnet test --configuration Release --no-build
-          --filter "FullyQualifiedName!~Migrator"
-          -- xunit.parallelizeTestCollections=false
+        run: dotnet build/build.cs -- --target=Test --shape=custom-chrome-scale2
 
-      # The runs above test the net10.0 build. The net11.0 rows are compiled with runtime async (see
-      # Directory.Build.targets), which changes the IL emitted for every await: no state machine,
-      # different stack traces, different continuation behaviour. Only running the suite on net11.0
-      # exercises that code. -p:_TargetFramework moves just the test project; the libraries it
-      # references resolve their own net11.0 row. It builds on its own because the earlier build
-      # produced no net11.0 test output. Linux only: what this gates is the compiler/runtime change,
-      # and the chrome and scale shapes above already cover the platform differences.
+      # net11.0 rows are compiled with runtime async; only running the suite on net11.0 exercises that code.
+      # Linux only: what this gates is the compiler/runtime change, and the shapes above already cover the
+      # platform differences.
       - name: Test (Linux, net11.0 runtime async)
         if: ${{ !cancelled() && runner.os == 'Linux' }}
-        run: >-
-          dotnet test tests/Majorsilence.Forms.Tests/Majorsilence.Forms.Tests.csproj
-          --configuration Release -p:_TargetFramework=net11.0
-          --filter "FullyQualifiedName!~Migrator"
+        run: dotnet build/build.cs -- --target=Test --shape=net11
 
-      # API gap gate. Compares both reimplemented surfaces -- Majorsilence.Forms.Drawing against
-      # System.Drawing.Common, and Majorsilence.Forms against System.Windows.Forms -- and fails if
-      # either gap set grew since its committed baseline. Reflection-only, so it runs anywhere despite
-      # both upstream assemblies being Windows-only at runtime. The point is that the previous
-      # hand-written audits in COMPATIBILITY_MATRIX.md went stale within a release; these cannot.
-      # Closing gaps never fails the build -- it just prints them and asks for the baseline to be
-      # regenerated. Linux only: the result is platform-independent, so running it three times adds
-      # nothing. See docs/gdi-gap-plan.md and docs/winforms-gap-plan.md.
+      # API gap gate: fails if either reimplemented surface's gap set grew since its committed baseline.
+      # Linux only: the result is platform-independent, so running it three times adds nothing.
       - name: API gap check
         if: ${{ !cancelled() && runner.os == 'Linux' }}
-        run: dotnet run --project tools/Majorsilence.Forms.ApiDiff --configuration Release --no-build -- --check
+        run: dotnet build/build.cs -- --target=ApiGap
 
-  # Pack the shipping NuGet packages and upload them as build artifacts, so every CI run
-  # yields installable .nupkg/.snupkg files (e.g. to test Majorsilence.Forms.Gtk4 against a
-  # real app) without waiting for a release. Runs on every PR regardless of what changed.
+  # Pack the shipping NuGet packages and upload them as build artifacts, so every CI run yields installable
+  # .nupkg/.snupkg files without waiting for a release. Runs on every PR regardless of what changed.
   #
-  # release.yml also packs on PRs — but only ones that touch src/**, tools/** or the Directory.*
-  # props, and it injects a release version for the draft GitHub Release. This job is the plain
-  # "grab the packages" artifact.
+  # release.yml also packs on PRs -- but only ones that touch src/**, tools/** or the Directory.* props, and it
+  # injects a release version for the draft GitHub Release. This job is the plain "grab the packages" artifact.
   #
-  # Three rows: macOS packs Majorsilence.Forms.Essentials and Majorsilence.Forms.Avalonia (android + ios +
-  # desktop rows in one package; iOS only compiles on macOS); the cross-platform packages pack on Linux
-  # (the `android` workload is installed because Majorsilence.Forms.Theming.Avalonia builds against
-  # Majorsilence.Forms.Avalonia — same reason release.yml's pack job needs it); the net*-windows
-  # packages (UseWindowsForms/UseWPF) compile to an empty IsPackable=false stub off Windows, so
-  # they pack on windows-latest. Keep the two lists in sync with release.yml / publish-nuget.yml.
+  # Three rows because the Pack target packs the share of the packages THIS OS can: macOS packs
+  # Majorsilence.Forms.Essentials and Majorsilence.Forms.Avalonia (android + ios + desktop rows in one package;
+  # iOS only compiles on macOS); Linux the cross-platform ones; Windows the net*-windows ones
+  # (UseWindowsForms/UseWPF), which compile to an empty IsPackable=false stub elsewhere. The project lists and
+  # the workload profile each row needs are in build/build.cs.
   pack:
     strategy:
       fail-fast: false
@@ -213,52 +146,13 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact: nuget-packages
-            workload: android
-            dotnet: |
-              8.0.x
-              10.0.x
-              11.0.x
-            projects: >-
-              src/Majorsilence.Forms/Majorsilence.Forms.csproj
-              src/Majorsilence.Forms.Theming.Avalonia/Majorsilence.Forms.Theming.Avalonia.csproj
-              src/Majorsilence.Forms.Headless/Majorsilence.Forms.Headless.csproj
-              src/Majorsilence.Forms.Terminal/Majorsilence.Forms.Terminal.csproj
-              src/Majorsilence.Forms.Mvvm/Majorsilence.Forms.Mvvm.csproj
-              src/Majorsilence.Forms.Uno/Majorsilence.Forms.Uno.csproj
-              src/Majorsilence.Forms.Gtk4/Majorsilence.Forms.Gtk4.csproj
-              src/Majorsilence.Forms.Telerik/Majorsilence.Forms.Telerik.csproj
-              src/Majorsilence.Forms.Drawing.Common/Majorsilence.Forms.Drawing.Common.csproj
-              src/Majorsilence.Forms.WebDriver/Majorsilence.Forms.WebDriver.csproj
-              src/Majorsilence.Forms.Wpf/Majorsilence.Forms.Wpf.csproj
-              tools/Majorsilence.Forms.Templates/Majorsilence.Forms.Templates.csproj
-              tools/Majorsilence.Forms.Migrator/Majorsilence.Forms.Migrator.csproj
-              tools/Majorsilence.Forms.Mcp/Majorsilence.Forms.Mcp.csproj
-              src/Majorsilence.Forms.WinFormsShims.Compat/Majorsilence.Forms.WinFormsShims.Compat.csproj
+            workloads: android
           - os: macos-latest
             artifact: nuget-packages-macos
-            # android + ios together so the Essentials and Avalonia packages carry both rows. SDK 11's own
-            # workload set, pinned like release.yml's pack-macos (see the note there for why 11.0.100.1).
-            workload: android ios --version 11.0.100.1
-            dotnet: |
-              8.0.x
-              10.0.x
-              11.0.x
-            pack_args: -p:EnableAndroidTarget=true -p:EnableIOSTarget=true
-            projects: >-
-              src/Majorsilence.Forms.Essentials/Majorsilence.Forms.Essentials.csproj
-              src/Majorsilence.Forms.Avalonia/Majorsilence.Forms.Avalonia.csproj
+            workloads: mac-pack
           - os: windows-latest
             artifact: nuget-packages-windows
-            workload: ''
-            dotnet: |
-              8.0.x
-              10.0.x
-              11.0.x
-            projects: >-
-              src/Majorsilence.Forms.WinForms/Majorsilence.Forms.WinForms.csproj
-              src/Majorsilence.Forms.WindowsFormsInterop/Majorsilence.Forms.WindowsFormsInterop.csproj
-              src/Majorsilence.Forms.WindowsUIAutomation/Majorsilence.Forms.WindowsUIAutomation.csproj
-              src/Majorsilence.Forms.Theming.WinForms/Majorsilence.Forms.Theming.WinForms.csproj
+            workloads: none
 
     runs-on: ${{ matrix.os }}
     # The macOS row is informational on PRs for the same reason the `ios` job is (flaky runner, few
@@ -273,23 +167,13 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ matrix.dotnet }}
-
-      - name: Install workload
-        if: matrix.workload != ''
-        run: dotnet workload install ${{ matrix.workload }}
+          dotnet-version: |
+            8.0.x
+            10.0.x
+            11.0.x
 
       - name: Pack
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p "${{ github.workspace }}/nupkg"
-          for proj in ${{ matrix.projects }}; do
-            echo "::group::pack $proj"
-            dotnet pack "$proj" --configuration Release --output "${{ github.workspace }}/nupkg" ${{ matrix.pack_args }}
-            echo "::endgroup::"
-          done
-          ls -lh "${{ github.workspace }}/nupkg"
+        run: dotnet build/build.cs -- --target=Pack --workloads=${{ matrix.workloads }}
 
       - name: Upload NuGet packages
         uses: actions/upload-artifact@v4
@@ -305,16 +189,8 @@ jobs:
           path: nupkg/*.snupkg
           if-no-files-found: ignore
 
-  # .NET Framework (net472) consumer smoke test.
-  # Benchmarks: a smoke run and the allocation regression gate.
-  #
-  # benchmarks/Majorsilence.Forms.Benchmarks is in the solution, so the `build` job already compiles it;
-  # this job proves every benchmark still RUNS (BenchmarkDotNet's Dry job: one invocation each, no
-  # statistics) and then runs the allocation gate: the benchmarks tagged [BenchmarkCategory ("AllocGate")]
-  # must not allocate more per operation than benchmarks/Majorsilence.Forms.Benchmarks/AllocationBaseline.txt
-  # records (see AllocationGate.cs). Allocated bytes are the same run to run; timings are not, and are never
-  # gated here -- benchmarks.yml runs the full suite on demand for those. Linux only: the baseline is recorded
-  # on Linux, and font paths can allocate differently on other OSes.
+  # Benchmarks: a smoke run and the allocation regression gate. The per-PR gate; benchmarks.yml runs the full
+  # suite on demand for timings. See the Benchmarks target in build/build.cs and docs/performance-plan.md.
   benchmarks:
     runs-on: ubuntu-latest
 
@@ -328,26 +204,13 @@ jobs:
             8.0.x
             10.0.x
 
-      # The same fonts the test job installs, so text benchmarks resolve the faces they do there.
       - name: Install CJK and emoji fonts
-        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk fonts-noto-color-emoji
+        run: dotnet build/build.cs -- --target=Fonts
 
-      - name: Build
-        run: dotnet build benchmarks/Majorsilence.Forms.Benchmarks --configuration Release
+      - name: Smoke-run every benchmark and run the allocation gate
+        run: dotnet build/build.cs -- --target=Benchmarks
 
-      - name: Smoke-run every benchmark (Dry job)
-        run: dotnet run --configuration Release --no-build --project benchmarks/Majorsilence.Forms.Benchmarks -- --filter '*' --job dry
-
-      - name: Allocation gate
-        run: dotnet run --configuration Release --no-build --project benchmarks/Majorsilence.Forms.Benchmarks -- --alloc-gate
-
-  #
-  # Majorsilence.Forms / Majorsilence.Forms.Telerik now also ship a netstandard2.0 target so classic
-  # .NET Framework 4.7.2+ apps can consume the core. tests/Majorsilence.Forms.NetFxSmoke is a net472
-  # project that references the core and exercises the netstandard2.0-only code paths -- most
-  # importantly ComponentResourceManager's AppDomain.AssemblyResolve fallback (the AssemblyLoadContext
-  # path on the .NET TFMs). It is deliberately NOT in Majorsilence.Forms.slnx: `dotnet test` on the
-  # solution would abort on the Linux/macOS legs (no mono host for net472). It only needs Windows.
+  # .NET Framework (net472) consumer smoke test. Needs only Windows; see the NetFxSmoke target.
   netfx-smoke:
     runs-on: windows-latest
 
@@ -362,25 +225,19 @@ jobs:
             10.0.x
 
       - name: Build + run the net472 consumer smoke test
-        run: dotnet test tests/Majorsilence.Forms.NetFxSmoke/Majorsilence.Forms.NetFxSmoke.csproj --configuration Release
+        run: dotnet build/build.cs -- --target=NetFxSmoke
 
   # Wasm publish + boot smoke test gate.
   #
-  # samples/Gallery.Wasm is part of Majorsilence.Forms.slnx, so the `build` job above
-  # already compiles it with `dotnet build` on all 3 OSes -- but that's not sufficient.
-  # A Microsoft.NET.Sdk.WebAssembly project can `build` fine and still fail to `publish` a
-  # working wasm bundle: `dotnet publish` is what actually runs the wasm-tools pipeline
-  # (emcc/wasm-opt native linking, IL trimming, brotli/gzip compression of the _framework
-  # assets) that `build` skips entirely. This job runs that publish, then goes one step
-  # further and boots the published bundle in a real (headless) browser, since a
-  # successful publish still doesn't prove the resulting app actually runs.
+  # samples/Gallery.Wasm is part of Majorsilence.Forms.slnx, so the `build` job already compiles it -- but
+  # that's not sufficient. A Microsoft.NET.Sdk.WebAssembly project can `build` fine and still fail to
+  # `publish` a working wasm bundle: `dotnet publish` is what runs the wasm-tools pipeline. This job runs that
+  # publish (the WasmPublish target), then goes one step further and boots the published bundle in a real
+  # (headless) browser, since a successful publish still doesn't prove the resulting app actually runs.
   #
-  # This gets its own job rather than living in the `build` matrix above because it only
-  # needs to run once: the published wasm+wwwroot output is OS-agnostic (same JS/wasm
-  # files regardless of which OS ran `dotnet publish`), so repeating it across all 3 OSes
-  # the way the native build needs to would just be slower CI for no extra coverage.
-  # ubuntu-latest is used since it's the cheapest runner and headless Chromium (used for
-  # the smoke test below) is most at home there.
+  # Its own job rather than part of the `build` matrix because the published output is OS-agnostic, so
+  # repeating it across all 3 OSes would just be slower CI for no extra coverage. ubuntu-latest is the cheapest
+  # runner and headless Chromium is most at home there.
   wasm:
     runs-on: ubuntu-latest
 
@@ -395,25 +252,10 @@ jobs:
             10.0.x
             11.0.x
 
-      # Not preinstalled on GitHub-hosted runners -- required for `dotnet publish` below
-      # to be able to run the wasm-tools IL-linking/packaging pipeline at all.
-      #
-      # Both ids, and SDK 11 named above, because the workload belongs to the SDK that runs the
-      # publish, not to the project's target: under SDK 11 plain `wasm-tools` brings only the net11
-      # packs, and Gallery.Wasm targets net10.0-browser, which needs `wasm-tools-net10`. The runner
-      # image began shipping SDK 11 on 2026-11-11 and it wins over the 10.0.x installed here, so the
-      # job went red with no code change: the publish "succeeded" without linking libSkiaSharp.a and
-      # the app died at boot on SKImageInfo's type initializer.
-      - name: Install wasm-tools workload
-        run: dotnet workload install wasm-tools wasm-tools-net10
-
-      # The real gate: this is the first point in CI that exercises wasm-tools, since
-      # `dotnet build` (in the `build` job above) never touches it.
-      #
-      # WasmBuildNative is what publish defaults to when the workload is present. Stating it turns
-      # a missing workload from a warning ("native references won't be linked in") into an error.
+      # Installs the wasm workload profile first (see the "wasm" entry in build/build.cs for why it names two
+      # ids), then publishes. The first point in CI that exercises wasm-tools.
       - name: Publish Gallery.Wasm
-        run: dotnet publish samples/Gallery.Wasm/Gallery.Wasm.csproj --configuration Release -p:WasmBuildNative=true
+        run: dotnet build/build.cs -- --target=WasmPublish --workloads=wasm
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -430,12 +272,11 @@ jobs:
         working-directory: .github/scripts
         run: npx playwright install --with-deps chromium
 
-      # Serves the published wwwroot with Python's stdlib http.server (lowest-friction
-      # static file host available on the runner -- no extra package needed) and loads it
-      # in headless Chromium via wasm-smoke-test.mjs, which waits for the <canvas>
-      # element Avalonia.Browser renders into and fails on any unexpected console/page
-      # error during boot. This is a smoke check, not a full E2E suite: one page load,
-      # one known element, no JS errors.
+      # Serves the published wwwroot with Python's stdlib http.server (lowest-friction static file host
+      # available on the runner -- no extra package needed) and loads it in headless Chromium via
+      # wasm-smoke-test.mjs, which waits for the <canvas> element Avalonia.Browser renders into and fails on
+      # any unexpected console/page error during boot. This is a smoke check, not a full E2E suite: one page
+      # load, one known element, no JS errors.
       - name: Wasm boot smoke test (headless Chromium)
         working-directory: samples/Gallery.Wasm/bin/Release/net10.0-browser/publish/wwwroot
         run: |
@@ -466,7 +307,6 @@ jobs:
       # Runs after the bundle upload so a failure still leaves the bundle to download and reproduce.
       - name: Browser-head checks (headless Chrome)
         timeout-minutes: 15
-        shell: bash
         env:
           CHROME: /usr/bin/google-chrome
           MF_CHECK_CHROME_ARGS: --no-sandbox
@@ -488,15 +328,9 @@ jobs:
           path: ${{ runner.temp }}/modal-check
           if-no-files-found: warn
 
-  # NativeAOT smoke.
-  #
-  # IsAotCompatible on core + Drawing.Common + Avalonia + Headless makes the Release build fail on a
-  # new statically-visible trim/AOT hazard, but the analyzers can't prove a real ILC publish links
-  # and runs -- a reflection call deep in a dependency, or a trimmed static cctor that throws, only
-  # shows up here. tests/Majorsilence.Forms.AotSmoke is a plain console (PublishAot=true) that renders
-  # a Form with a Label/Button/TreeView to a PNG on the Headless backend; the published native binary
-  # exits non-zero if anything in that path breaks. Not in Majorsilence.Forms.slnx, same as the
-  # net472 NetFxSmoke -- built and published explicitly here.
+  # NativeAOT smoke: a real ILC publish that links and runs (the AotSmoke target). IsAotCompatible on the core
+  # libraries makes the Release build fail on a new statically-visible trim/AOT hazard, but only a real publish
+  # catches a reflection call deep in a dependency or a trimmed static cctor that throws.
   #
   # continue-on-error until it has a stable track record, then promote -- same staged rollout as the
   # ios and android-smoke jobs. The always-on guard is the analyzer enforcement in the build job.
@@ -514,35 +348,17 @@ jobs:
             8.0.x
             10.0.x
 
-      # ILC emits object files and hands them to clang; it is preinstalled on ubuntu-latest but name
-      # it as a dependency so a runner-image change that drops it fails loudly here.
-      - name: Verify the native toolchain
-        run: clang --version
-
-      - name: Publish the NativeAOT smoke (linux-x64)
-        run: >-
-          dotnet publish tests/Majorsilence.Forms.AotSmoke/Majorsilence.Forms.AotSmoke.csproj
-          -r linux-x64 --configuration Release
-
-      - name: Run the published native binary
-        run: tests/Majorsilence.Forms.AotSmoke/bin/Release/net10.0/linux-x64/publish/Majorsilence.Forms.AotSmoke
+      - name: Publish the NativeAOT smoke (linux-x64) and run the native binary
+        run: dotnet build/build.cs -- --target=AotSmoke
 
   # Android compile gate.
   #
-  # samples/Gallery.Android IS a member of Majorsilence.Forms.slnx, but its net10.0-android TFM (and
-  # Majorsilence.Forms.Avalonia's matching row) only switches on with EnableAndroidHead -- which
-  # Directory.Build.props derives automatically when the `android` workload is installed, and which
-  # the `build` job above (no workload) therefore never triggers: there the head compiles as an empty
-  # net10.0 stub. Unlike wasm-tools, the android workload's reference assemblies are required just to
-  # *compile* against net10.0-android, not only to publish, so this job installs the workload and asks
-  # for the row explicitly. No device/emulator here, so this only proves the APK builds, not that it
-  # boots.
-  #
-  # -p:EnableAndroidTarget=true, not the EnableMobileHeads umbrella, and the difference is load-bearing
-  # in both directions. The umbrella also covers ios, whose workload is not installed here; and it is
-  # self-gated on the workload being *detected*, so if that detection ever missed, this job would
-  # quietly publish the empty stub and pass having built nothing. EnableAndroidTarget is the ungated
-  # force: no workload, no build, loudly (NETSDK1147).
+  # samples/Gallery.Android IS a member of Majorsilence.Forms.slnx, but its net10.0-android TFM only switches on
+  # with EnableAndroidHead -- which Directory.Build.props derives when the `android` workload is installed, and
+  # which the `build` job above (no workload on Linux) therefore never triggers: there the head compiles as an
+  # empty net10.0 stub. The android workload's reference assemblies are required just to *compile* against
+  # net10.0-android, so this job installs it and asks for the row explicitly (see the AndroidPublish target).
+  # No device/emulator here, so this only proves the APK builds, not that it boots.
   android:
     runs-on: ubuntu-latest
 
@@ -556,19 +372,10 @@ jobs:
             8.0.x
             10.0.x
 
-      - name: Install android workload
-        run: dotnet workload install android
-
-      # `publish` rather than `build` so it also runs aapt/zipalign/apksigner and produces the
-      # installable APK + AAB. With no release keystore configured these are signed with the .NET
-      # Android debug key -- sideloadable, not Play-Store uploadable. EnableAndroidTarget=true switches
-      # Gallery.Android from its empty-stub build to the real net10.0-android head (and opts
-      # Majorsilence.Forms.Avalonia's net10.0-android TFM row back in); see Directory.Build.props.
+      # `publish` rather than `build` so it also runs aapt/zipalign/apksigner and produces the installable
+      # APK + AAB, signed with the .NET Android debug key -- sideloadable, not Play-Store uploadable.
       - name: Publish Gallery.Android
-        run: >-
-          dotnet publish samples/Gallery.Android/Gallery.Android.csproj
-          -p:EnableAndroidTarget=true --configuration Release
-          "-p:AndroidPackageFormats=apk%3Baab"
+        run: dotnet build/build.cs -- --target=AndroidPublish --workloads=android
 
       - name: Upload Gallery.Android APK/AAB
         uses: actions/upload-artifact@v4
@@ -630,17 +437,12 @@ jobs:
 
   # iOS compile gate.
   #
-  # samples/Gallery.iOS IS a member of Majorsilence.Forms.slnx, but (like Gallery.Android) its
-  # net10.0-ios TFM only switches on with EnableIOSHead, which additionally requires the host OS to be
-  # macOS: the `ios` workload only installs on macOS (Apple's toolchain is a hard requirement),
-  # unlike `android`, which installs and builds on any OS. Everywhere else the head compiles as an empty
-  # net10.0 stub, so this is the only job in this workflow that has to run on macos-latest instead of
-  # ubuntu-latest. The build step compiles the real net10.0-ios head; the follow-up step also launches
-  # the .app in a simulator and dumps its log (a smoke check, not an assertion).
-  #
-  # -p:EnableIOSTarget=true names the one platform this runner has a workload for. Passing the
-  # EnableMobileHeads umbrella instead is what broke this job: it switched the net10.0-android row on
-  # too, and the build died with NETSDK1147 asking for the `android` workload nobody installed here.
+  # samples/Gallery.iOS IS a member of Majorsilence.Forms.slnx, but (like Gallery.Android) its net10.0-ios TFM
+  # only switches on with EnableIOSHead, which additionally requires the host OS to be macOS: the `ios`
+  # workload only installs on macOS (Apple's toolchain is a hard requirement). Everywhere else the head
+  # compiles as an empty net10.0 stub, so this is the only job here that has to run on macos-latest. The build
+  # step compiles the real net10.0-ios head; the follow-up step also launches the .app in a simulator and dumps
+  # its log (a smoke check, not an assertion).
   ios:
     runs-on: macos-latest
     # The head compiles and the simulator smoke step passes as of the android/ios flag split, but this
@@ -658,23 +460,10 @@ jobs:
             8.0.x
             10.0.x
 
-      # Pinned to workload set 10.0.401 (iOS 26.5.10318). Set 10.0.401.1 brought .NET for iOS 27.0,
-      # which refuses to build without Xcode 27, and the macos runner image still ships Xcode 26.6 --
-      # every iOS build went red on 2026-09-29 with no code change. Drop the pin once the runner
-      # image carries Xcode 27 (the build error names the version it wants).
-      - name: Install ios workload
-        run: dotnet workload install ios --version 10.0.401
-
-      # `dotnet build` (not publish) with a simulator RID assembles the runnable .app bundle. iOS
-      # `publish` refuses a simulator RID (it targets device archives, which need an Apple cert).
-      # EnableIOSTarget=true switches Gallery.iOS from its empty-stub build to the real net10.0-ios
-      # head, and opts Majorsilence.Forms.Avalonia's net10.0-ios TFM row -- and only that row -- back
-      # in. See Directory.Build.props.
+      # Installs the pinned ios workload (see the "ios" profile in build/build.cs), then builds for the
+      # simulator RID, which assembles the runnable .app bundle.
       - name: Build Gallery.iOS (simulator)
-        run: >-
-          dotnet build samples/Gallery.iOS/Gallery.iOS.csproj
-          -p:EnableIOSTarget=true --configuration Release
-          -p:RuntimeIdentifier=iossimulator-arm64
+        run: dotnet build/build.cs -- --target=IosBuild --workloads=ios
 
       - name: Boot the app in a simulator (smoke)
         continue-on-error: true
@@ -688,22 +477,19 @@ jobs:
           xcrun simctl spawn booted log show --last 20s --predicate 'processImagePath CONTAINS "Gallery.iOS"' || true
 
       - name: Zip the simulator .app
-        run: |
-          APP=$(find samples/Gallery.iOS/bin/Release -name 'Gallery.iOS.app' -type d | head -n1)
-          ditto -c -k --sequesterRsrc --keepParent "$APP" gallery-ios-simulator.zip
+        run: dotnet build/build.cs -- --target=SampleIos
 
       - name: Upload Gallery.iOS simulator build
         uses: actions/upload-artifact@v4
         with:
           name: gallery-ios
-          path: gallery-ios-simulator.zip
+          path: sample-out/gallery-ios-simulator.zip
           if-no-files-found: error
 
-  # Template smoke: pack Majorsilence.Forms.Templates, install it, scaffold a project the two
-  # supported ways (desktop-only, and with the Android + WASM heads) and build them. This is the
-  # first automated coverage of `dotnet new majorsilenceforms` -- it previously had only a manual
-  # recipe in the template README. The scaffolded app restores the *published* Majorsilence.Forms
-  # packages from nuget.org (the version pinned in template.json), not this branch's build.
+  # Template smoke: pack Majorsilence.Forms.Templates, install it, scaffold a project the two supported ways
+  # (desktop-only, and with the Android + WASM heads) and build them -- the Template target. This is the first
+  # automated coverage of `dotnet new majorsilenceforms`. The scaffolded app restores the *published*
+  # Majorsilence.Forms packages from nuget.org (the version pinned in template.json), not this branch's build.
   template:
     runs-on: ubuntu-latest
 
@@ -717,23 +503,5 @@ jobs:
             8.0.x
             10.0.x
 
-      - name: Install android + wasm workloads
-        run: dotnet workload install android wasm-tools
-
-      - name: Pack and install the template
-        run: |
-          set -euo pipefail
-          dotnet pack tools/Majorsilence.Forms.Templates/Majorsilence.Forms.Templates.csproj -c Release -o "$RUNNER_TEMP/tpl-nupkg"
-          dotnet new install "$RUNNER_TEMP/tpl-nupkg/"Majorsilence.Forms.Templates.*.nupkg
-
-      - name: Scaffold + build the desktop-only default
-        run: |
-          set -euo pipefail
-          dotnet new majorsilenceforms -o "$RUNNER_TEMP/plain" -n Smoke.App
-          dotnet build "$RUNNER_TEMP/plain/Smoke.App.slnx"
-
-      - name: Scaffold + build with the Android and WASM heads
-        run: |
-          set -euo pipefail
-          dotnet new majorsilenceforms -o "$RUNNER_TEMP/mobile" -n Smoke.App --IncludeAndroid --IncludeWasm
-          dotnet build "$RUNNER_TEMP/mobile/Smoke.App.slnx"
+      - name: Pack, install and build the template
+        run: dotnet build/build.cs -- --target=Template --workloads=template

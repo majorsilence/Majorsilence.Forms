@@ -247,6 +247,12 @@ carrying a `PackageId`, a description and a `PackageOutputPath` while appearing 
 closed: `e65d30c` added it to both workflows, and the Windows-only trio (`WinForms`,
 `WindowsFormsInterop`, `WindowsUIAutomation`) went with it via the windows-latest pack job.
 
+**Superseded (2026-11-14): the lists are no longer in the workflows.** The pack lists moved into one place,
+`build/build.cs` (`crossPlatformProjects` / `windowsProjects` / `macProjects`), which `dotnet.yml`,
+`release.yml` and `publish-nuget.yml` all run through the `Pack` target -- so the "in one workflow's list but
+not another's" gaps below (including `Mcp` missing from `release.yml`) cannot recur. The history that follows
+refers to the old per-workflow `PACKABLE_PROJECTS*` env blocks.
+
 Read the two workflows knowing which does what, or the lists look contradictory: **`release.yml` packs,
 uploads artifacts and creates a *draft* GitHub release; it never holds nuget.org credentials. `publish-nuget.yml` is what actually pushes, and only when a human clicks Publish
 on that draft.** So `publish-nuget.yml`'s `PACKABLE_PROJECTS` / `PACKABLE_PROJECTS_WINDOWS` is the

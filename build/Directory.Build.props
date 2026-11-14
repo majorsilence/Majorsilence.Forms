@@ -1,0 +1,12 @@
+<Project>
+  <!--
+    A file-based app (build.cs) inherits the nearest Directory.Build.props above it, which here is the
+    repo root: TreatWarningsAsErrors in Release, central package management, the net11 runtime-async
+    targets, mobile-head detection. None of that is meant for the build script, so this file stops the
+    walk-up by being the nearest one and deliberately importing nothing.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>

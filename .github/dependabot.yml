@@ -1,0 +1,18 @@
+version: 2
+
+# Deliberately narrow. The only thing this repo asks Dependabot to track is the Cake.Sdk pin in
+# global.json ("msbuild-sdks"), which is what build/build.cs resolves. Everything else (the central
+# package versions in Directory.Packages.props, the GitHub Actions versions) is bumped by hand today,
+# and `allow` keeps this file from opening a stream of PRs for them.
+#
+# The pin lives in global.json rather than inline as `#:sdk Cake.Sdk@x.y.z` because Dependabot's nuget
+# ecosystem reads global.json's msbuild-sdks but does not parse `#:sdk` directives in a .cs file.
+# global.json carries no "sdk" section, so it does NOT pin the .NET SDK: Directory.Build.props keys
+# the net11.0 row off whichever SDK resolves, and the CI matrix relies on that.
+updates:
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    allow:
+      - dependency-name: "Cake.Sdk"
