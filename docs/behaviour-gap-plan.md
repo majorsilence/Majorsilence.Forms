@@ -6119,3 +6119,16 @@ Two lessons from those predecessors are worth restating here, because this audit
   `EditingControlWantsInputKey` story in `winforms-gap-plan.md` — a flat key list that "reads sensibly
   and is wrong", where upstream is caret-aware — is the exact failure mode this whole document is
   cataloguing.
+
+**Drawing: the last two findings of #343 (GFX-20 `Trimming`, GFX-46 `DialogFont`). — 2026-11-14.**
+Every other finding in #343 was already closed (PRs #403, #424, #432); the issue's boxes are ticked to match.
+These two were left because the documentation could not settle them. This time they were settled by running
+real `System.Drawing` on Windows 11.
+
+- **GFX-20 (`Trimming`):** a `NoWrap` measurement is cut to the layout width by the format's trimming, as
+  GDI+ does, not reported at the natural width as the earlier entry assumed. `None` is the layout width,
+  `Character`/`Word` the fitting prefix, the Ellipsis modes the prefix plus `...`; `NoClip` only stops the cut
+  under `None`; counted trailing spaces are not trimmed. `MeasureString_with_NoWrap_measures_one_line` asserted
+  the old width and is updated. A wrapping measurement clamped by the layout *height* is not done.
+- **GFX-46 (`DialogFont`):** Tahoma 8pt on Windows, as upstream; the other seven stay Segoe UI 9pt, which is
+  what upstream returns for them.

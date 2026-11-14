@@ -79,8 +79,19 @@ namespace Majorsilence.Forms
         /// <summary>Whether the app chose its default font with Application.SetDefaultFont.</summary>
         internal static bool HasDefaultFontOverride => _defaultFontOverride is not null;
 
+        // GFX-46. Every other system font is Segoe UI 9pt on Windows 10/11 -- NONCLIENTMETRICS gives the same
+        // face for caption, small caption, menu, status and message alike, so they are rightly the same. The
+        // one upstream sets apart is DialogFont, which System.Drawing.SystemFonts maps to the shell dialog
+        // font, Tahoma 8pt, whenever the system is not DBCS (real GDI+ on Windows 11 reports exactly that).
+        private static readonly bool dialog_font_is_tahoma =
+            OperatingSystemCompat.IsWindows () && SKTypeface.FromFamilyName ("Tahoma") is { FamilyName: "Tahoma" };
+
         /// <summary>Gets the dialog box font.</summary>
-        public static Majorsilence.Forms.Drawing.Font DialogFont => Create ();
+        /// <remarks>Tahoma 8pt on Windows, as in WinForms, where it is the one system font that differs from the rest;
+        /// elsewhere, or where Tahoma is not installed, the same font as the others.</remarks>
+        public static Majorsilence.Forms.Drawing.Font DialogFont => dialog_font_is_tahoma
+            ? new Majorsilence.Forms.Drawing.Font ("Tahoma", 8f) { SystemFontName = nameof (DialogFont) }
+            : Create ();
 
         /// <summary>Gets the icon title font.</summary>
         public static Majorsilence.Forms.Drawing.Font IconTitleFont => Create ();

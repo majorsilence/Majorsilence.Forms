@@ -175,9 +175,11 @@ namespace Majorsilence.Forms.Drawing
         /// <see cref="Majorsilence.Forms.Drawing.StringFormatFlags.DirectionVertical"/> (which swaps the
         /// reported width and height, matching the rotated run
         /// <see cref="DrawString(string, Majorsilence.Forms.Drawing.Font, Majorsilence.Forms.Drawing.Brush, RectangleF, Majorsilence.Forms.Drawing.StringFormat?)"/>
-        /// draws for it). <see cref="Majorsilence.Forms.Drawing.StringFormat.Trimming"/> is not applied to
-        /// the measurement: Microsoft's documentation describes trimming only as how drawn text is cut,
-        /// and does not say whether GDI+ caps a measurement at the layout width because of it.
+        /// draws for it). A <c>NoWrap</c> line wider than the layout is reported at the width of what
+        /// <see cref="Majorsilence.Forms.Drawing.StringFormat.Trimming"/> leaves of it, as GDI+ does:
+        /// the layout width for <c>None</c>, the fitting prefix for <c>Character</c> and <c>Word</c>, and the
+        /// prefix plus an ellipsis for the Ellipsis modes. A wrapped measurement is not trimmed, and the
+        /// layout height does not cap the result.
         /// </remarks>
         public SizeF MeasureString (string text, Majorsilence.Forms.Drawing.Font font, Majorsilence.Forms.Drawing.StringFormat? format)
         {
@@ -229,6 +231,28 @@ namespace Majorsilence.Forms.Drawing
             if (string.IsNullOrEmpty (text) || font is null)
                 return SizeF.Empty;
 
+            var size = MeasureUntrimmed (text, font, layoutWidth, format);
+
+            // A NoWrap line that runs past the layout width is cut by the format's trimming, and GDI+ reports
+            // the width of what is left (GFX-20); see TrimmedLineWidth.
+            var flags = format?.FormatFlags ?? 0;
+            if (layoutWidth <= 0 || size.Width <= layoutWidth
+                || (flags & Majorsilence.Forms.Drawing.StringFormatFlags.NoWrap) == 0)
+                return size;
+
+            // NoClip lets untrimmed text run on; every trimming mode still cuts it (real GDI+, both flags set).
+            var trimming = format!.Trimming;
+            if (trimming == Majorsilence.Forms.Drawing.StringTrimming.None
+                && (flags & Majorsilence.Forms.Drawing.StringFormatFlags.NoClip) != 0)
+                return size;
+
+            var width = TrimmedWidth (text, font, layoutWidth, trimming, size.Width);
+            return width is null ? size : new SizeF (width.Value, size.Height);
+        }
+
+        private SizeF MeasureUntrimmed (string text, Majorsilence.Forms.Drawing.Font font, float layoutWidth,
+            Majorsilence.Forms.Drawing.StringFormat? format)
+        {
             var flags = format?.FormatFlags ?? 0;
             var wrapWidth = (flags & Majorsilence.Forms.Drawing.StringFormatFlags.NoWrap) != 0 ? 0 : layoutWidth;
 
@@ -249,6 +273,82 @@ namespace Majorsilence.Forms.Drawing
                 width = Math.Min (width, layoutWidth);
 
             return new SizeF (Math.Max (width, size.Width), size.Height);
+        }
+
+        // The widest line of a NoWrap measurement once each line is cut to the layout width.
+        // Null when no line's text is wider than the layout: what overflows then is counted trailing spaces
+        // (MeasureTrailingSpaces), which GDI+ does not trim.
+        private float? TrimmedWidth (string text, Majorsilence.Forms.Drawing.Font font, float layoutWidth,
+            Majorsilence.Forms.Drawing.StringTrimming trimming, float naturalWidth)
+        {
+            var widest = 0f;
+            var overflows = false;
+            foreach (var raw in text.Split ('\n')) {
+                var line = raw.TrimEnd ('\r', ' ');
+                if (line.Length == 0)
+                    continue;
+                var natural = MeasureRun (line, font).Width;
+                overflows |= natural > layoutWidth;
+                widest = Math.Max (widest, natural <= layoutWidth || trimming == Majorsilence.Forms.Drawing.StringTrimming.None
+                    ? Math.Min (natural, layoutWidth)
+                    : TrimmedLineWidth (line, font, layoutWidth, trimming));
+            }
+            if (!overflows)
+                return null;
+            return trimming == Majorsilence.Forms.Drawing.StringTrimming.None ? layoutWidth : Math.Min (widest, naturalWidth);
+        }
+
+        private const string TrimEllipsis = "...";
+
+        /// <summary>
+        /// The width of a line GDI+ has cut to <paramref name="layoutWidth"/>: the longest prefix that fits, cut
+        /// at a word end for the Word modes, followed by "..." for the Ellipsis modes.
+        /// </summary>
+        /// <remarks>
+        /// Not documented by Microsoft, so taken from real GDI+ (Segoe UI 9pt, NoWrap, a 43-character line at layout
+        /// widths from 40 to 240): <c>Character</c> reports the width of the fitting prefix, <c>Word</c> the same
+        /// at a word end, and the Ellipsis modes the prefix plus the dots, within a pixel of this. GDI+'s
+        /// <c>EllipsisPath</c> keeps the tail of a path and its width lands within a few pixels of the same figure
+        /// (Windows path of 52 characters, layout widths 80 to 200), so it is measured as <c>EllipsisCharacter</c>.
+        /// </remarks>
+        private float TrimmedLineWidth (string line, Majorsilence.Forms.Drawing.Font font, float layoutWidth,
+            Majorsilence.Forms.Drawing.StringTrimming trimming)
+        {
+            var ellipsis = trimming is Majorsilence.Forms.Drawing.StringTrimming.EllipsisCharacter
+                or Majorsilence.Forms.Drawing.StringTrimming.EllipsisWord
+                or Majorsilence.Forms.Drawing.StringTrimming.EllipsisPath;
+            var by_word = trimming is Majorsilence.Forms.Drawing.StringTrimming.Word
+                or Majorsilence.Forms.Drawing.StringTrimming.EllipsisWord;
+
+            float WidthOf (int length)
+            {
+                var prefix = line.Substring (0, length).TrimEnd (' ');
+                return prefix.Length == 0 && !ellipsis ? 0 : MeasureRun (ellipsis ? prefix + TrimEllipsis : prefix, font).Width;
+            }
+
+            // Largest prefix length that fits; widths only grow with length, so bisect.
+            int Fit (Func<int, bool> allowed)
+            {
+                var low = 0;
+                var high = line.Length - 1;
+                while (low < high) {
+                    var mid = (low + high + 1) / 2;
+                    if (WidthOf (mid) <= layoutWidth) low = mid; else high = mid - 1;
+                }
+                // Back off to an allowed cut; none means the caller falls back to cutting anywhere.
+                while (low > 0 && !allowed (low)) low--;
+                return low;
+            }
+
+            var length = 0;
+            if (by_word) {
+                // A word end is where the next character is a space.
+                length = Fit (n => n < line.Length && line[n] == ' ');
+            }
+            if (length == 0)
+                length = Fit (_ => true);
+
+            return Math.Min (WidthOf (length), layoutWidth);
         }
 
         // The text without the spaces that end each of its lines. Only U+0020, as the documentation says

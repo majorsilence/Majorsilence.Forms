@@ -199,7 +199,9 @@ public class DrawingTextAndImageParityTests
 
         Assert.True (wrapped.Height > single.Height, "without NoWrap the narrow box wraps");
         Assert.Equal (single.Height, unwrapped.Height);
-        Assert.Equal (single.Width, unwrapped.Width);
+        // NoWrap keeps one line, but GDI+ still cuts it to the layout rectangle: the default Character trimming
+        // leaves the longest prefix that fits (GFX-20, measured against real GDI+).
+        Assert.True (unwrapped.Width <= 20 && unwrapped.Width > 0 && unwrapped.Width < single.Width);
         Assert.Equal (single.Height, unwrappedByWidth.Height);
     }
 
@@ -227,6 +229,80 @@ public class DrawingTextAndImageParityTests
         Assert.Equal (0f, blank.Width);
         Assert.Equal (word.Height, blank.Height);
         Assert.True (g.MeasureString ("    ", font, trailing).Width > 0);
+    }
+
+    // GFX-20, Trimming. Real GDI+ (Segoe UI 9pt, NoWrap, "The quick brown fox jumps over the lazy dog"):
+    // layout 100 -> None 100.0, Character 94.6 ("The quick brown"), Word 94.6, EllipsisCharacter 96.4,
+    // EllipsisWord 65.2 ("The quick..."); a line that fits is untouched. The fonts differ here, so these
+    // assert the mechanism against our own measurements of the prefixes.
+    private const string Fox = "The quick brown fox jumps over the lazy dog";
+
+    private static float NoWrapWidth (MFD.Graphics g, MFD.Font font, string text, float layoutWidth, MFD.StringTrimming trimming)
+        => g.MeasureString (text, font, new SizeF (layoutWidth, 100),
+            new MFD.StringFormat (MFD.StringFormatFlags.NoWrap) { Trimming = trimming }).Width;
+
+    [Fact]
+    public void NoWrap_measurement_is_cut_to_the_layout_width_by_the_trimming ()
+    {
+        using var font = NewFont ();
+        using var bitmap = new MFD.Bitmap (10, 10);
+        using var g = MFD.Graphics.FromImage (bitmap);
+        var natural = g.MeasureString (Fox, font, new MFD.StringFormat (MFD.StringFormatFlags.NoWrap)).Width;
+        var layout = (float)Math.Floor (natural / 2);
+
+        // None clips at the layout rectangle, so the measurement is the rectangle.
+        Assert.Equal (layout, NoWrapWidth (g, font, Fox, layout, MFD.StringTrimming.None));
+
+        // Character: the longest prefix that fits, so a little under the layout, and no more than one
+        // character short of it.
+        var character = NoWrapWidth (g, font, Fox, layout, MFD.StringTrimming.Character);
+        Assert.InRange (character, layout - g.MeasureString ("W", font).Width, layout);
+
+        // Word ends at a word, so it is never wider than Character and equals the width of some whole-word prefix.
+        var word = NoWrapWidth (g, font, Fox, layout, MFD.StringTrimming.Word);
+        Assert.True (word <= character);
+        var prefixes = new System.Collections.Generic.List<float> ();
+        for (var i = Fox.IndexOf (' '); i > 0; i = Fox.IndexOf (' ', i + 1))
+            prefixes.Add (g.MeasureString (Fox.Substring (0, i), font).Width);
+        Assert.Contains (word, prefixes);
+
+        // The Ellipsis modes keep room for the dots: prefix + "..." is what fits.
+        var ellipsis = NoWrapWidth (g, font, Fox, layout, MFD.StringTrimming.EllipsisCharacter);
+        Assert.InRange (ellipsis, layout - g.MeasureString ("W", font).Width, layout);
+        Assert.Equal (ellipsis, g.MeasureString (string.Concat (Fox.AsSpan (0, PrefixLengthFor (g, font, ellipsis)), "..."), font).Width);
+        Assert.True (NoWrapWidth (g, font, Fox, layout, MFD.StringTrimming.EllipsisWord) <= ellipsis);
+        Assert.InRange (NoWrapWidth (g, font, Fox, layout, MFD.StringTrimming.EllipsisPath), layout - g.MeasureString ("W", font).Width, layout);
+    }
+
+    private static int PrefixLengthFor (MFD.Graphics g, MFD.Font font, float widthWithDots)
+    {
+        for (var n = 0; n <= Fox.Length; n++)
+            if (g.MeasureString (string.Concat (Fox.AsSpan (0, n).TrimEnd (), "..."), font).Width == widthWithDots)
+                return n;
+        throw new InvalidOperationException ("no prefix has that width");
+    }
+
+    [Fact]
+    public void NoWrap_trimming_leaves_text_that_fits_and_unbounded_layouts_alone ()
+    {
+        using var font = NewFont ();
+        using var bitmap = new MFD.Bitmap (10, 10);
+        using var g = MFD.Graphics.FromImage (bitmap);
+        var nowrap = new MFD.StringFormat (MFD.StringFormatFlags.NoWrap) { Trimming = MFD.StringTrimming.EllipsisCharacter };
+        var natural = g.MeasureString (Fox, font, nowrap).Width;
+
+        // Fits: untouched. A layout width of zero is unbounded, as everywhere else.
+        Assert.Equal (natural, g.MeasureString (Fox, font, new SizeF (natural + 5, 100), nowrap).Width);
+        Assert.Equal (natural, g.MeasureString (Fox, font, new SizeF (0, 0), nowrap).Width);
+
+        // Wrapping text is not trimmed: the default format still wraps at the layout width.
+        var wrapped = g.MeasureString (Fox, font, new SizeF (natural / 2, 1000), new MFD.StringFormat ());
+        Assert.True (wrapped.Height > g.MeasureString (Fox, font).Height);
+
+        // Each line of NoWrap text is cut on its own; the height is the lines' and the width the widest cut line.
+        var two = g.MeasureString (Fox + "\nshort", font, new SizeF (natural / 2, 1000), nowrap);
+        Assert.Equal (NoWrapWidth (g, font, Fox, natural / 2, MFD.StringTrimming.EllipsisCharacter), two.Width);
+        Assert.Equal (g.MeasureString (Fox + "\nshort", font).Height, two.Height);
     }
 
     [Fact]
