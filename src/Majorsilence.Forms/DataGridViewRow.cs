@@ -258,7 +258,7 @@ namespace Majorsilence.Forms
 
                 // The grid's own scroll extent and displayed-row count are derived from row heights, so
                 // both have to be recomputed before the repaint.
-                owner?.NotifyRowVisibleChanged ();
+                owner?.NotifyRowVisibleChanged (this);
             }
         }
 

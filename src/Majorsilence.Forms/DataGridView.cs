@@ -1958,8 +1958,13 @@ namespace Majorsilence.Forms
                 : 0;
 
         /// <summary>Called by <see cref="DataGridViewRow.Visible"/> when a row is shown or hidden.</summary>
-        internal void NotifyRowVisibleChanged ()
+        internal void NotifyRowVisibleChanged (DataGridViewRow row)
         {
+            // The collection keeps a count of its hidden rows so the scroll extent need not walk every row
+            // (#691). The new-row placeholder is not in the collection; it is read directly instead.
+            if (!row.IsNewRow)
+                Rows.AdjustHiddenCount (row.Visible ? -1 : 1);
+
             UpdateScrollBars ();
             Invalidate ();
         }

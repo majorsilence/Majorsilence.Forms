@@ -87,6 +87,8 @@ namespace Majorsilence.Forms
         /// </summary>
         internal override Size GetPreferredSizeCore (Size proposedSize)
         {
+            // Every measurement below goes through MeasureMemoised, so a layout pass that asks again with
+            // nothing changed costs a comparison rather than a text layout (#691).
             var text = Text;
             var image = ImageSK;
 
@@ -98,7 +100,7 @@ namespace Majorsilence.Forms
             // before or after its form shows, or set to null, is 0 wide. Keeping the size it had left a label whose
             // text was cleared at run time covering whatever it sat on.
             if (!text.HasValue () && image is null)
-                height = (int) Math.Ceiling (TextMeasurer.MeasureText ("0", GetEffectiveFont (), GetEffectiveFontSize (), TextMeasurer.MaxSize).Height);
+                height = (int) Math.Ceiling (MeasureMemoised ("0", GetEffectiveFont (), GetEffectiveFontSize (), TextMeasurer.MaxSize).Height);
 
             if (text.HasValue ()) {
                 // Measured with the ambient font (GetEffectiveFont), which is the font the renderer
@@ -111,7 +113,7 @@ namespace Majorsilence.Forms
                 // The '&' of a mnemonic is not drawn, so it must not be measured either (upstream
                 // measures with the NoPrefix-less flags, which strip it): "&Name" wants the width of
                 // "Name", not one glyph more (SMP-17).
-                var measured = TextMeasurer.MeasureText (DrawsMnemonic ? Mnemonics.Strip (text) : text!, GetEffectiveFont (), GetEffectiveFontSize (), constraint);
+                var measured = MeasureMemoised (DrawsMnemonic ? Mnemonics.Strip (text) : text!, GetEffectiveFont (), GetEffectiveFontSize (), constraint);
 
                 width = (int) Math.Ceiling (measured.Width) + TextBearingInset * 2;
                 height = (int) Math.Ceiling (measured.Height);
@@ -134,6 +136,38 @@ namespace Majorsilence.Forms
             return new Size (
                 width + Padding.Horizontal + border.Horizontal,
                 height + Padding.Vertical + border.Vertical);
+        }
+
+        // The label's last measurement and every input it depended on. Upstream keeps a preferred size until
+        // the text, font or constraints change (CommonProperties.xGetPreferredSizeCache), clearing it from
+        // each setter; a label here takes its font from a style chain, a theme and its ancestors, with no
+        // single event for "the font I resolve to changed", so it is keyed on the resolved inputs instead and
+        // cannot go stale. Unlike the shared TextMeasurer cache, which holds a thousand entries a generation,
+        // it does not thrash once a panel holds more labels than that.
+        private string? memo_text;
+        private SKTypeface? memo_font;
+        private int memo_font_size;
+        private Size memo_constraint;
+        private SKSize memo_size;
+
+        private SKSize MeasureMemoised (string text, SKTypeface font, int fontSize, Size constraint)
+        {
+            if (memo_text is not null
+                && ReferenceEquals (memo_font, font)
+                && memo_font_size == fontSize
+                && memo_constraint == constraint
+                && string.Equals (memo_text, text, StringComparison.Ordinal))
+                return memo_size;
+
+            var measured = TextMeasurer.MeasureText (text, font, fontSize, constraint);
+
+            memo_text = text;
+            memo_font = font;
+            memo_font_size = fontSize;
+            memo_constraint = constraint;
+            memo_size = measured;
+
+            return measured;
         }
 
         /// <summary>
