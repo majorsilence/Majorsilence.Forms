@@ -50,6 +50,9 @@ namespace Majorsilence.Forms
 
         private readonly TextBlock block;
 
+        // The whole text the pieces are cut from, to see what follows the end of a piece.
+        private readonly string source;
+
         // UTF-16 offsets at which a new segment starts, ascending; null when the text is short enough not to segment.
         private readonly List<int>? boundaries;
 
@@ -68,6 +71,7 @@ namespace Majorsilence.Forms
         internal TextBlockAppender (TextBlock block, string text)
         {
             this.block = block;
+            source = text;
             boundaries = text.Length >= SegmentingThreshold ? FindBoundaries (text) : null;
         }
 
@@ -84,7 +88,8 @@ namespace Majorsilence.Forms
         internal void Add (ReadOnlySpan<char> text, Style style)
         {
             if (boundaries is null) {
-                block.AddText (text, style);
+                AddPiece (text, style);
+                position += text.Length;
                 return;
             }
 
@@ -96,11 +101,26 @@ namespace Majorsilence.Forms
                 var end = next_boundary < boundaries.Count ? boundaries[next_boundary] : int.MaxValue;
                 var length = (int)Math.Min (text.Length, (long)end - position);
 
-                block.AddText (text.Slice (0, length), (next_boundary & 1) == 0 ? style : VariantOf (style));
+                AddPiece (text.Slice (0, length), (next_boundary & 1) == 0 ? style : VariantOf (style));
 
                 text = text.Slice (length);
                 position += length;
             }
+        }
+
+        // RichTextKit folds a CRLF into one code point only within a single AddText, so a piece that ends between the CR
+        // and the LF (a colorizer's span can) would leave the CR a code point of its own, and every index after it one
+        // too many. Dropping that CR leaves the LF to stand for the pair, which is what the fold makes of it, so the
+        // code points are the same however the text is cut (#689; TextIndexMap relies on it).
+        private void AddPiece (ReadOnlySpan<char> piece, Style style)
+        {
+            var end = position + piece.Length;
+
+            if (piece.Length > 0 && piece[piece.Length - 1] == '\r' && end < source.Length && source[end] == '\n')
+                piece = piece.Slice (0, piece.Length - 1);
+
+            if (piece.Length > 0)
+                block.AddText (piece, style);
         }
 
         private Style VariantOf (Style style)
