@@ -11,17 +11,17 @@ namespace Majorsilence.Forms
         private string text = string.Empty;
         private string placeholder = string.Empty;
 
-        private TextBlock? cached_text_block;
+        // The text laid out, a paragraph at a time (#690). Kept when it is stale, because the next layout reuses what still fits.
+        private TextBoxLayout? layout;
 
-        // The device font size cached_text_block was laid out at. The block is built from textbox.CurrentFontSize, which is the logical size
-        // times the window's display scale, so the cache is only valid for the scale it was built at. A control with no window yet (parented
-        // to a panel that is not on a form) reads scale 1, so a block built then stayed at scale 1 for good once the real scale arrived --
-        // half the size on a scale-2 display. Text, font and width changes reset the cache; a scale change does not, so it is keyed here.
-        private int cached_text_block_font_size;
+        // Whether the text has changed since layout was made. A reset of everything else it is laid out from drops it instead.
+        private bool layout_stale;
 
-        // The block counts code points; the document's text, caret and selection are UTF-16 indices. This converts between
-        // them for the text cached_text_block was laid out from, and is replaced with it (#689).
-        private TextIndexMap cached_index_map = TextIndexMap.Identity;
+        // The device font size layout was laid out at. It is built from textbox.CurrentFontSize, which is the logical size
+        // times the window's display scale, so it is only valid for the scale it was built at. A control with no window yet (parented
+        // to a panel that is not on a form) reads scale 1, so a layout built then stayed at scale 1 for good once the real scale arrived --
+        // half the size on a scale-2 display. Text, font and width changes reset it; a scale change does not, so it is keyed here.
+        private int layout_font_size;
 
         private bool enabled = true;
         private int cursor_index;
@@ -38,13 +38,13 @@ namespace Majorsilence.Forms
         // theme's regular UI face (only the size followed the control).
         private SKTypeface? font_override;
 
-        // The typeface cached_text_block was laid out with, so a Font change -- on the box or on an
+        // The typeface layout was laid out with, so a Font change -- on the box or on an
         // ancestor it inherits from -- rebuilds the layout instead of reusing the stale one.
-        private SKTypeface? cached_text_block_font;
+        private SKTypeface? layout_font;
 
-        // Whether cached_text_block holds the placeholder: it comes and goes with focus (TXT-27), which
-        // changes nothing else the cache is keyed on.
-        private bool cached_text_block_placeholder;
+        // Whether layout holds the placeholder: it comes and goes with focus (TXT-27), which
+        // changes nothing else the layout is keyed on.
+        private bool layout_placeholder;
 
         private SKTypeface font => font_override ?? textbox.GetEffectiveFont ();
         private TextAlignment alignment = TextAlignment.Left;
@@ -69,7 +69,7 @@ namespace Majorsilence.Forms
             set {
                 if (alignment != value) {
                     alignment = value;
-                    cached_text_block = null;
+                    layout = null;
                     Invalidate ();
                 }
             }
@@ -318,7 +318,7 @@ namespace Majorsilence.Forms
 
             try {
                 (text, undo_text) = (undo_text, text);
-                cached_text_block = null;
+                layout_stale = true;
 
                 // The next edit starts a new group, and the caret may be past the restored end of text.
                 last_edit = EditKind.None;
@@ -345,7 +345,7 @@ namespace Majorsilence.Forms
             set {
                 if (enabled != value) {
                     enabled = value;
-                    cached_text_block = null;
+                    layout = null;
                     Invalidate ();
                 }
             }
@@ -356,7 +356,7 @@ namespace Majorsilence.Forms
             set {
                 if (font_override != value) {
                     font_override = value;
-                    cached_text_block = null;
+                    layout = null;
                     Invalidate ();
                 }
             }
@@ -364,21 +364,17 @@ namespace Majorsilence.Forms
 
         /// <summary>The UTF-16 index of the character at the point <paramref name="x"/>, <paramref name="y"/> of the laid-out text.</summary>
         public int GetCharIndexFromPosition (float x, float y)
-            => CharIndexFromCodePoint (GetTextBlock ().HitTest (x, y).ClosestCodePointIndex);
+        {
+            var laid_out = GetLayout ();
 
-        // The block's code-point indices and the document's UTF-16 ones (#689). Both go through GetTextBlock first, so the
+            return laid_out.IndexMap.ToUtf16 (laid_out.HitTest (x, y));
+        }
+
+        // The layout's code-point indices and the document's UTF-16 ones (#689). Both go through GetLayout first, so the
         // map is the one for the layout the index came from or is going to.
-        internal int CharIndexFromCodePoint (int codePoint)
-        {
-            GetTextBlock ();
-            return cached_index_map.ToUtf16 (codePoint);
-        }
+        internal int CharIndexFromCodePoint (int codePoint) => GetLayout ().IndexMap.ToUtf16 (codePoint);
 
-        internal int CodePointFromCharIndex (int index)
-        {
-            GetTextBlock ();
-            return cached_index_map.ToCodePoint (index);
-        }
+        internal int CodePointFromCharIndex (int index) => GetLayout ().IndexMap.ToCodePoint (index);
 
         // Selection ends are UTF-16 indices; the block paints a selection by code point. -1 is "none" and stays so.
         public TextSelection GetTextSelection ()
@@ -394,10 +390,19 @@ namespace Majorsilence.Forms
         internal int EmptyLineHeight
             => (int)TextMeasurer.CreateTextBlock ("l", font, textbox.CurrentFontSize, TextMeasurer.MaxSize, alignment, PlaceholderFontColor, 1).MeasuredHeight;
 
-        /// <summary>How many times the whole text has been laid out; for tests of what forces a layout (#690).</summary>
+        /// <summary>How many times the layout has been rebuilt; for tests of what forces one (#690).</summary>
         internal int LayoutCount { get; private set; }
 
-        public TextBlock GetTextBlock ()
+        /// <summary>How many paragraphs have been laid out, over every rebuild; for tests that an edit lays out only what it touches (#690).</summary>
+        internal int ParagraphsLaidOut => paragraphs_laid_out;
+
+        private int paragraphs_laid_out;
+
+        /// <summary>
+        /// The text laid out, paragraph by paragraph. Brought up to date first: only the paragraphs an edit changed are laid out
+        /// again (#690).
+        /// </summary>
+        internal TextBoxLayout GetLayout ()
         {
             var font_size = textbox.CurrentFontSize;
             var typeface = font;
@@ -407,10 +412,60 @@ namespace Majorsilence.Forms
             // before it had a window was measured at scale 1, and on a scale-2 display its centred and
             // right-aligned text aligned to half the box until something resized it.
             Width = textbox.WrapWidth;
-            if (cached_text_block != null && cached_text_block_font_size == font_size && ReferenceEquals (cached_text_block_font, typeface)
-                && cached_text_block_placeholder == shows_placeholder)
-                return cached_text_block;
+            if (layout != null && !layout_stale && layout_font_size == font_size && ReferenceEquals (layout_font, typeface)
+                && layout_placeholder == shows_placeholder)
+                return layout;
 
+            var parameters = LayoutParameters ();
+            var display = DisplayText;
+            var colorizer = textbox.Colorizer;
+            var colorized = colorizer is not null && display.HasValue ();
+            var styles = colorized ? ColorizerSpans (colorizer!, display) : null;
+            var key = new TextBoxLayout.Key (font_size, typeface, parameters.MaxSize, alignment, parameters.Color, multiline, GdiTextLayout.Applies,
+                                             shows_placeholder, colorized);
+
+            // A box that is not multiline has the one block, as before. A multiline one is cut into paragraphs, of which an edit
+            // lays out only the ones it changed.
+            layout = TextBoxLayout.Build (display, key, multiline, styles, layout,
+                                          (piece, piece_spans) => piece_spans is null
+                                              ? TextMeasurer.CreateUnsharedTextBlock (piece, typeface, font_size, parameters.MaxSize, alignment, parameters.Color, MaxLines)
+                                              : LayOutColorized (piece, piece_spans, parameters.MaxSize, parameters.Color),
+                                          ref paragraphs_laid_out);
+            layout_stale = false;
+            layout_font_size = font_size;
+            layout_font = typeface;
+            layout_placeholder = shows_placeholder;
+            LayoutCount++;
+
+            return layout;
+        }
+
+        /// <summary>
+        /// The whole text as one <c>TextBlock</c>. The box itself works from <see cref="GetLayout"/>, which does not build this
+        /// for a document of paragraphs, so it is laid out here once for whoever asks, and again after the next change.
+        /// </summary>
+        public TextBlock GetTextBlock ()
+        {
+            var current = GetLayout ();
+
+            if (current.WholeBlock is { } whole)
+                return whole;
+
+            if (current.PieceCount == 1)
+                return current.WholeBlock = current.FirstBlock;
+
+            var parameters = LayoutParameters ();
+            var colorizer = textbox.Colorizer;
+            var display = DisplayText;
+
+            return current.WholeBlock = colorizer is not null && display.HasValue ()
+                ? LayOutColorized (display, ColorizerSpans (colorizer, display), parameters.MaxSize, parameters.Color)
+                : TextMeasurer.CreateUnsharedTextBlock (display, font, textbox.CurrentFontSize, parameters.MaxSize, alignment, parameters.Color, MaxLines);
+        }
+
+        // The size the text is laid out in and the colour it is laid out in.
+        private (Size MaxSize, SKColor Color) LayoutParameters ()
+        {
             // A single line normally lays out in an unbounded width, so long text scrolls sideways
             // instead of wrapping. Centre/right alignment needs a real right edge to measure from --
             // aligned inside int.MaxValue every glyph lands off the end of the world and the control
@@ -433,26 +488,33 @@ namespace Majorsilence.Forms
                         Text.HasValue () ? textbox.GetEffectiveForegroundColor () :
                                 PlaceholderFontColor;
 
-            var block = textbox.Colorizer is { } colorizer && DisplayText.HasValue ()
-                ? BuildColorizedTextBlock (colorizer, max_size, color)
-                : TextMeasurer.CreateUnsharedTextBlock (DisplayText, typeface, font_size, max_size, alignment, color, MaxLines);
-
-            cached_text_block_font_size = font_size;
-            cached_text_block_font = typeface;
-            cached_text_block_placeholder = shows_placeholder;
-            cached_index_map = TextIndexMap.For (DisplayText, foldLineEnds: multiline);
-            LayoutCount++;
-            return cached_text_block = block;
+            return (max_size, color);
         }
 
-        // Builds a TextBlock from multiple styled runs using the attached Colorizer, instead of
-        // TextMeasurer's single-style cache (per-instance colorizer output isn't safe to share
-        // across controls/keys the way the plain-text cache is). Spans outside [0, text.Length)
-        // or that overlap a previous span are skipped defensively -- a buggy colorizer should
+        // The spans a colorizer gives for the text that can be used: in order, inside the text, and not overlapping an earlier one.
+        // Spans outside [0, text.Length) or that overlap a previous span are skipped defensively -- a buggy colorizer should
         // degrade to partially-colored text, not throw during paint.
-        private TextBlock BuildColorizedTextBlock (System.Func<string, System.Collections.Generic.IEnumerable<TextSpanStyle>> colorizer, Size max_size, SKColor defaultColor)
+        private static List<TextSpanStyle> ColorizerSpans (System.Func<string, System.Collections.Generic.IEnumerable<TextSpanStyle>> colorizer, string text)
         {
-            var text = DisplayText;
+            var spans = new List<TextSpanStyle> ();
+            var next = 0;
+
+            foreach (var span in colorizer (text)) {
+                if (span.Start < next || span.Length <= 0 || span.Start + span.Length > text.Length)
+                    continue;
+
+                spans.Add (span);
+                next = span.Start + span.Length;
+            }
+
+            return spans;
+        }
+
+        // Builds a TextBlock from multiple styled runs, instead of TextMeasurer's single-style cache (per-instance colorizer
+        // output isn't safe to share across controls/keys the way the plain-text cache is). The spans are those of this text,
+        // in order and inside it (see ColorizerSpans); the gaps between them take the default style.
+        private TextBlock LayOutColorized (string text, IReadOnlyList<TextSpanStyle> spans, Size max_size, SKColor defaultColor)
+        {
             var tb = TextBlockAppender.CreateBlock (text.Length);
             tb.MaxWidth = max_size.Width;
             tb.MaxHeight = max_size.Height == int.MaxValue ? (int?)null : max_size.Height;
@@ -466,10 +528,7 @@ namespace Majorsilence.Forms
             var defaultStyle = new Style { FontFamily = font.FamilyName, FontSize = textbox.CurrentFontSize, TextColor = defaultColor, FontWeight = font.FontWeight, LetterSpacing = TextMeasurer.GdiBoldSpacing (font, textbox.CurrentFontSize) };
             var next = 0;
 
-            foreach (var span in colorizer (text)) {
-                if (span.Start < next || span.Length <= 0 || span.Start + span.Length > text.Length)
-                    continue;
-
+            foreach (var span in spans) {
                 if (span.Start > next)
                     appender.Add (text.AsSpan (next, span.Start - next), defaultStyle);
 
@@ -504,7 +563,7 @@ namespace Majorsilence.Forms
         /// baked into the cached <see cref="TextBlock"/>, so this must be called when the colour changes
         /// out-of-band (e.g. a theme change) for the new colour to take effect without a text edit.
         /// </summary>
-        internal void InvalidateTextBlock () => cached_text_block = null;
+        internal void InvalidateTextBlock () => layout = null;
 
         /// <summary>
         /// Replaces <c>[start, start + length)</c> with <paramref name="value"/> as ONE document edit,
@@ -560,7 +619,7 @@ namespace Majorsilence.Forms
                     suppress_undo_capture = false;
                 }
 
-                cached_text_block = null;
+                layout_stale = true;
 
                 // The caret ends AFTER the new text and the selection collapses -- EM_REPLACESEL again.
                 Deselect ();
@@ -628,7 +687,7 @@ namespace Majorsilence.Forms
             str = ApplyCasing (str);
 
             text = text.Insert (cursor_index, str);
-            cached_text_block = null;
+            layout_stale = true;
 
             // TODO: Need to properly handle code points
             SetCursorToCharIndex (cursor_index + str.Length);
@@ -666,7 +725,7 @@ namespace Majorsilence.Forms
             set {
                 if (multiline != value) {
                     multiline = value;
-                    cached_text_block = null;
+                    layout = null;
                     Invalidate ();
                 }
             }
@@ -707,16 +766,16 @@ namespace Majorsilence.Forms
                 return false;
 
             var new_index = -1;
-            var block = GetTextBlock ();
-            // The block is addressed by code point and the caret is a UTF-16 index; every index crosses the map here (#689).
-            var current_caret = block.GetCaretInfo (new CaretPosition (CodePointFromCharIndex (cursor_index)));
+            var laid_out = GetLayout ();
+            // The layout is addressed by code point and the caret is a UTF-16 index; every index crosses the map here (#689).
+            var current_caret = laid_out.GetCaretInfo (laid_out.IndexMap.ToCodePoint (cursor_index));
 
             switch (direction) {
                 case ArrowDirection.Left:
 
                     // Ctrl-Home - Go to the beginning of the document
                     if (end && wholeWord)
-                        new_index = CharIndexFromCodePoint (block.CaretIndicies[0]);
+                        new_index = laid_out.IndexMap.ToUtf16 (laid_out.FirstStop);
                     // Home - Go to the beginning of the current line
                     else if (end)
                         new_index = GetCharIndexFromPosition (0, current_caret.CaretRectangle.MidY);
@@ -725,7 +784,7 @@ namespace Majorsilence.Forms
                         new_index = TextMeasurer.FindNextSeparator (text, cursor_index, false);
                     // Left - Go left one character
                     else
-                        new_index = StepCaret (block, -1);
+                        new_index = StepCaret (laid_out, -1);
 
                     break;
 
@@ -736,7 +795,7 @@ namespace Majorsilence.Forms
                         new_index = GetCharIndexFromPosition ((int)current_caret.CaretXCoord, (int)current_caret.CaretRectangle.MidY - textbox.CurrentFontSize);
                     // Single line - Go left one character
                     else
-                        new_index = StepCaret (block, -1);
+                        new_index = StepCaret (laid_out, -1);
 
                     break;
 
@@ -744,7 +803,7 @@ namespace Majorsilence.Forms
 
                     // Ctrl-End - Go to the end of the document
                     if (end && wholeWord)
-                        new_index = CharIndexFromCodePoint (block.CaretIndicies.Last ());
+                        new_index = laid_out.IndexMap.ToUtf16 (laid_out.LastStop);
                     // End - Go to the end of the current line
                     else if (end)
                         new_index = GetCharIndexFromPosition (int.MaxValue, current_caret.CaretRectangle.MidY);
@@ -753,7 +812,7 @@ namespace Majorsilence.Forms
                         new_index = TextMeasurer.FindNextSeparator (text, cursor_index, true);
                     // Right - Go right one character
                     else
-                        new_index = StepCaret (block, 1);
+                        new_index = StepCaret (laid_out, 1);
 
                     break;
 
@@ -764,7 +823,7 @@ namespace Majorsilence.Forms
                         new_index = GetCharIndexFromPosition ((int)current_caret.CaretXCoord, (int)current_caret.CaretRectangle.MidY + textbox.CurrentFontSize);
                     // Single line - Go left one character
                     else
-                        new_index = StepCaret (block, 1);
+                        new_index = StepCaret (laid_out, 1);
 
                     break;
             }
@@ -787,42 +846,18 @@ namespace Majorsilence.Forms
             return false;
         }
 
-        // The UTF-16 index of the caret stop one step from the caret, in the block's own list of stops: a CRLF, a surrogate
+        // The UTF-16 index of the caret stop one step from the caret, in the layout's own list of stops: a CRLF, a surrogate
         // pair and a combining sequence are each one step. A caret inside one (which SetSelection can leave it) steps to the
         // stop that starts it going left, and to the next going right.
-        private int StepCaret (TextBlock block, int step)
-        {
-            var stops = block.CaretIndicies;
-
-            if (stops.Count == 0)
-                return cursor_index;
-
-            var code_point = cached_index_map.ToCodePoint (cursor_index);
-            var lo = 0;
-            var hi = stops.Count;
-
-            // The number of stops at or before the caret.
-            while (lo < hi) {
-                var mid = lo + (hi - lo) / 2;
-
-                if (stops[mid] <= code_point)
-                    lo = mid + 1;
-                else
-                    hi = mid;
-            }
-
-            var at = lo - 1;
-            var target = step < 0 ? (at >= 0 && stops[at] == code_point ? at - 1 : at) : at + 1;
-
-            return cached_index_map.ToUtf16 (stops[MathCompat.Clamp (target, 0, stops.Count - 1)]);
-        }
+        private int StepCaret (TextBoxLayout laid_out, int step)
+            => laid_out.IndexMap.ToUtf16 (laid_out.StepCaret (laid_out.IndexMap.ToCodePoint (cursor_index), step));
 
         public char? PasswordCharacter {
             get => password_char;
             set {
                 if (password_char != value) {
                     password_char = value;
-                    cached_text_block = null;
+                    layout = null;
                     Invalidate ();
                 }
             }
@@ -833,7 +868,7 @@ namespace Majorsilence.Forms
             set {
                 if (placeholder != value) {
                     placeholder = value;
-                    cached_text_block = null;
+                    layout = null;
                     Invalidate ();
                 }
             }
@@ -844,7 +879,7 @@ namespace Majorsilence.Forms
             set {
                 if (placeholder_font_color != value) {
                     placeholder_font_color = value;
-                    cached_text_block = null;
+                    layout = null;
                     Invalidate ();
                 }
             }
@@ -865,12 +900,12 @@ namespace Majorsilence.Forms
             CaptureUndo (EditKind.Remove);
 
             text = text.Remove (start, length);
-            cached_text_block = null;
+            layout_stale = true;
 
             Invalidate ();
         }
 
-        public void Reset () => cached_text_block = null;
+        public void Reset () => layout = null;
 
         public void SelectAll ()
         {
@@ -990,7 +1025,7 @@ namespace Majorsilence.Forms
             ClearUndo ();
 
             text = value;
-            cached_text_block = null;
+            layout_stale = true;
 
             // WM_SETTEXT also empties the selection. Keeping it left a selection that could
             // reach past the end of the new text, and the next character typed deleted
@@ -1008,7 +1043,7 @@ namespace Majorsilence.Forms
             set {
                 if (width != value) {
                     width = value;
-                    cached_text_block = null;
+                    layout = null;
                     Invalidate ();
                 }
             }

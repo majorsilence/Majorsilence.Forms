@@ -222,6 +222,11 @@ namespace Majorsilence.Forms
         /// Draws a block of text.
         /// </summary>
         public static void DrawTextBlock (this SKCanvas canvas, TextBlock block, Point location, TextSelection selection)
+            => DrawTextBlock (canvas, block, new SKPoint (location.X, location.Y), selection);
+
+        // The location is a float: a paragraph of a text box's layout starts at a fraction of a pixel down the text, and the one
+        // block it replaces drew its lines there (#690).
+        internal static void DrawTextBlock (this SKCanvas canvas, TextBlock block, SKPoint location, TextSelection selection)
         {
             TextPaintOptions options;
 
@@ -235,7 +240,7 @@ namespace Majorsilence.Forms
                 options = _defaultPaintOptions;
             }
 
-            block.Paint (canvas, new SKPoint (location.X, location.Y), options);
+            block.Paint (canvas, location, options);
 
             if (!selection.IsEmpty () && selection.TextColor is { } text_colour)
                 RepaintSelectedText (canvas, block, location, selection, text_colour);
@@ -244,7 +249,7 @@ namespace Majorsilence.Forms
         // Draws the selected text again in the selection's text colour, clipped to the selection, as upstream's edit
         // control draws selected text in HighlightText: on a Highlight background the text's own (dark) colour all but
         // vanished. The block is repainted through a colour filter, so each glyph keeps its antialiasing.
-        private static void RepaintSelectedText (SKCanvas canvas, TextBlock block, Point location, TextSelection selection, SKColor colour)
+        private static void RepaintSelectedText (SKCanvas canvas, TextBlock block, SKPoint location, TextSelection selection, SKColor colour)
         {
             var start = Math.Min (selection.Start, selection.End);
             var end = Math.Max (selection.Start, selection.End);
@@ -274,7 +279,7 @@ namespace Majorsilence.Forms
             canvas.Save ();
             canvas.ClipPath (region, antialias: false);
             canvas.SaveLayer (paint);
-            block.Paint (canvas, new SKPoint (location.X, location.Y), _defaultPaintOptions);
+            block.Paint (canvas, location, _defaultPaintOptions);
             canvas.Restore ();
             canvas.Restore ();
         }

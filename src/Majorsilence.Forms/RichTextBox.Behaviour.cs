@@ -231,8 +231,8 @@ namespace Majorsilence.Forms
         /// </remarks>
         internal void CheckContentsResized ()
         {
-            var block = document.GetTextBlock ();
-            var measured = new Rectangle (0, 0, (int) Math.Ceiling (block.MeasuredWidth), (int) Math.Ceiling (block.MeasuredHeight));
+            var laid_out = document.GetLayout ();
+            var measured = new Rectangle (0, 0, (int) Math.Ceiling (laid_out.MeasuredWidth), (int) Math.Ceiling (laid_out.MeasuredHeight));
 
             if (measured == last_contents)
                 return;

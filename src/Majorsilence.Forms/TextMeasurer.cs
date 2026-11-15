@@ -397,16 +397,22 @@ namespace Majorsilence.Forms
         {
             // If there isn't any text the cursor height will be 0, so size it from one line of text, or failing that from the font size
             if (block.MeasuredHeight == 0)
-                return new Rectangle (location.X, location.Y + 1, 0, emptyLineHeight > 0 ? emptyLineHeight - 2 : fontSize + 2);
+                return EmptyCursor (location, fontSize, emptyLineHeight);
 
             try {
-                var caret_rect = block.GetCaretInfo (new CaretPosition (codePoint)).CaretRectangle;
-
-                return new Rectangle (location.X + (int)caret_rect.Left, location.Y + (int)caret_rect.Top + 1, (int)caret_rect.Width, (int)caret_rect.Height - 2);
+                return CursorRectangle (block.GetCaretInfo (new CaretPosition (codePoint)).CaretRectangle, location);
             } catch (ArgumentOutOfRangeException) {
                 return Rectangle.Empty;
             }
         }
+
+        // The cursor of a text with nothing in it: sized from one line of its text, or failing that from the font size.
+        internal static Rectangle EmptyCursor (Point location, int fontSize, int emptyLineHeight)
+            => new Rectangle (location.X, location.Y + 1, 0, emptyLineHeight > 0 ? emptyLineHeight - 2 : fontSize + 2);
+
+        // A caret rectangle of a block drawn at location, as a cursor: a pixel in from the line's top and bottom.
+        internal static Rectangle CursorRectangle (SKRect caret_rect, Point location)
+            => new Rectangle (location.X + (int)caret_rect.Left, location.Y + (int)caret_rect.Top + 1, (int)caret_rect.Width, (int)caret_rect.Height - 2);
 
         /// <summary>
         /// Gets the maximum carent index of the specified text.
