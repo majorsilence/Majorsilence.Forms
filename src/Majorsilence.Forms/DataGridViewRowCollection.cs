@@ -32,6 +32,13 @@ namespace Majorsilence.Forms
             set => base[index] = value;
         }
 
+        // How many committed rows have Visible = false, kept as rows come, go and are hidden so that the
+        // grid's visible-row count is a subtraction rather than a walk (#691). Every mutation of the
+        // backing list is below or in MoveBound (which does not change membership).
+        internal int HiddenCount { get; private set; }
+
+        internal void AdjustHiddenCount (int delta) => HiddenCount += delta;
+
         // The commit that promotes the new-row placeholder into a real row: past ThrowIfBound (an
         // unbound grid's own add) and through InsertItem, so RowsAdded fires.
         internal void AddPromoted (DataGridViewRow row) => base.Add (row);
@@ -154,6 +161,7 @@ namespace Majorsilence.Forms
 
             int clearedCount = Count;
             base.ClearItems ();
+            HiddenCount = 0;
             owner.OnRowsChanged ();
 
             if (clearedCount > 0)
@@ -168,6 +176,10 @@ namespace Majorsilence.Forms
         {
             item.SetOwner (owner);
             base.InsertItem (index, item);
+
+            if (!item.Visible)
+                HiddenCount++;
+
             owner.OnRowsChanged ();
             owner.RaiseRowsAdded (index, 1);
             owner.AutoSizeAddedRows (index, 1);
@@ -183,6 +195,10 @@ namespace Majorsilence.Forms
             var removed = this[index];
             removed.SetOwner (null);
             base.RemoveItem (index);
+
+            if (!removed.Visible)
+                HiddenCount--;
+
             owner.OnRowsChanged ();
             owner.RaiseRowsRemoved (index, 1);
             OnCollectionChanged (new CollectionChangeEventArgs (CollectionChangeAction.Remove, removed));
@@ -200,10 +216,14 @@ namespace Majorsilence.Forms
                 row.SetOwner (null);
 
             Items.Clear ();
+            HiddenCount = 0;
 
             foreach (var row in rows) {
                 row.SetOwner (owner);
                 Items.Add (row);
+
+                if (!row.Visible)
+                    HiddenCount++;
             }
 
             owner.OnRowsChanged ();
@@ -225,9 +245,17 @@ namespace Majorsilence.Forms
         /// <inheritdoc/>
         protected override void SetItem (int index, DataGridViewRow item)
         {
-            this[index].SetOwner (null);
+            var replaced = this[index];
+            replaced.SetOwner (null);
             item.SetOwner (owner);
             base.SetItem (index, item);
+
+            if (!replaced.Visible)
+                HiddenCount--;
+
+            if (!item.Visible)
+                HiddenCount++;
+
             owner.OnRowsChanged ();
         }
     }

@@ -208,8 +208,33 @@ namespace Majorsilence.Forms
         // Rows that take space. A hidden row (Row.Visible = false, W5.2a) has no height and cannot be
         // scrolled to, so it must not be in the scroll range either -- counting it left the thumb
         // draggable into blank space past the last visible row.
+        //
+        // Not a walk: adding n rows one at a time walked 0..n each time, and each step was a DPI lookup, which
+        // made the fill quadratic and 87% DPI lookups (#691). A row takes space exactly when it is Visible,
+        // since a row's height has a floor of 3 and so never rounds to nothing -- except in an unbound virtual
+        // grid, where the application answers each row's height and only a walk can know.
         private int VisibleRowCount ()
         {
+            if (IsVirtualUnbound)
+                return VisibleRowCountByWalking ();
+
+            var count = Rows.Count - Rows.HiddenCount;
+
+            if (ShowsNewRow && NewRowPlaceholder.Visible)
+                count++;
+
+            return count;
+        }
+
+        // How many times the scroll extent walked every row. A fill that walks per add is the quadratic of #691,
+        // which timing cannot tell from noise at test sizes, so the test counts walks instead.
+        internal int VisibleRowWalks { get; private set; }
+
+        // The definition the count above must agree with; kept for the virtual case and for the test that
+        // holds the counter to it.
+        internal int VisibleRowCountByWalking ()
+        {
+            VisibleRowWalks++;
             var count = 0;
 
             for (var i = 0; i < RowCountWithNewRow; i++)
