@@ -226,8 +226,8 @@ namespace Majorsilence.Forms
         // The caret's rectangle in device units. An empty box has no text to size it from, so it is sized from one line.
         internal Rectangle CaretRectangle (int index)
         {
-            var block = document.GetTextBlock ();
-            return TextMeasurer.GetCursorLocation (block, TextOrigin, document.CodePointFromCharIndex (index), CurrentFontSize, block.MeasuredHeight == 0 ? document.EmptyLineHeight : 0);
+            var laid_out = document.GetLayout ();
+            return laid_out.GetCursorLocation (TextOrigin, document.CodePointFromCharIndex (index), CurrentFontSize, laid_out.MeasuredHeight == 0 ? document.EmptyLineHeight : 0);
         }
 
         /// <summary>
@@ -336,12 +336,12 @@ namespace Majorsilence.Forms
             if (!Multiline || document.Text.Length == 0)
                 return false;
 
-            var block = document.GetTextBlock ();
-            var caret = block.GetCaretInfo (new CaretPosition (document.CodePointFromCharIndex (document.CursorIndex)));
+            var laid_out = document.GetLayout ();
+            var caret = laid_out.GetCaretInfo (laid_out.IndexMap.ToCodePoint (document.CursorIndex));
             var page = Math.Max (PaddedClientRectangle.Height, CurrentFontSize);
             var y = caret.CaretRectangle.MidY + (up ? -page : page);
             var index = y < 0 ? 0
-                      : y > block.MeasuredHeight ? document.Text.Length
+                      : y > laid_out.MeasuredHeight ? document.Text.Length
                       : document.GetCharIndexFromPosition (caret.CaretXCoord, y);
 
             return document.MoveCaretTo (index, select);
@@ -1120,16 +1120,10 @@ namespace Majorsilence.Forms
             if (document.Text.Length == 0)
                 return 0;
 
-            var lines = document.GetTextBlock ().Lines;
+            var laid_out = document.GetLayout ();
 
-            // A line's Start and Length count code points, the index UTF-16 units (#689).
-            index = document.CodePointFromCharIndex (MathCompat.Clamp (index, 0, document.Text.Length));
-
-            for (var i = 0; i < lines.Count; i++)
-                if (index < lines[i].Start + lines[i].Length)
-                    return i;
-
-            return lines.Count - 1;
+            // A line's start and length count code points, the index UTF-16 units (#689).
+            return laid_out.GetLineFromCodePoint (laid_out.IndexMap.ToCodePoint (MathCompat.Clamp (index, 0, document.Text.Length)));
         }
 
         /// <inheritdoc/>
@@ -1146,9 +1140,10 @@ namespace Majorsilence.Forms
             if (document.Text.Length == 0)
                 return lineNumber == 0 ? 0 : -1;
 
-            var lines = document.GetTextBlock ().Lines;
+            var laid_out = document.GetLayout ();
+            var start = laid_out.GetLineStart (lineNumber);
 
-            return lineNumber < lines.Count ? document.CharIndexFromCodePoint (lines[lineNumber].Start) : -1;
+            return start >= 0 ? laid_out.IndexMap.ToUtf16 (start) : -1;
         }
 
         // TXT-25: upstream's TextBoxBase.BackColor -- with no colour of its own, a read-only box answers
@@ -1215,7 +1210,7 @@ namespace Majorsilence.Forms
                     return 0;
 
                 // An empty box has no measured text, so centre the one line it will have when typed into.
-                var measured = (int)document.GetTextBlock ().MeasuredHeight;
+                var measured = (int)document.GetLayout ().MeasuredHeight;
                 var slack = PaddedClientRectangle.Height - (measured > 0 ? measured : document.EmptyLineHeight);
                 return slack > 0 ? slack / 2 : 0;
             }
@@ -1225,15 +1220,15 @@ namespace Majorsilence.Forms
         private Rectangle TextViewport => new Rectangle (new Point (PaddedClientRectangle.Location.X + scroll_x, PaddedClientRectangle.Location.Y + scroll_y), PaddedClientRectangle.Size);
 
         // Enables and recalculates scrollbars as needed.
-        internal void UpdateScrollBars (TextBlock block)
+        internal void UpdateScrollBars (float measured_width, float measured_height)
         {
-            UpdateHorizontalScrollBar (block);
+            UpdateHorizontalScrollBar (measured_width);
 
             // Something about the document changed, so we need to update the scrollbars. Whether a bar
             // is WANTED is ScrollBars' answer (TXT-26); whether it is NEEDED is the content's. None
             // still scrolls with the caret -- ScrollToCaret works off DoScroll, not off a bar.
             var wanted = ScrollBars == ScrollBars.Vertical || ScrollBars == ScrollBars.Both;
-            var overflow = (int)block.MeasuredHeight - PaddedClientRectangle.Height;
+            var overflow = (int)measured_height - PaddedClientRectangle.Height;
 
             if (wanted && overflow > 0) {
                 VerticalScrollBar.Enabled = true;
@@ -1242,7 +1237,7 @@ namespace Majorsilence.Forms
                 // set it -- not the overflow. With Maximum = overflow the reachable range was
                 // `overflow - viewport + 1`: nothing at all until the text was more than twice the
                 // viewport, and always one viewport short of the end (the Theme Studio's editor).
-                VerticalScrollBar.Maximum = (int)block.MeasuredHeight - 1;
+                VerticalScrollBar.Maximum = (int)measured_height - 1;
                 VerticalScrollBar.LargeChange = PaddedClientRectangle.Height;
                 VerticalScrollBar.SmallChange = CurrentFontSize * 3;
 
@@ -1253,7 +1248,7 @@ namespace Majorsilence.Forms
             } else {
                 // Only pull the content back into view when there is no room to scroll into. A box the
                 // caller simply did not ask for a bar on still scrolls with its caret.
-                if (scroll_y > 0 && (int)block.MeasuredHeight - PaddedClientRectangle.Height <= 0)
+                if (scroll_y > 0 && (int)measured_height - PaddedClientRectangle.Height <= 0)
                     DoScroll (0, -scroll_y);
 
                 VerticalScrollBar.Enabled = false;
@@ -1272,15 +1267,15 @@ namespace Majorsilence.Forms
 
         // A horizontal bar is only ever meaningful with wrapping off: with WordWrap on there is nothing
         // to the right to scroll to (TXT-11, TXT-26).
-        private void UpdateHorizontalScrollBar (TextBlock block)
+        private void UpdateHorizontalScrollBar (float measured_width)
         {
             var wanted = (ScrollBars == ScrollBars.Horizontal || ScrollBars == ScrollBars.Both) && !WordWrap;
-            var overflow = (int)block.MeasuredWidth - PaddedClientRectangle.Width;
+            var overflow = (int)measured_width - PaddedClientRectangle.Width;
 
             if (wanted && overflow > 0) {
                 HorizontalScrollBar.Enabled = true;
                 // Same convention as the vertical bar above: Maximum is the extent minus one.
-                HorizontalScrollBar.Maximum = (int)block.MeasuredWidth - 1;
+                HorizontalScrollBar.Maximum = (int)measured_width - 1;
                 HorizontalScrollBar.LargeChange = PaddedClientRectangle.Width;
                 HorizontalScrollBar.SmallChange = CurrentFontSize * 3;
 

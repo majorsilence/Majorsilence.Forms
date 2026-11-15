@@ -27,20 +27,21 @@ namespace Majorsilence.Forms.Renderers
             if (text.Length == 0 && !control.Selected)
                 return;
 
-            var block = GetTextBlock (control);
+            // Laid out a paragraph at a time, and only the paragraphs in view are drawn (#690).
+            var laid_out = control.document.GetLayout ();
 
-            UpdateScrollBars (control, block);
+            control.UpdateScrollBars (laid_out.MeasuredWidth, laid_out.MeasuredHeight);
 
             e.Canvas.Save ();
             e.Canvas.Clip (control.PaddedClientRectangle);
 
             if (text.Length > 0)
-                e.Canvas.DrawTextBlock (block, GetTextOrigin (control), GetTextSelection (control));
+                laid_out.Paint (e.Canvas, GetTextOrigin (control), GetTextSelection (control));
 
             // Only tokenizes/looks up misspellings when a checker is attached to this control (the
             // attachment dictionary lookup is the only cost otherwise) - see TextBoxSpellCheck.
             if (control.Text.Length > 0 && TextBoxSpellCheck.GetSpellChecker (control) != null)
-                DrawMisspellingSquiggles (control, block, e.Canvas);
+                DrawMisspellingSquiggles (control, e.Canvas);
 
             if (control.Selected) {
                 var caret = control.CaretRectangle (GetCursorIndex (control));
@@ -51,24 +52,17 @@ namespace Majorsilence.Forms.Renderers
         }
 
         // Draws a wavy red underline beneath each misspelled word currently in the TextBox's text.
-        private static void DrawMisspellingSquiggles (TextBox control, TextBlock block, SKCanvas canvas)
+        private static void DrawMisspellingSquiggles (TextBox control, SKCanvas canvas)
         {
             var ranges = TextBoxSpellCheck.GetMisspelledRanges (control);
 
             if (ranges.Count == 0)
                 return;
 
-            var origin = control.TextOrigin;
-
             foreach (var range in ranges) {
-                Rectangle startRect, endRect;
-
-                try {
-                    startRect = TextMeasurer.GetCursorLocation (block, origin, range.Start, control.CurrentFontSize);
-                    endRect = TextMeasurer.GetCursorLocation (block, origin, range.End, control.CurrentFontSize);
-                } catch (ArgumentOutOfRangeException) {
-                    continue;
-                }
+                // The ranges are UTF-16 indices of the text, which CaretRectangle takes and lays the caret out from.
+                var startRect = control.CaretRectangle (range.Start);
+                var endRect = control.CaretRectangle (range.End);
 
                 // A word that wraps across lines would have a start Y above the end Y; skip drawing a
                 // (visually wrong) single straight span in that rare case rather than drawing garbage.
@@ -143,6 +137,6 @@ namespace Majorsilence.Forms.Renderers
         /// <summary>
         /// Updates the TextBox's scroll bars.
         /// </summary>
-        protected void UpdateScrollBars (TextBox control, TextBlock block) => control.UpdateScrollBars (block);
+        protected void UpdateScrollBars (TextBox control, TextBlock block) => control.UpdateScrollBars (block.MeasuredWidth, block.MeasuredHeight);
     }
 }
