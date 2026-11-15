@@ -394,6 +394,9 @@ namespace Majorsilence.Forms
         internal int EmptyLineHeight
             => (int)TextMeasurer.CreateTextBlock ("l", font, textbox.CurrentFontSize, TextMeasurer.MaxSize, alignment, PlaceholderFontColor, 1).MeasuredHeight;
 
+        /// <summary>How many times the whole text has been laid out; for tests of what forces a layout (#690).</summary>
+        internal int LayoutCount { get; private set; }
+
         public TextBlock GetTextBlock ()
         {
             var font_size = textbox.CurrentFontSize;
@@ -438,6 +441,7 @@ namespace Majorsilence.Forms
             cached_text_block_font = typeface;
             cached_text_block_placeholder = shows_placeholder;
             cached_index_map = TextIndexMap.For (DisplayText, foldLineEnds: multiline);
+            LayoutCount++;
             return cached_text_block = block;
         }
 
