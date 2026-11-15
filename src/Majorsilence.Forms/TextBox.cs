@@ -32,8 +32,25 @@ namespace Majorsilence.Forms
 
         private bool is_highlighting;
         private int selection_anchor = -1;
-        private int scroll_x;
-        private int scroll_y;
+        private int scroll_x_offset;
+        private int scroll_y_offset;
+
+        // The caret index a ScrollToCaret asked to bring into view and has not yet been resolved, or -1 (#690). Resolving
+        // lays the text out, and a log that appends a line at a time asks once per line: resolved there, k appends laid out
+        // 1, 2, ... k lines. It is resolved the moment anything reads the scroll position -- a paint, a hit test, a bar --
+        // so nothing sees a position that is behind the request; a run of appends between reads costs one layout.
+        private int pending_scroll_caret = -1;
+
+        // The scroll position. Reading it settles a pending ScrollToCaret first, so the pending request is never observable.
+        private int scroll_x {
+            get { ResolvePendingScroll (); return scroll_x_offset; }
+            set => scroll_x_offset = value;
+        }
+
+        private int scroll_y {
+            get { ResolvePendingScroll (); return scroll_y_offset; }
+            set => scroll_y_offset = value;
+        }
 
         /// <summary>
         /// Initializes a new instance of the TextBox class.
@@ -658,9 +675,30 @@ namespace Majorsilence.Forms
         /// <summary>
         /// Scrolls the TextBox so that the caret is visible.
         /// </summary>
+        /// <remarks>Takes effect before the scroll position is next read, not necessarily before this returns: it is the
+        /// laying out of the text that costs, and a loop of <c>AppendText</c> and <c>ScrollToCaret</c> asks per line (#690).
+        /// The view goes to where the caret is NOW, whatever moves it afterwards.</remarks>
         public override void ScrollToCaret ()
         {
-            var caret = CaretRectangle (document.CursorIndex);
+            pending_scroll_caret = document.CursorIndex;
+            Invalidate ();   // a paint reads the position, and so settles it
+        }
+
+        private void ResolvePendingScroll ()
+        {
+            if (pending_scroll_caret < 0)
+                return;
+
+            // Cleared first: the scroll below reads the position, and DoScroll reads it again.
+            var index = Math.Min (pending_scroll_caret, document.Text.Length);
+
+            pending_scroll_caret = -1;
+            ScrollToCharIndex (index);
+        }
+
+        private void ScrollToCharIndex (int index)
+        {
+            var caret = CaretRectangle (index);
 
             if (caret.IsEmpty)
                 return;
