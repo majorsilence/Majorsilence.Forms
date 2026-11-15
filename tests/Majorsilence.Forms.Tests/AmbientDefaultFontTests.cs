@@ -1,3 +1,4 @@
+using System;
 using Xunit;
 
 namespace Majorsilence.Forms.Tests
@@ -17,6 +18,28 @@ namespace Majorsilence.Forms.Tests
 
             Assert.Equal (Majorsilence.Forms.SystemFonts.DefaultFont.Name, label.Font.Name);
             Assert.Equal (Majorsilence.Forms.SystemFonts.DefaultFont.Size, label.Font.Size);
+        }
+
+        // GFX-46. On Windows System.Drawing.SystemFonts.DialogFont is Tahoma 8pt while every other system font
+        // is Segoe UI 9pt (checked against real GDI+ on Windows 11). Elsewhere Tahoma is not there to use.
+        [Fact]
+        public void DialogFont_is_the_one_system_font_that_differs ()
+        {
+            var dialog = Majorsilence.Forms.SystemFonts.DialogFont;
+            var message = Majorsilence.Forms.SystemFonts.MessageBoxFont;
+
+            Assert.True (dialog.IsSystemFont);
+            Assert.Equal (nameof (Majorsilence.Forms.SystemFonts.DialogFont), dialog.SystemFontName);
+
+            if (OperatingSystem.IsWindows () && SkiaSharp.SKTypeface.FromFamilyName ("Tahoma").FamilyName == "Tahoma") {
+                Assert.Equal ("Tahoma", dialog.Name);
+                Assert.Equal (8f, dialog.SizeInPoints);
+                Assert.NotEqual (message.Name, dialog.Name);
+                Assert.True (dialog.SizeInPoints < message.SizeInPoints);
+            } else {
+                Assert.Equal (message.Name, dialog.Name);
+                Assert.Equal (message.SizeInPoints, dialog.SizeInPoints);
+            }
         }
 
         [Fact]
