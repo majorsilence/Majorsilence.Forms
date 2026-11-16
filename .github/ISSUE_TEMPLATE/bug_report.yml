@@ -1,0 +1,66 @@
+name: Bug report
+description: Something behaves differently from System.Windows.Forms, or does not work at all
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this. The most useful report says what the control does, what the original
+        `System.Windows.Forms` did instead, and how to see the difference. A small code snippet is enough.
+  - type: textarea
+    id: what-happens
+    attributes:
+      label: What happens
+      description: What you see. For an event that does not fire, name the control and the event.
+      placeholder: "TreeView.KeyDown does not fire while a node label is being edited."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: If this app ran on real WinForms, say what it did there.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps or code to reproduce
+      description: The shortest code or sequence of steps that shows it. A Form with a few controls is ideal.
+      render: csharp
+    validations:
+      required: true
+  - type: dropdown
+    id: host
+    attributes:
+      label: Host backend
+      description: Which backend is the app running on?
+      options:
+        - Avalonia
+        - Uno
+        - GTK 4
+        - WPF
+        - Real WinForms (Theming.WinForms)
+        - Headless
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Majorsilence.Forms version
+      description: The NuGet package version, or the commit if you built from source.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: OS and .NET version
+      placeholder: "Windows 11, .NET 10"
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, exception text, or whether it only happens with a custom theme.

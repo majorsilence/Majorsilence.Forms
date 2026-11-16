@@ -388,7 +388,7 @@ namespace Majorsilence.Forms
             LayoutItems ();
 
             if (label_editor is null) {
-                label_editor = new LabelEditBox { Visible = false };
+                label_editor = new LabelEditBox { Visible = false, Owner = this };
                 label_editor.Commit = () => EndLabelEdit (commit: true);
                 label_editor.Cancel = () => EndLabelEdit (commit: false);
                 Controls.Add (label_editor);

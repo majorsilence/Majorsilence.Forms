@@ -11,6 +11,18 @@ namespace Majorsilence.Forms
         internal System.Action? Commit { get; set; }
         internal System.Action? Cancel { get; set; }
 
+        /// <summary>
+        /// The list or tree being edited. Its <c>PreviewKeyDown</c> and <c>KeyDown</c> events hear the
+        /// editor's keys, as they do with upstream's native edit control (issue #90).
+        /// </summary>
+        internal Control? Owner { get; set; }
+
+        protected override void OnPreviewKeyDown (PreviewKeyDownEventArgs e)
+        {
+            base.OnPreviewKeyDown (e);
+            Owner?.RaisePreviewKeyDown (e);
+        }
+
         // Enter and Escape are this control's, not the form's default or cancel button's: the same
         // claim the native edit control makes while a label is being edited.
         protected override bool IsInputKey (Keys keyData)
@@ -18,6 +30,12 @@ namespace Majorsilence.Forms
 
         protected override void OnKeyDown (KeyEventArgs e)
         {
+            // Ahead of Enter and Escape, so a handler can see (and with Handled, suppress) them.
+            Owner?.RaiseKeyDownEventOnly (e);
+
+            if (e.Handled)
+                return;
+
             switch (e.KeyCode) {
             case Keys.Return:
                 e.Handled = true;

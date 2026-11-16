@@ -1,0 +1,64 @@
+name: Feature request
+description: Ask for a control, member, behaviour or host that is not there yet
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. If something from `System.Windows.Forms` is missing or does nothing, say so
+        here too: a stub that does nothing is a gap, and gaps are worth knowing about. If it is
+        behaving differently from WinForms rather than missing, use the bug report instead.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of request is this?
+      options:
+        - A WinForms member, control or behaviour that is missing
+        - A new capability beyond WinForms (theming, a host, tooling)
+        - A change to how something works today
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: The problem or the app behaviour you need, before any proposed solution.
+      placeholder: "My migrated app relies on DataGridView.X, and it is not available here."
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like
+      description: |
+        The API or behaviour you have in mind. For a WinForms member, name the type and member and how
+        it behaves there.
+      render: csharp
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do today
+      description: A workaround, or alternatives you considered.
+  - type: dropdown
+    id: host
+    attributes:
+      label: Host backend
+      description: Which backend does this matter for?
+      multiple: true
+      options:
+        - Avalonia
+        - Uno
+        - GTK 4
+        - WPF
+        - Real WinForms (Theming.WinForms)
+        - Headless
+        - All of them
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contributing
+      options:
+        - label: I would be willing to work on this, with some guidance

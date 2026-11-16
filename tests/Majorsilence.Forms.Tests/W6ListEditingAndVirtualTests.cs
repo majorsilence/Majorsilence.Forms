@@ -363,4 +363,43 @@ public class W6ListEditingAndVirtualTests
         Assert.Equal ([(0, 3, true)], ranges);
         Assert.Equal ([true, true, true, true, false], list.Items.Select (i => i.Selected));
     }
+
+    // Issue #90: the editor is a child of the tree, so its keys never reached the tree's own events.
+    // Upstream's native edit control is inside the tree, and PreviewKeyDown / KeyDown still fire there.
+    [Fact]
+    public void Keys_typed_in_the_node_editor_raise_the_trees_PreviewKeyDown_and_KeyDown ()
+    {
+        using var tree = Tree ();
+        using var form = new Form { Size = new Size (400, 300) };
+        form.Controls.Add (tree);
+        form.Show ();
+        tree.Nodes[1].BeginEdit ();
+        var seen = new List<string> ();
+        tree.PreviewKeyDown += (_, e) => seen.Add ("preview " + e.KeyCode);
+        tree.KeyDown += (_, e) => seen.Add ("down " + e.KeyCode);
+
+        form.HandleKeyDown (Keys.A);
+
+        Assert.Equal (["preview A", "down A"], seen);
+        Assert.True (tree.Nodes[1].IsEditing);
+    }
+
+    [Fact]
+    public void The_trees_own_key_handling_does_not_run_on_editor_keys_and_Handled_suppresses_Enter ()
+    {
+        using var tree = Tree ();
+        using var form = new Form { Size = new Size (400, 300) };
+        form.Controls.Add (tree);
+        form.Show ();
+        tree.SelectedNode = tree.Nodes[1];
+        tree.Nodes[1].BeginEdit ();
+
+        // The arrow belongs to the editor's caret; it must not move the tree's selection.
+        form.HandleKeyDown (Keys.Up);
+        Assert.Same (tree.Nodes[1], tree.SelectedNode);
+
+        tree.KeyDown += (_, e) => e.Handled = e.KeyCode == Keys.Return;
+        form.HandleKeyDown (Keys.Return);
+        Assert.True (tree.Nodes[1].IsEditing);
+    }
 }
