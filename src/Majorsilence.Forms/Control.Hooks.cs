@@ -205,6 +205,12 @@ public partial class Control
     // The window's pre-processing step raises it on the focused control (WindowBase.PreProcessKey).
     internal void RaisePreviewKeyDown (PreviewKeyDownEventArgs e) => OnPreviewKeyDown (e);
 
+    // Hands a key the owner does not itself process to the owner's KeyDown handlers: the event only, not
+    // OnKeyDown, so the owner's own key handling (a tree's arrows and F2) does not run on it. The
+    // in-place label editor uses it, because upstream's native edit control sits inside the tree/list
+    // and its keys still reach the owner's KeyDown (issue #90).
+    internal void RaiseKeyDownEventOnly (KeyEventArgs e) => (Events[s_keyDownEvent] as KeyEventHandler)?.Invoke (this, e);
+
     #endregion
 
     #region Drag and drop
