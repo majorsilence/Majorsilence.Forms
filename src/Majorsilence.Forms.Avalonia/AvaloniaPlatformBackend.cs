@@ -686,6 +686,16 @@ namespace Majorsilence.Forms.Backends
         /// <inheritdoc/>
         public void RunModalLoop (System.Threading.Tasks.Task completed)
         {
+            // Usually reached from a Click handler, i.e. from inside the owner's pointer-released dispatch, which
+            // is where Avalonia still holds the pointer captured by the owner's window. It drops the capture only
+            // when that dispatch returns -- after this nested loop has ended -- so until then the first release
+            // inside the dialog went back to the owner instead of the dialog's button: a blocking MessageBox.Show
+            // took two clicks to close where ShowAsync, which returns first, took one (issue #711, seen on X11).
+            // Measured with the real thing under X11 (XTest clicks): two clicks before, one after. Avalonia.Headless
+            // keeps a pointer per window, so it cannot reproduce this and no headless test guards it.
+            foreach (var form in Application.OpenForms)
+                (form.Backend as MajorsilenceFormsWindowHost)?.LastPointerPressed?.Pointer.Capture (null);
+
             var frame = new DispatcherFrame ();
             completed.ContinueWith (_ => frame.Continue = false, System.Threading.Tasks.TaskScheduler.Default);
             Dispatcher.UIThread.PushFrame (frame);
