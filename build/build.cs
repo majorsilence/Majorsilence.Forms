@@ -107,11 +107,20 @@ var workloadProfiles = new Dictionary<string, string[]>
     // refuses to build without Xcode 27, and the macos runner image still ships Xcode 26.6 -- every iOS build
     // went red on 2026-09-29 with no code change. Drop the pin once the runner image carries Xcode 27 (the
     // build error names the version it wants).
+    //
+    // A 10.0 set installs only under SDK 10, so the jobs using this profile pin SDK 10 in global.json first:
+    // macos-latest image 20261112 ships SDK 11 preinstalled, it wins over the 10.0.x installed alongside it,
+    // and `workload install --version 10.0.401` under SDK 11 fails with "Workload pack
+    // 'Microsoft.NET.Runtime.Emscripten.Node.net10' ... conflicts with manifest
+    // 'microsoft.net.workload.emscripten.current'". SDK 11's own set (11.0.100.1, as "mac-pack" uses) is no
+    // way out for an app: it carries .NET for iOS 26.0.11017 for net10.0-ios, whose app build demands
+    // exactly Xcode 26.0. Packing libraries skips that check, which is why "mac-pack" gets away with it.
     ["ios"] = ["ios", "--version", "10.0.401"],
 
     // SDK 11 with its own workload set, pinned to 11.0.100.1: verified on macos-latest (Xcode 26.6) to build
     // the net10.0-ios row against Microsoft.iOS.Sdk.net10.0_26.0, which SDK 11's set carries for .NET 10
-    // targets, while adding the net11.0 row. The pin is for the same reason the 10.0.401 one is: an unpinned
+    // targets, while adding the net11.0 row. That holds for packing libraries only: building an app against
+    // it fails the Xcode-version check (see "ios" above). The pin is for the same reason the "ios" one is: an unpinned
     // set once moved .NET for iOS to a version that demands an Xcode the runner image lacks, and every iOS
     // build went red overnight. Move it deliberately, with the runner's Xcode in view. android and ios go in
     // together so the Essentials and Avalonia packages carry both rows.

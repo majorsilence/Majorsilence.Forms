@@ -460,6 +460,14 @@ jobs:
             8.0.x
             10.0.x
 
+      # The ios workload profile needs SDK 10 (see its comment in build/build.cs); without this the SDK 11
+      # the runner image ships wins. Net11 rows switch themselves off on SDK 10 (Directory.Build.props).
+      - name: Run on SDK 10
+        run: |
+          jq '.sdk = {"version": "10.0.100", "rollForward": "latestFeature"}' global.json > global.json.tmp
+          mv global.json.tmp global.json
+          dotnet --version
+
       # Installs the pinned ios workload (see the "ios" profile in build/build.cs), then builds for the
       # simulator RID, which assembles the runnable .app bundle.
       - name: Build Gallery.iOS (simulator)
