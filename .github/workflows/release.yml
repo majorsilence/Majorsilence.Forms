@@ -194,7 +194,12 @@ jobs:
           dotnet-version: |
             8.0.x
             10.0.x
-            11.0.x
+      # Same SDK 10 pin as the ios job in dotnet.yml; see the ios workload profile in build/build.cs.
+      - name: Run on SDK 10
+        run: |
+          jq '.sdk = {"version": "10.0.100", "rollForward": "latestFeature"}' global.json > global.json.tmp
+          mv global.json.tmp global.json
+          dotnet --version
       - name: Build and zip Gallery.iOS (simulator)
         run: dotnet build/build.cs -- --target=SampleIos --workloads=ios
       - uses: actions/upload-artifact@v4
