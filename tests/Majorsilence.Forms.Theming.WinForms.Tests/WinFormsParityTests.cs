@@ -1143,6 +1143,26 @@ namespace Majorsilence.Forms.Theming.WinForms.Tests
             }
         }
 
+        // Asserts a window pixel, waiting for it to arrive. These tests read the non-client frame of a window on the real desktop, and
+        // nothing orders that paint against the line that follows the message that asks for it: DoEvents and Update do not guarantee
+        // it has landed. So the pixel is polled for a bounded time (the pass costs only as long as the paint takes) instead of read
+        // once; a pixel that never comes still fails, with the colour it last showed (issue #696).
+        private static void AssertWindowPixel (string expectedHex, WF.Control control, int x, int y, int timeoutMs = 3000)
+        {
+            var actual = Color.Empty;
+            _ = Observe (() => actual = WindowPixel (control, x, y), c => c.ToArgb () == Rgb (expectedHex).ToArgb (), timeoutMs);
+            AssertColor (expectedHex, actual);
+        }
+
+        // Where a test puts the form on the desktop: a slot of its own, so a window left over from the test before cannot sit under
+        // this one's probes (five of these tests used to share (50, 50)). The probes themselves read a control's outermost row and column,
+        // at its own half width or height, so they do not depend on the frame's thickness or the display's DPI.
+        private void PlaceForm (int slot)
+        {
+            form.StartPosition = WF.FormStartPosition.Manual;
+            form.Location = new Point (50 + slot * 40, 50 + slot * 40);
+        }
+
         private static void Scribble (WF.Control control, Color color)
         {
             var dc = GetWindowDC (control.Handle);
@@ -1158,22 +1178,21 @@ namespace Majorsilence.Forms.Theming.WinForms.Tests
         [Fact]
         public void NcPaintMessage_RepaintsTheFrame_AfterTheControlPaintedItsOwn ()
         {
-            form.StartPosition = WF.FormStartPosition.Manual;
-            form.Location = new Point (50, 50);
+            PlaceForm (0);
             var text = Add (new WF.TextBox { Size = new Size (120, 24), Location = new Point (10, 10) });
             Apply ("TextBox { border-color: " + Red + "; }");
             form.Show ();
             try {
                 WF.Application.DoEvents ();
                 Scribble (text, Color.Lime);
-                AssertColor ("#00ff00", WindowPixel (text, 0, 12));
+                AssertColor ("#00ff00", WindowPixel (text, 0, text.Height / 2));
 
                 SendMessage (text.Handle, 0x85 /* WM_NCPAINT */, (IntPtr) 1, IntPtr.Zero);
 
-                AssertColor (Red, WindowPixel (text, 0, 12));
-                AssertColor (Red, WindowPixel (text, 60, 0));
-                AssertColor (Red, WindowPixel (text, text.Width - 1, 12));
-                AssertColor (Red, WindowPixel (text, 60, text.Height - 1));
+                AssertWindowPixel (Red, text, 0, text.Height / 2);
+                AssertWindowPixel (Red, text, text.Width / 2, 0);
+                AssertWindowPixel (Red, text, text.Width - 1, text.Height / 2);
+                AssertWindowPixel (Red, text, text.Width / 2, text.Height - 1);
             } finally {
                 form.Hide ();
             }
@@ -1182,8 +1201,7 @@ namespace Majorsilence.Forms.Theming.WinForms.Tests
         [Fact]
         public void TheFrame_SurvivesTyping_AndFocusChanges ()
         {
-            form.StartPosition = WF.FormStartPosition.Manual;
-            form.Location = new Point (50, 50);
+            PlaceForm (1);
             var other = Add (new WF.Button { Location = new Point (10, 100), TabIndex = 0 });
             var text = Add (new WF.TextBox { Size = new Size (120, 24), Location = new Point (10, 10), TabIndex = 1 });
             Apply ("TextBox { border-color: " + Red + "; }");
@@ -1199,7 +1217,7 @@ namespace Majorsilence.Forms.Theming.WinForms.Tests
 
                 // A control's non-client frame is only repainted when Windows asks; ask the way it does after a focus change.
                 SendMessage (text.Handle, 0x85, (IntPtr) 1, IntPtr.Zero);
-                AssertColor (Red, WindowPixel (text, 0, 12));
+                AssertWindowPixel (Red, text, 0, text.Height / 2);
             } finally {
                 form.Hide ();
             }
@@ -1208,8 +1226,7 @@ namespace Majorsilence.Forms.Theming.WinForms.Tests
         [Fact]
         public void ComboBox_FrameIsRepainted_AfterANormalPaint ()
         {
-            form.StartPosition = WF.FormStartPosition.Manual;
-            form.Location = new Point (50, 50);
+            PlaceForm (2);
             var combo = Add (new WF.ComboBox { Size = new Size (120, 24), Location = new Point (10, 10), DropDownStyle = WF.ComboBoxStyle.DropDownList });
             combo.Items.Add ("one");
             Apply ("ComboBox { border-color: " + Red + "; }");
@@ -1221,8 +1238,8 @@ namespace Majorsilence.Forms.Theming.WinForms.Tests
                 combo.Invalidate ();
                 combo.Update ();
 
-                AssertColor (Red, WindowPixel (combo, 0, 12));
-                AssertColor (Red, WindowPixel (combo, 60, 0));
+                AssertWindowPixel (Red, combo, 0, combo.Height / 2);
+                AssertWindowPixel (Red, combo, combo.Width / 2, 0);
             } finally {
                 form.Hide ();
             }
@@ -1231,8 +1248,7 @@ namespace Majorsilence.Forms.Theming.WinForms.Tests
         [Fact]
         public void GroupBox_FrameIsRepainted_AfterANormalPaint ()
         {
-            form.StartPosition = WF.FormStartPosition.Manual;
-            form.Location = new Point (50, 50);
+            PlaceForm (3);
             var group = Add (new WF.GroupBox { Text = "Group", Size = new Size (160, 80), Location = new Point (10, 10) });
             Apply ("GroupBox { border-color: " + Red + "; }");
             form.Show ();
@@ -1241,8 +1257,8 @@ namespace Majorsilence.Forms.Theming.WinForms.Tests
                 group.Invalidate ();
                 group.Update ();
 
-                AssertColor (Red, WindowPixel (group, 0, 40));
-                AssertColor (Red, WindowPixel (group, 80, group.Height - 1));
+                AssertWindowPixel (Red, group, 0, group.Height / 2);
+                AssertWindowPixel (Red, group, group.Width / 2, group.Height - 1);
             } finally {
                 form.Hide ();
             }
@@ -1251,8 +1267,7 @@ namespace Majorsilence.Forms.Theming.WinForms.Tests
         [Fact]
         public void OuterShadowAndOutline_ArePaintedByTheParent_OnARealPaint ()
         {
-            form.StartPosition = WF.FormStartPosition.Manual;
-            form.Location = new Point (50, 50);
+            PlaceForm (4);
             var (panel, button) = PanelWithButton ();
             Apply ("Button { border: none; box-shadow: 8px 8px " + Red + "; } Button:hover { outline: 2px solid #0000ff; outline-offset: 4px; }");
             form.Show ();
@@ -1261,19 +1276,19 @@ namespace Majorsilence.Forms.Theming.WinForms.Tests
                 panel.Invalidate (true);
                 panel.Update ();
 
-                AssertColor (Red, WindowPixel (panel, button.Right + 4, button.Bottom - 5));
+                AssertWindowPixel (Red, panel, button.Right + 4, button.Bottom - 5);
 
                 Raise (button, "OnMouseEnter", EventArgs.Empty);
                 WF.Application.DoEvents ();
                 panel.Update ();
 
-                AssertColor ("#0000ff", WindowPixel (panel, button.Left - 5, button.Top + 20));
+                AssertWindowPixel ("#0000ff", panel, button.Left - 5, button.Top + 20);
 
                 Raise (button, "OnMouseLeave", EventArgs.Empty);
                 WF.Application.DoEvents ();
                 panel.Update ();
 
-                AssertColor ("#ffffff", WindowPixel (panel, button.Left - 5, button.Top + 20));
+                AssertWindowPixel ("#ffffff", panel, button.Left - 5, button.Top + 20);
             } finally {
                 form.Hide ();
             }
