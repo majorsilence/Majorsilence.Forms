@@ -194,6 +194,7 @@ jobs:
           dotnet-version: |
             8.0.x
             10.0.x
+            11.0.x
       - name: Build and zip Gallery.iOS (simulator)
         run: dotnet build/build.cs -- --target=SampleIos --workloads=ios
       - uses: actions/upload-artifact@v4
