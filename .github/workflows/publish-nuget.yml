@@ -33,6 +33,11 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  # Pack with the release's tag, the version release.yml put on the draft's assets. This is a `release` event,
+  # not a tag push, so build/build.cs would otherwise fall back to Directory.Build.props' <Version>, and a tag
+  # pushed before that was bumped went to nuget.org under the previous version (tag 26.11.17 shipped as
+  # 26.11.16). See docs/releasing.md.
+  PACK_VERSION: ${{ github.event.release.tag_name }}
 
 defaults:
   run:

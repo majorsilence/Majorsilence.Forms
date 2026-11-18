@@ -245,6 +245,11 @@ against, with the reasoning.
   other work also touches, it is better to land one honest commit than to split it into an attribution
   that does not survive a rebase.
 
+## Releasing
+
+Cutting a version (bump `Directory.Build.props`, tag, publish the draft, verify on nuget.org) and moving the
+downstream products to it is in [docs/releasing.md](docs/releasing.md).
+
 ## Code of conduct
 
 Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md) (Contributor Covenant 2.1).
