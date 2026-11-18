@@ -25,11 +25,26 @@ name: Publish to nuget.org
 # This checks out and builds from the release's TAG, so build/build.cs must exist at that tag: a release
 # tagged before the Cake build landed cannot be published by this workflow.
 
+#
+# It can also be run by hand for a tag that already has a published Release (Actions -> Publish to
+# nuget.org -> Run workflow, on main, naming the tag). That is for a release whose packages did not reach
+# nuget.org at the tag's version; --skip-duplicate leaves anything already there alone.
+#
+# The version packed is always the tag's (less a leading 'v'), handed to build/build.cs as $PACK_VERSION,
+# never the <Version> in Directory.Build.props: the 26.11.17 tag was cut over a file that still said
+# 26.11.16, and that is what went to nuget.org beside GitHub Release assets named 26.11.17.
+
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag of a published Release to pack and push (e.g. 26.11.17)'
+        required: true
 
 env:
+  RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
@@ -59,7 +74,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ env.RELEASE_TAG }}
           fetch-depth: 0
 
       - name: Setup .NET
@@ -69,6 +84,9 @@ jobs:
             8.0.x
             10.0.x
             11.0.x
+
+      - name: Pack at the tag's version
+        run: echo "PACK_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
 
       - name: Pack this OS's NuGet packages
         run: dotnet build/build.cs -- --target=Pack --workloads=${{ matrix.workloads }}
@@ -93,7 +111,7 @@ jobs:
         with:
           # Build from the exact tag the release points at, not whatever HEAD happens to
           # be -- release.yml already validated this tag builds the released artifacts.
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ env.RELEASE_TAG }}
           fetch-depth: 0
 
       - name: Setup .NET
@@ -107,6 +125,9 @@ jobs:
       # Majorsilence.Forms.Avalonia itself is packed in the macOS job (it carries a net10.0-ios row), but
       # Majorsilence.Forms.Theming.Avalonia still builds against it here; with the android workload installed
       # that build resolves the same android row the published package has.
+      - name: Pack at the tag's version
+        run: echo "PACK_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
+
       - name: Pack the cross-platform NuGet packages
         run: dotnet build/build.cs -- --target=Pack --workloads=android
 
@@ -124,6 +145,23 @@ jobs:
 
       - name: List all packages to push
         run: ls -lh nupkg
+
+      # nuget.org versions are immutable, so a package of the wrong version cannot be taken back. Every
+      # package must carry the tag as its version (a leading 'v' is not part of it). Anything else stops
+      # here, before the login and the push.
+      - name: Check every package carries the release version
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          bad=0
+          for f in nupkg/*.nupkg nupkg/*.snupkg; do
+            [ -e "$f" ] || continue
+            case "$f" in
+              *."$version".nupkg|*."$version".snupkg) ;;
+              *) echo "::error::$f is not version $version"; bad=1 ;;
+            esac
+          done
+          exit "$bad"
 
       # Exchanges this job's short-lived GitHub OIDC token for a ~1-hour nuget.org API
       # key, per the Trusted Publishing policy configured on nuget.org (see header comment).

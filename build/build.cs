@@ -156,9 +156,17 @@ string EffectiveWorkloads ()
 bool IsTagPush () =>
     EnvironmentVariable ("GITHUB_EVENT_NAME") == "push" && EnvironmentVariable ("GITHUB_REF_TYPE") == "tag";
 
+// A build of a tag, whichever event started it: the tag push that drafts the GitHub Release (release.yml)
+// or the publishing of that Release, which is what pushes to nuget.org (publish-nuget.yml; GitHub sets the
+// ref of a `release` event to the Release's tag). Both must pack the tag's version. When only the push
+// counted, the nuget.org packages took the version in Directory.Build.props, and a 26.11.17 tag over a
+// file that still said 26.11.16 put 26.11.16 on nuget.org beside Release assets named 26.11.17.
+bool IsTagBuild () =>
+    EnvironmentVariable ("GITHUB_EVENT_NAME") is "push" or "release" && EnvironmentVariable ("GITHUB_REF_TYPE") == "tag";
+
 string ResolveVersion ()
 {
-    if (IsTagPush ())
+    if (IsTagBuild ())
     {
         var name = EnvironmentVariable ("GITHUB_REF_NAME") ?? "";
         return name.StartsWith ('v') ? name[1..] : name;
