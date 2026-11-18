@@ -62,14 +62,19 @@ tagging, checking nuget.org after publishing, and bumping both products together
   tag went to nuget.org as **26.11.16**. nuget.org's 26.11.16 is the 26.11.17 release, and there is no
   26.11.17 on nuget.org and no 26.11.16 tag.
 
-`publish-nuget.yml` now passes the release's tag to `build/build.cs` as `PACK_VERSION`, so both workflows pack
-with the tag's version. This fix only applies to tags that contain it, because the workflow and build script
-are read from the tag. Keep bumping `Directory.Build.props` anyway. It is the version every untagged build,
-local pack and `LocalNugetPackages` drop carries, and a props version that matches the tag removes doubt.
+`build/build.cs` now treats the `release` event as a tag build, and `publish-nuget.yml` hands the tag to it as
+`PACK_VERSION`, so both workflows pack with the tag's version. Before pushing, `publish-nuget.yml` also checks
+that every package carries the tag's version and fails if one does not. These fixes only apply to tags that
+contain them, because the workflow and build script are read from the tag. Keep bumping
+`Directory.Build.props` anyway. It is the version every untagged build, local pack and `LocalNugetPackages`
+drop carries, and a props version that matches the tag removes doubt.
 
-nuget.org versions are immutable. If a mismatch happens again, do not try to republish. Find out what
-nuget.org actually holds (step 6, plus the nuspec's `repository commit`), point the products at that number,
-and give the next release a number that has not been used for a tag or on nuget.org.
+nuget.org versions are immutable: a version that is already there cannot be replaced. A release whose
+packages never reached nuget.org at its own version (26.11.13, 26.11.17) can still get them: run
+**Publish to nuget.org** by hand (Actions -> Run workflow, on `main`) and name the tag; `--skip-duplicate`
+leaves anything already there alone. Otherwise find out what nuget.org actually holds (step 6, plus the
+nuspec's `repository commit`), point the products at that number, and give the next release a number that
+has not been used for a tag or on nuget.org.
 
 ## Bumping TownSuite Financial and Planning
 

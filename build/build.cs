@@ -152,20 +152,27 @@ string EffectiveWorkloads ()
 }
 
 // ── Version ────────────────────────────────────────────────────────────────────────────────────────────
-// Tag push (v1.2.3 or 1.2.3; the repo has used both spellings) -> a release; otherwise an explicit
-// --pack-version / $PACK_VERSION overrides; otherwise empty, meaning "whatever the csproj files declare".
+// A tag build (v1.2.3 or 1.2.3; the repo has used both spellings) packs the tag's version; otherwise an explicit
+// --pack-version / $PACK_VERSION overrides; otherwise empty, meaning "whatever the csproj files declare". Both
+// paths drop a leading 'v', so the Release's assets and the nuget.org packages always agree.
 //
-// publish-nuget.yml runs on `release: published`, not on a tag push, so it is not a tag push here: it passes the
-// release's tag as $PACK_VERSION. Without that it packed whatever Directory.Build.props said, and a tag pushed
-// before that file was bumped went to nuget.org under the previous version -- tag 26.11.13 packed as 26.11.12
-// (which --skip-duplicate then dropped, so 26.11.13 never reached nuget.org) and tag 26.11.17 as 26.11.16. Both
-// paths take the same leading-'v' spelling, so the draft's assets and the nuget.org packages always agree.
+// Before the release event counted as a tag build, publish-nuget.yml packed whatever Directory.Build.props said,
+// and a tag pushed before that file was bumped went to nuget.org under the previous version: tag 26.11.13 packed as
+// 26.11.12 (which --skip-duplicate then dropped, so 26.11.13 never reached nuget.org) and tag 26.11.17 as 26.11.16.
 bool IsTagPush () =>
     EnvironmentVariable ("GITHUB_EVENT_NAME") == "push" && EnvironmentVariable ("GITHUB_REF_TYPE") == "tag";
 
+// A build of a tag, whichever event started it: the tag push that drafts the GitHub Release (release.yml)
+// or the publishing of that Release, which is what pushes to nuget.org (publish-nuget.yml; GitHub sets the
+// ref of a `release` event to the Release's tag). Both must pack the tag's version. When only the push
+// counted, the nuget.org packages took the version in Directory.Build.props, and a 26.11.17 tag over a
+// file that still said 26.11.16 put 26.11.16 on nuget.org beside Release assets named 26.11.17.
+bool IsTagBuild () =>
+    EnvironmentVariable ("GITHUB_EVENT_NAME") is "push" or "release" && EnvironmentVariable ("GITHUB_REF_TYPE") == "tag";
+
 string ResolveVersion ()
 {
-    var name = IsTagPush () ? EnvironmentVariable ("GITHUB_REF_NAME") ?? "" : explicitVersion;
+    var name = IsTagBuild () ? EnvironmentVariable ("GITHUB_REF_NAME") ?? "" : explicitVersion;
     return name.StartsWith ('v') ? name[1..] : name;
 }
 
