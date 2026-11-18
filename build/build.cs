@@ -44,7 +44,8 @@ var only = Argument ("only", "");
 var testProject = Argument ("test-project", "Majorsilence.Forms.slnx");
 var workloadsArg = Argument ("workloads", "");
 var rid = Argument ("rid", "");
-// A workflow_dispatch input reaches this as an env var rather than being interpolated into a shell line.
+// A workflow_dispatch input, or the published release's tag in publish-nuget.yml, reaches this as an env var
+// rather than being interpolated into a shell line.
 var explicitVersion = Argument ("pack-version", EnvironmentVariable ("PACK_VERSION") ?? "");
 var benchFilter = Argument ("bench-filter", EnvironmentVariable ("BENCH_FILTER") ?? "*");
 var benchJob = Argument ("bench-job", EnvironmentVariable ("BENCH_JOB") ?? "default");
@@ -151,8 +152,13 @@ string EffectiveWorkloads ()
 }
 
 // ── Version ────────────────────────────────────────────────────────────────────────────────────────────
-// Tag push (v1.2.3 or 1.2.3; the repo has used both spellings) -> a release; otherwise an explicit
-// --pack-version / $PACK_VERSION overrides; otherwise empty, meaning "whatever the csproj files declare".
+// A tag build (v1.2.3 or 1.2.3; the repo has used both spellings) packs the tag's version; otherwise an explicit
+// --pack-version / $PACK_VERSION overrides; otherwise empty, meaning "whatever the csproj files declare". Both
+// paths drop a leading 'v', so the Release's assets and the nuget.org packages always agree.
+//
+// Before the release event counted as a tag build, publish-nuget.yml packed whatever Directory.Build.props said,
+// and a tag pushed before that file was bumped went to nuget.org under the previous version: tag 26.11.13 packed as
+// 26.11.12 (which --skip-duplicate then dropped, so 26.11.13 never reached nuget.org) and tag 26.11.17 as 26.11.16.
 bool IsTagPush () =>
     EnvironmentVariable ("GITHUB_EVENT_NAME") == "push" && EnvironmentVariable ("GITHUB_REF_TYPE") == "tag";
 
@@ -166,12 +172,8 @@ bool IsTagBuild () =>
 
 string ResolveVersion ()
 {
-    if (IsTagBuild ())
-    {
-        var name = EnvironmentVariable ("GITHUB_REF_NAME") ?? "";
-        return name.StartsWith ('v') ? name[1..] : name;
-    }
-    return explicitVersion;
+    var name = IsTagBuild () ? EnvironmentVariable ("GITHUB_REF_NAME") ?? "" : explicitVersion;
+    return name.StartsWith ('v') ? name[1..] : name;
 }
 
 string VersionSuffix () => ResolveVersion () is { Length: > 0 } v ? "-" + v : "";

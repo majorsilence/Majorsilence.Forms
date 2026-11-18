@@ -87,7 +87,8 @@ on the target, not in the YAML.
   repo's `TreatWarningsAsErrors`, central package management and net11 runtime-async targets.
 - It needs the .NET 10 SDK or later (the same `setup-dotnet` step that provides the SDK for the real build).
 - `publish-nuget.yml` builds from the release's **tag**, so it can only publish a tag that contains
-  `build/build.cs`.
+  `build/build.cs`. It packs with that tag as `PACK_VERSION`; the release steps are in
+  [docs/releasing.md](docs/releasing.md).
 
 ## Conventions the analyzers do not enforce
 
