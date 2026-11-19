@@ -122,7 +122,7 @@ namespace Majorsilence.Forms
                 if (TreeView is not { } tree || tree.IsDisposed)
                     return false;
 
-                for (var parent = Parent; parent is not null; parent = parent.Parent)
+                for (var parent = ParentOrRoot; parent is not null; parent = parent.ParentOrRoot)
                     if (!parent.IsExpanded)
                         return false;
 
@@ -180,7 +180,7 @@ namespace Majorsilence.Forms
         private IEnumerable<TreeNode> VisibleNodes ()
         {
             var root = this;
-            while (root.Parent is { } parent)
+            while (root.ParentOrRoot is { } parent)
                 root = parent;
 
             return root.GetVisibleItems ().Skip (1);

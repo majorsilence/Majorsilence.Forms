@@ -153,7 +153,7 @@ namespace Majorsilence.Forms
 
             static bool IsDescendant (TreeNode item, TreeNode ancestor)
             {
-                for (var parent = item.Parent; parent is not null; parent = parent.Parent)
+                for (var parent = item.ParentOrRoot; parent is not null; parent = parent.ParentOrRoot)
                     if (ReferenceEquals (parent, ancestor))
                         return true;
 
@@ -164,11 +164,11 @@ namespace Majorsilence.Forms
         internal void EnsureItemVisible (TreeNode item)
         {
             // Make sure all parent are expanded so this node is shown
-            var parent = item.Parent;
+            var parent = item.ParentOrRoot;
 
             while (parent != null && parent != root_item) {
                 parent.Expand ();
-                parent = parent.Parent;
+                parent = parent.ParentOrRoot;
             }
 
             // If the control hasn't been laid out yet (e.g. SelectedItem set in a constructor),
@@ -705,7 +705,7 @@ namespace Majorsilence.Forms
                 if (value is null || !ReferenceEquals (value.TreeView, this))
                     return;
 
-                for (var parent = value.Parent; parent is not null && parent != root_item; parent = parent.Parent)
+                for (var parent = value.ParentOrRoot; parent is not null && parent != root_item; parent = parent.ParentOrRoot)
                     parent.Expand ();
 
                 var index = GetVisibleItems ().ToList ().IndexOf (value);
@@ -1316,7 +1316,7 @@ namespace Majorsilence.Forms
 
             // Left with no children or collapsed selects parent
             if (e.KeyCode == Keys.Left && !selected_item.Expanded) {
-                if (selected_item.Parent is TreeNode parent && parent != root_item)
+                if (selected_item.ParentOrRoot is TreeNode parent && parent != root_item)
                     SelectItem (parent, TreeViewAction.ByKeyboard);
 
                 e.Handled = true;

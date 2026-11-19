@@ -341,7 +341,7 @@ namespace Majorsilence.Forms.Renderers
 
                 // Upward: to whatever is above in this gutter. A first root node has nothing above it,
                 // so it starts at its own centre; every other node continues a run already in progress.
-                if (item.PrevNode is not null || item.Parent is not null)
+                if (item.PrevNode is not null || item.ParentOrRoot is not null)
                     e.Canvas.DrawLine (x, top, x, middle, colour, thickness);
 
                 // Downward: only when a sibling follows, or the run would hang past the last child.
@@ -357,7 +357,7 @@ namespace Majorsilence.Forms.Renderers
 
             // Ancestor gutters: a full-height run wherever that ancestor has a sibling still to come,
             // which is the part a per-node view cannot see.
-            for (var ancestor = item.Parent; ancestor is not null; ancestor = ancestor.Parent) {
+            for (var ancestor = item.ParentOrRoot; ancestor is not null; ancestor = ancestor.ParentOrRoot) {
                 var ancestor_level = ancestor.IndentLevel;
 
                 if (ancestor_level == 0 && !control.ShowRootLines)
@@ -551,7 +551,7 @@ namespace Majorsilence.Forms.Renderers
                     e.Canvas.FillRectangle (stub, middle, dot, dot, colour);
             }
 
-            for (var ancestor = item.Parent; ancestor is not null; ancestor = ancestor.Parent) {
+            for (var ancestor = item.ParentOrRoot; ancestor is not null; ancestor = ancestor.ParentOrRoot) {
                 var ancestor_columns = control.UpstreamColumns (ancestor);
 
                 if (ancestor_columns >= 1 && ancestor.NextNode is not null)

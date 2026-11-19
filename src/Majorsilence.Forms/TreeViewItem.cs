@@ -304,10 +304,10 @@ namespace Majorsilence.Forms
                     return -1;
 
                 // If this is called without a Parent, return 0 ?
-                if (Parent == null)
+                if (ParentOrRoot == null)
                     return 0;
 
-                return Parent.IndentLevel + 1;
+                return ParentOrRoot.IndentLevel + 1;
             }
         }
 
@@ -335,8 +335,8 @@ namespace Majorsilence.Forms
         /// </summary>
         public TreeNode? NextItem ()
         {
-            if (Parent is TreeNode parent) {
-                var index = Parent.Items.IndexOf (this);
+            if (ParentOrRoot is TreeNode parent) {
+                var index = ParentOrRoot.Items.IndexOf (this);
 
                 if (parent.Items.Count > index + 1)
                     return parent.Items[index + 1];
@@ -346,17 +346,29 @@ namespace Majorsilence.Forms
         }
 
         /// <summary>
-        /// The parent item that contains this item.
+        /// The parent item that contains this item, or null for a node at the root of its tree (or in
+        /// no tree at all).
         /// </summary>
-        public TreeNode? Parent { get; internal set; }
+        /// <remarks>
+        /// Upstream's <c>TreeNode.Parent</c> is null for a root-level node, which is how an
+        /// application tells root from child (<c>if (e.Node.Parent == null)</c>), so the hidden
+        /// root node the tree hangs its top-level nodes from is not exposed here (#718). Internal code
+        /// that needs the real link, root included, uses <see cref="ParentOrRoot"/>.
+        /// </remarks>
+        public TreeNode? Parent => ParentOrRoot is { } parent && parent.tree_view is null ? parent : null;
+
+        // The node that owns this one in its Nodes collection -- for a top-level node, the tree's
+        // hidden root node (the one with tree_view set, at IndentLevel -1). Layout, painting and
+        // navigation walk through the root; only the public Parent hides it.
+        internal TreeNode? ParentOrRoot { get; set; }
 
         /// <summary>
         /// Retrives the previous sibling of this item.
         /// </summary>
         public TreeNode? PreviousItem ()
         {
-            if (Parent is TreeNode parent) {
-                var index = Parent.Items.IndexOf (this);
+            if (ParentOrRoot is TreeNode parent) {
+                var index = ParentOrRoot.Items.IndexOf (this);
 
                 if (index > 0)
                     return parent.Items[index - 1];
@@ -437,11 +449,11 @@ namespace Majorsilence.Forms
                 // WinForms: nodes directly in the TreeView (or a detached node) are Level 0,
                 // their children are Level 1, etc. The internal root node is not counted.
                 var level = 0;
-                var parent = Parent;
+                var parent = ParentOrRoot;
 
                 while (parent != null && parent.tree_view == null) {
                     level++;
-                    parent = parent.Parent;
+                    parent = parent.ParentOrRoot;
                 }
 
                 return level;
@@ -463,7 +475,7 @@ namespace Majorsilence.Forms
                 if (TreeView is null)
                     throw new InvalidOperationException ("The node is not part of a TreeView, so it has no full path.");
 
-                if (Parent is null)
+                if (ParentOrRoot is null)
                     return Text;
 
                 // TreeView.PathSeparator, which was stored and read by nothing: a tree told to use "/"
@@ -471,7 +483,7 @@ namespace Majorsilence.Forms
                 // application had constructed itself.
                 var separator = TreeView?.PathSeparator ?? "\\";
 
-                return Parent.Parent is null ? Text : Parent.FullPath + separator + Text;
+                return ParentOrRoot.ParentOrRoot is null ? Text : ParentOrRoot.FullPath + separator + Text;
             }
         }
 
@@ -484,22 +496,22 @@ namespace Majorsilence.Forms
         /// <summary>Gets the next sibling item.</summary>
         public TreeNode? NextNode {
             get {
-                if (Parent is null)
+                if (ParentOrRoot is null)
                     return null;
 
-                var idx = Parent.Items.IndexOf (this);
-                return idx >= 0 && idx < Parent.Items.Count - 1 ? Parent.Items[idx + 1] : null;
+                var idx = ParentOrRoot.Items.IndexOf (this);
+                return idx >= 0 && idx < ParentOrRoot.Items.Count - 1 ? ParentOrRoot.Items[idx + 1] : null;
             }
         }
 
         /// <summary>Gets the previous sibling item.</summary>
         public TreeNode? PrevNode {
             get {
-                if (Parent is null)
+                if (ParentOrRoot is null)
                     return null;
 
-                var idx = Parent.Items.IndexOf (this);
-                return idx > 0 ? Parent.Items[idx - 1] : null;
+                var idx = ParentOrRoot.Items.IndexOf (this);
+                return idx > 0 ? ParentOrRoot.Items[idx - 1] : null;
             }
         }
 
@@ -516,7 +528,7 @@ namespace Majorsilence.Forms
                 if (tree_view != null)
                     return tree_view;
 
-                return Parent?.TreeView;
+                return ParentOrRoot?.TreeView;
             }
         }
 
@@ -524,10 +536,10 @@ namespace Majorsilence.Forms
         public int Index {
             get {
                 // WinForms returns 0 for a detached node (one with no parent collection).
-                if (Parent is null)
+                if (ParentOrRoot is null)
                     return TreeView?.Items.IndexOf (this) ?? 0;
 
-                return Parent.Items.IndexOf (this);
+                return ParentOrRoot.Items.IndexOf (this);
             }
         }
 
@@ -555,8 +567,8 @@ namespace Majorsilence.Forms
         /// <summary>Removes this node from its parent's collection.</summary>
         public void Remove ()
         {
-            if (Parent != null)
-                Parent.Items.Remove (this);
+            if (ParentOrRoot != null)
+                ParentOrRoot.Items.Remove (this);
             else
                 TreeView?.Items.Remove (this);
         }
