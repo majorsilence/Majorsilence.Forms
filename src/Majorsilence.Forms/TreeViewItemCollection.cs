@@ -239,7 +239,7 @@ namespace Majorsilence.Forms
         {
             base.InsertItem (index, item);
 
-            item.Parent = owner;
+            item.ParentOrRoot = owner;
             owner.Invalidate ();
         }
 
@@ -252,7 +252,7 @@ namespace Majorsilence.Forms
                 ForgetIfSelected (item);
 
             foreach (var item in this)
-                item.Parent = null;
+                item.ParentOrRoot = null;
 
             base.ClearItems ();
 
@@ -267,7 +267,7 @@ namespace Majorsilence.Forms
             if (tree?.SelectedNode is not { } selected)
                 return;
 
-            for (var node = selected; node is not null; node = node.Parent)
+            for (var node = selected; node is not null; node = node.ParentOrRoot)
                 if (ReferenceEquals (node, removed)) {
                     tree.ClearSelectedNode ();
                     return;
@@ -283,7 +283,7 @@ namespace Majorsilence.Forms
 
             base.RemoveItem (index);
 
-            item.Parent = null;
+            item.ParentOrRoot = null;
             owner.Invalidate ();
         }
 
@@ -293,11 +293,11 @@ namespace Majorsilence.Forms
             var old_item = this.ElementAtOrDefault (index);
 
             if (old_item != null)
-                old_item.Parent = null;
+                old_item.ParentOrRoot = null;
 
             base.SetItem (index, item);
 
-            item.Parent = owner;
+            item.ParentOrRoot = owner;
             owner.Invalidate ();
         }
     }

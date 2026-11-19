@@ -16,8 +16,8 @@ namespace Majorsilence.Forms.Tests
     // TreeNodeCollectionTests, adapted to the Majorsilence.Forms API (no Handle/CreateParams/
     // accessibility plumbing). Majorsilence.Forms models nodes as TreeNode (with a TreeNode
     // compatibility subclass) and keeps an internal hidden root item, so a few WinForms
-    // facts (e.g. a top-level node's Parent being null, or FullPath throwing when detached)
-    // are intentionally different and are not asserted here. Everything tested below pins
+    // facts (e.g. FullPath throwing when detached) are intentionally different and are not
+    // asserted here. A top-level node's Parent is null, as upstream's is (#718). Everything tested below pins
     // Majorsilence.Forms' actual, source-verified behavior against the WinForms semantics that do
     // carry over: Text/Index/Level/FullPath, the Nodes collection add/remove/clear/indexer
     // rules, Expand/Collapse, SelectedItem/SelectedNode, and the node-count helpers.
@@ -665,6 +665,81 @@ namespace Majorsilence.Forms.Tests
             using var treeView = new TreeView { ShowItemImages = value };
 
             Assert.Equal (value, treeView.ShowItemImages);
+        }
+
+        [Fact]
+        public void Parent_is_null_for_a_root_level_node_and_the_owning_node_for_a_child ()   // #718
+        {
+            using var treeView = new TreeView ();
+            var root = new TreeNode ("root");
+            var child = new TreeNode ("child");
+            var grandchild = new TreeNode ("grandchild");
+            treeView.Nodes.Add (root);
+            root.Nodes.Add (child);
+            child.Nodes.Add (grandchild);
+
+            // The tree hangs its top-level nodes from a hidden root node; that is an implementation
+            // detail, and an app tells root from child with `node.Parent == null`.
+            Assert.Null (root.Parent);
+            Assert.Same (root, child.Parent);
+            Assert.Same (child, grandchild.Parent);
+            Assert.Same (treeView, root.TreeView);
+        }
+
+        [Fact]
+        public void Level_FullPath_and_siblings_still_work_with_the_hidden_root_not_exposed ()   // #718
+        {
+            using var treeView = new TreeView ();
+            var a = new TreeNode ("a");
+            var b = new TreeNode ("b");
+            var child = new TreeNode ("c");
+            treeView.Nodes.Add (a);
+            treeView.Nodes.Add (b);
+            a.Nodes.Add (child);
+
+            Assert.Equal (0, a.Level);
+            Assert.Equal (1, child.Level);
+            Assert.Equal ("a", a.FullPath);
+            Assert.Equal ("a\\c", child.FullPath);
+            Assert.Same (b, a.NextNode);
+            Assert.Same (a, b.PrevNode);
+            Assert.Equal (1, b.Index);
+        }
+
+        [Fact]
+        public void Removing_a_root_level_node_leaves_its_Parent_null ()   // #718
+        {
+            using var treeView = new TreeView ();
+            var node = new TreeNode ("n");
+            treeView.Nodes.Add (node);
+
+            node.Remove ();
+
+            Assert.Null (node.Parent);
+            Assert.Null (node.TreeView);
+            Assert.Empty (treeView.Nodes);
+        }
+
+        [Fact]
+        public void AfterLabelEdit_reports_a_root_level_node_with_a_null_Parent ()   // #718
+        {
+            using var treeView = new TreeView { LabelEdit = true, Size = new Size (200, 200) };
+            var node = new TreeNode ("n");
+            treeView.Nodes.Add (node);
+            treeView.SelectedNode = node;
+
+            var raised = false;
+            TreeNode? parent = new TreeNode ("sentinel");
+            treeView.AfterLabelEdit += (_, e) => {
+                raised = true;
+                parent = e.Node.Parent;
+            };
+
+            node.BeginEdit ();
+            node.EndEdit (cancel: false);
+
+            Assert.True (raised);
+            Assert.Null (parent);
         }
     }
 }
