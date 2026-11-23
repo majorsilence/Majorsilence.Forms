@@ -245,10 +245,20 @@ namespace Majorsilence.Forms
         {
             var pos = e.GetPosition (this);
             var props = e.GetCurrentPoint (this).Properties;
-            _owner.HandlePointerReleased (
-                AvaloniaKeyInterop.ReleasedButton (props.PointerUpdateKind),
-                (int)(pos.X * RenderScaling), (int)(pos.Y * RenderScaling),
-                AvaloniaKeyInterop.ModifiersOnly (e.KeyModifiers));
+            var button = AvaloniaKeyInterop.ReleasedButton (props.PointerUpdateKind);
+            int x = (int)(pos.X * RenderScaling), y = (int)(pos.Y * RenderScaling);
+            var keys = AvaloniaKeyInterop.ModifiersOnly (e.KeyModifiers);
+
+            // The release that ends an in-process drag is its drop, and a DragDrop handler often shows a
+            // dialog. Run from inside this dispatch, that dialog's loop ran before Avalonia had finished the
+            // release (its capture and pointer state are reset only once this returns), so the dialog kept the
+            // drag's cursor and its first click went to this window (#722). Posted, the drop runs as a
+            // ShowAsync'd dialog's would, after the release. DoDragDrop's loop is still waiting for it.
+            if (DragDropSession.Active is { IsExternal: false })
+                Dispatcher.UIThread.Post (() => _owner.HandlePointerReleased (button, x, y, keys));
+            else
+                _owner.HandlePointerReleased (button, x, y, keys);
+
             base.OnPointerReleased (e);
         }
 
