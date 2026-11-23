@@ -185,6 +185,69 @@ public class SourceConverterTests
         Assert.Contains (result.Warnings, w => w.Contains ("ApplicationConfiguration.Initialize"));
     }
 
+    // #721: without Application.SetDefaultFont Majorsilence.Forms draws its own theme (a box for a checked menu
+    // item, the theme's tree rows), so a migrated app's startup chooses the default font its WinForms app had.
+
+    [Fact]
+    public void ApplicationConfiguration_Initialize_becomes_SetDefaultFont_at_dotnet_s_default ()
+    {
+        var result = SourceConverter.Convert ("static void Main()\n{\n    ApplicationConfiguration.Initialize();\n    Application.Run(new Form1());\n}\n");
+
+        Assert.Contains ("    Majorsilence.Forms.Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font (\"Segoe UI\", 9f)); // ApplicationConfiguration.Initialize();", result.Text);
+        Assert.Equal (1, CountOccurrences (result.Text, "SetDefaultFont"));
+        Assert.Contains (result.Warnings, w => w.Contains ("SetDefaultFont"));
+    }
+
+    [Fact]
+    public void EnableVisualStyles_is_followed_by_SetDefaultFont_at_the_framework_s_default ()
+    {
+        var result = SourceConverter.Convert (
+            "using System.Windows.Forms;\nstatic void Main()\n{\n\tApplication.EnableVisualStyles();\n\tApplication.SetCompatibleTextRenderingDefault(false);\n}\n");
+
+        Assert.Contains (
+            "\tApplication.EnableVisualStyles();\n\tMajorsilence.Forms.Application.SetDefaultFont (new Majorsilence.Forms.Drawing.Font (\"Microsoft Sans Serif\", 8.25f));\n\tApplication.SetCompatibleTextRenderingDefault(false);",
+            result.Text);
+    }
+
+    [Fact]
+    public void EnableVisualStyles_in_Visual_Basic_is_followed_by_SetDefaultFont ()
+    {
+        var result = SourceConverter.Convert (
+            "Module Program\r\n    Sub Main()\r\n        Application.EnableVisualStyles() ' styles\r\n        Application.Run(New Form1())\r\n    End Sub\r\nEnd Module\r\n",
+            language: SourceLanguage.VisualBasic);
+
+        Assert.Contains (
+            "        Application.EnableVisualStyles() ' styles\r\n        Majorsilence.Forms.Application.SetDefaultFont (New Majorsilence.Forms.Drawing.Font (\"Microsoft Sans Serif\", 8.25F))\r\n        Application.Run",
+            result.Text);
+    }
+
+    [Fact]
+    public void An_app_that_chose_its_own_default_font_keeps_it ()
+    {
+        var result = SourceConverter.Convert (
+            "ApplicationConfiguration.Initialize();\nApplication.EnableVisualStyles();\nApplication.SetDefaultFont(new Font(\"Arial\", 10f));\n");
+
+        Assert.Equal (1, CountOccurrences (result.Text, "SetDefaultFont"));
+        Assert.Contains ("// ApplicationConfiguration.Initialize(); // [majorsilence-migrate] no Majorsilence equivalent", result.Text);
+    }
+
+    [Fact]
+    public void A_file_without_a_startup_call_gets_no_SetDefaultFont ()
+    {
+        var result = SourceConverter.Convert ("using System.Windows.Forms;\nclass Form1 : Form { void Load() { Application.DoEvents(); } }\n");
+
+        Assert.DoesNotContain ("SetDefaultFont", result.Text);
+    }
+
+    [Fact]
+    public void Dual_build_asks_for_SetDefaultFont_rather_than_breaking_the_WinForms_build ()
+    {
+        var result = SourceConverter.Convert ("using System.Windows.Forms;\nApplication.EnableVisualStyles();\n", dualBuild: true);
+
+        Assert.DoesNotContain ("SetDefaultFont", result.Text);
+        Assert.Contains (result.Warnings, w => w.Contains ("SetDefaultFont") && w.Contains ("MAJORSILENCE_FORMS"));
+    }
+
     // Was "warns and leaves alone", from when there was no compat VisualStyles namespace to point at.
     // Majorsilence.Forms.VisualStyles now exists (ScrollBarState, CheckBoxState, RadioButtonState and
     // friends), so rewriting is strictly better than leaving it: mapped types work, and an unmapped one

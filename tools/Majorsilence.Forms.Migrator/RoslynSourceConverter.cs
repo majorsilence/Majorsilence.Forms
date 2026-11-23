@@ -22,8 +22,8 @@ namespace Majorsilence.Forms.Migrator;
 ///   (including types used <i>unqualified</i> under a bare <c>using System.Drawing;</c> — something the
 ///   textual engine's Pass 5 can only warn about, never fix, because it has no import-resolution of its own),
 ///   import reconciliation, and <c>System.ComponentModel.ComponentResourceManager</c> redirection.</item>
-///   <item><b>Deliberately reused from the textual engine, unchanged</b>: the <c>ApplicationConfiguration.Initialize()</c>
-///   comment-out (a small textual post-process over this engine's re-serialized output — no symbol
+///   <item><b>Deliberately reused from the textual engine, unchanged</b>: the startup rewrite
+///   (<see cref="StartupFont"/>: <c>ApplicationConfiguration.Initialize()</c> and the default font; a small textual post-process over this engine's re-serialized output — no symbol
 ///   resolution question to answer, a regex is strictly sufficient), the unsupported-namespace warnings
 ///   (<see cref="NamespaceMap.UnsupportedNamespaces"/>) and unmapped-Telerik-type warnings (same reasoning),
 ///   and VB's constructor injection / <c>My.*</c> warnings (<see cref="SourceConverter.ApplyVbConstructor"/> /
@@ -109,7 +109,7 @@ internal static class RoslynSourceConverter
         // output, then the unsupported-namespace / unmapped-Telerik warnings and (for VB) constructor
         // injection + My.* warnings, all evaluated against the *original* text exactly like the textual
         // engine does.
-        rewrittenText = ApplyApplicationConfigurationCommentOut(rewrittenText, Warn);
+        rewrittenText = StartupFont.Apply(rewrittenText, isVb ? SourceLanguage.VisualBasic : SourceLanguage.CSharp, effectiveDualBuild, Warn);
         EmitUnsupportedNamespaceWarnings(originalText, Warn);
         EmitUnmappedTelerikWarnings(originalText, Warn);
 
@@ -131,19 +131,6 @@ internal static class RoslynSourceConverter
 
         return new SourceConverter.Result(rewrittenText, !string.Equals(rewrittenText, originalText, StringComparison.Ordinal), warnings);
     }
-
-    // Mirrors SourceConverter's Pass 0 exactly (same regex, same warning message) — a small textual
-    // post-process over this engine's re-serialized output. No ambiguity a symbol resolves here: a
-    // 0-argument static method call with a fixed name is a regex away either way.
-    private static readonly Regex ApplicationConfigurationInitialize =
-        new(@"(?<![\w.])ApplicationConfiguration\.Initialize\s*\(\s*\)\s*;", RegexOptions.Compiled);
-
-    private static string ApplyApplicationConfigurationCommentOut(string text, Action<string> warn) =>
-        ApplicationConfigurationInitialize.Replace(text, m =>
-        {
-            warn("commented out 'ApplicationConfiguration.Initialize()' — Majorsilence.Forms sets up visual styles implicitly");
-            return $"// {m.Value} // [majorsilence-migrate] no Majorsilence equivalent";
-        });
 
     // Mirrors SourceConverter's Pass 4 exactly: flags a deliberately-unrewritten namespace only when it
     // resolves to something with no cross-platform equivalent.
