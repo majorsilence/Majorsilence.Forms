@@ -57,7 +57,11 @@ dotnet run --project tools/Majorsilence.Forms.Migrator -- <input> [options]
 - `System.ComponentModel.ComponentResourceManager` → `Majorsilence.Forms.ComponentResourceManager`
   (the cross-platform resource manager — see Resources below). Only that one type is redirected;
   the rest of `System.ComponentModel` is left alone.
-- `ApplicationConfiguration.Initialize()` is commented out (no equivalent; styles are implicit).
+- `ApplicationConfiguration.Initialize()` is commented out (no equivalent; styles are implicit) and replaced by
+  `Application.SetDefaultFont` at .NET's default font, Segoe UI 9pt. An older startup gets the call after
+  `Application.EnableVisualStyles()` instead, at .NET Framework's Microsoft Sans Serif 8.25pt. Choosing a default
+  font is what makes Majorsilence.Forms draw WinForms' look (check marks, tree rows, text metrics) rather than its
+  own theme; a file that already calls `SetDefaultFont` keeps its own, and `--dual-build` warns instead of adding it.
 - Anything it can't confidently map (e.g. `Graphics`, `System.Drawing.Design`, `VisualStyles`)
   is **flagged for manual review**, not silently mangled.
 

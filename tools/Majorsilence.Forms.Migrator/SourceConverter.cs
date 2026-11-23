@@ -140,15 +140,10 @@ internal static class SourceConverter
                 "framework can't be toggled via a preprocessor symbol) — converted normally, same as without --dual-build");
 
         // 0. The .NET 6+ generated bootstrap `ApplicationConfiguration.Initialize()` has no Majorsilence
-        //    equivalent — and would not compile — so comment it out. Its job (EnableVisualStyles /
-        //    SetCompatibleTextRenderingDefault) is implicit in Majorsilence.Forms, so dropping it is safe.
-        text = Regex.Replace(text,
-            @"(?<![\w.])ApplicationConfiguration\.Initialize\s*\(\s*\)\s*;",
-            m =>
-            {
-                Warn("commented out 'ApplicationConfiguration.Initialize()' — Majorsilence.Forms sets up visual styles implicitly");
-                return $"// {m.Value} // [majorsilence-migrate] no Majorsilence equivalent";
-            });
+        //    equivalent — and would not compile — so it goes. Its EnableVisualStyles /
+        //    SetCompatibleTextRenderingDefault are implicit in Majorsilence.Forms; its default font is not, and
+        //    is what puts Majorsilence.Forms into WinForms' look, so the app's startup chooses one (StartupFont).
+        text = StartupFont.Apply(text, language, effectiveDualBuild, Warn);
 
         // 1. Whole-namespace prefix rewrites (sub-namespaces, Printing, WinForms, and Telerik). Longest-first
         //    so a parent prefix never clips a child. (?!\w) lets a trailing '.' through, so both
