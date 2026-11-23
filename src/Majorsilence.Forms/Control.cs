@@ -2135,13 +2135,19 @@ namespace Majorsilence.Forms
         /// third place: the measuring call, the Control.Font setter, and this fallback.
         /// </remarks>
         internal int GetEffectiveFontSize ()
+            => TryGetEffectiveFontSize ()
+                ?? (int) System.Math.Round (Majorsilence.Forms.SystemFonts.DefaultFont.PixelSize);
+
+        /// <summary>The font size (logical pixels) this control or its ambient chain chose -- its own
+        /// <see cref="Font"/>, a parent's, a hosting form's or a theme rule's -- or null when nothing did and
+        /// <see cref="GetEffectiveFontSize"/> would fall back to the default font.</summary>
+        internal int? TryGetEffectiveFontSize ()
             => StateStyle?.FontSize
                 ?? Style.FontSize
                 ?? CurrentStyle.TryGetFontSize ()
-                ?? Parent?.GetEffectiveFontSize ()
-                ?? (FindWindow () as Form)?.AmbientFontHost?.GetEffectiveFontSize ()
-                ?? FindWindow ()?.CurrentStyle.TryGetFontSize ()
-                ?? (int) System.Math.Round (Majorsilence.Forms.SystemFonts.DefaultFont.PixelSize);
+                ?? Parent?.TryGetEffectiveFontSize ()
+                ?? (FindWindow () as Form)?.AmbientFontHost?.TryGetEffectiveFontSize ()
+                ?? FindWindow ()?.CurrentStyle.TryGetFontSize ();
 
         // The instance's own state style (hover, pressed, disabled, focus) when the control is in one, else null.
         //

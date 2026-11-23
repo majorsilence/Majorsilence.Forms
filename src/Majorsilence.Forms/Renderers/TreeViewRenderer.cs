@@ -208,11 +208,11 @@ namespace Majorsilence.Forms.Renderers
                 return (layout_font.GetSKTypeface (), control.LogicalToDeviceUnits ((int) System.Math.Round (layout_font.PixelSize)));
 
             var font = item.NodeFont is { } node_font ? node_font.GetSKTypeface () : control.GetEffectiveFont ();
-            // A ported app (one that chose its font) draws at the tree's own font size, as upstream does;
-            // the theme's size made a 12pt tree's text smaller than WinForms'.
+            // The tree's own font size when one was chosen (see TreeView.TextFontSize); the theme's made a
+            // 12pt tree's text smaller than WinForms'.
             var font_size = item.NodeFont is { } sized
                 ? (int)System.Math.Round (sized.PixelSize)
-                : control.LogicalToDeviceUnits (ControlPaint.UsesUpstreamGlyphs ? (int)System.Math.Round (control.Font.PixelSize) : Theme.FontSize);
+                : control.LogicalToDeviceUnits (control.TextFontSize);
 
             return (font, font_size);
         }

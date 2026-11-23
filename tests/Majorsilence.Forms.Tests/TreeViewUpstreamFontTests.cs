@@ -126,10 +126,37 @@ namespace Majorsilence.Forms.Tests
         }
 
         [Fact]
-        public void Without_a_chosen_font_the_theme_look_is_kept ()
+        public void Without_a_chosen_font_the_theme_item_height_is_kept ()
         {
             Assert.Equal (20, WithFont (false, () => Tree ("Microsoft Sans Serif", 12f).ItemHeight));
-            Assert.Equal (TextInkHeight (false, 8f), TextInkHeight (false, 24f));
+        }
+
+        [Fact]
+        public void Without_a_chosen_font_the_text_is_still_drawn_at_a_font_set_on_the_tree ()
+        {
+            // #723: the theme look drew a tree whose Font was set at the theme's size, so a FontDialog changed
+            // the face but never the size. A font set on the tree is a size the application chose.
+            var small = TextInkHeight (false, 8f);
+            var large = TextInkHeight (false, 24f);
+
+            Assert.True (large > small * 2, $"8pt ink {small}px, 24pt ink {large}px");
+        }
+
+        [Fact]
+        public void Without_a_chosen_font_a_tree_with_no_font_draws_at_the_theme_s_size ()
+        {
+            WithFont (false, () => {
+                var tree = new TreeView ();
+                Assert.Equal (Theme.FontSize, tree.TextFontSize);
+
+                tree.Font = new Majorsilence.Forms.Drawing.Font ("Microsoft Sans Serif", 24f);
+                Assert.Equal ((int) Math.Round (tree.Font.PixelSize), tree.TextFontSize);
+
+                // The measured rows grow with it, so the larger text is not clipped to the theme's row.
+                tree.Nodes.Add ("node");
+                Assert.Equal (tree.LogicalToDeviceUnits (tree.TextFontSize) + tree.LogicalToDeviceUnits (10), tree.Nodes[0].GetPreferredSize (Size.Empty).Height);
+                return 0;
+            });
         }
     }
 }

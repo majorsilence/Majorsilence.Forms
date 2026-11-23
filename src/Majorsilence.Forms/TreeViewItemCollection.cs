@@ -241,6 +241,8 @@ namespace Majorsilence.Forms
 
             item.ParentOrRoot = owner;
             owner.Invalidate ();
+
+            item.TreeView?.OnNodeInserted (item);
         }
 
         /// <inheritdoc/>
