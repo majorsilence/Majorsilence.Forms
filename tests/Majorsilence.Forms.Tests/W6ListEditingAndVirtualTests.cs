@@ -149,6 +149,90 @@ public class W6ListEditingAndVirtualTests
         Assert.Same (tree.Nodes[0], tree.EditingNode);
     }
 
+    private static (Form form, TreeView tree) ShownTree ()
+    {
+        var tree = Tree ();
+        var form = new Form { Size = new Size (400, 300) };
+        form.Controls.Add (tree);
+        form.Show ();
+        return (form, tree);
+    }
+
+    [Fact]
+    public void A_node_added_from_AfterLabelEdit_is_the_one_edited_next ()
+    {
+        // #720. Upstream's TreeNode.Realize ends the edit in progress and posts TVM_EDITLABEL for a node added
+        // while the tree still has its edit control, which it has through TVN_ENDLABELEDIT. Logged on
+        // WinForms: BeforeLabelEdit, AfterLabelEdit ("aaa"), then BeforeLabelEdit for the added node.
+        var (form, tree) = ShownTree ();
+        using var _ = form;
+        var log = new List<string> ();
+        TreeNode? added = null;
+        tree.BeforeLabelEdit += (_, e) => log.Add ($"before {e.Node.Text}");
+        tree.AfterLabelEdit += (_, e) => {
+            log.Add ($"after {e.Node.Text} -> {e.Label}");
+            added = new TreeNode ("added");
+            tree.Nodes.Add (added);
+        };
+
+        tree.Nodes[1].BeginEdit ();
+        tree.LabelEditor!.Text = "aaa";
+        tree.LabelEditor.RaiseKeyDown (new KeyEventArgs (Keys.Return));
+
+        // Posted, as upstream posts it: the added node is not yet being edited when Add returns.
+        Assert.Null (tree.EditingNode);
+        Assert.Equal ("aaa", tree.Nodes[1].Text);
+
+        Application.DoEvents ();
+
+        Assert.Same (added, tree.EditingNode);
+        Assert.Equal (["before second", "after second -> aaa", "before added"], log);
+    }
+
+    [Fact]
+    public void A_node_added_with_no_edit_in_progress_is_not_edited ()
+    {
+        var (form, tree) = ShownTree ();
+        using var _ = form;
+        var before = 0;
+        tree.BeforeLabelEdit += (_, _) => before++;
+
+        tree.Nodes.Add ("plain");
+        Application.DoEvents ();
+
+        Assert.Null (tree.EditingNode);
+        Assert.Equal (0, before);
+    }
+
+    [Fact]
+    public void BeginEdit_from_AfterLabelEdit_leaves_the_new_node_editing ()
+    {
+        // #720: EndLabelEdit focused the tree after AfterLabelEdit returned, so an edit the handler began lost
+        // its editor's focus at once and committed without the user typing anything.
+        var (form, tree) = ShownTree ();
+        using var _ = form;
+        var after = new List<string?> ();
+        TreeNode? added = null;
+        tree.AfterLabelEdit += (_, e) => {
+            after.Add (e.Label);
+
+            if (added is null) {
+                added = new TreeNode ("added");
+                tree.Nodes.Add (added);
+                added.BeginEdit ();
+            }
+        };
+
+        tree.Nodes[0].BeginEdit ();
+        tree.LabelEditor!.Text = "first";
+        tree.LabelEditor.RaiseKeyDown (new KeyEventArgs (Keys.Return));
+        Application.DoEvents ();
+
+        Assert.Same (added, tree.EditingNode);
+        Assert.True (tree.LabelEditor!.Focused);
+        Assert.Equal (["first"], after);
+    }
+
     // ── column reorder ──────────────────────────────────────────────────────────────────────────────
 
     private static Point HeaderCentre (ListView list, int displaySlot)

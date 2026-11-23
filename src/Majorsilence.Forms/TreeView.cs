@@ -417,13 +417,46 @@ namespace Majorsilence.Forms
             label_editor.Visible = false;
 
             var after = new NodeLabelEditEventArgs (node, commit ? text : null);
-            OnAfterLabelEdit (after);
+
+            raising_after_label_edit = true;
+            try {
+                OnAfterLabelEdit (after);
+            } finally {
+                raising_after_label_edit = false;
+            }
 
             if (commit && !after.CancelEdit && after.Label is { } label)
                 node.Text = label;
 
             Invalidate ();
-            Focus ();
+
+            // A handler that began editing another node keeps its editor focused: taking the focus back to
+            // the tree here made the editor's focus loss commit that edit as soon as it opened (#720).
+            if (editing_node is null)
+                Focus ();
+        }
+
+        // Set while AfterLabelEdit runs. Upstream raises it from TVN_ENDLABELEDIT, while comctl32 still has
+        // the edit control, so to TreeNode.Realize the tree is still editing then.
+        private bool raising_after_label_edit;
+
+        /// <summary>A node was added to this tree. Upstream's TreeNode.Realize, when the tree has an edit
+        /// control, ends that edit and posts TVM_EDITLABEL for the new node, so a node added while a label is
+        /// being edited -- or from AfterLabelEdit, the usual "add another" -- is the one edited next (#720).</summary>
+        internal void OnNodeInserted (TreeNode node)
+        {
+            if (editing_node is null && !raising_after_label_edit)
+                return;
+
+            EndLabelEdit (commit: true);
+
+            // Posted, as upstream posts it: the edit starts once the code adding the node has returned. A
+            // handler that already called BeginEdit on the node keeps that edit rather than having it ended
+            // and begun again.
+            Backends.Platform.Backend.Post (() => {
+                if (LabelEdit && !IsDisposed && ReferenceEquals (node.TreeView, this) && !ReferenceEquals (editing_node, node))
+                    BeginLabelEdit (node);
+            });
         }
 
         /// <summary>WinForms compatibility: raised when the user clicks a node with the mouse.</summary>
@@ -557,6 +590,15 @@ namespace Majorsilence.Forms
                 return height % 2 == 0 ? height : height + 1;
             }
         }
+
+        /// <summary>The logical pixel size the tree draws and measures its nodes' text at, when a node has no
+        /// <see cref="TreeNode.NodeFont"/>. A ported app draws at the tree's own font size, as upstream does;
+        /// otherwise a font set on the tree (or reaching it from a parent or a theme rule) wins, and only an
+        /// unset one draws at the theme's size. That last case was every case outside a ported app, so
+        /// setting <c>tree.Font</c> changed the face but not the size (#723).</summary>
+        internal int TextFontSize
+            => ControlPaint.UsesUpstreamGlyphs ? (int) System.Math.Round (Font.PixelSize)
+             : TryGetEffectiveFontSize () ?? Theme.FontSize;
 
         /// <summary>The logical row height this tree fixes for every node, or null when each row is
         /// measured from its node. A ported app (one that chose its font) always has one, upstream's

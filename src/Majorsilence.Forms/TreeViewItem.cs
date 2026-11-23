@@ -237,7 +237,8 @@ namespace Majorsilence.Forms
             if (TreeView?.FixedItemHeight is { } fixed_height)
                 return new Size (0, LogicalToDeviceUnits (System.Math.Max (1, fixed_height + TreeView.ItemSpacing)));
 
-            var font_size = LogicalToDeviceUnits (Theme.FontSize);
+            // The tree's text size, so a larger font gets taller rows rather than text clipped to the theme's.
+            var font_size = LogicalToDeviceUnits (TreeView?.TextFontSize ?? Theme.FontSize);
             var padding = LogicalToDeviceUnits (10);
 
             return new Size (0, font_size + padding + spacing);
