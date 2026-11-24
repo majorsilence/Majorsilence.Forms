@@ -70,6 +70,30 @@ defaults:
     shell: bash
 
 jobs:
+  # Is this pull request nothing but a version bump? The release process opens one every time (docs/releasing.md),
+  # and proving that a one-line <Version> change builds is an hour of runner time per PR. The script reads the PR's
+  # file list from the API and says trivial=true only for exactly that change; anything else, or a failure to
+  # ask, is trivial=false and everything runs as before. The pack and sample jobs wait on this one.
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      trivial: ${{ steps.decide.outputs.trivial }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+      - name: Is this only a version bump?
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/is-version-only-change.sh
+
   # ---------------------------------------------------------------------------
   # Pack the NuGet packages: one job per OS, each packing the share only it can.
   #
@@ -82,6 +106,8 @@ jobs:
   #    IsPackable=false placeholders.
   # ---------------------------------------------------------------------------
   pack:
+    needs: changes
+    if: needs.changes.outputs.trivial != 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -137,6 +163,8 @@ jobs:
   # release version when there is one.
   # ---------------------------------------------------------------------------
   sample-wasm:
+    needs: changes
+    if: needs.changes.outputs.trivial != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -160,6 +188,8 @@ jobs:
           if-no-files-found: error
 
   sample-android:
+    needs: changes
+    if: needs.changes.outputs.trivial != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -180,6 +210,8 @@ jobs:
           if-no-files-found: error
 
   sample-ios:
+    needs: changes
+    if: needs.changes.outputs.trivial != 'true'
     runs-on: macos-latest
     # See the ios job in dotnet.yml: the head compiles, but iOS has only a couple of green runs and
     # nobody has run it on a device. Do not fail the release for it until it is proven stable.
@@ -220,6 +252,8 @@ jobs:
   # rather than cross-publishing.
   # ---------------------------------------------------------------------------
   sample-themestudio:
+    needs: changes
+    if: needs.changes.outputs.trivial != 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -253,6 +287,8 @@ jobs:
   # ThemeStudio.WinForms only builds and runs on Windows (real System.Windows.Forms,
   # via Majorsilence.Forms.Theming.WinForms) -- one RID, no matrix needed.
   sample-themestudio-winforms:
+    needs: changes
+    if: needs.changes.outputs.trivial != 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4

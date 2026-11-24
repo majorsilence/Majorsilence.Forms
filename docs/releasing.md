@@ -27,7 +27,11 @@ tagging, checking nuget.org after publishing, and bumping both products together
 
 1. `main` is green, and the [four gates](../CONTRIBUTING.md#the-four-gates) pass locally.
 2. **Set `<Version>` in `Directory.Build.props` to the new version** in a PR, and merge it. Use the next
-   number that has never been used for either a tag or a nuget.org version.
+   number that has never been used for either a tag or a nuget.org version. A PR that changes nothing but that
+   `<Version>` line skips the build and test jobs (`changes` in `dotnet.yml` and `release.yml`, deciding with
+   `.github/scripts/is-version-only-change.sh`), so it can merge within a minute or two. The three `build`
+   checks still report, as no-ops, because the "Tests Must Pass" ruleset requires them by name. Put anything
+   else in the PR, even a comment in that file, and everything runs as usual.
 3. Tag the merge commit with the bare version, with no `v` prefix, and push the tag:
    `git tag 26.11.18 <sha> && git push origin 26.11.18`.
 4. Wait for `release.yml`. Then open the draft and check that the asset names carry the new version and
