@@ -36,19 +36,49 @@ defaults:
     shell: bash
 
 jobs:
+  # Is this pull request nothing but a version bump? The release process opens one every time (docs/releasing.md),
+  # and proving that a one-line <Version> change builds is an hour of runner time per PR. The script reads the PR's
+  # file list from the API and says trivial=true only for exactly that change; anything else, or a failure to
+  # ask, is trivial=false and everything runs as before. Every other job here waits on this one.
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      trivial: ${{ steps.decide.outputs.trivial }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+      - name: Is this only a version bump?
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/is-version-only-change.sh
+
   build:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
       fail-fast: false
 
+    needs: changes
     runs-on: ${{ matrix.os }}
 
+    # Not skipped at the job level, on purpose: these are required checks, and a skipped matrix job would
+    # report under the unexpanded name "build (${{ matrix.os }})" and never satisfy them. Each step is
+    # skipped instead when the PR is only a version bump (see the `changes` job).
     steps:
       - uses: actions/checkout@v4
+        if: needs.changes.outputs.trivial != 'true'
 
       # Cake.Sdk (build/build.cs) needs the .NET 10 SDK or later to run at all, so setup-dotnet stays here.
       - name: Setup .NET
+        if: needs.changes.outputs.trivial != 'true'
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: |
@@ -60,10 +90,11 @@ jobs:
       # and doc generation). On Windows the target also installs the android workload first; see
       # EffectiveWorkloads in build.cs for why SDK 11 makes that necessary.
       - name: Build
+        if: needs.changes.outputs.trivial != 'true'
         run: dotnet build/build.cs -- --target=Build
 
       - name: Install CJK and emoji fonts (Linux)
-        if: runner.os == 'Linux'
+        if: needs.changes.outputs.trivial != 'true' && runner.os == 'Linux'
         run: dotnet build/build.cs -- --target=Fonts
 
       # ── Test matrix ──────────────────────────────────────────────────────────────────────────────────
@@ -80,52 +111,52 @@ jobs:
 
       # Custom chrome, scale 1.
       - name: Test (Windows, full solution)
-        if: runner.os == 'Windows'
+        if: needs.changes.outputs.trivial != 'true' && runner.os == 'Windows'
         run: dotnet build/build.cs -- --target=Test --shape=full
 
       - name: Test (Windows, custom chrome, scale 2)
-        if: ${{ !cancelled() && runner.os == 'Windows' }}
+        if: ${{ !cancelled() && needs.changes.outputs.trivial != 'true' && runner.os == 'Windows' }}
         run: dotnet build/build.cs -- --target=Test --shape=scale2
 
       # Linux draws the library's own chrome, like Windows, and had no test coverage at all before this --
       # the build step alone proved only that it compiles.
       - name: Test (Linux, custom chrome, scale 1)
-        if: ${{ !cancelled() && runner.os == 'Linux' }}
+        if: ${{ !cancelled() && needs.changes.outputs.trivial != 'true' && runner.os == 'Linux' }}
         run: dotnet build/build.cs -- --target=Test --shape=default
 
       - name: Test (Linux, custom chrome, scale 2)
-        if: ${{ !cancelled() && runner.os == 'Linux' }}
+        if: ${{ !cancelled() && needs.changes.outputs.trivial != 'true' && runner.os == 'Linux' }}
         run: dotnet build/build.cs -- --target=Test --shape=scale2
 
       # macOS runs both sides of the chrome branch: its own system decorations, and the custom chrome
       # every other platform gets.
       - name: Test (macOS, system decorations, scale 1)
-        if: ${{ !cancelled() && runner.os == 'macOS' }}
+        if: ${{ !cancelled() && needs.changes.outputs.trivial != 'true' && runner.os == 'macOS' }}
         run: dotnet build/build.cs -- --target=Test --shape=default
 
       - name: Test (macOS, system decorations, scale 2)
-        if: ${{ !cancelled() && runner.os == 'macOS' }}
+        if: ${{ !cancelled() && needs.changes.outputs.trivial != 'true' && runner.os == 'macOS' }}
         run: dotnet build/build.cs -- --target=Test --shape=scale2
 
       - name: Test (macOS, custom chrome, scale 1)
-        if: ${{ !cancelled() && runner.os == 'macOS' }}
+        if: ${{ !cancelled() && needs.changes.outputs.trivial != 'true' && runner.os == 'macOS' }}
         run: dotnet build/build.cs -- --target=Test --shape=custom-chrome
 
       - name: Test (macOS, custom chrome, scale 2)
-        if: ${{ !cancelled() && runner.os == 'macOS' }}
+        if: ${{ !cancelled() && needs.changes.outputs.trivial != 'true' && runner.os == 'macOS' }}
         run: dotnet build/build.cs -- --target=Test --shape=custom-chrome-scale2
 
       # net11.0 rows are compiled with runtime async; only running the suite on net11.0 exercises that code.
       # Linux only: what this gates is the compiler/runtime change, and the shapes above already cover the
       # platform differences.
       - name: Test (Linux, net11.0 runtime async)
-        if: ${{ !cancelled() && runner.os == 'Linux' }}
+        if: ${{ !cancelled() && needs.changes.outputs.trivial != 'true' && runner.os == 'Linux' }}
         run: dotnet build/build.cs -- --target=Test --shape=net11
 
       # API gap gate: fails if either reimplemented surface's gap set grew since its committed baseline.
       # Linux only: the result is platform-independent, so running it three times adds nothing.
       - name: API gap check
-        if: ${{ !cancelled() && runner.os == 'Linux' }}
+        if: ${{ !cancelled() && needs.changes.outputs.trivial != 'true' && runner.os == 'Linux' }}
         run: dotnet build/build.cs -- --target=ApiGap
 
   # Pack the shipping NuGet packages and upload them as build artifacts, so every CI run yields installable
@@ -140,6 +171,8 @@ jobs:
   # (UseWindowsForms/UseWPF), which compile to an empty IsPackable=false stub elsewhere. The project lists and
   # the workload profile each row needs are in build/build.cs.
   pack:
+    needs: changes
+    if: needs.changes.outputs.trivial != 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -192,6 +225,8 @@ jobs:
   # Benchmarks: a smoke run and the allocation regression gate. The per-PR gate; benchmarks.yml runs the full
   # suite on demand for timings. See the Benchmarks target in build/build.cs and docs/performance-plan.md.
   benchmarks:
+    needs: changes
+    if: needs.changes.outputs.trivial != 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -212,6 +247,8 @@ jobs:
 
   # .NET Framework (net472) consumer smoke test. Needs only Windows; see the NetFxSmoke target.
   netfx-smoke:
+    needs: changes
+    if: needs.changes.outputs.trivial != 'true'
     runs-on: windows-latest
 
     steps:
@@ -239,6 +276,8 @@ jobs:
   # repeating it across all 3 OSes would just be slower CI for no extra coverage. ubuntu-latest is the cheapest
   # runner and headless Chromium is most at home there.
   wasm:
+    needs: changes
+    if: needs.changes.outputs.trivial != 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -335,6 +374,8 @@ jobs:
   # continue-on-error until it has a stable track record, then promote -- same staged rollout as the
   # ios and android-smoke jobs. The always-on guard is the analyzer enforcement in the build job.
   aot-smoke:
+    needs: changes
+    if: needs.changes.outputs.trivial != 'true'
     runs-on: ubuntu-latest
     continue-on-error: true
 
@@ -360,6 +401,8 @@ jobs:
   # net10.0-android, so this job installs it and asks for the row explicitly (see the AndroidPublish target).
   # No device/emulator here, so this only proves the APK builds, not that it boots.
   android:
+    needs: changes
+    if: needs.changes.outputs.trivial != 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -444,6 +487,8 @@ jobs:
   # step compiles the real net10.0-ios head; the follow-up step also launches the .app in a simulator and dumps
   # its log (a smoke check, not an assertion).
   ios:
+    needs: changes
+    if: needs.changes.outputs.trivial != 'true'
     runs-on: macos-latest
     # The head compiles and the simulator smoke step passes as of the android/ios flag split, but this
     # has only a couple of green runs behind it on a flaky runner (macOS + simulator boot). Kept
@@ -499,6 +544,8 @@ jobs:
   # automated coverage of `dotnet new majorsilenceforms`. The scaffolded app restores the *published*
   # Majorsilence.Forms packages from nuget.org (the version pinned in template.json), not this branch's build.
   template:
+    needs: changes
+    if: needs.changes.outputs.trivial != 'true'
     runs-on: ubuntu-latest
 
     steps:
