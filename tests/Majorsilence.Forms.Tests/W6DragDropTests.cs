@@ -132,6 +132,48 @@ public class W6DragDropTests
     }
 
     [Fact]
+    public void A_window_shown_from_DragDrop_gets_ordinary_pointer_input_not_the_drag ()
+    {
+        // #722: a DragDrop handler that shows a MessageBox. The session stayed active while the handler
+        // ran, so the dialog's moves were drag-over (no-drop cursor) and its first click was the drop.
+        var (form, source, target) = DragScene ();
+        using var _ = form;
+        using var dialog = new Form { Size = new Size (200, 150) };
+        var button = new Button { Bounds = new Rectangle (10, 10, 80, 30) };
+        dialog.Controls.Add (button);
+
+        var drops = 0;
+        var moves = 0;
+        var clicks = 0;
+        DragDropSession? active_in_handler = null;
+        button.MouseMove += (_, _) => moves++;
+        button.Click += (_, _) => clicks++;
+        target.DragEnter += (_, e) => e.Effect = DragDropEffects.Move;
+        target.DragDrop += (_, _) => {
+            drops++;
+            active_in_handler = DragDropSession.Active;
+
+            // What the dialog's own loop would deliver while the handler is still blocked in it.
+            dialog.Show ();
+            var on_button = WindowPoint (button, 5, 5);
+            dialog.HandlePointerMoved (MouseButtons.None, on_button.X, on_button.Y, Keys.None);
+            dialog.HandlePointerPressed (MouseButtons.Left, on_button.X, on_button.Y, Keys.None);
+            dialog.HandlePointerReleased (MouseButtons.Left, on_button.X, on_button.Y, Keys.None);
+        };
+
+        var session = DragDropSession.Begin (source, "x", DragDropEffects.Move);
+        var inside = WindowPoint (target, 5, 5);
+        form.HandlePointerMoved (MouseButtons.Left, inside.X, inside.Y, Keys.None);
+        form.HandlePointerReleased (MouseButtons.Left, inside.X, inside.Y, Keys.None);
+
+        Assert.Null (active_in_handler);
+        Assert.Equal (1, drops);
+        Assert.True (moves > 0);
+        Assert.Equal (1, clicks);           // the dialog's first click is its own
+        Assert.Equal (DragDropEffects.Move, session.Result);
+    }
+
+    [Fact]
     public void The_form_is_the_target_when_no_control_under_the_pointer_accepts_drops ()
     {
         var (form, source, target) = DragScene ();

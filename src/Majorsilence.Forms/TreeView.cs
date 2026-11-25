@@ -391,6 +391,7 @@ namespace Majorsilence.Forms
                 label_editor = new LabelEditBox { Visible = false, Owner = this };
                 label_editor.Commit = () => EndLabelEdit (commit: true);
                 label_editor.Cancel = () => EndLabelEdit (commit: false);
+                label_editor.TextChanged += (_, _) => SizeUpstreamLabelEditor (grow_only: true);
                 Controls.Add (label_editor);
             }
 
@@ -399,9 +400,38 @@ namespace Majorsilence.Forms
             editing_node = node;
             label_editor.Bounds = DeviceToLogicalUnits (text_bounds);
             label_editor.Text = node.Text;
+            SizeUpstreamLabelEditor (grow_only: false);
             label_editor.Visible = true;
             label_editor.SelectAll ();
             label_editor.Focus ();
+        }
+
+        // Upstream's label is its text plus 4px, so an empty node's is 4px wide, and the editor took that
+        // rectangle as is: a slit nothing typed could be seen in (#729). comctl32 sizes its edit control from
+        // the text instead -- two widest characters of room to type into, never under three, clipped to the
+        // client area -- and widens it as the text grows (EN_UPDATE), so the editor does the same. The
+        // themed look's label already runs to the row's end, so only the upstream look needs it.
+        private void SizeUpstreamLabelEditor (bool grow_only)
+        {
+            if (editing_node is not { } node || label_editor is null || !UsesUpstreamLook || NodeLayout is not null)
+                return;
+
+            var label = RenderManager.GetRenderer<Renderers.TreeViewRenderer> ()!.TextBoundsFor (this, node);
+            var (font, font_size) = Renderers.TreeViewRenderer.TextFont (this, node);
+            var text = label_editor.Text;
+            // tmMaxCharWidth, near enough: the widest common glyph.
+            var char_width = (int) System.Math.Ceiling (TextMeasurer.MeasureText ("W", font, font_size).Width);
+            var text_width = string.IsNullOrEmpty (text) ? 0 : (int) System.Math.Ceiling (TextMeasurer.MeasureText (text, font, font_size).Width);
+
+            var width = System.Math.Max (text_width + 2 * char_width, 3 * char_width);
+            width = System.Math.Min (width, DeviceClientRectangle.Right - label.Left + LogicalToDeviceUnits (2));
+
+            var bounds = DeviceToLogicalUnits (new System.Drawing.Rectangle (label.Left, label.Top, System.Math.Max (width, label.Width), label.Height));
+
+            if (grow_only && bounds.Width <= label_editor.Width)
+                return;
+
+            label_editor.Bounds = bounds;
         }
 
         internal void EndLabelEdit (bool commit)

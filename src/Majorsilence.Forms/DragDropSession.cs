@@ -206,32 +206,47 @@ namespace Majorsilence.Forms
         private void Drop (int keyState, Point screen)
         {
             var result = DragDropEffects.None;
+            var final_target = Detach ();
 
-            if (target is not null && effect != DragDropEffects.None) {
+            if (final_target is not null && effect != DragDropEffects.None) {
                 var drop = new DragEventArgs (Data, keyState, screen.X, screen.Y, AllowedEffects, effect);
-                RaiseDragDrop (target, drop);
+                RaiseDragDrop (final_target, drop);
                 result = drop.Effect & AllowedEffects;
-            } else if (target is not null)
-                RaiseDragLeave (target);
+            } else if (final_target is not null)
+                RaiseDragLeave (final_target);
 
             Finish (result);
         }
 
         private void Cancel ()
         {
-            if (target is not null)
-                RaiseDragLeave (target);
+            if (Detach () is { } final_target)
+                RaiseDragLeave (final_target);
 
             Finish (DragDropEffects.None);
         }
 
-        private void Finish (DragDropEffects result)
+        // The drag is over once the button is up (or Escape is pressed): OLE's DoDragDrop loop has ended
+        // before IDropTarget::Drop runs, so a DragDrop handler -- which very often shows a MessageBox -- runs
+        // with no drag in progress. Here the session stayed Active until that handler returned, so the
+        // dialog's own pointer moves were taken for drag-over (the no-drop cursor, a large X on X11) and its
+        // first click for the drop, which only then ended the session (#722). Stepping aside before the
+        // handlers run gives the dialog an ordinary pointer and its first click.
+        private object? Detach ()
         {
+            var final_target = target;
+
             if (ReferenceEquals (Active, this))
                 Active = null;
 
             target = null;
             window?.SetDragCursor (Cursors.Arrow);
+            return final_target;
+        }
+
+        private void Finish (DragDropEffects result)
+        {
+            Detach ();
             completion.TrySetResult (result);
         }
 
