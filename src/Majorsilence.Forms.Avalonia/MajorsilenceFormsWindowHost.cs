@@ -130,7 +130,10 @@ namespace Majorsilence.Forms
         // different scale). Returns true if a usable framebuffer exists.
         private bool EnsureFramebuffer ()
         {
-            var scaling = _owner.Scaling;
+            // The DISPLAY's factor, not _owner.Scaling: the framebuffer covers the window's physical
+            // pixels and no more. Application.UiScale zooms the scene drawn into it (PaintFrame passes
+            // the full _owner.Scaling to RenderFrame), it does not make the window's pixels bigger.
+            var scaling = RenderScaling;
             if (scaling <= 0)
                 scaling = 1;
 
@@ -144,9 +147,18 @@ namespace Majorsilence.Forms
 
             if (_framebuffer is null || _framebuffer.PixelSize.Width != physW || _framebuffer.PixelSize.Height != physH) {
                 _framebuffer?.Dispose ();
+
+                // 96 DPI, NOT 96 * scaling -- the same bug MajorsilenceFormsPresenter and
+                // MajorsilenceFormsSingleViewHost had (#731). Avalonia's Image takes its source rectangle
+                // from the bitmap's DIP Size but samples the bitmap in pixels, so a bitmap tagged
+                // 96 * scaling showed only its top-left 1/scaling and stretched that over the window:
+                // the scene drew `scaling` times too big while pointer input, converted correctly, still
+                // hit-tested the real layout. Invisible at 100%, wrong on a Retina display or at 150%.
+                // A plain 96 DPI bitmap is taken as a physW x physH source and Stretch.Fill scales it
+                // into the logical-sized Image, which the compositor renders back at 1:1.
                 _framebuffer = new WriteableBitmap (
                     new PixelSize (physW, physH),
-                    new Vector (96 * scaling, 96 * scaling),
+                    new Vector (96, 96),
                     PixelFormat.Bgra8888,
                     AlphaFormat.Premul);
                 _surface.Source = _framebuffer;
@@ -173,7 +185,8 @@ namespace Majorsilence.Forms
 
         // ── Framebuffer paint ──────────────────────────────────────────────────
 
-        private void PaintFrame ()
+        // Internal so a headless test can paint a frame without waiting on the render timer.
+        internal void PaintFrame ()
         {
             // Self-correcting: recreates the framebuffer if the surface size or render scaling
             // changed since the last frame (fixes blurry/half-resolution popups on HiDPI displays
@@ -195,7 +208,12 @@ namespace Majorsilence.Forms
             try {
                 using var fb = _framebuffer.Lock ();
 
+                // The display factor times Application.UiScale: the scene's logical size is the
+                // framebuffer's physical size divided by this, so a UiScale above 1 zooms the scene
+                // within the window, matching the device-to-logical conversion pointer input goes through.
                 var scaling = _owner.Scaling;
+                if (scaling <= 0)
+                    scaling = 1;
 
                 // fb.Size is in PHYSICAL pixels (the bitmap was created at physical size).
                 var physW = fb.Size.Width;
