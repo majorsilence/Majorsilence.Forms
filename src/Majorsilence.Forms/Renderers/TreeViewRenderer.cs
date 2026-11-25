@@ -201,7 +201,7 @@ namespace Majorsilence.Forms.Renderers
 
         // The typeface and device pixel size a node's text is drawn in. The node's own font when it has
         // one, else the control's -- NodeFont was stored and the renderer always used the theme font (LST-26).
-        private static (SkiaSharp.SKTypeface font, int size) TextFont (TreeView control, TreeNode item)
+        internal static (SkiaSharp.SKTypeface font, int size) TextFont (TreeView control, TreeNode item)
         {
             // A derived tree that lays its nodes out its own way may draw them in a font of its own.
             if (item.NodeFont is null && control.NodeLayout?.DefaultFont is { } layout_font)
