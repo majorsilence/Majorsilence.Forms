@@ -73,6 +73,21 @@ public class W6ListEditingAndVirtualTests
     }
 
     [Fact]
+    public void Enter_on_an_unchanged_item_label_reports_a_null_label ()   // #730
+    {
+        // comctl32 sends LVN_ENDLABELEDIT with a null pszText when the text did not change.
+        using var list = List ();
+        var after = new List<string?> ();
+        list.AfterLabelEdit += (_, e) => after.Add (e.Label);
+
+        list.Items[0].BeginEdit ();
+        list.LabelEditor!.RaiseKeyDown (new KeyEventArgs (Keys.Return));
+
+        Assert.Equal ([null], after);
+        Assert.Equal ("one", list.Items[0].Text);
+    }
+
+    [Fact]
     public void BeforeLabelEdit_can_refuse_and_LabelEdit_false_throws_as_upstream ()
     {
         using var list = List ();
@@ -136,6 +151,29 @@ public class W6ListEditingAndVirtualTests
 
         tree.LabelEdit = false;
         Assert.Throws<InvalidOperationException> (node.BeginEdit);
+    }
+
+    [Theory]
+    [InlineData ("second")]
+    [InlineData ("")]   // the issue's case: a new TreeNode () edited and committed straight away
+    public void Enter_on_an_unchanged_node_label_reports_a_null_label (string text)   // #730
+    {
+        // comctl32 sends TVN_ENDLABELEDIT with a null pszText when the text did not change, so WinForms
+        // reports a null Label, not the node's text.
+        using var tree = Tree ();
+        var node = tree.Nodes.Add (text);
+        tree.SelectedNode = node;
+        var after = new List<string?> ();
+        tree.AfterLabelEdit += (_, e) => after.Add (e.Label);
+
+        node.BeginEdit ();
+        tree.LabelEditor!.RaiseKeyDown (new KeyEventArgs (Keys.Return));
+
+        node.BeginEdit ();
+        node.EndEdit (cancel: false);
+
+        Assert.Equal ([null, null], after);
+        Assert.Equal (text, node.Text);
     }
 
     [Fact]

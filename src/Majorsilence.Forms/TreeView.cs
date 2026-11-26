@@ -446,7 +446,11 @@ namespace Majorsilence.Forms
             editing_node = null;
             label_editor.Visible = false;
 
-            var after = new NodeLabelEditEventArgs (node, commit ? text : null);
+            // comctl32 sends TVN_ENDLABELEDIT with a null pszText when the edit is cancelled or the text is
+            // unchanged, and upstream TreeView.TvnEndLabelEdit passes it straight through, so Enter on an
+            // untouched label reports a null Label rather than the node's text (#730).
+            var label = commit && !string.Equals (text, node.Text, StringComparison.Ordinal) ? text : null;
+            var after = new NodeLabelEditEventArgs (node, label);
 
             raising_after_label_edit = true;
             try {
@@ -455,8 +459,8 @@ namespace Majorsilence.Forms
                 raising_after_label_edit = false;
             }
 
-            if (commit && !after.CancelEdit && after.Label is { } label)
-                node.Text = label;
+            if (commit && !after.CancelEdit && after.Label is { } edited)
+                node.Text = edited;
 
             Invalidate ();
 

@@ -706,11 +706,14 @@ namespace Majorsilence.Forms
             editing_item = null;
             label_editor.Visible = false;
 
-            var after = new LabelEditEventArgs (item.Index, commit ? text : null);
+            // As TreeView: comctl32 sends LVN_ENDLABELEDIT with a null pszText when the edit is cancelled or
+            // the text is unchanged, and upstream ListView passes it straight through (#730).
+            var label = commit && !string.Equals (text, item.Text, StringComparison.Ordinal) ? text : null;
+            var after = new LabelEditEventArgs (item.Index, label);
             OnAfterLabelEdit (after);
 
-            if (commit && !after.CancelEdit && after.Label is { } label)
-                item.Text = label;
+            if (commit && !after.CancelEdit && after.Label is { } edited)
+                item.Text = edited;
 
             Invalidate ();
             Focus ();
