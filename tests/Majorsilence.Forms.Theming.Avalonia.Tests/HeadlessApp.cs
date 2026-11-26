@@ -22,8 +22,12 @@ namespace Majorsilence.Forms.Theming.Avalonia.Tests
             });
         }
 
+        // Real Skia drawing rather than headless drawing, so a test can capture what a window actually
+        // composites (AvaloniaWindowHostScalingTests) -- the framebuffer-to-window mapping is Avalonia's.
         public static AppBuilder BuildAvaloniaApp ()
-            => AppBuilder.Configure<HeadlessApp> ().UseHeadless (new AvaloniaHeadlessPlatformOptions ());
+            => AppBuilder.Configure<HeadlessApp> ()
+                .UseSkia ()
+                .UseHeadless (new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
     }
 
     // One headless session for the whole assembly; every test body runs on its UI thread. Avalonia's
